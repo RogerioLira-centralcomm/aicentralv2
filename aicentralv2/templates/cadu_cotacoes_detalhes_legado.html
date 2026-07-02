@@ -493,7 +493,7 @@ function calcularInvestLiquidoEdit() {
     <div class="flex items-center justify-between gap-4">
       <!-- Voltar + Título + Código -->
       <div class="flex items-center gap-3 min-w-0">
-        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
+        <a href="{{ url_for('cotacoes_list', status=cotacao.status) if cotacao and cotacao.status else url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
           <i class="fas fa-arrow-left text-sm"></i>
         </a>
         <div class="min-w-0">
@@ -3245,11 +3245,11 @@ function calcularDiasLinha() {
 }
 
 // Condições comerciais padrão
-const CONDICOES_COMERCIAIS_PADRAO = `* A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.
+const CONDICOES_COMERCIAIS_PADRAO = `A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.
 
-* Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.
-* Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.
-* Faturamento 15 DFM.
+Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.
+Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.
+Faturamento 15 DFM.
 
 
 Plataforma Programática

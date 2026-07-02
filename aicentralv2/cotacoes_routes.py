@@ -60,10 +60,10 @@ PREMISSAS_DEFAULT = (
 )
 
 OBSERVACOES_GERAIS_DEFAULT = (
-    "* A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.\n"
-    "* Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.\n"
-    "* Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.\n"
-    "* Faturamento 15 DFM.\n"
+    "A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.\n"
+    "Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.\n"
+    "Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.\n"
+    "Faturamento 15 DFM.\n"
     "Plataforma Programática\n"
     "Obs. 1: A campanha será trabalhada e otimizada para veicular as metas de entrega previstas. Serão esses nossos KPI's e são esses os resultados que buscaremos e apresentaremos ao final da campanha.\n"
     "Obs. 2: Relatórios semanais/ parciais com os dados de campanha, que o cliente desejar, somente sob prévia solicitação\n"
@@ -296,111 +296,19 @@ def _recalcular_e_montar_breakdown(cotacao, data):
     """Reexecuta `calcular_preco_unitario_teste_calculo` e devolve perc_* e val_* já derivados.
 
     Retorna `(payload_extra, error_response, status)`:
-      - payload_extra: dict com perc_*, val_*, valor_unitario_negociado, volume_contratado e
-        investimento_bruto recalculados.
+      - payload_extra: dict com perc_*, val_*, valor_unitario_negociado, volume_contratado,
+        investimento_bruto e investimento_liquido recalculados.
       - Em caso de erro, payload_extra é None e error_response/status carregam o JSON de erro.
     """
-    plat = (data.get('plataforma') or '').strip()
-    kpi = (data.get('objetivo_kpi') or '').strip()
-    # Quando o front enviar id_objetivo_kpi (FK), resolve a descrição para que a
-    # comparação `is_cpm = kpi == 'CPM'` mais abaixo permaneça correta.
-    id_kpi_in = data.get('id_objetivo_kpi') or data.get('id_audiencia_calculo_kpi')
-    if id_kpi_in not in (None, '', 0, '0'):
-        desc_resolvida = db.obter_descricao_objetivo_campanha(id_kpi_in)
-        if desc_resolvida:
-            kpi = desc_resolvida
-    val_tab = _to_float(data.get('valor_unitario_tabela'))
-    inv_bruto_in = _to_float(data.get('investimento_bruto'))
-    vol_in = _to_float(data.get('volume_contratado'))
-    mcc_arg = data.get('margem_cc')
-    mcc_override = _parse_float_br(mcc_arg) if mcc_arg not in (None, '') else None
-    fator_raw = data.get('fator_desconto')
-    fator_desconto = _to_float(fator_raw) if fator_raw not in (None, '') else 1.0
-    if fator_desconto <= 0:
-        fator_desconto = 1.0
-
-    if not plat:
-        return None, jsonify({'error': 'Informe a plataforma para calcular.'}), 400
-    if not kpi:
-        return None, jsonify({'error': 'Informe o KPI (Tipo de Compra) para calcular.'}), 400
-    if val_tab <= 0:
-        return None, jsonify({'error': 'Valor unitário tabela inválido.'}), 400
-    if inv_bruto_in <= 0 and vol_in <= 0:
-        return None, jsonify({
-            'error': 'Preencha Invest. Bruto ou Vol. Contratado.'
-        }), 400
-
-    imp_pct = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
-
-    out = db.calcular_preco_unitario_teste_calculo(
-        valor_unitario_tabela=val_tab,
-        nome_plataforma=plat,
-        cliente_id=cotacao.get('client_id'),
-        id_resp_comercial=cotacao.get('responsavel_comercial'),
-        volume_contratado=vol_in,
-        imposto_percentual_externo=imp_pct,
-        agencia_id=cotacao.get('agencia_id'),
-        margem_cc_override=mcc_override,
-        fator_desconto=fator_desconto,
-    )
-    if not out.get('success'):
-        return None, jsonify({'error': out.get('message') or 'Falha no cálculo do preço.'}), 400
-
-    preco_unit = float(out.get('preco_unit') or 0.0)
-    opex_unit = float(out.get('opex_unit') or 0.0)
-    if preco_unit <= 0:
-        return None, jsonify({'error': 'Preço unitário inválido após cálculo.'}), 400
-
-    is_cpm = kpi == 'CPM'
-
-    if inv_bruto_in > 0 and vol_in > 0:
-        # Caminho de save: ambos vieram preenchidos do front (um digitado, outro derivado
-        # pelo `derivarValorPendente`). Confiamos nos valores e calculamos volume_efetivo
-        # a partir do volume_contratado para manter consistência com a base CPM.
-        volume_contratado = vol_in
-        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else volume_contratado
-        invest_bruto = inv_bruto_in
-    elif vol_in > 0:
-        volume_contratado = vol_in
-        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else volume_contratado
-        invest_bruto = volume_efetivo * preco_unit
-    else:
-        invest_bruto = inv_bruto_in
-        volume_efetivo = invest_bruto / preco_unit
-        volume_contratado = round(volume_efetivo * 1000.0) if is_cpm else round(volume_efetivo)
-        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else float(volume_contratado)
-        invest_bruto = volume_efetivo * preco_unit
-
-    tf = float(out.get('tf') or 0.0)
-    mcc = float(out.get('mcc') or 0.0)
-    com = float(out.get('com') or 0.0)
-    inc = float(out.get('inc') or 0.0)
-    imp = float(out.get('imp') or 0.0)
-
-    val_tech_fee = max(opex_unit - val_tab * fator_desconto, 0.0) * volume_efetivo
-    val_margem_cc = invest_bruto * mcc
-    val_com_vendas = invest_bruto * com
-    val_pl_incentivos = invest_bruto * inc
-    val_impostos = invest_bruto * imp
-
-    payload_extra = {
-        'perc_tech_fee': tf,
-        'perc_margem_cc': mcc,
-        'perc_com_vendas': com,
-        'perc_pl_incentivos': inc,
-        'perc_impostos': imp,
-        'val_tech_fee': round(val_tech_fee, 2),
-        'val_margem_cc': round(val_margem_cc, 2),
-        'val_com_vendas': round(val_com_vendas, 2),
-        'val_pl_incentivos': round(val_pl_incentivos, 2),
-        'val_impostos': round(val_impostos, 2),
-        'valor_unitario_negociado': round(preco_unit, 6),
-        'valor_unitario': round(preco_unit, 6),
-        'volume_contratado': int(volume_contratado),
-        'investimento_bruto': round(invest_bruto, 2),
-        'fator_desconto': fator_desconto,
-    }
-    return payload_extra, None, None
+    try:
+        payload_extra = db.calcular_breakdown_linha_cotacao(
+            cotacao,
+            data,
+            imposto_percentual=float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
+        )
+        return payload_extra, None, None
+    except ValueError as err:
+        return None, jsonify({'error': str(err)}), 400
 
 
 # --- HTML ---
@@ -618,15 +526,51 @@ def cotacao_editar(cotacao_id):
             flash('Cotação não encontrada.', 'error')
             return redirect(url_for('cotacoes.cotacoes_list'))
 
+        def _resumo_metricas_cotacao():
+            linhas = db.obter_linhas_cotacao(cotacao_id) or []
+            audiencias = db.obter_audiencias_cotacao(cotacao_id) or []
+            valor_liquido = 0.0
+            plataformas = []
+
+            def _add_plataforma(nome):
+                nome = (nome or '').strip()
+                if nome and nome not in plataformas:
+                    plataformas.append(nome)
+
+            for linha in linhas:
+                if linha.get('is_header') or linha.get('is_subtotal'):
+                    continue
+                try:
+                    valor_liquido += float(linha.get('investimento_liquido') or 0)
+                except (TypeError, ValueError):
+                    pass
+                _add_plataforma(linha.get('plataforma'))
+
+            for aud in audiencias:
+                bruto = aud.get('investimento_bruto') or aud.get('investimento_sugerido')
+                liquido = aud.get('investimento_liquido') or bruto
+                try:
+                    valor_liquido += float(liquido or 0)
+                except (TypeError, ValueError):
+                    pass
+                _add_plataforma(aud.get('audiencia_calculo_plataforma') or aud.get('audiencia_categoria'))
+
+            plataforma_txt = ', '.join(plataformas[:3])
+            if len(plataformas) > 3:
+                plataforma_txt += f' +{len(plataformas) - 3}'
+
+            return {
+                'valor_liquido': valor_liquido,
+                'plataforma': plataforma_txt,
+            }
+
         if request.method == 'POST':
             nome_campanha = request.form.get('nome_campanha', '').strip()
             periodo_inicio = request.form.get('periodo_inicio', '').strip()
-            valor_total_str = request.form.get('valor_total_proposta') or request.form.get(
-                'valor_total_proposta_display', '0'
-            )
+            valor_total_str = request.form.get('valor_total_proposta') or request.form.get('valor_total_proposta_display')
 
-            if not nome_campanha or not periodo_inicio or not valor_total_str:
-                flash('Nome da campanha, data de início e valor total são obrigatórios.', 'error')
+            if not nome_campanha or not periodo_inicio:
+                flash('Nome da campanha e data de início são obrigatórios.', 'error')
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
                 return render_template(
@@ -638,10 +582,13 @@ def cotacao_editar(cotacao_id):
                     tipos_cliente=db.obter_tipos_cliente(),
                     agencias_opts=db.obter_aux_agencia(),
                     vendedores_cc=db.obter_vendedores_centralcomm(),
+                    resumo_metricas=_resumo_metricas_cotacao(),
                     estados=db.obter_estados(),
                 )
 
-            valor_total = float(valor_total_str) if valor_total_str else 0.0
+            valor_total = cotacao.get('valor_total_proposta') or 0.0
+            if valor_total_str not in (None, ''):
+                valor_total = float(valor_total_str)
 
             update_kwargs = {
                 'nome_campanha': nome_campanha,
@@ -716,6 +663,8 @@ def cotacao_editar(cotacao_id):
         if cotacao.get('id_parceiro'):
             contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
 
+        resumo_metricas = _resumo_metricas_cotacao()
+
         return render_template(
             'cadu_cotacoes_form.html',
             cotacao=cotacao,
@@ -729,6 +678,7 @@ def cotacao_editar(cotacao_id):
             tipos_cliente=db.obter_tipos_cliente(),
             agencias_opts=db.obter_aux_agencia(),
             vendedores_cc=db.obter_vendedores_centralcomm(),
+            resumo_metricas=resumo_metricas,
             estados=db.obter_estados(),
         )
 
@@ -1255,7 +1205,7 @@ def criar_linha_cotacao_api_teste():
             viewability_minimo=data.get('viewability_minimo'),
             volume_contratado=breakdown['volume_contratado'],
             valor_unitario=breakdown['valor_unitario'],
-            valor_total=data.get('valor_total'),
+            valor_total=breakdown['valor_total'],
             is_header=data.get('is_header', False),
             is_subtotal=data.get('is_subtotal', False),
             subtotal_label=data.get('subtotal_label'),
@@ -1274,7 +1224,7 @@ def criar_linha_cotacao_api_teste():
             valor_unitario_tabela=data.get('valor_unitario_tabela'),
             desconto_percentual=data.get('desconto_percentual'),
             valor_unitario_negociado=breakdown['valor_unitario_negociado'],
-            investimento_liquido=data.get('investimento_liquido'),
+            investimento_liquido=breakdown['investimento_liquido'],
             perc_margem_cc=breakdown['perc_margem_cc'],
             perc_tech_fee=breakdown['perc_tech_fee'],
             perc_com_vendas=breakdown['perc_com_vendas'],
@@ -1287,6 +1237,7 @@ def criar_linha_cotacao_api_teste():
             val_impostos=breakdown['val_impostos'],
             fator_desconto=breakdown.get('fator_desconto'),
         )
+        db.calcular_valor_total_cotacao(int(cotacao_id))
         return jsonify({'success': True, 'linha_id': linha_id}), 201
     except Exception as e:
         current_app.logger.error(f"criar_linha_cotacao_api_teste: {e}", exc_info=True)
@@ -1339,7 +1290,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             viewability_minimo=data.get('viewability_minimo'),
             volume_contratado=breakdown['volume_contratado'],
             valor_unitario=breakdown['valor_unitario'],
-            valor_total=data.get('valor_total'),
+            valor_total=breakdown['valor_total'],
             meio=data.get('meio'),
             tipo_peca=data.get('tipo_peca'),
             is_subtotal=data.get('is_subtotal'),
@@ -1357,7 +1308,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             valor_unitario_tabela=data.get('valor_unitario_tabela'),
             desconto_percentual=data.get('desconto_percentual'),
             valor_unitario_negociado=breakdown['valor_unitario_negociado'],
-            investimento_liquido=data.get('investimento_liquido'),
+            investimento_liquido=breakdown['investimento_liquido'],
             perc_margem_cc=breakdown['perc_margem_cc'],
             perc_tech_fee=breakdown['perc_tech_fee'],
             perc_com_vendas=breakdown['perc_com_vendas'],
@@ -1370,6 +1321,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             val_impostos=breakdown['val_impostos'],
             fator_desconto=breakdown.get('fator_desconto'),
         )
+        db.calcular_valor_total_cotacao(linha['cotacao_id'])
         return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
     except Exception as e:
         current_app.logger.error(f"atualizar_linha_cotacao_api_teste: {e}", exc_info=True)

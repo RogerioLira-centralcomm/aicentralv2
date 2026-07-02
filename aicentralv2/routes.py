@@ -6800,6 +6800,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             
             if not cotacao_id:
                 return jsonify({'error': 'cotacao_id é obrigatório'}), 400
+
+            cotacao = db.obter_cotacao_por_id(int(cotacao_id))
+            if not cotacao:
+                return jsonify({'error': 'Cotação não encontrada'}), 404
+            try:
+                breakdown = db.calcular_breakdown_linha_cotacao(
+                    cotacao,
+                    data,
+                    imposto_percentual=float(app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
+                )
+            except ValueError as calc_err:
+                return jsonify({'error': str(calc_err)}), 400
             
             # Criar linha
             linha_id = db.criar_linha_cotacao(
@@ -6814,9 +6826,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 formato_compra=data.get('formato_compra'),
                 periodo=data.get('periodo'),
                 viewability_minimo=data.get('viewability_minimo'),
-                volume_contratado=data.get('volume_contratado'),
-                valor_unitario=data.get('valor_unitario'),
-                valor_total=data.get('valor_total'),
+                volume_contratado=breakdown['volume_contratado'],
+                valor_unitario=breakdown['valor_unitario'],
+                valor_total=breakdown['valor_total'],
                 is_header=data.get('is_header', False),
                 is_subtotal=data.get('is_subtotal', False),
                 subtotal_label=data.get('subtotal_label'),
@@ -6836,9 +6848,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 praca=data.get('praca'),
                 valor_unitario_tabela=data.get('valor_unitario_tabela'),
                 desconto_percentual=data.get('desconto_percentual'),
-                valor_unitario_negociado=data.get('valor_unitario_negociado'),
-                investimento_liquido=data.get('investimento_liquido')
+                valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+                investimento_liquido=breakdown['investimento_liquido'],
+                perc_margem_cc=breakdown['perc_margem_cc'],
+                perc_tech_fee=breakdown['perc_tech_fee'],
+                perc_com_vendas=breakdown['perc_com_vendas'],
+                perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+                perc_impostos=breakdown['perc_impostos'],
+                val_margem_cc=breakdown['val_margem_cc'],
+                val_tech_fee=breakdown['val_tech_fee'],
+                val_com_vendas=breakdown['val_com_vendas'],
+                val_pl_incentivos=breakdown['val_pl_incentivos'],
+                val_impostos=breakdown['val_impostos'],
+                fator_desconto=breakdown.get('fator_desconto')
             )
+            db.calcular_valor_total_cotacao(int(cotacao_id))
             
             return jsonify({'success': True, 'linha_id': linha_id}), 201
         except Exception as e:
@@ -6910,6 +6934,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Atualiza uma linha de cotação"""
         try:
             data = request.get_json()
+
+            linha = db.obter_linha_cotacao(linha_id)
+            if not linha:
+                return jsonify({'error': 'Linha não encontrada'}), 404
+            cotacao = db.obter_cotacao_por_id(linha['cotacao_id'])
+            if not cotacao:
+                return jsonify({'error': 'Cotação não encontrada'}), 404
+            try:
+                breakdown = db.calcular_breakdown_linha_cotacao(
+                    cotacao,
+                    data,
+                    imposto_percentual=float(app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
+                )
+            except ValueError as calc_err:
+                return jsonify({'error': str(calc_err)}), 400
             
             db.atualizar_linha_cotacao(
                 linha_id=linha_id,
@@ -6923,9 +6962,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 formato_compra=data.get('formato_compra'),
                 periodo=data.get('periodo'),
                 viewability_minimo=data.get('viewability_minimo'),
-                volume_contratado=data.get('volume_contratado'),
-                valor_unitario=data.get('valor_unitario'),
-                valor_total=data.get('valor_total'),
+                volume_contratado=breakdown['volume_contratado'],
+                valor_unitario=breakdown['valor_unitario'],
+                valor_total=breakdown['valor_total'],
                 meio=data.get('meio'),
                 tipo_peca=data.get('tipo_peca'),
                 is_subtotal=data.get('is_subtotal'),
@@ -6944,9 +6983,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 praca=data.get('praca'),
                 valor_unitario_tabela=data.get('valor_unitario_tabela'),
                 desconto_percentual=data.get('desconto_percentual'),
-                valor_unitario_negociado=data.get('valor_unitario_negociado'),
-                investimento_liquido=data.get('investimento_liquido')
+                valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+                investimento_liquido=breakdown['investimento_liquido'],
+                perc_margem_cc=breakdown['perc_margem_cc'],
+                perc_tech_fee=breakdown['perc_tech_fee'],
+                perc_com_vendas=breakdown['perc_com_vendas'],
+                perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+                perc_impostos=breakdown['perc_impostos'],
+                val_margem_cc=breakdown['val_margem_cc'],
+                val_tech_fee=breakdown['val_tech_fee'],
+                val_com_vendas=breakdown['val_com_vendas'],
+                val_pl_incentivos=breakdown['val_pl_incentivos'],
+                val_impostos=breakdown['val_impostos'],
+                fator_desconto=breakdown.get('fator_desconto')
             )
+            db.calcular_valor_total_cotacao(linha['cotacao_id'])
             
             return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
         except Exception as e:
@@ -9248,6 +9299,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if request.method == 'POST':
                 data = _coletar_dados_pi_form()
+                data = _preservar_valores_monetarios_pi(data, pi)
                 return_url = request.form.get('return_url', '')
 
                 if not data.get('resp_comercial'):
@@ -9938,6 +9990,23 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         'R$ 1.234,56' em todas as colunas monetárias do PI."""
         return db.formatar_real_br(value)
 
+    def _preservar_valores_monetarios_pi(data, pi_atual):
+        """Evita que campos monetários existentes sejam sobrescritos por vazio no formulário."""
+        if not pi_atual:
+            return data
+
+        campos = (
+            'valor_bruto', 'valor_liquido', 'comissao_agencia', 'comissao_parceiro',
+            'valor_liquido_pr', 'valor_plataformas',
+        )
+        for campo in campos:
+            if data.get(campo):
+                continue
+            valor_atual = pi_atual.get(campo)
+            if valor_atual is not None and str(valor_atual).strip():
+                data[campo] = valor_atual
+        return data
+
     def _coletar_dados_pi_form():
         """Coleta dados do formulário de PI"""
         data = {
@@ -9970,28 +10039,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
             'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
         }
-        for _k in (
-            'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
-            'perc_pl_incentivos', 'perc_impostos',
-        ):
-            data[_k] = (request.form.get(_k, '').strip() or None)
-        for _k in (
-            'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
-            'val_pl_incentivos', 'val_impostos',
-        ):
-            data[_k] = _parse_real_pi(request.form.get(_k))
-        data['meta_baseada_em_cpm'] = 'meta_baseada_em_cpm' in request.form
-        data['plataforma_campanha'] = (request.form.get('plataforma_campanha') or '').strip() or None
-        data['custo_base_unitario'] = _parse_decimal(request.form.get('custo_base_unitario'))
-        obj_raw = (request.form.get('objetivo_contratado_pi') or '').strip()
-        if obj_raw:
-            obj_clean = obj_raw.replace('R$', '').replace('.', '').replace(',', '.').strip()
-            try:
-                data['objetivo_contratado_pi'] = float(obj_clean)
-            except ValueError:
-                data['objetivo_contratado_pi'] = None
-        else:
-            data['objetivo_contratado_pi'] = None
         periodo_inicio = data.get('periodo_inicio')
         data['mes_ref'] = periodo_inicio or None
         data['mes_ref_comp'] = db.formatar_mes_ref_comp(periodo_inicio)
@@ -10986,32 +11033,28 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         return f'R$ {parte_int},{centavos:02d}'
 
     def _subtrair_valor_plataforma_pi(id_pi, valor_campanha_brl):
-        """Subtrai valor_plataforma da campanha de vr_liquido_pi e total_platafor_max_pi"""
+        """Subtrai valor_plataforma apenas do saldo total_platafor_max_pi"""
         pi_vals = db.obter_pi_valores_plataforma(id_pi)
         if not pi_vals:
             return
         valor_camp = _parse_brl_to_float(valor_campanha_brl)
         if valor_camp <= 0:
             return
-        vr_liq = _parse_brl_to_float(pi_vals.get('vr_liquido_pi'))
         total_plat = _parse_brl_to_float(pi_vals.get('total_platafor_max_pi'))
-        novo_vr_liq = max(vr_liq - valor_camp, 0)
         novo_total = max(total_plat - valor_camp, 0)
-        db.atualizar_pi_valores_plataforma(id_pi, _float_to_brl(novo_vr_liq), _float_to_brl(novo_total))
+        db.atualizar_pi_valores_plataforma(id_pi, pi_vals.get('vr_liquido_pi'), _float_to_brl(novo_total))
 
     def _somar_valor_plataforma_pi(id_pi, valor_campanha_brl):
-        """Soma valor_plataforma de volta a vr_liquido_pi e total_platafor_max_pi (para edição/exclusão)"""
+        """Soma valor_plataforma de volta apenas ao saldo total_platafor_max_pi"""
         pi_vals = db.obter_pi_valores_plataforma(id_pi)
         if not pi_vals:
             return
         valor_camp = _parse_brl_to_float(valor_campanha_brl)
         if valor_camp <= 0:
             return
-        vr_liq = _parse_brl_to_float(pi_vals.get('vr_liquido_pi'))
         total_plat = _parse_brl_to_float(pi_vals.get('total_platafor_max_pi'))
-        novo_vr_liq = vr_liq + valor_camp
         novo_total = total_plat + valor_camp
-        db.atualizar_pi_valores_plataforma(id_pi, _float_to_brl(novo_vr_liq), _float_to_brl(novo_total))
+        db.atualizar_pi_valores_plataforma(id_pi, pi_vals.get('vr_liquido_pi'), _float_to_brl(novo_total))
 
     def _parse_real_campanha(value):
         """Wrapper local sobre db.formatar_real_br: garante formato BR canônico

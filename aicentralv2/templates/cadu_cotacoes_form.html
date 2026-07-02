@@ -104,6 +104,8 @@
     'Em Acompanhamento': 'bg-purple-500'
   } %}
   {% set _status_cor = _status_cores.get(_status, 'bg-gray-300') %}
+  {% set _valor_liquido_card = resumo_metricas.valor_liquido if resumo_metricas is defined and resumo_metricas else 0 %}
+  {% set _plataforma_card = resumo_metricas.plataforma if resumo_metricas is defined and resumo_metricas and resumo_metricas.plataforma else '' %}
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
     <!-- Status -->
     <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
@@ -122,7 +124,7 @@
       </span>
       <div class="min-w-0">
         <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor líquido</p>
-        <p class="text-sm font-semibold text-gray-400 truncate" id="card_valor_liquido">—</p>
+        <p class="text-sm font-semibold {% if _valor_liquido_card %}text-gray-800{% else %}text-gray-400{% endif %} truncate" id="card_valor_liquido">{% if _valor_liquido_card %}R$ {{ "{:,.2f}".format(_valor_liquido_card).replace(',', '_').replace('.', ',').replace('_', '.') }}{% else %}—{% endif %}</p>
       </div>
     </div>
     <!-- Budget -->
@@ -152,7 +154,7 @@
       </span>
       <div class="min-w-0">
         <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
-        <p class="text-sm font-semibold text-gray-400 truncate">—</p>
+        <p class="text-sm font-semibold {% if _plataforma_card %}text-gray-800{% else %}text-gray-400{% endif %} truncate">{{ _plataforma_card if _plataforma_card else '—' }}</p>
       </div>
     </div>
   </div>

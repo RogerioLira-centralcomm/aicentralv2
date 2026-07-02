@@ -5124,6 +5124,21 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.investimento_sugerido,
                 ca.impressoes_estimadas,
                 ca.perc_margem_cc,
+                ca.perc_tech_fee,
+                ca.perc_com_vendas,
+                ca.perc_pl_incentivos,
+                ca.perc_impostos,
+                ca.val_margem_cc,
+                ca.val_tech_fee,
+                ca.val_com_vendas,
+                ca.val_pl_incentivos,
+                ca.val_impostos,
+                ca.valor_unitario_tabela,
+                ca.valor_unitario,
+                ca.valor_unitario_negociado,
+                ca.investimento_bruto,
+                ca.investimento_liquido,
+                ca.volume_contratado,
                 ca.audiencia_calculo_plataforma,
                 ca.id_audiencia_calculo_kpi,
                 COALESCE(NULLIF(TRIM(obj.descricao), ''), ca.audiencia_calculo_kpi) AS audiencia_calculo_kpi,
@@ -8000,7 +8015,7 @@ def obter_cotacao_detalhes_pipeline(cotacao_id):
             # Briefing vinculado (se houver)
             if cotacao.get('briefing_id'):
                 cursor.execute('''
-                    SELECT id, nome, status, created_at
+                    SELECT id, titulo, titulo AS nome, status, created_at
                     FROM cadu_briefings
                     WHERE id = %s
                 ''', (cotacao['briefing_id'],))
@@ -9286,7 +9301,7 @@ def criar_cadu_pi(data):
                 data.get('comissao_parceiro'),
                 data.get('valor_liquido_pr'),
                 data.get('valor_plataformas'),
-                data.get('valor_plataformas'),
+                data.get('total_plataformas') or data.get('valor_plataformas'),
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
                 data.get('mes_ref'),
@@ -9508,6 +9523,71 @@ def obter_descricao_objetivo_campanha(id_objetivo):
         return None
 
 
+def reconciliar_linhas_financeiras_cotacao(cotacao, linhas=None, aplicar=False, imposto_percentual=15):
+    """Recalcula linhas de cotação com campos financeiros vazios quando há base suficiente."""
+    if not cotacao:
+        return {'atualizadas': 0, 'sem_base': [], 'erros': []}
+
+    cotacao_id = cotacao.get('id')
+    if linhas is None and cotacao_id:
+        linhas = obter_linhas_cotacao(cotacao_id)
+
+    atualizadas = 0
+    sem_base = []
+    erros = []
+    campos_financeiros = (
+        'investimento_bruto', 'investimento_liquido',
+        'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+        'perc_pl_incentivos', 'perc_impostos',
+        'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+        'val_pl_incentivos', 'val_impostos',
+    )
+
+    for linha in linhas or []:
+        if linha.get('is_subtotal') or linha.get('is_header'):
+            continue
+        linha_id = linha.get('id')
+        incompleta = any(linha.get(campo) in (None, '') for campo in campos_financeiros)
+        if not incompleta:
+            continue
+        try:
+            breakdown = calcular_breakdown_linha_cotacao(cotacao, linha, imposto_percentual=imposto_percentual)
+        except ValueError as err:
+            sem_base.append({'linha_id': linha_id, 'motivo': str(err)})
+            continue
+        except Exception as err:
+            erros.append({'linha_id': linha_id, 'erro': str(err)})
+            continue
+
+        atualizadas += 1
+        if aplicar and linha_id:
+            atualizar_linha_cotacao(
+                linha_id,
+                volume_contratado=breakdown['volume_contratado'],
+                valor_unitario=breakdown['valor_unitario'],
+                valor_total=breakdown['valor_total'],
+                investimento_bruto=breakdown['investimento_bruto'],
+                valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+                investimento_liquido=breakdown['investimento_liquido'],
+                perc_margem_cc=breakdown['perc_margem_cc'],
+                perc_tech_fee=breakdown['perc_tech_fee'],
+                perc_com_vendas=breakdown['perc_com_vendas'],
+                perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+                perc_impostos=breakdown['perc_impostos'],
+                val_margem_cc=breakdown['val_margem_cc'],
+                val_tech_fee=breakdown['val_tech_fee'],
+                val_com_vendas=breakdown['val_com_vendas'],
+                val_pl_incentivos=breakdown['val_pl_incentivos'],
+                val_impostos=breakdown['val_impostos'],
+                fator_desconto=breakdown.get('fator_desconto'),
+            )
+
+    if aplicar and cotacao_id:
+        calcular_valor_total_cotacao(cotacao_id)
+
+    return {'atualizadas': atualizadas, 'sem_base': sem_base, 'erros': erros}
+
+
 def _resolver_par_kpi(id_objetivo_kpi=None, objetivo_kpi=None):
     """Dado o id e/ou a string, retorna (id_int_ou_None, descricao_str_ou_None).
     Preferência: se vier id válido, resolvemos a descrição pelo banco.
@@ -9536,20 +9616,18 @@ def _resolver_par_kpi(id_objetivo_kpi=None, objetivo_kpi=None):
 
 
 def subtrair_valor_plataforma_pi(id_pi, valor_campanha_brl):
-    """Subtrai valor_plataforma da campanha de vr_liquido_pi e total_platafor_max_pi."""
+    """Subtrai valor_plataforma apenas do saldo total_platafor_max_pi."""
     pi_vals = obter_pi_valores_plataforma(id_pi)
     if not pi_vals:
         return
     valor_camp = parse_valor_monetario_para_float(valor_campanha_brl)
     if valor_camp <= 0:
         return
-    vr_liq = parse_valor_monetario_para_float(pi_vals.get('vr_liquido_pi'))
     total_plat = parse_valor_monetario_para_float(pi_vals.get('total_platafor_max_pi'))
-    novo_vr_liq = max(vr_liq - valor_camp, 0)
     novo_total = max(total_plat - valor_camp, 0)
     atualizar_pi_valores_plataforma(
         id_pi,
-        formatar_real_br(novo_vr_liq),
+        pi_vals.get('vr_liquido_pi'),
         formatar_real_br(novo_total),
     )
 
@@ -9846,6 +9924,13 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         raise ValueError(f'Cotação {cotacao_id} não encontrada')
 
     linhas = obter_linhas_cotacao(cotacao_id)
+    try:
+        audiencias = obter_audiencias_cotacao(cotacao_id)
+    except Exception:
+        audiencias = []
+    reconciliacao = reconciliar_linhas_financeiras_cotacao(cotacao, linhas, aplicar=True)
+    if reconciliacao.get('atualizadas'):
+        linhas = obter_linhas_cotacao(cotacao_id)
 
     # --- Inferir tipo PI a partir das plataformas das linhas ---
     id_pi_tipo = None
@@ -9866,20 +9951,50 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
                 id_pi_tipo = tipos[0]['id']
 
     # --- Calcular valores financeiros ---
-    valor_bruto = cotacao.get('valor_total_proposta') or 0
+    valor_bruto = parse_valor_monetario_para_float(cotacao.get('valor_total_proposta'))
     if not valor_bruto and linhas:
-        valor_bruto = sum((l.get('investimento_bruto') or l.get('valor_total') or 0) for l in linhas if not l.get('is_subtotal'))
+        valor_bruto_linhas = sum(
+            parse_valor_monetario_para_float(l.get('investimento_bruto') or l.get('valor_total'))
+            for l in linhas
+            if not l.get('is_subtotal')
+        )
+        valor_bruto_audiencias = sum(
+            parse_valor_monetario_para_float(a.get('investimento_bruto') or a.get('investimento_sugerido'))
+            for a in audiencias or []
+            if a.get('incluido_proposta') is not False
+        )
+        valor_bruto = valor_bruto_linhas + valor_bruto_audiencias
+    linhas_base = [l for l in (linhas or []) if not l.get('is_subtotal') and not l.get('is_header')]
+    audiencias_base = [a for a in (audiencias or []) if a.get('incluido_proposta') is not False]
+    if (linhas_base or audiencias_base) and valor_bruto <= 0:
+        detalhes = reconciliacao.get('sem_base') or reconciliacao.get('erros') or []
+        raise ValueError(
+            'Cotação sem valor financeiro suficiente para gerar PI. '
+            f'Confira valor tabela, KPI e volume/investimento das linhas. Detalhes: {detalhes[:3]}'
+        )
 
     valor_liquido = valor_bruto
-    if linhas:
-        soma_liquido = sum((l.get('investimento_liquido') or 0) for l in linhas if not l.get('is_subtotal'))
-        if soma_liquido > 0:
-            valor_liquido = soma_liquido
+    soma_liquido_linhas = sum(
+        parse_valor_monetario_para_float(l.get('investimento_liquido'))
+        for l in linhas or []
+        if not l.get('is_subtotal') and not l.get('is_header')
+    )
+    soma_liquido_audiencias = sum(
+        parse_valor_monetario_para_float(
+            a.get('investimento_liquido') or a.get('investimento_bruto') or a.get('investimento_sugerido')
+        )
+        for a in audiencias or []
+        if a.get('incluido_proposta') is not False
+    )
+    soma_liquido = soma_liquido_linhas + soma_liquido_audiencias
+    if soma_liquido > 0:
+        valor_liquido = soma_liquido
 
-    perc_agencia = cotacao.get('agencia_percentual') or 0
-    perc_parceiro = cotacao.get('parceiro_percentual') or 0
+    perc_agencia = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
+    perc_parceiro = parse_valor_monetario_para_float(cotacao.get('parceiro_percentual'))
     comissao_agencia = round(valor_bruto * perc_agencia / 100, 2) if perc_agencia else 0
-    comissao_parceiro = round(valor_bruto * perc_parceiro / 100, 2) if perc_parceiro else 0
+    comissao_parceiro = round(valor_liquido * perc_parceiro / 100, 2) if perc_parceiro else 0
+    valor_liquido_pr = round(valor_liquido - comissao_parceiro, 2) if valor_liquido else 0
 
     def _to_float(v):
         if v is None or v == '':
@@ -9929,10 +10044,6 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     perc_impostos_pi = _primeiro_perc('perc_impostos')
 
     if not perc_margem_cc_pi:
-        try:
-            audiencias = obter_audiencias_cotacao(cotacao_id)
-        except Exception:
-            audiencias = []
         for aud in audiencias or []:
             v = _to_float(aud.get('perc_margem_cc'))
             if v > 0:
@@ -9959,7 +10070,8 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         mes_ref = date(pi_periodo_inicio.year, pi_periodo_inicio.month, 1)
         mes_ref_comp = formatar_mes_ref_comp(pi_periodo_inicio)
 
-    valor_plataformas = formatar_real_br(valor_liquido) if valor_liquido else None
+    base_plataformas = valor_liquido_pr if comissao_parceiro else valor_liquido
+    valor_plataformas = formatar_real_br(round(base_plataformas * 0.3, 2)) if base_plataformas else None
 
     data = {
         'id_cliente': cotacao.get('client_id'),
@@ -9973,10 +10085,11 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         'perc_comissao_parceiro': perc_parceiro,
         'valor_bruto': formatar_real_br(valor_bruto),
         'valor_liquido': formatar_real_br(valor_liquido),
-        'comissao_agencia': formatar_real_br(comissao_agencia) if comissao_agencia else None,
-        'comissao_parceiro': formatar_real_br(comissao_parceiro) if comissao_parceiro else None,
-        'valor_liquido_pr': None,
+        'comissao_agencia': formatar_real_br(comissao_agencia) if valor_bruto else None,
+        'comissao_parceiro': formatar_real_br(comissao_parceiro) if valor_liquido else None,
+        'valor_liquido_pr': formatar_real_br(valor_liquido_pr) if valor_liquido else None,
         'valor_plataformas': valor_plataformas,
+        'total_plataformas': valor_plataformas,
         'periodo_inicio': pi_periodo_inicio,
         'periodo_fim': pi_periodo_fim,
         'mes_ref': mes_ref,
@@ -9993,16 +10106,6 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         'obs_financeiro': None,
         'obs_operacao': f'PI gerado automaticamente da cotação #{cotacao_id}',
         'cotacao_id': cotacao_id,
-        'perc_margem_cc': perc_margem_cc_pi or None,
-        'perc_tech_fee': perc_tech_fee_pi or None,
-        'perc_com_vendas': perc_com_vendas_pi or None,
-        'perc_pl_incentivos': perc_pl_incentivos_pi or None,
-        'perc_impostos': perc_impostos_pi or None,
-        'val_margem_cc': formatar_real_br(val_margem_cc_pi),
-        'val_tech_fee': formatar_real_br(val_tech_fee_pi),
-        'val_com_vendas': formatar_real_br(val_com_vendas_pi),
-        'val_pl_incentivos': formatar_real_br(val_pl_incentivos_pi),
-        'val_impostos': formatar_real_br(val_impostos_pi),
     }
 
     id_pi = criar_cadu_pi(data)
@@ -10023,6 +10126,21 @@ def atualizar_cadu_pi(id_pi, data):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT total_platafor_max_pi
+                FROM cadu_pi
+                WHERE id_pi = %s
+                ''',
+                (id_pi,),
+            )
+            pi_atual = cursor.fetchone() or {}
+            total_plataformas = (
+                data.get('total_plataformas')
+                or pi_atual.get('total_platafor_max_pi')
+                or data.get('valor_plataformas')
+            )
+
             cursor.execute('''
                 UPDATE cadu_pi SET
                     id_cliente = %s,
@@ -10089,7 +10207,7 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('comissao_parceiro'),
                 data.get('valor_liquido_pr'),
                 data.get('valor_plataformas'),
-                data.get('valor_plataformas'),
+                total_plataformas,
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
                 data.get('mes_ref'),
@@ -10810,6 +10928,117 @@ def calcular_preco_unitario_teste_calculo(
         'plataforma_match': plat_desc,
         'incentivo_com_agencia': tem_agencia,
         'warnings': warnings,
+    }
+
+
+def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=15):
+    """Calcula campos financeiros canônicos de uma linha de cotação.
+
+    Centraliza investimento bruto/líquido, percentuais e valores derivados para
+    evitar que rotas diferentes persistam campos financeiros vazios.
+    """
+    if not cotacao:
+        raise ValueError('Cotação não encontrada')
+    if not isinstance(data, dict):
+        raise ValueError('Dados da linha inválidos')
+
+    plataforma = (data.get('plataforma') or '').strip()
+    objetivo_kpi = (data.get('objetivo_kpi') or '').strip()
+    id_kpi = data.get('id_objetivo_kpi') or data.get('id_audiencia_calculo_kpi')
+    if id_kpi not in (None, '', 0, '0'):
+        desc_resolvida = obter_descricao_objetivo_campanha(id_kpi)
+        if desc_resolvida:
+            objetivo_kpi = desc_resolvida
+
+    valor_tabela = parse_valor_monetario_para_float(data.get('valor_unitario_tabela'))
+    investimento_bruto_in = parse_valor_monetario_para_float(data.get('investimento_bruto'))
+    volume_in = parse_valor_monetario_para_float(data.get('volume_contratado'))
+    fator_desconto = parse_valor_monetario_para_float(data.get('fator_desconto')) if data.get('fator_desconto') not in (None, '') else 1.0
+    if fator_desconto <= 0:
+        fator_desconto = 1.0
+
+    if not plataforma:
+        raise ValueError('Informe a plataforma para calcular.')
+    if not objetivo_kpi:
+        raise ValueError('Informe o KPI (Tipo de Compra) para calcular.')
+    if valor_tabela <= 0:
+        raise ValueError('Valor unitário tabela inválido.')
+    if investimento_bruto_in <= 0 and volume_in <= 0:
+        raise ValueError('Preencha Invest. Bruto ou Vol. Contratado.')
+
+    margem_cc_override = data.get('margem_cc')
+    out = calcular_preco_unitario_teste_calculo(
+        valor_unitario_tabela=valor_tabela,
+        nome_plataforma=plataforma,
+        cliente_id=cotacao.get('client_id'),
+        id_resp_comercial=cotacao.get('responsavel_comercial'),
+        volume_contratado=volume_in,
+        imposto_percentual_externo=imposto_percentual,
+        agencia_id=cotacao.get('agencia_id'),
+        margem_cc_override=parse_valor_monetario_para_float(margem_cc_override) if margem_cc_override not in (None, '') else None,
+        fator_desconto=fator_desconto,
+    )
+    if not out.get('success'):
+        raise ValueError(out.get('message') or 'Falha no cálculo do preço.')
+
+    preco_unit = float(out.get('preco_unit') or 0.0)
+    opex_unit = float(out.get('opex_unit') or 0.0)
+    if preco_unit <= 0:
+        raise ValueError('Preço unitário inválido após cálculo.')
+
+    is_cpm = objetivo_kpi == 'CPM'
+    if investimento_bruto_in > 0 and volume_in > 0:
+        volume_contratado = volume_in
+        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else volume_contratado
+        investimento_bruto = investimento_bruto_in
+    elif volume_in > 0:
+        volume_contratado = volume_in
+        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else volume_contratado
+        investimento_bruto = volume_efetivo * preco_unit
+    else:
+        investimento_bruto = investimento_bruto_in
+        volume_efetivo = investimento_bruto / preco_unit
+        volume_contratado = round(volume_efetivo * 1000.0) if is_cpm else round(volume_efetivo)
+        volume_efetivo = (volume_contratado / 1000.0) if is_cpm else float(volume_contratado)
+        investimento_bruto = volume_efetivo * preco_unit
+
+    tf = float(out.get('tf') or 0.0)
+    mcc = float(out.get('mcc') or 0.0)
+    com = float(out.get('com') or 0.0)
+    inc = float(out.get('inc') or 0.0)
+    imp = float(out.get('imp') or 0.0)
+
+    val_tech_fee = max(opex_unit - valor_tabela * fator_desconto, 0.0) * volume_efetivo
+    val_margem_cc = investimento_bruto * mcc
+    val_com_vendas = investimento_bruto * com
+    val_pl_incentivos = investimento_bruto * inc
+    val_impostos = investimento_bruto * imp
+
+    perc_agencia = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
+    perc_parceiro = parse_valor_monetario_para_float(cotacao.get('parceiro_percentual'))
+    comissao_agencia = investimento_bruto * perc_agencia / 100 if perc_agencia > 0 else 0.0
+    base_parceiro = investimento_bruto - comissao_agencia
+    comissao_parceiro = base_parceiro * perc_parceiro / 100 if perc_parceiro > 0 else 0.0
+    investimento_liquido = max(investimento_bruto - comissao_agencia - comissao_parceiro, 0.0)
+
+    return {
+        'perc_tech_fee': tf,
+        'perc_margem_cc': mcc,
+        'perc_com_vendas': com,
+        'perc_pl_incentivos': inc,
+        'perc_impostos': imp,
+        'val_tech_fee': round(val_tech_fee, 2),
+        'val_margem_cc': round(val_margem_cc, 2),
+        'val_com_vendas': round(val_com_vendas, 2),
+        'val_pl_incentivos': round(val_pl_incentivos, 2),
+        'val_impostos': round(val_impostos, 2),
+        'valor_unitario_negociado': round(preco_unit, 6),
+        'valor_unitario': round(preco_unit, 6),
+        'volume_contratado': int(volume_contratado),
+        'investimento_bruto': round(investimento_bruto, 2),
+        'investimento_liquido': round(investimento_liquido, 2),
+        'valor_total': round(investimento_bruto, 2),
+        'fator_desconto': fator_desconto,
     }
 
 

@@ -271,138 +271,7 @@
         </div>
       </div>
 
-      <!-- ==================== CALCULADORA BOTTOM-UP (estilo Lifecycle) ==================== -->
-      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-3 mb-3">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
-
-          <!-- COLUNA ESQUERDA: INPUTS -->
-          <div class="lg:col-span-5 space-y-2">
-            <h3 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-100">Inputs de Precificação</h3>
-            <div>
-              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Plataforma <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(define Tech-Fee)</span></label>
-              <select name="plataforma_campanha" id="sel_plataforma_campanha" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-                {{ opcoes_plataforma_campanha() }}
-              </select>
-            </div>
-
-            <label class="flex items-center gap-1.5 text-[10px] text-gray-800 select-none cursor-pointer">
-              <input type="checkbox" name="meta_baseada_em_cpm" id="input_meta_baseada_em_cpm" class="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if pi and pi.meta_baseada_em_cpm %}checked{% endif %}>
-              <span class="font-medium">Meta baseada em CPM?</span>
-            </label>
-
-            <div>
-              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Custo Base Unitário (Cbase)</label>
-              <div class="flex">
-                <input type="text" name="custo_base_unitario" id="input_custo_base_unitario" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.custo_base_unitario or '' }}">
-                <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">R$</span>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Objetivo Contratado <span class="text-gray-400 font-normal" id="lbl_objetivo_hint">(Soma dividida por 1000)</span></label>
-              <input type="text" name="objetivo_contratado_pi" id="input_objetivo_contratado_pi" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0" value="{{ (pi.objetivo_contratado_pi|int) if pi and pi.objetivo_contratado_pi else '' }}">
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 pt-0.5">
-              <div>
-                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Tech-Fee <span class="text-gray-400 font-normal">(plataforma)</span></label>
-                <div class="flex">
-                  <input type="text" name="perc_tech_fee" id="input_perc_tech_fee" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" readonly tabindex="-1" title="Tech-Fee é definido automaticamente pela plataforma selecionada">
-                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></label>
-                <div class="flex">
-                  <input type="text" name="perc_margem_cc" id="input_perc_margem_cc" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="5,00" value="{{ pi.perc_margem_cc or '' }}" title="Informe um valor entre 5% e 30%">
-                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
-                </div>
-                <span id="hint_margem_cc" class="text-[9px] text-gray-500 mt-0.5 block"></span>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Comissão</label>
-                <div class="flex">
-                  <input type="text" name="perc_com_vendas" id="input_perc_com_vendas" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}">
-                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Incentivo</label>
-                <div class="flex">
-                  <input type="text" name="perc_pl_incentivos" id="input_perc_pl_incentivos" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}">
-                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
-                </div>
-              </div>
-              <div class="col-span-2">
-                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Impostos</label>
-                <div class="flex w-1/2 pr-1">
-                  <input type="text" name="perc_impostos" id="input_perc_impostos" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_impostos or '' }}">
-                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
-                </div>
-              </div>
-            </div>
-
-            <p id="calc_warning" class="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 hidden"></p>
-          </div>
-
-          <!-- COLUNA DIREITA: OUTPUTS -->
-          <div class="lg:col-span-7 space-y-2">
-            <div class="flex items-center justify-between mb-2 pb-1 border-b border-gray-100">
-              <h3 class="text-[10px] font-semibold text-gray-800">Memória de Cálculo</h3>
-              <span id="badge_valor_bruto" class="text-sm font-bold text-white bg-gray-900 px-3 py-1 rounded-md">—</span>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                <div class="text-[9px] uppercase tracking-wider font-semibold text-emerald-700">Preço Cliente (Unitário)</div>
-                <div class="text-lg font-bold text-emerald-900 mt-0.5" id="card_preco_cliente">—</div>
-              </div>
-              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                <div class="text-[9px] uppercase tracking-wider font-semibold text-emerald-700">Custo Operacional (OPEX)</div>
-                <div class="text-lg font-bold text-emerald-900 mt-0.5" id="card_opex_unit">—</div>
-              </div>
-            </div>
-
-            <div class="pt-0.5">
-              <div class="text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1.5">Rateio Absoluto Orçado</div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5">
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Mídia Orçado</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_midia_orc">—</div>
-                </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Tech-Fee Orçado</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_tf_orc">—</div>
-                </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Margem CC Prev.</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_mcc_orc">—</div>
-                </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Comissão Prev.</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_com_orc">—</div>
-                </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Incentivo Prev.</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_inc_orc">—</div>
-                </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
-                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Impostos Prev.</div>
-                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_imp_orc">—</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Hidden inputs persistidos (alimentados por recalcCalculadora()) -->
-        <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
-        <input type="hidden" name="val_margem_cc" id="input_val_margem_cc" value="{{ pi.val_margem_cc or '' }}">
-        <input type="hidden" name="val_tech_fee" id="input_val_tech_fee" value="{{ pi.val_tech_fee or '' }}">
-        <input type="hidden" name="val_com_vendas" id="input_val_com_vendas" value="{{ pi.val_com_vendas or '' }}">
-        <input type="hidden" name="val_pl_incentivos" id="input_val_pl_incentivos" value="{{ pi.val_pl_incentivos or '' }}">
-        <input type="hidden" name="val_impostos" id="input_val_impostos" value="{{ pi.val_impostos or '' }}">
-      </div>
+      <input type="hidden" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
 
       <!-- Comissões de intermediários -->
       <div class="mb-3" id="comissoes_intermediarios_block">
@@ -519,6 +388,7 @@
   // Em modo editar, se o pi já tem um perc_margem_cc gravado, considera como edição prévia
   // (não sobrescreve com cadastro do cliente sem permissão explícita).
   let margemCcUserEdited = {{ ('true' if (modo == 'editar' and pi and pi.perc_margem_cc) else 'false') }};
+  const PI_HAS_PERSISTED_VALOR_BRUTO = {{ ('true' if (modo == 'editar' and pi and pi.valor_bruto) else 'false') }};
 
   const els = {
     exec: () => document.getElementById('sel_resp_comercial'),
@@ -771,15 +641,24 @@
     el.textContent = fmt(value);
   }
 
-  function clearCalculadoraOutputs() {
+  function calculadoraTemBaseValida() {
+    var cbase = parseCbase(els.custoBase() ? els.custoBase().value : '');
+    var obj = parseObjetivoInt(els.objetivo() ? els.objetivo().value : '');
+    return cbase > 0 && obj > 0;
+  }
+
+  function clearCalculadoraOutputs(options) {
+    options = options || {};
     [els.cardPrecoCliente, els.cardOpex, els.cardMidia, els.cardTfOrc,
      els.cardMccOrc, els.cardComOrc, els.cardIncOrc, els.cardImpOrc,
      els.badgeValorBruto].forEach(function(fn) { var el = fn(); if (el) el.textContent = '—'; });
+    if (options.preservePersistedFinancials && PI_HAS_PERSISTED_VALOR_BRUTO) return;
     [els.valorBruto, els.valMargemCc, els.valTechFee, els.valComVendas,
      els.valPlIncentivos, els.valImpostos].forEach(function(fn) { var el = fn(); if (el) el.value = ''; });
   }
 
   function recalcCalculadora() {
+    if (!els.custoBase() || !els.objetivo()) return;
     var warning = els.calcWarning();
     if (warning) warning.classList.add('hidden');
 
@@ -793,18 +672,24 @@
     var imp = (parsePercent(els.percImpostos().value)     || 0) / 100;
     var cpm = meta ? meta.checked : false;
 
-    if (cbase <= 0 || obj <= 0) { clearCalculadoraOutputs(); calcValores(); return; }
+    if (cbase <= 0 || obj <= 0) {
+      clearCalculadoraOutputs({ preservePersistedFinancials: true });
+      if (!PI_HAS_PERSISTED_VALOR_BRUTO) calcValores();
+      return;
+    }
     if (tf >= 1) {
-      clearCalculadoraOutputs();
+      clearCalculadoraOutputs({ preservePersistedFinancials: true });
       if (warning) { warning.textContent = 'Tech-Fee deve ser menor que 100%.'; warning.classList.remove('hidden'); }
-      calcValores(); return;
+      if (!PI_HAS_PERSISTED_VALOR_BRUTO) calcValores();
+      return;
     }
     var opex = cbase / (1 - tf);
     var soma = mcc + com + inc + imp;
     if (soma >= 1) {
-      clearCalculadoraOutputs();
+      clearCalculadoraOutputs({ preservePersistedFinancials: true });
       if (warning) { warning.textContent = 'Soma de Margem CC + Comissão + Incentivo + Impostos deve ser menor que 100%.'; warning.classList.remove('hidden'); }
-      calcValores(); return;
+      if (!PI_HAS_PERSISTED_VALOR_BRUTO) calcValores();
+      return;
     }
     var preco  = opex / (1 - soma);
     var volume = cpm ? (obj / 1000) : obj;
@@ -1122,7 +1007,9 @@
   });
 
   document.getElementById('pi_form').addEventListener('submit', function(e) {
-    calcValores();
+    if (parseBRL(els.valorBruto().value) > 0 || calculadoraTemBaseValida()) {
+      calcValores();
+    }
     if (!els.clienteHidden().value) {
       e.preventDefault();
       els.clienteBusca().focus();
@@ -1210,7 +1097,11 @@
     var objEl0 = els.objetivo();
     if (objEl0 && objEl0.value) maskObjetivo(objEl0);
     atualizarHintObjetivo();
-    recalcCalculadora();
+    if (calculadoraTemBaseValida()) {
+      recalcCalculadora();
+    } else if (!PI_HAS_PERSISTED_VALOR_BRUTO) {
+      recalcCalculadora();
+    }
 
     var clienteId = els.clienteHidden().value;
     if (clienteId) {
@@ -1724,53 +1615,6 @@
           </div>
 
         </div>
-
-        <div class="mt-3 pt-2 border-t border-gray-100">
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Margem CC</label>
-              <input type="text" name="perc_margem_cc" id="nova_camp_perc_margem_cc" placeholder="0,00" value="{{ pi.perc_margem_cc or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Tech Fee</label>
-              <input type="text" name="perc_tech_fee" id="nova_camp_perc_tech_fee" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Com. Vendas</label>
-              <input type="text" name="perc_com_vendas" id="nova_camp_perc_com_vendas" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% PL Incentivos</label>
-              <input type="text" name="perc_pl_incentivos" id="nova_camp_perc_pl_incentivos" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Impostos</label>
-              <input type="text" name="perc_impostos" id="nova_camp_perc_impostos" placeholder="0,00" value="{{ pi.perc_impostos or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Margem CC</label>
-              <input type="text" name="val_margem_cc" id="nova_camp_val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Tech Fee</label>
-              <input type="text" name="val_tech_fee" id="nova_camp_val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Com. Vendas</label>
-              <input type="text" name="val_com_vendas" id="nova_camp_val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">PL Incentivos</label>
-              <input type="text" name="val_pl_incentivos" id="nova_camp_val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Impostos</label>
-              <input type="text" name="val_impostos" id="nova_camp_val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-          </div>
-        </div>
-
         <div class="mt-3 pt-2 border-t border-gray-100 flex justify-center">
           <button type="submit"
             class="px-6 py-1.5 text-[10px] font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">

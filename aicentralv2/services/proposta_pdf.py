@@ -88,6 +88,13 @@ def _texto(v):
     return s
 
 
+def _num(v):
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _slug_arquivo(*partes):
     """Monta um slug de nome de arquivo (sem acentos, minúsculo, separado por hífen)."""
     texto = '-'.join(_texto(p) for p in partes if _texto(p))
@@ -121,12 +128,12 @@ def _resolver_logo_path():
     try:
         from flask import current_app
 
-        caminho = os.path.join(current_app.root_path, 'static', 'images', 'cc_logo.png')
+        caminho = os.path.join(current_app.root_path, 'static', 'images', 'cc_logo_proposta.png')
         if os.path.exists(caminho):
             return caminho
     except Exception:
         pass
-    fallback = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'cc_logo.png')
+    fallback = os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'cc_logo_proposta.png')
     fallback = os.path.normpath(fallback)
     return fallback if os.path.exists(fallback) else None
 
@@ -152,6 +159,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         else None
     )
     linhas = db.obter_linhas_cotacao(cotacao_id) or []
+    audiencias = db.obter_audiencias_cotacao(cotacao_id) or []
 
     styles = getSampleStyleSheet()
     info_titulo_style = ParagraphStyle(
@@ -164,10 +172,6 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     )
     valor_style = ParagraphStyle(
         'PropValor', parent=styles['Normal'], fontSize=7, textColor=_COR_TEXTO, leading=8,
-    )
-    logo_txt_style = ParagraphStyle(
-        'PropLogoTxt', parent=styles['Normal'], fontSize=14, textColor=_COR_TEXTO,
-        fontName='Helvetica-Bold', leading=15, alignment=TA_LEFT,
     )
     secao_style = ParagraphStyle(
         'PropSecao', parent=styles['Heading2'], fontSize=12, textColor=colors.black,
@@ -236,6 +240,14 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             total_volume_impactos += float(ln.get('volume_contratado') or 0)
         except (TypeError, ValueError):
             pass
+    for aud in audiencias:
+        k = _texto(aud.get('audiencia_calculo_kpi'))
+        if k and k not in kpis:
+            kpis.append(k)
+        p = _texto(aud.get('audiencia_categoria')) or _texto(aud.get('audiencia_subcategoria'))
+        if p and p not in pracas_linhas:
+            pracas_linhas.append(p)
+        total_volume_impactos += _num(aud.get('volume_contratado') or aud.get('impressoes_estimadas'))
     kpis_txt = ', '.join(kpis)
     praca_txt = '; '.join(pracas_linhas)
 
@@ -302,15 +314,10 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     ]))
 
     logo_path = _resolver_logo_path()
-    logo_par = Paragraph(
-        "<font color='#1f2937'>central</font> <font color='#3DCB7F'>comm</font><br/>"
-        "<font size='8' color='#888888'>MEDIA HUB</font>",
-        logo_txt_style,
-    )
     if logo_path:
         try:
-            logo = Image(logo_path, width=34 * mm, height=24 * mm, kind='proportional')
-            logo_celula = Table([[logo], [logo_par]], colWidths=[(largura_util - 8 * mm) * 0.38])
+            logo = Image(logo_path, width=27 * mm, height=19.8 * mm, kind='proportional')
+            logo_celula = Table([[logo]], colWidths=[(largura_util - 8 * mm) * 0.38])
             logo_celula.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -321,9 +328,9 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             ]))
             direita = logo_celula
         except Exception:
-            direita = logo_par
+            direita = ''
     else:
-        direita = logo_par
+        direita = ''
 
     header_row = [[info_table, direita]]
     header_table = Table(
@@ -414,6 +421,60 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             Paragraph(_fmt_brl(liquido_val), cel_style),
         ])
         row_i += 1
+
+    if audiencias:
+        dados_tabela.append([Paragraph('<b>Audiências</b>', cel_style)] + [''] * (num_cols - 1))
+        span_cmds.append(('SPAN', (0, row_i), (num_cols - 1, row_i)))
+        span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), _COR_GOLD_CLARO))
+        row_i += 1
+
+        for aud in audiencias:
+            canais = (
+                _texto(aud.get('audiencia_calculo_plataforma'))
+                or _texto(aud.get('audiencia_categoria'))
+                or _texto(aud.get('fonte'))
+            )
+            formato = 'Audiência'
+            objetivo = _texto(aud.get('audiencia_nome'))
+            target = _texto(aud.get('audiencia_publico'))
+            praca = '; '.join(
+                p for p in (
+                    _texto(aud.get('audiencia_categoria')),
+                    _texto(aud.get('audiencia_subcategoria')),
+                )
+                if p
+            )
+            periodo = _texto(aud.get('periodo'))
+            if not periodo and aud.get('data_inicio') and aud.get('data_fim'):
+                periodo = f"{_fmt_data(aud.get('data_inicio'))} - {_fmt_data(aud.get('data_fim'))}"
+            tipo_compra = _texto(aud.get('audiencia_calculo_kpi'))
+            valor_neg = _fmt_brl(
+                aud.get('valor_unitario_negociado')
+                or aud.get('valor_unitario')
+                or aud.get('cpm_estimado')
+            )
+            volume = aud.get('volume_contratado') or aud.get('impressoes_estimadas')
+            bruto_val = aud.get('investimento_bruto') or aud.get('investimento_sugerido')
+            liquido_val = aud.get('investimento_liquido') or bruto_val
+
+            total_volume += _num(volume)
+            total_bruto += _num(bruto_val)
+            total_liquido += _num(liquido_val)
+
+            dados_tabela.append([
+                Paragraph(escape(canais) or '-', cel_style),
+                Paragraph(escape(formato), cel_style),
+                Paragraph(escape(objetivo) or '-', cel_style),
+                Paragraph(escape(target) or '-', cel_style),
+                Paragraph(escape(praca) or '-', cel_style),
+                Paragraph(escape(periodo) or '-', cel_style),
+                Paragraph(escape(tipo_compra) or '-', cel_style),
+                Paragraph(valor_neg, cel_style),
+                Paragraph(_fmt_int(volume), cel_style),
+                Paragraph(_fmt_brl(bruto_val), cel_style),
+                Paragraph(_fmt_brl(liquido_val), cel_style),
+            ])
+            row_i += 1
 
     # Linha de total geral.
     dados_tabela.append([

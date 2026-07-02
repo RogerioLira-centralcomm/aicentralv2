@@ -305,6 +305,7 @@
         $$('.swr-card', $('#lista-clientes')).forEach(el => {
             el.classList.toggle('swr-card-active', parseInt(el.dataset.id) === id);
         });
+        atualizarResumoObjetivosComunicacao();
 
         setTabAtividades('todas');
         carregarStatus(id);
@@ -322,6 +323,7 @@
         showEmpty($('#lista-contatos'), 'Selecione um cliente.');
         if ($('#lista-atividades')) showEmpty($('#lista-atividades'), 'Selecione um cliente.');
         if ($('#lista-objetivos')) showEmpty($('#lista-objetivos'), 'Selecione um cliente.');
+        atualizarResumoObjetivosComunicacao();
         showEmpty($('#lista-cotacoes'), 'Selecione um cliente.');
         const count = $('#swr-cotacoes-count');
         if (count) count.textContent = '';
@@ -655,7 +657,7 @@
                     el.classList.add('swr-contato-card-active');
                     setTabAtividades('contato');
                     carregarAtividades(clienteSelecionadoId, id);
-                    atualizarResumoModalObjetivosComunicacao();
+                    atualizarResumoObjetivosComunicacao();
                 });
             });
 
@@ -670,8 +672,7 @@
                     });
                     setTabAtividades('contato');
                     carregarAtividades(clienteSelecionadoId, id);
-                    atualizarResumoModalObjetivosComunicacao();
-                    abrirModalObjetivosComunicacao('gerar', '#input-objetivo');
+                    focarObjetivosComunicacao('gerar', '#input-objetivo');
                 });
             });
 
@@ -1631,18 +1632,20 @@
         return swrContatosCache.find(c => String(c.id_contato_cliente) === String(contatoSelecionadoId)) || null;
     }
 
-    function atualizarResumoModalObjetivosComunicacao() {
+    function atualizarResumoObjetivosComunicacao() {
         const contato = contatoSelecionadoAtual();
         const resumo = $('#swr-oc-contato-resumo');
         const card = $('#swr-oc-contato-card');
         if (!resumo || !card) return;
         if (!contato) {
             resumo.textContent = 'Selecione um contato.';
-            card.innerHTML = '<div class="swr-empty-state">Selecione um contato para abrir este modal.</div>';
+            card.innerHTML = '';
+            card.classList.add('hidden');
             return;
         }
         const tel = contato.telefone || '';
         resumo.textContent = contato.nome_completo || 'Contato selecionado';
+        card.classList.remove('hidden');
         card.innerHTML = `
             <div class="swr-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</div>
             <div class="swr-oc-contato-meta">
@@ -1653,7 +1656,7 @@
         `;
     }
 
-    function abrirModalObjetivosComunicacao(tab = 'gerar', focusSel = null) {
+    function focarObjetivosComunicacao(tab = 'gerar', focusSel = null) {
         if (!clienteSelecionadoId) {
             showToast('Selecione um cliente.', 'warning');
             return;
@@ -1662,11 +1665,11 @@
             showToast('Selecione um contato.', 'warning');
             return;
         }
-        atualizarResumoModalObjetivosComunicacao();
+        atualizarResumoObjetivosComunicacao();
         setTabComunicacao(tab);
         carregarObjetivos(clienteSelecionadoId);
-        const modal = $('#modal-objetivos-comunicacao');
-        modal?.showModal();
+        const col = $('#col-objetivos-comunicacao');
+        if (col) scrollIntoViewSuave(col);
         if (focusSel) setTimeout(() => $(focusSel)?.focus(), 150);
     }
 
@@ -1679,7 +1682,7 @@
         return gerarComunicacaoCore({
             contatoId: $('#swrc-contato')?.value || contatoSelecionadoId || null,
             clienteId: clienteSelecionadoId,
-            tipo: $('input[name="swrc-canal"]:checked')?.value || 'whatsapp',
+            tipo: $('.swr-com-canal-btn-active')?.dataset.canal || 'whatsapp',
             tamanho: 'medio',
             objetivo,
             produto: '',
@@ -2235,7 +2238,6 @@
         // ---- Seção Comunicação (coluna 5) ----
         bindComunicacaoSecao();
         setTabComunicacao('gerar');
-        $('#swr-oc-close')?.addEventListener('click', () => $('#modal-objetivos-comunicacao')?.close());
 
         $$('[data-modal-tab]').forEach(tab => {
             tab.addEventListener('click', () => {

@@ -53,6 +53,7 @@
     {% include "sales_war_room/_coluna_clientes.html" %}
     {% include "sales_war_room/_coluna_status.html" %}
     {% include "sales_war_room/_coluna_contatos.html" %}
+    {% include "sales_war_room/_coluna_objetivos_comunicacao.html" %}
     {% include "sales_war_room/_coluna_objetivos.html" %}
 </div>
 </div>
@@ -62,7 +63,6 @@
 {% include "sales_war_room/_modal_contatos_swr.html" %}
 {% include "sales_war_room/_modal_cliente.html" %}
 {% include "sales_war_room/_modal_cotacao.html" %}
-{% include "sales_war_room/_modal_objetivos_comunicacao.html" %}
 
 <script>
     window.SWR_LOGGED_USER_ID = {{ logged_user_id|default(0)|tojson }};

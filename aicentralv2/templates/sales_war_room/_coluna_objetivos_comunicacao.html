@@ -1,0 +1,86 @@
+<div class="swr-col" id="col-objetivos-comunicacao">
+    <div class="swr-col-header">
+        <div class="min-w-0">
+            <h2 class="font-semibold text-xs">Objetivos e Comunicação</h2>
+            <div id="swr-oc-contato-resumo" class="text-[10px] text-gray-500 truncate">Selecione um contato.</div>
+        </div>
+    </div>
+    <div class="swr-col-body swr-oc-body scroll-suave">
+        <div class="swr-oc-contato-card hidden" id="swr-oc-contato-card"></div>
+
+        <div class="swr-oc-grid">
+            <section class="swr-oc-section" id="lista-objetivos">
+                <div class="swr-empty-state">Selecione um cliente.</div>
+            </section>
+
+            <section class="swr-oc-section" id="swr-comunicacao">
+                <div class="swr-com-header">
+                    <h3 class="swr-com-titulo">Comunicação</h3>
+                    <div class="swr-com-tabs" id="swrc-tabs">
+                        <a class="swr-com-tab" data-ctab="historico">Histórico</a>
+                        <a class="swr-com-tab swr-com-tab-active" data-ctab="gerar">Gerar mensagem</a>
+                        <a class="swr-com-tab" data-ctab="modelos">Modelos</a>
+                    </div>
+                </div>
+
+                <div id="swrc-panel-gerar" class="swr-com-form">
+                    <div class="swr-com-canal-btns">
+                        <button type="button" class="swr-com-canal-btn swr-com-canal-btn-active" data-canal="whatsapp">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                            WhatsApp
+                        </button>
+                        <button type="button" class="swr-com-canal-btn" data-canal="email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            E-mail
+                        </button>
+                    </div>
+                    <div class="swr-com-form-grid2">
+                        <div>
+                            <label class="swr-com-label">Objetivo da mensagem</label>
+                            <select id="swrc-objetivo" class="swr-com-select">
+                                <option value="">Selecione</option>
+                                <option value="Retomar contato">Retomar contato</option>
+                                <option value="Apresentar novo produto">Apresentar novo produto</option>
+                                <option value="Follow-up de proposta">Follow-up de proposta</option>
+                                <option value="Agendar reunião">Agendar reunião</option>
+                                <option value="Enviar case de performance">Enviar case de performance</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="swr-com-label">Tom</label>
+                            <select id="swrc-tom" class="swr-com-select">
+                                <option value="Consultivo">Consultivo</option>
+                                <option value="Direto">Direto</option>
+                                <option value="Formal">Formal</option>
+                                <option value="Amigável">Amigável</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="swr-com-label">Contexto (opcional)</label>
+                        <textarea id="swrc-contexto" class="swr-com-textarea" rows="2" placeholder="Ex.: reforçar conversa da semana passada..."></textarea>
+                    </div>
+                    <button type="button" id="swrc-gerar" class="swr-com-btn-gerar">Gerar mensagem com IA</button>
+
+                    <div id="swrc-preview" class="hidden">
+                        <div class="swr-com-msg-titulo">Mensagens geradas</div>
+                        <div class="swr-com-msg-box" id="swrc-texto"></div>
+                        <div class="swr-com-msg-acoes">
+                            <button type="button" class="swr-com-msg-btn" id="swrc-copiar">Copiar</button>
+                            <button type="button" class="swr-com-msg-btn swr-com-msg-btn-whatsapp" id="swrc-whatsapp">WhatsApp</button>
+                            <button type="button" class="swr-com-msg-btn swr-com-msg-btn-email" id="swrc-email">E-mail</button>
+                            <button type="button" class="swr-com-msg-btn" id="swrc-regenerar">Regenerar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="swrc-panel-historico" class="swr-com-panel-vazio hidden">
+                    Selecione um contato e use a aba "Gerar mensagem" para criar comunicações.
+                </div>
+                <div id="swrc-panel-modelos" class="swr-com-panel-vazio hidden">
+                    Modelos de mensagem em breve.
+                </div>
+            </section>
+        </div>
+    </div>
+</div>

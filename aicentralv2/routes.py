@@ -147,6 +147,22 @@ def _cliente_tipo_eh_parceiro(id_tipo_cliente):
     return 'parceiro' in display.lower()
 
 
+CLASSIFICACOES_CLIENTE = frozenset({'Prospecção', 'Ativo', 'Geladeira'})
+
+
+def _normalizar_classificacao_cliente(raw):
+    valor = (raw or 'Prospecção').strip()
+    if valor not in CLASSIFICACOES_CLIENTE:
+        raise ValueError('Classificação do cliente inválida.')
+    return valor
+
+
+def _normalizar_sim_nao(raw):
+    if raw is None:
+        return False
+    return str(raw).strip().lower() in {'1', 'true', 'on', 'sim', 's', 'yes', 'y'}
+
+
 def _comissao_row_to_js(r, opts_rows):
     """Monta dict só com tipos serializáveis em JSON (evita Decimal/datetime no |tojson)."""
     raw_pct = r.get('percentual')
@@ -1183,6 +1199,14 @@ def init_routes(app):
                 id_centralx = request.form.get('id_centralx', '').strip() or None
                 status_val = request.form.get('status', '1')
                 status = status_val == '1'
+                try:
+                    classificacao_cliente = _normalizar_classificacao_cliente(request.form.get('classificacao_cliente'))
+                except ValueError as ve:
+                    return _edit_error(str(ve))
+                opera_midia = _normalizar_sim_nao(request.form.get('opera_midia'))
+                demanda_dados = _normalizar_sim_nao(request.form.get('demanda_dados'))
+                demanda_programatica_canais = _normalizar_sim_nao(request.form.get('demanda_programatica_canais'))
+                observacoes_comerciais_adicionais = request.form.get('observacoes_comerciais_adicionais', '').strip() or None
                 
                 if not vendas_central_comm:
                     return _edit_error('Vendas CentralComm é obrigatório!')
@@ -1233,7 +1257,12 @@ def init_routes(app):
                     cidade=cidade,
                     rua=logradouro,
                     numero=numero,
-                    complemento=complemento
+                    complemento=complemento,
+                    classificacao_cliente=classificacao_cliente,
+                    opera_midia=opera_midia,
+                    demanda_dados=demanda_dados,
+                    demanda_programatica_canais=demanda_programatica_canais,
+                    observacoes_comerciais_adicionais=observacoes_comerciais_adicionais
                 ):
                     return _edit_error('Cliente não encontrado!')
                 
@@ -1245,7 +1274,16 @@ def init_routes(app):
                     registro_id=cliente_id,
                     registro_tipo='cliente',
                     dados_anteriores=dict(cliente),
-                    dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
+                    dados_novos={
+                        'nome_fantasia': nome_fantasia,
+                        'cnpj': cnpj,
+                        'pessoa': pessoa,
+                        'classificacao_cliente': classificacao_cliente,
+                        'opera_midia': opera_midia,
+                        'demanda_dados': demanda_dados,
+                        'demanda_programatica_canais': demanda_programatica_canais,
+                        'observacoes_comerciais_adicionais': observacoes_comerciais_adicionais,
+                    }
                 )
                 
                 if is_ajax:
@@ -3219,6 +3257,14 @@ def init_routes(app):
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
+                try:
+                    classificacao_cliente = _normalizar_classificacao_cliente(request.form.get('classificacao_cliente'))
+                except ValueError as ve:
+                    return _val_error(str(ve))
+                opera_midia = _normalizar_sim_nao(request.form.get('opera_midia'))
+                demanda_dados = _normalizar_sim_nao(request.form.get('demanda_dados'))
+                demanda_programatica_canais = _normalizar_sim_nao(request.form.get('demanda_programatica_canais'))
+                observacoes_comerciais_adicionais = request.form.get('observacoes_comerciais_adicionais', '').strip() or None
                 
                 if not vendas_central_comm:
                     return _val_error('Vendas CentralComm é obrigatório!')
@@ -3268,6 +3314,11 @@ def init_routes(app):
                     complemento=complemento,
                     percentual=percentual_valor,
                     margem_cc=margem_cc_novo,
+                    classificacao_cliente=classificacao_cliente,
+                    opera_midia=opera_midia,
+                    demanda_dados=demanda_dados,
+                    demanda_programatica_canais=demanda_programatica_canais,
+                    observacoes_comerciais_adicionais=observacoes_comerciais_adicionais,
                 )
                 
                 # Registro de auditoria
@@ -3277,7 +3328,16 @@ def init_routes(app):
                     descricao=f'Cliente criado: {nome_fantasia}',
                     registro_id=id_cliente,
                     registro_tipo='cliente',
-                    dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
+                    dados_novos={
+                        'nome_fantasia': nome_fantasia,
+                        'cnpj': cnpj,
+                        'pessoa': pessoa,
+                        'classificacao_cliente': classificacao_cliente,
+                        'opera_midia': opera_midia,
+                        'demanda_dados': demanda_dados,
+                        'demanda_programatica_canais': demanda_programatica_canais,
+                        'observacoes_comerciais_adicionais': observacoes_comerciais_adicionais,
+                    }
                 )
                 
                 # Criar plano padrão (id_plan_definition=1) automaticamente

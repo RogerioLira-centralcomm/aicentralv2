@@ -1073,7 +1073,11 @@ function scrollToBloco(num) {
   if (bloco) {
     const stepperHeight = 50;
     const y = bloco.getBoundingClientRect().top + window.pageYOffset - stepperHeight;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    if (window.scrollToSuave) {
+      window.scrollToSuave({ top: y });
+    } else {
+      window.scrollTo({ top: y, behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth' });
+    }
   }
 }
 

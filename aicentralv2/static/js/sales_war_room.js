@@ -8,9 +8,9 @@
     let modalClienteId = null;
     let chartInstances = {};
     let swrCliCache = [];
+    let swrContatosCache = [];
     let swrCliPage = 0;
     const SWR_CLI_PAGE_SIZE = 12;
-    let swrFiltrosAvancados = { categoria: '', pendencias: '' };
 
 
     // ==================== Helpers ====================
@@ -55,14 +55,73 @@
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     }
 
-    function badgeABC(cat) {
-        const colors = { A: 'badge-success', B: 'badge-warning', C: 'badge-error' };
-        return `<span class="badge swr-badge-abc ${colors[cat] || 'badge-ghost'}">${cat || '-'}</span>`;
-    }
-
     function debounce(fn, ms) {
         let t;
         return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+    }
+
+    function scrollIntoViewSuave(el, options) {
+        if (window.scrollIntoViewSuave) {
+            window.scrollIntoViewSuave(el, options);
+            return;
+        }
+        if (!el) return;
+        el.scrollIntoView(Object.assign({
+            behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth',
+            block: 'nearest'
+        }, options || {}));
+    }
+
+    function onlyDigits(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    function maskCpfCnpj(input) {
+        let v = onlyDigits(input.value);
+        if (v.length <= 11) {
+            v = v.slice(0, 11)
+                .replace(/(\d{3})(\d)/, '$1.$2')
+                .replace(/(\d{3})(\d)/, '$1.$2')
+                .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        } else {
+            v = v.slice(0, 14)
+                .replace(/^(\d{2})(\d)/, '$1.$2')
+                .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                .replace(/(\d{4})(\d)/, '$1-$2');
+        }
+        input.value = v;
+    }
+
+    function maskCep(input) {
+        input.value = onlyDigits(input.value).slice(0, 8).replace(/(\d{5})(\d)/, '$1-$2');
+    }
+
+    function maskPercentual(input) {
+        let v = onlyDigits(input.value).slice(0, 4);
+        if (!v) {
+            input.value = '';
+            return;
+        }
+        input.value = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
+    }
+
+    function maskMoneyBR(input, hiddenInput) {
+        const digits = onlyDigits(input.value);
+        if (!digits) {
+            input.value = '';
+            if (hiddenInput) hiddenInput.value = '';
+            return;
+        }
+        const value = parseInt(digits, 10) / 100;
+        input.value = value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        if (hiddenInput) hiddenInput.value = value.toFixed(2);
+    }
+
+    function isoDatePlusDays(days) {
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        return d.toISOString().slice(0, 10);
     }
 
     /** Carteira: é agência (cadastro Sim), vem da API como eh_agencia boolean */
@@ -70,6 +129,11 @@
         if (c.eh_agencia === true) return true;
         if (c.eh_agencia === false) return false;
         return c.is_agencia === true;
+    }
+
+    function clienteEhParceiroRegional(c) {
+        const tipo = String(c.tipo_cliente_display || '').toLowerCase();
+        return tipo.includes('parceiro');
     }
 
     function atualizarContadoresCarteira(clientes, perfil) {
@@ -121,8 +185,8 @@
 
     async function carregarClientes() {
         const execId = $('#filtro-executivo').value;
-        const tipo = $('.filtro-tipo.active')?.dataset.tipo || '';
-        const perfil = $('.filtro-perfil.active')?.dataset.perfil || '';
+        const tipo = $('#filtro-tipo')?.value || '';
+        const perfil = $('#filtro-perfil')?.value || '';
         const busca = $('#busca-cliente').value.trim();
         const container = $('#lista-clientes');
 
@@ -137,8 +201,6 @@
         try {
             const params = new URLSearchParams({ executivo_id: execId, tipo, busca });
             if (perfil) params.set('perfil', perfil);
-            if (swrFiltrosAvancados.categoria) params.set('categoria', swrFiltrosAvancados.categoria);
-            if (swrFiltrosAvancados.pendencias !== '') params.set('com_pendencias', swrFiltrosAvancados.pendencias);
             const data = await api(`/api/clientes?${params}`);
             swrCliCache = data.clientes || [];
             swrCliPage = 0;
@@ -165,28 +227,66 @@
     function renderClientesPagina() {
         const container = $('#lista-clientes');
         const total = swrCliCache.length;
-        const totalPages = Math.max(1, Math.ceil(total / SWR_CLI_PAGE_SIZE));
-        if (swrCliPage > totalPages - 1) swrCliPage = totalPages - 1;
-        if (swrCliPage < 0) swrCliPage = 0;
-        const start = swrCliPage * SWR_CLI_PAGE_SIZE;
-        const end = Math.min(start + SWR_CLI_PAGE_SIZE, total);
-        const pageItems = swrCliCache.slice(start, end);
 
-        container.innerHTML = pageItems.map(c => `
+        const order = ['Prospecção', 'Ativo', 'Geladeira'];
+        const labelFor = (c) => {
+            const v = (c.classificacao_cliente || '').trim();
+            return order.includes(v) ? v : 'Sem classificação';
+        };
+        const nomeFor = (c) => (c.nome_fantasia || c.razao_social || '').trim();
+        const grupos = new Map();
+        for (const c of swrCliCache) {
+            const label = labelFor(c);
+            if (!grupos.has(label)) grupos.set(label, []);
+            grupos.get(label).push(c);
+        }
+        for (const lista of grupos.values()) {
+            lista.sort((a, b) => nomeFor(a).localeCompare(nomeFor(b), 'pt-BR', { sensitivity: 'base' }));
+        }
+
+        const labels = order.concat([...grupos.keys()].filter(k => !order.includes(k)).sort((a, b) => a.localeCompare(b, 'pt-BR')));
+        const cardHtml = (c) => `
             <div class="swr-card ${c.id_cliente == clienteSelecionadoId ? 'swr-card-active' : ''}"
                  data-id="${c.id_cliente}">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
-                        <div class="swr-cliente-nome truncate">${(c.nome_fantasia || c.razao_social).toUpperCase()}</div>
+                        <div class="swr-cliente-nome truncate">${nomeFor(c).toUpperCase()}</div>
                         <div class="swr-cliente-subtitulo">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
                     </div>
-                    ${badgeABC(c.categoria_abc)}
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button type="button" class="swr-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
+                            ${ICON_EDIT}
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+
+        container.innerHTML = labels.map(label => {
+            const lista = grupos.get(label) || [];
+            if (!lista.length) return '';
+            const detailsOpen = label === 'Prospecção' || label === 'Ativo' || label === 'Geladeira';
+            return `
+                <details class="swr-classificacao-grupo" ${detailsOpen ? 'open' : ''} data-classificacao="${escapeHtml(label)}">
+                    <summary class="swr-classificacao-header">
+                        <span class="swr-classificacao-titulo">${escapeHtml(label)}</span>
+                        <span class="swr-classificacao-count">${lista.length}</span>
+                    </summary>
+                    <div class="swr-classificacao-lista">
+                        ${lista.map(cardHtml).join('')}
+                    </div>
+                </details>
+            `;
+        }).join('');
 
         $$('.swr-card', container).forEach(el => {
             el.addEventListener('click', () => selecionarCliente(parseInt(el.dataset.id)));
+        });
+
+        $$('.swr-cliente-edit', container).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                abrirModalEditarCliente(parseInt(btn.dataset.id, 10));
+            });
         });
 
         const footer = $('#swr-clientes-paginacao');
@@ -195,18 +295,7 @@
             totalEl.textContent = total;
             totalEl.classList.remove('hidden');
         }
-        if (footer) {
-            if (total > SWR_CLI_PAGE_SIZE) {
-                footer.classList.remove('hidden');
-                $('#swr-cli-info').textContent = `Exibindo ${start + 1}-${end} de ${total} clientes`;
-                const prev = $('#swr-cli-prev');
-                const next = $('#swr-cli-next');
-                if (prev) prev.disabled = swrCliPage === 0;
-                if (next) next.disabled = swrCliPage >= totalPages - 1;
-            } else {
-                footer.classList.add('hidden');
-            }
-        }
+        if (footer) footer.classList.add('hidden');
     }
 
     function selecionarCliente(id) {
@@ -220,17 +309,69 @@
         setTabAtividades('todas');
         carregarStatus(id);
         carregarContatos(id);
-        carregarAtividades(id);
+        if ($('#lista-atividades')) carregarAtividades(id);
         carregarObjetivos(id);
+        carregarCotacoesAbertas(id);
     }
 
     function limparColunas() {
         clienteSelecionadoId = null;
         contatoSelecionadoId = null;
+        swrContatosCache = [];
         showEmpty($('#area-status'), 'Selecione um cliente.');
         showEmpty($('#lista-contatos'), 'Selecione um cliente.');
-        showEmpty($('#lista-atividades'), 'Selecione um cliente.');
-        showEmpty($('#lista-objetivos'), 'Selecione um cliente.');
+        if ($('#lista-atividades')) showEmpty($('#lista-atividades'), 'Selecione um cliente.');
+        if ($('#lista-objetivos')) showEmpty($('#lista-objetivos'), 'Selecione um cliente.');
+        showEmpty($('#lista-cotacoes'), 'Selecione um cliente.');
+        const count = $('#swr-cotacoes-count');
+        if (count) count.textContent = '';
+    }
+
+    async function carregarCotacoesAbertas(clienteId) {
+        const container = $('#lista-cotacoes');
+        if (!container) return;
+        showSpinner(container);
+        try {
+            const data = await api(`/api/cliente/${clienteId}/cotacoes-abertas`);
+            renderCotacoesAbertas(data.cotacoes || []);
+        } catch (e) {
+            showEmpty(container, 'Erro ao carregar cotações.');
+            console.error(e);
+        }
+    }
+
+    function badgeStatusCotacao(status) {
+        const s = status || 'Rascunho';
+        const cls = s === 'Enviada' ? 'swr-cot-status-enviada' : (s === 'Em Análise' ? 'swr-cot-status-analise' : 'swr-cot-status-rascunho');
+        return `<span class="swr-cot-status ${cls}">${escapeHtml(s)}</span>`;
+    }
+
+    function renderCotacoesAbertas(cotacoes) {
+        const container = $('#lista-cotacoes');
+        const count = $('#swr-cotacoes-count');
+        if (!container) return;
+        if (count) count.textContent = cotacoes.length ? String(cotacoes.length) : '';
+        if (!cotacoes.length) {
+            showEmpty(container, 'Nenhuma cotação aberta para este cliente.');
+            return;
+        }
+        container.innerHTML = cotacoes.map(c => {
+            const titulo = c.numero_cotacao || `#${c.id}`;
+            const campanha = c.nome_campanha || 'Campanha sem nome';
+            return `
+                <a class="swr-cot-card" href="/cotacoes/${c.id}/detalhes">
+                    <div class="swr-cot-top">
+                        <span class="swr-cot-numero">${escapeHtml(titulo)}</span>
+                        ${badgeStatusCotacao(c.status)}
+                    </div>
+                    <div class="swr-cot-campanha">${escapeHtml(campanha)}</div>
+                    <div class="swr-cot-meta">
+                        <span>${fmtBRL(c.valor_total_proposta || 0)}</span>
+                        <span>${fmtDate(c.created_at)}</span>
+                    </div>
+                </a>
+            `;
+        }).join('');
     }
 
     // ==================== Column 2: Status ====================
@@ -383,7 +524,6 @@
                     <!-- Botões de ação -->
                     <div class="swr-status-action-buttons">
                         <button type="button" class="swr-btn-outline" id="btn-ver-mais-status">Ver mais dados</button>
-                        <button type="button" class="swr-btn-primary" id="btn-editar-cliente-swr">Editar cliente</button>
                     </div>
                 </div>
             `;
@@ -447,9 +587,6 @@
             }
         });
 
-        $('#btn-editar-cliente-swr')?.addEventListener('click', () => {
-            window.location.href = `/clientes?open=${clienteId}`;
-        });
     }
 
     // ==================== Column 3: Contatos ====================
@@ -459,14 +596,15 @@
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/contatos`);
-            popularComunicacaoContatos(data.contatos);
-            const totalContatos = data.contatos.length;
+            swrContatosCache = data.contatos || [];
+            popularComunicacaoContatos(swrContatosCache);
+            const totalContatos = swrContatosCache.length;
             if (!totalContatos) {
                 showEmpty(container, 'Nenhum contato cadastrado.');
                 return;
             }
 
-            const contatosVisiveis = data.contatos.slice(0, 5);
+            const contatosVisiveis = swrContatosCache.slice(0, 5);
             container.innerHTML = contatosVisiveis.map((c, idx) => {
                 const tel = (c.telefone || '').replace(/\D/g, '');
                 const telFormatado = c.telefone || '';
@@ -487,6 +625,9 @@
                             </div>
                             <div class="swr-contato-card-right">
                                 <div class="swr-contato-acoes-new">
+                                    <button type="button" class="swr-contato-icon swr-contato-objetivo-btn" data-contato-id="${c.id_contato_cliente}" title="Objetivos e comunicação" aria-label="Objetivos e comunicação">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 12l2 2 4-4"/></svg>
+                                    </button>
                                     ${tel ? `<a href="https://wa.me/55${tel}" target="_blank" class="swr-contato-icon swr-contato-icon-whatsapp" title="WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg></a>` : ''}
                                     ${tel ? `<a href="tel:+55${tel}" class="swr-contato-icon" title="Ligar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></a>` : ''}
                                     ${c.email ? `<a href="mailto:${c.email}" class="swr-contato-icon" title="E-mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>` : ''}
@@ -514,6 +655,23 @@
                     el.classList.add('swr-contato-card-active');
                     setTabAtividades('contato');
                     carregarAtividades(clienteSelecionadoId, id);
+                    atualizarResumoModalObjetivosComunicacao();
+                });
+            });
+
+            $$('.swr-contato-objetivo-btn', container).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const id = parseInt(btn.dataset.contatoId, 10);
+                    contatoSelecionadoId = id;
+                    $$('.swr-contato-card', container).forEach(e => {
+                        e.classList.toggle('swr-contato-card-active', parseInt(e.dataset.id, 10) === id);
+                    });
+                    setTabAtividades('contato');
+                    carregarAtividades(clienteSelecionadoId, id);
+                    atualizarResumoModalObjetivosComunicacao();
+                    abrirModalObjetivosComunicacao('gerar', '#input-objetivo');
                 });
             });
 
@@ -692,6 +850,7 @@
     async function carregarAtividades(clienteId, contatoId) {
         swrActCtx = { clienteId, contatoId };
         const container = $('#lista-atividades');
+        if (!container) return;
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/atividades`);
@@ -1467,6 +1626,50 @@
         }
     }
 
+    function contatoSelecionadoAtual() {
+        if (!contatoSelecionadoId) return null;
+        return swrContatosCache.find(c => String(c.id_contato_cliente) === String(contatoSelecionadoId)) || null;
+    }
+
+    function atualizarResumoModalObjetivosComunicacao() {
+        const contato = contatoSelecionadoAtual();
+        const resumo = $('#swr-oc-contato-resumo');
+        const card = $('#swr-oc-contato-card');
+        if (!resumo || !card) return;
+        if (!contato) {
+            resumo.textContent = 'Selecione um contato.';
+            card.innerHTML = '<div class="swr-empty-state">Selecione um contato para abrir este modal.</div>';
+            return;
+        }
+        const tel = contato.telefone || '';
+        resumo.textContent = contato.nome_completo || 'Contato selecionado';
+        card.innerHTML = `
+            <div class="swr-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</div>
+            <div class="swr-oc-contato-meta">
+                ${contato.cargo ? `<span>${escapeHtml(contato.cargo)}</span>` : ''}
+                ${contato.email ? `<span>${escapeHtml(contato.email)}</span>` : ''}
+                ${tel ? `<span>${escapeHtml(tel)}</span>` : ''}
+            </div>
+        `;
+    }
+
+    function abrirModalObjetivosComunicacao(tab = 'gerar', focusSel = null) {
+        if (!clienteSelecionadoId) {
+            showToast('Selecione um cliente.', 'warning');
+            return;
+        }
+        if (!contatoSelecionadoId) {
+            showToast('Selecione um contato.', 'warning');
+            return;
+        }
+        atualizarResumoModalObjetivosComunicacao();
+        setTabComunicacao(tab);
+        carregarObjetivos(clienteSelecionadoId);
+        const modal = $('#modal-objetivos-comunicacao');
+        modal?.showModal();
+        if (focusSel) setTimeout(() => $(focusSel)?.focus(), 150);
+    }
+
     function gerarComunicacaoSecao() {
         const objSel = $('#swrc-objetivo').value.trim();
         const tom = $('#swrc-tom').value.trim();
@@ -1474,7 +1677,7 @@
         let objetivo = objSel;
         if (tom) objetivo += objetivo ? ` (tom ${tom})` : `Mensagem em tom ${tom}`;
         return gerarComunicacaoCore({
-            contatoId: $('#swrc-contato').value || contatoSelecionadoId || null,
+            contatoId: $('#swrc-contato')?.value || contatoSelecionadoId || null,
             clienteId: clienteSelecionadoId,
             tipo: $('input[name="swrc-canal"]:checked')?.value || 'whatsapp',
             tamanho: 'medio',
@@ -1560,6 +1763,366 @@
         if (ok) sel.value = id;
     }
 
+    // ==================== Modal: Novo Cliente ====================
+
+    function setPessoaClienteModal(pessoa) {
+        const form = $('#swr-form-cliente');
+        if (!form) return;
+        const isPf = pessoa === 'F';
+        $$('input[name="pessoa"]', form).forEach(r => { r.checked = r.value === pessoa; });
+        $$('.swr-pessoa-toggle', form).forEach(label => {
+            const active = label.dataset.pessoa === pessoa;
+            label.classList.toggle('border-green-500', active);
+            label.classList.toggle('bg-green-50', active);
+            label.classList.toggle('text-green-700', active);
+            label.classList.toggle('border-gray-300', !active);
+            label.classList.toggle('bg-white', !active);
+            label.classList.toggle('text-gray-500', !active);
+        });
+
+        $('#swr-label-cnpj').textContent = isPf ? 'CPF' : 'CNPJ';
+        $('#swr-label-nome').textContent = isPf ? 'Nome Completo*' : 'Nome Fantasia*';
+        $('#swr-input-cnpj').placeholder = isPf ? 'CPF' : 'CNPJ';
+
+        const razaoWrap = $('#swr-razao-fields');
+        const tipoWrap = $('#swr-tipo-cliente-fields');
+        const agenciaWrap = $('#swr-agencia-fields');
+        const percentualWrap = $('#swr-percentual-fields');
+        const inscricoesWrap = $('#swr-inscricoes-fields');
+        const razao = $('#swr-input-razao');
+        const tipo = $('#swr-select-tipo-cliente');
+        const agencia = $('#swr-cliente-agencia');
+
+        razaoWrap?.classList.toggle('hidden', isPf);
+        tipoWrap?.classList.toggle('hidden', isPf);
+        agenciaWrap?.classList.toggle('hidden', isPf);
+        percentualWrap?.classList.toggle('hidden', isPf);
+        inscricoesWrap?.classList.toggle('hidden', isPf);
+
+        if (razao) razao.required = !isPf;
+        if (tipo) tipo.required = !isPf;
+        if (agencia) agencia.required = !isPf;
+    }
+
+    function setStatusClienteModal(ativo) {
+        const form = $('#swr-form-cliente');
+        if (!form) return;
+        const statusValue = ativo ? '1' : '0';
+        $$('input[name="status"]', form).forEach(r => { r.checked = r.value === statusValue; });
+        $$('.swr-status-toggle', form).forEach(label => {
+            const active = label.dataset.status === statusValue;
+            const isAtivo = label.dataset.status === '1';
+            label.classList.toggle('border-green-500', active && isAtivo);
+            label.classList.toggle('bg-green-50', active && isAtivo);
+            label.classList.toggle('text-green-700', active && isAtivo);
+            label.classList.toggle('border-red-500', active && !isAtivo);
+            label.classList.toggle('bg-red-50', active && !isAtivo);
+            label.classList.toggle('text-red-700', active && !isAtivo);
+            label.classList.toggle('border-gray-300', !active);
+            label.classList.toggle('bg-white', !active);
+            label.classList.toggle('text-gray-500', !active);
+        });
+    }
+
+    function setClienteFormValue(name, value) {
+        const el = $(`#swr-form-cliente [name="${name}"]`);
+        if (el) el.value = value ?? '';
+    }
+
+    function atualizarBvClienteModal() {
+        const tipo = $('#swr-select-tipo-cliente');
+        const agencia = $('#swr-cliente-agencia');
+        const wrap = $('#swr-percentual-fields');
+        if (!tipo || !agencia || !wrap) return;
+        const isParceiro = tipo.selectedOptions[0]?.dataset.parceiro === '1';
+        const isAgencia = agencia.selectedOptions[0]?.dataset.agenciaSim === '1';
+        const pessoa = $('#swr-form-cliente input[name="pessoa"]:checked')?.value || 'J';
+        wrap.classList.toggle('hidden', pessoa === 'F' || (!isParceiro && !isAgencia));
+        if (wrap.classList.contains('hidden')) {
+            const pct = $('#swr-cliente-percentual');
+            if (pct) pct.value = '';
+        }
+    }
+
+    function preselecionarExecutivoClienteModal() {
+        const selectVendas = $('#swr-cliente-vendedor');
+        if (!selectVendas) return;
+        const logged = String(window.SWR_LOGGED_USER_ID || '');
+        const filtro = $('#filtro-executivo')?.value || '';
+        const alvo = logged && [...selectVendas.options].some(opt => opt.value === logged)
+            ? logged
+            : filtro;
+        if (alvo && [...selectVendas.options].some(opt => opt.value === String(alvo))) {
+            selectVendas.value = String(alvo);
+        }
+    }
+
+    function abrirModalNovoCliente() {
+        const modal = $('#swr-modal-cliente');
+        const form = $('#swr-form-cliente');
+        if (!modal || !form) return;
+        form.reset();
+        $('#swr-cliente-id').value = '';
+        $('#swr-cliente-modal-title').textContent = 'Novo Cliente';
+        $('#swr-cliente-submit').textContent = 'Cadastrar';
+        $('#swr-status-fields')?.classList.add('hidden');
+        $('#swr-classificacao-cliente').value = 'Prospecção';
+        setClienteFormValue('opera_midia', '0');
+        setClienteFormValue('demanda_dados', '0');
+        setClienteFormValue('demanda_programatica_canais', '0');
+        setClienteFormValue('observacoes_comerciais_adicionais', '');
+        setStatusClienteModal(true);
+        setPessoaClienteModal('J');
+        preselecionarExecutivoClienteModal();
+        atualizarBvClienteModal();
+        modal.showModal();
+        setTimeout(() => $('#swr-input-nome')?.focus(), 50);
+    }
+
+    async function abrirModalEditarCliente(clienteId) {
+        const modal = $('#swr-modal-cliente');
+        const form = $('#swr-form-cliente');
+        if (!modal || !form || !clienteId) return;
+        form.reset();
+        $('#swr-cliente-modal-title').textContent = 'Carregando cliente...';
+        $('#swr-cliente-submit').textContent = 'Atualizar';
+        $('#swr-status-fields')?.classList.remove('hidden');
+        modal.showModal();
+
+        try {
+            const response = await fetch(`/api/cliente/${clienteId}`);
+            const cliente = await response.json();
+            if (!response.ok || cliente.error) {
+                throw new Error(cliente.error || 'Erro ao carregar cliente.');
+            }
+
+            $('#swr-cliente-modal-title').textContent = cliente.nome_fantasia || cliente.razao_social || 'Editar Cliente';
+            $('#swr-cliente-id').value = clienteId;
+            setPessoaClienteModal(cliente.pessoa || 'J');
+            setStatusClienteModal(cliente.status !== false);
+
+            setClienteFormValue('cnpj', cliente.cnpj || '');
+            setClienteFormValue('nome_fantasia', cliente.nome_fantasia || '');
+            setClienteFormValue('razao_social', cliente.razao_social || '');
+            setClienteFormValue('id_tipo_cliente', cliente.id_tipo_cliente || '');
+            setClienteFormValue('classificacao_cliente', cliente.classificacao_cliente || 'Prospecção');
+            setClienteFormValue('opera_midia', cliente.opera_midia ? '1' : '0');
+            setClienteFormValue('demanda_dados', cliente.demanda_dados ? '1' : '0');
+            setClienteFormValue('demanda_programatica_canais', cliente.demanda_programatica_canais ? '1' : '0');
+            setClienteFormValue('observacoes_comerciais_adicionais', cliente.observacoes_comerciais_adicionais || '');
+            setClienteFormValue('vendas_central_comm', cliente.vendas_central_comm || '');
+            setClienteFormValue('pk_id_tbl_agencia', cliente.pk_id_tbl_agencia || '');
+            setClienteFormValue('margem_cc', cliente.margem_cc === null || cliente.margem_cc === undefined ? '' : String(parseInt(cliente.margem_cc, 10)));
+            setClienteFormValue('percentual', cliente.percentual ? parseFloat(cliente.percentual).toFixed(2).replace('.', ',') : '');
+            setClienteFormValue('inscricao_estadual', cliente.inscricao_estadual || '');
+            setClienteFormValue('inscricao_municipal', cliente.inscricao_municipal || '');
+            setClienteFormValue('cep', cliente.cep || '');
+            setClienteFormValue('pk_id_aux_estado', cliente.estado || cliente.pk_id_aux_estado || '');
+            setClienteFormValue('cidade', cliente.cidade || '');
+            setClienteFormValue('bairro', cliente.bairro || '');
+            setClienteFormValue('logradouro', cliente.logradouro || '');
+            setClienteFormValue('numero', cliente.numero || '');
+            setClienteFormValue('complemento', cliente.complemento || '');
+            atualizarBvClienteModal();
+        } catch (e) {
+            console.error(e);
+            modal.close();
+            showToast(e.message || 'Erro ao carregar cliente.', 'error');
+        }
+    }
+
+    async function salvarNovoClienteWarRoom(ev) {
+        ev.preventDefault();
+        const form = $('#swr-form-cliente');
+        const modal = $('#swr-modal-cliente');
+        const btn = $('#swr-cliente-submit');
+        if (!form || !modal) return;
+        const clienteId = $('#swr-cliente-id')?.value || '';
+        const formData = new FormData(form);
+        formData.set('_return_json', '1');
+
+        btn?.classList.add('loading');
+        if (btn) btn.disabled = true;
+        try {
+            const url = clienteId ? `/clientes/${clienteId}/editar` : '/clientes/novo';
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                redirect: 'manual'
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.message || 'Erro ao salvar cliente.');
+            }
+
+            modal.close();
+            if (data.warning) showToast(data.warning, 'warning');
+            showToast(clienteId ? 'Cliente atualizado.' : `Cliente "${data.nome_fantasia || 'novo'}" criado.`, 'success');
+
+            const vendedorId = formData.get('vendas_central_comm');
+            const filtroExec = $('#filtro-executivo');
+            if (!clienteId && filtroExec && !filtroExec.value && vendedorId) {
+                filtroExec.value = vendedorId;
+                atualizarLinksPaginasConsolidadas();
+            }
+            await carregarClientes();
+            const idParaSelecionar = data.id_cliente || clienteId;
+            if (idParaSelecionar && swrCliCache.some(c => String(c.id_cliente) === String(idParaSelecionar))) {
+                selecionarCliente(parseInt(idParaSelecionar, 10));
+            }
+        } catch (e) {
+            console.error(e);
+            showToast(e.message || 'Erro ao salvar cliente.', 'error');
+        } finally {
+            btn?.classList.remove('loading');
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    // ==================== Modal: Nova Cotação ====================
+
+    function preselecionarResponsavelCotacao(clienteData = {}) {
+        const selectResp = $('#swr-cotacao-responsavel');
+        if (!selectResp) return;
+        const logged = String(window.SWR_LOGGED_USER_ID || '');
+        const filtro = $('#filtro-executivo')?.value || '';
+        const clienteResp = clienteData.vendas_central_comm ? String(clienteData.vendas_central_comm) : '';
+        const candidatos = [logged, clienteResp, filtro].filter(Boolean);
+        const alvo = candidatos.find(id => [...selectResp.options].some(opt => opt.value === String(id)));
+        if (alvo) selectResp.value = String(alvo);
+    }
+
+    function atualizarDuracaoCotacao() {
+        const inicio = $('#swr-cotacao-inicio')?.value;
+        const fim = $('#swr-cotacao-fim')?.value;
+        const out = $('#swr-cotacao-duracao');
+        if (!out) return;
+        if (!inicio || !fim) {
+            out.value = '';
+            return;
+        }
+        const d1 = new Date(`${inicio}T00:00:00`);
+        const d2 = new Date(`${fim}T00:00:00`);
+        const diff = Math.round((d2 - d1) / 86400000) + 1;
+        out.value = diff > 0 ? `${diff} dia(s)` : '';
+    }
+
+    async function carregarContatosCotacao(clienteId, selectSelector = '#swr-cotacao-contato') {
+        const selectContato = $(selectSelector);
+        if (!selectContato) return;
+        if (!clienteId) {
+            selectContato.innerHTML = '<option value="">Selecione o contato</option>';
+            return;
+        }
+        selectContato.innerHTML = '<option value="">Carregando contatos...</option>';
+        try {
+            const data = await api(`/api/cliente/${clienteId}/contatos`);
+            const contatos = data.contatos || [];
+            selectContato.innerHTML = '<option value="">Selecione o contato</option>' + contatos.map(c => (
+                `<option value="${c.id_contato_cliente}">${escapeHtml(c.nome_completo)}${c.email ? ` · ${escapeHtml(c.email)}` : ''}</option>`
+            )).join('');
+        } catch (e) {
+            console.error(e);
+            selectContato.innerHTML = '<option value="">Erro ao carregar contatos</option>';
+        }
+    }
+
+    async function abrirModalNovaCotacao(clienteId) {
+        const modal = $('#swr-modal-cotacao');
+        const form = $('#swr-form-cotacao');
+        if (!modal || !form) return;
+        const id = clienteId || clienteSelecionadoId;
+        if (!id) {
+            showToast('Selecione um cliente.', 'warning');
+            return;
+        }
+
+        form.reset();
+        $('#swr-cotacao-client-id').value = '';
+        $('#swr-cotacao-inicio').value = isoDatePlusDays(7);
+        $('#swr-cotacao-fim').value = isoDatePlusDays(37);
+        $('#swr-cotacao-valor-total-hidden').value = '';
+        $('#swr-cotacao-budget-hidden').value = '';
+        $('#swr-cotacao-cliente-select').value = '';
+        $('#swr-cotacao-agencia').value = '';
+        $('#swr-cotacao-parceiro').value = '';
+        $('#swr-cotacao-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#swr-cotacao-agencia-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#swr-cotacao-parceiro-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#swr-cotacao-briefing-nome')?.classList.add('hidden');
+        if ($('#swr-cotacao-briefing-nome')) $('#swr-cotacao-briefing-nome').textContent = '';
+        atualizarDuracaoCotacao();
+
+        const clienteCache = swrCliCache.find(c => String(c.id_cliente) === String(id)) || {};
+        preselecionarResponsavelCotacao(clienteCache);
+        let focoInicial = '#swr-cotacao-nome';
+        if (clienteEhAgencia(clienteCache)) {
+            $('#swr-cotacao-agencia').value = String(id);
+            carregarContatosCotacao(id, '#swr-cotacao-agencia-contato');
+            focoInicial = '#swr-cotacao-agencia';
+        } else if (clienteEhParceiroRegional(clienteCache)) {
+            $('#swr-cotacao-parceiro').value = String(id);
+            carregarContatosCotacao(id, '#swr-cotacao-parceiro-contato');
+            focoInicial = '#swr-cotacao-parceiro';
+        } else {
+            $('#swr-cotacao-client-id').value = id;
+            $('#swr-cotacao-cliente-select').value = String(id);
+            carregarContatosCotacao(id);
+        }
+
+        modal.showModal();
+        setTimeout(() => $(focoInicial)?.focus(), 50);
+
+        try {
+            const response = await fetch(`/api/cliente/${id}`);
+            if (response.ok) {
+                const cliente = await response.json();
+                preselecionarResponsavelCotacao(cliente);
+            }
+        } catch (e) {
+            console.warn('Não foi possível pré-selecionar responsável pelo cliente.', e);
+        }
+    }
+
+    async function salvarNovaCotacaoWarRoom(ev) {
+        ev.preventDefault();
+        const form = $('#swr-form-cotacao');
+        const modal = $('#swr-modal-cotacao');
+        const btn = $('#swr-cotacao-submit');
+        const clienteId = $('#swr-cotacao-client-id')?.value;
+        if (!form || !modal || !clienteId) {
+            showToast('Selecione um cliente.', 'warning');
+            return;
+        }
+
+        const formData = new FormData(form);
+        btn?.classList.add('loading');
+        if (btn) btn.disabled = true;
+        try {
+            const response = await fetch(`${BASE}/api/cliente/${clienteId}/cotacoes`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.error || 'Erro ao criar cotação.');
+            }
+            modal.close();
+            showToast(`Cotação ${data.numero_cotacao || ''} criada.`, 'success');
+            if (data.warning) showToast(data.warning, 'warning');
+            if (clienteSelecionadoId) {
+                carregarStatus(parseInt(clienteSelecionadoId, 10));
+                carregarCotacoesAbertas(parseInt(clienteSelecionadoId, 10));
+            }
+        } catch (e) {
+            console.error(e);
+            showToast(e.message || 'Erro ao criar cotação.', 'error');
+        } finally {
+            btn?.classList.remove('loading');
+            if (btn) btn.disabled = false;
+        }
+    }
+
     // ==================== Init & Event Bindings ====================
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -1572,21 +2135,8 @@
             carregarClientes();
         });
 
-        $$('.filtro-tipo').forEach(btn => {
-            btn.addEventListener('click', () => {
-                $$('.filtro-tipo').forEach(b => b.classList.remove('active', 'btn-primary'));
-                btn.classList.add('active', 'btn-primary');
-                carregarClientes();
-            });
-        });
-
-        $$('.filtro-perfil').forEach(btn => {
-            btn.addEventListener('click', () => {
-                $$('.filtro-perfil').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                carregarClientes();
-            });
-        });
+        $('#filtro-tipo')?.addEventListener('change', carregarClientes);
+        $('#filtro-perfil')?.addEventListener('change', carregarClientes);
 
         $('#busca-cliente').addEventListener('input', debounce(carregarClientes, 300));
 
@@ -1612,46 +2162,22 @@
             if (swrCliPage < totalPages - 1) { swrCliPage++; renderClientesPagina(); }
         });
 
-        // ---- Filtros avançados (header + ícone na coluna Clientes) ----
-        $('#swr-clientes-filtro')?.addEventListener('click', () => {
-            const det = $('#swr-filtros-avancados');
-            if (det) det.open = !det.open;
-        });
-        $('#swr-fa-aplicar')?.addEventListener('click', () => {
-            swrFiltrosAvancados.categoria = $('#swr-fa-categoria')?.value || '';
-            swrFiltrosAvancados.pendencias = $('#swr-fa-pendencias')?.value ?? '';
-            const det = $('#swr-filtros-avancados'); if (det) det.open = false;
-            carregarClientes();
-        });
-        $('#swr-fa-limpar')?.addEventListener('click', () => {
-            swrFiltrosAvancados = { categoria: '', pendencias: '' };
-            if ($('#swr-fa-categoria')) $('#swr-fa-categoria').value = '';
-            if ($('#swr-fa-pendencias')) $('#swr-fa-pendencias').value = '';
-            const det = $('#swr-filtros-avancados'); if (det) det.open = false;
-            carregarClientes();
-        });
-
         // ---- Botões de ação no header ----
         function focarColuna(sel, inputSel) {
             if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
             const col = $(sel);
-            if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            scrollIntoViewSuave(col);
             const inp = inputSel ? $(inputSel) : null;
             if (inp) setTimeout(() => inp.focus(), 250);
         }
+        $('#swr-btn-novo-cliente')?.addEventListener('click', abrirModalNovoCliente);
+        $('#btn-nova-cotacao-swr')?.addEventListener('click', () => abrirModalNovaCotacao(clienteSelecionadoId));
         $('#swr-btn-nova-atividade')?.addEventListener('click', () => {
             if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
             setTabAtividades('todas');
             renderAtividades();
             focarColuna('#col-atividades', '#input-atividade');
         });
-        $('#swr-btn-novo-objetivo')?.addEventListener('click', () => focarColuna('#col-objetivos', '#input-objetivo'));
-        $('#swr-btn-nova-mensagem')?.addEventListener('click', () => {
-            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
-            setTabComunicacao('gerar');
-            focarColuna('#swr-comunicacao', '#swrc-objetivo');
-        });
-
         // ---- Exportar (CSV) ----
         function exportarCSV(tipo) {
             const execId = $('#filtro-executivo')?.value;
@@ -1664,9 +2190,52 @@
         $('#swr-export-atividades')?.addEventListener('click', () => exportarCSV('atividades'));
         $('#swr-export-objetivos')?.addEventListener('click', () => exportarCSV('objetivos'));
 
+        // ---- Modal Novo Cliente ----
+        $('#swr-form-cliente')?.addEventListener('submit', salvarNovoClienteWarRoom);
+        $('#swr-cliente-close')?.addEventListener('click', () => $('#swr-modal-cliente')?.close());
+        $('#swr-cliente-cancel')?.addEventListener('click', () => $('#swr-modal-cliente')?.close());
+        $$('#swr-form-cliente input[name="pessoa"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                setPessoaClienteModal(radio.value);
+                atualizarBvClienteModal();
+            });
+        });
+        $$('#swr-form-cliente input[name="status"]').forEach(radio => {
+            radio.addEventListener('change', () => setStatusClienteModal(radio.value === '1'));
+        });
+        $('#swr-input-cnpj')?.addEventListener('input', ev => maskCpfCnpj(ev.target));
+        $('#swr-cliente-cep')?.addEventListener('input', ev => maskCep(ev.target));
+        $('#swr-cliente-percentual')?.addEventListener('input', ev => maskPercentual(ev.target));
+        $('#swr-select-tipo-cliente')?.addEventListener('change', atualizarBvClienteModal);
+        $('#swr-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
+
+        // ---- Modal Nova Cotação ----
+        $('#swr-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoWarRoom);
+        $('#swr-cotacao-close')?.addEventListener('click', () => $('#swr-modal-cotacao')?.close());
+        $('#swr-cotacao-cancel')?.addEventListener('click', () => $('#swr-modal-cotacao')?.close());
+        $('#swr-cotacao-valor-total')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#swr-cotacao-valor-total-hidden')));
+        $('#swr-cotacao-budget')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#swr-cotacao-budget-hidden')));
+        $('#swr-cotacao-inicio')?.addEventListener('change', atualizarDuracaoCotacao);
+        $('#swr-cotacao-fim')?.addEventListener('change', atualizarDuracaoCotacao);
+        $('#swr-cotacao-cliente-select')?.addEventListener('change', ev => {
+            $('#swr-cotacao-client-id').value = ev.target.value || '';
+            carregarContatosCotacao(ev.target.value, '#swr-cotacao-contato');
+        });
+        $('#swr-cotacao-agencia')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#swr-cotacao-agencia-contato'));
+        $('#swr-cotacao-parceiro')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#swr-cotacao-parceiro-contato'));
+        $('#swr-cotacao-briefing-dropzone')?.addEventListener('click', () => $('#swr-cotacao-briefing-arquivo')?.click());
+        $('#swr-cotacao-briefing-arquivo')?.addEventListener('change', ev => {
+            const file = ev.target.files?.[0];
+            const label = $('#swr-cotacao-briefing-nome');
+            if (!label) return;
+            label.textContent = file ? file.name : '';
+            label.classList.toggle('hidden', !file);
+        });
+
         // ---- Seção Comunicação (coluna 5) ----
         bindComunicacaoSecao();
         setTabComunicacao('gerar');
+        $('#swr-oc-close')?.addEventListener('click', () => $('#modal-objetivos-comunicacao')?.close());
 
         $$('[data-modal-tab]').forEach(tab => {
             tab.addEventListener('click', () => {

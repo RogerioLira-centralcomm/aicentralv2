@@ -1265,7 +1265,11 @@ document.addEventListener('DOMContentLoaded', function() {
   if (window.location.hash) {
     var el = document.querySelector(window.location.hash);
     if (el) {
-      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+      if (window.scrollIntoViewSuave) {
+        window.scrollIntoViewSuave(el, { block: 'center' });
+      } else {
+        el.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'center' });
+      }
       el.classList.add('bg-yellow-50');
       setTimeout(function() { el.classList.remove('bg-yellow-50'); }, 2500);
     }

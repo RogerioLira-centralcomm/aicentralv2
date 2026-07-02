@@ -114,7 +114,12 @@
     var planId = document.getElementById('selectedPlanId').value;
     if (!planId) {
       document.getElementById('planError').classList.remove('hidden');
-      document.querySelector('.plan-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var planCard = document.querySelector('.plan-card');
+      if (window.scrollIntoViewSuave) {
+        window.scrollIntoViewSuave(planCard, { block: 'center' });
+      } else if (planCard) {
+        planCard.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'center' });
+      }
       return false;
     }
 

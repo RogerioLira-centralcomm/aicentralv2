@@ -23,6 +23,72 @@
   #form_contato select {
     min-width: 0;
   }
+
+  .clientes-lista-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .clientes-lista-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .clientes-lista-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .clientes-lista-scroll::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+
+  .clientes-lista-scroll::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  #modal_cliente .scroll-suave,
+  #modal_detalhes .scroll-suave {
+    scroll-behavior: smooth;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  #modal_cliente .scroll-suave::-webkit-scrollbar,
+  #modal_detalhes .scroll-suave::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  #modal_cliente .scroll-suave::-webkit-scrollbar-track,
+  #modal_detalhes .scroll-suave::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  #modal_cliente .scroll-suave::-webkit-scrollbar-thumb,
+  #modal_detalhes .scroll-suave::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+
+  #modal_cliente .scroll-suave::-webkit-scrollbar-thumb:hover,
+  #modal_detalhes .scroll-suave::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .clientes-lista-scroll,
+    #modal_cliente .scroll-suave,
+    #modal_detalhes .scroll-suave {
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 
 <div class="max-w-full mx-auto px-1">
@@ -141,7 +207,7 @@
   <!-- Tabela de Clientes -->
   <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if clientes %}
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto clientes-lista-scroll">
         <table class="w-full text-[10px]" id="tabela_clientes">
           <thead class="bg-gray-100">
             <tr>
@@ -355,7 +421,7 @@
     </div>
     
     <!-- Conteúdo -->
-    <div class="p-4 overflow-y-auto flex-1 min-h-0">
+    <div class="p-4 overflow-y-auto scroll-suave flex-1 min-h-0">
       <!-- Conteúdo Editar -->
       <form id="form_cliente" method="post" class="space-y-2 modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
@@ -427,7 +493,15 @@
               {% endfor %}
             </select>
           </div>
-          <div class="form-control col-span-1 md:col-span-5">
+          <div class="form-control col-span-1 md:col-span-3">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Classificação</label>
+            <select name="classificacao_cliente" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <option value="Prospecção" selected>Prospecção</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Geladeira">Geladeira</option>
+            </select>
+          </div>
+          <div class="form-control col-span-1 md:col-span-4">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas*</label>
             <select name="vendas_central_comm" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -448,6 +522,38 @@
           <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
             <label id="percentual_label" class="text-[10px] font-medium text-gray-600 mb-0.5">BV (%)</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+          </div>
+        </div>
+
+        <!-- Campos comerciais adicionais -->
+        <div class="border-t border-gray-200 pt-2 mt-2">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2">Campos Comerciais</h4>
+          <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
+            <div class="form-control col-span-1 md:col-span-3">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Opera mídia?</label>
+              <select name="opera_midia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="0" selected>Não</option>
+                <option value="1">Sim</option>
+              </select>
+            </div>
+            <div class="form-control col-span-1 md:col-span-3">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Tem demanda por dados?</label>
+              <select name="demanda_dados" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="0" selected>Não</option>
+                <option value="1">Sim</option>
+              </select>
+            </div>
+            <div class="form-control col-span-2 md:col-span-6">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Tem demanda por programática e outros canais?</label>
+              <select name="demanda_programatica_canais" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="0" selected>Não</option>
+                <option value="1">Sim</option>
+              </select>
+            </div>
+            <div class="form-control col-span-2 md:col-span-12">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Observações comerciais adicionais</label>
+              <textarea name="observacoes_comerciais_adicionais" rows="2" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 resize-none" placeholder="Observações comerciais relevantes..."></textarea>
+            </div>
           </div>
         </div>
 
@@ -552,7 +658,7 @@
           </button>
         </div>
         
-        <div class="bg-gray-50 rounded-lg p-3 max-h-[55vh] overflow-y-auto">
+        <div class="bg-gray-50 rounded-lg p-3 max-h-[55vh] overflow-y-auto scroll-suave">
           <div id="lista_contatos_aba">
             <!-- Conteúdo via JavaScript -->
           </div>
@@ -587,7 +693,7 @@
 
 <!-- Modal de Detalhes do Cliente -->
 <dialog id="modal_detalhes" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto p-4">
+  <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto scroll-suave p-4">
     <form method="dialog">
       <button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
@@ -867,6 +973,16 @@ function abrirModalNovo() {
   document.getElementById('cnpjcpf_msg').innerText = '';
   const inpMargem = document.querySelector('#form_cliente input[name="margem_cc"]');
   if (inpMargem) inpMargem.value = '';
+  const selClassificacao = document.querySelector('#form_cliente select[name="classificacao_cliente"]');
+  if (selClassificacao) selClassificacao.value = 'Prospecção';
+  const selOperaMidia = document.querySelector('#form_cliente select[name="opera_midia"]');
+  if (selOperaMidia) selOperaMidia.value = '0';
+  const selDemandaDados = document.querySelector('#form_cliente select[name="demanda_dados"]');
+  if (selDemandaDados) selDemandaDados.value = '0';
+  const selDemandaProgramatica = document.querySelector('#form_cliente select[name="demanda_programatica_canais"]');
+  if (selDemandaProgramatica) selDemandaProgramatica.value = '0';
+  const obsComerciais = document.querySelector('#form_cliente textarea[name="observacoes_comerciais_adicionais"]');
+  if (obsComerciais) obsComerciais.value = '';
   const hintMargem = document.getElementById('margem_cc_hint');
   if (hintMargem) hintMargem.textContent = '';
 
@@ -928,6 +1044,16 @@ async function abrirModalEditar(clienteId) {
     document.getElementById('input_cnpj').value = cliente.cnpj || '';
     document.getElementById('input_razao_social').value = cliente.razao_social || '';
     document.getElementById('input_nome_fantasia').value = cliente.nome_fantasia || '';
+    const selClassificacao = document.querySelector('#form_cliente select[name="classificacao_cliente"]');
+    if (selClassificacao) selClassificacao.value = cliente.classificacao_cliente || 'Prospecção';
+    const selOperaMidia = document.querySelector('#form_cliente select[name="opera_midia"]');
+    if (selOperaMidia) selOperaMidia.value = cliente.opera_midia ? '1' : '0';
+    const selDemandaDados = document.querySelector('#form_cliente select[name="demanda_dados"]');
+    if (selDemandaDados) selDemandaDados.value = cliente.demanda_dados ? '1' : '0';
+    const selDemandaProgramatica = document.querySelector('#form_cliente select[name="demanda_programatica_canais"]');
+    if (selDemandaProgramatica) selDemandaProgramatica.value = cliente.demanda_programatica_canais ? '1' : '0';
+    const obsComerciais = document.querySelector('#form_cliente textarea[name="observacoes_comerciais_adicionais"]');
+    if (obsComerciais) obsComerciais.value = cliente.observacoes_comerciais_adicionais || '';
     
     // Inscrições
     document.querySelector('input[name="inscricao_estadual"]').value = cliente.inscricao_estadual || '';
@@ -2530,7 +2656,11 @@ async function enviarConviteContato(contatoId, email, nomeContato) {
       await carregarContatosAba(clienteId);
       const row = document.querySelector(`tr[data-contato-id="${contatoId}"]`);
       if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (window.scrollIntoViewSuave) {
+          window.scrollIntoViewSuave(row, { block: 'center' });
+        } else {
+          row.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'center' });
+        }
         row.style.transition = 'background-color 0.3s ease';
         row.style.backgroundColor = '#d1fae5';
         setTimeout(() => { row.style.backgroundColor = ''; }, 3000);

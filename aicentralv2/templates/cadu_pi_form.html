@@ -898,7 +898,11 @@
 
       alvo.classList.add('border-blue-400', 'ring-2', 'ring-blue-200');
       alvo.focus();
-      alvo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (window.scrollIntoViewSuave) {
+        window.scrollIntoViewSuave(alvo);
+      } else {
+        alvo.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'nearest' });
+      }
       setTimeout(function() { alvo.classList.remove('border-blue-400', 'ring-2', 'ring-blue-200'); }, 3000);
     }, 150);
   }

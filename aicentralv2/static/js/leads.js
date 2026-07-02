@@ -423,7 +423,11 @@ function highlightContactInWorkspace(contatoId) {
     const card = document.querySelector(`.contact-card[data-contact-id="${contatoId}"]`);
     if (card) {
         card.classList.add('contact-card-selected');
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (window.scrollIntoViewSuave) {
+            window.scrollIntoViewSuave(card);
+        } else {
+            card.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'nearest' });
+        }
     }
 }
 

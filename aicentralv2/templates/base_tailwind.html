@@ -71,6 +71,25 @@
             background: #a0aec0;
         }
 
+        html,
+        body,
+        .scroll-suave {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .scroll-suave {
+            overflow-y: auto;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html,
+            body,
+            .scroll-suave {
+                scroll-behavior: auto !important;
+            }
+        }
+
         /* Busca PI compacta — sobrescreve DaisyUI input-sm que força height:2rem */
         #nav-busca-pi-input {
             height: 20px !important;
@@ -227,7 +246,7 @@
         }
     </style>
 </head>
-<body class="bg-base-100 font-sans no-fouc">
+<body class="bg-base-100 font-sans no-fouc scroll-suave">
     <!-- Toast: popover quando não há modal; com modal nativo aberto, sobe para #toast-stack-modal (top layer acima do escuro). -->
     <div id="toast-container" popover="manual" aria-live="polite"></div>
     <dialog id="toast-stack-modal" class="toast-stack-modal" aria-label="Notificações"></dialog>
@@ -1152,6 +1171,26 @@
                 d.showModal();
             };
         })();
+    </script>
+
+    <script>
+        window.getScrollBehavior = function () {
+            return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        };
+
+        window.scrollIntoViewSuave = function (element, options) {
+            if (!element) return;
+            element.scrollIntoView(Object.assign({
+                behavior: window.getScrollBehavior(),
+                block: 'nearest'
+            }, options || {}));
+        };
+
+        window.scrollToSuave = function (options) {
+            window.scrollTo(Object.assign({
+                behavior: window.getScrollBehavior()
+            }, options || {}));
+        };
     </script>
 
     {% block scripts %}{% endblock %}

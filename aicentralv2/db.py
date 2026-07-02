@@ -237,6 +237,53 @@ def init_db(app):
                 END $$;
             ''')
 
+            # Garantir classificação comercial independente do cliente
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'classificacao_cliente'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN classificacao_cliente VARCHAR(20) DEFAULT 'Prospecção';
+                    END IF;
+                END $$;
+            ''')
+
+            # Garantir campos comerciais do cliente
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'opera_midia'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN opera_midia BOOLEAN DEFAULT FALSE;
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'demanda_dados'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN demanda_dados BOOLEAN DEFAULT FALSE;
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'demanda_programatica_canais'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN demanda_programatica_canais BOOLEAN DEFAULT FALSE;
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'observacoes_comerciais_adicionais'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN observacoes_comerciais_adicionais TEXT;
+                    END IF;
+                END $$;
+            ''')
+
             # Removido: pk_id_contato_vendas não faz parte do schema
 
             # Criar tabela cadu_user_invites
@@ -1124,6 +1171,11 @@ def obter_cliente_por_id(id_cliente):
                 c.id_tipo_cliente,
                 c.pk_id_aux_estado,
                 c.vendas_central_comm,
+                COALESCE(c.classificacao_cliente, 'Prospecção') AS classificacao_cliente,
+                COALESCE(c.opera_midia, FALSE) AS opera_midia,
+                COALESCE(c.demanda_dados, FALSE) AS demanda_dados,
+                COALESCE(c.demanda_programatica_canais, FALSE) AS demanda_programatica_canais,
+                c.observacoes_comerciais_adicionais,
                 c.percentual,
                 c.margem_cc,
                 c.data_cadastro,
@@ -1146,7 +1198,8 @@ def obter_cliente_por_id(id_cliente):
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None, percentual=None, margem_cc=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, percentual=None, margem_cc=None, classificacao_cliente='Prospecção',
+                opera_midia=False, demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -1157,16 +1210,18 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                    percentual, margem_cc
+                    percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                    demanda_programatica_canais, observacoes_comerciais_adicionais
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s
+                    %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                percentual, margem_cc
+                percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                demanda_programatica_canais, observacoes_comerciais_adicionais
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -1180,7 +1235,8 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
                      numero=None, complemento=None, cep=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
-                     percentual=None, margem_cc=None):
+                     percentual=None, margem_cc=None, classificacao_cliente='Prospecção', opera_midia=False,
+                     demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -1206,6 +1262,11 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     id_tipo_cliente = %s,
                     percentual = %s,
                     margem_cc = %s,
+                    classificacao_cliente = %s,
+                    opera_midia = %s,
+                    demanda_dados = %s,
+                    demanda_programatica_canais = %s,
+                    observacoes_comerciais_adicionais = %s,
                     vendas_central_comm = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
@@ -1213,7 +1274,8 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
-                percentual, margem_cc, vendas_central_comm, id_cliente
+                percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                demanda_programatica_canais, observacoes_comerciais_adicionais, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
@@ -7623,6 +7685,11 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
                 cli.cnpj,
                 cli.status,
                 cli.categoria_abc,
+                COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao_cliente,
+                COALESCE(cli.opera_midia, FALSE) AS opera_midia,
+                COALESCE(cli.demanda_dados, FALSE) AS demanda_dados,
+                COALESCE(cli.demanda_programatica_canais, FALSE) AS demanda_programatica_canais,
+                cli.observacoes_comerciais_adicionais,
                 cli.vendas_central_comm,
                 cli.pk_id_tbl_agencia,
                 cli.id_tipo_cliente,
@@ -7688,7 +7755,9 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
         # Query principal com paginação
         query = base_query + where_sql + '''
             GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social, cli.cnpj, 
-                     cli.status, cli.categoria_abc, cli.vendas_central_comm, cli.pk_id_tbl_agencia,
+                     cli.status, cli.categoria_abc, cli.classificacao_cliente, cli.opera_midia,
+                     cli.demanda_dados, cli.demanda_programatica_canais,
+                     cli.observacoes_comerciais_adicionais, cli.vendas_central_comm, cli.pk_id_tbl_agencia,
                      cli.id_tipo_cliente, tc.display,
                      ag.key, vend.nome_completo, m.cotacoes_mes, m.cotacoes_aprovadas_mes,
                      m.valor_aprovado_mes, m.briefings_mes, m.briefings_aceitos_mes
@@ -14124,14 +14193,23 @@ def converter_lead_cliente_completo(lead_id, cliente_data):
             fantasia = cliente_data.get('nome_fantasia') or razao
             pessoa = cliente_data.get('pessoa', 'J')
             exec_id = cliente_data.get('vendas_central_comm') or lead.get('id_executivo')
+            classificacao_cliente = cliente_data.get('classificacao_cliente') or 'Prospecção'
+            def _sim_nao_cliente(valor):
+                return str(valor or '').strip().lower() in {'1', 'true', 'on', 'sim', 's', 'yes', 'y'}
+            opera_midia = _sim_nao_cliente(cliente_data.get('opera_midia'))
+            demanda_dados = _sim_nao_cliente(cliente_data.get('demanda_dados'))
+            demanda_programatica_canais = _sim_nao_cliente(cliente_data.get('demanda_programatica_canais'))
+            observacoes_comerciais_adicionais = cliente_data.get('observacoes_comerciais_adicionais') or None
 
             cursor.execute('''
                 INSERT INTO tbl_cliente (
                     cnpj, razao_social, nome_fantasia, pessoa, status,
                     id_tipo_cliente, vendas_central_comm, pk_id_tbl_agencia,
                     inscricao_estadual, inscricao_municipal,
-                    cep, pk_id_aux_estado, cidade, bairro, logradouro, numero, complemento
-                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    cep, pk_id_aux_estado, cidade, bairro, logradouro, numero, complemento,
+                    classificacao_cliente, opera_midia, demanda_dados,
+                    demanda_programatica_canais, observacoes_comerciais_adicionais
+                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_cliente
             ''', (
                 cliente_data.get('cnpj'),
@@ -14150,6 +14228,11 @@ def converter_lead_cliente_completo(lead_id, cliente_data):
                 cliente_data.get('logradouro'),
                 cliente_data.get('numero'),
                 cliente_data.get('complemento'),
+                classificacao_cliente,
+                opera_midia,
+                demanda_dados,
+                demanda_programatica_canais,
+                observacoes_comerciais_adicionais,
             ))
             cliente_id = cursor.fetchone()['id_cliente']
 

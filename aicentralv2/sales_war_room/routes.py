@@ -47,12 +47,38 @@ def _parse_vr_bruto(raw):
         return 0.0
 
 
+def _audit_swr(*args, **kwargs):
+    try:
+        from ..routes import registrar_auditoria
+        registrar_auditoria(*args, **kwargs)
+    except Exception as exc:
+        current_app.logger.warning(f"Auditoria SWR ignorada: {exc}")
+
+
 @bp.route('/')
 @login_required
 def index():
     from .. import db
+    from ..cotacoes_routes import FREQUENCIA_IMPACTO_DEFAULT, OBSERVACOES_GERAIS_DEFAULT, PREMISSAS_DEFAULT
     executivos = db.obter_vendedores_centralcomm()
-    return render_template('sales_war_room/sales_war_room.html', executivos=executivos)
+    vendedores_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
+    agencias = db.obter_aux_agencia()
+    tipos_cliente = db.obter_tipos_cliente()
+    estados = db.obter_estados()
+    clientes_cotacao = db.obter_clientes_simples()
+    return render_template(
+        'sales_war_room/sales_war_room.html',
+        executivos=executivos,
+        vendedores_cc=vendedores_cc,
+        agencias=agencias,
+        tipos_cliente=tipos_cliente,
+        estados=estados,
+        clientes_cotacao=clientes_cotacao,
+        FREQUENCIA_IMPACTO_DEFAULT=FREQUENCIA_IMPACTO_DEFAULT,
+        PREMISSAS_DEFAULT=PREMISSAS_DEFAULT,
+        OBSERVACOES_GERAIS_DEFAULT=OBSERVACOES_GERAIS_DEFAULT,
+        logged_user_id=session.get('user_id', 0),
+    )
 
 
 # --------------- Column 1: Clientes ---------------
@@ -64,7 +90,6 @@ def api_clientes():
     tipo = request.args.get('tipo', '')  # governo | privado
     perfil = request.args.get('perfil', '').strip()  # direto | agencia
     busca = request.args.get('busca', '').strip()
-    categoria = request.args.get('categoria', '').strip().upper()  # A | B | C
     com_pendencias = request.args.get('com_pendencias', '').strip()  # '1' | '0' | ''
 
     if not executivo_id:
@@ -83,8 +108,9 @@ def api_clientes():
                     cli.id_cliente,
                     cli.nome_fantasia,
                     cli.razao_social,
-                    cli.categoria_abc,
+                    COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao_cliente,
                     cli.pk_id_tbl_agencia,
+                    tc.display AS tipo_cliente_display,
                     ag.key AS is_agencia,
                     ag.display AS agencia_display,
                     COUNT(DISTINCT cont.id_contato_cliente) AS qtd_contatos,
@@ -113,13 +139,9 @@ def api_clientes():
                 query += " AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)"
                 params.extend([f'%{busca}%', f'%{busca}%'])
 
-            if categoria in ('A', 'B', 'C'):
-                query += " AND cli.categoria_abc = %s"
-                params.append(categoria)
-
             query += """
                 GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social,
-                         cli.categoria_abc, cli.pk_id_tbl_agencia, ag.key, ag.display
+                         cli.classificacao_cliente, cli.pk_id_tbl_agencia, tc.display, ag.key, ag.display
             """
 
             if com_pendencias == '1':
@@ -129,8 +151,13 @@ def api_clientes():
 
             query += """
                 ORDER BY
-                    CASE cli.categoria_abc WHEN 'A' THEN 1 WHEN 'B' THEN 2 ELSE 3 END,
-                    cli.nome_fantasia
+                    CASE COALESCE(cli.classificacao_cliente, 'Prospecção')
+                        WHEN 'Prospecção' THEN 1
+                        WHEN 'Ativo' THEN 2
+                        WHEN 'Geladeira' THEN 3
+                        ELSE 4
+                    END,
+                    COALESCE(cli.nome_fantasia, cli.razao_social)
             """
 
             cur.execute(query, params)
@@ -379,6 +406,39 @@ def api_cliente_status(cliente_id):
         return jsonify({'success': True, 'status': status})
     except Exception as e:
         current_app.logger.error(f"Erro api_cliente_status: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/cotacoes-abertas')
+@login_required
+def api_cliente_cotacoes_abertas(cliente_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    c.id,
+                    c.numero_cotacao,
+                    c.nome_campanha,
+                    c.status,
+                    c.valor_total_proposta,
+                    c.created_at
+                FROM cadu_cotacoes c
+                WHERE (c.client_id = %s OR c.agencia_id = %s)
+                  AND c.deleted_at IS NULL
+                  AND c.status IN ('Rascunho', 'Em Análise', 'Enviada')
+                ORDER BY c.created_at DESC
+            """, (cliente_id, cliente_id))
+            cotacoes = cur.fetchall()
+
+        for cotacao in cotacoes:
+            cotacao['valor_total_proposta'] = float(cotacao.get('valor_total_proposta') or 0)
+            if cotacao.get('created_at'):
+                cotacao['created_at'] = cotacao['created_at'].isoformat()
+
+        return jsonify({'success': True, 'cotacoes': cotacoes})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_cliente_cotacoes_abertas: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -711,6 +771,124 @@ def api_cliente_contatos(cliente_id):
         return jsonify({'success': True, 'contatos': contatos})
     except Exception as e:
         current_app.logger.error(f"Erro api_cliente_contatos: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/cotacoes', methods=['POST'])
+@login_required
+def api_criar_cotacao_cliente(cliente_id):
+    from .. import db as db_mod
+    from ..cotacoes_routes import (
+        BRIEFING_EXTENSOES_PERMITIDAS,
+        BRIEFING_MAX_BYTES,
+        DESCRICAO_ANEXO_BRIEFING,
+        FREQUENCIA_IMPACTO_DEFAULT,
+        OBSERVACOES_GERAIS_DEFAULT,
+        PREMISSAS_DEFAULT,
+        _salvar_file_storage_como_anexo_cotacao,
+    )
+
+    nome_campanha = (request.form.get('nome_campanha') or '').strip()
+    periodo_inicio = (request.form.get('periodo_inicio') or '').strip()
+    valor_total_raw = request.form.get('valor_total_proposta') or request.form.get('valor_total_proposta_display')
+    objetivo = (request.form.get('objetivo_campanha') or '').strip()
+    client_id_form = request.form.get('client_id', type=int)
+    cliente_cotacao_id = client_id_form or cliente_id
+
+    if not cliente_cotacao_id:
+        return jsonify({'success': False, 'error': 'Cliente obrigatório.'}), 400
+    if not nome_campanha:
+        return jsonify({'success': False, 'error': 'Nome da campanha obrigatório.'}), 400
+    if not periodo_inicio:
+        return jsonify({'success': False, 'error': 'Data de início obrigatória.'}), 400
+    valor_total = _parse_vr_bruto(valor_total_raw)
+    if valor_total <= 0:
+        return jsonify({'success': False, 'error': 'Valor total obrigatório.'}), 400
+    if not objetivo:
+        return jsonify({'success': False, 'error': 'Objetivo da campanha obrigatório.'}), 400
+
+    cliente = db_mod.obter_cliente_por_id(cliente_cotacao_id)
+    if not cliente:
+        return jsonify({'success': False, 'error': 'Cliente não encontrado.'}), 404
+
+    responsavel = request.form.get('responsavel_comercial', type=int)
+    if not responsavel:
+        responsavel = cliente.get('vendas_central_comm') or session.get('user_id')
+
+    budget = _parse_vr_bruto(request.form.get('budget_estimado') or request.form.get('budget_estimado_display'))
+    client_user_id = request.form.get('client_user_id', type=int) if request.form.get('client_user_id') else None
+    agencia_id = request.form.get('agencia_id', type=int) if request.form.get('agencia_id') else None
+    agencia_user_id = request.form.get('agencia_user_id', type=int) if request.form.get('agencia_user_id') else None
+    id_parceiro = request.form.get('id_parceiro', type=int) if request.form.get('id_parceiro') else None
+    parceiro_user_id = request.form.get('parceiro_user_id', type=int) if request.form.get('parceiro_user_id') else None
+
+    try:
+        resultado = db_mod.criar_cotacao(
+            client_id=cliente_cotacao_id,
+            nome_campanha=nome_campanha,
+            periodo_inicio=periodo_inicio,
+            valor_total_proposta=valor_total,
+            objetivo_campanha=objetivo,
+            apresentacao_dados=(request.form.get('apresentacao_dados') or '').strip() or None,
+            periodo_fim=(request.form.get('periodo_fim') or '').strip() or None,
+            status=(request.form.get('status') or 'Rascunho').strip() or 'Rascunho',
+            responsavel_comercial=responsavel,
+            client_user_id=client_user_id,
+            agencia_id=agencia_id,
+            agencia_user_id=agencia_user_id,
+            id_parceiro=id_parceiro,
+            parceiro_user_id=parceiro_user_id,
+            budget_estimado=budget or None,
+            frequencia_impacto=request.form.get('frequencia_impacto', type=int) or FREQUENCIA_IMPACTO_DEFAULT,
+            premissas=(request.form.get('premissas') or '').strip() or PREMISSAS_DEFAULT,
+            observacoes_gerais=(request.form.get('observacoes_gerais') or '').strip() or OBSERVACOES_GERAIS_DEFAULT,
+            origem=(request.form.get('origem') or 'Admin').strip() or 'Admin',
+        )
+
+        warning = None
+        briefing_arquivo = request.files.get('briefing_arquivo')
+        if briefing_arquivo and briefing_arquivo.filename:
+            import os
+            extensao = os.path.splitext(briefing_arquivo.filename)[1].lower()
+            if extensao not in BRIEFING_EXTENSOES_PERMITIDAS:
+                warning = 'Cotação criada, mas o formato do briefing não é permitido.'
+            else:
+                briefing_arquivo.seek(0, os.SEEK_END)
+                tamanho = briefing_arquivo.tell()
+                briefing_arquivo.seek(0)
+                if tamanho > BRIEFING_MAX_BYTES:
+                    warning = 'Cotação criada, mas o briefing excede o limite de 10MB.'
+                else:
+                    _salvar_file_storage_como_anexo_cotacao(
+                        resultado['id'],
+                        briefing_arquivo,
+                        DESCRICAO_ANEXO_BRIEFING,
+                        session.get('user_id'),
+                    )
+
+        _audit_swr(
+            acao='INSERT',
+            modulo='cotacoes',
+            descricao=f'Cotação criada pela War Room: {resultado["numero_cotacao"]}',
+            registro_id=resultado['id'],
+            registro_tipo='cadu_cotacoes',
+            dados_novos={
+                'client_id': cliente_cotacao_id,
+                'contexto_war_room_cliente_id': cliente_id,
+                'nome_campanha': nome_campanha,
+                'valor_total_proposta': valor_total,
+                'origem': 'sales_war_room',
+            },
+        )
+
+        return jsonify({
+            'success': True,
+            'id': resultado['id'],
+            'numero_cotacao': resultado['numero_cotacao'],
+            'warning': warning,
+        })
+    except Exception as e:
+        current_app.logger.error(f"Erro api_criar_cotacao_cliente: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

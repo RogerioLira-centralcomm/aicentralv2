@@ -777,7 +777,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (linhaDestaque) {
       // Scroll suave para a linha
       setTimeout(() => {
-        linhaDestaque.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (window.scrollIntoViewSuave) {
+          window.scrollIntoViewSuave(linhaDestaque, { block: 'center' });
+        } else {
+          linhaDestaque.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'center' });
+        }
         // Destacar com animação
         linhaDestaque.style.transition = 'background-color 0.3s';
         linhaDestaque.style.backgroundColor = '#72cd8040';

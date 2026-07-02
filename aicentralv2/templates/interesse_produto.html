@@ -356,7 +356,11 @@ function atualizarSelecaoInteresse(resultados) {
   resultados.forEach((el, idx) => {
     if (idx === currentIndexInteresse) {
       el.classList.add('bg-gray-100');
-      el.scrollIntoView({ block: 'nearest' });
+      if (window.scrollIntoViewSuave) {
+        window.scrollIntoViewSuave(el);
+      } else {
+        el.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'nearest' });
+      }
     } else {
       el.classList.remove('bg-gray-100');
     }

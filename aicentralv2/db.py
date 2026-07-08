@@ -195,6 +195,43 @@ def init_db(app):
                     END IF;
                 END $$;
             ''')
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'telefone_secundario'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN telefone_secundario TEXT NULL;
+                        COMMENT ON COLUMN tbl_contato_cliente.telefone_secundario IS 'Telefone secundário opcional do contato';
+                    END IF;
+                END $$;
+            ''')
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'wasender_api_key'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN wasender_api_key TEXT NULL;
+                        COMMENT ON COLUMN tbl_contato_cliente.wasender_api_key IS 'API key WasenderAPI do responsável comercial';
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'wasender_session_id'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN wasender_session_id TEXT NULL;
+                        COMMENT ON COLUMN tbl_contato_cliente.wasender_session_id IS 'ID da sessão WasenderAPI do responsável comercial';
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'wasender_ativo'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN wasender_ativo BOOLEAN DEFAULT FALSE;
+                    END IF;
+                END $$;
+            ''')
             # Garantir coluna de SETOR no contato
             cursor.execute('''
                 DO $$
@@ -223,6 +260,110 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_email ON tbl_contato_cliente(email)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_status ON tbl_contato_cliente(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_reset_token ON tbl_contato_cliente(reset_token)')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sales_comunicacao_conversas (
+                    id SERIAL PRIMARY KEY,
+                    cliente_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
+                    contato_id INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    telefone TEXT,
+                    canal VARCHAR(50) DEFAULT 'whatsapp',
+                    status VARCHAR(50) DEFAULT 'aberta',
+                    ultimo_preview TEXT,
+                    ultimo_evento_em TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    unread_count INTEGER DEFAULT 0,
+                    created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_conv_cliente ON sales_comunicacao_conversas(cliente_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_conv_contato ON sales_comunicacao_conversas(contato_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_conv_evento ON sales_comunicacao_conversas(ultimo_evento_em DESC)')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sales_comunicacao_mensagens (
+                    id SERIAL PRIMARY KEY,
+                    conversa_id INTEGER NOT NULL REFERENCES sales_comunicacao_conversas(id) ON DELETE CASCADE,
+                    cliente_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
+                    contato_id INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    direcao VARCHAR(20) DEFAULT 'outbound',
+                    texto TEXT NOT NULL,
+                    status VARCHAR(50) DEFAULT 'enviado',
+                    gerado_por_ia BOOLEAN DEFAULT FALSE,
+                    created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_msg_conversa ON sales_comunicacao_mensagens(conversa_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_msg_cliente ON sales_comunicacao_mensagens(cliente_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_msg_created ON sales_comunicacao_mensagens(created_at)')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sales_comunicacao_automacoes (
+                    id SERIAL PRIMARY KEY,
+                    cliente_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
+                    contato_id INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    tipo VARCHAR(80) DEFAULT 'proposta_enviada',
+                    template TEXT,
+                    ativo BOOLEAN DEFAULT FALSE,
+                    created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    CONSTRAINT uq_sales_com_auto_cliente_contato_tipo UNIQUE (cliente_id, contato_id, tipo)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_auto_cliente ON sales_comunicacao_automacoes(cliente_id)')
+
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_mensagens' AND column_name = 'provider'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_mensagens ADD COLUMN provider VARCHAR(50);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_mensagens' AND column_name = 'provider_message_id'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_mensagens ADD COLUMN provider_message_id TEXT;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_mensagens' AND column_name = 'provider_status'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_mensagens ADD COLUMN provider_status VARCHAR(80);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_mensagens' AND column_name = 'provider_payload'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_mensagens ADD COLUMN provider_payload JSONB;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_conversas' AND column_name = 'responsavel_id'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_conversas ADD COLUMN responsavel_id INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_conversas' AND column_name = 'telefone_remetente'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_conversas ADD COLUMN telefone_remetente TEXT;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sales_comunicacao_conversas' AND column_name = 'provider_session_id'
+                    ) THEN
+                        ALTER TABLE sales_comunicacao_conversas ADD COLUMN provider_session_id TEXT;
+                    END IF;
+                END $$;
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_msg_provider_id ON sales_comunicacao_mensagens(provider_message_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_conv_resp ON sales_comunicacao_conversas(responsavel_id)')
 
             # Garantir coluna de vendas_central_comm em tbl_cliente (inteiro 0/1)
             cursor.execute('''
@@ -980,6 +1121,7 @@ def obter_contatos():
                 c.email,
                 c.nome_completo,
                 c.telefone,
+                c.telefone_secundario,
                 c.status,
                 c.id_centralx,
                 c.pk_id_tbl_cliente,
@@ -1010,6 +1152,7 @@ def obter_contatos_ativos():
                 c.email,
                 c.nome_completo,
                 c.telefone,
+                c.telefone_secundario,
                 c.status,
                 c.pk_id_tbl_cliente,
                 c.pk_id_tbl_cargo,
@@ -1036,6 +1179,7 @@ def obter_contato_por_id(contato_id):
                 c.email,
                 c.nome_completo,
                 c.telefone,
+                c.telefone_secundario,
                 c.status,
                 c.id_centralx,
                 c.pk_id_tbl_cliente,
@@ -1046,6 +1190,12 @@ def obter_contato_por_id(contato_id):
                 c.cohorts,
                 c.user_type,
                 c.foto_url,
+                c.wasender_session_id,
+                COALESCE(c.wasender_ativo, FALSE) AS wasender_ativo,
+                CASE
+                    WHEN c.wasender_api_key IS NULL OR c.wasender_api_key = '' THEN ''
+                    ELSE CONCAT(LEFT(c.wasender_api_key, 4), '...', RIGHT(c.wasender_api_key, 4))
+                END AS wasender_api_key_mask,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
@@ -1074,6 +1224,7 @@ def obter_contato_por_email(email):
                 c.email,
                 c.nome_completo,
                 c.telefone,
+                c.telefone_secundario,
                 c.senha,
                 c.status,
                 c.id_centralx,
@@ -1101,6 +1252,7 @@ def obter_contatos_por_cliente(id_cliente):
                 c.email,
                 c.nome_completo,
                 c.telefone,
+                c.telefone_secundario,
                 c.status,
                 c.data_cadastro,
                 c.pk_id_tbl_setor,
@@ -1136,6 +1288,7 @@ def obter_contatos_ativos_por_cliente(id_cliente):
                 email,
                 nome_completo,
                 telefone,
+                telefone_secundario,
                 data_cadastro
             FROM tbl_contato_cliente
             WHERE pk_id_tbl_cliente = %s AND status = TRUE
@@ -1289,7 +1442,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================
 
-def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client'):
+def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client', telefone_secundario=None):
     """Cria um novo contato"""
     conn = get_db()
     senha_hash = gerar_senha_hash(senha) if senha else None
@@ -1301,10 +1454,10 @@ def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, tele
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO tbl_contato_cliente 
-                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, telefone_secundario, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_contato_cliente
-            ''', (nome_completo, email.lower().strip(), senha_hash, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type))
+            ''', (nome_completo, email.lower().strip(), senha_hash, pk_id_tbl_cliente, telefone, telefone_secundario, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type))
 
             novo_id = cursor.fetchone()['id_contato_cliente']
 
@@ -1316,7 +1469,7 @@ def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, tele
         raise
 
 
-def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl_cliente=None):
+def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl_cliente=None, telefone_secundario=None):
     """Atualiza dados de um contato"""
     conn = get_db()
 
@@ -1330,10 +1483,11 @@ def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl
                 SET nome_completo = %s, 
                     email = %s, 
                     telefone = %s,
+                    telefone_secundario = %s,
                     pk_id_tbl_cliente = %s,
                     data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
-            ''', (nome_completo, email.lower().strip(), telefone, pk_id_tbl_cliente, contato_id))
+            ''', (nome_completo, email.lower().strip(), telefone, telefone_secundario, pk_id_tbl_cliente, contato_id))
 
         conn.commit()
 
@@ -12245,7 +12399,7 @@ def excluir_diario_campanha(id_diario):
 
 def get_dashboard_carteira_clientes(days=90):
     conn = get_db()
-    # Mesmo critério de "é agência" usado na war room / listagem de clientes
+    # Mesmo critério de "é agência" usado no CRM comercial / listagem de clientes
     _eh_agencia_sql = (
         "(COALESCE((ag.key IS TRUE), false) OR "
         "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
@@ -13932,6 +14086,367 @@ def atualizar_comunicacao_status(comm_id, status):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def normalizar_telefone_whatsapp(telefone):
+    """Normaliza telefone para comparação e envio via WhatsApp."""
+    digits = re.sub(r'\D+', '', str(telefone or ''))
+    digits = digits.lstrip('0')
+    if len(digits) in (10, 11):
+        return f'55{digits}'
+    return digits
+
+
+def variantes_telefone_whatsapp(telefone):
+    normalizado = normalizar_telefone_whatsapp(telefone)
+    variantes = {normalizado}
+    if normalizado.startswith('55') and len(normalizado) > 11:
+        variantes.add(normalizado[2:])
+    return [v for v in variantes if v]
+
+
+def obter_wasender_credencial_responsavel(responsavel_id):
+    """Retorna a credencial Wasender ativa do contato responsável comercial."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id_contato_cliente AS responsavel_id,
+                   nome_completo AS responsavel_nome,
+                   telefone,
+                   wasender_api_key,
+                   wasender_session_id,
+                   COALESCE(wasender_ativo, FALSE) AS wasender_ativo
+            FROM tbl_contato_cliente
+            WHERE id_contato_cliente = %s
+            LIMIT 1
+        ''', (responsavel_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        row['telefone_normalizado'] = normalizar_telefone_whatsapp(row.get('telefone'))
+        return row
+
+
+def atualizar_wasender_contato(contato_id, api_key=None, session_id=None, ativo=False, atualizar_api_key=False):
+    """Atualiza configuração Wasender do contato responsável."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if atualizar_api_key:
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET wasender_api_key = %s,
+                        wasender_session_id = %s,
+                        wasender_ativo = %s,
+                        data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id_contato_cliente = %s
+                    RETURNING id_contato_cliente
+                ''', (api_key, session_id, ativo, contato_id))
+            else:
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET wasender_session_id = %s,
+                        wasender_ativo = %s,
+                        data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id_contato_cliente = %s
+                    RETURNING id_contato_cliente
+                ''', (session_id, ativo, contato_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def localizar_contato_por_telefone_wasender(telefone):
+    """Localiza contato cujo telefone principal/secundário corresponda ao inbound."""
+    variantes = variantes_telefone_whatsapp(telefone)
+    if not variantes:
+        return None
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT c.id_contato_cliente, c.pk_id_tbl_cliente, c.nome_completo, c.email,
+                   c.telefone, c.telefone_secundario, c.status,
+                   cli.vendas_central_comm,
+                   cli.nome_fantasia AS cliente_nome
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.pk_id_tbl_cliente
+            WHERE c.status = TRUE
+              AND (
+                    regexp_replace(COALESCE(c.telefone, ''), '\\D', '', 'g') = ANY(%s::text[])
+                 OR regexp_replace(COALESCE(c.telefone_secundario, ''), '\\D', '', 'g') = ANY(%s::text[])
+                 OR CONCAT('55', regexp_replace(COALESCE(c.telefone, ''), '\\D', '', 'g')) = ANY(%s::text[])
+                 OR CONCAT('55', regexp_replace(COALESCE(c.telefone_secundario, ''), '\\D', '', 'g')) = ANY(%s::text[])
+              )
+            ORDER BY c.id_contato_cliente
+            LIMIT 1
+        ''', (variantes, variantes, variantes, variantes))
+        return cursor.fetchone()
+
+
+def obter_sales_comunicacao_conversa(conversa_id):
+    """Obtém uma conversa com dados de cliente, contato e responsável."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT cv.id, cv.cliente_id, cv.contato_id, cv.telefone, cv.canal, cv.status,
+                   cv.responsavel_id, cv.telefone_remetente, cv.provider_session_id,
+                   cli.vendas_central_comm,
+                   c.telefone AS contato_telefone,
+                   c.telefone_secundario AS contato_telefone_secundario
+            FROM sales_comunicacao_conversas cv
+            LEFT JOIN tbl_cliente cli ON cli.id_cliente = cv.cliente_id
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = cv.contato_id
+            WHERE cv.id = %s
+        ''', (conversa_id,))
+        return cursor.fetchone()
+
+
+def atualizar_sales_comunicacao_conversa_wasender(conversa_id, responsavel_id=None, telefone_remetente=None, provider_session_id=None):
+    """Atualiza metadados de envio Wasender de uma conversa."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE sales_comunicacao_conversas
+                SET responsavel_id = COALESCE(%s, responsavel_id),
+                    telefone_remetente = COALESCE(%s, telefone_remetente),
+                    provider_session_id = COALESCE(%s, provider_session_id),
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s
+                RETURNING id
+            ''', (responsavel_id, telefone_remetente, provider_session_id, conversa_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def listar_sales_comunicacao_conversas(cliente_id, contato_id=None, telefone=None):
+    """Lista conversas comerciais do CRM Comercial."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        params = [cliente_id]
+        filtro_contato = ''
+        filtro_telefone = ''
+        if contato_id:
+            filtro_contato = ' AND cv.contato_id = %s'
+            params.append(contato_id)
+        if telefone:
+            filtro_telefone = " AND COALESCE(cv.telefone, '') = %s"
+            params.append(telefone)
+        cursor.execute(f'''
+            SELECT
+                cv.id, cv.cliente_id, cv.contato_id, cv.telefone, cv.canal, cv.status,
+                cv.responsavel_id, cv.telefone_remetente, cv.provider_session_id,
+                cv.ultimo_preview, cv.ultimo_evento_em, cv.unread_count, cv.created_at,
+                c.nome_completo AS contato_nome,
+                c.email AS contato_email,
+                c.telefone AS contato_telefone,
+                c.telefone_secundario AS contato_telefone_secundario,
+                c.foto_url AS contato_foto_url,
+                cg.descricao AS contato_cargo
+            FROM sales_comunicacao_conversas cv
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = cv.contato_id
+            LEFT JOIN tbl_cargo_contato cg ON cg.id_cargo_contato = c.pk_id_tbl_cargo
+            WHERE cv.cliente_id = %s {filtro_contato}{filtro_telefone}
+            ORDER BY cv.ultimo_evento_em DESC NULLS LAST, cv.created_at DESC
+        ''', params)
+        return cursor.fetchall()
+
+
+def criar_sales_comunicacao_conversa(cliente_id, contato_id=None, telefone=None, canal='whatsapp', created_by=None, responsavel_id=None, telefone_remetente=None, provider_session_id=None):
+    """Cria uma conversa comercial ou retorna conversa existente para contato/telefone."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id
+                FROM sales_comunicacao_conversas
+                WHERE cliente_id = %s
+                  AND COALESCE(contato_id, 0) = COALESCE(%s, 0)
+                  AND COALESCE(telefone, '') = COALESCE(%s, '')
+                  AND canal = %s
+                  AND COALESCE(responsavel_id, 0) = COALESCE(%s, 0)
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (cliente_id, contato_id, telefone, canal, responsavel_id))
+            existente = cursor.fetchone()
+            if existente:
+                return existente['id']
+
+            cursor.execute('''
+                INSERT INTO sales_comunicacao_conversas
+                    (cliente_id, contato_id, telefone, canal, created_by, responsavel_id, telefone_remetente, provider_session_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (cliente_id, contato_id, telefone, canal, created_by, responsavel_id, telefone_remetente, provider_session_id))
+            novo_id = cursor.fetchone()['id']
+        conn.commit()
+        return novo_id
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def listar_sales_comunicacao_mensagens(conversa_id):
+    """Lista mensagens de uma conversa comercial."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, conversa_id, cliente_id, contato_id, direcao, texto, status,
+                   gerado_por_ia, created_by, created_at,
+                   provider, provider_message_id, provider_status, provider_payload
+            FROM sales_comunicacao_mensagens
+            WHERE conversa_id = %s
+            ORDER BY created_at ASC, id ASC
+        ''', (conversa_id,))
+        return cursor.fetchall()
+
+
+def criar_sales_comunicacao_mensagem(conversa_id, texto, direcao='outbound', status='enviado', gerado_por_ia=False, created_by=None, provider=None, provider_message_id=None, provider_status=None, provider_payload=None):
+    """Cria uma mensagem e atualiza o resumo da conversa."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT cliente_id, contato_id
+                FROM sales_comunicacao_conversas
+                WHERE id = %s
+            ''', (conversa_id,))
+            conversa = cursor.fetchone()
+            if not conversa:
+                raise ValueError('Conversa não encontrada.')
+
+            cursor.execute('''
+                INSERT INTO sales_comunicacao_mensagens
+                    (conversa_id, cliente_id, contato_id, direcao, texto, status, gerado_por_ia, created_by,
+                     provider, provider_message_id, provider_status, provider_payload)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, created_at
+            ''', (
+                conversa_id, conversa['cliente_id'], conversa.get('contato_id'),
+                direcao, texto, status, gerado_por_ia, created_by,
+                provider, provider_message_id, provider_status, Json(provider_payload) if provider_payload is not None else None,
+            ))
+            msg = cursor.fetchone()
+            cursor.execute('''
+                UPDATE sales_comunicacao_conversas
+                SET ultimo_preview = %s,
+                    ultimo_evento_em = %s,
+                    unread_count = CASE WHEN %s = 'inbound' THEN COALESCE(unread_count, 0) + 1 ELSE unread_count END,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s
+            ''', (texto[:240], msg['created_at'], direcao, conversa_id))
+        conn.commit()
+        return msg['id']
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_sales_comunicacao_mensagem_provider(mensagem_id=None, provider_message_id=None, provider_status=None, provider_payload=None):
+    """Atualiza metadados/status do provedor de uma mensagem."""
+    if not mensagem_id and not provider_message_id:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            payload_json = Json(provider_payload) if provider_payload is not None else None
+            if mensagem_id:
+                cursor.execute('''
+                    UPDATE sales_comunicacao_mensagens
+                    SET provider_status = COALESCE(%s, provider_status),
+                        provider_payload = COALESCE(%s, provider_payload)
+                    WHERE id = %s
+                    RETURNING id
+                ''', (provider_status, payload_json, mensagem_id))
+            else:
+                cursor.execute('''
+                    UPDATE sales_comunicacao_mensagens
+                    SET provider_status = COALESCE(%s, provider_status),
+                        provider_payload = COALESCE(%s, provider_payload)
+                    WHERE provider_message_id = %s
+                    RETURNING id
+                ''', (provider_status, payload_json, provider_message_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_sales_comunicacao_conversa_status(conversa_id, status='aberta', unread_count=None):
+    """Atualiza status/contador de uma conversa comercial."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if unread_count is None:
+                cursor.execute('''
+                    UPDATE sales_comunicacao_conversas
+                    SET status = %s, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s RETURNING id
+                ''', (status, conversa_id))
+            else:
+                cursor.execute('''
+                    UPDATE sales_comunicacao_conversas
+                    SET status = %s, unread_count = %s, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s RETURNING id
+                ''', (status, unread_count, conversa_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_sales_comunicacao_automacao(cliente_id, contato_id=None, tipo='proposta_enviada'):
+    """Obtém automação comercial por cliente/contato/tipo."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, cliente_id, contato_id, tipo, template, ativo, created_by, created_at, updated_at
+            FROM sales_comunicacao_automacoes
+            WHERE cliente_id = %s
+              AND COALESCE(contato_id, 0) = COALESCE(%s, 0)
+              AND tipo = %s
+            ORDER BY updated_at DESC
+            LIMIT 1
+        ''', (cliente_id, contato_id, tipo))
+        return cursor.fetchone()
+
+
+def salvar_sales_comunicacao_automacao(cliente_id, contato_id=None, tipo='proposta_enviada', template=None, ativo=False, created_by=None):
+    """Cria/atualiza automação comercial."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            existente = obter_sales_comunicacao_automacao(cliente_id, contato_id, tipo)
+            if existente:
+                cursor.execute('''
+                    UPDATE sales_comunicacao_automacoes
+                    SET template = %s, ativo = %s, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s RETURNING id
+                ''', (template, ativo, existente['id']))
+            else:
+                cursor.execute('''
+                    INSERT INTO sales_comunicacao_automacoes
+                        (cliente_id, contato_id, tipo, template, ativo, created_by)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                ''', (cliente_id, contato_id, tipo, template, ativo, created_by))
+            row = cursor.fetchone()
+        conn.commit()
+        return row['id']
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def atualizar_atividade(atividade_id, dados):

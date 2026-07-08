@@ -784,9 +784,31 @@
         </div>
         <div class="form-control col-span-4 hidden" id="contato_telefone_container">
           <label class="label py-0"><span class="label-text text-[10px] font-medium">Telefone</span></label>
-          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-xs w-full text-[10px]" placeholder="(00) 00000-0000" maxlength="15">
+          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-xs w-full text-[10px]" placeholder="+55 (00) 00000-0000" maxlength="20">
+        </div>
+        <div class="form-control col-span-4 hidden" id="contato_telefone_secundario_container">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Segundo telefone</span></label>
+          <input type="text" id="contato_telefone_secundario" name="telefone_secundario" class="input input-bordered input-xs w-full text-[10px]" placeholder="+55 (00) 00000-0000" maxlength="20">
         </div>
       </div>
+
+      {% if session.user_type in ['admin', 'superadmin'] %}
+      <div class="grid grid-cols-12 gap-2 border border-base-200 rounded p-2 bg-base-200/30" id="contato_wasender_container">
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Wasender API key</span></label>
+          <input type="password" id="contato_wasender_api_key" name="wasender_api_key" class="input input-bordered input-xs w-full text-[10px]" placeholder="Informe para criar/alterar">
+          <span id="contato_wasender_api_key_mask" class="text-[9px] text-base-content/50 mt-0.5"></span>
+        </div>
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Wasender session id</span></label>
+          <input type="text" id="contato_wasender_session_id" name="wasender_session_id" class="input input-bordered input-xs w-full text-[10px]" placeholder="Opcional">
+        </div>
+        <label class="form-control col-span-2 cursor-pointer justify-end">
+          <span class="label-text text-[10px] font-medium mb-1">Ativo</span>
+          <input type="checkbox" id="contato_wasender_ativo" name="wasender_ativo" class="toggle toggle-success toggle-xs">
+        </label>
+      </div>
+      {% endif %}
 
       <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
       <div class="grid grid-cols-12 gap-2">
@@ -1675,7 +1697,10 @@ async function abrirModalDetalhes(clienteId) {
                 <tr class="hover">
                   <td class="font-semibold">${c.nome_completo}</td>
                   <td>${c.email || '—'}</td>
-                  <td>${c.telefone || '—'}</td>
+                  <td>
+                    ${c.telefone || '—'}
+                    ${c.telefone_secundario ? `<div class="text-[10px] opacity-70">${c.telefone_secundario}</div>` : ''}
+                  </td>
                   <td>${c.setor || '—'}</td>
                   <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
                 </tr>
@@ -1987,6 +2012,7 @@ async function carregarContatosAba(clienteId) {
               <tr>
                 <th class="rounded-tl-lg">Nome</th>
                 <th>Email</th>
+                <th>Telefone</th>
                 <th>Setor/Cargo</th>
                 <th>Status</th>
                 <th>Convite</th>
@@ -2003,6 +2029,10 @@ async function carregarContatosAba(clienteId) {
                     </div>
                   </td>
                   <td class="text-xs">${c.email || '—'}</td>
+                  <td class="text-xs">
+                    ${c.telefone || '—'}
+                    ${c.telefone_secundario ? `<div class="text-[10px] opacity-70">${c.telefone_secundario}</div>` : ''}
+                  </td>
                   <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                   <td>
                     <button type="button"
@@ -2171,6 +2201,13 @@ function abrirModalNovoContato() {
     
     // Ocultar campo telefone em novo contato
     document.getElementById('contato_telefone_container').classList.add('hidden');
+    document.getElementById('contato_telefone_secundario_container').classList.add('hidden');
+    if (document.getElementById('contato_wasender_api_key')) {
+      document.getElementById('contato_wasender_api_key').value = '';
+      document.getElementById('contato_wasender_session_id').value = '';
+      document.getElementById('contato_wasender_ativo').checked = false;
+      document.getElementById('contato_wasender_api_key_mask').textContent = '';
+    }
     // Ajustar largura dos campos nome e email para ocupar todo o espaço
     document.getElementById('contato_nome_container').classList.remove('col-span-4');
     document.getElementById('contato_nome_container').classList.add('col-span-6');
@@ -2272,11 +2309,20 @@ async function abrirModalEditarContato(contatoId) {
     document.getElementById('contato_nome_completo').value = contato.nome_completo;
     document.getElementById('contato_email').value = contato.email;
     document.getElementById('contato_telefone').value = formatarTelefone(contato.telefone || '');
+    document.getElementById('contato_telefone_secundario').value = formatarTelefone(contato.telefone_secundario || '');
+    if (document.getElementById('contato_wasender_api_key')) {
+      document.getElementById('contato_wasender_api_key').value = '';
+      document.getElementById('contato_wasender_api_key').placeholder = contato.wasender_api_key_mask ? 'Preencha para alterar' : 'Informe para criar/alterar';
+      document.getElementById('contato_wasender_session_id').value = contato.wasender_session_id || '';
+      document.getElementById('contato_wasender_ativo').checked = !!contato.wasender_ativo;
+      document.getElementById('contato_wasender_api_key_mask').textContent = contato.wasender_api_key_mask ? `Chave atual: ${contato.wasender_api_key_mask}` : 'Sem chave cadastrada';
+    }
     document.getElementById('contato_cohorts').value = contato.cohorts || 1;
     document.getElementById('contato_user_type').value = contato.user_type || 'client';
     
     // Mostrar campo telefone em edição
     document.getElementById('contato_telefone_container').classList.remove('hidden');
+    document.getElementById('contato_telefone_secundario_container').classList.remove('hidden');
     // Ajustar largura dos campos para acomodar o telefone
     document.getElementById('contato_nome_container').classList.remove('col-span-6');
     document.getElementById('contato_nome_container').classList.add('col-span-4');
@@ -2349,6 +2395,19 @@ function formatarTelefone(valor) {
   const digits = valor.replace(/\D/g, '');
   
   if (digits.length === 0) return '';
+
+  // Aceita formato internacional BR usado no WhatsApp: +55 (DD) 99999-9999
+  if (digits.startsWith('55') && digits.length > 11) {
+    const limited = digits.slice(0, 13);
+    const ddd = limited.slice(2, 4);
+    const numero = limited.slice(4);
+    if (numero.length <= 4) {
+      return '+55 (' + ddd + ') ' + numero;
+    } else if (numero.length <= 8) {
+      return '+55 (' + ddd + ') ' + numero.slice(0, 4) + '-' + numero.slice(4);
+    }
+    return '+55 (' + ddd + ') ' + numero.slice(0, 5) + '-' + numero.slice(5);
+  }
   
   // Limita a 11 dígitos
   const limited = digits.slice(0, 11);
@@ -2374,8 +2433,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Máscara de telefone para contato
   const telefoneInput = document.getElementById('contato_telefone');
-  if (telefoneInput) {
-    telefoneInput.addEventListener('input', function(e) {
+  const telefoneSecundarioInput = document.getElementById('contato_telefone_secundario');
+  [telefoneInput, telefoneSecundarioInput].filter(Boolean).forEach(function(inputTel) {
+    inputTel.addEventListener('input', function(e) {
       const formatted = formatarTelefone(e.target.value);
       
       // Só atualiza se o valor mudou
@@ -2395,12 +2455,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Formatar ao colar
-    telefoneInput.addEventListener('paste', function(e) {
+    inputTel.addEventListener('paste', function(e) {
       e.preventDefault();
       const pastedText = (e.clipboardData || window.clipboardData).getData('text');
       e.target.value = formatarTelefone(pastedText);
     });
-  }
+  });
   
   if (formContato) {
     formContato.addEventListener('submit', async function(e) {
@@ -2412,15 +2472,24 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Preparar dados
       const formData = new FormData(formContato);
+      const setorValue = formData.get('pk_id_aux_setor');
+      const cargoValue = formData.get('pk_id_tbl_cargo');
       const data = {
-        nome_completo: formData.get('nome_completo'),
-        email: formData.get('email'),
-        telefone: formData.get('telefone'),
-        pk_id_aux_setor: parseInt(formData.get('pk_id_aux_setor')),
-        pk_id_tbl_cargo: parseInt(formData.get('pk_id_tbl_cargo')),
+        nome_completo: (formData.get('nome_completo') || '').trim(),
+        email: (formData.get('email') || '').trim(),
+        telefone: (formData.get('telefone') || '').trim(),
+        telefone_secundario: (formData.get('telefone_secundario') || '').trim(),
+        pk_id_aux_setor: setorValue ? parseInt(setorValue, 10) : null,
+        pk_id_tbl_cargo: cargoValue ? parseInt(cargoValue, 10) : null,
         cohorts: 1,  // Valor fixo
         user_type: formData.get('user_type')
       };
+
+      if (document.getElementById('contato_wasender_api_key')) {
+        data.wasender_api_key = formData.get('wasender_api_key') || '';
+        data.wasender_session_id = formData.get('wasender_session_id') || '';
+        data.wasender_ativo = document.getElementById('contato_wasender_ativo').checked;
+      }
       
       // Adicionar senha apenas se preenchida
       if (senha) {

@@ -17,7 +17,7 @@ def _call_openrouter(system_prompt, user_content, max_tokens=1000, temperature=0
     headers = {
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "https://centralcomm.media",
-        "X-Title": "CentralComm AI - Sales War Room"
+        "X-Title": "CentralComm AI - CRM Comercial"
     }
     payload = {
         "model": MODEL,

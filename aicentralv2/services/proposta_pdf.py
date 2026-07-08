@@ -138,6 +138,92 @@ def _resolver_logo_path():
     return fallback if os.path.exists(fallback) else None
 
 
+def _resolver_foto_contato_path(foto_url):
+    """Converte foto_url (/static/uploads/contatos/...) em caminho local para o ReportLab."""
+    url = _texto(foto_url)
+    if not url:
+        return None
+    rel = url.lstrip('/').replace('/', os.sep)
+    candidatos = []
+    try:
+        from flask import current_app
+
+        candidatos.append(os.path.join(current_app.root_path, rel))
+    except Exception:
+        pass
+    candidatos.append(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', rel)))
+    for caminho in candidatos:
+        if caminho and os.path.exists(caminho):
+            return caminho
+    return None
+
+
+def _montar_assinatura_comercial(responsavel, styles, largura_col):
+    """Bloco de assinatura do responsável comercial (estilo e-mail)."""
+    assin_nome_style = ParagraphStyle(
+        'PropAssinNome', parent=styles['Normal'], fontSize=8, textColor=_COR_TEXTO,
+        fontName='Helvetica-Bold', leading=10,
+    )
+    assin_contato_style = ParagraphStyle(
+        'PropAssinContato', parent=styles['Normal'], fontSize=7, textColor=_COR_TEXTO, leading=9,
+    )
+
+    def _box_vazio():
+        box = Table([['']], colWidths=[largura_col])
+        box.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        return box
+
+    if not responsavel:
+        return _box_vazio()
+
+    linhas = []
+    nome = _texto(responsavel.get('nome_completo'))
+    email = _texto(responsavel.get('email'))
+    telefone = _texto(responsavel.get('telefone'))
+    if nome:
+        linhas.append(Paragraph(escape(nome), assin_nome_style))
+    if email:
+        linhas.append(Paragraph(escape(email), assin_contato_style))
+    if telefone:
+        linhas.append(Paragraph(escape(telefone), assin_contato_style))
+    if not linhas:
+        return _box_vazio()
+
+    foto_path = _resolver_foto_contato_path(responsavel.get('foto_url'))
+    if foto_path:
+        try:
+            foto = Image(foto_path, width=15 * mm, height=15 * mm, kind='proportional')
+            foto_col = 17 * mm
+            texto_col = max(largura_col - foto_col, 20 * mm)
+            conteudo = Table([[foto, linhas]], colWidths=[foto_col, texto_col])
+            conteudo.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+        except Exception:
+            conteudo = linhas
+    else:
+        conteudo = linhas
+
+    box = Table([[conteudo]], colWidths=[largura_col])
+    box.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    return box
+
+
 def gerar_proposta_programmatic_pdf(cotacao_id):
     """Gera o PDF da proposta programática.
 
@@ -508,7 +594,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     story.append(tabela)
     story.append(Spacer(1, 5 * mm))
 
-    # ---- Premissas + Total da campanha (lado direito) ----
+    # ---- Premissas + Total da campanha + Assinatura comercial ----
     premissas_txt = _texto(cotacao.get('premissas')) or _texto(cotacao.get('condicoes_comerciais'))
     premissas_flow = [Paragraph('Premissas', premissa_titulo_style)]
     if premissas_txt:
@@ -518,7 +604,13 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     else:
         premissas_flow.append(Paragraph('-', premissa_style))
 
-    premissas_box = Table([[premissas_flow]], colWidths=[(largura_util - 6 * mm) * 0.55])
+    gap_col = 4 * mm
+    base_rodape = largura_util - (2 * gap_col)
+    premissas_w = base_rodape * 0.50
+    total_w = base_rodape * 0.28
+    assinatura_w = base_rodape * 0.22
+
+    premissas_box = Table([[premissas_flow]], colWidths=[premissas_w])
     premissas_box.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
@@ -533,7 +625,6 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         [Paragraph('INVESTIMENTO LÍQUIDO TOTAL', total_label_style), Paragraph(_fmt_brl(total_liquido), total_valor_style)],
         [Paragraph('VALIDADE DA PROPOSTA', total_label_style), Paragraph(validade_txt or '-', total_valor_style)],
     ]
-    total_w = (largura_util - 6 * mm) * 0.45
     total_box = Table(total_data, colWidths=[total_w * 0.6, total_w * 0.4])
     total_box.setStyle(TableStyle([
         ('SPAN', (0, 0), (1, 0)),
@@ -547,9 +638,11 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, _COR_GOLD_CLARO]),
     ]))
 
+    assinatura_box = _montar_assinatura_comercial(responsavel, styles, assinatura_w)
+
     rodape = Table(
-        [[premissas_box, total_box]],
-        colWidths=[(largura_util - 6 * mm) * 0.55 + 6 * mm, (largura_util - 6 * mm) * 0.45],
+        [[premissas_box, total_box, assinatura_box]],
+        colWidths=[premissas_w + gap_col, total_w + gap_col, assinatura_w],
     )
     rodape.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),

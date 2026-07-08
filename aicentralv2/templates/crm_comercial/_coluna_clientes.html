@@ -1,27 +1,27 @@
-<div class="swr-col" id="col-clientes">
-    <div class="swr-col-header">
+<div class="crm-col" id="col-clientes">
+    <div class="crm-col-header">
         <div class="flex items-center gap-2 mb-1.5">
             <h2 class="font-semibold text-xs">Clientes</h2>
-            <span id="swr-contador-total" class="text-[10px] font-normal text-gray-400" aria-live="polite"></span>
+            <span id="crm-contador-total" class="text-[10px] font-normal text-gray-400" aria-live="polite"></span>
         </div>
         <div class="relative">
             <input type="text" id="busca-cliente" class="input input-bordered input-xs w-full pr-7 text-[11px] h-7"
                    placeholder="Buscar cliente..." />
-            <button type="button" id="swr-clientes-filtro" class="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 opacity-50 hover:opacity-100" title="Filtros">
+            <button type="button" id="crm-clientes-filtro" class="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 opacity-50 hover:opacity-100" title="Filtros">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
             </button>
         </div>
     </div>
-    <div class="swr-col-body scroll-suave" id="lista-clientes">
-        <div class="swr-empty-state">Selecione um executivo para carregar a carteira.</div>
+    <div class="crm-col-body scroll-suave" id="lista-clientes">
+        <div class="crm-empty-state">Selecione um executivo para carregar a carteira.</div>
     </div>
-    <div class="swr-col-footer hidden" id="swr-clientes-paginacao">
-        <span id="swr-cli-info" class="text-[10px] text-gray-500 flex-1"></span>
+    <div class="crm-col-footer hidden" id="crm-clientes-paginacao">
+        <span id="crm-cli-info" class="text-[10px] text-gray-500 flex-1"></span>
         <div class="flex items-center gap-0.5">
-            <button type="button" id="swr-cli-prev" class="btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" title="Anterior" aria-label="Anterior">
+            <button type="button" id="crm-cli-prev" class="btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" title="Anterior" aria-label="Anterior">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <button type="button" id="swr-cli-next" class="btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" title="Próximo" aria-label="Próximo">
+            <button type="button" id="crm-cli-next" class="btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" title="Próximo" aria-label="Próximo">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
         </div>

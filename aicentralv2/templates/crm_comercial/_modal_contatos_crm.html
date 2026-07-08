@@ -5,6 +5,7 @@
             <input type="text" id="cr-nome" class="input input-bordered input-sm w-full" placeholder="Nome completo *" required />
             <input type="email" id="cr-email" class="input input-bordered input-sm w-full" placeholder="Email *" required />
             <input type="text" id="cr-tel" class="input input-bordered input-sm w-full" placeholder="Telefone" />
+            <input type="text" id="cr-tel2" class="input input-bordered input-sm w-full" placeholder="Segundo telefone (opcional)" />
             <div class="modal-action flex-wrap gap-2">
                 <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-contato-rapido').close()">Cancelar</button>
                 <button type="submit" class="btn btn-sm btn-primary" id="cr-submit">Salvar</button>
@@ -17,8 +18,8 @@
 <dialog id="modal-contato-import" class="modal">
     <div class="modal-box max-w-lg">
         <h3 class="font-bold text-lg mb-2">Importar contatos</h3>
-        <p class="text-xs opacity-70 mb-2">Uma linha por contato. Formato: <code>Nome;email@x.com;telefone</code> (telefone opcional). Também aceita vírgula entre nome e email.</p>
-        <textarea id="ci-texto" class="textarea textarea-bordered textarea-sm w-full min-h-32 font-mono text-xs" placeholder="João Silva;joao@empresa.com;11999999999"></textarea>
+        <p class="text-xs opacity-70 mb-2">Uma linha por contato. Formato: <code>Nome;email@x.com;telefone;segundo telefone</code> (telefones opcionais). Também aceita vírgula entre nome e email.</p>
+        <textarea id="ci-texto" class="textarea textarea-bordered textarea-sm w-full min-h-32 font-mono text-xs" placeholder="João Silva;joao@empresa.com;11999999999;1133334444"></textarea>
         <div class="modal-action flex-wrap gap-2 mt-2">
             <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-contato-import').close()">Fechar</button>
             <button type="button" class="btn btn-sm btn-primary" id="ci-submit">Importar</button>

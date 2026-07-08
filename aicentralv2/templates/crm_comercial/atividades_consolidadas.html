@@ -1,11 +1,11 @@
 {% extends "base_tailwind.html" %}
-{% block title %}Atividades consolidadas — Sales War Room{% endblock %}
+{% block title %}Atividades consolidadas — CRM Comercial{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales_war_room.css') }}">
-<div class="swr-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
-    <a href="{{ url_for('sales_war_room.index') }}" class="swr-back-war-room" id="swr-ac-back">← War Room</a>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_comercial.css') }}">
+<div class="crm-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
+    <a href="{{ url_for('crm_comercial.index') }}" class="crm-back-comercial" id="crm-ac-back">← CRM Comercial</a>
     <h1 class="text-xl font-bold">Atividades</h1>
-    <select id="swr-ac-exec" name="executivo" class="swr-consolidadas-select" aria-label="Filtrar por executivo">
+    <select id="crm-ac-exec" name="executivo" class="crm-consolidadas-select" aria-label="Filtrar por executivo">
         <option value="">Todos os executivos</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
@@ -25,17 +25,17 @@
                 <th></th>
             </tr>
         </thead>
-        <tbody id="swr-ac-tbody"></tbody>
+        <tbody id="crm-ac-tbody"></tbody>
     </table>
 </div>
-<p class="text-xs opacity-60 mt-2" id="swr-ac-msg"></p>
+<p class="text-xs opacity-60 mt-2" id="crm-ac-msg"></p>
 <script>
 (function () {
-    const BASE = '/sales-war-room';
-    const tbody = document.getElementById('swr-ac-tbody');
-    const sel = document.getElementById('swr-ac-exec');
-    const msg = document.getElementById('swr-ac-msg');
-    const back = document.getElementById('swr-ac-back');
+    const BASE = '/crm-comercial';
+    const tbody = document.getElementById('crm-ac-tbody');
+    const sel = document.getElementById('crm-ac-exec');
+    const msg = document.getElementById('crm-ac-msg');
+    const back = document.getElementById('crm-ac-back');
 
     function syncBackHref() {
         if (!back) return;

@@ -1,6 +1,7 @@
 import re
 import csv
 import io
+import os
 from datetime import datetime
 from flask import render_template, request, jsonify, session, current_app, Response
 from ..auth import login_required
@@ -47,12 +48,70 @@ def _parse_vr_bruto(raw):
         return 0.0
 
 
-def _audit_swr(*args, **kwargs):
+def _audit_crm(*args, **kwargs):
     try:
         from ..routes import registrar_auditoria
         registrar_auditoria(*args, **kwargs)
     except Exception as exc:
-        current_app.logger.warning(f"Auditoria SWR ignorada: {exc}")
+        current_app.logger.warning(f"Auditoria CRM ignorada: {exc}")
+
+
+def _jsonify_rows(rows):
+    out = []
+    for row in rows or []:
+        d = dict(row)
+        for k, v in list(d.items()):
+            if hasattr(v, 'isoformat'):
+                d[k] = v.isoformat()
+        out.append(d)
+    return out
+
+
+def _webhook_secret_ok():
+    expected = (os.getenv('WASENDER_WEBHOOK_SECRET') or '').strip()
+    if not expected:
+        current_app.logger.warning('WASENDER_WEBHOOK_SECRET não configurado; webhook Wasender bloqueado.')
+        return False
+    auth = request.headers.get('Authorization', '')
+    provided = (
+        request.headers.get('X-Wasender-Secret')
+        or request.headers.get('X-Webhook-Secret')
+        or request.args.get('secret')
+        or ''
+    ).strip()
+    if auth.lower().startswith('bearer '):
+        provided = auth.split(' ', 1)[1].strip()
+    return provided == expected
+
+
+def _wasender_message_from_payload(payload):
+    data = payload.get('data') if isinstance(payload, dict) else {}
+    messages = data.get('messages') if isinstance(data, dict) else None
+    if isinstance(messages, list):
+        return messages[0] if messages else None
+    if isinstance(messages, dict):
+        return messages
+    return None
+
+
+def _wasender_message_id(payload, message_data=None):
+    message_data = message_data or _wasender_message_from_payload(payload) or {}
+    key = message_data.get('key') if isinstance(message_data, dict) else {}
+    for source in (key, message_data, payload.get('data') if isinstance(payload, dict) else {}, payload):
+        if isinstance(source, dict):
+            for k in ('id', 'message_id', 'messageId', 'msgId'):
+                if source.get(k):
+                    return str(source[k])
+    return None
+
+
+def _wasender_provider_status(payload):
+    for source in (payload.get('data') if isinstance(payload, dict) else {}, payload):
+        if isinstance(source, dict):
+            for k in ('status', 'message_status', 'messageStatus'):
+                if source.get(k):
+                    return str(source[k])
+    return payload.get('event') if isinstance(payload, dict) else None
 
 
 @bp.route('/')
@@ -67,7 +126,7 @@ def index():
     estados = db.obter_estados()
     clientes_cotacao = db.obter_clientes_simples()
     return render_template(
-        'sales_war_room/sales_war_room.html',
+        'crm_comercial/crm_comercial.html',
         executivos=executivos,
         vendedores_cc=vendedores_cc,
         agencias=agencias,
@@ -750,7 +809,11 @@ def api_cliente_contatos(cliente_id):
                     c.nome_completo,
                     c.email,
                     c.telefone,
+                    c.telefone_secundario,
+                    c.foto_url,
                     cg.descricao AS cargo,
+                    COALESCE(conv.qtd_conversas, 0) AS qtd_conversas,
+                    COALESCE(conv.unread_count, 0) AS unread_count,
                     (
                         SELECT MAX(sa.data_atividade)
                         FROM sales_atividades sa
@@ -759,9 +822,17 @@ def api_cliente_contatos(cliente_id):
                     ) AS ultima_atividade
                 FROM tbl_contato_cliente c
                 LEFT JOIN tbl_cargo_contato cg ON cg.id_cargo_contato = c.pk_id_tbl_cargo
+                LEFT JOIN (
+                    SELECT contato_id,
+                           COUNT(*) AS qtd_conversas,
+                           SUM(COALESCE(unread_count, 0)) AS unread_count
+                    FROM sales_comunicacao_conversas
+                    WHERE cliente_id = %s
+                    GROUP BY contato_id
+                ) conv ON conv.contato_id = c.id_contato_cliente
                 WHERE c.pk_id_tbl_cliente = %s AND c.status = true
                 ORDER BY c.nome_completo
-            """, (cliente_id,))
+            """, (cliente_id, cliente_id))
             contatos = cur.fetchall()
 
         for ct in contatos:
@@ -771,6 +842,283 @@ def api_cliente_contatos(cliente_id):
         return jsonify({'success': True, 'contatos': contatos})
     except Exception as e:
         current_app.logger.error(f"Erro api_cliente_contatos: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/comunicacao/conversas')
+@login_required
+def api_comunicacao_conversas(cliente_id):
+    from .. import db as db_mod
+    contato_id = request.args.get('contato_id', type=int)
+    telefone = (request.args.get('telefone') or '').strip() or None
+    try:
+        conversas = db_mod.listar_sales_comunicacao_conversas(cliente_id, contato_id, telefone)
+        return jsonify({'success': True, 'conversas': _jsonify_rows(conversas)})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_comunicacao_conversas: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/comunicacao/conversas', methods=['POST'])
+@login_required
+def api_criar_comunicacao_conversa(cliente_id):
+    from .. import db as db_mod
+    data = request.get_json() or {}
+    contato_id = data.get('contato_id')
+    telefone = (data.get('telefone') or '').strip() or None
+    canal = (data.get('canal') or 'whatsapp').strip() or 'whatsapp'
+    try:
+        conversa_id = db_mod.criar_sales_comunicacao_conversa(
+            cliente_id,
+            contato_id=contato_id,
+            telefone=telefone,
+            canal=canal,
+            created_by=session.get('user_id'),
+        )
+        conversa_row = db_mod.obter_sales_comunicacao_conversa(conversa_id)
+        conversa = _jsonify_rows([conversa_row])[0] if conversa_row else None
+        return jsonify({'success': True, 'id': conversa_id, 'conversa': conversa})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_criar_comunicacao_conversa: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/comunicacao/conversas/<int:conversa_id>/mensagens')
+@login_required
+def api_comunicacao_mensagens(conversa_id):
+    from .. import db as db_mod
+    try:
+        mensagens = db_mod.listar_sales_comunicacao_mensagens(conversa_id)
+        return jsonify({'success': True, 'mensagens': _jsonify_rows(mensagens)})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_comunicacao_mensagens: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/comunicacao/conversas/<int:conversa_id>/mensagens', methods=['POST'])
+@login_required
+def api_criar_comunicacao_mensagem(conversa_id):
+    from .. import db as db_mod
+    from ..services.wasender_service import WasenderApiError, enviar_mensagem_texto
+    data = request.get_json() or {}
+    texto = (data.get('texto') or '').strip()
+    if not texto:
+        return jsonify({'success': False, 'error': 'Mensagem obrigatória.'}), 400
+    direcao = (data.get('direcao') or 'outbound').strip() or 'outbound'
+    status = (data.get('status') or 'enviado').strip() or 'enviado'
+    gerado_por_ia = bool(data.get('gerado_por_ia'))
+    try:
+        provider_meta = {}
+        if direcao == 'outbound':
+            conversa = db_mod.obter_sales_comunicacao_conversa(conversa_id)
+            if not conversa:
+                return jsonify({'success': False, 'error': 'Conversa não encontrada.'}), 404
+            responsavel_id = conversa.get('responsavel_id') or conversa.get('vendas_central_comm')
+            if not responsavel_id:
+                return jsonify({'success': False, 'error': 'Cliente sem responsável comercial para envio.'}), 400
+            credencial = db_mod.obter_wasender_credencial_responsavel(responsavel_id)
+            if not credencial or not credencial.get('wasender_ativo') or not credencial.get('wasender_api_key'):
+                return jsonify({'success': False, 'error': 'Responsável comercial sem WasenderAPI ativa.'}), 400
+            remetente = credencial.get('telefone_normalizado')
+            if not remetente:
+                return jsonify({'success': False, 'error': 'Responsável comercial sem telefone cadastrado.'}), 400
+            destino = db_mod.normalizar_telefone_whatsapp(
+                conversa.get('telefone') or conversa.get('contato_telefone') or conversa.get('contato_telefone_secundario')
+            )
+            if not destino:
+                return jsonify({'success': False, 'error': 'Conversa sem telefone de destino.'}), 400
+            try:
+                provider_meta = enviar_mensagem_texto(credencial['wasender_api_key'], destino, texto)
+                status = 'enviado'
+                db_mod.atualizar_sales_comunicacao_conversa_wasender(
+                    conversa_id,
+                    responsavel_id=responsavel_id,
+                    telefone_remetente=remetente,
+                    provider_session_id=credencial.get('wasender_session_id'),
+                )
+            except WasenderApiError as exc:
+                msg_id = db_mod.criar_sales_comunicacao_mensagem(
+                    conversa_id,
+                    texto,
+                    direcao=direcao,
+                    status='erro',
+                    gerado_por_ia=gerado_por_ia,
+                    created_by=session.get('user_id'),
+                    provider='wasenderapi',
+                    provider_status='failed',
+                    provider_payload={'error': str(exc)},
+                )
+                mensagens = db_mod.listar_sales_comunicacao_mensagens(conversa_id)
+                return jsonify({
+                    'success': False,
+                    'id': msg_id,
+                    'error': str(exc),
+                    'mensagens': _jsonify_rows(mensagens),
+                }), 502
+
+        msg_id = db_mod.criar_sales_comunicacao_mensagem(
+            conversa_id,
+            texto,
+            direcao=direcao,
+            status=status,
+            gerado_por_ia=gerado_por_ia,
+            created_by=session.get('user_id'),
+            provider=provider_meta.get('provider') if provider_meta else None,
+            provider_message_id=provider_meta.get('provider_message_id') if provider_meta else None,
+            provider_status=provider_meta.get('provider_status') if provider_meta else None,
+            provider_payload=provider_meta.get('provider_payload') if provider_meta else None,
+        )
+        mensagens = db_mod.listar_sales_comunicacao_mensagens(conversa_id)
+        return jsonify({'success': True, 'id': msg_id, 'mensagens': _jsonify_rows(mensagens)})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_criar_comunicacao_mensagem: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/comunicacao/conversas/<int:conversa_id>/status', methods=['PATCH'])
+@login_required
+def api_comunicacao_conversa_status(conversa_id):
+    from .. import db as db_mod
+    data = request.get_json() or {}
+    status = (data.get('status') or 'aberta').strip() or 'aberta'
+    unread_count = data.get('unread_count')
+    try:
+        ok = db_mod.atualizar_sales_comunicacao_conversa_status(conversa_id, status, unread_count)
+        if not ok:
+            return jsonify({'success': False, 'error': 'Conversa não encontrada.'}), 404
+        return jsonify({'success': True})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_comunicacao_conversa_status: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/comunicacao/automacao')
+@login_required
+def api_comunicacao_automacao(cliente_id):
+    from .. import db as db_mod
+    contato_id = request.args.get('contato_id', type=int)
+    tipo = (request.args.get('tipo') or 'proposta_enviada').strip() or 'proposta_enviada'
+    try:
+        automacao = db_mod.obter_sales_comunicacao_automacao(cliente_id, contato_id, tipo)
+        rows = _jsonify_rows([automacao] if automacao else [])
+        return jsonify({'success': True, 'automacao': rows[0] if rows else None})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_comunicacao_automacao: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cliente/<int:cliente_id>/comunicacao/automacao', methods=['PUT'])
+@login_required
+def api_salvar_comunicacao_automacao(cliente_id):
+    from .. import db as db_mod
+    data = request.get_json() or {}
+    contato_id = data.get('contato_id')
+    tipo = (data.get('tipo') or 'proposta_enviada').strip() or 'proposta_enviada'
+    template = (data.get('template') or '').strip() or None
+    ativo = bool(data.get('ativo'))
+    try:
+        auto_id = db_mod.salvar_sales_comunicacao_automacao(
+            cliente_id,
+            contato_id=contato_id,
+            tipo=tipo,
+            template=template,
+            ativo=ativo,
+            created_by=session.get('user_id'),
+        )
+        automacao = db_mod.obter_sales_comunicacao_automacao(cliente_id, contato_id, tipo)
+        rows = _jsonify_rows([automacao] if automacao else [])
+        return jsonify({'success': True, 'id': auto_id, 'automacao': rows[0] if rows else None})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_salvar_comunicacao_automacao: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/wasender/webhook', methods=['POST'])
+def api_wasender_webhook():
+    from .. import db as db_mod
+    if not _webhook_secret_ok():
+        return jsonify({'success': False, 'error': 'Webhook não autorizado.'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    event = (payload.get('event') or '').strip()
+    message_data = _wasender_message_from_payload(payload)
+    provider_message_id = _wasender_message_id(payload, message_data)
+
+    if event and event not in ('messages.received', 'messages.upsert', 'messages.update', 'message.status', 'messages.status'):
+        return jsonify({'success': True, 'ignored': True, 'reason': 'event_not_handled'})
+
+    if event in ('messages.update', 'message.status', 'messages.status'):
+        updated = db_mod.atualizar_sales_comunicacao_mensagem_provider(
+            provider_message_id=provider_message_id,
+            provider_status=_wasender_provider_status(payload),
+            provider_payload=payload,
+        )
+        return jsonify({'success': True, 'updated': updated})
+
+    if not message_data:
+        if provider_message_id:
+            updated = db_mod.atualizar_sales_comunicacao_mensagem_provider(
+                provider_message_id=provider_message_id,
+                provider_status=_wasender_provider_status(payload),
+                provider_payload=payload,
+            )
+            return jsonify({'success': True, 'updated': updated})
+        return jsonify({'success': True, 'ignored': True, 'reason': 'no_message'})
+
+    key = message_data.get('key') or {}
+    if key.get('fromMe') is True:
+        return jsonify({'success': True, 'ignored': True, 'reason': 'from_me'})
+
+    sender = key.get('cleanedParticipantPn') or key.get('cleanedSenderPn') or key.get('remoteJid') or ''
+    texto = (message_data.get('messageBody') or '').strip()
+    if not texto:
+        raw_msg = message_data.get('message') or {}
+        texto = (raw_msg.get('conversation') or '').strip() if isinstance(raw_msg, dict) else ''
+    if not sender or not texto:
+        return jsonify({'success': True, 'ignored': True, 'reason': 'missing_sender_or_text'})
+
+    try:
+        if provider_message_id:
+            ja_existia = db_mod.atualizar_sales_comunicacao_mensagem_provider(
+                provider_message_id=provider_message_id,
+                provider_status='received',
+                provider_payload=payload,
+            )
+            if ja_existia:
+                return jsonify({'success': True, 'duplicate': True})
+
+        contato = db_mod.localizar_contato_por_telefone_wasender(sender)
+        if not contato or not contato.get('pk_id_tbl_cliente'):
+            return jsonify({'success': True, 'ignored': True, 'reason': 'phone_not_registered'})
+
+        cliente_id = contato['pk_id_tbl_cliente']
+        responsavel_id = contato.get('vendas_central_comm')
+        credencial = db_mod.obter_wasender_credencial_responsavel(responsavel_id) if responsavel_id else None
+        conversa_id = db_mod.criar_sales_comunicacao_conversa(
+            cliente_id,
+            contato_id=contato['id_contato_cliente'],
+            telefone=db_mod.normalizar_telefone_whatsapp(sender),
+            canal='whatsapp',
+            created_by=None,
+            responsavel_id=responsavel_id,
+            telefone_remetente=credencial.get('telefone_normalizado') if credencial else None,
+            provider_session_id=credencial.get('wasender_session_id') if credencial else None,
+        )
+        msg_id = db_mod.criar_sales_comunicacao_mensagem(
+            conversa_id,
+            texto,
+            direcao='inbound',
+            status='recebido',
+            gerado_por_ia=False,
+            created_by=None,
+            provider='wasenderapi',
+            provider_message_id=provider_message_id,
+            provider_status='received',
+            provider_payload=payload,
+        )
+        return jsonify({'success': True, 'id': msg_id, 'conversa_id': conversa_id})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_wasender_webhook: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -866,18 +1214,18 @@ def api_criar_cotacao_cliente(cliente_id):
                         session.get('user_id'),
                     )
 
-        _audit_swr(
+        _audit_crm(
             acao='INSERT',
             modulo='cotacoes',
-            descricao=f'Cotação criada pela War Room: {resultado["numero_cotacao"]}',
+            descricao=f'Cotação criada pelo CRM Comercial: {resultado["numero_cotacao"]}',
             registro_id=resultado['id'],
             registro_tipo='cadu_cotacoes',
             dados_novos={
                 'client_id': cliente_cotacao_id,
-                'contexto_war_room_cliente_id': cliente_id,
+                'contexto_crm_comercial_cliente_id': cliente_id,
                 'nome_campanha': nome_campanha,
                 'valor_total_proposta': valor_total,
-                'origem': 'sales_war_room',
+                'origem': 'crm_comercial',
             },
         )
 
@@ -904,6 +1252,7 @@ def api_contato_detalhes(contato_id):
                     c.nome_completo,
                     c.email,
                     c.telefone,
+                    c.telefone_secundario,
                     cg.descricao AS cargo,
                     cli.id_cliente AS cliente_id,
                     cli.nome_fantasia AS cliente_nome
@@ -1419,6 +1768,7 @@ def api_cliente_contato_rapido(cliente_id):
     nome = (data.get('nome_completo') or '').strip()
     email = (data.get('email') or '').strip().lower()
     telefone = (data.get('telefone') or '').strip() or None
+    telefone_secundario = (data.get('telefone_secundario') or '').strip() or None
     if not nome or not email:
         return jsonify({'success': False, 'error': 'Nome e email são obrigatórios'}), 400
 
@@ -1438,6 +1788,7 @@ def api_cliente_contato_rapido(cliente_id):
                 senha=None,
                 pk_id_tbl_cliente=cliente_id,
                 telefone=telefone,
+                telefone_secundario=telefone_secundario,
                 pk_id_tbl_cargo=cargo_id,
                 pk_id_tbl_setor=setor_id,
                 user_type='client',
@@ -1514,6 +1865,7 @@ def api_cliente_contatos_importar(cliente_id):
         nome = (parts[0] or '').strip()
         email = (parts[1] or '').strip().lower() if len(parts) > 1 else ''
         telefone = (parts[2] or '').strip() if len(parts) > 2 else None
+        telefone_secundario = (parts[3] or '').strip() if len(parts) > 3 else None
         if not nome or not email:
             erros.append({'linha': i, 'msg': 'Nome e email obrigatórios'})
             continue
@@ -1524,6 +1876,7 @@ def api_cliente_contatos_importar(cliente_id):
                 senha=None,
                 pk_id_tbl_cliente=cliente_id,
                 telefone=telefone,
+                telefone_secundario=telefone_secundario,
                 pk_id_tbl_cargo=cargo_id,
                 pk_id_tbl_setor=setor_id,
                 user_type='client',
@@ -1558,7 +1911,7 @@ def api_cliente_contatos_importar(cliente_id):
 def atividades_consolidadas():
     from .. import db
     executivos = db.obter_vendedores_centralcomm()
-    return render_template('sales_war_room/atividades_consolidadas.html', executivos=executivos)
+    return render_template('crm_comercial/atividades_consolidadas.html', executivos=executivos)
 
 
 @bp.route('/objetivos-consolidadas')
@@ -1566,7 +1919,7 @@ def atividades_consolidadas():
 def objetivos_consolidadas():
     from .. import db
     executivos = db.obter_vendedores_centralcomm()
-    return render_template('sales_war_room/objetivos_consolidadas.html', executivos=executivos)
+    return render_template('crm_comercial/objetivos_consolidadas.html', executivos=executivos)
 
 
 @bp.route('/api/atividades-consolidadas')

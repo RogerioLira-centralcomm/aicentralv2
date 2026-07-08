@@ -1,16 +1,23 @@
 (function () {
     'use strict';
 
-    const BASE = '/sales-war-room';
+    const BASE = '/crm-comercial';
+    const CRM_EXECUTIVO_COOKIE = 'crm_executivo_id';
     let clienteSelecionadoId = null;
     let contatoSelecionadoId = null;
     let modalContatoId = null;
     let modalClienteId = null;
     let chartInstances = {};
-    let swrCliCache = [];
-    let swrContatosCache = [];
-    let swrCliPage = 0;
-    const SWR_CLI_PAGE_SIZE = 12;
+    let crmCliCache = [];
+    let crmContatosCache = [];
+    let crmConversasCache = [];
+    let crmConversaSelecionadaId = null;
+    let telefoneSelecionado = null;
+    let crmContatoBusca = '';
+    let crmChatBusca = '';
+    let crmChatTab = 'todas';
+    let crmCliPage = 0;
+    const CRM_CLI_PAGE_SIZE = 12;
 
 
     // ==================== Helpers ====================
@@ -23,7 +30,7 @@
     }
 
     function showEmpty(container, msg) {
-        container.innerHTML = `<div class="swr-empty-state">${msg}</div>`;
+        container.innerHTML = `<div class="crm-empty-state">${msg}</div>`;
     }
 
     async function api(path, opts = {}) {
@@ -33,7 +40,9 @@
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${resp.status}`);
+            const error = new Error(err.error || `HTTP ${resp.status}`);
+            error.data = err;
+            throw error;
         }
         return resp.json();
     }
@@ -137,13 +146,13 @@
     }
 
     function atualizarContadoresCarteira(clientes, perfil) {
-        const wrap = $('#swr-contador-carteira');
-        const chipA = $('#swr-chip-ag');
-        const chipC = $('#swr-chip-cli');
-        const letraA = $('#swr-letra-a');
-        const letraC = $('#swr-letra-c');
-        const elA = $('#swr-n-agencias');
-        const elC = $('#swr-n-clientes');
+        const wrap = $('#crm-contador-carteira');
+        const chipA = $('#crm-chip-ag');
+        const chipC = $('#crm-chip-cli');
+        const letraA = $('#crm-letra-a');
+        const letraC = $('#crm-letra-c');
+        const elA = $('#crm-n-agencias');
+        const elC = $('#crm-n-clientes');
         if (!wrap || !chipA || !chipC || !elA || !elC) return;
         let nAg = 0;
         let nCli = 0;
@@ -176,7 +185,7 @@
     }
 
     function esconderContadoresCarteira() {
-        const wrap = $('#swr-contador-carteira');
+        const wrap = $('#crm-contador-carteira');
         if (!wrap) return;
         wrap.classList.add('hidden');
     }
@@ -202,10 +211,10 @@
             const params = new URLSearchParams({ executivo_id: execId, tipo, busca });
             if (perfil) params.set('perfil', perfil);
             const data = await api(`/api/clientes?${params}`);
-            swrCliCache = data.clientes || [];
-            swrCliPage = 0;
-            atualizarContadoresCarteira(swrCliCache, perfil);
-            if (!swrCliCache.length) {
+            crmCliCache = data.clientes || [];
+            crmCliPage = 0;
+            atualizarContadoresCarteira(crmCliCache, perfil);
+            if (!crmCliCache.length) {
                 esconderPaginacaoClientes();
                 showEmpty(container, 'Nenhum cliente encontrado.');
                 return;
@@ -220,13 +229,13 @@
     }
 
     function esconderPaginacaoClientes() {
-        $('#swr-clientes-paginacao')?.classList.add('hidden');
-        $('#swr-contador-total')?.classList.add('hidden');
+        $('#crm-clientes-paginacao')?.classList.add('hidden');
+        $('#crm-contador-total')?.classList.add('hidden');
     }
 
     function renderClientesPagina() {
         const container = $('#lista-clientes');
-        const total = swrCliCache.length;
+        const total = crmCliCache.length;
 
         const order = ['Prospecção', 'Ativo', 'Geladeira'];
         const labelFor = (c) => {
@@ -235,7 +244,7 @@
         };
         const nomeFor = (c) => (c.nome_fantasia || c.razao_social || '').trim();
         const grupos = new Map();
-        for (const c of swrCliCache) {
+        for (const c of crmCliCache) {
             const label = labelFor(c);
             if (!grupos.has(label)) grupos.set(label, []);
             grupos.get(label).push(c);
@@ -246,15 +255,15 @@
 
         const labels = order.concat([...grupos.keys()].filter(k => !order.includes(k)).sort((a, b) => a.localeCompare(b, 'pt-BR')));
         const cardHtml = (c) => `
-            <div class="swr-card ${c.id_cliente == clienteSelecionadoId ? 'swr-card-active' : ''}"
+            <div class="crm-card ${c.id_cliente == clienteSelecionadoId ? 'crm-card-active' : ''}"
                  data-id="${c.id_cliente}">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
-                        <div class="swr-cliente-nome truncate">${nomeFor(c).toUpperCase()}</div>
-                        <div class="swr-cliente-subtitulo">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
+                        <div class="crm-cliente-nome truncate">${nomeFor(c).toUpperCase()}</div>
+                        <div class="crm-cliente-subtitulo">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        <button type="button" class="swr-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
+                        <button type="button" class="crm-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
                             ${ICON_EDIT}
                         </button>
                     </div>
@@ -266,31 +275,31 @@
             if (!lista.length) return '';
             const detailsOpen = label === 'Prospecção' || label === 'Ativo' || label === 'Geladeira';
             return `
-                <details class="swr-classificacao-grupo" ${detailsOpen ? 'open' : ''} data-classificacao="${escapeHtml(label)}">
-                    <summary class="swr-classificacao-header">
-                        <span class="swr-classificacao-titulo">${escapeHtml(label)}</span>
-                        <span class="swr-classificacao-count">${lista.length}</span>
+                <details class="crm-classificacao-grupo" ${detailsOpen ? 'open' : ''} data-classificacao="${escapeHtml(label)}">
+                    <summary class="crm-classificacao-header">
+                        <span class="crm-classificacao-titulo">${escapeHtml(label)}</span>
+                        <span class="crm-classificacao-count">${lista.length}</span>
                     </summary>
-                    <div class="swr-classificacao-lista">
+                    <div class="crm-classificacao-lista">
                         ${lista.map(cardHtml).join('')}
                     </div>
                 </details>
             `;
         }).join('');
 
-        $$('.swr-card', container).forEach(el => {
+        $$('.crm-card', container).forEach(el => {
             el.addEventListener('click', () => selecionarCliente(parseInt(el.dataset.id)));
         });
 
-        $$('.swr-cliente-edit', container).forEach(btn => {
+        $$('.crm-cliente-edit', container).forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 abrirModalEditarCliente(parseInt(btn.dataset.id, 10));
             });
         });
 
-        const footer = $('#swr-clientes-paginacao');
-        const totalEl = $('#swr-contador-total');
+        const footer = $('#crm-clientes-paginacao');
+        const totalEl = $('#crm-contador-total');
         if (totalEl) {
             totalEl.textContent = total;
             totalEl.classList.remove('hidden');
@@ -302,8 +311,8 @@
         clienteSelecionadoId = id;
         contatoSelecionadoId = null;
 
-        $$('.swr-card', $('#lista-clientes')).forEach(el => {
-            el.classList.toggle('swr-card-active', parseInt(el.dataset.id) === id);
+        $$('.crm-card', $('#lista-clientes')).forEach(el => {
+            el.classList.toggle('crm-card-active', parseInt(el.dataset.id) === id);
         });
         atualizarResumoObjetivosComunicacao();
 
@@ -311,21 +320,34 @@
         carregarStatus(id);
         carregarContatos(id);
         if ($('#lista-atividades')) carregarAtividades(id);
-        carregarObjetivos(id);
         carregarCotacoesAbertas(id);
+        limparWhatsAppComercial();
+    }
+
+    function limparWhatsAppComercial() {
+        crmConversaSelecionadaId = null;
+        telefoneSelecionado = null;
+        crmConversasCache = [];
+        showEmpty($('#crm-conversas-lista'), contatoSelecionadoId ? 'Selecione um telefone.' : 'Selecione um contato.');
+        showEmpty($('#crm-chat-mensagens'), contatoSelecionadoId ? 'Selecione um telefone para ver a conversa.' : 'Selecione um contato e telefone.');
+        atualizarResumoObjetivosComunicacao();
     }
 
     function limparColunas() {
         clienteSelecionadoId = null;
         contatoSelecionadoId = null;
-        swrContatosCache = [];
+        crmConversaSelecionadaId = null;
+        telefoneSelecionado = null;
+        crmContatosCache = [];
+        crmConversasCache = [];
         showEmpty($('#area-status'), 'Selecione um cliente.');
         showEmpty($('#lista-contatos'), 'Selecione um cliente.');
         if ($('#lista-atividades')) showEmpty($('#lista-atividades'), 'Selecione um cliente.');
-        if ($('#lista-objetivos')) showEmpty($('#lista-objetivos'), 'Selecione um cliente.');
         atualizarResumoObjetivosComunicacao();
         showEmpty($('#lista-cotacoes'), 'Selecione um cliente.');
-        const count = $('#swr-cotacoes-count');
+        showEmpty($('#crm-conversas-lista'), 'Selecione um cliente.');
+        showEmpty($('#crm-chat-mensagens'), 'Selecione uma conversa.');
+        const count = $('#crm-cotacoes-count');
         if (count) count.textContent = '';
     }
 
@@ -344,13 +366,13 @@
 
     function badgeStatusCotacao(status) {
         const s = status || 'Rascunho';
-        const cls = s === 'Enviada' ? 'swr-cot-status-enviada' : (s === 'Em Análise' ? 'swr-cot-status-analise' : 'swr-cot-status-rascunho');
-        return `<span class="swr-cot-status ${cls}">${escapeHtml(s)}</span>`;
+        const cls = s === 'Enviada' ? 'crm-cot-status-enviada' : (s === 'Em Análise' ? 'crm-cot-status-analise' : 'crm-cot-status-rascunho');
+        return `<span class="crm-cot-status ${cls}">${escapeHtml(s)}</span>`;
     }
 
     function renderCotacoesAbertas(cotacoes) {
         const container = $('#lista-cotacoes');
-        const count = $('#swr-cotacoes-count');
+        const count = $('#crm-cotacoes-count');
         if (!container) return;
         if (count) count.textContent = cotacoes.length ? String(cotacoes.length) : '';
         if (!cotacoes.length) {
@@ -361,13 +383,13 @@
             const titulo = c.numero_cotacao || `#${c.id}`;
             const campanha = c.nome_campanha || 'Campanha sem nome';
             return `
-                <a class="swr-cot-card" href="/cotacoes/${c.id}/detalhes">
-                    <div class="swr-cot-top">
-                        <span class="swr-cot-numero">${escapeHtml(titulo)}</span>
+                <a class="crm-cot-card" href="/cotacoes/${c.id}/detalhes">
+                    <div class="crm-cot-top">
+                        <span class="crm-cot-numero">${escapeHtml(titulo)}</span>
                         ${badgeStatusCotacao(c.status)}
                     </div>
-                    <div class="swr-cot-campanha">${escapeHtml(campanha)}</div>
-                    <div class="swr-cot-meta">
+                    <div class="crm-cot-campanha">${escapeHtml(campanha)}</div>
+                    <div class="crm-cot-meta">
                         <span>${fmtBRL(c.valor_total_proposta || 0)}</span>
                         <span>${fmtDate(c.created_at)}</span>
                     </div>
@@ -387,7 +409,7 @@
         if (pct === null || pct === undefined) return { html: '', cls: '' };
         const positivo = pct >= 0;
         const bom = lowerIsBetter ? !positivo : positivo;
-        const cls = pct === 0 ? '' : (bom ? 'swr-metric-delta-up' : 'swr-metric-delta-down');
+        const cls = pct === 0 ? '' : (bom ? 'crm-metric-delta-up' : 'crm-metric-delta-down');
         const arrow = pct === 0 ? '' : (positivo ? '↑' : '↓');
         return { html: `${arrow} ${Math.abs(pct)}% vs mês ant.`, cls };
     }
@@ -395,10 +417,10 @@
     function metricCard(valor, label, deltaPct, lowerIsBetter = false, isCurrency = false) {
         const delta = deltaText(deltaPct, lowerIsBetter);
         return `
-            <div class="swr-metric-card">
-                <span class="swr-metric-valor${isCurrency ? ' swr-metric-currency' : ''}">${valor}</span>
-                ${delta.html ? `<span class="swr-metric-delta ${delta.cls}">${delta.html}</span>` : ''}
-                <div class="swr-metric-label">${label}</div>
+            <div class="crm-metric-card">
+                <span class="crm-metric-valor${isCurrency ? ' crm-metric-currency' : ''}">${valor}</span>
+                ${delta.html ? `<span class="crm-metric-delta ${delta.cls}">${delta.html}</span>` : ''}
+                <div class="crm-metric-label">${label}</div>
             </div>`;
     }
 
@@ -424,7 +446,7 @@
         try {
             const data = await api(`/api/cliente/${clienteId}/status`);
             const s = data.status;
-            const clienteData = swrCliCache.find(c => c.id_cliente === clienteId) || {};
+            const clienteData = crmCliCache.find(c => c.id_cliente === clienteId) || {};
             const nomeCliente = clienteData.nome_fantasia || clienteData.razao_social || 'Cliente';
             const tipoCliente = clienteData.eh_agencia ? 'Agência' : 'Cliente final';
             const categoria = s.tipo_mercado || 'Privado';
@@ -433,35 +455,35 @@
             const agora = new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             container.innerHTML = `
-                <div class="swr-status-section">
+                <div class="crm-status-section">
                     <!-- Header do cliente -->
-                    <div class="swr-status-cliente-header">
-                        <div class="swr-status-avatar-verde">${inicial}</div>
-                        <div class="swr-status-cliente-info">
-                            <div class="swr-status-cliente-nome">${escapeHtml(nomeCliente).toUpperCase()}</div>
-                            <div class="swr-status-cliente-tipo">${tipoCliente}</div>
+                    <div class="crm-status-cliente-header">
+                        <div class="crm-status-avatar-verde">${inicial}</div>
+                        <div class="crm-status-cliente-info">
+                            <div class="crm-status-cliente-nome">${escapeHtml(nomeCliente).toUpperCase()}</div>
+                            <div class="crm-status-cliente-tipo">${tipoCliente}</div>
                         </div>
-                        <span class="swr-badge-prioridade-alta">Prioridade: ${prioridade}</span>
+                        <span class="crm-badge-prioridade-alta">Prioridade: ${prioridade}</span>
                     </div>
 
                     <!-- Info contatos -->
-                    <div class="swr-status-info-row">
+                    <div class="crm-status-info-row">
                         <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        <span class="swr-status-info-text">${s.total_contatos || 0} contato(s)</span>
+                        <span class="crm-status-info-text">${s.total_contatos || 0} contato(s)</span>
                     </div>
 
                     <!-- Responsável e Categoria -->
-                    <div class="swr-status-details">
-                        <div class="swr-status-detail-row">
-                            <span class="swr-status-detail-label">Responsável</span>
-                            <span class="swr-status-detail-value">
+                    <div class="crm-status-details">
+                        <div class="crm-status-detail-row">
+                            <span class="crm-status-detail-label">Responsável</span>
+                            <span class="crm-status-detail-value">
                                 ${s.executivo_nome || '-'}
                                 <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                             </span>
                         </div>
-                        <div class="swr-status-detail-row">
-                            <span class="swr-status-detail-label">Categoria</span>
-                            <span class="swr-status-detail-value">
+                        <div class="crm-status-detail-row">
+                            <span class="crm-status-detail-label">Categoria</span>
+                            <span class="crm-status-detail-value">
                                 ${categoria}
                                 <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
                             </span>
@@ -469,7 +491,7 @@
                     </div>
 
                     <!-- Grid de métricas 3x2 -->
-                    <div class="swr-metrics-grid">
+                    <div class="crm-metrics-grid">
                         ${metricCardNew('Contatos', s.total_contatos || 0, s.total_contatos_delta_pct, false)}
                         ${metricCardNew('Aprovações', s.cotacoes_aprovadas || 0, s.cotacoes_aprovadas_delta_pct, false)}
                         ${metricCardNew('Faturamento', fmtBRL(s.valor_bruto || 0), s.valor_bruto_delta_pct, false)}
@@ -479,53 +501,53 @@
                     </div>
 
                     <!-- Última atualização -->
-                    <div class="swr-ultima-atualizacao-row">
+                    <div class="crm-ultima-atualizacao-row">
                         <span>Última atualização</span>
                         <span>Hoje, ${agora}</span>
                     </div>
 
                     <!-- Próximo passo sugerido -->
-                    <div class="swr-proximo-passo-section">
-                        <div class="swr-proximo-passo-titulo">Próximo passo sugerido</div>
-                        <div class="swr-proximo-passo-card">
-                            <div class="swr-proximo-passo-icon-circle">
+                    <div class="crm-proximo-passo-section">
+                        <div class="crm-proximo-passo-titulo">Próximo passo sugerido</div>
+                        <div class="crm-proximo-passo-card">
+                            <div class="crm-proximo-passo-icon-circle">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                             </div>
-                            <div class="swr-proximo-passo-content-text">
-                                <div class="swr-proximo-passo-main">${escapeHtml(proximoPassoStatus(s))}</div>
-                                <div class="swr-proximo-passo-sub">Prazo sugerido: Hoje</div>
+                            <div class="crm-proximo-passo-content-text">
+                                <div class="crm-proximo-passo-main">${escapeHtml(proximoPassoStatus(s))}</div>
+                                <div class="crm-proximo-passo-sub">Prazo sugerido: Hoje</div>
                             </div>
                             <svg class="w-4 h-4 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                         </div>
                     </div>
 
                     <!-- Nota sobre o cliente -->
-                    <div class="swr-nota-cliente-section">
-                        <div class="swr-nota-cliente-header">
-                            <span class="swr-nota-cliente-titulo">Nota sobre o cliente</span>
-                            <button type="button" class="swr-nota-menu-btn">
+                    <div class="crm-nota-cliente-section">
+                        <div class="crm-nota-cliente-header">
+                            <span class="crm-nota-cliente-titulo">Nota sobre o cliente</span>
+                            <button type="button" class="crm-nota-menu-btn">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                             </button>
                         </div>
-                        <div class="swr-nota-cliente-box">
-                            <textarea id="swr-nota-cliente" class="swr-nota-textarea" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
+                        <div class="crm-nota-cliente-box">
+                            <textarea id="crm-nota-cliente" class="crm-nota-textarea" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
                         </div>
-                        <div class="swr-nota-autor-info">
-                            <div class="swr-nota-autor-avatar">JF</div>
-                            <div class="swr-nota-autor-details">
-                                <div class="swr-nota-autor-nome">Nota realizada por ${s.executivo_nome || 'Usuário'}</div>
-                                <div class="swr-nota-autor-data">Hoje, ${agora}</div>
+                        <div class="crm-nota-autor-info">
+                            <div class="crm-nota-autor-avatar">JF</div>
+                            <div class="crm-nota-autor-details">
+                                <div class="crm-nota-autor-nome">Nota realizada por ${s.executivo_nome || 'Usuário'}</div>
+                                <div class="crm-nota-autor-data">Hoje, ${agora}</div>
                             </div>
                         </div>
-                        <button type="button" class="swr-ver-historico-link" id="swr-ver-historico-notas">
+                        <button type="button" class="crm-ver-historico-link" id="crm-ver-historico-notas">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             Ver histórico de notas
                         </button>
                     </div>
 
                     <!-- Botões de ação -->
-                    <div class="swr-status-action-buttons">
-                        <button type="button" class="swr-btn-outline" id="btn-ver-mais-status">Ver mais dados</button>
+                    <div class="crm-status-action-buttons">
+                        <button type="button" class="crm-btn-outline" id="btn-ver-mais-status">Ver mais dados</button>
                     </div>
                 </div>
             `;
@@ -545,19 +567,19 @@
             const isGood = lowerIsBetter ? !isPositive : isPositive;
             const colorClass = deltaPct === 0 ? 'text-gray-400' : (isGood ? 'text-green-500' : 'text-red-500');
             const sign = isPositive ? '+' : '';
-            deltaHtml = `<div class="swr-metric-delta-new ${colorClass}">${sign}${deltaPct}%</div>`;
+            deltaHtml = `<div class="crm-metric-delta-new ${colorClass}">${sign}${deltaPct}%</div>`;
         }
         return `
-            <div class="swr-metric-card-new">
-                <div class="swr-metric-label-new">${label}</div>
-                <div class="swr-metric-value-new">${valor}</div>
+            <div class="crm-metric-card-new">
+                <div class="crm-metric-label-new">${label}</div>
+                <div class="crm-metric-value-new">${valor}</div>
                 ${deltaHtml}
-                <div class="swr-metric-sublabel-new">vs mês ant.</div>
+                <div class="crm-metric-sublabel-new">vs mês ant.</div>
             </div>`;
     }
 
     async function carregarNotaCliente(clienteId) {
-        const ta = $('#swr-nota-cliente');
+        const ta = $('#crm-nota-cliente');
         if (!ta) return;
         try {
             const data = await api(`/api/cliente/${clienteId}/nota`);
@@ -571,7 +593,7 @@
         $('#btn-ver-mais-status')?.addEventListener('click', () => abrirModalStatusCompleto(clienteId));
 
         $('#btn-salvar-nota-cliente')?.addEventListener('click', async () => {
-            const ta = $('#swr-nota-cliente');
+            const ta = $('#crm-nota-cliente');
             if (!ta) return;
             const btn = $('#btn-salvar-nota-cliente');
             btn?.classList.add('loading');
@@ -598,94 +620,139 @@
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/contatos`);
-            swrContatosCache = data.contatos || [];
-            popularComunicacaoContatos(swrContatosCache);
-            const totalContatos = swrContatosCache.length;
-            if (!totalContatos) {
-                showEmpty(container, 'Nenhum contato cadastrado.');
-                return;
-            }
-
-            const contatosVisiveis = swrContatosCache.slice(0, 5);
-            container.innerHTML = contatosVisiveis.map((c, idx) => {
-                const tel = (c.telefone || '').replace(/\D/g, '');
-                const telFormatado = c.telefone || '';
-                const ehPrincipal = idx === 0 || c.principal;
-                const ultimoContato = c.ultima_atividade_data ? formatDateContato(c.ultima_atividade_data) : null;
-                return `
-                    <div class="swr-contato-card ${c.id_contato_cliente == contatoSelecionadoId ? 'swr-contato-card-active' : ''}"
-                         data-id="${c.id_contato_cliente}">
-                        <div class="swr-contato-card-header">
-                            <div class="swr-contato-card-info">
-                                <div class="swr-contato-nome-row">
-                                    <button type="button" class="swr-contato-nome-btn swr-contato-nome-modal" data-contato-id="${c.id_contato_cliente}">${escapeHtml(c.nome_completo)}</button>
-                                    ${ehPrincipal ? '<span class="swr-badge-principal-new">Principal</span>' : ''}
-                                </div>
-                                <div class="swr-contato-subtitulo">${escapeHtml(c.cargo || '')}</div>
-                                ${c.email ? `<div class="swr-contato-email">${escapeHtml(c.email)}</div>` : ''}
-                                ${telFormatado ? `<div class="swr-contato-telefone">${escapeHtml(telFormatado)}</div>` : ''}
-                            </div>
-                            <div class="swr-contato-card-right">
-                                <div class="swr-contato-acoes-new">
-                                    <button type="button" class="swr-contato-icon swr-contato-objetivo-btn" data-contato-id="${c.id_contato_cliente}" title="Objetivos e comunicação" aria-label="Objetivos e comunicação">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 12l2 2 4-4"/></svg>
-                                    </button>
-                                    ${tel ? `<a href="https://wa.me/55${tel}" target="_blank" class="swr-contato-icon swr-contato-icon-whatsapp" title="WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg></a>` : ''}
-                                    ${tel ? `<a href="tel:+55${tel}" class="swr-contato-icon" title="Ligar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></a>` : ''}
-                                    ${c.email ? `<a href="mailto:${c.email}" class="swr-contato-icon" title="E-mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>` : ''}
-                                </div>
-                                ${ultimoContato ? `<div class="swr-contato-ultimo">Último contato<br><span class="swr-contato-ultimo-data">${ultimoContato}</span></div>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            if (totalContatos > 5) {
-                container.innerHTML += `<div class="swr-link-ver-todos" id="swr-ver-todos-contatos">Ver todos os contatos (${totalContatos}) &gt;</div>`;
-            }
-
-            $('#swr-ver-todos-contatos')?.addEventListener('click', () => {
-                window.location.href = `/clientes?open=${clienteId}&tab=contatos`;
-            });
-
-            $$('.swr-contato-card', container).forEach(el => {
-                el.addEventListener('click', () => {
-                    const id = parseInt(el.dataset.id);
-                    contatoSelecionadoId = id;
-                    $$('.swr-contato-card', container).forEach(e => e.classList.remove('swr-contato-card-active'));
-                    el.classList.add('swr-contato-card-active');
-                    setTabAtividades('contato');
-                    carregarAtividades(clienteSelecionadoId, id);
-                    atualizarResumoObjetivosComunicacao();
-                });
-            });
-
-            $$('.swr-contato-objetivo-btn', container).forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const id = parseInt(btn.dataset.contatoId, 10);
-                    contatoSelecionadoId = id;
-                    $$('.swr-contato-card', container).forEach(e => {
-                        e.classList.toggle('swr-contato-card-active', parseInt(e.dataset.id, 10) === id);
-                    });
-                    setTabAtividades('contato');
-                    carregarAtividades(clienteSelecionadoId, id);
-                    focarObjetivosComunicacao('gerar', '#input-objetivo');
-                });
-            });
-
-            $$('.swr-contato-nome-modal', container).forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    abrirModalContato(parseInt(btn.dataset.contatoId, 10));
-                });
-            });
+            crmContatosCache = data.contatos || [];
+            popularComunicacaoContatos(crmContatosCache);
+            renderContatosCrm();
         } catch (e) {
             showEmpty(container, 'Erro ao carregar contatos.');
             console.error(e);
         }
+    }
+
+    function contatoAvatar(c) {
+        if (c.foto_url) {
+            return `<img class="crm-avatar-img" src="${escapeHtml(c.foto_url)}" alt="">`;
+        }
+        const nome = (c.nome_completo || '?').trim();
+        const iniciais = nome.split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
+        return `<span>${escapeHtml(iniciais)}</span>`;
+    }
+
+    function telefoneRow(contato, telefone, idx) {
+        if (!telefone) return '';
+        const digits = onlyDigits(telefone);
+        const qtd = idx === 1 ? (contato.unread_count || contato.qtd_conversas || 0) : Math.max(0, (contato.qtd_conversas || 0) - 1);
+        return `
+            <button type="button" class="crm-phone-row ${telefoneSelecionado === telefone ? 'crm-phone-row-active' : ''}" data-contato-id="${contato.id_contato_cliente}" data-telefone="${escapeHtml(telefone)}">
+                <span>${escapeHtml(telefone)}</span>
+                <span class="crm-phone-status">Ativo</span>
+                ${qtd ? `<span class="crm-phone-count">${qtd}</span>` : ''}
+                ${digits ? `<span class="crm-phone-wa" title="Abrir conversa no CRM">abrir</span>` : ''}
+            </button>
+        `;
+    }
+
+    function renderContatosCrm() {
+        const container = $('#lista-contatos');
+        if (!container) return;
+        const termo = crmContatoBusca.trim().toLowerCase();
+        const contatos = crmContatosCache.filter(c => {
+            if (!termo) return true;
+            return [c.nome_completo, c.email, c.cargo, c.telefone, c.telefone_secundario]
+                .some(v => String(v || '').toLowerCase().includes(termo));
+        });
+        if (!contatos.length) {
+            showEmpty(container, crmContatosCache.length ? 'Nenhum contato encontrado.' : 'Nenhum contato cadastrado.');
+            return;
+        }
+        container.innerHTML = contatos.map(c => {
+            const ativo = String(c.id_contato_cliente) === String(contatoSelecionadoId);
+            return `
+                <div class="crm-contact-card ${ativo ? 'crm-contact-card-active' : ''}" data-id="${c.id_contato_cliente}">
+                    <div class="crm-contact-main">
+                        <div class="crm-avatar">${contatoAvatar(c)}</div>
+                        <div class="crm-contact-info">
+                            <button type="button" class="crm-contact-name crm-contato-nome-modal" data-contato-id="${c.id_contato_cliente}">${escapeHtml(c.nome_completo || 'Contato')}</button>
+                            <div class="crm-contact-role">${escapeHtml(c.cargo || '')}</div>
+                        </div>
+                        <div class="crm-contact-badges">
+                            ${(c.qtd_conversas || c.unread_count) ? `<span>${c.qtd_conversas || 0}</span>` : ''}
+                            <button type="button" class="crm-contact-toggle" title="Expandir">⌄</button>
+                        </div>
+                    </div>
+                    <div class="crm-contact-details ${ativo ? '' : 'hidden'}">
+                        <div class="crm-contact-details-title">Conversas no WhatsApp</div>
+                        ${telefoneRow(c, c.telefone, 1)}
+                        ${telefoneRow(c, c.telefone_secundario, 2)}
+                        <button type="button" class="crm-see-more crm-contato-whats-btn" data-contato-id="${c.id_contato_cliente}">Abrir WhatsApp &gt;</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        $$('.crm-contact-card', container).forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.crm-contato-nome-modal')) return;
+                selecionarContatoCrm(parseInt(el.dataset.id, 10));
+            });
+        });
+        $$('.crm-phone-row', container).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const contatoId = parseInt(btn.dataset.contatoId, 10);
+                const telefone = btn.dataset.telefone || null;
+                selecionarContatoCrm(contatoId, { manterWhatsApp: true });
+                abrirConversaTelefone(contatoId, telefone);
+            });
+        });
+        $$('.crm-contato-whats-btn', container).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.contatoId, 10);
+                selecionarContatoCrm(id, { manterWhatsApp: true });
+                const contato = crmContatosCache.find(c => String(c.id_contato_cliente) === String(id));
+                const telefone = contato?.telefone || contato?.telefone_secundario || null;
+                abrirConversaTelefone(id, telefone).then(() => {
+                    const col = $('#col-objetivos-comunicacao');
+                    if (col) scrollIntoViewSuave(col);
+                    $('#crm-chat-input')?.focus();
+                });
+            });
+        });
+        $$('.crm-contato-nome-modal', container).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                abrirModalContato(parseInt(btn.dataset.contatoId, 10));
+            });
+        });
+    }
+
+    function selecionarContatoCrm(id, opts = {}) {
+        contatoSelecionadoId = id;
+        if (!opts.manterWhatsApp) {
+            telefoneSelecionado = null;
+            crmConversaSelecionadaId = null;
+            crmConversasCache = [];
+            showEmpty($('#crm-conversas-lista'), 'Selecione um telefone.');
+            showEmpty($('#crm-chat-mensagens'), 'Selecione um telefone para ver a conversa.');
+        }
+        setTabAtividades('contato');
+        carregarAtividades(clienteSelecionadoId, id);
+        atualizarResumoObjetivosComunicacao();
+        renderContatosCrm();
+        if (!opts.manterWhatsApp) {
+            carregarAutomacaoComercial(clienteSelecionadoId, id);
+        }
+    }
+
+    async function abrirConversaTelefone(contatoId, telefone = null) {
+        if (!clienteSelecionadoId || !contatoId) return null;
+        telefoneSelecionado = telefone;
+        contatoSelecionadoId = contatoId;
+        renderContatosCrm();
+        atualizarResumoObjetivosComunicacao();
+        return criarOuSelecionarConversa(contatoId, telefone);
     }
 
     function formatDateContato(dateStr) {
@@ -707,8 +774,8 @@
 
     function setTabAtividades(tab) {
         atividadesTab = tab;
-        $$('#tabs-atividades .swr-tab-ativ').forEach(t => {
-            t.classList.toggle('swr-tab-ativ-active', t.dataset.tab === tab);
+        $$('#tabs-atividades .crm-tab-ativ').forEach(t => {
+            t.classList.toggle('crm-tab-ativ-active', t.dataset.tab === tab);
         });
     }
 
@@ -758,9 +825,9 @@
         });
     }
 
-    let swrActCtx = { clienteId: null, contatoId: null };
-    let swrObjCtx = { clienteId: null };
-    let swrActCache = [];
+    let crmActCtx = { clienteId: null, contatoId: null };
+    let crmObjCtx = { clienteId: null };
+    let crmActCache = [];
     let atividadesTab = 'todas';
 
     function _isoDateOnly(iso) {
@@ -788,7 +855,7 @@
             baixa: { label: 'Baixa', color: '#22c55e', bg: '#f0fdf4' }
         };
         const c = config[p] || config.media;
-        return `<span class="swr-badge-prioridade-ativ" style="background:${c.bg};color:${c.color}"><span class="swr-badge-dot" style="background:${c.color}"></span>${c.label}</span>`;
+        return `<span class="crm-badge-prioridade-ativ" style="background:${c.bg};color:${c.color}"><span class="crm-badge-dot" style="background:${c.color}"></span>${c.label}</span>`;
     }
 
     function renderAtividadeCard(a, clienteId, contatoId) {
@@ -800,20 +867,20 @@
         const tipoLabel = TIPO_LABELS[tipo] || tipo;
         const dataFormatada = formatDateAtiv(a.data_atividade);
         return `
-            <div class="swr-ativ-card ${vencida ? 'swr-ativ-vencida' : ''}" data-aid="${a.id}">
-                <div class="swr-ativ-card-left">
-                    ${podeFeito ? `<input type="checkbox" class="swr-ativ-checkbox swr-act-feito" data-id="${a.id}" />` : '<span class="swr-ativ-checkbox-space"></span>'}
-                    <span class="swr-ativ-tipo-dot swr-tipo-dot-${tipo}"></span>
+            <div class="crm-ativ-card ${vencida ? 'crm-ativ-vencida' : ''}" data-aid="${a.id}">
+                <div class="crm-ativ-card-left">
+                    ${podeFeito ? `<input type="checkbox" class="crm-ativ-checkbox crm-act-feito" data-id="${a.id}" />` : '<span class="crm-ativ-checkbox-space"></span>'}
+                    <span class="crm-ativ-tipo-dot crm-tipo-dot-${tipo}"></span>
                 </div>
-                <div class="swr-ativ-card-main">
-                    <div class="swr-ativ-titulo">${escapeHtml(a.titulo || a.descricao || '—')}</div>
-                    <div class="swr-ativ-subtipo">${tipoLabel}</div>
+                <div class="crm-ativ-card-main">
+                    <div class="crm-ativ-titulo">${escapeHtml(a.titulo || a.descricao || '—')}</div>
+                    <div class="crm-ativ-subtipo">${tipoLabel}</div>
                 </div>
-                <div class="swr-ativ-card-right">
-                    <div class="swr-ativ-contato">${a.contato_nome ? escapeHtml(a.contato_nome) : ''}</div>
-                    <div class="swr-ativ-data">${dataFormatada}</div>
+                <div class="crm-ativ-card-right">
+                    <div class="crm-ativ-contato">${a.contato_nome ? escapeHtml(a.contato_nome) : ''}</div>
+                    <div class="crm-ativ-data">${dataFormatada}</div>
                 </div>
-                <div class="swr-ativ-card-badge">
+                <div class="crm-ativ-card-badge">
                     ${badgePrioridadeAtiv(prioridade)}
                 </div>
             </div>`;
@@ -831,7 +898,7 @@
 
     /** Filtra o cache de atividades conforme a aba ativa (client-side). */
     function filtrarAtividadesPorAba() {
-        const lista = swrActCache;
+        const lista = crmActCache;
         switch (atividadesTab) {
             case 'hoje':
                 return lista.filter(atividadeHoje);
@@ -849,13 +916,13 @@
     }
 
     async function carregarAtividades(clienteId, contatoId) {
-        swrActCtx = { clienteId, contatoId };
+        crmActCtx = { clienteId, contatoId };
         const container = $('#lista-atividades');
         if (!container) return;
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/atividades`);
-            swrActCache = data.atividades || [];
+            crmActCache = data.atividades || [];
             renderAtividades();
         } catch (e) {
             showEmpty(container, 'Erro ao carregar atividades.');
@@ -866,9 +933,9 @@
     function renderAtividades() {
         const container = $('#lista-atividades');
         if (!container) return;
-        const clienteId = swrActCtx.clienteId;
-        const contatoId = swrActCtx.contatoId;
-        const lista = swrActCache;
+        const clienteId = crmActCtx.clienteId;
+        const contatoId = crmActCtx.contatoId;
+        const lista = crmActCache;
         const filtrada = filtrarAtividadesPorAba();
 
         const mostraConcluidas = (atividadesTab === 'todas' || atividadesTab === 'contato' || atividadesTab === 'concluidas');
@@ -880,45 +947,45 @@
         let html = '';
 
         if (atividadesTab === 'contato' && !contatoSelecionadoId) {
-            html += `<div class="swr-ativ-vazio">Selecione um contato na coluna ao lado.</div>`;
+            html += `<div class="crm-ativ-vazio">Selecione um contato na coluna ao lado.</div>`;
         } else if (atividadesTab === 'concluidas') {
             html += concluidas.length
-                ? `<div class="swr-ativ-lista">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`
-                : `<div class="swr-ativ-vazio">Nenhuma atividade concluída.</div>`;
+                ? `<div class="crm-ativ-lista">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`
+                : `<div class="crm-ativ-vazio">Nenhuma atividade concluída.</div>`;
         } else {
             if (ativas.length) {
                 const visiveis = ativas.slice(0, 8);
-                html += `<div class="swr-ativ-lista">${visiveis.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                html += `<div class="crm-ativ-lista">${visiveis.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
                 if (ativas.length > 8) {
-                    html += `<div class="swr-link-ver-mais" id="swr-ver-mais-atividades">+ Ver mais atividades</div>`;
+                    html += `<div class="crm-link-ver-mais" id="crm-ver-mais-atividades">+ Ver mais atividades</div>`;
                 }
             } else {
                 const vazio = atividadesTab === 'hoje' ? 'Nenhuma atividade para hoje.' : 'Nenhuma atividade pendente.';
-                html += `<div class="swr-ativ-vazio">${vazio}</div>`;
+                html += `<div class="crm-ativ-vazio">${vazio}</div>`;
             }
             if (concluidas.length && atividadesTab !== 'pendentes') {
-                html += `<div class="swr-ativ-divider">Concluídas</div>`;
-                html += `<div class="swr-ativ-lista swr-ativ-lista-done">${concluidas.slice(0, 3).map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                html += `<div class="crm-ativ-divider">Concluídas</div>`;
+                html += `<div class="crm-ativ-lista crm-ativ-lista-done">${concluidas.slice(0, 3).map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
             }
         }
 
         {
             const hoje = new Date().toISOString().slice(0, 10);
             html += `
-                <div class="swr-ativ-form-titulo">Nova atividade</div>
-                <div class="swr-ativ-form">
-                    <div class="swr-ativ-form-row">
-                        <label class="swr-ativ-label">Título da atividade*</label>
-                        <input type="text" id="input-atividade-titulo" class="swr-ativ-input" placeholder="Digite o título..." />
+                <div class="crm-ativ-form-titulo">Nova atividade</div>
+                <div class="crm-ativ-form">
+                    <div class="crm-ativ-form-row">
+                        <label class="crm-ativ-label">Título da atividade*</label>
+                        <input type="text" id="input-atividade-titulo" class="crm-ativ-input" placeholder="Digite o título..." />
                     </div>
-                    <div class="swr-ativ-form-row">
-                        <label class="swr-ativ-label">Descrição</label>
-                        <textarea id="input-atividade" class="swr-ativ-textarea" rows="2" placeholder="Descrição (opcional)..."></textarea>
+                    <div class="crm-ativ-form-row">
+                        <label class="crm-ativ-label">Descrição</label>
+                        <textarea id="input-atividade" class="crm-ativ-textarea" rows="2" placeholder="Descrição (opcional)..."></textarea>
                     </div>
-                    <div class="swr-ativ-form-grid3">
+                    <div class="crm-ativ-form-grid3">
                         <div>
-                            <label class="swr-ativ-label">Tipo</label>
-                            <select id="input-atividade-tipo" class="swr-ativ-select">
+                            <label class="crm-ativ-label">Tipo</label>
+                            <select id="input-atividade-tipo" class="crm-ativ-select">
                                 <option value="atividade">Atividade</option>
                                 <option value="ligacao">Ligação</option>
                                 <option value="almoco">Almoço</option>
@@ -927,49 +994,49 @@
                             </select>
                         </div>
                         <div>
-                            <label class="swr-ativ-label">Data</label>
-                            <input type="date" id="input-atividade-data" class="swr-ativ-input" value="${hoje}" />
+                            <label class="crm-ativ-label">Data</label>
+                            <input type="date" id="input-atividade-data" class="crm-ativ-input" value="${hoje}" />
                         </div>
                         <div>
-                            <label class="swr-ativ-label">Prazo</label>
-                            <input type="date" id="input-atividade-prazo" class="swr-ativ-input" />
+                            <label class="crm-ativ-label">Prazo</label>
+                            <input type="date" id="input-atividade-prazo" class="crm-ativ-input" />
                         </div>
                     </div>
-                    <div class="swr-ativ-form-grid3">
+                    <div class="crm-ativ-form-grid3">
                         <div>
-                            <label class="swr-ativ-label">Responsável</label>
-                            <select id="input-atividade-responsavel" class="swr-ativ-select">
+                            <label class="crm-ativ-label">Responsável</label>
+                            <select id="input-atividade-responsavel" class="crm-ativ-select">
                                 <option value="">Selecionar...</option>
                             </select>
                         </div>
                         <div>
-                            <label class="swr-ativ-label">Objetivo vinculado</label>
-                            <select id="input-atividade-objetivo" class="swr-ativ-select">
+                            <label class="crm-ativ-label">Objetivo vinculado</label>
+                            <select id="input-atividade-objetivo" class="crm-ativ-select">
                                 <option value="">Nenhum</option>
                             </select>
                         </div>
                         <div>
-                            <label class="swr-ativ-label">Prioridade</label>
-                            <select id="input-atividade-prioridade" class="swr-ativ-select">
+                            <label class="crm-ativ-label">Prioridade</label>
+                            <select id="input-atividade-prioridade" class="crm-ativ-select">
                                 <option value="media">● Média</option>
                                 <option value="alta">● Alta</option>
                                 <option value="baixa">● Baixa</option>
                             </select>
                         </div>
                     </div>
-                    <button type="button" class="swr-ativ-btn-criar" id="btn-add-atividade">Criar atividade</button>
-                    <div class="swr-ativ-ia-section">
-                        <div class="swr-ativ-ia-titulo">Ações com IA</div>
-                        <div class="swr-ativ-ia-btns">
-                            <button type="button" class="swr-ativ-ia-btn" id="btn-sugerir-atividade">
+                    <button type="button" class="crm-ativ-btn-criar" id="btn-add-atividade">Criar atividade</button>
+                    <div class="crm-ativ-ia-section">
+                        <div class="crm-ativ-ia-titulo">Ações com IA</div>
+                        <div class="crm-ativ-ia-btns">
+                            <button type="button" class="crm-ativ-ia-btn" id="btn-sugerir-atividade">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                                 Sugerir
                             </button>
-                            <button type="button" class="swr-ativ-ia-btn" id="btn-add-atividade-ia">
+                            <button type="button" class="crm-ativ-ia-btn" id="btn-add-atividade-ia">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 Melhorar
                             </button>
-                            <button type="button" class="swr-ativ-ia-btn" id="btn-gerar-followup">
+                            <button type="button" class="crm-ativ-ia-btn" id="btn-gerar-followup">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 Follow-up
                             </button>
@@ -980,7 +1047,7 @@
 
             container.innerHTML = html;
 
-            $$('.swr-act-feito', container).forEach(cb => {
+            $$('.crm-act-feito', container).forEach(cb => {
                 cb.addEventListener('change', async () => {
                     if (!cb.checked) return;
                     try {
@@ -997,7 +1064,7 @@
                 });
             });
 
-            $$('.swr-act-edit', container).forEach(btn => {
+            $$('.crm-act-edit', container).forEach(btn => {
                 btn.addEventListener('click', () => {
                     const a = lista.find(x => String(x.id) === btn.dataset.id);
                     if (!a) return;
@@ -1012,7 +1079,7 @@
                 });
             });
 
-            $$('.swr-act-del', container).forEach(btn => {
+            $$('.crm-act-del', container).forEach(btn => {
                 btn.addEventListener('click', async () => {
                     if (!confirm('Excluir esta atividade?')) return;
                     try {
@@ -1104,8 +1171,9 @@
     }
 
     async function carregarObjetivos(clienteId) {
-        swrObjCtx.clienteId = clienteId;
+        crmObjCtx.clienteId = clienteId;
         const container = $('#lista-objetivos');
+        if (!container) return;
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/objetivos`);
@@ -1116,34 +1184,34 @@
             const maxVisiveis = 5;
 
             let html = `
-                <div class="swr-obj-header">
-                    <span class="swr-obj-titulo">Objetivos</span>
-                    <button type="button" class="swr-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
+                <div class="crm-obj-header">
+                    <span class="crm-obj-titulo">Objetivos</span>
+                    <button type="button" class="crm-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
                 </div>
-                <div class="swr-obj-input-row">
-                    <input type="text" id="input-objetivo" class="swr-obj-input" placeholder="Novo objetivo..." />
-                    <input type="date" id="input-objetivo-prazo" class="swr-obj-input-data" value="${hojePrazo}" />
-                    <button type="button" class="swr-obj-btn-add" id="btn-add-objetivo">+</button>
+                <div class="crm-obj-input-row">
+                    <input type="text" id="input-objetivo" class="crm-obj-input" placeholder="Novo objetivo..." />
+                    <input type="date" id="input-objetivo-prazo" class="crm-obj-input-data" value="${hojePrazo}" />
+                    <button type="button" class="crm-obj-btn-add" id="btn-add-objetivo">+</button>
                 </div>
                 <div id="ia-sugestoes" class="hidden"></div>
             `;
 
             const ativosVisiveis = ativos.slice(0, maxVisiveis);
             if (ativosVisiveis.length) {
-                html += `<div class="swr-obj-lista">`;
+                html += `<div class="crm-obj-lista">`;
                 html += ativosVisiveis.map(o => `
-                    <div class="swr-obj-item swr-fade-in" data-id="${o.id}">
-                        <input type="checkbox" class="swr-obj-checkbox swr-obj-check" data-id="${o.id}" />
-                        <div class="swr-obj-content">
-                            <div class="swr-obj-texto">${escapeHtml(o.texto)}</div>
-                            <div class="swr-obj-meta">
-                                ${o.data_prazo ? `<span class="swr-obj-data">${fmtDateShort(o.data_prazo)}</span>` : ''}
-                                <span class="swr-badge-status-obj swr-badge-ativo">Ativo</span>
+                    <div class="crm-obj-item crm-fade-in" data-id="${o.id}">
+                        <input type="checkbox" class="crm-obj-checkbox crm-obj-check" data-id="${o.id}" />
+                        <div class="crm-obj-content">
+                            <div class="crm-obj-texto">${escapeHtml(o.texto)}</div>
+                            <div class="crm-obj-meta">
+                                ${o.data_prazo ? `<span class="crm-obj-data">${fmtDateShort(o.data_prazo)}</span>` : ''}
+                                <span class="crm-badge-status-obj crm-badge-ativo">Ativo</span>
                             </div>
                         </div>
-                        <div class="swr-obj-acoes">
-                            <button type="button" class="swr-obj-acao-btn swr-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                            <button type="button" class="swr-obj-acao-btn swr-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                        <div class="crm-obj-acoes">
+                            <button type="button" class="crm-obj-acao-btn crm-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                            <button type="button" class="crm-obj-acao-btn crm-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
                     </div>
                 `).join('');
@@ -1152,20 +1220,20 @@
 
             const conquistadosVisiveis = conquistados.slice(0, Math.max(0, maxVisiveis - ativosVisiveis.length));
             if (conquistadosVisiveis.length) {
-                html += `<div class="swr-obj-lista" style="opacity:0.6">`;
+                html += `<div class="crm-obj-lista" style="opacity:0.6">`;
                 html += conquistadosVisiveis.map(o => `
-                    <div class="swr-obj-item swr-fade-in swr-obj-conquistado" data-id="${o.id}">
-                        <input type="checkbox" class="swr-obj-checkbox swr-obj-check" data-id="${o.id}" checked />
-                        <div class="swr-obj-content">
-                            <div class="swr-obj-texto" style="text-decoration:line-through">${escapeHtml(o.texto)}</div>
-                            <div class="swr-obj-meta">
-                                ${o.data_conquista ? `<span class="swr-obj-data">${fmtDateShort(o.data_conquista)}</span>` : ''}
-                                <span class="swr-badge-status-obj swr-badge-pendente">Concluído</span>
+                    <div class="crm-obj-item crm-fade-in crm-obj-conquistado" data-id="${o.id}">
+                        <input type="checkbox" class="crm-obj-checkbox crm-obj-check" data-id="${o.id}" checked />
+                        <div class="crm-obj-content">
+                            <div class="crm-obj-texto" style="text-decoration:line-through">${escapeHtml(o.texto)}</div>
+                            <div class="crm-obj-meta">
+                                ${o.data_conquista ? `<span class="crm-obj-data">${fmtDateShort(o.data_conquista)}</span>` : ''}
+                                <span class="crm-badge-status-obj crm-badge-pendente">Concluído</span>
                             </div>
                         </div>
-                        <div class="swr-obj-acoes">
-                            <button type="button" class="swr-obj-acao-btn swr-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                            <button type="button" class="swr-obj-acao-btn swr-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                        <div class="crm-obj-acoes">
+                            <button type="button" class="crm-obj-acao-btn crm-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                            <button type="button" class="crm-obj-acao-btn crm-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
                     </div>
                 `).join('');
@@ -1173,11 +1241,11 @@
             }
 
             if (!ativos.length && !conquistados.length) {
-                html += '<div class="swr-ativ-vazio">Nenhum objetivo cadastrado.</div>';
+                html += '<div class="crm-ativ-vazio">Nenhum objetivo cadastrado.</div>';
             }
 
             if (totalObjetivos > maxVisiveis) {
-                html += `<div class="swr-obj-ver-todos" id="swr-ver-todos-objetivos">Ver todos os objetivos</div>`;
+                html += `<div class="crm-obj-ver-todos" id="crm-ver-todos-objetivos">Ver todos os objetivos</div>`;
             }
 
             container.innerHTML = html;
@@ -1202,16 +1270,16 @@
                 if (e.key === 'Enter') $('#btn-add-objetivo')?.click();
             });
 
-            $$('.swr-obj-check', container).forEach(cb => {
+            $$('.crm-obj-check', container).forEach(cb => {
                 cb.addEventListener('change', async () => {
                     try {
                         await api(`/api/objetivos/${cb.dataset.id}/conquistar`, {
                             method: 'PATCH',
                             body: JSON.stringify({ conquistado: cb.checked })
                         });
-                        const card = cb.closest('.swr-fade-in');
+                        const card = cb.closest('.crm-fade-in');
                         if (cb.checked && card) {
-                            card.classList.add('swr-obj-conquistado-anim');
+                            card.classList.add('crm-obj-conquistado-anim');
                             setTimeout(() => carregarObjetivos(clienteId), 600);
                         } else {
                             carregarObjetivos(clienteId);
@@ -1223,7 +1291,7 @@
             });
 
             const olist = data.objetivos || [];
-            $$('.swr-obj-edit', container).forEach(btn => {
+            $$('.crm-obj-edit', container).forEach(btn => {
                 btn.addEventListener('click', () => {
                     const o = olist.find(x => String(x.id) === btn.dataset.id);
                     if (!o) return;
@@ -1234,7 +1302,7 @@
                 });
             });
 
-            $$('.swr-obj-del', container).forEach(btn => {
+            $$('.crm-obj-del', container).forEach(btn => {
                 btn.addEventListener('click', async () => {
                     if (!confirm('Excluir este objetivo?')) return;
                     try {
@@ -1247,7 +1315,7 @@
                 });
             });
 
-            $('#swr-ver-todos-objetivos')?.addEventListener('click', () => {
+            $('#crm-ver-todos-objetivos')?.addEventListener('click', () => {
                 window.location.href = `/clientes?open=${clienteId}&tab=objetivos`;
             });
 
@@ -1273,7 +1341,7 @@
                     <div class="text-xs font-semibold mb-1">Sugestões da IA:</div>
                     ${data.objetivos.map((o, i) => `
                         <label class="flex items-start gap-2 py-0.5 cursor-pointer">
-                            <input type="checkbox" class="checkbox checkbox-xs swr-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
+                            <input type="checkbox" class="checkbox checkbox-xs crm-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
                             <span class="text-xs">${o}</span>
                         </label>
                     `).join('')}
@@ -1281,7 +1349,7 @@
                 `;
 
                 $('#btn-aceitar-sugestoes')?.addEventListener('click', async () => {
-                    const selecionados = $$('.swr-sug-check:checked', sugestoesDiv).map(cb => cb.dataset.texto);
+                    const selecionados = $$('.crm-sug-check:checked', sugestoesDiv).map(cb => cb.dataset.texto);
                     for (const texto of selecionados) {
                         await api(`/api/cliente/${clienteId}/objetivos`, {
                             method: 'POST',
@@ -1505,7 +1573,6 @@
 
             $('#modal-contato-nome').textContent = c.nome_completo;
 
-            const tel = (c.telefone || '').replace(/\D/g, '');
             $('#contato-info').innerHTML = `
                 <div><span class="text-xs opacity-60">Nome</span><div class="text-sm">${c.nome_completo}</div></div>
                 <div><span class="text-xs opacity-60">Cargo</span><div class="text-sm">${c.cargo || '-'}</div></div>
@@ -1513,22 +1580,29 @@
                     <span class="text-xs opacity-60">Telefone</span>
                     <div class="flex items-center gap-1">
                         <span class="text-sm">${c.telefone || '-'}</span>
-                        ${c.telefone ? `<button class="swr-copy-btn" data-copy="${c.telefone}" title="Copiar telefone"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>` : ''}
-                        ${tel ? `<a href="https://wa.me/55${tel}" target="_blank" class="swr-copy-btn" title="WhatsApp"><svg class="w-3.5 h-3.5 text-success" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg></a>` : ''}
+                        ${c.telefone ? `<button class="crm-copy-btn" data-copy="${c.telefone}" title="Copiar telefone"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>` : ''}
                     </div>
                 </div>
+                ${c.telefone_secundario ? `
+                <div>
+                    <span class="text-xs opacity-60">Segundo telefone</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-sm">${c.telefone_secundario}</span>
+                        <button class="crm-copy-btn" data-copy="${c.telefone_secundario}" title="Copiar telefone"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+                    </div>
+                </div>` : ''}
                 <div>
                     <span class="text-xs opacity-60">Email</span>
                     <div class="flex items-center gap-1">
                         <span class="text-sm">${c.email || '-'}</span>
-                        ${c.email ? `<button class="swr-copy-btn" data-copy="${c.email}" title="Copiar email"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>` : ''}
-                        ${c.email ? `<a href="mailto:${c.email}" class="swr-copy-btn" title="Enviar email"><svg class="w-3.5 h-3.5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>` : ''}
+                        ${c.email ? `<button class="crm-copy-btn" data-copy="${c.email}" title="Copiar email"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>` : ''}
+                        ${c.email ? `<a href="mailto:${c.email}" class="crm-copy-btn" title="Enviar email"><svg class="w-3.5 h-3.5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>` : ''}
                     </div>
                 </div>
                 <div class="col-span-2"><span class="text-xs opacity-60">Cliente</span><div class="text-sm">${c.cliente_nome || '-'}</div></div>
             `;
 
-            $$('.swr-copy-btn[data-copy]', $('#contato-info')).forEach(btn => {
+            $$('.crm-copy-btn[data-copy]', $('#contato-info')).forEach(btn => {
                 btn.addEventListener('click', () => {
                     navigator.clipboard.writeText(btn.dataset.copy).then(() => {
                         const original = btn.innerHTML;
@@ -1614,7 +1688,7 @@
 
     /** Preenche o select de contatos da seção Comunicação. */
     function popularComunicacaoContatos(contatos) {
-        const sel = $('#swrc-contato');
+        const sel = $('#crmc-contato');
         if (!sel) return;
         const atual = sel.value;
         const opts = ['<option value="">Selecione um contato</option>']
@@ -1629,151 +1703,313 @@
 
     function contatoSelecionadoAtual() {
         if (!contatoSelecionadoId) return null;
-        return swrContatosCache.find(c => String(c.id_contato_cliente) === String(contatoSelecionadoId)) || null;
+        return crmContatosCache.find(c => String(c.id_contato_cliente) === String(contatoSelecionadoId)) || null;
     }
 
     function atualizarResumoObjetivosComunicacao() {
         const contato = contatoSelecionadoAtual();
-        const resumo = $('#swr-oc-contato-resumo');
-        const card = $('#swr-oc-contato-card');
-        if (!resumo || !card) return;
-        if (!contato) {
-            resumo.textContent = 'Selecione um contato.';
+        const card = $('#crm-oc-contato-card');
+        if (!card) return;
+        if (!contato || !telefoneSelecionado) {
             card.innerHTML = '';
             card.classList.add('hidden');
             return;
         }
-        const tel = contato.telefone || '';
-        resumo.textContent = contato.nome_completo || 'Contato selecionado';
         card.classList.remove('hidden');
         card.innerHTML = `
-            <div class="swr-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</div>
-            <div class="swr-oc-contato-meta">
-                ${contato.cargo ? `<span>${escapeHtml(contato.cargo)}</span>` : ''}
-                ${contato.email ? `<span>${escapeHtml(contato.email)}</span>` : ''}
-                ${tel ? `<span>${escapeHtml(tel)}</span>` : ''}
+            <div class="crm-avatar">${contatoAvatar(contato)}</div>
+            <div class="crm-chat-contact-info">
+                <div class="crm-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</div>
+                <div class="crm-oc-contato-meta">
+                    ${contato.cargo ? `<span>${escapeHtml(contato.cargo)}</span>` : ''}
+                    <span>${escapeHtml(telefoneSelecionado)}</span>
+                </div>
             </div>
         `;
     }
 
-    function focarObjetivosComunicacao(tab = 'gerar', focusSel = null) {
-        if (!clienteSelecionadoId) {
-            showToast('Selecione um cliente.', 'warning');
+    async function carregarConversasComerciais(clienteId, contatoId = null, telefone = null, opts = {}) {
+        const container = $('#crm-conversas-lista');
+        if (!container || !clienteId) return;
+        if (!contatoId) {
+            limparWhatsAppComercial();
             return;
         }
-        if (!contatoSelecionadoId) {
-            showToast('Selecione um contato.', 'warning');
+        const autoSelect = opts.autoSelect !== false;
+        showSpinner(container);
+        try {
+            const qs = new URLSearchParams();
+            qs.set('contato_id', String(contatoId));
+            if (telefone) qs.set('telefone', telefone);
+            const data = await api(`/api/cliente/${clienteId}/comunicacao/conversas?${qs.toString()}`);
+            crmConversasCache = data.conversas || [];
+            renderConversasComerciais();
+            if (autoSelect && crmConversaSelecionadaId && crmConversasCache.some(c => String(c.id) === String(crmConversaSelecionadaId))) {
+                carregarMensagensConversa(crmConversaSelecionadaId);
+            } else if (autoSelect && telefone && crmConversasCache.length) {
+                selecionarConversaComercial(crmConversasCache[0].id);
+            } else if (autoSelect && crmConversasCache.length === 1) {
+                selecionarConversaComercial(crmConversasCache[0].id);
+            } else if (!crmConversasCache.length) {
+                crmConversaSelecionadaId = null;
+                showEmpty($('#crm-chat-mensagens'), telefone ? 'Nenhuma conversa para este telefone.' : 'Selecione um telefone para ver a conversa.');
+            } else {
+                crmConversaSelecionadaId = null;
+                showEmpty($('#crm-chat-mensagens'), 'Selecione uma conversa ou telefone.');
+            }
+        } catch (e) {
+            console.error(e);
+            showEmpty(container, 'Erro ao carregar conversas.');
+        }
+    }
+
+    function renderConversasComerciais() {
+        const container = $('#crm-conversas-lista');
+        if (!container) return;
+        const termo = crmChatBusca.trim().toLowerCase();
+        let conversas = crmConversasCache.filter(c => {
+            if (crmChatTab === 'nao_lidas' && !(Number(c.unread_count) > 0)) return false;
+            if (crmChatTab === 'grupos') return false;
+            if (!termo) return true;
+            return [c.contato_nome, c.telefone, c.ultimo_preview].some(v => String(v || '').toLowerCase().includes(termo));
+        });
+        const naoLidas = crmConversasCache.filter(c => Number(c.unread_count) > 0).length;
+        if ($('#crm-chat-count-todas')) $('#crm-chat-count-todas').textContent = crmConversasCache.length;
+        if ($('#crm-chat-count-nao-lidas')) $('#crm-chat-count-nao-lidas').textContent = naoLidas;
+        if (!conversas.length) {
+            showEmpty(container, crmConversasCache.length ? 'Nenhuma conversa encontrada.' : 'Nenhuma conversa criada.');
             return;
         }
+        container.innerHTML = conversas.map(c => {
+            const ativo = String(c.id) === String(crmConversaSelecionadaId);
+            const hora = c.ultimo_evento_em ? new Date(c.ultimo_evento_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+            return `
+                <button type="button" class="crm-conversa ${ativo ? 'crm-conversa-active' : ''}" data-id="${c.id}">
+                    <div class="crm-avatar">${c.contato_foto_url ? `<img class="crm-avatar-img" src="${escapeHtml(c.contato_foto_url)}" alt="">` : '<span>WA</span>'}</div>
+                    <div class="crm-conversa-info">
+                        <div class="crm-conversa-top">
+                            <span>${escapeHtml(c.contato_nome || c.telefone || 'Conversa')}</span>
+                            <small>${escapeHtml(hora)}</small>
+                        </div>
+                        <div class="crm-conversa-preview">${escapeHtml(c.ultimo_preview || 'Sem mensagens ainda.')}</div>
+                    </div>
+                    ${Number(c.unread_count) > 0 ? `<span class="crm-unread">${c.unread_count}</span>` : ''}
+                </button>
+            `;
+        }).join('');
+        $$('.crm-conversa', container).forEach(btn => {
+            btn.addEventListener('click', () => selecionarConversaComercial(parseInt(btn.dataset.id, 10)));
+        });
+    }
+
+    function selecionarConversaComercial(conversaId) {
+        const conversa = crmConversasCache.find(x => String(x.id) === String(conversaId));
+        if (!conversa) return;
+        crmConversaSelecionadaId = conversaId;
+        if (conversa.contato_id) contatoSelecionadoId = conversa.contato_id;
+        if (conversa.telefone) telefoneSelecionado = conversa.telefone;
+        renderContatosCrm();
+        renderConversasComerciais();
         atualizarResumoObjetivosComunicacao();
-        setTabComunicacao(tab);
-        carregarObjetivos(clienteSelecionadoId);
-        const col = $('#col-objetivos-comunicacao');
-        if (col) scrollIntoViewSuave(col);
-        if (focusSel) setTimeout(() => $(focusSel)?.focus(), 150);
+        carregarMensagensConversa(conversaId);
+        api(`/api/comunicacao/conversas/${conversaId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'aberta', unread_count: 0 })
+        }).then(() => {
+            const c = crmConversasCache.find(x => String(x.id) === String(conversaId));
+            if (c) c.unread_count = 0;
+            renderConversasComerciais();
+        }).catch(() => {});
     }
 
-    function gerarComunicacaoSecao() {
-        const objSel = $('#swrc-objetivo').value.trim();
-        const tom = $('#swrc-tom').value.trim();
-        const contexto = $('#swrc-contexto').value.trim();
-        let objetivo = objSel;
-        if (tom) objetivo += objetivo ? ` (tom ${tom})` : `Mensagem em tom ${tom}`;
-        return gerarComunicacaoCore({
-            contatoId: $('#swrc-contato')?.value || contatoSelecionadoId || null,
-            clienteId: clienteSelecionadoId,
-            tipo: $('.swr-com-canal-btn-active')?.dataset.canal || 'whatsapp',
-            tamanho: 'medio',
-            objetivo,
-            produto: '',
-            canal: contexto,
-            btn: $('#swrc-gerar'),
-            previewEl: $('#swrc-preview'),
-            textoEl: $('#swrc-texto')
-        });
-    }
-
-    function setTabComunicacao(tab) {
-        $$('#swrc-tabs .swr-com-tab').forEach(t => {
-            t.classList.toggle('swr-com-tab-active', t.dataset.ctab === tab);
-        });
-        const map = { historico: '#swrc-panel-historico', gerar: '#swrc-panel-gerar', modelos: '#swrc-panel-modelos' };
-        Object.entries(map).forEach(([k, sel]) => {
-            const el = $(sel);
-            if (el) el.classList.toggle('hidden', k !== tab);
-        });
-    }
-
-    function bindComunicacaoSecao() {
-        $('#swrc-tabs')?.addEventListener('click', (e) => {
-            const tab = e.target.closest('.swr-com-tab');
-            if (tab) setTabComunicacao(tab.dataset.ctab);
-        });
-
-        $$('.swr-com-canal-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                $$('.swr-com-canal-btn').forEach(b => b.classList.remove('swr-com-canal-btn-active'));
-                btn.classList.add('swr-com-canal-btn-active');
+    async function criarOuSelecionarConversa(contatoId, telefone = null) {
+        if (!clienteSelecionadoId) return null;
+        telefoneSelecionado = telefone;
+        contatoSelecionadoId = contatoId;
+        try {
+            const data = await api(`/api/cliente/${clienteSelecionadoId}/comunicacao/conversas`, {
+                method: 'POST',
+                body: JSON.stringify({ contato_id: contatoId, telefone, canal: 'whatsapp' })
             });
-        });
-        $('#swrc-gerar')?.addEventListener('click', gerarComunicacaoSecao);
-        $('#swrc-regenerar')?.addEventListener('click', gerarComunicacaoSecao);
-        $('#swrc-copiar')?.addEventListener('click', () => {
-            navigator.clipboard.writeText($('#swrc-texto').textContent).then(() => {
-                const b = $('#swrc-copiar');
-                b.textContent = 'Copiado!';
-                setTimeout(() => b.textContent = 'Copiar', 1500);
+            crmConversaSelecionadaId = data.id;
+            await carregarConversasComerciais(clienteSelecionadoId, contatoId, telefone, { autoSelect: false });
+            selecionarConversaComercial(data.id);
+            return data.id;
+        } catch (e) {
+            console.error(e);
+            showToast(e.message || 'Erro ao criar conversa.', 'error');
+            return null;
+        }
+    }
+
+    async function carregarMensagensConversa(conversaId) {
+        const box = $('#crm-chat-mensagens');
+        if (!box) return;
+        showSpinner(box);
+        try {
+            const data = await api(`/api/comunicacao/conversas/${conversaId}/mensagens`);
+            const mensagens = data.mensagens || [];
+            if (!mensagens.length) {
+                showEmpty(box, 'Nenhuma mensagem nesta conversa.');
+                return;
+            }
+            box.innerHTML = mensagens.map(m => {
+                const hora = m.created_at ? new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                const statusMsg = m.status === 'erro'
+                    ? ' falha'
+                    : (m.provider_status ? ` ${m.provider_status}` : (m.direcao === 'outbound' ? ' enviado' : ''));
+                return `
+                    <div class="crm-msg crm-msg-${m.direcao === 'inbound' ? 'in' : 'out'}">
+                        <div>${escapeHtml(m.texto || '')}</div>
+                        <small>${escapeHtml(hora)}${escapeHtml(statusMsg)}</small>
+                    </div>
+                `;
+            }).join('');
+            box.scrollTop = box.scrollHeight;
+        } catch (e) {
+            console.error(e);
+            showEmpty(box, 'Erro ao carregar mensagens.');
+        }
+    }
+
+    async function enviarMensagemComercial() {
+        const input = $('#crm-chat-input');
+        const texto = input?.value.trim();
+        if (!crmConversaSelecionadaId && contatoSelecionadoId) {
+            const contato = contatoSelecionadoAtual();
+            const telefone = telefoneSelecionado || contato?.telefone || contato?.telefone_secundario || null;
+            if (!telefone) { showToast('Contato sem telefone para WhatsApp.', 'warning'); return; }
+            await abrirConversaTelefone(contatoSelecionadoId, telefone);
+        }
+        if (!crmConversaSelecionadaId) { showToast('Selecione um contato ou uma conversa.', 'warning'); return; }
+        if (!texto) return;
+        try {
+            input.value = '';
+            await api(`/api/comunicacao/conversas/${crmConversaSelecionadaId}/mensagens`, {
+                method: 'POST',
+                body: JSON.stringify({ texto, direcao: 'outbound', status: 'enviado' })
             });
-        });
-        $('#swrc-whatsapp')?.addEventListener('click', () => {
-            const text = encodeURIComponent($('#swrc-texto').textContent);
-            window.open(`https://wa.me/?text=${text}`, '_blank');
-        });
-        $('#swrc-email')?.addEventListener('click', () => {
-            const text = $('#swrc-texto').textContent;
-            const lines = text.split('\n');
-            let subject = '';
-            let body = text;
-            const m = lines[0]?.match(/^assunto:\s*(.+)/i);
-            if (m) { subject = m[1].trim(); body = lines.slice(1).join('\n').trim(); }
-            window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-        });
+            await carregarMensagensConversa(crmConversaSelecionadaId);
+            await carregarConversasComerciais(clienteSelecionadoId, contatoSelecionadoId, telefoneSelecionado);
+        } catch (e) {
+            console.error(e);
+            if (e.data?.mensagens) {
+                await carregarMensagensConversa(crmConversaSelecionadaId);
+                await carregarConversasComerciais(clienteSelecionadoId, contatoSelecionadoId, telefoneSelecionado);
+            } else if (input) {
+                input.value = texto;
+            }
+            showToast(e.message || 'Erro ao enviar mensagem.', 'error');
+        }
+    }
+
+    async function carregarAutomacaoComercial(clienteId, contatoId = null) {
+        if (!clienteId) return;
+        try {
+            const qs = new URLSearchParams({ tipo: $('#crm-auto-tipo')?.value || 'proposta_enviada' });
+            if (contatoId) qs.set('contato_id', contatoId);
+            const data = await api(`/api/cliente/${clienteId}/comunicacao/automacao?${qs.toString()}`);
+            const auto = data.automacao || {};
+            if ($('#crm-auto-ativo')) $('#crm-auto-ativo').checked = !!auto.ativo;
+            if ($('#crm-auto-template')) $('#crm-auto-template').value = auto.template || '';
+        } catch (e) {
+            console.warn('Erro ao carregar automação comercial.', e);
+        }
+    }
+
+    async function salvarAutomacaoComercial(enviarAgora = false) {
+        if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+        const template = $('#crm-auto-template')?.value.trim() || '';
+        const ativo = $('#crm-auto-ativo')?.checked || false;
+        const tipo = $('#crm-auto-tipo')?.value || 'proposta_enviada';
+        try {
+            await api(`/api/cliente/${clienteSelecionadoId}/comunicacao/automacao`, {
+                method: 'PUT',
+                body: JSON.stringify({ contato_id: contatoSelecionadoId, tipo, template, ativo })
+            });
+            if (enviarAgora && template) {
+                if (!crmConversaSelecionadaId && contatoSelecionadoId) {
+                    const contato = contatoSelecionadoAtual();
+                    const telefone = telefoneSelecionado || contato?.telefone || contato?.telefone_secundario || null;
+                    await abrirConversaTelefone(contatoSelecionadoId, telefone);
+                }
+                if (crmConversaSelecionadaId) {
+                    $('#crm-chat-input').value = template;
+                    await enviarMensagemComercial();
+                }
+            }
+            showToast('Automação salva.', 'success');
+        } catch (e) {
+            console.error(e);
+            showToast(e.message || 'Erro ao salvar automação.', 'error');
+        }
     }
 
     // ==================== Links consolidadas + URL executivo ====================
 
-    function queryExecutivoWarRoom() {
+    function queryExecutivoCrmComercial() {
         const sel = $('#filtro-executivo');
         if (!sel) return '';
         const v = sel.value;
         return v ? `?executivo_id=${encodeURIComponent(v)}` : '';
     }
 
+    function setCookieCrmComercial(nome, valor, dias = 180) {
+        const maxAge = dias * 24 * 60 * 60;
+        document.cookie = `${nome}=${encodeURIComponent(valor || '')}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    }
+
+    function getCookieCrmComercial(nome) {
+        const prefix = `${nome}=`;
+        return document.cookie
+            .split(';')
+            .map(c => c.trim())
+            .find(c => c.startsWith(prefix))
+            ?.slice(prefix.length) || '';
+    }
+
+    function limparCookieCrmComercial(nome) {
+        document.cookie = `${nome}=; path=/; max-age=0; SameSite=Lax`;
+    }
+
+    function salvarExecutivoCookieCrmComercial() {
+        const valor = $('#filtro-executivo')?.value || '';
+        if (valor) setCookieCrmComercial(CRM_EXECUTIVO_COOKIE, valor);
+        else limparCookieCrmComercial(CRM_EXECUTIVO_COOKIE);
+    }
+
     function atualizarLinksPaginasConsolidadas() {
-        const q = queryExecutivoWarRoom();
-        const a = $('#swr-link-atividades-consolidadas');
-        const o = $('#swr-link-objetivos-consolidadas');
+        const q = queryExecutivoCrmComercial();
+        const a = $('#crm-link-atividades-consolidadas');
+        const o = $('#crm-link-objetivos-consolidadas');
         if (a) a.setAttribute('href', `${BASE}/atividades-consolidadas${q}`);
         if (o) o.setAttribute('href', `${BASE}/objetivos-consolidadas${q}`);
     }
 
-    function aplicarExecutivoDaUrlNaWarRoom() {
+    function aplicarExecutivoDaUrlNaCrmComercial() {
         const sel = $('#filtro-executivo');
         if (!sel) return;
         const id = new URLSearchParams(window.location.search).get('executivo_id');
-        if (!id) return;
-        const ok = [...sel.options].some(opt => opt.value === id);
-        if (ok) sel.value = id;
+        const idCookie = decodeURIComponent(getCookieCrmComercial(CRM_EXECUTIVO_COOKIE));
+        const idParaAplicar = id || idCookie;
+        if (!idParaAplicar) return;
+        const ok = [...sel.options].some(opt => opt.value === idParaAplicar);
+        if (ok) {
+            sel.value = idParaAplicar;
+            salvarExecutivoCookieCrmComercial();
+        } else if (!id) {
+            limparCookieCrmComercial(CRM_EXECUTIVO_COOKIE);
+        }
     }
 
     // ==================== Modal: Novo Cliente ====================
 
     function setPessoaClienteModal(pessoa) {
-        const form = $('#swr-form-cliente');
+        const form = $('#crm-form-cliente');
         if (!form) return;
         const isPf = pessoa === 'F';
         $$('input[name="pessoa"]', form).forEach(r => { r.checked = r.value === pessoa; });
-        $$('.swr-pessoa-toggle', form).forEach(label => {
+        $$('.crm-pessoa-toggle', form).forEach(label => {
             const active = label.dataset.pessoa === pessoa;
             label.classList.toggle('border-green-500', active);
             label.classList.toggle('bg-green-50', active);
@@ -1783,18 +2019,18 @@
             label.classList.toggle('text-gray-500', !active);
         });
 
-        $('#swr-label-cnpj').textContent = isPf ? 'CPF' : 'CNPJ';
-        $('#swr-label-nome').textContent = isPf ? 'Nome Completo*' : 'Nome Fantasia*';
-        $('#swr-input-cnpj').placeholder = isPf ? 'CPF' : 'CNPJ';
+        $('#crm-label-cnpj').textContent = isPf ? 'CPF' : 'CNPJ';
+        $('#crm-label-nome').textContent = isPf ? 'Nome Completo*' : 'Nome Fantasia*';
+        $('#crm-input-cnpj').placeholder = isPf ? 'CPF' : 'CNPJ';
 
-        const razaoWrap = $('#swr-razao-fields');
-        const tipoWrap = $('#swr-tipo-cliente-fields');
-        const agenciaWrap = $('#swr-agencia-fields');
-        const percentualWrap = $('#swr-percentual-fields');
-        const inscricoesWrap = $('#swr-inscricoes-fields');
-        const razao = $('#swr-input-razao');
-        const tipo = $('#swr-select-tipo-cliente');
-        const agencia = $('#swr-cliente-agencia');
+        const razaoWrap = $('#crm-razao-fields');
+        const tipoWrap = $('#crm-tipo-cliente-fields');
+        const agenciaWrap = $('#crm-agencia-fields');
+        const percentualWrap = $('#crm-percentual-fields');
+        const inscricoesWrap = $('#crm-inscricoes-fields');
+        const razao = $('#crm-input-razao');
+        const tipo = $('#crm-select-tipo-cliente');
+        const agencia = $('#crm-cliente-agencia');
 
         razaoWrap?.classList.toggle('hidden', isPf);
         tipoWrap?.classList.toggle('hidden', isPf);
@@ -1808,11 +2044,11 @@
     }
 
     function setStatusClienteModal(ativo) {
-        const form = $('#swr-form-cliente');
+        const form = $('#crm-form-cliente');
         if (!form) return;
         const statusValue = ativo ? '1' : '0';
         $$('input[name="status"]', form).forEach(r => { r.checked = r.value === statusValue; });
-        $$('.swr-status-toggle', form).forEach(label => {
+        $$('.crm-status-toggle', form).forEach(label => {
             const active = label.dataset.status === statusValue;
             const isAtivo = label.dataset.status === '1';
             label.classList.toggle('border-green-500', active && isAtivo);
@@ -1828,29 +2064,29 @@
     }
 
     function setClienteFormValue(name, value) {
-        const el = $(`#swr-form-cliente [name="${name}"]`);
+        const el = $(`#crm-form-cliente [name="${name}"]`);
         if (el) el.value = value ?? '';
     }
 
     function atualizarBvClienteModal() {
-        const tipo = $('#swr-select-tipo-cliente');
-        const agencia = $('#swr-cliente-agencia');
-        const wrap = $('#swr-percentual-fields');
+        const tipo = $('#crm-select-tipo-cliente');
+        const agencia = $('#crm-cliente-agencia');
+        const wrap = $('#crm-percentual-fields');
         if (!tipo || !agencia || !wrap) return;
         const isParceiro = tipo.selectedOptions[0]?.dataset.parceiro === '1';
         const isAgencia = agencia.selectedOptions[0]?.dataset.agenciaSim === '1';
-        const pessoa = $('#swr-form-cliente input[name="pessoa"]:checked')?.value || 'J';
+        const pessoa = $('#crm-form-cliente input[name="pessoa"]:checked')?.value || 'J';
         wrap.classList.toggle('hidden', pessoa === 'F' || (!isParceiro && !isAgencia));
         if (wrap.classList.contains('hidden')) {
-            const pct = $('#swr-cliente-percentual');
+            const pct = $('#crm-cliente-percentual');
             if (pct) pct.value = '';
         }
     }
 
     function preselecionarExecutivoClienteModal() {
-        const selectVendas = $('#swr-cliente-vendedor');
+        const selectVendas = $('#crm-cliente-vendedor');
         if (!selectVendas) return;
-        const logged = String(window.SWR_LOGGED_USER_ID || '');
+        const logged = String(window.CRM_LOGGED_USER_ID || '');
         const filtro = $('#filtro-executivo')?.value || '';
         const alvo = logged && [...selectVendas.options].some(opt => opt.value === logged)
             ? logged
@@ -1861,15 +2097,15 @@
     }
 
     function abrirModalNovoCliente() {
-        const modal = $('#swr-modal-cliente');
-        const form = $('#swr-form-cliente');
+        const modal = $('#crm-modal-cliente');
+        const form = $('#crm-form-cliente');
         if (!modal || !form) return;
         form.reset();
-        $('#swr-cliente-id').value = '';
-        $('#swr-cliente-modal-title').textContent = 'Novo Cliente';
-        $('#swr-cliente-submit').textContent = 'Cadastrar';
-        $('#swr-status-fields')?.classList.add('hidden');
-        $('#swr-classificacao-cliente').value = 'Prospecção';
+        $('#crm-cliente-id').value = '';
+        $('#crm-cliente-modal-title').textContent = 'Novo Cliente';
+        $('#crm-cliente-submit').textContent = 'Cadastrar';
+        $('#crm-status-fields')?.classList.add('hidden');
+        $('#crm-classificacao-cliente').value = 'Prospecção';
         setClienteFormValue('opera_midia', '0');
         setClienteFormValue('demanda_dados', '0');
         setClienteFormValue('demanda_programatica_canais', '0');
@@ -1879,17 +2115,17 @@
         preselecionarExecutivoClienteModal();
         atualizarBvClienteModal();
         modal.showModal();
-        setTimeout(() => $('#swr-input-nome')?.focus(), 50);
+        setTimeout(() => $('#crm-input-nome')?.focus(), 50);
     }
 
     async function abrirModalEditarCliente(clienteId) {
-        const modal = $('#swr-modal-cliente');
-        const form = $('#swr-form-cliente');
+        const modal = $('#crm-modal-cliente');
+        const form = $('#crm-form-cliente');
         if (!modal || !form || !clienteId) return;
         form.reset();
-        $('#swr-cliente-modal-title').textContent = 'Carregando cliente...';
-        $('#swr-cliente-submit').textContent = 'Atualizar';
-        $('#swr-status-fields')?.classList.remove('hidden');
+        $('#crm-cliente-modal-title').textContent = 'Carregando cliente...';
+        $('#crm-cliente-submit').textContent = 'Atualizar';
+        $('#crm-status-fields')?.classList.remove('hidden');
         modal.showModal();
 
         try {
@@ -1899,8 +2135,8 @@
                 throw new Error(cliente.error || 'Erro ao carregar cliente.');
             }
 
-            $('#swr-cliente-modal-title').textContent = cliente.nome_fantasia || cliente.razao_social || 'Editar Cliente';
-            $('#swr-cliente-id').value = clienteId;
+            $('#crm-cliente-modal-title').textContent = cliente.nome_fantasia || cliente.razao_social || 'Editar Cliente';
+            $('#crm-cliente-id').value = clienteId;
             setPessoaClienteModal(cliente.pessoa || 'J');
             setStatusClienteModal(cliente.status !== false);
 
@@ -1934,13 +2170,13 @@
         }
     }
 
-    async function salvarNovoClienteWarRoom(ev) {
+    async function salvarNovoClienteCrmComercial(ev) {
         ev.preventDefault();
-        const form = $('#swr-form-cliente');
-        const modal = $('#swr-modal-cliente');
-        const btn = $('#swr-cliente-submit');
+        const form = $('#crm-form-cliente');
+        const modal = $('#crm-modal-cliente');
+        const btn = $('#crm-cliente-submit');
         if (!form || !modal) return;
-        const clienteId = $('#swr-cliente-id')?.value || '';
+        const clienteId = $('#crm-cliente-id')?.value || '';
         const formData = new FormData(form);
         formData.set('_return_json', '1');
 
@@ -1966,11 +2202,12 @@
             const filtroExec = $('#filtro-executivo');
             if (!clienteId && filtroExec && !filtroExec.value && vendedorId) {
                 filtroExec.value = vendedorId;
+                salvarExecutivoCookieCrmComercial();
                 atualizarLinksPaginasConsolidadas();
             }
             await carregarClientes();
             const idParaSelecionar = data.id_cliente || clienteId;
-            if (idParaSelecionar && swrCliCache.some(c => String(c.id_cliente) === String(idParaSelecionar))) {
+            if (idParaSelecionar && crmCliCache.some(c => String(c.id_cliente) === String(idParaSelecionar))) {
                 selecionarCliente(parseInt(idParaSelecionar, 10));
             }
         } catch (e) {
@@ -1985,9 +2222,9 @@
     // ==================== Modal: Nova Cotação ====================
 
     function preselecionarResponsavelCotacao(clienteData = {}) {
-        const selectResp = $('#swr-cotacao-responsavel');
+        const selectResp = $('#crm-cotacao-responsavel');
         if (!selectResp) return;
-        const logged = String(window.SWR_LOGGED_USER_ID || '');
+        const logged = String(window.CRM_LOGGED_USER_ID || '');
         const filtro = $('#filtro-executivo')?.value || '';
         const clienteResp = clienteData.vendas_central_comm ? String(clienteData.vendas_central_comm) : '';
         const candidatos = [logged, clienteResp, filtro].filter(Boolean);
@@ -1996,9 +2233,9 @@
     }
 
     function atualizarDuracaoCotacao() {
-        const inicio = $('#swr-cotacao-inicio')?.value;
-        const fim = $('#swr-cotacao-fim')?.value;
-        const out = $('#swr-cotacao-duracao');
+        const inicio = $('#crm-cotacao-inicio')?.value;
+        const fim = $('#crm-cotacao-fim')?.value;
+        const out = $('#crm-cotacao-duracao');
         if (!out) return;
         if (!inicio || !fim) {
             out.value = '';
@@ -2010,7 +2247,7 @@
         out.value = diff > 0 ? `${diff} dia(s)` : '';
     }
 
-    async function carregarContatosCotacao(clienteId, selectSelector = '#swr-cotacao-contato') {
+    async function carregarContatosCotacao(clienteId, selectSelector = '#crm-cotacao-contato') {
         const selectContato = $(selectSelector);
         if (!selectContato) return;
         if (!clienteId) {
@@ -2031,8 +2268,8 @@
     }
 
     async function abrirModalNovaCotacao(clienteId) {
-        const modal = $('#swr-modal-cotacao');
-        const form = $('#swr-form-cotacao');
+        const modal = $('#crm-modal-cotacao');
+        const form = $('#crm-form-cotacao');
         if (!modal || !form) return;
         const id = clienteId || clienteSelecionadoId;
         if (!id) {
@@ -2041,35 +2278,35 @@
         }
 
         form.reset();
-        $('#swr-cotacao-client-id').value = '';
-        $('#swr-cotacao-inicio').value = isoDatePlusDays(7);
-        $('#swr-cotacao-fim').value = isoDatePlusDays(37);
-        $('#swr-cotacao-valor-total-hidden').value = '';
-        $('#swr-cotacao-budget-hidden').value = '';
-        $('#swr-cotacao-cliente-select').value = '';
-        $('#swr-cotacao-agencia').value = '';
-        $('#swr-cotacao-parceiro').value = '';
-        $('#swr-cotacao-contato').innerHTML = '<option value="">Selecione o contato</option>';
-        $('#swr-cotacao-agencia-contato').innerHTML = '<option value="">Selecione o contato</option>';
-        $('#swr-cotacao-parceiro-contato').innerHTML = '<option value="">Selecione o contato</option>';
-        $('#swr-cotacao-briefing-nome')?.classList.add('hidden');
-        if ($('#swr-cotacao-briefing-nome')) $('#swr-cotacao-briefing-nome').textContent = '';
+        $('#crm-cotacao-client-id').value = '';
+        $('#crm-cotacao-inicio').value = isoDatePlusDays(7);
+        $('#crm-cotacao-fim').value = isoDatePlusDays(37);
+        $('#crm-cotacao-valor-total-hidden').value = '';
+        $('#crm-cotacao-budget-hidden').value = '';
+        $('#crm-cotacao-cliente-select').value = '';
+        $('#crm-cotacao-agencia').value = '';
+        $('#crm-cotacao-parceiro').value = '';
+        $('#crm-cotacao-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#crm-cotacao-agencia-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#crm-cotacao-parceiro-contato').innerHTML = '<option value="">Selecione o contato</option>';
+        $('#crm-cotacao-briefing-nome')?.classList.add('hidden');
+        if ($('#crm-cotacao-briefing-nome')) $('#crm-cotacao-briefing-nome').textContent = '';
         atualizarDuracaoCotacao();
 
-        const clienteCache = swrCliCache.find(c => String(c.id_cliente) === String(id)) || {};
+        const clienteCache = crmCliCache.find(c => String(c.id_cliente) === String(id)) || {};
         preselecionarResponsavelCotacao(clienteCache);
-        let focoInicial = '#swr-cotacao-nome';
+        let focoInicial = '#crm-cotacao-nome';
         if (clienteEhAgencia(clienteCache)) {
-            $('#swr-cotacao-agencia').value = String(id);
-            carregarContatosCotacao(id, '#swr-cotacao-agencia-contato');
-            focoInicial = '#swr-cotacao-agencia';
+            $('#crm-cotacao-agencia').value = String(id);
+            carregarContatosCotacao(id, '#crm-cotacao-agencia-contato');
+            focoInicial = '#crm-cotacao-agencia';
         } else if (clienteEhParceiroRegional(clienteCache)) {
-            $('#swr-cotacao-parceiro').value = String(id);
-            carregarContatosCotacao(id, '#swr-cotacao-parceiro-contato');
-            focoInicial = '#swr-cotacao-parceiro';
+            $('#crm-cotacao-parceiro').value = String(id);
+            carregarContatosCotacao(id, '#crm-cotacao-parceiro-contato');
+            focoInicial = '#crm-cotacao-parceiro';
         } else {
-            $('#swr-cotacao-client-id').value = id;
-            $('#swr-cotacao-cliente-select').value = String(id);
+            $('#crm-cotacao-client-id').value = id;
+            $('#crm-cotacao-cliente-select').value = String(id);
             carregarContatosCotacao(id);
         }
 
@@ -2087,12 +2324,12 @@
         }
     }
 
-    async function salvarNovaCotacaoWarRoom(ev) {
+    async function salvarNovaCotacaoCrmComercial(ev) {
         ev.preventDefault();
-        const form = $('#swr-form-cotacao');
-        const modal = $('#swr-modal-cotacao');
-        const btn = $('#swr-cotacao-submit');
-        const clienteId = $('#swr-cotacao-client-id')?.value;
+        const form = $('#crm-form-cotacao');
+        const modal = $('#crm-modal-cotacao');
+        const btn = $('#crm-cotacao-submit');
+        const clienteId = $('#crm-cotacao-client-id')?.value;
         if (!form || !modal || !clienteId) {
             showToast('Selecione um cliente.', 'warning');
             return;
@@ -2129,10 +2366,11 @@
     // ==================== Init & Event Bindings ====================
 
     document.addEventListener('DOMContentLoaded', () => {
-        aplicarExecutivoDaUrlNaWarRoom();
+        aplicarExecutivoDaUrlNaCrmComercial();
         atualizarLinksPaginasConsolidadas();
 
         $('#filtro-executivo').addEventListener('change', () => {
+            salvarExecutivoCookieCrmComercial();
             atualizarLinksPaginasConsolidadas();
             limparColunas();
             carregarClientes();
@@ -2143,13 +2381,14 @@
 
         $('#busca-cliente').addEventListener('input', debounce(carregarClientes, 300));
 
-        $$('#tabs-atividades .swr-tab-ativ').forEach(tab => {
+        $$('#tabs-atividades .crm-tab-ativ').forEach(tab => {
             tab.addEventListener('click', () => {
                 setTabAtividades(tab.dataset.tab);
                 if (!clienteSelecionadoId) return;
                 if (tab.dataset.tab === 'todas') {
                     contatoSelecionadoId = null;
-                    $$('.swr-contato-card').forEach(e => e.classList.remove('swr-contato-card-active'));
+                    $$('.crm-contact-card').forEach(e => e.classList.remove('crm-contact-card-active'));
+                    renderContatosCrm();
                 }
                 // Filtragem client-side sobre o cache já carregado.
                 renderAtividades();
@@ -2157,12 +2396,12 @@
         });
 
         // ---- Paginação da coluna Clientes ----
-        $('#swr-cli-prev')?.addEventListener('click', () => {
-            if (swrCliPage > 0) { swrCliPage--; renderClientesPagina(); }
+        $('#crm-cli-prev')?.addEventListener('click', () => {
+            if (crmCliPage > 0) { crmCliPage--; renderClientesPagina(); }
         });
-        $('#swr-cli-next')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(swrCliCache.length / SWR_CLI_PAGE_SIZE);
-            if (swrCliPage < totalPages - 1) { swrCliPage++; renderClientesPagina(); }
+        $('#crm-cli-next')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(crmCliCache.length / CRM_CLI_PAGE_SIZE);
+            if (crmCliPage < totalPages - 1) { crmCliPage++; renderClientesPagina(); }
         });
 
         // ---- Botões de ação no header ----
@@ -2173,9 +2412,9 @@
             const inp = inputSel ? $(inputSel) : null;
             if (inp) setTimeout(() => inp.focus(), 250);
         }
-        $('#swr-btn-novo-cliente')?.addEventListener('click', abrirModalNovoCliente);
-        $('#btn-nova-cotacao-swr')?.addEventListener('click', () => abrirModalNovaCotacao(clienteSelecionadoId));
-        $('#swr-btn-nova-atividade')?.addEventListener('click', () => {
+        $('#crm-btn-novo-cliente')?.addEventListener('click', abrirModalNovoCliente);
+        $('#btn-nova-cotacao-crm')?.addEventListener('click', () => abrirModalNovaCotacao(clienteSelecionadoId));
+        $('#crm-btn-nova-atividade')?.addEventListener('click', () => {
             if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
             setTabAtividades('todas');
             renderAtividades();
@@ -2187,57 +2426,89 @@
             if (!execId) { showToast('Selecione um executivo.', 'warning'); return; }
             const params = new URLSearchParams({ executivo_id: execId });
             if (clienteSelecionadoId) params.set('cliente_id', clienteSelecionadoId);
-            const det = $('#swr-export'); if (det) det.open = false;
+            const det = $('#crm-export'); if (det) det.open = false;
             window.location.href = `${BASE}/api/export/${tipo}?${params}`;
         }
-        $('#swr-export-atividades')?.addEventListener('click', () => exportarCSV('atividades'));
-        $('#swr-export-objetivos')?.addEventListener('click', () => exportarCSV('objetivos'));
+        $('#crm-export-atividades')?.addEventListener('click', () => exportarCSV('atividades'));
+        $('#crm-export-objetivos')?.addEventListener('click', () => exportarCSV('objetivos'));
 
         // ---- Modal Novo Cliente ----
-        $('#swr-form-cliente')?.addEventListener('submit', salvarNovoClienteWarRoom);
-        $('#swr-cliente-close')?.addEventListener('click', () => $('#swr-modal-cliente')?.close());
-        $('#swr-cliente-cancel')?.addEventListener('click', () => $('#swr-modal-cliente')?.close());
-        $$('#swr-form-cliente input[name="pessoa"]').forEach(radio => {
+        $('#crm-form-cliente')?.addEventListener('submit', salvarNovoClienteCrmComercial);
+        $('#crm-cliente-close')?.addEventListener('click', () => $('#crm-modal-cliente')?.close());
+        $('#crm-cliente-cancel')?.addEventListener('click', () => $('#crm-modal-cliente')?.close());
+        $$('#crm-form-cliente input[name="pessoa"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 setPessoaClienteModal(radio.value);
                 atualizarBvClienteModal();
             });
         });
-        $$('#swr-form-cliente input[name="status"]').forEach(radio => {
+        $$('#crm-form-cliente input[name="status"]').forEach(radio => {
             radio.addEventListener('change', () => setStatusClienteModal(radio.value === '1'));
         });
-        $('#swr-input-cnpj')?.addEventListener('input', ev => maskCpfCnpj(ev.target));
-        $('#swr-cliente-cep')?.addEventListener('input', ev => maskCep(ev.target));
-        $('#swr-cliente-percentual')?.addEventListener('input', ev => maskPercentual(ev.target));
-        $('#swr-select-tipo-cliente')?.addEventListener('change', atualizarBvClienteModal);
-        $('#swr-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
+        $('#crm-input-cnpj')?.addEventListener('input', ev => maskCpfCnpj(ev.target));
+        $('#crm-cliente-cep')?.addEventListener('input', ev => maskCep(ev.target));
+        $('#crm-cliente-percentual')?.addEventListener('input', ev => maskPercentual(ev.target));
+        $('#crm-select-tipo-cliente')?.addEventListener('change', atualizarBvClienteModal);
+        $('#crm-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
 
         // ---- Modal Nova Cotação ----
-        $('#swr-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoWarRoom);
-        $('#swr-cotacao-close')?.addEventListener('click', () => $('#swr-modal-cotacao')?.close());
-        $('#swr-cotacao-cancel')?.addEventListener('click', () => $('#swr-modal-cotacao')?.close());
-        $('#swr-cotacao-valor-total')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#swr-cotacao-valor-total-hidden')));
-        $('#swr-cotacao-budget')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#swr-cotacao-budget-hidden')));
-        $('#swr-cotacao-inicio')?.addEventListener('change', atualizarDuracaoCotacao);
-        $('#swr-cotacao-fim')?.addEventListener('change', atualizarDuracaoCotacao);
-        $('#swr-cotacao-cliente-select')?.addEventListener('change', ev => {
-            $('#swr-cotacao-client-id').value = ev.target.value || '';
-            carregarContatosCotacao(ev.target.value, '#swr-cotacao-contato');
+        $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrmComercial);
+        $('#crm-cotacao-close')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());
+        $('#crm-cotacao-cancel')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());
+        $('#crm-cotacao-valor-total')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#crm-cotacao-valor-total-hidden')));
+        $('#crm-cotacao-budget')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#crm-cotacao-budget-hidden')));
+        $('#crm-cotacao-inicio')?.addEventListener('change', atualizarDuracaoCotacao);
+        $('#crm-cotacao-fim')?.addEventListener('change', atualizarDuracaoCotacao);
+        $('#crm-cotacao-cliente-select')?.addEventListener('change', ev => {
+            $('#crm-cotacao-client-id').value = ev.target.value || '';
+            carregarContatosCotacao(ev.target.value, '#crm-cotacao-contato');
         });
-        $('#swr-cotacao-agencia')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#swr-cotacao-agencia-contato'));
-        $('#swr-cotacao-parceiro')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#swr-cotacao-parceiro-contato'));
-        $('#swr-cotacao-briefing-dropzone')?.addEventListener('click', () => $('#swr-cotacao-briefing-arquivo')?.click());
-        $('#swr-cotacao-briefing-arquivo')?.addEventListener('change', ev => {
+        $('#crm-cotacao-agencia')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#crm-cotacao-agencia-contato'));
+        $('#crm-cotacao-parceiro')?.addEventListener('change', ev => carregarContatosCotacao(ev.target.value, '#crm-cotacao-parceiro-contato'));
+        $('#crm-cotacao-briefing-dropzone')?.addEventListener('click', () => $('#crm-cotacao-briefing-arquivo')?.click());
+        $('#crm-cotacao-briefing-arquivo')?.addEventListener('change', ev => {
             const file = ev.target.files?.[0];
-            const label = $('#swr-cotacao-briefing-nome');
+            const label = $('#crm-cotacao-briefing-nome');
             if (!label) return;
             label.textContent = file ? file.name : '';
             label.classList.toggle('hidden', !file);
         });
 
-        // ---- Seção Comunicação (coluna 5) ----
-        bindComunicacaoSecao();
-        setTabComunicacao('gerar');
+        // ---- Seção WhatsApp (coluna 5) ----
+        $('#crm-contato-busca')?.addEventListener('input', debounce(ev => {
+            crmContatoBusca = ev.target.value || '';
+            renderContatosCrm();
+        }, 120));
+        $('#crm-chat-busca')?.addEventListener('input', debounce(ev => {
+            crmChatBusca = ev.target.value || '';
+            renderConversasComerciais();
+        }, 120));
+        $$('#crm-chat-tabs [data-chat-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                crmChatTab = btn.dataset.chatTab;
+                $$('#crm-chat-tabs [data-chat-tab]').forEach(b => b.classList.toggle('active', b === btn));
+                renderConversasComerciais();
+            });
+        });
+        $('#crm-btn-nova-conversa')?.addEventListener('click', () => {
+            if (!contatoSelecionadoId) { showToast('Selecione um contato.', 'warning'); return; }
+            const contato = contatoSelecionadoAtual();
+            const telefone = telefoneSelecionado || contato?.telefone || contato?.telefone_secundario || null;
+            if (!telefone) { showToast('Contato sem telefone para WhatsApp.', 'warning'); return; }
+            abrirConversaTelefone(contatoSelecionadoId, telefone).then(id => {
+                if (id) $('#crm-chat-input')?.focus();
+            });
+        });
+        $('#crm-chat-enviar')?.addEventListener('click', enviarMensagemComercial);
+        $('#crm-chat-input')?.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter' && !ev.shiftKey) {
+                ev.preventDefault();
+                enviarMensagemComercial();
+            }
+        });
+        $('#crm-auto-tipo')?.addEventListener('change', () => carregarAutomacaoComercial(clienteSelecionadoId, contatoSelecionadoId));
+        $('#crm-auto-salvar')?.addEventListener('click', () => salvarAutomacaoComercial(true));
+        $('#crm-auto-ativo')?.addEventListener('change', () => salvarAutomacaoComercial(false));
 
         $$('[data-modal-tab]').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -2259,8 +2530,16 @@
         });
 
         $('#btn-abrir-whatsapp')?.addEventListener('click', () => {
-            const text = encodeURIComponent($('#com-texto').textContent);
-            window.open(`https://wa.me/?text=${text}`, '_blank');
+            const text = $('#com-texto').textContent.trim();
+            const input = $('#crm-chat-input');
+            if (input && text) {
+                input.value = text;
+                input.focus();
+                showToast('Mensagem preenchida no WhatsApp do CRM.', 'success');
+            } else if (text) {
+                navigator.clipboard.writeText(text);
+                showToast('Mensagem copiada.', 'success');
+            }
         });
 
         $('#btn-abrir-email')?.addEventListener('click', () => {
@@ -2296,7 +2575,7 @@
                     })
                 });
                 $('#modal-editar-atividade').close();
-                carregarAtividades(swrActCtx.clienteId, swrActCtx.contatoId);
+                carregarAtividades(crmActCtx.clienteId, crmActCtx.contatoId);
             } catch (e) {
                 console.error(e);
                 showToast(e.message || 'Erro ao salvar.', 'error');
@@ -2321,7 +2600,7 @@
                     })
                 });
                 $('#modal-editar-objetivo').close();
-                if (swrObjCtx.clienteId) carregarObjetivos(swrObjCtx.clienteId);
+                if (crmObjCtx.clienteId) carregarObjetivos(crmObjCtx.clienteId);
             } catch (e) {
                 console.error(e);
                 showToast(e.message || 'Erro ao salvar objetivo.', 'error');
@@ -2335,6 +2614,7 @@
             $('#cr-nome').value = '';
             $('#cr-email').value = '';
             $('#cr-tel').value = '';
+            $('#cr-tel2').value = '';
             $('#modal-contato-rapido').showModal();
         });
 
@@ -2349,7 +2629,8 @@
                     body: JSON.stringify({
                         nome_completo: $('#cr-nome').value.trim(),
                         email: $('#cr-email').value.trim(),
-                        telefone: $('#cr-tel').value.trim() || null
+                        telefone: $('#cr-tel').value.trim() || null,
+                        telefone_secundario: $('#cr-tel2').value.trim() || null
                     })
                 });
                 $('#modal-contato-rapido').close();

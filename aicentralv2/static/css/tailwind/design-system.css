@@ -558,7 +558,7 @@ textarea:focus {
  * Selects sem classe Daisy .select: uma seta só (SVG + appearance:none).
  * Sem appearance:none o browser desenha a seta nativa em cima da SVG → duas setas (ex.: /clientes).
  */
-select:not([multiple]):not([size]):not(.select):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+select:not([multiple]):not([size]):not(.select):not(.crm-consolidadas-select):not(.modal-ativ-input) {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -569,7 +569,7 @@ select:not([multiple]):not([size]):not(.select):not(.swr-consolidadas-select):no
     background-size: 1rem;
 }
 
-select:not([multiple]):not([size]):not(.select):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+select:not([multiple]):not([size]):not(.select):not(.crm-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
     display: none;
 }
 
@@ -592,10 +592,10 @@ html body .form-control select:not(:disabled) {
 }
 
 /* Daisy select: uma só seta (appearance:none + SVG) — menulist nativo gerava duas setas em vários browsers */
-html body select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
-html body select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
-html body .form-control > select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
-html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+html body select.select:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input),
+html body select[class*="select-"]:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input),
+html body .form-control > select.select:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input),
+html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input) {
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
@@ -606,8 +606,8 @@ html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]
     padding-right: 2.5rem !important;
 }
 
-html body select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
-html body select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+html body select.select:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
+html body select[class*="select-"]:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
     display: none;
 }
 
@@ -648,8 +648,8 @@ html body select option {
     --tw-text-opacity: 1 !important;
 }
 
-[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
-[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input),
+[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input) {
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
@@ -660,8 +660,8 @@ html body select option {
     padding-right: 2.5rem !important;
 }
 
-[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
-[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
+[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.crm-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
     display: none;
 }
 

@@ -1460,6 +1460,10 @@ def init_routes(app):
             email = data.get('email', '').strip().lower()
             senha = data.get('senha', '').strip()
             telefone = data.get('telefone', '').strip() or None
+            telefone_secundario = data.get('telefone_secundario', '').strip() or None
+            wasender_api_key = data.get('wasender_api_key', '').strip() or None
+            wasender_session_id = data.get('wasender_session_id', '').strip() or None
+            wasender_ativo = bool(data.get('wasender_ativo'))
             pk_id_aux_setor = data.get('pk_id_aux_setor')
             pk_id_tbl_cargo = data.get('pk_id_tbl_cargo')
             cohorts = data.get('cohorts', 1)
@@ -1468,20 +1472,25 @@ def init_routes(app):
             # Converter para int se necessário
             if pk_id_aux_setor:
                 pk_id_aux_setor = int(pk_id_aux_setor)
+            else:
+                pk_id_aux_setor = None
             if pk_id_tbl_cargo:
                 pk_id_tbl_cargo = int(pk_id_tbl_cargo)
+            else:
+                pk_id_tbl_cargo = None
             
             # Validação de campos obrigatórios
-            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
+            if not all([nome_completo, email]):
                 return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
             
-            # Validar se cargo pertence ao setor
+            # Validar se cargo pertence ao setor somente quando ambos forem informados
             conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                             (pk_id_tbl_cargo, pk_id_aux_setor))
-                if cursor.fetchone() is None:
-                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+            if pk_id_aux_setor and pk_id_tbl_cargo:
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s',
+                                 (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
             
             # Criar contato
             contato_id = db.criar_contato(
@@ -1492,9 +1501,19 @@ def init_routes(app):
                 pk_id_tbl_cargo=pk_id_tbl_cargo,
                 pk_id_tbl_setor=pk_id_aux_setor,
                 telefone=telefone,
+                telefone_secundario=telefone_secundario,
                 cohorts=cohorts,
                 user_type=user_type
             )
+
+            if session.get('user_type') in ('admin', 'superadmin') and (wasender_api_key or wasender_session_id or wasender_ativo):
+                db.atualizar_wasender_contato(
+                    contato_id,
+                    api_key=wasender_api_key,
+                    session_id=wasender_session_id,
+                    ativo=wasender_ativo,
+                    atualizar_api_key=bool(wasender_api_key),
+                )
             
             # ==================== INTEGRAÇÃO BREVO ====================
             # Lista principal (21) + lista Contatos "{Executivo} - Clientes" quando aplicável
@@ -1570,6 +1589,10 @@ def init_routes(app):
             nome_completo = data.get('nome_completo', '').strip()
             email = data.get('email', '').strip().lower()
             telefone = data.get('telefone', '').strip() or None
+            telefone_secundario = data.get('telefone_secundario', '').strip() or None
+            wasender_api_key = data.get('wasender_api_key', '').strip() or None
+            wasender_session_id = data.get('wasender_session_id', '').strip() or None
+            wasender_ativo = bool(data.get('wasender_ativo'))
             pk_id_aux_setor = data.get('pk_id_aux_setor')
             pk_id_tbl_cargo = data.get('pk_id_tbl_cargo')
             nova_senha = data.get('nova_senha', '').strip()
@@ -1577,16 +1600,30 @@ def init_routes(app):
             user_type = data.get('user_type', 'client')
             
             # Validação de campos obrigatórios
-            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
+            if not all([nome_completo, email]):
                 return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
             
-            # Validar se cargo pertence ao setor
+            contato_anterior = db.obter_contato_por_id(contato_id)
+            if not contato_anterior:
+                return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
+
+            if pk_id_aux_setor:
+                pk_id_aux_setor = int(pk_id_aux_setor)
+            else:
+                pk_id_aux_setor = contato_anterior.get('pk_id_tbl_setor')
+            if pk_id_tbl_cargo:
+                pk_id_tbl_cargo = int(pk_id_tbl_cargo)
+            else:
+                pk_id_tbl_cargo = contato_anterior.get('pk_id_tbl_cargo')
+
+            # Validar se cargo pertence ao setor somente quando ambos forem informados
             conn = db.get_db()
             with conn.cursor() as cursor:
-                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                             (pk_id_tbl_cargo, pk_id_aux_setor))
-                if cursor.fetchone() is None:
-                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+                if pk_id_aux_setor and pk_id_tbl_cargo:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s',
+                                 (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
                 
                 # Verificar duplicação de email
                 cursor.execute('''
@@ -1597,19 +1634,15 @@ def init_routes(app):
                 
                 if cursor.fetchone():
                     return jsonify({'success': False, 'message': 'Email já cadastrado!'}), 400
-                
-                # Buscar dados anteriores para auditoria
-                contato_anterior = db.obter_contato_por_id(contato_id)
-                
                 # Atualizar contato
                 cursor.execute('''
                     UPDATE tbl_contato_cliente
-                    SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
+                    SET nome_completo = %s, email = %s, telefone = %s, telefone_secundario = %s, cohorts = %s,
                         pk_id_tbl_cargo = %s, pk_id_tbl_setor = %s,
                         user_type = %s,
                         data_modificacao = CURRENT_TIMESTAMP
                     WHERE id_contato_cliente = %s
-                ''', (nome_completo, email, telefone, cohorts,
+                ''', (nome_completo, email, telefone, telefone_secundario, cohorts,
                       pk_id_tbl_cargo, pk_id_aux_setor, user_type,
                       contato_id))
             
@@ -1633,6 +1666,15 @@ def init_routes(app):
                         db.criar_invite(inv['id_cliente'], inv['invited_by'], email, inv['role'])
             
             conn.commit()
+
+            if session.get('user_type') in ('admin', 'superadmin') and ('wasender_ativo' in data or wasender_session_id is not None or wasender_api_key):
+                db.atualizar_wasender_contato(
+                    contato_id,
+                    api_key=wasender_api_key,
+                    session_id=wasender_session_id,
+                    ativo=wasender_ativo,
+                    atualizar_api_key=bool(wasender_api_key),
+                )
             
             if email_anterior and email_anterior != email:
                 try:

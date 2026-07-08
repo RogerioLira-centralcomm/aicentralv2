@@ -1,15 +1,15 @@
-<dialog id="swr-modal-cotacao" class="modal">
+<dialog id="crm-modal-cotacao" class="modal">
   <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-[90vh] flex flex-col overflow-hidden">
     <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-sm text-gray-800">Nova Cotação</h3>
-      <button type="button" id="swr-cotacao-close" class="p-1.5 hover:bg-gray-200 rounded transition-colors" aria-label="Fechar">×</button>
+      <button type="button" id="crm-cotacao-close" class="p-1.5 hover:bg-gray-200 rounded transition-colors" aria-label="Fechar">×</button>
     </div>
 
-    <form id="swr-form-cotacao" method="post" enctype="multipart/form-data" class="p-4 overflow-y-auto flex-1 min-h-0 space-y-2 nova-cotacao-compact">
-      <input type="hidden" id="swr-cotacao-client-id" name="client_id">
+    <form id="crm-form-cotacao" method="post" enctype="multipart/form-data" class="p-4 overflow-y-auto flex-1 min-h-0 space-y-2 nova-cotacao-compact">
+      <input type="hidden" id="crm-cotacao-client-id" name="client_id">
       <input type="hidden" name="status" value="Rascunho">
       <input type="hidden" name="origem" value="Admin">
-      <input type="hidden" id="swr-cotacao-valor-total-hidden" name="valor_total_proposta">
+      <input type="hidden" id="crm-cotacao-valor-total-hidden" name="valor_total_proposta">
 
       <div class="bg-white rounded border border-gray-200 p-2">
         <div class="flex items-center gap-1.5 mb-2">
@@ -19,11 +19,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Nome da campanha <span class="text-red-500">*</span></label>
-            <input id="swr-cotacao-nome" name="nome_campanha" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none" placeholder="Ex: Campanha Verão 2026">
+            <input id="crm-cotacao-nome" name="nome_campanha" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none" placeholder="Ex: Campanha Verão 2026">
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Responsável comercial <span class="text-red-500">*</span></label>
-            <select id="swr-cotacao-responsavel" name="responsavel_comercial" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none" required>
+            <select id="crm-cotacao-responsavel" name="responsavel_comercial" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none" required>
               <option value="">Selecione o responsável</option>
               {% for vendedor in vendedores_cc %}
                 <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
@@ -41,40 +41,40 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Cliente <span class="text-red-500">*</span></label>
-            <select id="swr-cotacao-cliente-select" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" required>
+            <select id="crm-cotacao-cliente-select" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" required>
               <option value="">Buscar cliente...</option>
               {% for cliente in clientes_cotacao %}
                 <option value="{{ cliente.id_cliente }}">{{ cliente.nome_fantasia or cliente.razao_social }}</option>
               {% endfor %}
             </select>
             <label class="block font-medium text-gray-500 mb-0.5 mt-1">Contato do cliente</label>
-            <select id="swr-cotacao-contato" name="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <select id="crm-cotacao-contato" name="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
               <option value="">Selecione o contato</option>
             </select>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Agência</label>
-            <select id="swr-cotacao-agencia" name="agencia_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <select id="crm-cotacao-agencia" name="agencia_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
               <option value="">Buscar agência...</option>
               {% for cliente in clientes_cotacao %}
                 <option value="{{ cliente.id_cliente }}">{{ cliente.nome_fantasia or cliente.razao_social }}</option>
               {% endfor %}
             </select>
             <label class="block font-medium text-gray-500 mb-0.5 mt-1">Contato da agência</label>
-            <select id="swr-cotacao-agencia-contato" name="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <select id="crm-cotacao-agencia-contato" name="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
               <option value="">Selecione o contato</option>
             </select>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Parceiro</label>
-            <select id="swr-cotacao-parceiro" name="id_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <select id="crm-cotacao-parceiro" name="id_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
               <option value="">Buscar parceiro...</option>
               {% for cliente in clientes_cotacao %}
                 <option value="{{ cliente.id_cliente }}">{{ cliente.nome_fantasia or cliente.razao_social }}</option>
               {% endfor %}
             </select>
             <label class="block font-medium text-gray-500 mb-0.5 mt-1">Contato do parceiro</label>
-            <select id="swr-cotacao-parceiro-contato" name="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <select id="crm-cotacao-parceiro-contato" name="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
               <option value="">Selecione o contato</option>
             </select>
           </div>
@@ -89,24 +89,24 @@
         <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Data de início <span class="text-red-500">*</span></label>
-            <input type="date" id="swr-cotacao-inicio" name="periodo_inicio" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer">
+            <input type="date" id="crm-cotacao-inicio" name="periodo_inicio" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer">
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Data de término <span class="text-red-500">*</span></label>
-            <input type="date" id="swr-cotacao-fim" name="periodo_fim" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer">
+            <input type="date" id="crm-cotacao-fim" name="periodo_fim" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer">
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Duração</label>
-            <input type="text" id="swr-cotacao-duracao" readonly class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed" placeholder="Calculada">
+            <input type="text" id="crm-cotacao-duracao" readonly class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed" placeholder="Calculada">
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Budget estimado <span class="text-red-500">*</span></label>
-            <input id="swr-cotacao-budget" name="budget_estimado_display" inputmode="decimal" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" placeholder="R$ 0,00">
-            <input type="hidden" id="swr-cotacao-budget-hidden" name="budget_estimado">
+            <input id="crm-cotacao-budget" name="budget_estimado_display" inputmode="decimal" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" placeholder="R$ 0,00">
+            <input type="hidden" id="crm-cotacao-budget-hidden" name="budget_estimado">
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Valor total <span class="text-red-500">*</span></label>
-            <input id="swr-cotacao-valor-total" name="valor_total_proposta_display" inputmode="decimal" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" placeholder="R$ 0,00">
+            <input id="crm-cotacao-valor-total" name="valor_total_proposta_display" inputmode="decimal" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none" placeholder="R$ 0,00">
           </div>
         </div>
       </div>
@@ -119,17 +119,17 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Resumo do briefing</label>
-            <textarea id="swr-cotacao-briefing" name="apresentacao_dados" rows="6" maxlength="4000" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."></textarea>
+            <textarea id="crm-cotacao-briefing" name="apresentacao_dados" rows="6" maxlength="4000" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."></textarea>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Anexar briefing (PDF, DOC, PPT, JPG, PNG)</label>
-            <div id="swr-cotacao-briefing-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors min-h-[120px] flex flex-col items-center justify-center">
+            <div id="crm-cotacao-briefing-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors min-h-[120px] flex flex-col items-center justify-center">
               <span class="text-2xl mb-1" style="color:#72cd80;">↑</span>
               <p class="text-[10px] text-gray-600 font-medium">Clique para selecionar o arquivo</p>
               <p class="text-[8px] text-gray-400 mt-0.5">Máx. 10MB</p>
-              <p id="swr-cotacao-briefing-nome" class="text-[9px] text-green-700 mt-1 truncate max-w-full hidden"></p>
+              <p id="crm-cotacao-briefing-nome" class="text-[9px] text-green-700 mt-1 truncate max-w-full hidden"></p>
             </div>
-            <input type="file" id="swr-cotacao-briefing-arquivo" name="briefing_arquivo" class="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png">
+            <input type="file" id="crm-cotacao-briefing-arquivo" name="briefing_arquivo" class="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png">
           </div>
         </div>
       </div>
@@ -139,29 +139,29 @@
           <span class="secao-num flex items-center justify-center rounded-full bg-green-500 text-white font-semibold flex-shrink-0">5</span>
           <h2 class="secao-titulo font-semibold text-gray-800">Objetivo e observações</h2>
           <div class="flex items-center gap-2 ml-6 pl-4 border-l border-gray-200">
-            <label class="font-medium text-gray-500 whitespace-nowrap" for="swr-cotacao-frequencia">Frequência de impacto</label>
-            <input type="number" min="1" step="1" name="frequencia_impacto" id="swr-cotacao-frequencia" value="{{ FREQUENCIA_IMPACTO_DEFAULT }}" class="w-16 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+            <label class="font-medium text-gray-500 whitespace-nowrap" for="crm-cotacao-frequencia">Frequência de impacto</label>
+            <input type="number" min="1" step="1" name="frequencia_impacto" id="crm-cotacao-frequencia" value="{{ FREQUENCIA_IMPACTO_DEFAULT }}" class="w-16 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Objetivo da campanha <span class="text-red-500">*</span></label>
-            <textarea id="swr-cotacao-objetivo" name="objetivo_campanha" rows="5" maxlength="2000" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Qual o principal objetivo desta campanha?"></textarea>
+            <textarea id="crm-cotacao-objetivo" name="objetivo_campanha" rows="5" maxlength="2000" required class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Qual o principal objetivo desta campanha?"></textarea>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Premissas</label>
-            <textarea id="swr-cotacao-premissas" name="premissas" rows="5" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
+            <textarea id="crm-cotacao-premissas" name="premissas" rows="5" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Observações gerais</label>
-            <textarea id="swr-cotacao-observacoes" name="observacoes_gerais" rows="5" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
+            <textarea id="crm-cotacao-observacoes" name="observacoes_gerais" rows="5" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
           </div>
         </div>
       </div>
 
       <div class="flex justify-end gap-2 pt-3 border-t border-gray-200 mt-3">
-        <button type="button" id="swr-cotacao-cancel" class="px-3 py-1.5 text-[10px] text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-        <button type="submit" id="swr-cotacao-submit" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+        <button type="button" id="crm-cotacao-cancel" class="px-3 py-1.5 text-[10px] text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+        <button type="submit" id="crm-cotacao-submit" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
           Criar cotação
         </button>
       </div>

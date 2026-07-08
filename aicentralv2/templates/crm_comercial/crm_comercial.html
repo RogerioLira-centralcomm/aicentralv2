@@ -1,0 +1,72 @@
+{% extends "base_tailwind.html" %}
+{% block title %}CRM Comercial - CentralX{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_comercial.css') }}">
+
+<div class="crm-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
+    <h1 class="text-sm font-bold whitespace-nowrap mr-1">CRM Comercial</h1>
+
+    <select id="filtro-executivo"
+            class="crm-exec-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+        <option value="">Selecione o executivo</option>
+        {% for ex in executivos %}
+        <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+        {% endfor %}
+    </select>
+
+    <select id="filtro-tipo"
+            class="crm-filter-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+        <option value="">Tipo: todos</option>
+        <option value="governo">Governo</option>
+        <option value="privado">Privado</option>
+    </select>
+
+    <select id="filtro-perfil"
+            class="crm-filter-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+        <option value="">Perfil: todos</option>
+        <option value="direto">Cliente final</option>
+        <option value="agencia">Agência</option>
+    </select>
+
+    <div class="flex gap-2 items-center ml-auto flex-nowrap">
+        <button type="button" id="crm-btn-novo-cliente" class="btn btn-xs btn-action gap-1" title="Novo cliente">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Novo cliente
+        </button>
+        <details class="dropdown dropdown-end" id="crm-export">
+            <summary class="btn btn-xs btn-outline gap-1" title="Exportar">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Exportar
+            </summary>
+            <ul class="dropdown-content z-[20] menu p-2 shadow bg-base-100 rounded-box w-60 text-xs border border-base-300">
+                <li><button type="button" id="crm-export-objetivos" class="justify-start">Exportar objetivos (CSV)</button></li>
+                <li class="menu-title pt-2"><span>Consolidado</span></li>
+                <li><a id="crm-link-objetivos-consolidadas" href="{{ url_for('crm_comercial.objetivos_consolidadas') }}">Objetivos consolidadas</a></li>
+            </ul>
+        </details>
+    </div>
+</div>
+
+<div class="crm-page-wrap min-h-0">
+<div id="crm-grid" class="crm-grid">
+    {% include "crm_comercial/_coluna_clientes.html" %}
+    {% include "crm_comercial/_coluna_status.html" %}
+    {% include "crm_comercial/_coluna_objetivos.html" %}
+    {% include "crm_comercial/_coluna_contatos.html" %}
+    {% include "crm_comercial/_coluna_objetivos_comunicacao.html" %}
+</div>
+</div>
+
+{% include "crm_comercial/_modal_status_completo.html" %}
+{% include "crm_comercial/_modal_contato.html" %}
+{% include "crm_comercial/_modal_contatos_crm.html" %}
+{% include "crm_comercial/_modal_cliente.html" %}
+{% include "crm_comercial/_modal_cotacao.html" %}
+
+<script>
+    window.CRM_LOGGED_USER_ID = {{ logged_user_id|default(0)|tojson }};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/crm_comercial.js') }}"></script>
+{% endblock %}

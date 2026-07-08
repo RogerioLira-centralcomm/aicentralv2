@@ -1,0 +1,63 @@
+<div class="crm-col" id="col-objetivos-comunicacao">
+    <div class="crm-col-header">
+        <div class="crm-whats-head">
+            <h2 class="font-semibold text-xs">WhatsApp</h2>
+            <span id="crm-chat-count-todas" class="crm-head-count">0</span>
+        </div>
+    </div>
+
+    <div class="crm-col-body crm-oc-body crm-whats scroll-suave">
+        <div class="crm-chat-list">
+            <button type="button" class="crm-new-message" id="crm-btn-nova-conversa">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Nova mensagem
+            </button>
+            <div class="crm-chat-tabs" id="crm-chat-tabs">
+                <button type="button" class="active" data-chat-tab="todas">Todas</button>
+                <button type="button" data-chat-tab="nao_lidas">Não lidas <span id="crm-chat-count-nao-lidas">0</span></button>
+            </div>
+            <div class="crm-search-row">
+                <span class="crm-search-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+                <input type="search" id="crm-chat-busca" class="crm-search" placeholder="Buscar conversas...">
+            </div>
+            <div id="crm-conversas-lista" class="crm-conversas-lista">
+                <div class="crm-empty-state">Selecione um cliente.</div>
+            </div>
+        </div>
+
+        <div class="crm-chat-panel">
+            <div class="crm-chat-header" id="crm-chat-header">
+                <div id="crm-oc-contato-card" class="crm-chat-contact hidden"></div>
+            </div>
+            <div id="crm-chat-mensagens" class="crm-chat-mensagens">
+                <div class="crm-empty-state">Selecione uma conversa.</div>
+            </div>
+            <div class="crm-chat-compose">
+                <input type="text" id="crm-chat-input" class="crm-message-input" placeholder="Digite uma mensagem...">
+                <button type="button" id="crm-chat-enviar" class="crm-send-btn" title="Enviar">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 23 12 2 3v7l15 2-15 2v7z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="crm-auto">
+            <div class="crm-auto-title">
+                <span>Mensagem automática</span>
+                <label class="crm-switch">
+                    <input type="checkbox" id="crm-auto-ativo">
+                    <span></span>
+                </label>
+            </div>
+            <label class="crm-auto-label">Selecione uma automação</label>
+            <select id="crm-auto-tipo" class="crm-auto-select">
+                <option value="proposta_enviada">Proposta enviada</option>
+                <option value="follow_up">Follow-up</option>
+                <option value="retomar_contato">Retomar contato</option>
+            </select>
+            <textarea id="crm-auto-template" class="crm-auto-text" rows="2" placeholder="Mensagem automática..."></textarea>
+            <button type="button" id="crm-auto-salvar" class="crm-auto-btn">Enviar agora</button>
+        </div>
+    </div>
+</div>

@@ -1211,7 +1211,7 @@
                     <span class="crm-obj-titulo">Objetivos</span>
                     <button type="button" class="crm-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
                 </div>
-                <div class="crm-obj-input-row">
+                <div class="crm-obj-input-row hidden" id="crm-obj-input-row">
                     <input type="text" id="input-objetivo" class="crm-obj-input" placeholder="Novo objetivo..." />
                     <input type="date" id="input-objetivo-prazo" class="crm-obj-input-data" value="${hojePrazo}" />
                     <button type="button" class="crm-obj-btn-add" id="btn-add-objetivo">+</button>
@@ -1272,6 +1272,13 @@
             }
 
             container.innerHTML = html;
+
+            $('#btn-toggle-form-obj')?.addEventListener('click', () => {
+                const row = $('#crm-obj-input-row');
+                if (!row) return;
+                row.classList.toggle('hidden');
+                if (!row.classList.contains('hidden')) $('#input-objetivo')?.focus();
+            });
 
             $('#btn-add-objetivo')?.addEventListener('click', async () => {
                 const texto = $('#input-objetivo').value.trim();

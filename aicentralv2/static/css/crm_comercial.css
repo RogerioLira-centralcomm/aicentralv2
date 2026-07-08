@@ -2856,12 +2856,122 @@ html body select.crm-consolidadas-select option {
 
 .crm-chat-mensagens {
     min-height: 11rem;
-    max-height: 14rem;
+    max-height: 18rem;
     overflow-y: auto;
-    padding: 0.6rem;
-    background: #f4efe7;
+    padding: 0.5rem 0.45rem;
+    background: #e5ddd5;
+    background-image:
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12) 0, transparent 45%),
+        radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.1) 0, transparent 40%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 }
 
+.crm-msg-group {
+    display: flex;
+    flex-direction: column;
+    max-width: 88%;
+    margin-bottom: 0.15rem;
+}
+
+.crm-msg-group-in {
+    align-self: flex-start;
+}
+
+.crm-msg-group-out {
+    align-self: flex-end;
+}
+
+.crm-msg-bubble {
+    position: relative;
+    padding: 0.32rem 0.45rem 0.24rem 0.5rem;
+    font-size: 0.58rem;
+    line-height: 1.35;
+    color: #111b21;
+    box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+    word-break: break-word;
+}
+
+.crm-msg-bubble + .crm-msg-bubble {
+    margin-top: 0.1rem;
+}
+
+.crm-msg-bubble-in {
+    background: #fff;
+    border-radius: 0.45rem;
+}
+
+.crm-msg-bubble-out {
+    background: #d9fdd3;
+    border-radius: 0.45rem;
+}
+
+.crm-msg-bubble-in.crm-msg-bubble-single,
+.crm-msg-bubble-in.crm-msg-bubble-last {
+    border-bottom-left-radius: 0.12rem;
+}
+
+.crm-msg-bubble-in.crm-msg-bubble-first,
+.crm-msg-bubble-in.crm-msg-bubble-middle {
+    border-bottom-left-radius: 0.45rem;
+}
+
+.crm-msg-bubble-in.crm-msg-bubble-middle,
+.crm-msg-bubble-in.crm-msg-bubble-last {
+    border-top-left-radius: 0.12rem;
+}
+
+.crm-msg-bubble-out.crm-msg-bubble-single,
+.crm-msg-bubble-out.crm-msg-bubble-last {
+    border-bottom-right-radius: 0.12rem;
+}
+
+.crm-msg-bubble-out.crm-msg-bubble-first,
+.crm-msg-bubble-out.crm-msg-bubble-middle {
+    border-bottom-right-radius: 0.45rem;
+}
+
+.crm-msg-bubble-out.crm-msg-bubble-middle,
+.crm-msg-bubble-out.crm-msg-bubble-last {
+    border-top-right-radius: 0.12rem;
+}
+
+.crm-msg-text {
+    display: inline;
+    white-space: pre-wrap;
+}
+
+.crm-msg-meta {
+    float: right;
+    margin: 0.35rem 0 -0.05rem 0.45rem;
+    font-size: 0.42rem;
+    line-height: 1;
+    color: rgba(17, 27, 33, 0.45);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    vertical-align: bottom;
+}
+
+.crm-msg-status {
+    font-size: 0.46rem;
+    color: rgba(17, 27, 33, 0.45);
+    letter-spacing: -0.06em;
+}
+
+.crm-msg-status-delivered,
+.crm-msg-status-read {
+    color: #53bdeb;
+}
+
+.crm-msg-status-erro {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* legado — mantido para não quebrar referências antigas */
 .crm-msg {
     max-width: 88%;
     border-radius: 0.5rem;

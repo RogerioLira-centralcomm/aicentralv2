@@ -1842,6 +1842,69 @@
         }
     }
 
+    function formatHoraMsg(dateStr) {
+        if (!dateStr) return '';
+        return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function metaStatusMsg(m) {
+        if (m.direcao !== 'outbound') return '';
+        if (m.status === 'erro') return '<span class="crm-msg-status crm-msg-status-erro" title="Falha no envio">!</span>';
+        if (m.provider_status === 'read' || m.provider_status === 'READ') {
+            return '<span class="crm-msg-status crm-msg-status-read" title="Lida">✓✓</span>';
+        }
+        if (m.provider_status === 'delivered' || m.provider_status === 'DELIVERED') {
+            return '<span class="crm-msg-status crm-msg-status-delivered" title="Entregue">✓✓</span>';
+        }
+        return '<span class="crm-msg-status" title="Enviada">✓</span>';
+    }
+
+    function agruparMensagensWhatsApp(mensagens) {
+        const grupos = [];
+        let atual = null;
+        for (const m of mensagens) {
+            const dir = m.direcao === 'inbound' ? 'in' : 'out';
+            const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
+            const quebra =
+                !atual ||
+                atual.dir !== dir ||
+                (ts && atual.lastTs && Math.abs(ts - atual.lastTs) > 5 * 60 * 1000);
+            if (quebra) {
+                atual = { dir, items: [m], lastTs: ts };
+                grupos.push(atual);
+            } else {
+                atual.items.push(m);
+                atual.lastTs = ts;
+            }
+        }
+        return grupos;
+    }
+
+    function posicaoBubble(total, index) {
+        if (total === 1) return 'single';
+        if (index === 0) return 'first';
+        if (index === total - 1) return 'last';
+        return 'middle';
+    }
+
+    function renderMensagensWhatsApp(mensagens) {
+        return agruparMensagensWhatsApp(mensagens).map(grupo => {
+            const total = grupo.items.length;
+            const bubbles = grupo.items.map((m, i) => {
+                const pos = posicaoBubble(total, i);
+                const hora = formatHoraMsg(m.created_at);
+                const status = metaStatusMsg(m);
+                return `
+                    <div class="crm-msg-bubble crm-msg-bubble-${grupo.dir} crm-msg-bubble-${pos}">
+                        <span class="crm-msg-text">${escapeHtml(m.texto || '')}</span>
+                        <span class="crm-msg-meta">${escapeHtml(hora)}${status}</span>
+                    </div>
+                `;
+            }).join('');
+            return `<div class="crm-msg-group crm-msg-group-${grupo.dir}">${bubbles}</div>`;
+        }).join('');
+    }
+
     async function carregarMensagensConversa(conversaId) {
         const box = $('#crm-chat-mensagens');
         if (!box) return;
@@ -1853,18 +1916,7 @@
                 showEmpty(box, 'Nenhuma mensagem nesta conversa.');
                 return;
             }
-            box.innerHTML = mensagens.map(m => {
-                const hora = m.created_at ? new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-                const statusMsg = m.status === 'erro'
-                    ? ' falha'
-                    : (m.provider_status ? ` ${m.provider_status}` : (m.direcao === 'outbound' ? ' enviado' : ''));
-                return `
-                    <div class="crm-msg crm-msg-${m.direcao === 'inbound' ? 'in' : 'out'}">
-                        <div>${escapeHtml(m.texto || '')}</div>
-                        <small>${escapeHtml(hora)}${escapeHtml(statusMsg)}</small>
-                    </div>
-                `;
-            }).join('');
+            box.innerHTML = renderMensagensWhatsApp(mensagens);
             box.scrollTop = box.scrollHeight;
         } catch (e) {
             console.error(e);

@@ -12399,7 +12399,7 @@ def excluir_diario_campanha(id_diario):
 
 def get_dashboard_carteira_clientes(days=90):
     conn = get_db()
-    # Mesmo critério de "é agência" usado no CRM comercial / listagem de clientes
+    # Mesmo critério de "é agência" usado no CRM / listagem de clientes
     _eh_agencia_sql = (
         "(COALESCE((ag.key IS TRUE), false) OR "
         "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
@@ -14227,7 +14227,7 @@ def atualizar_sales_comunicacao_conversa_wasender(conversa_id, responsavel_id=No
 
 
 def listar_sales_comunicacao_conversas(cliente_id, contato_id=None, telefone=None):
-    """Lista conversas comerciais do CRM Comercial."""
+    """Lista conversas comerciais do CRM."""
     conn = get_db()
     with conn.cursor() as cursor:
         params = [cliente_id]
@@ -14237,8 +14237,10 @@ def listar_sales_comunicacao_conversas(cliente_id, contato_id=None, telefone=Non
             filtro_contato = ' AND cv.contato_id = %s'
             params.append(contato_id)
         if telefone:
-            filtro_telefone = " AND COALESCE(cv.telefone, '') = %s"
-            params.append(telefone)
+            variantes_tel = variantes_telefone_whatsapp(telefone)
+            if variantes_tel:
+                filtro_telefone = " AND regexp_replace(COALESCE(cv.telefone, ''), '\\\\D', '', 'g') = ANY(%s::text[])"
+                params.append(variantes_tel)
         cursor.execute(f'''
             SELECT
                 cv.id, cv.cliente_id, cv.contato_id, cv.telefone, cv.canal, cv.status,
@@ -14261,20 +14263,36 @@ def listar_sales_comunicacao_conversas(cliente_id, contato_id=None, telefone=Non
 
 def criar_sales_comunicacao_conversa(cliente_id, contato_id=None, telefone=None, canal='whatsapp', created_by=None, responsavel_id=None, telefone_remetente=None, provider_session_id=None):
     """Cria uma conversa comercial ou retorna conversa existente para contato/telefone."""
+    if telefone:
+        telefone = normalizar_telefone_whatsapp(telefone) or str(telefone).strip()
+    variantes_tel = variantes_telefone_whatsapp(telefone) if telefone else []
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT id
-                FROM sales_comunicacao_conversas
-                WHERE cliente_id = %s
-                  AND COALESCE(contato_id, 0) = COALESCE(%s, 0)
-                  AND COALESCE(telefone, '') = COALESCE(%s, '')
-                  AND canal = %s
-                  AND COALESCE(responsavel_id, 0) = COALESCE(%s, 0)
-                ORDER BY created_at DESC
-                LIMIT 1
-            ''', (cliente_id, contato_id, telefone, canal, responsavel_id))
+            if variantes_tel:
+                cursor.execute('''
+                    SELECT id
+                    FROM sales_comunicacao_conversas
+                    WHERE cliente_id = %s
+                      AND COALESCE(contato_id, 0) = COALESCE(%s, 0)
+                      AND regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY(%s::text[])
+                      AND canal = %s
+                      AND COALESCE(responsavel_id, 0) = COALESCE(%s, 0)
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ''', (cliente_id, contato_id, variantes_tel, canal, responsavel_id))
+            else:
+                cursor.execute('''
+                    SELECT id
+                    FROM sales_comunicacao_conversas
+                    WHERE cliente_id = %s
+                      AND COALESCE(contato_id, 0) = COALESCE(%s, 0)
+                      AND COALESCE(telefone, '') = ''
+                      AND canal = %s
+                      AND COALESCE(responsavel_id, 0) = COALESCE(%s, 0)
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ''', (cliente_id, contato_id, canal, responsavel_id))
             existente = cursor.fetchone()
             if existente:
                 return existente['id']

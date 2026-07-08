@@ -1,9 +1,9 @@
 {% extends "base_tailwind.html" %}
-{% block title %}Atividades consolidadas — CRM Comercial{% endblock %}
+{% block title %}Atividades consolidadas — CRM{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_comercial.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}">
 <div class="crm-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
-    <a href="{{ url_for('crm_comercial.index') }}" class="crm-back-comercial" id="crm-ac-back">← CRM Comercial</a>
+    <a href="{{ url_for('crm.index') }}" class="crm-back-comercial" id="crm-ac-back">← CRM</a>
     <h1 class="text-xl font-bold">Atividades</h1>
     <select id="crm-ac-exec" name="executivo" class="crm-consolidadas-select" aria-label="Filtrar por executivo">
         <option value="">Todos os executivos</option>
@@ -31,7 +31,7 @@
 <p class="text-xs opacity-60 mt-2" id="crm-ac-msg"></p>
 <script>
 (function () {
-    const BASE = '/crm-comercial';
+    const BASE = '/crm';
     const tbody = document.getElementById('crm-ac-tbody');
     const sel = document.getElementById('crm-ac-exec');
     const msg = document.getElementById('crm-ac-msg');

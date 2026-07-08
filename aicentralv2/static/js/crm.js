@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BASE = '/crm-comercial';
+    const BASE = '/crm';
     const CRM_EXECUTIVO_COOKIE = 'crm_executivo_id';
     let clienteSelecionadoId = null;
     let contatoSelecionadoId = null;
@@ -13,6 +13,8 @@
     let crmConversasCache = [];
     let crmConversaSelecionadaId = null;
     let telefoneSelecionado = null;
+    let crmChatPollTimer = null;
+    let crmChatLastMsgCount = 0;
     let crmContatoBusca = '';
     let crmChatBusca = '';
     let crmChatTab = 'todas';
@@ -321,10 +323,29 @@
         carregarContatos(id);
         if ($('#lista-atividades')) carregarAtividades(id);
         carregarCotacoesAbertas(id);
+        if ($('#lista-objetivos')) carregarObjetivos(id);
         limparWhatsAppComercial();
     }
 
+    function pararPollingMensagens() {
+        if (crmChatPollTimer) {
+            clearInterval(crmChatPollTimer);
+            crmChatPollTimer = null;
+        }
+        crmChatLastMsgCount = 0;
+    }
+
+    function iniciarPollingMensagens() {
+        pararPollingMensagens();
+        crmChatPollTimer = setInterval(() => {
+            if (crmConversaSelecionadaId) {
+                carregarMensagensConversa(crmConversaSelecionadaId, { silent: true });
+            }
+        }, 4000);
+    }
+
     function limparWhatsAppComercial() {
+        pararPollingMensagens();
         crmConversaSelecionadaId = null;
         telefoneSelecionado = null;
         crmConversasCache = [];
@@ -334,6 +355,7 @@
     }
 
     function limparColunas() {
+        pararPollingMensagens();
         clienteSelecionadoId = null;
         contatoSelecionadoId = null;
         crmConversaSelecionadaId = null;
@@ -341,6 +363,7 @@
         crmContatosCache = [];
         crmConversasCache = [];
         showEmpty($('#area-status'), 'Selecione um cliente.');
+        if ($('#lista-objetivos')) showEmpty($('#lista-objetivos'), 'Selecione um cliente.');
         showEmpty($('#lista-contatos'), 'Selecione um cliente.');
         if ($('#lista-atividades')) showEmpty($('#lista-atividades'), 'Selecione um cliente.');
         atualizarResumoObjetivosComunicacao();
@@ -1812,6 +1835,7 @@
         renderConversasComerciais();
         atualizarResumoObjetivosComunicacao();
         carregarMensagensConversa(conversaId);
+        iniciarPollingMensagens();
         api(`/api/comunicacao/conversas/${conversaId}/status`, {
             method: 'PATCH',
             body: JSON.stringify({ status: 'aberta', unread_count: 0 })
@@ -1905,22 +1929,27 @@
         }).join('');
     }
 
-    async function carregarMensagensConversa(conversaId) {
+    async function carregarMensagensConversa(conversaId, opts = {}) {
         const box = $('#crm-chat-mensagens');
         if (!box) return;
-        showSpinner(box);
+        const wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+        if (!opts.silent) showSpinner(box);
         try {
             const data = await api(`/api/comunicacao/conversas/${conversaId}/mensagens`);
             const mensagens = data.mensagens || [];
+            if (opts.silent && mensagens.length === crmChatLastMsgCount) return;
+            crmChatLastMsgCount = mensagens.length;
             if (!mensagens.length) {
-                showEmpty(box, 'Nenhuma mensagem nesta conversa.');
+                if (!opts.silent) showEmpty(box, 'Nenhuma mensagem nesta conversa.');
                 return;
             }
             box.innerHTML = renderMensagensWhatsApp(mensagens);
-            box.scrollTop = box.scrollHeight;
+            if (!opts.silent || wasAtBottom) box.scrollTop = box.scrollHeight;
         } catch (e) {
-            console.error(e);
-            showEmpty(box, 'Erro ao carregar mensagens.');
+            if (!opts.silent) {
+                console.error(e);
+                showEmpty(box, 'Erro ao carregar mensagens.');
+            }
         }
     }
 
@@ -1999,19 +2028,19 @@
 
     // ==================== Links consolidadas + URL executivo ====================
 
-    function queryExecutivoCrmComercial() {
+    function queryExecutivoCrm() {
         const sel = $('#filtro-executivo');
         if (!sel) return '';
         const v = sel.value;
         return v ? `?executivo_id=${encodeURIComponent(v)}` : '';
     }
 
-    function setCookieCrmComercial(nome, valor, dias = 180) {
+    function setCookieCrm(nome, valor, dias = 180) {
         const maxAge = dias * 24 * 60 * 60;
         document.cookie = `${nome}=${encodeURIComponent(valor || '')}; path=/; max-age=${maxAge}; SameSite=Lax`;
     }
 
-    function getCookieCrmComercial(nome) {
+    function getCookieCrm(nome) {
         const prefix = `${nome}=`;
         return document.cookie
             .split(';')
@@ -2020,37 +2049,37 @@
             ?.slice(prefix.length) || '';
     }
 
-    function limparCookieCrmComercial(nome) {
+    function limparCookieCrm(nome) {
         document.cookie = `${nome}=; path=/; max-age=0; SameSite=Lax`;
     }
 
-    function salvarExecutivoCookieCrmComercial() {
+    function salvarExecutivoCookieCrm() {
         const valor = $('#filtro-executivo')?.value || '';
-        if (valor) setCookieCrmComercial(CRM_EXECUTIVO_COOKIE, valor);
-        else limparCookieCrmComercial(CRM_EXECUTIVO_COOKIE);
+        if (valor) setCookieCrm(CRM_EXECUTIVO_COOKIE, valor);
+        else limparCookieCrm(CRM_EXECUTIVO_COOKIE);
     }
 
     function atualizarLinksPaginasConsolidadas() {
-        const q = queryExecutivoCrmComercial();
+        const q = queryExecutivoCrm();
         const a = $('#crm-link-atividades-consolidadas');
         const o = $('#crm-link-objetivos-consolidadas');
         if (a) a.setAttribute('href', `${BASE}/atividades-consolidadas${q}`);
         if (o) o.setAttribute('href', `${BASE}/objetivos-consolidadas${q}`);
     }
 
-    function aplicarExecutivoDaUrlNaCrmComercial() {
+    function aplicarExecutivoDaUrlNaCrm() {
         const sel = $('#filtro-executivo');
         if (!sel) return;
         const id = new URLSearchParams(window.location.search).get('executivo_id');
-        const idCookie = decodeURIComponent(getCookieCrmComercial(CRM_EXECUTIVO_COOKIE));
+        const idCookie = decodeURIComponent(getCookieCrm(CRM_EXECUTIVO_COOKIE));
         const idParaAplicar = id || idCookie;
         if (!idParaAplicar) return;
         const ok = [...sel.options].some(opt => opt.value === idParaAplicar);
         if (ok) {
             sel.value = idParaAplicar;
-            salvarExecutivoCookieCrmComercial();
+            salvarExecutivoCookieCrm();
         } else if (!id) {
-            limparCookieCrmComercial(CRM_EXECUTIVO_COOKIE);
+            limparCookieCrm(CRM_EXECUTIVO_COOKIE);
         }
     }
 
@@ -2222,7 +2251,7 @@
         }
     }
 
-    async function salvarNovoClienteCrmComercial(ev) {
+    async function salvarNovoClienteCrm(ev) {
         ev.preventDefault();
         const form = $('#crm-form-cliente');
         const modal = $('#crm-modal-cliente');
@@ -2254,7 +2283,7 @@
             const filtroExec = $('#filtro-executivo');
             if (!clienteId && filtroExec && !filtroExec.value && vendedorId) {
                 filtroExec.value = vendedorId;
-                salvarExecutivoCookieCrmComercial();
+                salvarExecutivoCookieCrm();
                 atualizarLinksPaginasConsolidadas();
             }
             await carregarClientes();
@@ -2376,7 +2405,7 @@
         }
     }
 
-    async function salvarNovaCotacaoCrmComercial(ev) {
+    async function salvarNovaCotacaoCrm(ev) {
         ev.preventDefault();
         const form = $('#crm-form-cotacao');
         const modal = $('#crm-modal-cotacao');
@@ -2418,11 +2447,11 @@
     // ==================== Init & Event Bindings ====================
 
     document.addEventListener('DOMContentLoaded', () => {
-        aplicarExecutivoDaUrlNaCrmComercial();
+        aplicarExecutivoDaUrlNaCrm();
         atualizarLinksPaginasConsolidadas();
 
         $('#filtro-executivo').addEventListener('change', () => {
-            salvarExecutivoCookieCrmComercial();
+            salvarExecutivoCookieCrm();
             atualizarLinksPaginasConsolidadas();
             limparColunas();
             carregarClientes();
@@ -2485,7 +2514,7 @@
         $('#crm-export-objetivos')?.addEventListener('click', () => exportarCSV('objetivos'));
 
         // ---- Modal Novo Cliente ----
-        $('#crm-form-cliente')?.addEventListener('submit', salvarNovoClienteCrmComercial);
+        $('#crm-form-cliente')?.addEventListener('submit', salvarNovoClienteCrm);
         $('#crm-cliente-close')?.addEventListener('click', () => $('#crm-modal-cliente')?.close());
         $('#crm-cliente-cancel')?.addEventListener('click', () => $('#crm-modal-cliente')?.close());
         $$('#crm-form-cliente input[name="pessoa"]').forEach(radio => {
@@ -2504,7 +2533,7 @@
         $('#crm-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
 
         // ---- Modal Nova Cotação ----
-        $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrmComercial);
+        $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrm);
         $('#crm-cotacao-close')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());
         $('#crm-cotacao-cancel')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());
         $('#crm-cotacao-valor-total')?.addEventListener('input', ev => maskMoneyBR(ev.target, $('#crm-cotacao-valor-total-hidden')));

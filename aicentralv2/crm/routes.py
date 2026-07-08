@@ -69,19 +69,26 @@ def _jsonify_rows(rows):
 
 def _webhook_secret_ok():
     expected = (os.getenv('WASENDER_WEBHOOK_SECRET') or '').strip()
-    if not expected:
-        current_app.logger.warning('WASENDER_WEBHOOK_SECRET não configurado; webhook Wasender bloqueado.')
-        return False
     auth = request.headers.get('Authorization', '')
     provided = (
-        request.headers.get('X-Wasender-Secret')
+        request.headers.get('X-Webhook-Signature')
+        or request.headers.get('X-Wasender-Secret')
         or request.headers.get('X-Webhook-Secret')
         or request.args.get('secret')
         or ''
     ).strip()
     if auth.lower().startswith('bearer '):
         provided = auth.split(' ', 1)[1].strip()
-    return provided == expected
+    if not expected:
+        current_app.logger.warning('WASENDER_WEBHOOK_SECRET não configurado; webhook Wasender bloqueado.')
+        return False
+    if provided != expected:
+        current_app.logger.warning(
+            'Wasender webhook rejeitado: secret inválido (headers: %s)',
+            {k: v for k, v in request.headers.items() if 'webhook' in k.lower() or 'wasender' in k.lower()},
+        )
+        return False
+    return True
 
 
 def _wasender_message_from_payload(payload):
@@ -126,7 +133,7 @@ def index():
     estados = db.obter_estados()
     clientes_cotacao = db.obter_clientes_simples()
     return render_template(
-        'crm_comercial/crm_comercial.html',
+        'crm/crm.html',
         executivos=executivos,
         vendedores_cc=vendedores_cc,
         agencias=agencias,
@@ -866,6 +873,8 @@ def api_criar_comunicacao_conversa(cliente_id):
     data = request.get_json() or {}
     contato_id = data.get('contato_id')
     telefone = (data.get('telefone') or '').strip() or None
+    if telefone:
+        telefone = db_mod.normalizar_telefone_whatsapp(telefone) or telefone
     canal = (data.get('canal') or 'whatsapp').strip() or 'whatsapp'
     try:
         conversa_id = db_mod.criar_sales_comunicacao_conversa(
@@ -1041,6 +1050,7 @@ def api_wasender_webhook():
 
     payload = request.get_json(silent=True) or {}
     event = (payload.get('event') or '').strip()
+    current_app.logger.info('Wasender webhook recebido: event=%s', event or '(vazio)')
     message_data = _wasender_message_from_payload(payload)
     provider_message_id = _wasender_message_id(payload, message_data)
 
@@ -1069,7 +1079,13 @@ def api_wasender_webhook():
     if key.get('fromMe') is True:
         return jsonify({'success': True, 'ignored': True, 'reason': 'from_me'})
 
-    sender = key.get('cleanedParticipantPn') or key.get('cleanedSenderPn') or key.get('remoteJid') or ''
+    sender = key.get('cleanedSenderPn') or key.get('cleanedParticipantPn') or ''
+    if not sender:
+        remote = key.get('remoteJid') or ''
+        if isinstance(remote, str) and '@' in remote:
+            sender = remote.split('@')[0]
+        elif remote:
+            sender = remote
     texto = (message_data.get('messageBody') or '').strip()
     if not texto:
         raw_msg = message_data.get('message') or {}
@@ -1115,6 +1131,10 @@ def api_wasender_webhook():
             provider_message_id=provider_message_id,
             provider_status='received',
             provider_payload=payload,
+        )
+        current_app.logger.info(
+            'Wasender inbound salvo: conversa=%s msg=%s contato=%s cliente=%s',
+            conversa_id, msg_id, contato.get('id_contato_cliente'), cliente_id,
         )
         return jsonify({'success': True, 'id': msg_id, 'conversa_id': conversa_id})
     except Exception as e:
@@ -1217,15 +1237,15 @@ def api_criar_cotacao_cliente(cliente_id):
         _audit_crm(
             acao='INSERT',
             modulo='cotacoes',
-            descricao=f'Cotação criada pelo CRM Comercial: {resultado["numero_cotacao"]}',
+            descricao=f'Cotação criada pelo CRM: {resultado["numero_cotacao"]}',
             registro_id=resultado['id'],
             registro_tipo='cadu_cotacoes',
             dados_novos={
                 'client_id': cliente_cotacao_id,
-                'contexto_crm_comercial_cliente_id': cliente_id,
+                'contexto_crm_cliente_id': cliente_id,
                 'nome_campanha': nome_campanha,
                 'valor_total_proposta': valor_total,
-                'origem': 'crm_comercial',
+                'origem': 'crm',
             },
         )
 
@@ -1911,7 +1931,7 @@ def api_cliente_contatos_importar(cliente_id):
 def atividades_consolidadas():
     from .. import db
     executivos = db.obter_vendedores_centralcomm()
-    return render_template('crm_comercial/atividades_consolidadas.html', executivos=executivos)
+    return render_template('crm/atividades_consolidadas.html', executivos=executivos)
 
 
 @bp.route('/objetivos-consolidadas')
@@ -1919,7 +1939,7 @@ def atividades_consolidadas():
 def objetivos_consolidadas():
     from .. import db
     executivos = db.obter_vendedores_centralcomm()
-    return render_template('crm_comercial/objetivos_consolidadas.html', executivos=executivos)
+    return render_template('crm/objetivos_consolidadas.html', executivos=executivos)
 
 
 @bp.route('/api/atividades-consolidadas')

@@ -12,6 +12,19 @@
     min-width: 0;
 }
 
+.crm-col-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    min-height: 0;
+}
+
+.crm-col-stack > .crm-col {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
 .crm-col-body,
 .crm-obj-scroll,
 .crm-comunicacao,
@@ -242,7 +255,7 @@
     margin-bottom: 0;
 }
 
-/* Voltar para a CRM Comercial (páginas consolidadas): contraste estável default / hover / click */
+/* Voltar para o CRM (páginas consolidadas): contraste estável default / hover / click */
 a.crm-back-comercial {
     display: inline-flex;
     align-items: center;
@@ -2530,7 +2543,7 @@ html body select.crm-consolidadas-select option {
     overflow-y: auto;
 }
 
-/* ==================== CRM Comercial: Contatos + WhatsApp ==================== */
+/* ==================== CRM: Contatos + WhatsApp ==================== */
 .crm-contact-head,
 .crm-whats-head,
 .crm-chat-header,

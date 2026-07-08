@@ -130,9 +130,9 @@ def create_app(config_class=Config):
         from .intelligence_routes.intelligence import bp as intelligence_bp
         app.register_blueprint(intelligence_bp)
         
-        # Registrar blueprint do CRM Comercial
-        from .crm_comercial import bp as crm_comercial_bp
-        app.register_blueprint(crm_comercial_bp)
+        # Registrar blueprint do CRM
+        from .crm import bp as crm_bp
+        app.register_blueprint(crm_bp)
 
         from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp, parametros_bp
         app.register_blueprint(dv360_bp)

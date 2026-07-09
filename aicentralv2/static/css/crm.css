@@ -1863,7 +1863,7 @@ html body select.crm-consolidadas-select option {
 }
 
 .crm-oc-contato-nome {
-    font-size: 0.75rem;
+    font-size: 0.62rem;
     font-weight: 700;
     color: #111827;
 }
@@ -1875,6 +1875,24 @@ html body select.crm-consolidadas-select option {
     margin-top: 0.2rem;
     font-size: 0.5625rem;
     color: #6b7280;
+}
+
+.crm-oc-contato-sep {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    margin: 0 0.1rem;
+}
+
+.crm-oc-contato-role,
+.crm-oc-contato-tel {
+    font-size: 0.5rem;
+    color: #6b7280;
+}
+
+.crm-avatar-sm {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    font-size: 0.45rem !important;
 }
 
 .crm-oc-grid {
@@ -2642,6 +2660,8 @@ html body select.crm-consolidadas-select option {
     border-radius: 0.55rem;
     background: #fff;
     margin-bottom: 0.45rem;
+    overflow: hidden;
+    box-sizing: border-box;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
@@ -2691,13 +2711,14 @@ html body select.crm-consolidadas-select option {
 .crm-contact-name {
     display: block;
     width: 100%;
-    text-align: left;
     font-size: 0.62rem;
     font-weight: 700;
     color: #111827;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    cursor: default;
+    user-select: none;
 }
 
 .crm-contact-role,
@@ -2776,6 +2797,53 @@ html body select.crm-consolidadas-select option {
     font-weight: 700;
 }
 
+.crm-contact-email-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.35rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.35rem;
+    padding: 0.3rem 0.45rem;
+}
+
+.crm-contact-email-text {
+    flex: 1;
+    font-size: 0.5rem;
+    color: #374151;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.crm-email-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 0.2rem;
+    padding: 0.1rem;
+    transition: color 0.15s;
+}
+
+.crm-email-copy-btn:hover {
+    color: #374151;
+    background: #f3f4f6;
+}
+
+.crm-email-copy-btn-ok {
+    color: #16a34a !important;
+}
+
+.crm-icon-copy {
+    width: 0.75rem;
+    height: 0.75rem;
+    stroke-width: 2;
+}
+
 .crm-see-more {
     width: 100%;
     font-size: 0.52rem;
@@ -2852,14 +2920,25 @@ html body select.crm-consolidadas-select option {
 }
 
 .crm-chat-header {
-    padding: 0.45rem;
+    padding: 0.25rem 0.45rem;
     border-bottom: 1px solid #e5e7eb;
+    min-height: 0;
 }
 
 .crm-chat-contact {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+.crm-chat-contact .crm-chat-contact-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    min-width: 0;
 }
 
 .crm-chat-actions {
@@ -3148,4 +3227,36 @@ html body select.crm-consolidadas-select option {
 .crm-message-input:disabled {
     background: #f3f4f6;
     cursor: not-allowed;
+}
+
+/* ---- Prévia de conversas (estado vazio do WhatsApp) ---- */
+.crm-conversa-preview-text {
+    font-size: 0.5rem;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-conversa-nome {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.crm-conversa-hora {
+    font-size: 0.48rem;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.crm-conversa-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    min-width: 0;
 }

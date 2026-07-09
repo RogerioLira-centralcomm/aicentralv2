@@ -179,6 +179,15 @@ def api_clientes():
                     tc.display AS tipo_cliente_display,
                     ag.key AS is_agencia,
                     ag.display AS agencia_display,
+                    (SELECT ca_p.id_agencia_cliente
+                     FROM tbl_cliente_agencia ca_p
+                     WHERE ca_p.id_cliente = cli.id_cliente AND ca_p.is_principal = TRUE
+                     LIMIT 1) AS agencia_principal_id,
+                    (SELECT COALESCE(ag_p.nome_fantasia, ag_p.razao_social)
+                     FROM tbl_cliente_agencia ca_p
+                     JOIN tbl_cliente ag_p ON ag_p.id_cliente = ca_p.id_agencia_cliente
+                     WHERE ca_p.id_cliente = cli.id_cliente AND ca_p.is_principal = TRUE
+                     LIMIT 1) AS agencia_principal_nome,
                     COUNT(DISTINCT cont.id_contato_cliente) AS qtd_contatos,
                     COUNT(DISTINCT sa.id) FILTER (WHERE sa.status = 'pendente') AS atividades_pendentes
                 FROM tbl_cliente cli

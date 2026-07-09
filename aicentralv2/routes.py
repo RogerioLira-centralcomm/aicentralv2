@@ -163,7 +163,32 @@ def _normalizar_sim_nao(raw):
     return str(raw).strip().lower() in {'1', 'true', 'on', 'sim', 's', 'yes', 'y'}
 
 
-def _comissao_row_to_js(r, opts_rows):
+def _cliente_perfil_eh_agencia(pk_id_tbl_agencia):
+    if not pk_id_tbl_agencia:
+        return False
+    ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
+    if not ag:
+        return False
+    ag_key = (str(ag.get('key')).lower() if ag.get('key') is not None else '')
+    return (ag.get('key') is True) or (ag_key in ('sim', 'true', '1', 's', 'yes', 'y'))
+
+
+def _salvar_agencias_vinculadas_do_form(cliente_id, pk_id_tbl_agencia, pessoa):
+    """Persiste agências vinculadas do formulário ou limpa se perfil agência."""
+    from flask import request, session
+    if pessoa == 'F' or _cliente_perfil_eh_agencia(pk_id_tbl_agencia):
+        db.limpar_agencias_vinculadas_cliente(cliente_id)
+        return
+    agencia_ids = request.form.getlist('agencias_vinculadas[]')
+    agencia_principal_id = request.form.get('agencia_principal_id', type=int)
+    db.salvar_agencias_vinculadas_cliente(
+        cliente_id,
+        agencia_ids,
+        agencia_principal_id=agencia_principal_id,
+        created_by=session.get('user_id'),
+    )
+
+
     """Monta dict só com tipos serializáveis em JSON (evita Decimal/datetime no |tojson)."""
     raw_pct = r.get('percentual')
     pct_s = '' if raw_pct is None else str(raw_pct).strip()
@@ -1265,6 +1290,8 @@ def init_routes(app):
                     observacoes_comerciais_adicionais=observacoes_comerciais_adicionais
                 ):
                     return _edit_error('Cliente não encontrado!')
+
+                _salvar_agencias_vinculadas_do_form(cliente_id, pk_id_tbl_agencia, pessoa)
                 
                 # Registro de auditoria
                 registrar_auditoria(
@@ -1304,6 +1331,17 @@ def init_routes(app):
         return redirect(url_for('clientes'))
 
     # ==================== CLIENTES ====================
+
+    @app.route('/api/clientes/agencias')
+    @login_required
+    def api_clientes_agencias():
+        """Lista clientes com perfil agência (empresas-agência) para picker."""
+        try:
+            rows = db.obter_clientes_agencias()
+            return jsonify([dict(r) for r in (rows or [])])
+        except Exception as e:
+            app.logger.error(f"Erro api_clientes_agencias: {e}")
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/cliente/<int:cliente_id>')
     @login_required
@@ -3362,6 +3400,8 @@ def init_routes(app):
                     demanda_programatica_canais=demanda_programatica_canais,
                     observacoes_comerciais_adicionais=observacoes_comerciais_adicionais,
                 )
+
+                _salvar_agencias_vinculadas_do_form(id_cliente, pk_id_tbl_agencia, pessoa)
                 
                 # Registro de auditoria
                 registrar_auditoria(

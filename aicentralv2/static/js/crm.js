@@ -147,6 +147,12 @@
         return tipo.includes('parceiro');
     }
 
+    function subtituloCliente(c) {
+        if (clienteEhAgencia(c)) return 'Agência';
+        if (c.agencia_principal_nome) return `Agência principal: ${c.agencia_principal_nome}`;
+        return 'Cliente final';
+    }
+
     function atualizarContadoresCarteira(clientes, perfil) {
         const wrap = $('#crm-contador-carteira');
         const chipA = $('#crm-chip-ag');
@@ -262,7 +268,7 @@
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
                         <div class="crm-cliente-nome truncate">${nomeFor(c).toUpperCase()}</div>
-                        <div class="crm-cliente-subtitulo">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
+                        <div class="crm-cliente-subtitulo">${subtituloCliente(c)} · ${c.qtd_contatos} contato(s)</div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <button type="button" class="crm-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
@@ -325,6 +331,7 @@
         carregarCotacoesAbertas(id);
         if ($('#lista-objetivos')) carregarObjetivos(id);
         limparWhatsAppComercial();
+        carregarPreviewConversasCliente(id);
     }
 
     function pararPollingMensagens() {
@@ -352,6 +359,41 @@
         showEmpty($('#crm-conversas-lista'), contatoSelecionadoId ? 'Selecione um telefone.' : 'Selecione um contato.');
         showEmpty($('#crm-chat-mensagens'), contatoSelecionadoId ? 'Selecione um telefone para ver a conversa.' : 'Selecione um contato e telefone.');
         atualizarResumoObjetivosComunicacao();
+    }
+
+    async function carregarPreviewConversasCliente(clienteId) {
+        const container = $('#crm-conversas-lista');
+        if (!container || !clienteId) return;
+        try {
+            const data = await api(`/api/cliente/${clienteId}/comunicacao/conversas`);
+            const conversas = data.conversas || [];
+            if (!conversas.length) {
+                showEmpty(container, 'Nenhuma conversa encontrada.');
+                return;
+            }
+            // Popula cache global para que selecionarConversaComercial funcione
+            crmConversasCache = conversas;
+            container.innerHTML = conversas.slice(0, 15).map(cv => `
+                <div class="crm-conversa" data-id="${cv.id}" data-contato-id="${cv.contato_id || ''}" data-preview="1" style="cursor:pointer">
+                    <div class="crm-conversa-info">
+                        <div class="crm-conversa-top">
+                            <span>${escapeHtml(cv.contato_nome || cv.telefone || '—')}</span>
+                            <small>${formatHoraMsg(cv.ultimo_evento_em)}</small>
+                        </div>
+                        <div class="crm-conversa-preview">${escapeHtml((cv.ultimo_preview || 'Sem mensagens ainda.').slice(0, 60))}</div>
+                    </div>
+                </div>
+            `).join('');
+            $$('.crm-conversa[data-preview]', container).forEach(el => {
+                el.addEventListener('click', () => {
+                    const contatoId = parseInt(el.dataset.contatoId, 10) || null;
+                    if (contatoId) selecionarContatoCrm(contatoId, { manterWhatsApp: true });
+                    selecionarConversaComercial(parseInt(el.dataset.id, 10));
+                });
+            });
+        } catch (e) {
+            showEmpty(container, 'Erro ao carregar conversas.');
+        }
     }
 
     function limparColunas() {
@@ -695,7 +737,7 @@
                     <div class="crm-contact-main">
                         <div class="crm-avatar">${contatoAvatar(c)}</div>
                         <div class="crm-contact-info">
-                            <button type="button" class="crm-contact-name crm-contato-nome-modal" data-contato-id="${c.id_contato_cliente}">${escapeHtml(c.nome_completo || 'Contato')}</button>
+                            <div class="crm-contact-name" title="Duplo clique para detalhes">${escapeHtml(c.nome_completo || 'Contato')}</div>
                             <div class="crm-contact-role">${escapeHtml(c.cargo || '')}</div>
                         </div>
                         <div class="crm-contact-badges">
@@ -704,6 +746,11 @@
                         </div>
                     </div>
                     <div class="crm-contact-details ${ativo ? '' : 'hidden'}">
+                        ${c.email ? `
+                        <div class="crm-contact-email-row">
+                            <span class="crm-contact-email-text">${escapeHtml(c.email)}</span>
+                            <button type="button" class="crm-email-copy-btn" data-email="${escapeHtml(c.email)}" aria-label="Copiar e-mail" title="Copiar e-mail">${ICON_COPY}</button>
+                        </div>` : ''}
                         <div class="crm-contact-details-title">Conversas no WhatsApp</div>
                         ${telefoneRow(c, c.telefone, 1)}
                         ${telefoneRow(c, c.telefone_secundario, 2)}
@@ -715,8 +762,12 @@
 
         $$('.crm-contact-card', container).forEach(el => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.crm-contato-nome-modal')) return;
+                if (e.target.closest('.crm-phone-row, .crm-email-copy-btn, .crm-contato-whats-btn, .crm-contact-toggle')) return;
                 selecionarContatoCrm(parseInt(el.dataset.id, 10));
+            });
+            el.addEventListener('dblclick', (e) => {
+                if (e.target.closest('.crm-phone-row, .crm-email-copy-btn, .crm-contato-whats-btn')) return;
+                abrirModalContato(parseInt(el.dataset.id, 10));
             });
         });
         $$('.crm-phone-row', container).forEach(btn => {
@@ -743,12 +794,22 @@
                 });
             });
         });
-        $$('.crm-contato-nome-modal', container).forEach(btn => {
+        $$('.crm-email-copy-btn', container).forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                abrirModalContato(parseInt(btn.dataset.contatoId, 10));
+                const email = btn.dataset.email;
+                navigator.clipboard.writeText(email).then(() => {
+                    btn.innerHTML = ICON_CHECK;
+                    btn.classList.add('crm-email-copy-btn-ok');
+                    showToast('E-mail copiado.', 'success');
+                    setTimeout(() => {
+                        btn.innerHTML = ICON_COPY;
+                        btn.classList.remove('crm-email-copy-btn-ok');
+                    }, 2000);
+                }).catch(() => showToast('Erro ao copiar e-mail.', 'error'));
             });
         });
+        
     }
 
     function selecionarContatoCrm(id, opts = {}) {
@@ -869,6 +930,8 @@
 
     const ICON_EDIT = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>';
     const ICON_TRASH = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+    const ICON_COPY = '<svg class="crm-icon-copy" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" stroke-width="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke-width="2"/></svg>';
+    const ICON_CHECK = '<svg class="crm-icon-copy" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
 
     function badgePrioridadeAtiv(prioridade) {
         const p = (prioridade || 'media').toLowerCase();
@@ -1747,13 +1810,12 @@
         }
         card.classList.remove('hidden');
         card.innerHTML = `
-            <div class="crm-avatar">${contatoAvatar(contato)}</div>
+            <div class="crm-avatar crm-avatar-sm">${contatoAvatar(contato)}</div>
             <div class="crm-chat-contact-info">
-                <div class="crm-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</div>
-                <div class="crm-oc-contato-meta">
-                    ${contato.cargo ? `<span>${escapeHtml(contato.cargo)}</span>` : ''}
-                    <span>${escapeHtml(telefoneSelecionado)}</span>
-                </div>
+                <span class="crm-oc-contato-nome">${escapeHtml(contato.nome_completo || 'Contato selecionado')}</span>
+                ${contato.cargo ? `<span class="crm-oc-contato-sep">·</span><span class="crm-oc-contato-role">${escapeHtml(contato.cargo)}</span>` : ''}
+                <span class="crm-oc-contato-sep">·</span>
+                <span class="crm-oc-contato-tel">${escapeHtml(telefoneSelecionado)}</span>
             </div>
         `;
     }
@@ -2129,6 +2191,7 @@
         if (razao) razao.required = !isPf;
         if (tipo) tipo.required = !isPf;
         if (agencia) agencia.required = !isPf;
+        atualizarVisibilidadeAgenciasVinculadasCrm();
     }
 
     function setStatusClienteModal(ativo) {
@@ -2156,6 +2219,136 @@
         if (el) el.value = value ?? '';
     }
 
+    let crmAgenciasPickerCache = null;
+    let crmAgenciasVinculadasState = [];
+
+    async function carregarAgenciasPickerCrm() {
+        if (crmAgenciasPickerCache) return crmAgenciasPickerCache;
+        try {
+            const response = await fetch('/api/clientes/agencias');
+            crmAgenciasPickerCache = await response.json();
+        } catch (e) {
+            console.error(e);
+            crmAgenciasPickerCache = [];
+        }
+        return crmAgenciasPickerCache;
+    }
+
+    async function popularPickerAgenciasVinculadasCrm() {
+        const picker = $('#crm-agencias-vinculadas-picker');
+        if (!picker) return;
+        const agencias = await carregarAgenciasPickerCrm();
+        const selected = new Set(crmAgenciasVinculadasState.map(a => String(a.id_agencia_cliente)));
+        picker.innerHTML = '<option value="">Adicionar agência...</option>' +
+            agencias.filter(a => !selected.has(String(a.id_cliente)))
+                .map(a => `<option value="${a.id_cliente}">${escapeHtml(a.nome_fantasia || a.razao_social || '')}</option>`)
+                .join('');
+    }
+
+    function renderAgenciasVinculadasFormCrm(agencias) {
+        crmAgenciasVinculadasState = (agencias || []).map(a => ({
+            id_agencia_cliente: a.id_agencia_cliente || a.id_cliente,
+            nome_fantasia: a.nome_fantasia || '',
+            razao_social: a.razao_social || '',
+            is_principal: !!a.is_principal
+        }));
+        if (crmAgenciasVinculadasState.length === 1) {
+            crmAgenciasVinculadasState[0].is_principal = true;
+        }
+        atualizarAgenciasVinculadasUICrm();
+        popularPickerAgenciasVinculadasCrm();
+    }
+
+    function atualizarVisibilidadeAgenciasVinculadasCrm() {
+        const block = $('#crm-agencias-vinculadas-fields');
+        if (!block) return;
+        const pessoa = $('#crm-form-cliente input[name="pessoa"]:checked')?.value || 'J';
+        const opt = $('#crm-cliente-agencia')?.selectedOptions?.[0];
+        const agenciaSim = opt && opt.getAttribute('data-agencia-sim') === '1';
+        if (pessoa === 'J' && !agenciaSim) {
+            block.style.display = '';
+        } else {
+            block.style.display = 'none';
+            if (agenciaSim || pessoa === 'F') {
+                crmAgenciasVinculadasState = [];
+                atualizarAgenciasVinculadasUICrm();
+            }
+        }
+    }
+
+    function definirAgenciaPrincipalVinculadaCrm(id) {
+        crmAgenciasVinculadasState.forEach(a => { a.is_principal = a.id_agencia_cliente === id; });
+        atualizarAgenciasVinculadasUICrm();
+    }
+
+    function removerAgenciaVinculadaCrm(id) {
+        crmAgenciasVinculadasState = crmAgenciasVinculadasState.filter(a => a.id_agencia_cliente !== id);
+        if (crmAgenciasVinculadasState.length === 1) {
+            crmAgenciasVinculadasState[0].is_principal = true;
+        } else if (!crmAgenciasVinculadasState.some(a => a.is_principal)) {
+            crmAgenciasVinculadasState.forEach(a => { a.is_principal = false; });
+        }
+        atualizarAgenciasVinculadasUICrm();
+        popularPickerAgenciasVinculadasCrm();
+    }
+
+    async function adicionarAgenciaVinculadaCrm() {
+        const picker = $('#crm-agencias-vinculadas-picker');
+        if (!picker || !picker.value) return;
+        const id = parseInt(picker.value, 10);
+        if (crmAgenciasVinculadasState.some(a => a.id_agencia_cliente === id)) return;
+        const agencias = await carregarAgenciasPickerCrm();
+        const found = agencias.find(a => a.id_cliente === id);
+        crmAgenciasVinculadasState.push({
+            id_agencia_cliente: id,
+            nome_fantasia: found?.nome_fantasia || '',
+            razao_social: found?.razao_social || '',
+            is_principal: crmAgenciasVinculadasState.length === 0
+        });
+        if (crmAgenciasVinculadasState.length === 1) {
+            crmAgenciasVinculadasState[0].is_principal = true;
+        }
+        picker.value = '';
+        atualizarAgenciasVinculadasUICrm();
+        popularPickerAgenciasVinculadasCrm();
+    }
+
+    function atualizarAgenciasVinculadasUICrm() {
+        const lista = $('#crm-agencias-vinculadas-lista');
+        const hiddenWrap = $('#crm-agencias-vinculadas-hidden');
+        if (!lista || !hiddenWrap) return;
+
+        if (!crmAgenciasVinculadasState.length) {
+            lista.innerHTML = '<div class="text-[10px] text-gray-400 italic">Nenhuma agência vinculada.</div>';
+        } else {
+            lista.innerHTML = crmAgenciasVinculadasState.map(a => {
+                const nome = escapeHtml(a.nome_fantasia || a.razao_social || ('#' + a.id_agencia_cliente));
+                return `
+                    <div class="flex items-center gap-2 text-[10px] border border-gray-200 rounded px-2 py-1 bg-white">
+                        <label class="flex items-center gap-1 cursor-pointer shrink-0">
+                            <input type="radio" name="crm_agencia_principal_radio" value="${a.id_agencia_cliente}" ${a.is_principal ? 'checked' : ''}>
+                            <span class="text-gray-500">Principal</span>
+                        </label>
+                        <span class="flex-1 truncate">${nome}</span>
+                        <button type="button" class="text-red-500 hover:text-red-700 crm-agencia-vinculada-del" data-id="${a.id_agencia_cliente}" title="Remover">×</button>
+                    </div>`;
+            }).join('');
+            $$('.crm-agencia-vinculada-del', lista).forEach(btn => {
+                btn.addEventListener('click', () => removerAgenciaVinculadaCrm(parseInt(btn.dataset.id, 10)));
+            });
+            $$('input[name="crm_agencia_principal_radio"]', lista).forEach(radio => {
+                radio.addEventListener('change', () => definirAgenciaPrincipalVinculadaCrm(parseInt(radio.value, 10)));
+            });
+        }
+
+        const principal = crmAgenciasVinculadasState.find(a => a.is_principal);
+        hiddenWrap.innerHTML = crmAgenciasVinculadasState.map(a =>
+            `<input type="hidden" name="agencias_vinculadas[]" value="${a.id_agencia_cliente}">`
+        ).join('') + (principal
+            ? `<input type="hidden" name="agencia_principal_id" value="${principal.id_agencia_cliente}">`
+            : '');
+    }
+
     function atualizarBvClienteModal() {
         const tipo = $('#crm-select-tipo-cliente');
         const agencia = $('#crm-cliente-agencia');
@@ -2169,6 +2362,7 @@
             const pct = $('#crm-cliente-percentual');
             if (pct) pct.value = '';
         }
+        atualizarVisibilidadeAgenciasVinculadasCrm();
     }
 
     function preselecionarExecutivoClienteModal() {
@@ -2201,6 +2395,7 @@
         setStatusClienteModal(true);
         setPessoaClienteModal('J');
         preselecionarExecutivoClienteModal();
+        renderAgenciasVinculadasFormCrm([]);
         atualizarBvClienteModal();
         modal.showModal();
         setTimeout(() => $('#crm-input-nome')?.focus(), 50);
@@ -2250,6 +2445,7 @@
             setClienteFormValue('logradouro', cliente.logradouro || '');
             setClienteFormValue('numero', cliente.numero || '');
             setClienteFormValue('complemento', cliente.complemento || '');
+            renderAgenciasVinculadasFormCrm(cliente.agencias_vinculadas || []);
             atualizarBvClienteModal();
         } catch (e) {
             console.error(e);
@@ -2396,6 +2592,11 @@
             $('#crm-cotacao-client-id').value = id;
             $('#crm-cotacao-cliente-select').value = String(id);
             carregarContatosCotacao(id);
+            const principalId = clienteCache.agencia_principal_id;
+            if (principalId) {
+                $('#crm-cotacao-agencia').value = String(principalId);
+                carregarContatosCotacao(principalId, '#crm-cotacao-agencia-contato');
+            }
         }
 
         modal.showModal();
@@ -2406,6 +2607,13 @@
             if (response.ok) {
                 const cliente = await response.json();
                 preselecionarResponsavelCotacao(cliente);
+                if (!clienteEhAgencia(cliente) && !clienteEhParceiroRegional(cliente)) {
+                    const principal = (cliente.agencias_vinculadas || []).find(a => a.is_principal);
+                    if (principal?.id_agencia_cliente) {
+                        $('#crm-cotacao-agencia').value = String(principal.id_agencia_cliente);
+                        carregarContatosCotacao(principal.id_agencia_cliente, '#crm-cotacao-agencia-contato');
+                    }
+                }
             }
         } catch (e) {
             console.warn('Não foi possível pré-selecionar responsável pelo cliente.', e);
@@ -2538,6 +2746,8 @@
         $('#crm-cliente-percentual')?.addEventListener('input', ev => maskPercentual(ev.target));
         $('#crm-select-tipo-cliente')?.addEventListener('change', atualizarBvClienteModal);
         $('#crm-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
+        $('#crm-btn-agencia-vinculada-add')?.addEventListener('click', adicionarAgenciaVinculadaCrm);
+        carregarAgenciasPickerCrm().then(() => popularPickerAgenciasVinculadasCrm());
 
         // ---- Modal Nova Cotação ----
         $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrm);

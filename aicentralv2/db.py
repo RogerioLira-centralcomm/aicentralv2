@@ -1347,9 +1347,149 @@ def obter_cliente_por_id(id_cliente):
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
-        return cursor.fetchone()
+        row = cursor.fetchone()
+        if not row:
+            return None
+        cliente = dict(row)
+        if not cliente.get('agencia_key'):
+            cliente['agencias_vinculadas'] = listar_agencias_vinculadas_cliente(id_cliente)
+        else:
+            cliente['agencias_vinculadas'] = []
+        return cliente
 
-def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
+
+def _cliente_id_eh_empresa_agencia(cursor, id_agencia_cliente):
+    """True se id_cliente referencia um registro com perfil agência (tbl_agencia.key)."""
+    cursor.execute('''
+        SELECT 1
+        FROM tbl_cliente cli
+        LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+        WHERE cli.id_cliente = %s
+          AND COALESCE(cli.status, true) = true
+          AND (
+            COALESCE((ag.key IS TRUE), false)
+            OR LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's')
+          )
+        LIMIT 1
+    ''', (id_agencia_cliente,))
+    return cursor.fetchone() is not None
+
+
+def listar_agencias_vinculadas_cliente(id_cliente):
+    """Lista empresas-agência vinculadas a um cliente final."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                ca.id,
+                ca.id_agencia_cliente,
+                ca.is_principal,
+                ag_cli.nome_fantasia,
+                ag_cli.razao_social,
+                ag_cli.cnpj
+            FROM tbl_cliente_agencia ca
+            JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
+            WHERE ca.id_cliente = %s
+            ORDER BY ca.is_principal DESC,
+                     ag_cli.nome_fantasia ASC NULLS LAST,
+                     ag_cli.razao_social ASC NULLS LAST
+        ''', (id_cliente,))
+        return [dict(r) for r in cursor.fetchall()]
+
+
+def _validar_agencias_vinculadas(cursor, id_cliente, agencia_ids, agencia_principal_id):
+    """Valida vínculos N:N cliente↔agência. Levanta ValueError se inválido."""
+    agencia_ids = [int(x) for x in agencia_ids if x not in (None, '', 0)]
+    agencia_ids = list(dict.fromkeys(agencia_ids))
+
+    if not agencia_ids:
+        return []
+
+    if id_cliente in agencia_ids:
+        raise ValueError('O cliente não pode ser vinculado a si mesmo como agência.')
+
+    cursor.execute('''
+        SELECT ag.key AS agencia_key
+        FROM tbl_cliente c
+        LEFT JOIN tbl_agencia ag ON ag.id_agencia = c.pk_id_tbl_agencia
+        WHERE c.id_cliente = %s
+    ''', (id_cliente,))
+    row_cli = cursor.fetchone()
+    if not row_cli:
+        raise ValueError('Cliente não encontrado.')
+    if row_cli.get('agencia_key') is True:
+        raise ValueError('Clientes com perfil agência não podem ter agências vinculadas.')
+
+    if len(agencia_ids) == 1:
+        agencia_principal_id = agencia_ids[0]
+    else:
+        if not agencia_principal_id:
+            raise ValueError('Selecione exatamente uma agência principal.')
+        agencia_principal_id = int(agencia_principal_id)
+        if agencia_principal_id not in agencia_ids:
+            raise ValueError('A agência principal deve estar entre as agências vinculadas.')
+
+    for aid in agencia_ids:
+        if not _cliente_id_eh_empresa_agencia(cursor, aid):
+            raise ValueError(f'O cliente #{aid} não possui perfil de agência.')
+
+    principal_count = sum(1 for aid in agencia_ids if aid == agencia_principal_id)
+    if principal_count != 1:
+        raise ValueError('Selecione exatamente uma agência principal.')
+
+    return [(aid, aid == agencia_principal_id) for aid in agencia_ids]
+
+
+def salvar_agencias_vinculadas_cliente(id_cliente, agencia_ids, agencia_principal_id=None, created_by=None):
+    """Replace transacional dos vínculos cliente↔agências."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            vinculos = _validar_agencias_vinculadas(cursor, id_cliente, agencia_ids, agencia_principal_id)
+            cursor.execute('DELETE FROM tbl_cliente_agencia WHERE id_cliente = %s', (id_cliente,))
+            for id_agencia_cliente, is_principal in vinculos:
+                cursor.execute('''
+                    INSERT INTO tbl_cliente_agencia (
+                        id_cliente, id_agencia_cliente, is_principal, created_by
+                    ) VALUES (%s, %s, %s, %s)
+                ''', (id_cliente, id_agencia_cliente, is_principal, created_by))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def limpar_agencias_vinculadas_cliente(id_cliente):
+    """Remove todos os vínculos de agência de um cliente."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM tbl_cliente_agencia WHERE id_cliente = %s', (id_cliente,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_agencia_principal_cliente(id_cliente):
+    """Retorna dados da agência principal vinculada ou None."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                ca.id_agencia_cliente,
+                ag_cli.nome_fantasia,
+                ag_cli.razao_social
+            FROM tbl_cliente_agencia ca
+            JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
+            WHERE ca.id_cliente = %s AND ca.is_principal = TRUE
+            LIMIT 1
+        ''', (id_cliente,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None,
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
                 pk_id_aux_estado=None, vendas_central_comm=None, percentual=None, margem_cc=None, classificacao_cliente='Prospecção',
                 opera_midia=False, demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None):

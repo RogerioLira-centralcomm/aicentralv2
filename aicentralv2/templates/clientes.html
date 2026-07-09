@@ -511,13 +511,24 @@
             </select>
           </div>
           <div id="agencia_fields" class="form-control col-span-1 md:col-span-3">
-            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Agência*</label>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Perfil agência*</label>
             <select name="pk_id_tbl_agencia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for agencia in agencias %}
                 <option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>
               {% endfor %}
             </select>
+          </div>
+          <div id="agencias_vinculadas_fields" class="form-control col-span-2 md:col-span-12" style="display:none;">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Agências vinculadas</label>
+            <div class="flex flex-wrap gap-2 mb-2">
+              <select id="agencias-vinculadas-picker" class="flex-1 min-w-[10rem] px-2 py-1 text-[10px] border border-gray-300 rounded bg-white">
+                <option value="">Adicionar agência...</option>
+              </select>
+              <button type="button" id="btn-agencia-vinculada-add" class="px-2 py-1 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700">Adicionar</button>
+            </div>
+            <div id="agencias-vinculadas-lista" class="space-y-1"></div>
+            <div id="agencias-vinculadas-hidden"></div>
           </div>
           <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
             <label id="percentual_label" class="text-[10px] font-medium text-gray-600 mb-0.5">BV (%)</label>
@@ -647,6 +658,13 @@
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
+
+        <div id="agencias_vinculadas_section_aba" class="bg-gray-50 rounded-lg p-3 mt-2" style="display:none;">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2 flex items-center">
+            <i class="fas fa-building mr-1"></i>Agências vinculadas
+          </h4>
+          <div id="agencias_vinculadas_lista_aba" class="text-[10px]"></div>
+        </div>
       </div>
       
       <!-- Conteúdo Contatos -->
@@ -721,6 +739,13 @@
         <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
+      </div>
+
+      <div id="agencias_vinculadas_section" class="bg-base-200/50 rounded-lg p-3" style="display:none;">
+        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+          <i class="fas fa-building mr-1 text-primary"></i>Agências vinculadas
+        </h4>
+        <div id="agencias_vinculadas_lista" class="text-[10px]"></div>
       </div>
 
       <!-- Contatos Vinculados -->
@@ -864,8 +889,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const selAgenciaCliente = formCliente.querySelector('select[name="pk_id_tbl_agencia"]');
     if (selAgenciaCliente) {
-      selAgenciaCliente.addEventListener('change', atualizarVisibilidadeBv);
+      selAgenciaCliente.addEventListener('change', () => {
+        atualizarVisibilidadeBv();
+        atualizarVisibilidadeAgenciasVinculadas();
+      });
     }
+
+    document.getElementById('btn-agencia-vinculada-add')?.addEventListener('click', adicionarAgenciaVinculada);
+    carregarAgenciasPicker().then(() => popularPickerAgenciasVinculadas());
 
     const selTipoCliente = document.getElementById('select_tipo_cliente');
     if (selTipoCliente) {
@@ -1010,6 +1041,7 @@ function abrirModalNovo() {
 
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
+  renderAgenciasVinculadasForm([]);
   
   // Ocultar status, abas e botão excluir (modo novo)
   document.getElementById('status_toggle_container').style.display = 'none';
@@ -1093,6 +1125,8 @@ async function abrirModalEditar(clienteId) {
     // Informações comerciais
     document.querySelector('select[name="vendas_central_comm"]').value = cliente.vendas_central_comm || '';
     document.querySelector('select[name="pk_id_tbl_agencia"]').value = cliente.pk_id_tbl_agencia || '';
+    renderAgenciasVinculadasForm(cliente.agencias_vinculadas || []);
+    atualizarVisibilidadeAgenciasVinculadas();
 
     const inpMargemEd = document.querySelector('#form_cliente input[name="margem_cc"]');
     if (inpMargemEd) {
@@ -1242,6 +1276,7 @@ function togglePessoaFieldsModal() {
   }
 
   atualizarVisibilidadeBv();
+  atualizarVisibilidadeAgenciasVinculadas();
 }
 
 function clienteTipoEhParceiro() {
@@ -1275,6 +1310,152 @@ function atualizarVisibilidadeBv() {
     percentualFields.style.display = 'none';
     if (inputPercentual) inputPercentual.value = '';
   }
+  atualizarVisibilidadeAgenciasVinculadas();
+}
+
+let agenciasPickerCache = null;
+let agenciasVinculadasState = [];
+
+async function carregarAgenciasPicker() {
+  if (agenciasPickerCache) return agenciasPickerCache;
+  try {
+    const response = await fetch('/api/clientes/agencias');
+    agenciasPickerCache = await response.json();
+  } catch (e) {
+    console.error(e);
+    agenciasPickerCache = [];
+  }
+  return agenciasPickerCache;
+}
+
+async function popularPickerAgenciasVinculadas() {
+  const picker = document.getElementById('agencias-vinculadas-picker');
+  if (!picker) return;
+  const agencias = await carregarAgenciasPicker();
+  const selected = new Set(agenciasVinculadasState.map(a => String(a.id_agencia_cliente)));
+  picker.innerHTML = '<option value="">Adicionar agência...</option>' +
+    agencias.filter(a => !selected.has(String(a.id_cliente)))
+      .map(a => `<option value="${a.id_cliente}">${(a.nome_fantasia || a.razao_social || '').replace(/"/g, '&quot;')}</option>`)
+      .join('');
+}
+
+function renderAgenciasVinculadasForm(agencias) {
+  agenciasVinculadasState = (agencias || []).map(a => ({
+    id_agencia_cliente: a.id_agencia_cliente || a.id_cliente,
+    nome_fantasia: a.nome_fantasia || '',
+    razao_social: a.razao_social || '',
+    is_principal: !!a.is_principal
+  }));
+  if (agenciasVinculadasState.length === 1) {
+    agenciasVinculadasState[0].is_principal = true;
+  }
+  atualizarAgenciasVinculadasUI();
+  popularPickerAgenciasVinculadas();
+}
+
+function atualizarVisibilidadeAgenciasVinculadas() {
+  const block = document.getElementById('agencias_vinculadas_fields');
+  if (!block) return;
+  const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
+  const sel = document.querySelector('#form_cliente select[name="pk_id_tbl_agencia"]');
+  const opt = sel?.selectedOptions?.[0];
+  const agenciaSim = opt && opt.getAttribute('data-agencia-sim') === '1';
+  if (pessoa === 'J' && !agenciaSim) {
+    block.style.display = '';
+  } else {
+    block.style.display = 'none';
+    if (agenciaSim || pessoa === 'F') {
+      agenciasVinculadasState = [];
+      atualizarAgenciasVinculadasUI();
+    }
+  }
+}
+
+function atualizarAgenciasVinculadasUI() {
+  const lista = document.getElementById('agencias-vinculadas-lista');
+  const hiddenWrap = document.getElementById('agencias-vinculadas-hidden');
+  if (!lista || !hiddenWrap) return;
+
+  if (!agenciasVinculadasState.length) {
+    lista.innerHTML = '<div class="text-[10px] text-gray-400 italic">Nenhuma agência vinculada.</div>';
+  } else {
+    lista.innerHTML = agenciasVinculadasState.map(a => {
+      const nome = (a.nome_fantasia || a.razao_social || ('#' + a.id_agencia_cliente)).replace(/"/g, '&quot;');
+      return `
+        <div class="flex items-center gap-2 text-[10px] border border-gray-200 rounded px-2 py-1 bg-white">
+          <label class="flex items-center gap-1 cursor-pointer shrink-0">
+            <input type="radio" name="agencia_principal_radio" value="${a.id_agencia_cliente}" ${a.is_principal ? 'checked' : ''} onchange="definirAgenciaPrincipalVinculada(${a.id_agencia_cliente})">
+            <span class="text-gray-500">Principal</span>
+          </label>
+          <span class="flex-1 truncate">${nome}</span>
+          <button type="button" class="text-red-500 hover:text-red-700" onclick="removerAgenciaVinculada(${a.id_agencia_cliente})" title="Remover">×</button>
+        </div>`;
+    }).join('');
+  }
+
+  const principal = agenciasVinculadasState.find(a => a.is_principal);
+  hiddenWrap.innerHTML = agenciasVinculadasState.map(a =>
+    `<input type="hidden" name="agencias_vinculadas[]" value="${a.id_agencia_cliente}">`
+  ).join('') + (principal
+    ? `<input type="hidden" name="agencia_principal_id" value="${principal.id_agencia_cliente}">`
+    : '');
+}
+
+function definirAgenciaPrincipalVinculada(id) {
+  agenciasVinculadasState.forEach(a => { a.is_principal = a.id_agencia_cliente === id; });
+  atualizarAgenciasVinculadasUI();
+}
+
+function removerAgenciaVinculada(id) {
+  agenciasVinculadasState = agenciasVinculadasState.filter(a => a.id_agencia_cliente !== id);
+  if (agenciasVinculadasState.length === 1) {
+    agenciasVinculadasState[0].is_principal = true;
+  } else if (!agenciasVinculadasState.some(a => a.is_principal)) {
+    agenciasVinculadasState.forEach(a => { a.is_principal = false; });
+  }
+  atualizarAgenciasVinculadasUI();
+  popularPickerAgenciasVinculadas();
+}
+
+async function adicionarAgenciaVinculada() {
+  const picker = document.getElementById('agencias-vinculadas-picker');
+  if (!picker || !picker.value) return;
+  const id = parseInt(picker.value, 10);
+  if (agenciasVinculadasState.some(a => a.id_agencia_cliente === id)) return;
+  const agencias = await carregarAgenciasPicker();
+  const found = agencias.find(a => a.id_cliente === id);
+  agenciasVinculadasState.push({
+    id_agencia_cliente: id,
+    nome_fantasia: found?.nome_fantasia || '',
+    razao_social: found?.razao_social || '',
+    is_principal: agenciasVinculadasState.length === 0
+  });
+  if (agenciasVinculadasState.length === 1) {
+    agenciasVinculadasState[0].is_principal = true;
+  }
+  picker.value = '';
+  atualizarAgenciasVinculadasUI();
+  popularPickerAgenciasVinculadas();
+}
+
+function renderAgenciasVinculadasDetalhes(cliente, listaId, sectionId) {
+  const section = document.getElementById(sectionId);
+  const container = document.getElementById(listaId);
+  if (!section || !container) return;
+  if (cliente.agencia_key) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  const agencias = cliente.agencias_vinculadas || [];
+  if (!agencias.length) {
+    container.innerHTML = '<div class="text-gray-400 italic">Nenhuma agência vinculada.</div>';
+    return;
+  }
+  container.innerHTML = agencias.map(a => {
+    const nome = a.nome_fantasia || a.razao_social || ('#' + a.id_agencia_cliente);
+    return `<div class="flex items-center gap-2 py-0.5">${a.is_principal ? '<span class="badge badge-xs text-white" style="background:#166534">Principal</span>' : ''}<span>${nome}</span></div>`;
+  }).join('');
 }
 
 function atualizarHintMargemCc() {
@@ -1676,6 +1857,8 @@ async function abrirModalDetalhes(clienteId) {
     } else {
       enderecoSection.style.display = 'none';
     }
+
+    renderAgenciasVinculadasDetalhes(cliente, 'agencias_vinculadas_lista', 'agencias_vinculadas_section');
     
     // Preencher contatos
     const listaContatos = document.getElementById('lista_contatos');
@@ -1917,6 +2100,8 @@ function preencherAbaDetalhes(cliente, contatos) {
   } else {
     enderecoSection.style.display = 'none';
   }
+
+  renderAgenciasVinculadasDetalhes(cliente, 'agencias_vinculadas_lista_aba', 'agencias_vinculadas_section_aba');
   
   // Preencher contatos
   const listaContatos = document.getElementById('lista_contatos_aba');

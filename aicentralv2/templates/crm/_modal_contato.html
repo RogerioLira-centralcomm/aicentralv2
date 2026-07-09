@@ -8,6 +8,7 @@
         <div class="tabs tabs-bordered w-full px-4 pt-2">
             <a class="tab tab-active" data-modal-tab="dados">Dados</a>
             <a class="tab" data-modal-tab="comunicacao">Gerar mensagem (IA)</a>
+            <a class="tab" data-modal-tab="editar">Editar</a>
         </div>
 
         <!-- Tab: Dados -->
@@ -95,6 +96,41 @@
                 </div>
             </div>
         </div>
+        <!-- Tab: Editar -->
+        <div class="p-4 hidden" id="tab-editar">
+            <div class="space-y-3 mb-4">
+                <div>
+                    <label class="label py-0"><span class="label-text text-xs">Nome completo *</span></label>
+                    <input type="text" id="ce-nome" class="input input-bordered input-sm w-full" placeholder="Nome completo" />
+                </div>
+                <div>
+                    <label class="label py-0"><span class="label-text text-xs">E-mail *</span></label>
+                    <input type="email" id="ce-email" class="input input-bordered input-sm w-full" placeholder="email@empresa.com" />
+                </div>
+                <div>
+                    <label class="label py-0"><span class="label-text text-xs">Telefone</span></label>
+                    <input type="text" id="ce-tel" class="input input-bordered input-sm w-full" placeholder="(11) 99999-9999" />
+                </div>
+                <div>
+                    <label class="label py-0"><span class="label-text text-xs">Segundo telefone</span></label>
+                    <input type="text" id="ce-tel2" class="input input-bordered input-sm w-full" placeholder="Opcional" />
+                </div>
+            </div>
+
+            <button type="button" id="ce-btn-salvar" class="btn btn-primary btn-sm w-full mb-4">
+                Salvar alterações
+            </button>
+
+            <div class="divider my-2"></div>
+
+            <div class="flex flex-col gap-1">
+                <button type="button" id="ce-btn-deletar" class="btn btn-error btn-outline btn-sm w-full">
+                    Apagar contato
+                </button>
+                <p class="text-xs opacity-50 text-center">Só é possível apagar se o contato não tiver cotações, briefings ou PIs vinculados.</p>
+            </div>
+        </div>
+
     </div>
     <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>

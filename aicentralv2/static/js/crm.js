@@ -737,11 +737,12 @@
                     <div class="crm-contact-main">
                         <div class="crm-avatar">${contatoAvatar(c)}</div>
                         <div class="crm-contact-info">
-                            <div class="crm-contact-name" title="Duplo clique para detalhes">${escapeHtml(c.nome_completo || 'Contato')}</div>
+                            <div class="crm-contact-name">${escapeHtml(c.nome_completo || 'Contato')}</div>
                             <div class="crm-contact-role">${escapeHtml(c.cargo || '')}</div>
                         </div>
                         <div class="crm-contact-badges">
                             ${(c.qtd_conversas || c.unread_count) ? `<span>${c.qtd_conversas || 0}</span>` : ''}
+                            <button type="button" class="crm-contact-edit-btn" data-id="${c.id_contato_cliente}" title="Editar contato"><svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414V18h1.586a2 2 0 001.414-.586l.018-.018"/></svg></button>
                             <button type="button" class="crm-contact-toggle" title="Expandir">⌄</button>
                         </div>
                     </div>
@@ -762,12 +763,14 @@
 
         $$('.crm-contact-card', container).forEach(el => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.crm-phone-row, .crm-email-copy-btn, .crm-contato-whats-btn, .crm-contact-toggle')) return;
+                if (e.target.closest('.crm-phone-row, .crm-email-copy-btn, .crm-contato-whats-btn, .crm-contact-toggle, .crm-contact-edit-btn')) return;
                 selecionarContatoCrm(parseInt(el.dataset.id, 10));
             });
-            el.addEventListener('dblclick', (e) => {
-                if (e.target.closest('.crm-phone-row, .crm-email-copy-btn, .crm-contato-whats-btn')) return;
-                abrirModalContato(parseInt(el.dataset.id, 10));
+        });
+        $$('.crm-contact-edit-btn', container).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                abrirModalContato(parseInt(btn.dataset.id, 10));
             });
         });
         $$('.crm-phone-row', container).forEach(btn => {
@@ -1666,6 +1669,12 @@
 
             $('#modal-contato-nome').textContent = c.nome_completo;
 
+            // Populate edit form
+            $('#ce-nome').value = c.nome_completo || '';
+            $('#ce-email').value = c.email || '';
+            $('#ce-tel').value = c.telefone || '';
+            $('#ce-tel2').value = c.telefone_secundario || '';
+
             $('#contato-info').innerHTML = `
                 <div><span class="text-xs opacity-60">Nome</span><div class="text-sm">${c.nome_completo}</div></div>
                 <div><span class="text-xs opacity-60">Cargo</span><div class="text-sm">${c.cargo || '-'}</div></div>
@@ -1724,13 +1733,22 @@
     function showTabDados() {
         $('#tab-dados').classList.remove('hidden');
         $('#tab-comunicacao').classList.add('hidden');
+        $('#tab-editar')?.classList.add('hidden');
         $$('[data-modal-tab]').forEach(t => t.classList.toggle('tab-active', t.dataset.modalTab === 'dados'));
     }
 
     function showTabComunicacao() {
         $('#tab-dados').classList.add('hidden');
         $('#tab-comunicacao').classList.remove('hidden');
+        $('#tab-editar')?.classList.add('hidden');
         $$('[data-modal-tab]').forEach(t => t.classList.toggle('tab-active', t.dataset.modalTab === 'comunicacao'));
+    }
+
+    function showTabEditar() {
+        $('#tab-dados').classList.add('hidden');
+        $('#tab-comunicacao').classList.add('hidden');
+        $('#tab-editar')?.classList.remove('hidden');
+        $$('[data-modal-tab]').forEach(t => t.classList.toggle('tab-active', t.dataset.modalTab === 'editar'));
     }
 
     /**
@@ -2811,8 +2829,54 @@
         $$('[data-modal-tab]').forEach(tab => {
             tab.addEventListener('click', () => {
                 if (tab.dataset.modalTab === 'dados') showTabDados();
+                else if (tab.dataset.modalTab === 'editar') showTabEditar();
                 else showTabComunicacao();
             });
+        });
+
+        $('#ce-btn-salvar')?.addEventListener('click', async () => {
+            const nome = ($('#ce-nome')?.value || '').trim();
+            const email = ($('#ce-email')?.value || '').trim();
+            if (!nome || !email) { showToast('Nome e e-mail são obrigatórios.', 'warning'); return; }
+            const btn = $('#ce-btn-salvar');
+            btn.classList.add('loading');
+            try {
+                const r = await api(`/api/contato/${modalContatoId}/editar`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        nome_completo: nome,
+                        email,
+                        telefone: ($('#ce-tel')?.value || '').trim(),
+                        telefone_secundario: ($('#ce-tel2')?.value || '').trim(),
+                    })
+                });
+                showToast(r.message || 'Contato atualizado.', 'success');
+                $('#modal-contato-nome').textContent = nome;
+                carregarContatos(clienteSelecionadoId);
+            } catch (e) {
+                showToast(e.data?.message || e.message || 'Erro ao salvar.', 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        });
+
+        $('#ce-btn-deletar')?.addEventListener('click', async () => {
+            const nome = $('#ce-nome')?.value || 'este contato';
+            if (!confirm(`Apagar "${nome}"? Esta ação não pode ser desfeita.`)) return;
+            const btn = $('#ce-btn-deletar');
+            btn.classList.add('loading');
+            try {
+                const r = await api(`/api/contato/${modalContatoId}/deletar`, { method: 'DELETE' });
+                showToast(r.message || 'Contato apagado.', 'success');
+                document.getElementById('modal-contato')?.close();
+                contatoSelecionadoId = null;
+                carregarContatos(clienteSelecionadoId);
+            } catch (e) {
+                const msg = e.data?.message || e.message || 'Erro ao apagar.';
+                showToast(msg, e.data?.has_vinculos ? 'warning' : 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
         });
 
         $('#btn-gerar-comunicacao')?.addEventListener('click', gerarComunicacao);

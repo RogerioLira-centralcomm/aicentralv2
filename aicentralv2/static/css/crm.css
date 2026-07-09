@@ -2744,6 +2744,24 @@ html body select.crm-consolidadas-select option {
     font-size: 0.75rem;
 }
 
+.crm-contact-edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem;
+    border-radius: 0.25rem;
+    color: #6b7280;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.crm-contact-card:hover .crm-contact-edit-btn {
+    opacity: 1;
+}
+.crm-contact-edit-btn:hover {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
 .crm-contact-details {
     border-top: 1px solid #eef2f7;
     padding: 0.45rem;

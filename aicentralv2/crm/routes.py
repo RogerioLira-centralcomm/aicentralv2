@@ -1317,6 +1317,120 @@ def api_contato_detalhes(contato_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@bp.route('/api/contato/<int:contato_id>/editar', methods=['PUT'])
+@login_required
+def api_crm_editar_contato(contato_id):
+    from .. import db as db_mod
+    data = request.get_json() or {}
+    nome_completo = (data.get('nome_completo') or '').strip()
+    email = (data.get('email') or '').strip().lower()
+    telefone = (data.get('telefone') or '').strip() or None
+    telefone_secundario = (data.get('telefone_secundario') or '').strip() or None
+
+    if not nome_completo or not email:
+        return jsonify({'success': False, 'message': 'Nome e e-mail são obrigatórios'}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT id_contato_cliente, pk_id_tbl_cliente FROM tbl_contato_cliente WHERE id_contato_cliente = %s',
+                (contato_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Contato não encontrado'}), 404
+
+            cur.execute(
+                'SELECT 1 FROM tbl_contato_cliente WHERE LOWER(TRIM(email)) = %s AND id_contato_cliente != %s',
+                (email, contato_id)
+            )
+            if cur.fetchone():
+                return jsonify({'success': False, 'message': 'Este e-mail já está cadastrado para outro contato'}), 400
+
+        db_mod.atualizar_contato(
+            contato_id=contato_id,
+            nome_completo=nome_completo,
+            email=email,
+            telefone=telefone,
+            pk_id_tbl_cliente=row['pk_id_tbl_cliente'],
+            telefone_secundario=telefone_secundario,
+        )
+        return jsonify({'success': True, 'message': 'Contato atualizado com sucesso'})
+    except ValueError as ve:
+        return jsonify({'success': False, 'message': str(ve)}), 400
+    except Exception as e:
+        current_app.logger.error(f"Erro api_crm_editar_contato {contato_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/contato/<int:contato_id>/deletar', methods=['DELETE'])
+@login_required
+def api_crm_deletar_contato(contato_id):
+    if contato_id == session.get('user_id'):
+        return jsonify({'success': False, 'message': 'Você não pode apagar sua própria conta'}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT nome_completo FROM tbl_contato_cliente WHERE id_contato_cliente = %s',
+                (contato_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Contato não encontrado'}), 404
+
+            nome = row['nome_completo']
+            vinculos = []
+
+            cur.execute(
+                'SELECT COUNT(*) AS total FROM cadu_briefings WHERE deleted_at IS NULL'
+                ' AND (id_contato_cliente = %s OR responsavel_centralcomm::text = %s)',
+                (contato_id, str(contato_id))
+            )
+            total = cur.fetchone()['total']
+            if total:
+                vinculos.append(f'{total} briefing(s)')
+
+            cur.execute(
+                'SELECT COUNT(*) AS total FROM cadu_cotacoes WHERE deleted_at IS NULL'
+                ' AND (client_user_id = %s OR agencia_user_id = %s'
+                '      OR parceiro_user_id = %s OR responsavel_comercial = %s)',
+                (contato_id, contato_id, contato_id, contato_id)
+            )
+            total = cur.fetchone()['total']
+            if total:
+                vinculos.append(f'{total} cotação(ões)')
+
+            cur.execute(
+                'SELECT COUNT(*) AS total FROM cadu_pi'
+                ' WHERE id_resp_comercial = %s OR id_cont_cliente_financ = %s'
+                '    OR id_cont_cliente_midia = %s OR id_cont_agen_financ = %s'
+                '    OR id_cont_agen_midia = %s OR id_cont_parc_reg_financ = %s'
+                '    OR id_cont_parc_reg_midia = %s',
+                (contato_id,) * 7
+            )
+            total = cur.fetchone()['total']
+            if total:
+                vinculos.append(f'{total} PI(s)')
+
+            if vinculos:
+                detalhe = ', '.join(vinculos)
+                return jsonify({
+                    'success': False,
+                    'has_vinculos': True,
+                    'message': f'Contato vinculado a {detalhe}. Inative-o ao invés de apagar.',
+                }), 409
+
+            cur.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+        conn.commit()
+        return jsonify({'success': True, 'message': f'Contato "{nome}" apagado com sucesso'})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_crm_deletar_contato {contato_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 # --------------- Helpers: column existence cache ---------------
 
 _col_cache = {}

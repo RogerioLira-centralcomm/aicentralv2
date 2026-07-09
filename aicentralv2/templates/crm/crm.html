@@ -2,7 +2,7 @@
 {% block title %}CRM - CentralX{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=2">
 
 <div class="crm-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
     <h1 class="text-sm font-bold whitespace-nowrap mr-1">CRM</h1>
@@ -71,5 +71,5 @@
     window.CRM_LOGGED_USER_ID = {{ logged_user_id|default(0)|tojson }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/crm.js') }}"></script>
+<script src="{{ url_for('static', filename='js/crm.js') }}?v=3"></script>
 {% endblock %}

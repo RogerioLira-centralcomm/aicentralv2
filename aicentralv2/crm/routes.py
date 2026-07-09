@@ -1935,6 +1935,181 @@ def api_cliente_contatos_importar(cliente_id):
     return jsonify({'success': True, 'criados': criados, 'erros': erros})
 
 
+@bp.route('/api/cliente/<int:cliente_id>/contatos/verificar', methods=['POST'])
+@login_required
+def api_cliente_contatos_verificar(cliente_id):
+    data = request.get_json() or {}
+    contatos_in = data.get('contatos') or []
+    if not isinstance(contatos_in, list) or not contatos_in:
+        return jsonify({'success': False, 'error': 'Lista de contatos obrigatória'}), 400
+
+    conn = get_db()
+    resultado = []
+    with conn.cursor() as cur:
+        for c in contatos_in:
+            nome = (c.get('nome') or '').strip()
+            email = (c.get('email') or '').strip().lower()
+            telefone = (c.get('telefone') or '').strip() or None
+            telefone2 = (c.get('telefone2') or '').strip() or None
+
+            if not nome or not email or '@' not in email:
+                resultado.append({
+                    'nome': nome,
+                    'email': email,
+                    'telefone': telefone,
+                    'telefone2': telefone2,
+                    'status': 'incompleto',
+                })
+                continue
+
+            cur.execute(
+                """SELECT id_contato_cliente, nome_completo, email, telefone, telefone_secundario
+                   FROM tbl_contato_cliente
+                   WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s))
+                   LIMIT 1""",
+                (email,)
+            )
+            row = cur.fetchone()
+            if row:
+                resultado.append({
+                    'nome': nome,
+                    'email': email,
+                    'telefone': telefone,
+                    'telefone2': telefone2,
+                    'status': 'existe',
+                    'id_contato_existente': row['id_contato_cliente'],
+                    'dados_atuais': {
+                        'nome': row['nome_completo'],
+                        'email': row['email'],
+                        'telefone': row['telefone'] or '',
+                        'telefone2': row['telefone_secundario'] or '',
+                    },
+                })
+            else:
+                resultado.append({
+                    'nome': nome,
+                    'email': email,
+                    'telefone': telefone,
+                    'telefone2': telefone2,
+                    'status': 'novo',
+                })
+
+    return jsonify({'success': True, 'contatos': resultado})
+
+
+@bp.route('/api/cliente/<int:cliente_id>/contatos/importar-confirmado', methods=['POST'])
+@login_required
+def api_cliente_contatos_importar_confirmado(cliente_id):
+    from .. import db as db_mod
+    data = request.get_json() or {}
+    contatos_in = data.get('contatos') or []
+    if not isinstance(contatos_in, list) or not contatos_in:
+        return jsonify({'success': False, 'error': 'Lista de contatos obrigatória'}), 400
+
+    conn = get_db()
+    with conn.cursor() as cur:
+        cargo_id, setor_id = _defaults_cargo_setor_contato(cur)
+    if not cargo_id or not setor_id:
+        return jsonify({
+            'success': False,
+            'error': 'Cadastre ao menos um cargo/setor em tbl_cargo_contato para importar.'
+        }), 503
+
+    cli_row = db_mod.obter_cliente_por_id(cliente_id)
+    cliente_nome = (cli_row.get('nome_fantasia') or '') if cli_row else ''
+    exec_id = cli_row.get('vendas_central_comm') if cli_row else None
+    nome_exec_imp = None
+    if exec_id:
+        ex_imp = db_mod.obter_contato_por_id(exec_id)
+        nome_exec_imp = (ex_imp.get('nome_completo') or '').strip() if ex_imp else None
+    from ..services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
+    criados = 0
+    atualizados = 0
+    ignorados = 0
+    erros = []
+
+    for i, c in enumerate(contatos_in, 1):
+        acao = (c.get('acao') or 'ignorar').strip()
+        nome = (c.get('nome') or '').strip()
+        email = (c.get('email') or '').strip().lower()
+        telefone = (c.get('telefone') or '').strip() or None
+        telefone2 = (c.get('telefone2') or '').strip() or None
+        id_existente = c.get('id_contato_existente')
+
+        if acao == 'ignorar':
+            ignorados += 1
+            continue
+
+        if not nome or not email:
+            erros.append({'linha': i, 'msg': 'Nome e email obrigatórios'})
+            continue
+
+        if acao == 'criar':
+            try:
+                db_mod.criar_contato(
+                    nome_completo=nome,
+                    email=email,
+                    senha=None,
+                    pk_id_tbl_cliente=cliente_id,
+                    telefone=telefone,
+                    telefone_secundario=telefone2,
+                    pk_id_tbl_cargo=cargo_id,
+                    pk_id_tbl_setor=setor_id,
+                    user_type='client',
+                )
+                criados += 1
+                try:
+                    brevo_sincronizar_contato_lista_executivo(
+                        email=email,
+                        nome=nome,
+                        segmento='clientes',
+                        nome_executivo=nome_exec_imp,
+                        atributos={
+                            'NOME': nome,
+                            'EMPRESA': cliente_nome,
+                            'TELEFONE': telefone or '',
+                            'TIPO_USUARIO': 'client',
+                            'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d'),
+                        },
+                    )
+                except Exception as br_e:
+                    current_app.logger.warning(f"Brevo (importar confirmado linha {i}): {br_e}")
+            except ValueError as ve:
+                erros.append({'linha': i, 'msg': str(ve)})
+            except Exception as ex:
+                erros.append({'linha': i, 'msg': str(ex)})
+
+        elif acao == 'atualizar':
+            if not id_existente:
+                erros.append({'linha': i, 'msg': 'id_contato_existente obrigatório para atualizar'})
+                continue
+            try:
+                db_mod.atualizar_contato(
+                    contato_id=id_existente,
+                    nome_completo=nome,
+                    email=email,
+                    telefone=telefone,
+                    pk_id_tbl_cliente=cliente_id,
+                    telefone_secundario=telefone2,
+                )
+                atualizados += 1
+            except ValueError as ve:
+                erros.append({'linha': i, 'msg': str(ve)})
+            except Exception as ex:
+                erros.append({'linha': i, 'msg': str(ex)})
+        else:
+            erros.append({'linha': i, 'msg': f'Ação desconhecida: {acao}'})
+
+    return jsonify({
+        'success': True,
+        'criados': criados,
+        'atualizados': atualizados,
+        'ignorados': ignorados,
+        'erros': erros,
+    })
+
+
 @bp.route('/atividades-consolidadas')
 @login_required
 def atividades_consolidadas():

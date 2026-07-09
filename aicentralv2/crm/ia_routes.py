@@ -251,6 +251,56 @@ def ia_sugerir_atividade():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# --------------- Extrair Contatos (import IA) ---------------
+
+@bp.route('/api/ia/extrair-contatos', methods=['POST'])
+@login_required
+def ia_extrair_contatos():
+    import json as json_mod
+    data = request.get_json() or {}
+    texto = (data.get('texto') or '').strip()
+    if not texto:
+        return jsonify({'success': False, 'error': 'Texto obrigatório'}), 400
+
+    system_prompt = (
+        "Você é um extrator de dados de contatos profissionais. "
+        "Analise o texto recebido e extraia todos os contatos identificáveis.\n\n"
+        "Regras:\n"
+        "- Retorne APENAS um array JSON válido, sem texto adicional, sem markdown, sem explicações.\n"
+        "- Cada elemento do array deve ter: {\"nome\": \"...\", \"email\": \"...\", \"telefone\": \"...\", \"telefone2\": \"...\"}\n"
+        "- 'nome' e 'email' são obrigatórios. Omita o contato inteiro se não conseguir identificar um desses campos com confiança.\n"
+        "- 'telefone' e 'telefone2' são opcionais — use string vazia \"\" se não houver.\n"
+        "- Normalize telefones: mantenha apenas dígitos e o sinal '+' quando presente. Não invente dados.\n"
+        "- Se o mesmo e-mail aparecer mais de uma vez, inclua apenas uma entrada.\n"
+        "- O array pode ser vazio [] se nenhum contato válido for encontrado.\n"
+        "Exemplo de saída: [{\"nome\":\"João Silva\",\"email\":\"joao@empresa.com\",\"telefone\":\"11999999999\",\"telefone2\":\"\"}]"
+    )
+
+    try:
+        resultado = _call_openrouter(system_prompt, texto, max_tokens=2000, temperature=0.1)
+        resultado = resultado.strip()
+        if resultado.startswith('```'):
+            resultado = resultado.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+        contatos = json_mod.loads(resultado)
+        if not isinstance(contatos, list):
+            raise ValueError("Resposta da IA não é um array JSON")
+        contatos_limpos = []
+        for c in contatos:
+            nome = (c.get('nome') or '').strip()
+            email = (c.get('email') or '').strip().lower()
+            if nome and email and '@' in email:
+                contatos_limpos.append({
+                    'nome': nome,
+                    'email': email,
+                    'telefone': (c.get('telefone') or '').strip(),
+                    'telefone2': (c.get('telefone2') or '').strip(),
+                })
+        return jsonify({'success': True, 'contatos': contatos_limpos})
+    except Exception as e:
+        current_app.logger.error(f"Erro ia_extrair_contatos: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # --------------- Gerar Comunicação ---------------
 
 @bp.route('/api/ia/gerar-comunicacao', methods=['POST'])

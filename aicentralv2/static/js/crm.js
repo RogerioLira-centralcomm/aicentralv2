@@ -2941,33 +2941,285 @@
             }
         });
 
-        $('#btn-contato-import')?.addEventListener('click', () => {
-            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
-            $('#ci-texto').value = '';
-            $('#ci-result').classList.add('hidden');
-            $('#modal-contato-import').showModal();
-        });
+        // ---- Contact Import: multi-step flow ----
+        (function setupImportContatos() {
 
-        $('#ci-submit')?.addEventListener('click', async () => {
-            if (!clienteSelecionadoId) return;
-            const btn = $('#ci-submit');
-            btn?.classList.add('loading');
-            try {
-                const r = await api(`/api/cliente/${clienteSelecionadoId}/contatos/importar`, {
-                    method: 'POST',
-                    body: JSON.stringify({ texto: $('#ci-texto').value })
+            // Heuristic: every non-empty line has a ";" and the second field contains "@"
+            function detectaFormatoSimples(texto) {
+                const linhas = texto.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                if (!linhas.length) return false;
+                return linhas.every(l => {
+                    const parts = l.split(';');
+                    return parts.length >= 2 && parts[1].trim().includes('@');
                 });
-                const pre = $('#ci-result');
-                pre.textContent = `Criados: ${r.criados}\n` + (r.erros || []).map(e => `Linha ${e.linha}: ${e.msg}`).join('\n');
-                pre.classList.remove('hidden');
-                showToast(`${r.criados} contato(s) importado(s).`, (r.erros && r.erros.length) ? 'warning' : 'success');
-                carregarContatos(clienteSelecionadoId);
-            } catch (e) {
-                showToast(e.message || 'Erro na importação.', 'error');
-            } finally {
-                btn?.classList.remove('loading');
             }
-        });
+
+            // Parse structured "Nome;email;tel;tel2" text locally
+            function parseFormatoSimples(texto) {
+                const contatos = [];
+                texto.split('\n').forEach(line => {
+                    line = line.trim();
+                    if (!line || line.startsWith('#')) return;
+                    let parts = line.replace(/\t/g, ';').split(';').map(p => p.trim());
+                    if (parts.length < 2) parts = line.split(',').map(p => p.trim());
+                    const nome = parts[0] || '';
+                    const email = (parts[1] || '').toLowerCase();
+                    const telefone = parts[2] || '';
+                    const telefone2 = parts[3] || '';
+                    contatos.push({ nome, email, telefone, telefone2 });
+                });
+                return contatos;
+            }
+
+            function ciSetLoading(show, msg) {
+                const actions = $('#ci-step1-actions');
+                const loading = $('#ci-step1-loading');
+                const msgEl = $('#ci-loading-msg');
+                if (show) {
+                    actions.classList.add('hidden');
+                    loading.classList.remove('hidden');
+                    if (msgEl && msg) msgEl.textContent = msg;
+                } else {
+                    actions.classList.remove('hidden');
+                    loading.classList.add('hidden');
+                }
+            }
+
+            function ciShowErroIA(msg) {
+                const banner = $('#ci-erro-ia');
+                const msgEl = $('#ci-erro-ia-msg');
+                if (msgEl) msgEl.textContent = msg;
+                banner?.classList.remove('hidden');
+            }
+
+            function ciHideErroIA() {
+                $('#ci-erro-ia')?.classList.add('hidden');
+            }
+
+            function ciGoToStep1() {
+                $('#ci-step-1')?.classList.remove('hidden');
+                $('#ci-step-2')?.classList.add('hidden');
+                ciSetLoading(false);
+            }
+
+            function ciGoToStep2() {
+                $('#ci-step-1')?.classList.add('hidden');
+                $('#ci-step-2')?.classList.remove('hidden');
+                $('#ci-result')?.classList.add('hidden');
+            }
+
+            async function ciVerificarEExibir(contatos) {
+                ciSetLoading(true, 'Verificando contatos na base…');
+                try {
+                    const r = await api(`/api/cliente/${clienteSelecionadoId}/contatos/verificar`, {
+                        method: 'POST',
+                        body: JSON.stringify({ contatos })
+                    });
+                    ciSetLoading(false);
+                    renderPreviewTable(r.contatos);
+                    ciGoToStep2();
+                } catch (e) {
+                    ciSetLoading(false);
+                    ciShowErroIA(e.message || 'Erro ao verificar contatos.');
+                }
+            }
+
+            // Build the preview table from the verified contacts array
+            function renderPreviewTable(contatos) {
+                const tbody = $('#ci-preview-tbody');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+
+                contatos.forEach((c, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.idx = idx;
+
+                    const statusLabels = { novo: 'Novo', existe: 'Já existe', incompleto: 'Incompleto' };
+                    const statusClasses = { novo: 'badge-success', existe: 'badge-warning', incompleto: 'badge-error' };
+
+                    // Determine default action
+                    let defaultAcao = c.status === 'novo' ? 'criar'
+                        : c.status === 'existe' ? 'atualizar'
+                        : 'ignorar';
+
+                    // Highlight fields that differ from existing record
+                    function diffClass(field) {
+                        if (c.status !== 'existe' || !c.dados_atuais) return '';
+                        const atual = (c.dados_atuais[field] || '').toLowerCase().trim();
+                        const novo = (c[field === 'telefone2' ? 'telefone2' : field] || '').toLowerCase().trim();
+                        return atual && atual !== novo ? 'input-error' : '';
+                    }
+
+                    // Build diff tooltip text for existing contacts
+                    let tooltipTitle = '';
+                    if (c.status === 'existe' && c.dados_atuais) {
+                        const d = c.dados_atuais;
+                        tooltipTitle = `Atual: ${d.nome} | ${d.email} | ${d.telefone || '—'} | ${d.telefone2 || '—'}`;
+                    }
+
+                    tr.innerHTML = `
+                        <td><input class="input input-bordered input-xs w-full ${diffClass('nome')} ci-nome" value="${escHtml(c.nome)}" data-orig="${escHtml(c.nome)}" /></td>
+                        <td><input class="input input-bordered input-xs w-full ${diffClass('email')} ci-email" value="${escHtml(c.email)}" data-orig="${escHtml(c.email)}" /></td>
+                        <td><input class="input input-bordered input-xs w-full ${diffClass('telefone')} ci-tel" value="${escHtml(c.telefone || '')}" /></td>
+                        <td><input class="input input-bordered input-xs w-full ${diffClass('telefone2')} ci-tel2" value="${escHtml(c.telefone2 || '')}" /></td>
+                        <td>
+                            <span class="badge badge-xs ${statusClasses[c.status] || ''}"
+                                title="${escHtml(tooltipTitle)}"
+                                style="cursor:${tooltipTitle ? 'help' : 'default'}"
+                            >${statusLabels[c.status] || c.status}</span>
+                        </td>
+                        <td>
+                            <select class="select select-bordered select-xs w-full ci-acao"
+                                data-status="${c.status}"
+                                data-id="${c.id_contato_existente || ''}">
+                                ${c.status !== 'incompleto' ? `<option value="criar" ${defaultAcao === 'criar' ? 'selected' : ''}>Criar</option>` : ''}
+                                ${c.status === 'existe' ? `<option value="atualizar" ${defaultAcao === 'atualizar' ? 'selected' : ''}>Atualizar</option>` : ''}
+                                <option value="ignorar" ${defaultAcao === 'ignorar' ? 'selected' : ''}>Ignorar</option>
+                            </select>
+                        </td>`;
+
+                    tbody.appendChild(tr);
+                });
+
+                // Attach validation watcher
+                tbody.addEventListener('input', () => ciValidarTabela());
+                ciValidarTabela();
+            }
+
+            function escHtml(str) {
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            // Enable/disable "Confirmar" based on whether all active rows have nome + valid email
+            function ciValidarTabela() {
+                const btn = $('#ci-btn-confirmar');
+                if (!btn) return;
+                const rows = document.querySelectorAll('#ci-preview-tbody tr');
+                let ok = rows.length > 0;
+                rows.forEach(tr => {
+                    const acao = tr.querySelector('.ci-acao')?.value;
+                    if (acao === 'ignorar') return;
+                    const nome = tr.querySelector('.ci-nome')?.value.trim();
+                    const email = tr.querySelector('.ci-email')?.value.trim();
+                    if (!nome || !email || !email.includes('@')) ok = false;
+                });
+                btn.disabled = !ok;
+            }
+
+            // Open modal: reset to step 1
+            $('#btn-contato-import')?.addEventListener('click', () => {
+                if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+                $('#ci-texto').value = '';
+                ciHideErroIA();
+                ciGoToStep1();
+                $('#modal-contato-import').showModal();
+            });
+
+            // "Organizar com IA"
+            $('#ci-btn-ia')?.addEventListener('click', async () => {
+                const texto = ($('#ci-texto').value || '').trim();
+                if (!texto) { showToast('Cole algum texto primeiro.', 'warning'); return; }
+                ciHideErroIA();
+
+                if (detectaFormatoSimples(texto)) {
+                    // Structured text — skip AI, parse locally
+                    const contatos = parseFormatoSimples(texto);
+                    await ciVerificarEExibir(contatos);
+                } else {
+                    ciSetLoading(true, 'Organizando com IA…');
+                    try {
+                        const r = await api('/api/ia/extrair-contatos', {
+                            method: 'POST',
+                            body: JSON.stringify({ texto })
+                        });
+                        ciSetLoading(false);
+                        if (!r.contatos || r.contatos.length === 0) {
+                            ciShowErroIA('A IA não encontrou contatos no texto. Verifique o conteúdo ou use o formato simples.');
+                            return;
+                        }
+                        await ciVerificarEExibir(r.contatos);
+                    } catch (e) {
+                        ciSetLoading(false);
+                        ciShowErroIA(e.message || 'Falha na chamada à IA. Tente novamente ou use o formato simples.');
+                    }
+                }
+            });
+
+            // "Usar formato simples"
+            $('#ci-btn-simples')?.addEventListener('click', async () => {
+                const texto = ($('#ci-texto').value || '').trim();
+                if (!texto) { showToast('Cole algum texto primeiro.', 'warning'); return; }
+                ciHideErroIA();
+                const contatos = parseFormatoSimples(texto);
+                if (!contatos.length) { showToast('Nenhuma linha encontrada.', 'warning'); return; }
+                await ciVerificarEExibir(contatos);
+            });
+
+            // "Tentar novamente" (in error banner)
+            $('#ci-btn-retry')?.addEventListener('click', () => {
+                ciHideErroIA();
+                $('#ci-btn-ia')?.click();
+            });
+
+            // "Voltar" from step 2
+            $('#ci-btn-voltar')?.addEventListener('click', () => {
+                ciGoToStep1();
+            });
+
+            // "Confirmar importação"
+            $('#ci-btn-confirmar')?.addEventListener('click', async () => {
+                const btn = $('#ci-btn-confirmar');
+                btn.classList.add('loading');
+                btn.disabled = true;
+
+                const rows = document.querySelectorAll('#ci-preview-tbody tr');
+                const contatos = [];
+                rows.forEach(tr => {
+                    const acao = tr.querySelector('.ci-acao')?.value || 'ignorar';
+                    const idExistente = tr.querySelector('.ci-acao')?.dataset.id || null;
+                    contatos.push({
+                        nome: tr.querySelector('.ci-nome')?.value.trim() || '',
+                        email: tr.querySelector('.ci-email')?.value.trim().toLowerCase() || '',
+                        telefone: tr.querySelector('.ci-tel')?.value.trim() || '',
+                        telefone2: tr.querySelector('.ci-tel2')?.value.trim() || '',
+                        acao,
+                        id_contato_existente: idExistente ? parseInt(idExistente, 10) : null,
+                    });
+                });
+
+                try {
+                    const r = await api(`/api/cliente/${clienteSelecionadoId}/contatos/importar-confirmado`, {
+                        method: 'POST',
+                        body: JSON.stringify({ contatos })
+                    });
+
+                    const partes = [];
+                    if (r.criados) partes.push(`${r.criados} criado(s)`);
+                    if (r.atualizados) partes.push(`${r.atualizados} atualizado(s)`);
+                    if (r.ignorados) partes.push(`${r.ignorados} ignorado(s)`);
+                    const resumo = partes.join(', ') || 'Nenhuma alteração';
+
+                    const resultEl = $('#ci-result');
+                    resultEl.className = `mt-2 alert text-xs p-2 ${r.erros && r.erros.length ? 'alert-warning' : 'alert-success'}`;
+                    let texto = resumo;
+                    if (r.erros && r.erros.length) {
+                        texto += '\nErros:\n' + r.erros.map(e => `• Linha ${e.linha}: ${e.msg}`).join('\n');
+                    }
+                    resultEl.textContent = texto;
+                    resultEl.classList.remove('hidden');
+
+                    const tipo = (r.erros && r.erros.length) ? 'warning' : 'success';
+                    showToast(resumo + '.', tipo);
+                    carregarContatos(clienteSelecionadoId);
+                } catch (e) {
+                    showToast(e.message || 'Erro ao importar.', 'error');
+                } finally {
+                    btn.classList.remove('loading');
+                    ciValidarTabela();
+                }
+            });
+
+        })(); // end setupImportContatos
 
         if ($('#filtro-executivo')) carregarClientes();
     });

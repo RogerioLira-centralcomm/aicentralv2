@@ -2,6 +2,33 @@
 
 {% block title %}Meus Reembolsos — CentralX{% endblock %}
 
+{% block styles %}
+<style>
+  #fin-reembolsos-app .fin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  #fin-reembolsos-app .fin-label {
+    display: block;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    font-weight: 500;
+    opacity: 0.7;
+    margin: 0;
+    padding: 0;
+  }
+  #fin-reembolsos-app .fin-field .select,
+  #fin-reembolsos-app .fin-field .input,
+  #fin-reembolsos-app .fin-field .textarea {
+    margin-top: 0;
+    position: relative;
+    z-index: 0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-4" id="fin-reembolsos-app">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -9,7 +36,7 @@
             <h1 class="text-xl font-bold">Meus Reembolsos</h1>
             <p class="text-xs opacity-60">Cadastre despesas com comprovante e envie para o financeiro.</p>
         </div>
-        {% if is_finance_admin %}
+        {% if session.get('is_finance_admin') %}
         <a href="{{ url_for('financeiro.gestao_reembolsos') }}" class="btn btn-sm btn-outline">Gestão (admin)</a>
         {% endif %}
     </div>
@@ -38,26 +65,27 @@
     <div class="bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
         <h2 class="font-semibold text-sm mb-3">Nova despesa</h2>
         <form id="fin-form-nova" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Data *</span></label>
-                <input type="date" id="fin-date" class="input input-bordered input-sm w-full" required />
+            <div class="fin-field">
+                <label for="fin-date" class="fin-label">Data *</label>
+                <input type="date" id="fin-date" class="input input-bordered input-sm w-full cursor-pointer" required />
             </div>
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Estabelecimento</span></label>
+            <div class="fin-field">
+                <label for="fin-merchant" class="fin-label">Estabelecimento</label>
                 <input type="text" id="fin-merchant" class="input input-bordered input-sm w-full" placeholder="Nome do local" />
             </div>
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Valor total (R$) *</span></label>
-                <input type="number" step="0.01" min="0" id="fin-total" class="input input-bordered input-sm w-full" required />
+            <div class="fin-field">
+                <label for="fin-total" class="fin-label">Valor total *</label>
+                <input type="text" id="fin-total" inputmode="decimal" autocomplete="off"
+                       class="input input-bordered input-sm w-full" placeholder="R$ 0,00" required />
             </div>
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Categoria</span></label>
+            <div class="fin-field">
+                <label for="fin-category" class="fin-label">Categoria</label>
                 <select id="fin-category" class="select select-bordered select-sm w-full">
                     <option value="">Selecione…</option>
                 </select>
             </div>
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Associação</span></label>
+            <div class="fin-field">
+                <label for="fin-assoc-type" class="fin-label">Associação</label>
                 <select id="fin-assoc-type" class="select select-bordered select-sm w-full">
                     <option value="">—</option>
                     <option value="cliente">Cliente</option>
@@ -66,22 +94,22 @@
                     <option value="outros">Outros</option>
                 </select>
             </div>
-            <div>
-                <label class="label py-0"><span class="label-text text-xs">Detalhe da associação</span></label>
+            <div class="fin-field">
+                <label for="fin-assoc-label" class="fin-label">Detalhe da associação</label>
                 <input type="text" id="fin-assoc-label" class="input input-bordered input-sm w-full" placeholder="Nome do evento, destino…" />
             </div>
-            <div class="sm:col-span-2 hidden" id="fin-client-wrap">
-                <label class="label py-0"><span class="label-text text-xs">Cliente (opcional)</span></label>
+            <div class="fin-field sm:col-span-2 hidden" id="fin-client-wrap">
+                <label for="fin-client" class="fin-label">Cliente (opcional)</label>
                 <select id="fin-client" class="select select-bordered select-sm w-full">
                     <option value="">—</option>
                 </select>
             </div>
-            <div class="sm:col-span-2">
-                <label class="label py-0"><span class="label-text text-xs">Observações</span></label>
+            <div class="fin-field sm:col-span-2">
+                <label for="fin-notes" class="fin-label">Observações</label>
                 <textarea id="fin-notes" class="textarea textarea-bordered textarea-sm w-full" rows="2"></textarea>
             </div>
-            <div class="sm:col-span-2">
-                <label class="label py-0"><span class="label-text text-xs">Comprovante (imagem ou PDF) *</span></label>
+            <div class="fin-field sm:col-span-2">
+                <span class="fin-label">Comprovante (imagem ou PDF) *</span>
                 <div id="fin-dropzone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center text-sm opacity-70 hover:border-primary cursor-pointer bg-base-200/40">
                     Arraste o arquivo aqui ou clique para selecionar
                     <input type="file" id="fin-file" class="hidden" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
@@ -97,8 +125,8 @@
 
     <!-- Filtros + lista -->
     <div class="flex flex-wrap gap-2 items-end">
-        <div>
-            <label class="label py-0"><span class="label-text text-xs">Status</span></label>
+        <div class="fin-field">
+            <label for="fin-filter-status" class="fin-label">Status</label>
             <select id="fin-filter-status" class="select select-bordered select-sm">
                 <option value="">Todos</option>
                 <option value="draft">Rascunho</option>
@@ -118,5 +146,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=2"></script>
 {% endblock %}

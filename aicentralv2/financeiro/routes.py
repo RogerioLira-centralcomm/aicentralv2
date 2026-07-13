@@ -31,10 +31,7 @@ def _expense_payload(expense):
 @bp.route('/meus-reembolsos')
 @login_required
 def meus_reembolsos():
-    return render_template(
-        'financeiro/meus_reembolsos.html',
-        is_finance_admin=is_finance_admin(),
-    )
+    return render_template('financeiro/meus_reembolsos.html')
 
 
 @bp.route('/gestao')

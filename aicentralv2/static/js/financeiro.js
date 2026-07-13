@@ -140,11 +140,41 @@
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function parseMoneyBR(str) {
+        if (str == null || str === '') return null;
+        const digits = String(str).replace(/[^\d]/g, '');
+        if (!digits) return null;
+        return parseInt(digits, 10) / 100;
+    }
+
+    function formatMoneyInput(input) {
+        const digits = String(input.value || '').replace(/[^\d]/g, '');
+        if (!digits) {
+            input.value = '';
+            return;
+        }
+        const num = parseInt(digits, 10) / 100;
+        input.value = 'R$ ' + num.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
+    function openDatePicker(el) {
+        if (!el) return;
+        try {
+            if (typeof el.showPicker === 'function') el.showPicker();
+        } catch (_) {
+            // alguns browsers bloqueiam showPicker fora de gesto do usuário
+            el.focus();
+        }
+    }
+
     function formData() {
         return {
             expense_date: $('#fin-date').value || null,
             merchant_name: $('#fin-merchant').value.trim(),
-            total_amount: $('#fin-total').value,
+            total_amount: parseMoneyBR($('#fin-total').value),
             category_id: $('#fin-category').value || null,
             association_type: $('#fin-assoc-type').value || null,
             association_label: $('#fin-assoc-label').value.trim(),
@@ -167,7 +197,7 @@
             return;
         }
         const payload = formData();
-        if (!payload.expense_date || !payload.total_amount) {
+        if (!payload.expense_date || payload.total_amount == null || payload.total_amount <= 0) {
             showToast('Data e valor total são obrigatórios.', 'warning');
             return;
         }
@@ -231,6 +261,18 @@
         $('#fin-assoc-type')?.addEventListener('change', () => {
             const isCli = $('#fin-assoc-type').value === 'cliente';
             $('#fin-client-wrap').classList.toggle('hidden', !isCli);
+        });
+
+        const dateEl = $('#fin-date');
+        dateEl?.addEventListener('click', () => openDatePicker(dateEl));
+        dateEl?.addEventListener('focus', () => openDatePicker(dateEl));
+
+        const totalEl = $('#fin-total');
+        totalEl?.addEventListener('input', () => formatMoneyInput(totalEl));
+        totalEl?.addEventListener('blur', () => {
+            if (totalEl.value && !String(totalEl.value).startsWith('R$')) {
+                formatMoneyInput(totalEl);
+            }
         });
 
         $('#fin-form-nova')?.addEventListener('submit', (e) => {

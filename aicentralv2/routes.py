@@ -973,6 +973,7 @@ def init_routes(app):
                 session['user_email'] = user['email']
                 session['cliente_id'] = user['pk_id_tbl_cliente']
                 session['user_type'] = user.get('user_type', 'client')
+                session['is_finance_admin'] = bool(user.get('is_finance_admin'))
                 session['is_centralcomm'] = is_centralcomm
                 
                 app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']} - CENTRALCOMM: {is_centralcomm}")

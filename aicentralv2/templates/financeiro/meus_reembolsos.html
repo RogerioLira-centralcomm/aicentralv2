@@ -1,0 +1,122 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Meus Reembolsos — CentralX{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-4" id="fin-reembolsos-app">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+            <h1 class="text-xl font-bold">Meus Reembolsos</h1>
+            <p class="text-xs opacity-60">Cadastre despesas com comprovante e envie para o financeiro.</p>
+        </div>
+        {% if is_finance_admin %}
+        <a href="{{ url_for('financeiro.gestao_reembolsos') }}" class="btn btn-sm btn-outline">Gestão (admin)</a>
+        {% endif %}
+    </div>
+
+    <!-- Resumo -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="fin-summary">
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
+            <div class="text-[10px] uppercase opacity-50">Rascunhos</div>
+            <div class="text-lg font-semibold" id="fin-sum-draft">R$ 0,00</div>
+        </div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
+            <div class="text-[10px] uppercase opacity-50">Enviados</div>
+            <div class="text-lg font-semibold" id="fin-sum-submitted">R$ 0,00</div>
+        </div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
+            <div class="text-[10px] uppercase opacity-50">Aprovados</div>
+            <div class="text-lg font-semibold" id="fin-sum-approved">R$ 0,00</div>
+        </div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
+            <div class="text-[10px] uppercase opacity-50">Rejeitados</div>
+            <div class="text-lg font-semibold text-error" id="fin-sum-rejected">R$ 0,00</div>
+        </div>
+    </div>
+
+    <!-- Nova despesa -->
+    <div class="bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
+        <h2 class="font-semibold text-sm mb-3">Nova despesa</h2>
+        <form id="fin-form-nova" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Data *</span></label>
+                <input type="date" id="fin-date" class="input input-bordered input-sm w-full" required />
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Estabelecimento</span></label>
+                <input type="text" id="fin-merchant" class="input input-bordered input-sm w-full" placeholder="Nome do local" />
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Valor total (R$) *</span></label>
+                <input type="number" step="0.01" min="0" id="fin-total" class="input input-bordered input-sm w-full" required />
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Categoria</span></label>
+                <select id="fin-category" class="select select-bordered select-sm w-full">
+                    <option value="">Selecione…</option>
+                </select>
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Associação</span></label>
+                <select id="fin-assoc-type" class="select select-bordered select-sm w-full">
+                    <option value="">—</option>
+                    <option value="cliente">Cliente</option>
+                    <option value="evento">Evento</option>
+                    <option value="viagem">Viagem</option>
+                    <option value="outros">Outros</option>
+                </select>
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Detalhe da associação</span></label>
+                <input type="text" id="fin-assoc-label" class="input input-bordered input-sm w-full" placeholder="Nome do evento, destino…" />
+            </div>
+            <div class="sm:col-span-2 hidden" id="fin-client-wrap">
+                <label class="label py-0"><span class="label-text text-xs">Cliente (opcional)</span></label>
+                <select id="fin-client" class="select select-bordered select-sm w-full">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sm:col-span-2">
+                <label class="label py-0"><span class="label-text text-xs">Observações</span></label>
+                <textarea id="fin-notes" class="textarea textarea-bordered textarea-sm w-full" rows="2"></textarea>
+            </div>
+            <div class="sm:col-span-2">
+                <label class="label py-0"><span class="label-text text-xs">Comprovante (imagem ou PDF) *</span></label>
+                <div id="fin-dropzone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center text-sm opacity-70 hover:border-primary cursor-pointer bg-base-200/40">
+                    Arraste o arquivo aqui ou clique para selecionar
+                    <input type="file" id="fin-file" class="hidden" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
+                </div>
+                <p id="fin-file-name" class="text-xs mt-1 opacity-60"></p>
+            </div>
+            <div class="sm:col-span-2 flex flex-wrap gap-2 justify-end">
+                <button type="submit" class="btn btn-sm btn-ghost" id="fin-btn-draft">Salvar rascunho</button>
+                <button type="button" class="btn btn-sm btn-primary" id="fin-btn-submit">Salvar e enviar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Filtros + lista -->
+    <div class="flex flex-wrap gap-2 items-end">
+        <div>
+            <label class="label py-0"><span class="label-text text-xs">Status</span></label>
+            <select id="fin-filter-status" class="select select-bordered select-sm">
+                <option value="">Todos</option>
+                <option value="draft">Rascunho</option>
+                <option value="submitted">Enviado</option>
+                <option value="approved">Aprovado</option>
+                <option value="rejected">Rejeitado</option>
+                <option value="closed">Fechado</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-sm" id="fin-btn-refresh">Atualizar</button>
+    </div>
+
+    <div id="fin-lista" class="space-y-2">
+        <div class="text-center text-sm opacity-50 py-8">Carregando…</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=1"></script>
+{% endblock %}

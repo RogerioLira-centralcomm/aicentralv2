@@ -134,6 +134,10 @@ def create_app(config_class=Config):
         from .crm import bp as crm_bp
         app.register_blueprint(crm_bp)
 
+        # Registrar blueprint Financeiro / Reembolsos
+        from .financeiro import bp as financeiro_bp
+        app.register_blueprint(financeiro_bp)
+
         from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp, parametros_bp
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)

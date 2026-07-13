@@ -183,6 +183,19 @@ def init_db(app):
                     END IF;
                 END $$;
             ''')
+
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'is_finance_admin'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente
+                        ADD COLUMN is_finance_admin BOOLEAN NOT NULL DEFAULT FALSE;
+                    END IF;
+                END $$;
+            ''')
             cursor.execute('''
                 DO $$ 
                 BEGIN
@@ -973,6 +986,7 @@ def verificar_credenciais(email, password):
                 c.pk_id_tbl_cliente,
                 c.data_cadastro,
                 c.user_type,
+                COALESCE(c.is_finance_admin, FALSE) AS is_finance_admin,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,

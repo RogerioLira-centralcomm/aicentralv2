@@ -64,9 +64,42 @@ def is_superadmin():
     return session.get('user_type') == 'superadmin'
 
 
+def is_finance_admin():
+    """Flag finance_admin ou admin/superadmin."""
+    if session.get('is_finance_admin'):
+        return True
+    return session.get('user_type') in ('admin', 'superadmin')
+
+
 def get_current_user():
     """Retorna o ID do usuário atual"""
     return session.get('user_id')
+
+
+def finance_admin_required(f):
+    """Protege páginas do time financeiro."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Por favor, faça login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+        if not is_finance_admin():
+            flash('Acesso restrito ao time financeiro.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def finance_admin_required_api(f):
+    """Protege APIs do time financeiro (JSON)."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
+        if not is_finance_admin():
+            return jsonify({'success': False, 'error': 'Acesso restrito ao time financeiro.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def login_required_api(f):

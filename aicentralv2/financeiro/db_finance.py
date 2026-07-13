@@ -115,10 +115,30 @@ def list_expenses_for_user(user_id, filtros=None):
 
 
 EDITABLE_STATUSES = ('draft', 'rejected', 'extracted', 'extraction_failed')
-DELETABLE_BEFORE = ('approved', 'closed')
+# Só é possível excluir enquanto a despesa está em um status editável.
+# Após "submitted" (enviado), aprovado ou fechado, exclusão é bloqueada.
+DELETABLE_STATUSES = EDITABLE_STATUSES
+DELETABLE_BEFORE = ('approved', 'closed')  # mantido por compatibilidade
+
+
+def get_category_id_by_slug(slug):
+    if not slug:
+        return None
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            'SELECT id FROM finance_expense_categories WHERE slug = %s',
+            (slug,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    row = _serialize_row(row)
+    return row.get('id')
 
 
 def update_expense(expense_id, data):
+    from psycopg.types.json import Json
     conn = get_db()
     fields = []
     params = []
@@ -134,6 +154,9 @@ def update_expense(expense_id, data):
         'notes': 'notes',
         'status': 'status',
         'rejection_reason': 'rejection_reason',
+        'ai_confidence': 'ai_confidence',
+        'needs_review': 'needs_review',
+        'ai_raw_response': 'ai_raw_response',
     }
     for key, col in mapping.items():
         if key in data:
@@ -143,6 +166,8 @@ def update_expense(expense_id, data):
                 val = val.strip() or None
             if key in ('category_id', 'client_id') and val == '':
                 val = None
+            if key == 'ai_raw_response' and val is not None:
+                val = Json(val)
             params.append(val)
 
     if not fields:
@@ -290,6 +315,96 @@ def search_clients(q, limit=30):
                 ORDER BY nome_fantasia
                 LIMIT %s
             ''', (limit,))
+        return [_serialize_row(r) for r in cur.fetchall()]
+
+
+def _admin_filter_clauses(filtros):
+    filtros = filtros or {}
+    clauses = []
+    params = []
+    if filtros.get('status'):
+        clauses.append('e.status = %s')
+        params.append(filtros['status'])
+    if filtros.get('user_id'):
+        clauses.append('e.user_id = %s')
+        params.append(filtros['user_id'])
+    if filtros.get('category_id'):
+        clauses.append('e.category_id = %s')
+        params.append(filtros['category_id'])
+    if filtros.get('date_from'):
+        clauses.append('e.expense_date >= %s')
+        params.append(filtros['date_from'])
+    if filtros.get('date_to'):
+        clauses.append('e.expense_date <= %s')
+        params.append(filtros['date_to'])
+    return clauses, params
+
+
+def list_all_expenses(filtros=None):
+    """Admin: lista todos os reembolsos com usuário e categoria."""
+    conn = get_db()
+    clauses, params = _admin_filter_clauses(filtros)
+    where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT e.*,
+                   cat.slug  AS category_slug,
+                   cat.label AS category_label,
+                   u.nome_completo AS user_name,
+                   u.email         AS user_email
+            FROM finance_expenses e
+            LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
+            LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = e.user_id
+            {where}
+            ORDER BY e.expense_date DESC NULLS LAST, e.created_at DESC
+            LIMIT 500
+        ''', params)
+        return [_serialize_row(r) for r in cur.fetchall()]
+
+
+def admin_summary(filtros=None):
+    """Admin: totais por status (respeitando filtros de usuário/categoria/período)."""
+    conn = get_db()
+    clauses, params = _admin_filter_clauses(dict((filtros or {}), **{'status': None}))
+    # remover eventual filtro de status para o resumo por status
+    clauses = [c for c in clauses if not c.startswith('e.status')]
+    where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT e.status,
+                   COUNT(*) AS qtd,
+                   COALESCE(SUM(e.total_amount), 0) AS total
+            FROM finance_expenses e
+            {where}
+            GROUP BY e.status
+        ''', params)
+        by_status = {}
+        for r in cur.fetchall():
+            row = _serialize_row(r)
+            by_status[row['status']] = row
+    return {
+        'by_status': by_status,
+        'submitted_total': (by_status.get('submitted') or {}).get('total') or 0,
+        'submitted_qtd': (by_status.get('submitted') or {}).get('qtd') or 0,
+        'approved_total': (by_status.get('approved') or {}).get('total') or 0,
+        'approved_qtd': (by_status.get('approved') or {}).get('qtd') or 0,
+        'draft_total': (by_status.get('draft') or {}).get('total') or 0,
+        'draft_qtd': (by_status.get('draft') or {}).get('qtd') or 0,
+        'rejected_total': (by_status.get('rejected') or {}).get('total') or 0,
+        'rejected_qtd': (by_status.get('rejected') or {}).get('qtd') or 0,
+    }
+
+
+def list_expense_users():
+    """Usuários que possuem despesas (para filtro admin)."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT DISTINCT u.id_contato_cliente AS id, u.nome_completo AS nome, u.email
+            FROM finance_expenses e
+            JOIN tbl_contato_cliente u ON u.id_contato_cliente = e.user_id
+            ORDER BY u.nome_completo
+        ''')
         return [_serialize_row(r) for r in cur.fetchall()]
 
 

@@ -26,15 +26,16 @@
     position: relative;
     z-index: 0;
   }
+  #fin-dropzone.dragover { border-color: hsl(var(--p)); background: hsl(var(--p) / 0.08); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-4" id="fin-reembolsos-app">
+<div class="max-w-6xl mx-auto space-y-4" id="fin-reembolsos-app">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
             <h1 class="text-xl font-bold">Meus Reembolsos</h1>
-            <p class="text-xs opacity-60">Cadastre despesas com comprovante e envie para o financeiro.</p>
+            <p class="text-xs opacity-60">Importe o comprovante e a IA lê data e valor. Depois é só revisar e enviar.</p>
         </div>
         {% if session.get('is_finance_admin') %}
         <a href="{{ url_for('financeiro.gestao_reembolsos') }}" class="btn btn-sm btn-outline">Gestão (admin)</a>
@@ -61,90 +62,153 @@
         </div>
     </div>
 
-    <!-- Nova despesa -->
+    <!-- Importar comprovante -->
     <div class="bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
-        <h2 class="font-semibold text-sm mb-3">Nova despesa</h2>
-        <form id="fin-form-nova" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="fin-field">
-                <label for="fin-date" class="fin-label">Data *</label>
-                <input type="date" id="fin-date" class="input input-bordered input-sm w-full cursor-pointer" required />
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h2 class="font-semibold text-sm">Importar comprovante</h2>
+            <button type="button" class="btn btn-xs btn-ghost" id="fin-btn-manual">Lançar manualmente</button>
+        </div>
+        <div id="fin-dropzone"
+             class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center text-sm opacity-80 hover:border-primary cursor-pointer bg-base-200/40 transition-colors">
+            <div class="text-2xl mb-1">📄</div>
+            <div class="font-medium">Arraste um ou vários comprovantes aqui ou clique para selecionar</div>
+            <div class="text-xs opacity-60 mt-1">A IA lê data e valor automaticamente · até 20 arquivos · imagem ou PDF (até 10 MB cada)</div>
+            <input type="file" id="fin-import-file" class="hidden" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
+        </div>
+        <div id="fin-import-status" class="hidden mt-3 space-y-2 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="loading loading-spinner loading-sm"></span>
+                <span id="fin-import-status-text">Importando comprovantes…</span>
             </div>
-            <div class="fin-field">
-                <label for="fin-merchant" class="fin-label">Estabelecimento</label>
-                <input type="text" id="fin-merchant" class="input input-bordered input-sm w-full" placeholder="Nome do local" />
-            </div>
-            <div class="fin-field">
-                <label for="fin-total" class="fin-label">Valor total *</label>
-                <input type="text" id="fin-total" inputmode="decimal" autocomplete="off"
-                       class="input input-bordered input-sm w-full" placeholder="R$ 0,00" required />
-            </div>
-            <div class="fin-field">
-                <label for="fin-category" class="fin-label">Categoria</label>
-                <select id="fin-category" class="select select-bordered select-sm w-full">
-                    <option value="">Selecione…</option>
-                </select>
-            </div>
-            <div class="fin-field">
-                <label for="fin-assoc-type" class="fin-label">Associação</label>
-                <select id="fin-assoc-type" class="select select-bordered select-sm w-full">
-                    <option value="">—</option>
-                    <option value="cliente">Cliente</option>
-                    <option value="evento">Evento</option>
-                    <option value="viagem">Viagem</option>
-                    <option value="outros">Outros</option>
-                </select>
-            </div>
-            <div class="fin-field">
-                <label for="fin-assoc-label" class="fin-label">Detalhe da associação</label>
-                <input type="text" id="fin-assoc-label" class="input input-bordered input-sm w-full" placeholder="Nome do evento, destino…" />
-            </div>
-            <div class="fin-field sm:col-span-2 hidden" id="fin-client-wrap">
-                <label for="fin-client" class="fin-label">Cliente (opcional)</label>
-                <select id="fin-client" class="select select-bordered select-sm w-full">
-                    <option value="">—</option>
-                </select>
-            </div>
-            <div class="fin-field sm:col-span-2">
-                <label for="fin-notes" class="fin-label">Observações</label>
-                <textarea id="fin-notes" class="textarea textarea-bordered textarea-sm w-full" rows="2"></textarea>
-            </div>
-            <div class="fin-field sm:col-span-2">
-                <span class="fin-label">Comprovante (imagem ou PDF) *</span>
-                <div id="fin-dropzone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center text-sm opacity-70 hover:border-primary cursor-pointer bg-base-200/40">
-                    Arraste o arquivo aqui ou clique para selecionar
-                    <input type="file" id="fin-file" class="hidden" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
-                </div>
-                <p id="fin-file-name" class="text-xs mt-1 opacity-60"></p>
-            </div>
-            <div class="sm:col-span-2 flex flex-wrap gap-2 justify-end">
-                <button type="submit" class="btn btn-sm btn-ghost" id="fin-btn-draft">Salvar rascunho</button>
-                <button type="button" class="btn btn-sm btn-primary" id="fin-btn-submit">Salvar e enviar</button>
-            </div>
-        </form>
+            <progress id="fin-import-progress" class="progress progress-primary w-full" value="0" max="100"></progress>
+        </div>
     </div>
 
     <!-- Filtros + lista -->
-    <div class="flex flex-wrap gap-2 items-end">
+    <div class="flex flex-wrap gap-2 items-end justify-between">
         <div class="fin-field">
             <label for="fin-filter-status" class="fin-label">Status</label>
             <select id="fin-filter-status" class="select select-bordered select-sm">
                 <option value="">Todos</option>
+                <option value="extracted">Conferir (IA)</option>
                 <option value="draft">Rascunho</option>
                 <option value="submitted">Enviado</option>
                 <option value="approved">Aprovado</option>
                 <option value="rejected">Rejeitado</option>
+                <option value="extraction_failed">Falha IA</option>
                 <option value="closed">Fechado</option>
             </select>
         </div>
-        <button type="button" class="btn btn-sm" id="fin-btn-refresh">Atualizar</button>
+        <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" class="btn btn-sm btn-primary" id="fin-btn-bulk-submit" disabled>Enviar selecionados (0)</button>
+            <button type="button" class="btn btn-sm" id="fin-btn-refresh">Atualizar</button>
+        </div>
     </div>
 
-    <div id="fin-lista" class="space-y-2">
-        <div class="text-center text-sm opacity-50 py-8">Carregando…</div>
+    <div class="bg-base-100 border border-base-200 rounded-xl shadow-sm overflow-x-auto">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th class="w-8">
+                        <input type="checkbox" id="fin-select-all" class="checkbox checkbox-xs" title="Selecionar todos elegíveis" />
+                    </th>
+                    <th>Data</th>
+                    <th>Estabelecimento</th>
+                    <th class="text-right">Valor</th>
+                    <th>Categoria</th>
+                    <th>Associação</th>
+                    <th>Status</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="fin-lista">
+                <tr><td colspan="8" class="text-center text-sm opacity-50 py-8">Carregando…</td></tr>
+            </tbody>
+        </table>
     </div>
 </div>
+
+<!-- Modal de edição / lançamento manual -->
+<dialog id="fin-edit-modal" class="modal">
+  <div class="modal-box max-w-2xl">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    <h3 class="font-bold text-base mb-1" id="fin-modal-title">Editar despesa</h3>
+    <p class="text-xs opacity-60 mb-3" id="fin-modal-hint"></p>
+
+    <div id="fin-ai-banner" class="hidden alert alert-info py-2 text-xs mb-3">
+        <span>Dados preenchidos pela IA — confira antes de enviar.</span>
+    </div>
+
+    <form id="fin-form-edit" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="fin-edit-id" />
+        <div class="fin-field">
+            <label for="fin-date" class="fin-label">Data *</label>
+            <input type="date" id="fin-date" class="input input-bordered input-sm w-full cursor-pointer" required />
+        </div>
+        <div class="fin-field">
+            <label for="fin-merchant" class="fin-label">Estabelecimento</label>
+            <input type="text" id="fin-merchant" class="input input-bordered input-sm w-full" placeholder="Nome do local" />
+        </div>
+        <div class="fin-field">
+            <label for="fin-total" class="fin-label">Valor total *</label>
+            <input type="text" id="fin-total" inputmode="decimal" autocomplete="off"
+                   class="input input-bordered input-sm w-full" placeholder="R$ 0,00" required />
+        </div>
+        <div class="fin-field">
+            <label for="fin-category" class="fin-label">Categoria</label>
+            <select id="fin-category" class="select select-bordered select-sm w-full">
+                <option value="">Selecione…</option>
+            </select>
+        </div>
+        <div class="fin-field">
+            <label for="fin-assoc-type" class="fin-label">Associação</label>
+            <select id="fin-assoc-type" class="select select-bordered select-sm w-full">
+                <option value="">—</option>
+                <option value="cliente">Cliente</option>
+                <option value="evento">Evento</option>
+                <option value="viagem">Viagem</option>
+                <option value="outros">Outros</option>
+            </select>
+        </div>
+        <div class="fin-field">
+            <label for="fin-assoc-label" class="fin-label">Detalhe da associação</label>
+            <input type="text" id="fin-assoc-label" class="input input-bordered input-sm w-full" placeholder="Nome do evento, destino…" />
+        </div>
+        <div class="fin-field sm:col-span-2 hidden" id="fin-client-wrap">
+            <label for="fin-client" class="fin-label">Cliente (opcional)</label>
+            <select id="fin-client" class="select select-bordered select-sm w-full">
+                <option value="">—</option>
+            </select>
+        </div>
+        <div class="fin-field sm:col-span-2">
+            <label for="fin-notes" class="fin-label">Observações</label>
+            <textarea id="fin-notes" class="textarea textarea-bordered textarea-sm w-full" rows="2"></textarea>
+        </div>
+
+        <!-- Comprovante(s) -->
+        <div class="fin-field sm:col-span-2">
+            <span class="fin-label">Comprovante(s)</span>
+            <div id="fin-receipts-list" class="text-xs space-y-1"></div>
+            <div id="fin-manual-dropzone"
+                 class="border-2 border-dashed border-base-300 rounded-lg p-4 text-center text-xs opacity-70 hover:border-primary cursor-pointer bg-base-200/40 mt-1">
+                Anexar comprovante (obrigatório para enviar)
+                <input type="file" id="fin-manual-file" class="hidden" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
+            </div>
+            <p id="fin-manual-file-name" class="text-xs mt-1 opacity-60"></p>
+        </div>
+    </form>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm btn-ghost" id="fin-btn-save-draft">Salvar rascunho</button>
+        <button type="button" class="btn btn-sm btn-primary" id="fin-btn-save-submit">Salvar e enviar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>fechar</button></form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=4"></script>
 {% endblock %}

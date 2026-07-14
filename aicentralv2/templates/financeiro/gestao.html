@@ -6,6 +6,7 @@
 <style>
   #fin-gestao-app .fin-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
   #fin-gestao-app .fin-label { display: block; font-size: 0.75rem; line-height: 1.25; font-weight: 500; opacity: 0.7; margin: 0; }
+  #fin-gestao-app .fin-expense-row td { background: hsl(var(--b2) / 0.35); }
 </style>
 {% endblock %}
 
@@ -13,8 +14,8 @@
 <div class="max-w-6xl mx-auto space-y-4" id="fin-gestao-app">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-            <h1 class="text-xl font-bold">Gestão de Reembolsos</h1>
-            <p class="text-xs opacity-60">Todos os reembolsos: data, valor, usuário, categoria e status.</p>
+            <h1 class="cx-page-title">Gestão de Reembolsos</h1>
+            <p class="text-xs opacity-60">Lotes de reembolso por colaborador. Aprove despesas e marque o lote como pago.</p>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="btn btn-sm btn-primary">Lançar despesa</a>
@@ -24,52 +25,39 @@
 
     <!-- Resumo -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="fin-admin-summary">
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Enviados</div>
-            <div class="text-lg font-semibold" id="fin-adm-submitted">R$ 0,00</div>
-            <div class="text-[10px] opacity-50" id="fin-adm-submitted-q">0 itens</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">Lotes abertos</div>
+            <div class="cx-stat-value text-gray-900" id="fin-adm-open-q">0</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Aprovados</div>
-            <div class="text-lg font-semibold" id="fin-adm-approved">R$ 0,00</div>
-            <div class="text-[10px] opacity-50" id="fin-adm-approved-q">0 itens</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">A pagar (abertos)</div>
+            <div class="cx-stat-value text-green-600" id="fin-adm-approved">R$ 0,00</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Rascunhos</div>
-            <div class="text-lg font-semibold" id="fin-adm-draft">R$ 0,00</div>
-            <div class="text-[10px] opacity-50" id="fin-adm-draft-q">0 itens</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">Enviados (aguardando)</div>
+            <div class="cx-stat-value text-gray-900" id="fin-adm-submitted">R$ 0,00</div>
+            <div class="text-xs text-gray-400" id="fin-adm-submitted-q">0 itens</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Rejeitados</div>
-            <div class="text-lg font-semibold text-error" id="fin-adm-rejected">R$ 0,00</div>
-            <div class="text-[10px] opacity-50" id="fin-adm-rejected-q">0 itens</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">Rejeitados (abertos)</div>
+            <div class="cx-stat-value text-red-600" id="fin-adm-rejected">R$ 0,00</div>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="bg-base-100 border border-base-200 rounded-xl p-3 shadow-sm grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
+    <div class="bg-base-100 border border-base-200 rounded-xl p-3 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
         <div class="fin-field">
-            <label for="fin-f-status" class="fin-label">Status</label>
+            <label for="fin-f-status" class="fin-label">Status do lote</label>
             <select id="fin-f-status" class="select select-bordered select-sm">
                 <option value="">Todos</option>
-                <option value="submitted">Enviado</option>
-                <option value="approved">Aprovado</option>
-                <option value="rejected">Rejeitado</option>
-                <option value="draft">Rascunho</option>
-                <option value="extracted">Conferir (IA)</option>
-                <option value="closed">Fechado</option>
+                <option value="open">Em andamento</option>
+                <option value="paid">Pago</option>
             </select>
         </div>
         <div class="fin-field">
             <label for="fin-f-user" class="fin-label">Usuário</label>
             <select id="fin-f-user" class="select select-bordered select-sm">
                 <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="fin-field">
-            <label for="fin-f-category" class="fin-label">Categoria</label>
-            <select id="fin-f-category" class="select select-bordered select-sm">
-                <option value="">Todas</option>
             </select>
         </div>
         <div class="fin-field">
@@ -80,23 +68,24 @@
             <label for="fin-f-to" class="fin-label">Até</label>
             <input type="date" id="fin-f-to" class="input input-bordered input-sm w-full" />
         </div>
-        <div class="col-span-2 sm:col-span-5 flex gap-2 justify-end">
+        <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end">
             <button type="button" class="btn btn-sm btn-ghost" id="fin-f-clear">Limpar</button>
             <button type="button" class="btn btn-sm btn-primary" id="fin-f-apply">Aplicar</button>
         </div>
     </div>
 
-    <!-- Tabela -->
+    <!-- Tabela de lotes -->
     <div class="bg-base-100 border border-base-200 rounded-xl shadow-sm overflow-x-auto">
         <table class="table table-sm">
             <thead>
                 <tr>
-                    <th>Data</th>
-                    <th class="text-right">Valor</th>
+                    <th class="w-8"></th>
+                    <th>Lote</th>
                     <th>Usuário</th>
-                    <th>Categoria</th>
-                    <th>Estabelecimento</th>
                     <th>Status</th>
+                    <th class="text-right">A pagar</th>
+                    <th class="text-right">Rejeitados</th>
+                    <th>Data pagamento</th>
                     <th class="text-right">Ações</th>
                 </tr>
             </thead>
@@ -113,7 +102,7 @@
     <form method="dialog">
       <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
-    <h3 class="font-bold text-base mb-1">Reprovar reembolso</h3>
+    <h3 class="font-bold text-base mb-1">Reprovar despesa</h3>
     <p class="text-xs opacity-60 mb-3">Informe o motivo para o colaborador corrigir e reenviar.</p>
     <input type="hidden" id="fin-adm-reject-id" />
     <div class="fin-field mb-4">
@@ -127,8 +116,29 @@
   </div>
   <form method="dialog" class="modal-backdrop"><button>fechar</button></form>
 </dialog>
+
+<!-- Modal marcar pago -->
+<dialog id="fin-adm-paid-modal" class="modal">
+  <div class="modal-box max-w-md">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    <h3 class="font-bold text-base mb-1">Marcar lote como pago</h3>
+    <p class="text-xs opacity-60 mb-3" id="fin-adm-paid-hint">Informe a data de pagamento para concluir o lote.</p>
+    <input type="hidden" id="fin-adm-paid-id" />
+    <div class="fin-field mb-4">
+      <label for="fin-adm-paid-date" class="fin-label">Data de pagamento *</label>
+      <input type="date" id="fin-adm-paid-date" class="input input-bordered input-sm w-full" required />
+    </div>
+    <div class="modal-action">
+      <button type="button" class="btn btn-sm btn-ghost" id="fin-adm-paid-cancel">Cancelar</button>
+      <button type="button" class="btn btn-sm btn-success" id="fin-adm-paid-confirm">Confirmar pagamento</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>fechar</button></form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro_gestao.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/financeiro_gestao.js') }}?v=3"></script>
 {% endblock %}

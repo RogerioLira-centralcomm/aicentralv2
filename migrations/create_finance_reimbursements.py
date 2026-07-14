@@ -61,21 +61,34 @@ def run_migration():
                 ''')
 
                 cur.execute('''
-                    CREATE TABLE IF NOT EXISTS finance_reimbursement_notes (
-                        id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        user_id               INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
-                        created_by            INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
-                        status                TEXT NOT NULL DEFAULT 'closed',
-                        total_expenses        NUMERIC(12,2) NOT NULL,
-                        total_advances        NUMERIC(12,2) NOT NULL DEFAULT 0,
-                        total_payable         NUMERIC(12,2) NOT NULL,
-                        expected_payment_date DATE NOT NULL,
-                        paid_at               TIMESTAMPTZ NULL,
-                        closed_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-                        notes                 TEXT,
-                        CONSTRAINT chk_finance_note_status
-                            CHECK (status IN ('closed', 'paid', 'reopened'))
+                    CREATE TABLE IF NOT EXISTS finance_summary (
+                        id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        user_id           INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
+                        description       TEXT NOT NULL,
+                        reference_month   DATE NOT NULL,
+                        seq_in_month      INT NOT NULL,
+                        status            TEXT NOT NULL DEFAULT 'open',
+                        total_payable     NUMERIC(12,2) NOT NULL DEFAULT 0,
+                        total_rejected    NUMERIC(12,2) NOT NULL DEFAULT 0,
+                        payment_date      DATE NULL,
+                        paid_at           TIMESTAMPTZ NULL,
+                        paid_by           INTEGER NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
+                        created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        CONSTRAINT chk_finance_summary_status
+                            CHECK (status IN ('open', 'paid'))
                     )
+                ''')
+
+                cur.execute('''
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_summary_user_open
+                    ON finance_summary (user_id)
+                    WHERE status = 'open'
+                ''')
+
+                cur.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_finance_summary_user_status
+                    ON finance_summary (user_id, status)
                 ''')
 
                 cur.execute('''
@@ -96,7 +109,7 @@ def run_migration():
                         ai_confidence         NUMERIC(3,2),
                         needs_review          BOOLEAN NOT NULL DEFAULT FALSE,
                         rejection_reason      TEXT,
-                        reimbursement_note_id UUID NULL REFERENCES finance_reimbursement_notes(id),
+                        summary_id            UUID NULL REFERENCES finance_summary(id),
                         created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
                         updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
                         CONSTRAINT chk_finance_expense_status CHECK (status IN (
@@ -116,8 +129,8 @@ def run_migration():
                     ON finance_expenses(user_id, status)
                 ''')
                 cur.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_finance_expenses_note
-                    ON finance_expenses(reimbursement_note_id)
+                    CREATE INDEX IF NOT EXISTS idx_finance_expenses_summary
+                    ON finance_expenses(summary_id)
                 ''')
 
                 cur.execute('''
@@ -155,7 +168,7 @@ def run_migration():
                         association_label     TEXT,
                         advance_date          DATE NOT NULL,
                         status                TEXT NOT NULL DEFAULT 'open',
-                        reimbursement_note_id UUID NULL REFERENCES finance_reimbursement_notes(id),
+                        summary_id            UUID NULL REFERENCES finance_summary(id),
                         created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
                         CONSTRAINT chk_finance_advance_status
                             CHECK (status IN ('open', 'settled', 'cancelled'))

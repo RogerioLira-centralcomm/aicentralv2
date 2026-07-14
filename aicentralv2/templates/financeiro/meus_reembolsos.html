@@ -27,6 +27,7 @@
     z-index: 0;
   }
   #fin-dropzone.dragover { border-color: hsl(var(--p)); background: hsl(var(--p) / 0.08); }
+  #fin-reembolsos-app .fin-expense-row td { background: hsl(var(--b2) / 0.35); }
 </style>
 {% endblock %}
 
@@ -34,31 +35,31 @@
 <div class="max-w-6xl mx-auto space-y-4" id="fin-reembolsos-app">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-            <h1 class="text-xl font-bold">Meus Reembolsos</h1>
-            <p class="text-xs opacity-60">Importe o comprovante e a IA lê data e valor. Depois é só revisar e enviar.</p>
+            <h1 class="cx-page-title">Meus Reembolsos</h1>
+            <p class="text-xs opacity-60">Importe comprovantes no lote atual. Cada lote é identificado por mês e sequência (ex.: Julho_01).</p>
         </div>
         {% if session.get('is_finance_admin') %}
         <a href="{{ url_for('financeiro.gestao_reembolsos') }}" class="btn btn-sm btn-outline">Gestão (admin)</a>
         {% endif %}
     </div>
 
-    <!-- Resumo -->
+    <!-- Resumo do lote aberto -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="fin-summary">
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Rascunhos</div>
-            <div class="text-lg font-semibold" id="fin-sum-draft">R$ 0,00</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px] sm:col-span-1">
+            <div class="cx-stat-label">Lote atual</div>
+            <div class="cx-stat-value text-primary text-base" id="fin-sum-batch">—</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Enviados</div>
-            <div class="text-lg font-semibold" id="fin-sum-submitted">R$ 0,00</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">Rascunhos / Enviados</div>
+            <div class="cx-stat-value text-gray-900 text-sm" id="fin-sum-pending">R$ 0,00</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Aprovados</div>
-            <div class="text-lg font-semibold" id="fin-sum-approved">R$ 0,00</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">A pagar</div>
+            <div class="cx-stat-value text-green-600" id="fin-sum-approved">R$ 0,00</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3">
-            <div class="text-[10px] uppercase opacity-50">Rejeitados</div>
-            <div class="text-lg font-semibold text-error" id="fin-sum-rejected">R$ 0,00</div>
+        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+            <div class="cx-stat-label">Rejeitados</div>
+            <div class="cx-stat-value text-red-600" id="fin-sum-rejected">R$ 0,00</div>
         </div>
     </div>
 
@@ -84,19 +85,14 @@
         </div>
     </div>
 
-    <!-- Filtros + lista -->
+    <!-- Filtros + lista de lotes -->
     <div class="flex flex-wrap gap-2 items-end justify-between">
         <div class="fin-field">
-            <label for="fin-filter-status" class="fin-label">Status</label>
+            <label for="fin-filter-status" class="fin-label">Status do lote</label>
             <select id="fin-filter-status" class="select select-bordered select-sm">
                 <option value="">Todos</option>
-                <option value="extracted">Conferir (IA)</option>
-                <option value="draft">Rascunho</option>
-                <option value="submitted">Enviado</option>
-                <option value="approved">Aprovado</option>
-                <option value="rejected">Rejeitado</option>
-                <option value="extraction_failed">Falha IA</option>
-                <option value="closed">Fechado</option>
+                <option value="open">Em andamento</option>
+                <option value="paid">Pago</option>
             </select>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
@@ -109,20 +105,17 @@
         <table class="table table-sm">
             <thead>
                 <tr>
-                    <th class="w-8">
-                        <input type="checkbox" id="fin-select-all" class="checkbox checkbox-xs" title="Selecionar todos elegíveis" />
-                    </th>
-                    <th>Data</th>
-                    <th>Estabelecimento</th>
-                    <th class="text-right">Valor</th>
-                    <th>Categoria</th>
-                    <th>Associação</th>
+                    <th class="w-8"></th>
+                    <th>Lote</th>
                     <th>Status</th>
-                    <th class="text-right">Ações</th>
+                    <th class="text-right">A pagar</th>
+                    <th class="text-right">Rejeitados</th>
+                    <th>Data pagamento</th>
+                    <th class="text-right">Despesas</th>
                 </tr>
             </thead>
             <tbody id="fin-lista">
-                <tr><td colspan="8" class="text-center text-sm opacity-50 py-8">Carregando…</td></tr>
+                <tr><td colspan="7" class="text-center text-sm opacity-50 py-8">Carregando…</td></tr>
             </tbody>
         </table>
     </div>
@@ -187,7 +180,6 @@
             <textarea id="fin-notes" class="textarea textarea-bordered textarea-sm w-full" rows="2"></textarea>
         </div>
 
-        <!-- Comprovante(s) -->
         <div class="fin-field sm:col-span-2">
             <span class="fin-label">Comprovante(s)</span>
             <div id="fin-receipts-list" class="text-xs space-y-1"></div>
@@ -210,5 +202,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=5"></script>
 {% endblock %}

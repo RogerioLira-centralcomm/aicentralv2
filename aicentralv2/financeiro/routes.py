@@ -37,7 +37,7 @@ MAX_SUBMIT_BATCH = 50
 def _import_single_receipt(file, user_id):
     """Importa um comprovante: cria rascunho, salva arquivo e roda OCR.
 
-    Retorna dict com success, expense, ai_ok, error, filename.
+    Retorna dict com success, expense, ai_ok, error, filename, duplicate_warning.
     """
     filename = file.filename or 'comprovante'
     ok, err = validate_upload(file)
@@ -54,12 +54,17 @@ def _import_single_receipt(file, user_id):
     ext = os.path.splitext(filename)[1].lower()
 
     try:
-        expense = fin.create_expense(user_id, {'status': 'processing'})
+        summary = fin.resolve_open_summary(user_id)
+        expense = fin.create_expense(user_id, {
+            'status': 'processing',
+            'summary_id': summary['id'],
+        })
     except Exception as e:
         current_app.logger.error(f'_import_single_receipt create: {e}', exc_info=True)
         return {'success': False, 'error': 'Falha ao criar rascunho', 'filename': filename}
 
     expense_id = expense['id']
+    summary_id = summary['id']
     storage = ReceiptStorage()
     try:
         meta = storage.save(file, expense_id)
@@ -98,16 +103,32 @@ def _import_single_receipt(file, user_id):
     else:
         update['needs_review'] = True
 
+    duplicate_warning = None
     try:
         fin.update_expense(expense_id, update)
         if extracted and extracted.get('items'):
             fin.replace_expense_items(expense_id, extracted['items'])
+
+        dup = fin.find_duplicate_expense(
+            user_id,
+            update.get('expense_date'),
+            update.get('total_amount'),
+            update.get('merchant_name'),
+            exclude_id=expense_id,
+        )
+        if dup:
+            duplicate_warning = (
+                'Possível comprovante duplicado: já existe despesa com mesma data, '
+                'valor e estabelecimento no sistema.'
+            )
+        fin.recalc_summary_totals(summary_id)
     except Exception as e:
         current_app.logger.error(f'_import_single_receipt update: {e}', exc_info=True)
 
     fin.write_audit(user_id, 'expense', expense_id, 'imported', {
         'status': update.get('status'),
         'ai': bool(extracted),
+        'summary_id': summary_id,
     })
 
     result = fin.get_expense(expense_id)
@@ -117,6 +138,7 @@ def _import_single_receipt(file, user_id):
         'ai_ok': bool(extracted),
         'error': None,
         'filename': filename,
+        'duplicate_warning': duplicate_warning,
     }
 
 
@@ -152,6 +174,8 @@ def _try_review_expense(expense_id, action, reviewer_id, rejection_reason=None):
 
     if action == 'approve':
         fin.update_expense(expense_id, {'status': 'approved', 'rejection_reason': None})
+        if expense.get('summary_id'):
+            fin.recalc_summary_totals(expense['summary_id'])
         fin.write_audit(reviewer_id, 'expense', expense_id, 'approved')
         return True, None
 
@@ -160,6 +184,8 @@ def _try_review_expense(expense_id, action, reviewer_id, rejection_reason=None):
         if not reason:
             return False, 'Informe o motivo da reprovação'
         fin.update_expense(expense_id, {'status': 'rejected', 'rejection_reason': reason})
+        if expense.get('summary_id'):
+            fin.recalc_summary_totals(expense['summary_id'])
         fin.write_audit(reviewer_id, 'expense', expense_id, 'rejected', {'reason': reason})
         return True, None
 
@@ -202,6 +228,31 @@ def api_my_summary():
     return jsonify({'success': True, 'summary': fin.summary_for_user(_uid())})
 
 
+@bp.route('/api/my/summaries', methods=['GET'])
+@login_required_api
+def api_my_summaries():
+    filtros = {'status': request.args.get('status') or None}
+    summaries = fin.list_summaries_for_user(_uid(), filtros)
+    include_expenses = request.args.get('include_expenses') == '1'
+    if include_expenses:
+        for s in summaries:
+            s['expenses'] = fin.list_expenses_for_summary(s['id'])
+    return jsonify({'success': True, 'summaries': summaries})
+
+
+@bp.route('/api/my/summaries/<summary_id>/expenses', methods=['GET'])
+@login_required_api
+def api_my_summary_expenses(summary_id):
+    summary = fin.get_summary(summary_id)
+    if not summary:
+        return jsonify({'success': False, 'error': 'Reembolso não encontrado'}), 404
+    if summary['user_id'] != _uid():
+        return jsonify({'success': False, 'error': 'Acesso negado'}), 403
+    filtros = {'status': request.args.get('status') or None}
+    rows = fin.list_expenses_for_summary(summary_id, filtros)
+    return jsonify({'success': True, 'expenses': rows, 'summary': summary})
+
+
 @bp.route('/api/expenses', methods=['GET'])
 @login_required_api
 def api_list_expenses():
@@ -232,11 +283,15 @@ def api_create_expense():
             data['client_id'] = int(data['client_id'])
 
         data['status'] = 'draft'
+        summary = fin.resolve_open_summary(_uid())
+        data['summary_id'] = summary['id']
         expense = fin.create_expense(_uid(), data)
 
         items = data.get('items') or []
         if items:
             fin.replace_expense_items(expense['id'], items)
+
+        fin.recalc_summary_totals(summary['id'])
 
         fin.write_audit(_uid(), 'expense', expense['id'], 'created', {'status': 'draft'})
         return jsonify({'success': True, 'expense': _expense_payload(fin.get_expense(expense['id']))}), 201
@@ -261,6 +316,7 @@ def api_import_expense():
         'success': True,
         'expense': result['expense'],
         'ai_ok': result['ai_ok'],
+        'duplicate_warning': result.get('duplicate_warning'),
     }), 201
 
 
@@ -284,11 +340,17 @@ def api_import_expense_bulk():
     user_id = _uid()
     expenses = []
     failed = []
+    warnings = []
 
     for f in files:
         result = _import_single_receipt(f, user_id)
         if result['success']:
             expenses.append(result['expense'])
+            if result.get('duplicate_warning'):
+                warnings.append({
+                    'filename': result['filename'],
+                    'message': result['duplicate_warning'],
+                })
         else:
             failed.append({'filename': result['filename'], 'error': result['error']})
 
@@ -297,6 +359,7 @@ def api_import_expense_bulk():
         'total': len(files),
         'created': len(expenses),
         'failed': failed,
+        'warnings': warnings,
         'expenses': expenses,
     }), 201
 
@@ -468,6 +531,7 @@ def _admin_filtros():
         'user_id': request.args.get('user_id') or None,
         'date_from': request.args.get('date_from') or None,
         'date_to': request.args.get('date_to') or None,
+        'summary_id': request.args.get('summary_id') or None,
     }
     if filtros['category_id']:
         try:
@@ -480,6 +544,54 @@ def _admin_filtros():
         except (TypeError, ValueError):
             filtros['user_id'] = None
     return filtros
+
+
+@bp.route('/api/admin/summaries', methods=['GET'])
+@finance_admin_required_api
+def api_admin_summaries():
+    filtros = {
+        'status': request.args.get('status') or None,
+        'user_id': request.args.get('user_id') or None,
+        'date_from': request.args.get('date_from') or None,
+        'date_to': request.args.get('date_to') or None,
+    }
+    if filtros['user_id']:
+        try:
+            filtros['user_id'] = int(filtros['user_id'])
+        except (TypeError, ValueError):
+            filtros['user_id'] = None
+    summaries = fin.list_all_summaries(filtros)
+    include_expenses = request.args.get('include_expenses') == '1'
+    if include_expenses:
+        for s in summaries:
+            s['expenses'] = fin.list_all_expenses({'summary_id': s['id']})
+    return jsonify({'success': True, 'summaries': summaries})
+
+
+@bp.route('/api/admin/summaries/<summary_id>/mark-paid', methods=['POST'])
+@finance_admin_required_api
+def api_admin_mark_summary_paid(summary_id):
+    data = request.get_json() or {}
+    payment_date = data.get('payment_date')
+    if not payment_date:
+        return jsonify({'success': False, 'error': 'Informe a data de pagamento'}), 400
+    row, err = fin.mark_summary_paid(summary_id, payment_date, _uid())
+    if err:
+        status = 404 if err == 'Reembolso não encontrado' else 400
+        return jsonify({'success': False, 'error': err}), status
+    fin.write_audit(_uid(), 'summary', summary_id, 'marked_paid', {'payment_date': payment_date})
+    return jsonify({'success': True, 'summary': row})
+
+
+@bp.route('/api/admin/summaries/<summary_id>/expenses', methods=['GET'])
+@finance_admin_required_api
+def api_admin_summary_expenses(summary_id):
+    summary = fin.get_summary(summary_id)
+    if not summary:
+        return jsonify({'success': False, 'error': 'Reembolso não encontrado'}), 404
+    filtros = {'summary_id': summary_id, 'status': request.args.get('status') or None}
+    rows = fin.list_all_expenses(filtros)
+    return jsonify({'success': True, 'expenses': rows, 'summary': summary})
 
 
 @bp.route('/api/admin/expenses', methods=['GET'])

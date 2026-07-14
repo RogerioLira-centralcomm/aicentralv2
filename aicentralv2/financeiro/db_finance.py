@@ -1,6 +1,12 @@
 """Acesso a dados do módulo de reembolsos (finance_*)."""
+from datetime import date
 from decimal import Decimal
 from ..db import get_db
+
+MONTH_NAMES_PT = (
+    '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+)
 
 
 def _serialize_row(row):
@@ -35,15 +41,250 @@ def list_categories(active_only=True):
         return [_serialize_row(r) for r in cur.fetchall()]
 
 
+def _summary_description(reference_month, seq_in_month):
+    month_name = MONTH_NAMES_PT[reference_month.month]
+    return f'{month_name}_{seq_in_month:02d}'
+
+
+def get_summary(summary_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('SELECT * FROM finance_summary WHERE id = %s', (summary_id,))
+        return _serialize_row(cur.fetchone())
+
+
+def get_open_summary(user_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT * FROM finance_summary
+            WHERE user_id = %s AND status = 'open'
+            LIMIT 1
+        ''', (user_id,))
+        return _serialize_row(cur.fetchone())
+
+
+def resolve_open_summary(user_id):
+    """Retorna summary aberto existente ou cria novo com nome_mes_ind."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT * FROM finance_summary
+            WHERE user_id = %s AND status = 'open'
+            LIMIT 1
+            FOR UPDATE
+        ''', (user_id,))
+        row = cur.fetchone()
+        if row:
+            conn.commit()
+            return _serialize_row(row)
+
+        today = date.today()
+        ref_month = date(today.year, today.month, 1)
+        cur.execute('''
+            SELECT COUNT(*) AS cnt FROM finance_summary
+            WHERE user_id = %s AND reference_month = %s AND status = 'paid'
+        ''', (user_id, ref_month))
+        count_row = cur.fetchone()
+        seq = (count_row['cnt'] if count_row else 0) + 1
+        description = _summary_description(ref_month, seq)
+
+        cur.execute('''
+            INSERT INTO finance_summary (
+                user_id, description, reference_month, seq_in_month, status
+            ) VALUES (%s, %s, %s, %s, 'open')
+            RETURNING *
+        ''', (user_id, description, ref_month, seq))
+        created = cur.fetchone()
+    conn.commit()
+    return _serialize_row(created)
+
+
+def recalc_summary_totals(summary_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            UPDATE finance_summary SET
+                total_payable = (
+                    SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses
+                    WHERE summary_id = %s AND status = 'approved'
+                ),
+                total_rejected = (
+                    SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses
+                    WHERE summary_id = %s AND status = 'rejected'
+                ),
+                updated_at = now()
+            WHERE id = %s
+            RETURNING *
+        ''', (summary_id, summary_id, summary_id))
+        row = cur.fetchone()
+    conn.commit()
+    return _serialize_row(row)
+
+
+def find_duplicate_expense(user_id, expense_date, total_amount, merchant_name, exclude_id=None):
+    if not expense_date or total_amount is None or not (merchant_name or '').strip():
+        return None
+    conn = get_db()
+    clauses = [
+        'user_id = %s',
+        'expense_date = %s',
+        'total_amount = %s',
+        "LOWER(TRIM(merchant_name)) = LOWER(TRIM(%s))",
+    ]
+    params = [user_id, expense_date, total_amount, merchant_name]
+    if exclude_id:
+        clauses.append('id != %s')
+        params.append(exclude_id)
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT id, merchant_name, expense_date, total_amount
+            FROM finance_expenses
+            WHERE {' AND '.join(clauses)}
+            LIMIT 1
+        ''', params)
+        return _serialize_row(cur.fetchone())
+
+
+def count_submitted_in_summary(summary_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT COUNT(*) AS cnt FROM finance_expenses
+            WHERE summary_id = %s AND status = 'submitted'
+        ''', (summary_id,))
+        row = cur.fetchone()
+    return row['cnt'] if row else 0
+
+
+def mark_summary_paid(summary_id, payment_date, admin_id):
+    summary = get_summary(summary_id)
+    if not summary:
+        return None, 'Reembolso não encontrado'
+    if summary['status'] != 'open':
+        return None, 'Este reembolso já foi concluído'
+    if not payment_date:
+        return None, 'Informe a data de pagamento'
+    if count_submitted_in_summary(summary_id) > 0:
+        return None, 'Existem despesas aguardando aprovação. Revise antes de marcar como pago.'
+
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            UPDATE finance_summary SET
+                status = 'paid',
+                payment_date = %s,
+                paid_at = now(),
+                paid_by = %s,
+                updated_at = now()
+            WHERE id = %s AND status = 'open'
+            RETURNING *
+        ''', (payment_date, admin_id, summary_id))
+        row = cur.fetchone()
+    conn.commit()
+    if not row:
+        return None, 'Não foi possível concluir o reembolso'
+    return _serialize_row(row), None
+
+
+def list_summaries_for_user(user_id, filtros=None):
+    filtros = filtros or {}
+    conn = get_db()
+    clauses = ['s.user_id = %s']
+    params = [user_id]
+    if filtros.get('status'):
+        clauses.append('s.status = %s')
+        params.append(filtros['status'])
+    where = ' AND '.join(clauses)
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT s.*,
+                   (SELECT COUNT(*) FROM finance_expenses e WHERE e.summary_id = s.id) AS expense_count,
+                   (SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses e
+                    WHERE e.summary_id = s.id AND e.status = 'submitted') AS total_submitted,
+                   (SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses e
+                    WHERE e.summary_id = s.id AND e.status IN ('draft', 'extracted', 'extraction_failed', 'rejected')) AS total_draft
+            FROM finance_summary s
+            WHERE {where}
+            ORDER BY s.created_at DESC
+            LIMIT 100
+        ''', params)
+        return [_serialize_row(r) for r in cur.fetchall()]
+
+
+def list_expenses_for_summary(summary_id, filtros=None):
+    filtros = filtros or {}
+    conn = get_db()
+    clauses = ['e.summary_id = %s']
+    params = [summary_id]
+    if filtros.get('status'):
+        clauses.append('e.status = %s')
+        params.append(filtros['status'])
+    where = ' AND '.join(clauses)
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT e.*,
+                   cat.slug AS category_slug,
+                   cat.label AS category_label
+            FROM finance_expenses e
+            LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
+            WHERE {where}
+            ORDER BY e.expense_date DESC NULLS LAST, e.created_at DESC
+        ''', params)
+        return [_serialize_row(r) for r in cur.fetchall()]
+
+
+def _summary_filter_clauses(filtros, alias='s'):
+    filtros = filtros or {}
+    clauses = []
+    params = []
+    prefix = f'{alias}.'
+    if filtros.get('status'):
+        clauses.append(f'{prefix}status = %s')
+        params.append(filtros['status'])
+    if filtros.get('user_id'):
+        clauses.append(f'{prefix}user_id = %s')
+        params.append(filtros['user_id'])
+    if filtros.get('date_from'):
+        clauses.append(f'{prefix}reference_month >= date_trunc(\'month\', %s::date)')
+        params.append(filtros['date_from'])
+    if filtros.get('date_to'):
+        clauses.append(f'{prefix}reference_month <= date_trunc(\'month\', %s::date)')
+        params.append(filtros['date_to'])
+    return clauses, params
+
+
+def list_all_summaries(filtros=None):
+    conn = get_db()
+    clauses, params = _summary_filter_clauses(filtros)
+    where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
+    with conn.cursor() as cur:
+        cur.execute(f'''
+            SELECT s.*,
+                   u.nome_completo AS user_name,
+                   u.email AS user_email,
+                   (SELECT COUNT(*) FROM finance_expenses e WHERE e.summary_id = s.id) AS expense_count,
+                   (SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses e
+                    WHERE e.summary_id = s.id AND e.status = 'submitted') AS total_submitted
+            FROM finance_summary s
+            LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = s.user_id
+            {where}
+            ORDER BY s.created_at DESC
+            LIMIT 200
+        ''', params)
+        return [_serialize_row(r) for r in cur.fetchall()]
+
+
 def create_expense(user_id, data):
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute('''
             INSERT INTO finance_expenses (
                 user_id, status, category_id, association_type, association_label,
-                client_id, merchant_name, expense_date, currency, total_amount, notes
+                client_id, merchant_name, expense_date, currency, total_amount, notes,
+                summary_id
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             RETURNING *
         ''', (
@@ -58,6 +299,7 @@ def create_expense(user_id, data):
             data.get('currency') or 'BRL',
             data.get('total_amount'),
             (data.get('notes') or '').strip() or None,
+            data.get('summary_id') or None,
         ))
         row = cur.fetchone()
     conn.commit()
@@ -71,10 +313,13 @@ def get_expense(expense_id):
             SELECT e.*,
                    cat.slug AS category_slug,
                    cat.label AS category_label,
-                   cli.nome_fantasia AS client_name
+                   cli.nome_fantasia AS client_name,
+                   s.description AS summary_description,
+                   s.status AS summary_status
             FROM finance_expenses e
             LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
             LEFT JOIN tbl_cliente cli ON cli.id_cliente = e.client_id
+            LEFT JOIN finance_summary s ON s.id = e.summary_id
             WHERE e.id = %s
         ''', (expense_id,))
         return _serialize_row(cur.fetchone())
@@ -98,15 +343,20 @@ def list_expenses_for_user(user_id, filtros=None):
     if filtros.get('date_to'):
         clauses.append('e.expense_date <= %s')
         params.append(filtros['date_to'])
+    if filtros.get('summary_id'):
+        clauses.append('e.summary_id = %s')
+        params.append(filtros['summary_id'])
 
     where = ' AND '.join(clauses)
     with conn.cursor() as cur:
         cur.execute(f'''
             SELECT e.*,
                    cat.slug AS category_slug,
-                   cat.label AS category_label
+                   cat.label AS category_label,
+                   s.description AS summary_description
             FROM finance_expenses e
             LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
+            LEFT JOIN finance_summary s ON s.id = e.summary_id
             WHERE {where}
             ORDER BY e.created_at DESC
             LIMIT 200
@@ -115,10 +365,8 @@ def list_expenses_for_user(user_id, filtros=None):
 
 
 EDITABLE_STATUSES = ('draft', 'rejected', 'extracted', 'extraction_failed')
-# Só é possível excluir enquanto a despesa está em um status editável.
-# Após "submitted" (enviado), aprovado ou fechado, exclusão é bloqueada.
 DELETABLE_STATUSES = EDITABLE_STATUSES
-DELETABLE_BEFORE = ('approved', 'closed')  # mantido por compatibilidade
+DELETABLE_BEFORE = ('approved', 'closed')
 
 
 def get_category_id_by_slug(slug):
@@ -157,6 +405,7 @@ def update_expense(expense_id, data):
         'ai_confidence': 'ai_confidence',
         'needs_review': 'needs_review',
         'ai_raw_response': 'ai_raw_response',
+        'summary_id': 'summary_id',
     }
     for key, col in mapping.items():
         if key in data:
@@ -186,11 +435,14 @@ def update_expense(expense_id, data):
 
 
 def delete_expense(expense_id):
+    expense = get_expense(expense_id)
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute('DELETE FROM finance_expenses WHERE id = %s RETURNING id', (expense_id,))
         row = cur.fetchone()
     conn.commit()
+    if row and expense and expense.get('summary_id'):
+        recalc_summary_totals(expense['summary_id'])
     return bool(row)
 
 
@@ -272,6 +524,8 @@ def get_receipt(receipt_id):
 
 
 def summary_for_user(user_id):
+    """Resumo do lote aberto + totais gerais."""
+    open_sum = get_open_summary(user_id)
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute('''
@@ -280,15 +534,23 @@ def summary_for_user(user_id):
                    COALESCE(SUM(total_amount), 0) AS total
             FROM finance_expenses
             WHERE user_id = %s
+              AND (summary_id IS NULL OR summary_id IN (
+                  SELECT id FROM finance_summary WHERE user_id = %s AND status = 'open'
+              ))
             GROUP BY status
-        ''', (user_id,))
+        ''', (user_id, user_id))
         by_status = {_serialize_row(r)['status']: _serialize_row(r) for r in cur.fetchall()}
+
     return {
         'by_status': by_status,
+        'open_summary': open_sum,
+        'open_description': (open_sum or {}).get('description'),
+        'total_payable': (open_sum or {}).get('total_payable') or 0,
+        'total_rejected': (open_sum or {}).get('total_rejected') or 0,
         'draft_total': (by_status.get('draft') or {}).get('total') or 0,
         'submitted_total': (by_status.get('submitted') or {}).get('total') or 0,
-        'approved_total': (by_status.get('approved') or {}).get('total') or 0,
-        'rejected_total': (by_status.get('rejected') or {}).get('total') or 0,
+        'approved_total': (open_sum or {}).get('total_payable') or 0,
+        'rejected_total': (open_sum or {}).get('total_rejected') or 0,
     }
 
 
@@ -337,11 +599,13 @@ def _admin_filter_clauses(filtros):
     if filtros.get('date_to'):
         clauses.append('e.expense_date <= %s')
         params.append(filtros['date_to'])
+    if filtros.get('summary_id'):
+        clauses.append('e.summary_id = %s')
+        params.append(filtros['summary_id'])
     return clauses, params
 
 
 def list_all_expenses(filtros=None):
-    """Admin: lista todos os reembolsos com usuário e categoria."""
     conn = get_db()
     clauses, params = _admin_filter_clauses(filtros)
     where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
@@ -351,10 +615,12 @@ def list_all_expenses(filtros=None):
                    cat.slug  AS category_slug,
                    cat.label AS category_label,
                    u.nome_completo AS user_name,
-                   u.email         AS user_email
+                   u.email         AS user_email,
+                   s.description   AS summary_description
             FROM finance_expenses e
             LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
             LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = e.user_id
+            LEFT JOIN finance_summary s ON s.id = e.summary_id
             {where}
             ORDER BY e.expense_date DESC NULLS LAST, e.created_at DESC
             LIMIT 500
@@ -363,46 +629,74 @@ def list_all_expenses(filtros=None):
 
 
 def admin_summary(filtros=None):
-    """Admin: totais por status (respeitando filtros de usuário/categoria/período)."""
+    """Totais agregados de summaries abertos (a pagar + rejeitados + enviados)."""
     conn = get_db()
-    clauses, params = _admin_filter_clauses(dict((filtros or {}), **{'status': None}))
-    # remover eventual filtro de status para o resumo por status
-    clauses = [c for c in clauses if not c.startswith('e.status')]
-    where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
+    filtros = dict(filtros or {})
+    clauses, params = _summary_filter_clauses(filtros)
+    clauses.append("s.status = 'open'")
+    sum_where = 'WHERE ' + ' AND '.join(clauses)
+
+    exp_clauses, exp_params = _admin_filter_clauses(filtros)
+    exp_clauses = [c for c in exp_clauses if not c.startswith('e.status')]
+    exp_clauses.append("s.status = 'open'")
+    exp_where = ' AND '.join(exp_clauses)
+
     with conn.cursor() as cur:
         cur.execute(f'''
-            SELECT e.status,
-                   COUNT(*) AS qtd,
-                   COALESCE(SUM(e.total_amount), 0) AS total
-            FROM finance_expenses e
-            {where}
-            GROUP BY e.status
+            SELECT
+                COALESCE(SUM(s.total_payable), 0) AS payable_total,
+                COALESCE(SUM(s.total_rejected), 0) AS rejected_total,
+                COUNT(*) AS open_qtd
+            FROM finance_summary s
+            {sum_where}
         ''', params)
-        by_status = {}
-        for r in cur.fetchall():
-            row = _serialize_row(r)
-            by_status[row['status']] = row
+        agg = _serialize_row(cur.fetchone()) or {}
+
+        cur.execute(f'''
+            SELECT COALESCE(SUM(e.total_amount), 0) AS total,
+                   COUNT(*) AS qtd
+            FROM finance_expenses e
+            JOIN finance_summary s ON s.id = e.summary_id
+            WHERE e.status = 'submitted' AND {exp_where}
+        ''', exp_params)
+        submitted = _serialize_row(cur.fetchone()) or {}
+
+        cur.execute(f'''
+            SELECT COALESCE(SUM(e.total_amount), 0) AS total,
+                   COUNT(*) AS qtd
+            FROM finance_expenses e
+            JOIN finance_summary s ON s.id = e.summary_id
+            WHERE e.status IN ('draft', 'extracted', 'extraction_failed') AND {exp_where}
+        ''', exp_params)
+        draft = _serialize_row(cur.fetchone()) or {}
+
+        cur.execute('''
+            SELECT COUNT(*) AS cnt FROM finance_summary WHERE status = 'paid'
+        ''')
+        paid_row = _serialize_row(cur.fetchone()) or {}
+
     return {
-        'by_status': by_status,
-        'submitted_total': (by_status.get('submitted') or {}).get('total') or 0,
-        'submitted_qtd': (by_status.get('submitted') or {}).get('qtd') or 0,
-        'approved_total': (by_status.get('approved') or {}).get('total') or 0,
-        'approved_qtd': (by_status.get('approved') or {}).get('qtd') or 0,
-        'draft_total': (by_status.get('draft') or {}).get('total') or 0,
-        'draft_qtd': (by_status.get('draft') or {}).get('qtd') or 0,
-        'rejected_total': (by_status.get('rejected') or {}).get('total') or 0,
-        'rejected_qtd': (by_status.get('rejected') or {}).get('qtd') or 0,
+        'payable_total': agg.get('payable_total') or 0,
+        'rejected_total': agg.get('rejected_total') or 0,
+        'open_qtd': agg.get('open_qtd') or 0,
+        'paid_qtd': paid_row.get('cnt') or 0,
+        'submitted_total': submitted.get('total') or 0,
+        'submitted_qtd': submitted.get('qtd') or 0,
+        'approved_total': agg.get('payable_total') or 0,
+        'approved_qtd': agg.get('open_qtd') or 0,
+        'draft_total': draft.get('total') or 0,
+        'draft_qtd': draft.get('qtd') or 0,
+        'rejected_qtd': agg.get('open_qtd') or 0,
     }
 
 
 def list_expense_users():
-    """Usuários que possuem despesas (para filtro admin)."""
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute('''
             SELECT DISTINCT u.id_contato_cliente AS id, u.nome_completo AS nome, u.email
-            FROM finance_expenses e
-            JOIN tbl_contato_cliente u ON u.id_contato_cliente = e.user_id
+            FROM finance_summary s
+            JOIN tbl_contato_cliente u ON u.id_contato_cliente = s.user_id
             ORDER BY u.nome_completo
         ''')
         return [_serialize_row(r) for r in cur.fetchall()]

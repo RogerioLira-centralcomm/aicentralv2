@@ -6,9 +6,9 @@
     const DELETABLE = EDITABLE;
     const MAX_IMPORT = 20;
 
-    // pending file for manual entry (no expense id yet)
     let pendingManualFile = null;
     let selectedIds = new Set();
+    const expandedSummaries = new Set();
 
     function $(sel, root) { return (root || document).querySelector(sel); }
 
@@ -34,8 +34,19 @@
         extracted: ['Conferir', 'badge-warning'],
         extraction_failed: ['Falha IA', 'badge-error'],
     };
+
+    const SUMMARY_STATUS = {
+        open: ['Em andamento', 'badge-warning'],
+        paid: ['Pago', 'badge-success'],
+    };
+
     function statusBadge(st) {
         const [label, cls] = STATUS_MAP[st] || [st, 'badge-ghost'];
+        return `<span class="badge badge-sm ${cls}">${label}</span>`;
+    }
+
+    function summaryStatusBadge(st) {
+        const [label, cls] = SUMMARY_STATUS[st] || [st, 'badge-ghost'];
         return `<span class="badge badge-sm ${cls}">${label}</span>`;
     }
 
@@ -66,13 +77,13 @@
         return data;
     }
 
-    // ---------- money / date helpers ----------
     function parseMoneyBR(str) {
         if (str == null || str === '') return null;
         const digits = String(str).replace(/[^\d]/g, '');
         if (!digits) return null;
         return parseInt(digits, 10) / 100;
     }
+
     function formatMoneyInput(input) {
         const digits = String(input.value || '').replace(/[^\d]/g, '');
         if (!digits) { input.value = ''; return; }
@@ -81,26 +92,28 @@
             minimumFractionDigits: 2, maximumFractionDigits: 2,
         });
     }
+
     function setMoneyValue(input, num) {
         if (num == null || num === '') { input.value = ''; return; }
         input.value = 'R$ ' + Number(num).toLocaleString('pt-BR', {
             minimumFractionDigits: 2, maximumFractionDigits: 2,
         });
     }
+
     function openDatePicker(el) {
         if (!el) return;
         try { if (typeof el.showPicker === 'function') el.showPicker(); }
         catch (_) { el.focus(); }
     }
 
-    // ---------- summary + list ----------
     async function loadSummary() {
         const r = await api('/my/summary');
         const s = r.summary || {};
-        $('#fin-sum-draft').textContent = money(s.draft_total);
-        $('#fin-sum-submitted').textContent = money(s.submitted_total);
-        $('#fin-sum-approved').textContent = money(s.approved_total);
-        $('#fin-sum-rejected').textContent = money(s.rejected_total);
+        $('#fin-sum-batch').textContent = s.open_description || '—';
+        const pending = (Number(s.draft_total) || 0) + (Number(s.submitted_total) || 0);
+        $('#fin-sum-pending').textContent = money(pending);
+        $('#fin-sum-approved').textContent = money(s.total_payable);
+        $('#fin-sum-rejected').textContent = money(s.total_rejected);
     }
 
     function canSelectRow(e) {
@@ -129,6 +142,80 @@
         return e.association_type + (e.association_label ? ': ' + escapeHtml(e.association_label) : '');
     }
 
+    function renderExpenseRow(e) {
+        const canEdit = EDITABLE.includes(e.status);
+        const canDelete = DELETABLE.includes(e.status);
+        const canSubmit = EDITABLE.includes(e.status);
+        const selectable = canSelectRow(e);
+        const rejected = e.status === 'rejected' && e.rejection_reason
+            ? `<div class="text-xs text-error mt-0.5">Motivo: ${escapeHtml(e.rejection_reason)}</div>` : '';
+        const review = e.needs_review && canEdit
+            ? '<span class="badge badge-xs badge-warning ml-1">revisar</span>' : '';
+        return `
+        <tr class="fin-expense-row" data-id="${e.id}" data-summary-id="${e.summary_id || ''}">
+            <td>${selectable
+                ? `<input type="checkbox" class="checkbox checkbox-xs fin-row-select" data-id="${e.id}" />`
+                : ''}</td>
+            <td class="whitespace-nowrap pl-6">${dateBR(e.expense_date)}</td>
+            <td class="min-w-[8rem]">${escapeHtml(e.merchant_name || '—')}${rejected}</td>
+            <td class="text-right font-medium whitespace-nowrap">${money(e.total_amount)}</td>
+            <td class="whitespace-nowrap">${escapeHtml(e.category_label || '—')}</td>
+            <td class="whitespace-nowrap text-xs opacity-80">${assocText(e)}</td>
+            <td class="whitespace-nowrap">${statusBadge(e.status)}${review}</td>
+            <td class="text-right whitespace-nowrap">
+                <div class="flex gap-1 justify-end">
+                    ${canEdit ? `<button type="button" class="btn btn-xs btn-ghost fin-edit" data-id="${e.id}" title="Editar">✏️</button>` : ''}
+                    <button type="button" class="btn btn-xs btn-ghost fin-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
+                    ${canSubmit ? `<button type="button" class="btn btn-xs btn-primary fin-submit" data-id="${e.id}">Enviar</button>` : ''}
+                    ${canDelete ? `<button type="button" class="btn btn-xs btn-ghost text-error fin-delete" data-id="${e.id}" title="Excluir">🗑️</button>` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function wireExpenseRows(container) {
+        container.querySelectorAll('.fin-row-select').forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedIds.add(cb.dataset.id);
+                else selectedIds.delete(cb.dataset.id);
+                updateBulkSubmitButton();
+                syncSelectAllCheckbox();
+            });
+        });
+        container.querySelectorAll('.fin-edit').forEach(btn => {
+            btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+        });
+        container.querySelectorAll('.fin-submit').forEach(btn => {
+            btn.addEventListener('click', () => submitExpense(btn.dataset.id));
+        });
+        container.querySelectorAll('.fin-delete').forEach(btn => {
+            btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
+        });
+        container.querySelectorAll('.fin-receipt').forEach(btn => {
+            btn.addEventListener('click', () => openReceipt(btn.dataset.id));
+        });
+    }
+
+    async function loadExpensesForSummary(summaryId, tbody) {
+        const detailRow = tbody.querySelector(`tr.fin-detail[data-summary-id="${summaryId}"]`);
+        if (!detailRow) return;
+        const inner = detailRow.querySelector('.fin-detail-inner');
+        inner.innerHTML = '<tr><td colspan="8" class="text-center text-xs opacity-50 py-4">Carregando despesas…</td></tr>';
+        try {
+            const r = await api(`/my/summaries/${summaryId}/expenses`);
+            const rows = r.expenses || [];
+            if (!rows.length) {
+                inner.innerHTML = '<tr><td colspan="8" class="text-center text-xs opacity-50 py-4">Nenhuma despesa neste lote.</td></tr>';
+                return;
+            }
+            inner.innerHTML = rows.map(renderExpenseRow).join('');
+            wireExpenseRows(detailRow);
+            syncSelectAllCheckbox();
+        } catch (err) {
+            inner.innerHTML = `<tr><td colspan="8" class="text-error text-xs text-center py-4">${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+
     async function loadLista() {
         const status = $('#fin-filter-status')?.value || '';
         const qs = status ? `?status=${encodeURIComponent(status)}` : '';
@@ -136,67 +223,78 @@
         selectedIds.clear();
         updateBulkSubmitButton();
         try {
-            const r = await api('/expenses' + qs);
-            const rows = r.expenses || [];
-            if (!rows.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-sm opacity-50 py-8">Nenhuma despesa ainda. Importe um comprovante acima.</td></tr>';
-                syncSelectAllCheckbox();
+            const r = await api('/my/summaries' + qs);
+            const summaries = r.summaries || [];
+            if (!summaries.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-sm opacity-50 py-8">Nenhum lote ainda. Importe um comprovante acima.</td></tr>';
                 return;
             }
-            tbody.innerHTML = rows.map(e => {
-                const canEdit = EDITABLE.includes(e.status);
-                const canDelete = DELETABLE.includes(e.status);
-                const canSubmit = EDITABLE.includes(e.status);
-                const selectable = canSelectRow(e);
-                const rejected = e.status === 'rejected' && e.rejection_reason
-                    ? `<div class="text-[11px] text-error mt-0.5">Motivo: ${escapeHtml(e.rejection_reason)}</div>` : '';
-                const review = e.needs_review && canEdit
-                    ? '<span class="badge badge-xs badge-warning ml-1">revisar</span>' : '';
-                return `
-                <tr data-id="${e.id}">
-                    <td>${selectable
-                        ? `<input type="checkbox" class="checkbox checkbox-xs fin-row-select" data-id="${e.id}" />`
-                        : ''}</td>
-                    <td class="whitespace-nowrap">${dateBR(e.expense_date)}</td>
-                    <td class="min-w-[8rem]">${escapeHtml(e.merchant_name || '—')}${rejected}</td>
-                    <td class="text-right font-medium whitespace-nowrap">${money(e.total_amount)}</td>
-                    <td class="whitespace-nowrap">${escapeHtml(e.category_label || '—')}</td>
-                    <td class="whitespace-nowrap text-xs opacity-80">${assocText(e)}</td>
-                    <td class="whitespace-nowrap">${statusBadge(e.status)}${review}</td>
-                    <td class="text-right whitespace-nowrap">
-                        <div class="flex gap-1 justify-end">
-                            ${canEdit ? `<button type="button" class="btn btn-xs btn-ghost fin-edit" data-id="${e.id}" title="Editar">✏️</button>` : ''}
-                            <button type="button" class="btn btn-xs btn-ghost fin-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
-                            ${canSubmit ? `<button type="button" class="btn btn-xs btn-primary fin-submit" data-id="${e.id}">Enviar</button>` : ''}
-                            ${canDelete ? `<button type="button" class="btn btn-xs btn-ghost text-error fin-delete" data-id="${e.id}" title="Excluir">🗑️</button>` : ''}
-                        </div>
+
+            let html = '';
+            summaries.forEach(s => {
+                const expanded = expandedSummaries.has(s.id) || s.status === 'open';
+                if (s.status === 'open') expandedSummaries.add(s.id);
+                html += `
+                <tr class="fin-summary-row cursor-pointer hover:bg-base-200/50" data-summary-id="${s.id}">
+                    <td><button type="button" class="btn btn-xs btn-ghost fin-toggle" data-id="${s.id}">${expanded ? '▼' : '▶'}</button></td>
+                    <td class="font-medium">${escapeHtml(s.description)}</td>
+                    <td>${summaryStatusBadge(s.status)}</td>
+                    <td class="text-right text-green-600 font-medium">${money(s.total_payable)}</td>
+                    <td class="text-right text-red-600">${money(s.total_rejected)}</td>
+                    <td class="whitespace-nowrap">${dateBR(s.payment_date)}</td>
+                    <td class="text-right">${s.expense_count || 0}</td>
+                </tr>`;
+                if (expanded) {
+                    html += `
+                <tr class="fin-detail" data-summary-id="${s.id}">
+                    <td colspan="7" class="p-0">
+                        <table class="table table-xs w-full">
+                            <thead>
+                                <tr class="text-xs opacity-60">
+                                    <th class="w-8"></th>
+                                    <th>Data</th>
+                                    <th>Estabelecimento</th>
+                                    <th class="text-right">Valor</th>
+                                    <th>Categoria</th>
+                                    <th>Associação</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="fin-detail-inner"></tbody>
+                        </table>
                     </td>
                 </tr>`;
-            }).join('');
+                }
+            });
+            tbody.innerHTML = html;
 
-            tbody.querySelectorAll('.fin-row-select').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    if (cb.checked) selectedIds.add(cb.dataset.id);
-                    else selectedIds.delete(cb.dataset.id);
-                    updateBulkSubmitButton();
-                    syncSelectAllCheckbox();
+            tbody.querySelectorAll('.fin-toggle').forEach(btn => {
+                btn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    const id = btn.dataset.id;
+                    if (expandedSummaries.has(id)) expandedSummaries.delete(id);
+                    else expandedSummaries.add(id);
+                    loadLista();
                 });
             });
-            tbody.querySelectorAll('.fin-edit').forEach(btn => {
-                btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+
+            tbody.querySelectorAll('.fin-summary-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const id = row.dataset.summaryId;
+                    if (expandedSummaries.has(id)) expandedSummaries.delete(id);
+                    else expandedSummaries.add(id);
+                    loadLista();
+                });
             });
-            tbody.querySelectorAll('.fin-submit').forEach(btn => {
-                btn.addEventListener('click', () => submitExpense(btn.dataset.id));
+
+            summaries.forEach(s => {
+                if (expandedSummaries.has(s.id) || s.status === 'open') {
+                    loadExpensesForSummary(s.id, tbody);
+                }
             });
-            tbody.querySelectorAll('.fin-delete').forEach(btn => {
-                btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
-            });
-            tbody.querySelectorAll('.fin-receipt').forEach(btn => {
-                btn.addEventListener('click', () => openReceipt(btn.dataset.id));
-            });
-            syncSelectAllCheckbox();
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-error text-sm text-center py-4">${escapeHtml(err.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-error text-sm text-center py-4">${escapeHtml(err.message)}</td></tr>`;
         }
     }
 
@@ -226,14 +324,9 @@
             });
             const ok = (r.submitted || []).length;
             const fail = (r.failed || []).length;
-            if (fail === 0) {
-                showToast(`${ok} reembolso(s) enviado(s).`, 'success');
-            } else if (ok === 0) {
-                const msg = r.failed.map(f => f.error).join('; ');
-                showToast(`Nenhum enviado: ${msg}`, 'error');
-            } else {
-                showToast(`${ok} enviado(s), ${fail} com erro.`, 'warning');
-            }
+            if (fail === 0) showToast(`${ok} reembolso(s) enviado(s).`, 'success');
+            else if (ok === 0) showToast(`Nenhum enviado: ${r.failed.map(f => f.error).join('; ')}`, 'error');
+            else showToast(`${ok} enviado(s), ${fail} com erro.`, 'warning');
             selectedIds.clear();
             refreshAll();
         } catch (err) {
@@ -264,7 +357,6 @@
         }
     }
 
-    // ---------- categorias / clientes ----------
     async function loadCategories() {
         const r = await api('/categories');
         const sel = $('#fin-category');
@@ -272,6 +364,7 @@
         sel.innerHTML = '<option value="">Selecione…</option>' +
             (r.categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
     }
+
     async function loadClients() {
         const r = await api('/clients');
         const sel = $('#fin-client');
@@ -282,7 +375,6 @@
             ).join('');
     }
 
-    // ---------- modal ----------
     function modal() { return $('#fin-edit-modal'); }
 
     function fillForm(e) {
@@ -329,7 +421,9 @@
             const r = await api(`/expenses/${id}`);
             const e = r.expense;
             $('#fin-modal-title').textContent = 'Editar despesa';
-            $('#fin-modal-hint').textContent = 'Revise os dados e envie ao financeiro.';
+            $('#fin-modal-hint').textContent = e.summary_description
+                ? `Lote: ${e.summary_description}. Revise os dados e envie ao financeiro.`
+                : 'Revise os dados e envie ao financeiro.';
             if (e.status === 'extracted' || e.needs_review) {
                 $('#fin-ai-banner').classList.remove('hidden');
             }
@@ -345,21 +439,8 @@
         $('#fin-manual-file-name').textContent = '';
         $('#fin-ai-banner').classList.add('hidden');
         $('#fin-modal-title').textContent = 'Lançar despesa';
-        $('#fin-modal-hint').textContent = 'Preencha os dados e anexe o comprovante.';
+        $('#fin-modal-hint').textContent = 'Será adicionada ao lote em andamento. Anexe o comprovante.';
         fillForm({});
-        modal().showModal();
-    }
-
-    // opens modal directly from an imported expense object (skips extra GET)
-    function openModalForImported(e, aiOk) {
-        pendingManualFile = null;
-        $('#fin-manual-file-name').textContent = '';
-        $('#fin-modal-title').textContent = 'Conferir importação';
-        $('#fin-modal-hint').textContent = aiOk
-            ? 'A IA leu o comprovante. Confira data e valor antes de enviar.'
-            : 'Não foi possível ler automaticamente. Preencha os dados manualmente.';
-        $('#fin-ai-banner').classList.toggle('hidden', !aiOk);
-        fillForm(e);
         modal().showModal();
     }
 
@@ -403,7 +484,6 @@
         }
     }
 
-    // ---------- importação ----------
     const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.pdf'];
 
     function filterValidFiles(fileList) {
@@ -420,7 +500,7 @@
             return;
         }
         if (files.length > MAX_IMPORT) {
-            showToast(`Máximo de ${MAX_IMPORT} arquivos por vez. Selecione menos arquivos.`, 'warning');
+            showToast(`Máximo de ${MAX_IMPORT} arquivos por vez.`, 'warning');
             return;
         }
 
@@ -428,9 +508,7 @@
         const progress = $('#fin-import-progress');
         statusBox.classList.remove('hidden');
         $('#fin-import-status-text').textContent =
-            files.length === 1
-                ? 'Importando 1 comprovante…'
-                : `Importando ${files.length} comprovantes…`;
+            files.length === 1 ? 'Importando 1 comprovante…' : `Importando ${files.length} comprovantes…`;
         if (progress) {
             progress.removeAttribute('value');
             progress.classList.add('progress-indeterminate');
@@ -442,13 +520,20 @@
             const r = await api('/expenses/import-bulk', { method: 'POST', body: fd });
             const created = r.created || 0;
             const failed = (r.failed || []).length;
-            if (failed === 0) {
-                showToast(`${created} comprovante(s) importado(s). Revise na lista e envie.`, 'success');
+            const warnings = r.warnings || [];
+
+            if (failed === 0 && warnings.length === 0) {
+                showToast(`${created} comprovante(s) importado(s). Revise no lote atual.`, 'success');
             } else if (created === 0) {
                 showToast('Nenhum comprovante importado.', 'error');
             } else {
-                showToast(`${created} de ${r.total} importado(s). ${failed} falhou(aram).`, 'warning');
+                showToast(`${created} de ${r.total} importado(s).`, warnings.length ? 'warning' : 'success');
             }
+
+            warnings.forEach(w => {
+                showToast(`${w.filename}: ${w.message}`, 'warning');
+            });
+
             refreshAll();
         } catch (err) {
             showToast(err.message, 'error');
@@ -467,7 +552,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         if (!$('#fin-reembolsos-app')) return;
 
-        // dropzone de importação
         const drop = $('#fin-dropzone');
         const importInput = $('#fin-import-file');
         drop?.addEventListener('click', () => importInput?.click());
@@ -482,25 +566,12 @@
             if (importInput.files?.length) importFiles(importInput.files);
         });
 
-        $('#fin-select-all')?.addEventListener('change', (e) => {
-            const checked = e.target.checked;
-            document.querySelectorAll('.fin-row-select').forEach(cb => {
-                cb.checked = checked;
-                if (checked) selectedIds.add(cb.dataset.id);
-                else selectedIds.delete(cb.dataset.id);
-            });
-            updateBulkSubmitButton();
-            syncSelectAllCheckbox();
-        });
-
         $('#fin-btn-bulk-submit')?.addEventListener('click', () => {
             submitBulk(Array.from(selectedIds));
         });
 
-        // lançar manualmente
         $('#fin-btn-manual')?.addEventListener('click', openManualModal);
 
-        // modal: dropzone de anexo
         const mDrop = $('#fin-manual-dropzone');
         const mFile = $('#fin-manual-file');
         mDrop?.addEventListener('click', () => mFile?.click());
@@ -517,24 +588,20 @@
             if (f) await attachInModal(f);
         });
 
-        // associação -> cliente
         $('#fin-assoc-type')?.addEventListener('change', () => {
             const isCli = $('#fin-assoc-type').value === 'cliente';
             $('#fin-client-wrap').classList.toggle('hidden', !isCli);
         });
 
-        // data / valor
         const dateEl = $('#fin-date');
         dateEl?.addEventListener('click', () => openDatePicker(dateEl));
         dateEl?.addEventListener('focus', () => openDatePicker(dateEl));
         const totalEl = $('#fin-total');
         totalEl?.addEventListener('input', () => formatMoneyInput(totalEl));
 
-        // ações do modal
         $('#fin-btn-save-draft')?.addEventListener('click', () => saveModal(false));
         $('#fin-btn-save-submit')?.addEventListener('click', () => saveModal(true));
 
-        // filtros
         $('#fin-btn-refresh')?.addEventListener('click', refreshAll);
         $('#fin-filter-status')?.addEventListener('change', loadLista);
 
@@ -543,7 +610,6 @@
         refreshAll();
     });
 
-    // anexa comprovante dentro do modal: se já existe expense, sobe na hora; senão guarda
     async function attachInModal(file) {
         const id = $('#fin-edit-id').value || null;
         $('#fin-manual-file-name').textContent = file.name;
@@ -551,7 +617,7 @@
             try {
                 const fd = new FormData();
                 fd.append('file', file);
-                const r = await api(`/expenses/${id}/receipts`, { method: 'POST', body: fd });
+                await api(`/expenses/${id}/receipts`, { method: 'POST', body: fd });
                 showToast('Comprovante anexado.', 'success');
                 const cur = await api(`/expenses/${id}`);
                 renderModalReceipts(cur.expense.receipts || []);

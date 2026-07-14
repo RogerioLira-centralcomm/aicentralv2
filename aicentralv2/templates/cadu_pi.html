@@ -9,9 +9,16 @@
   <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-center gap-2">
-        <h1 class="text-sm font-semibold text-gray-800">PIs</h1>
+        <h1 class="text-sm font-semibold text-gray-800">{% if origem_lista == 'faturamento' %}Faturamento{% else %}PIs{% endif %}</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
-        {% if sub_status_atual|string == '1' %}
+        {% if origem_lista == 'faturamento' %}
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
+        <button type="button" onclick="abrirModalImportarNf()"
+                class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded bg-primary text-primary-content hover:opacity-90 transition-opacity"
+                title="Importar notas fiscais em PDF">
+          <i class="fa-solid fa-file-import text-[9px]"></i> Importar NF (PDF)
+        </button>
+        {% elif sub_status_atual|string == '1' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
         {% elif sub_status_atual|string == '2' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-700">Em configuração</span>
@@ -943,6 +950,10 @@
   <form method="dialog" class="modal-backdrop bg-black/40"><button>close</button></form>
 </dialog>
 
+{% if origem_lista == 'faturamento' and sub_status_atual|string == '4' %}
+{% include 'partials/nf_import.html' %}
+{% endif %}
+
 <style>
 .collapse-camp-row.hidden { display: none; }
 .chevron-camp { transition: transform 0.2s ease; }
@@ -973,6 +984,11 @@ function aplicarFiltros() {
 
   setCookie('cc_filtro_exec', exec, 30);
   setCookie('cc_filtro_mes', mes, 30);
+  if (origemLista === 'faturamento') {
+    setCookie('cc_pi_origem_lista', 'faturamento', 30);
+  } else if (origemLista === 'operacao') {
+    setCookie('cc_pi_origem_lista', 'operacao', 30);
+  }
 
   params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
@@ -1021,6 +1037,10 @@ function filtrarSubStatus(key) {
   }
   if (!needsRedirect) return;
   if (origemLista && !rp.has('origem')) rp.set('origem', origemLista);
+  else if (!rp.has('origem') && subStatusAtual === '4') {
+    var cOrigem = getCookie('cc_pi_origem_lista');
+    if (cOrigem === 'faturamento' || cOrigem === 'operacao') rp.set('origem', cOrigem);
+  }
   rp.set('_restored', '1');
   window.location.href = '/cadu_pi?' + rp.toString();
 })();

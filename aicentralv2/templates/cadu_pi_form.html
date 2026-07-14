@@ -336,7 +336,7 @@
             Abrir em Campanhas PI <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i>
           </a>
           {% if pi.id_sub_status_pi|string == '1' %}
-          <button type="button" onclick="document.getElementById('modal_nova_campanha').showModal()"
+          <button type="button" onclick="abrirModalNovaCampanha()"
              class="px-2 py-1 text-[9px] bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
             <i class="fas fa-plus text-[8px]"></i> Nova Campanha
           </button>
@@ -1292,7 +1292,7 @@
         if (data.success) {
           document.getElementById('modal_confirmar_financeiro').close();
           showToast('PI enviado para faturamento!', 'success');
-          setTimeout(function() { window.location.href = '{{ url_for("cadu_pi_lista", id_sub_status_pi=4) }}'; }, 800);
+          setTimeout(function() { window.location.href = '{{ url_for("cadu_pi_lista", id_sub_status_pi=4, origem="faturamento") }}'; }, 800);
         } else {
           showToast(data.message || 'Erro ao enviar', 'error');
         }
@@ -1503,14 +1503,14 @@
 </script>
 {% endif %}
 
-{% if modo == 'editar' and pi %}
+{% if modo == 'editar' and pi and pi.id_sub_status_pi|string == '1' %}
 <style>
   #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
 </style>
 <dialog id="modal_nova_campanha" class="modal">
   <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
+      <h3 class="font-semibold text-[10px] text-white">Operação: <span id="modal_camp_title_text" class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
       <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
         <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
@@ -1527,6 +1527,8 @@
     </div>
     <div class="px-4 py-3">
       <form id="formNovaCampanha" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+        <input type="hidden" id="camp_form_mode" value="create">
+        <input type="hidden" id="camp_edit_id" value="">
         <input type="hidden" name="id_pi" value="{{ pi.id_pi }}">
         <input type="hidden" name="return_to_pi" value="1">
         <input type="hidden" name="id_cliente" value="{{ pi.id_cliente }}">
@@ -1620,7 +1622,7 @@
 
         </div>
         <div class="mt-3 pt-2 border-t border-gray-100 flex justify-center">
-          <button type="submit"
+          <button type="submit" id="btnSalvarCampanha"
             class="px-6 py-1.5 text-[10px] font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
             Salvar Campanha
           </button>
@@ -1632,6 +1634,16 @@
 </dialog>
 <script>
 (function() {
+  var modal = document.getElementById('modal_nova_campanha');
+  var form = document.getElementById('formNovaCampanha');
+  if (!modal || !form) return;
+
+  var urlNova = {{ url_for('campanha_pi_nova')|tojson }};
+  var urlEditarTpl = {{ url_for('campanha_pi_editar', id_camp=0)|tojson }};
+  var urlExcluirTpl = {{ url_for('campanha_pi_excluir', id_camp=0)|tojson }};
+  var defaultDtInicio = {% if pi.periodo_inicio %}{{ pi.periodo_inicio.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
+  var defaultDtFim = {% if pi.periodo_fim %}{{ pi.periodo_fim.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
+
   function aplicarMascaraNumero(input) {
     input.addEventListener('input', function() {
       var pos = this.selectionStart;
@@ -1656,30 +1668,162 @@
       if (!this.value) this.value = 'R$ 0,00';
     });
   }
-  var modal = document.getElementById('modal_nova_campanha');
-  if (modal) {
-    modal.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
-    modal.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
-  }
+  modal.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
+  modal.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
 
   function parseReal(s) {
     if (!s) return 0;
-    return parseFloat(s.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    return parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
   }
   var rawMax = '{{ pi.vr_platafor_max_pi|default("0") }}';
   var vrPlatMax = parseReal(rawMax);
   var inp = document.getElementById('nova_camp_valor_plat');
   var out = document.getElementById('nova_camp_dist_pct');
-  if (inp && out) {
-    function calc() {
-      var v = parseReal(inp.value);
-      var pct = vrPlatMax > 0 ? (v / vrPlatMax) * 100 : 0;
-      out.value = pct.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '%';
-    }
-    inp.addEventListener('input', function() { setTimeout(calc, 0); });
-    inp.addEventListener('change', function() { setTimeout(calc, 0); });
-    calc();
+
+  function calcDistPct() {
+    if (!inp || !out) return;
+    var v = parseReal(inp.value);
+    var pct = vrPlatMax > 0 ? (v / vrPlatMax) * 100 : 0;
+    out.value = pct.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '%';
   }
+  if (inp && out) {
+    inp.addEventListener('input', function() { setTimeout(calcDistPct, 0); });
+    inp.addEventListener('change', function() { setTimeout(calcDistPct, 0); });
+  }
+
+  function formatRealNum(num) {
+    return 'R$ ' + Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function rawParaFormatado(valor, tipo) {
+    if (valor == null || valor === '') return '';
+    if (tipo === 'real') {
+      var n = Number(valor);
+      return isNaN(n) ? '' : formatRealNum(n);
+    }
+    var digits = String(valor).replace(/[^\d]/g, '');
+    if (!digits) return String(valor);
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function setFormField(name, value) {
+    var el = form.querySelector('[name="' + name + '"]');
+    if (el) el.value = value != null ? value : '';
+  }
+
+  function resetModalForm() {
+    document.getElementById('camp_form_mode').value = 'create';
+    document.getElementById('camp_edit_id').value = '';
+    document.getElementById('modal_camp_title_text').textContent = 'Adicionar Campanha';
+    form.action = urlNova;
+    form.reset();
+    setFormField('id_pi', {{ pi.id_pi|tojson }});
+    setFormField('return_to_pi', '1');
+    setFormField('id_cliente', {{ pi.id_cliente|tojson }});
+    var dtIni = document.getElementById('nova_camp_dt_inicio');
+    var dtFim = document.getElementById('nova_camp_dt_fim');
+    if (dtIni) dtIni.value = defaultDtInicio;
+    if (dtFim) dtFim.value = defaultDtFim;
+    calcDistPct();
+  }
+
+  window.abrirModalNovaCampanha = function() {
+    resetModalForm();
+    modal.showModal();
+  };
+
+  window.abrirModalEditarCampanha = function(c) {
+    if (!c || !c.id_campanha) return;
+    document.getElementById('camp_form_mode').value = 'edit';
+    document.getElementById('camp_edit_id').value = c.id_campanha;
+    document.getElementById('modal_camp_title_text').textContent = 'Editar Campanha';
+    form.action = urlEditarTpl.replace('/0/', '/' + c.id_campanha + '/');
+    setFormField('id_pi', c.id_pi || {{ pi.id_pi|tojson }});
+    setFormField('return_to_pi', '1');
+    setFormField('id_cliente', c.id_cliente || {{ pi.id_cliente|tojson }});
+    setFormField('nome_campanha', c.nome_campanha || '');
+    setFormField('obj_contratados', rawParaFormatado(c.obj_contratados, 'numero'));
+    setFormField('valor_plataforma', rawParaFormatado(c.valor_plataforma, 'real'));
+    setFormField('id_status', c.id_status || '');
+    setFormField('id_criativos_validados', c.id_criativos_validados || '');
+    setFormField('id_plataforma', c.id_plataforma || '');
+    setFormField('id_objetivos_campanha', c.id_objetivos_campanha || '');
+    setFormField('link_dash', c.link_dash || '');
+    var dtIni = document.getElementById('nova_camp_dt_inicio');
+    var dtFim = document.getElementById('nova_camp_dt_fim');
+    if (dtIni) dtIni.value = c.periodo_inicio_iso || '';
+    if (dtFim) dtFim.value = c.periodo_fim_iso || '';
+    calcDistPct();
+    modal.showModal();
+  };
+
+  window.excluirCampanhaPi = function(c) {
+    if (!c || !c.id_campanha) return;
+    if (typeof showConfirm !== 'function') {
+      if (!confirm('Excluir campanha "' + (c.nome_campanha || '') + '"?')) return;
+      fetch(urlExcluirTpl.replace('/0/', '/' + c.id_campanha + '/'), {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
+          if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+        } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
+      });
+      return;
+    }
+    showConfirm({
+      title: 'Excluir Campanha',
+      message: 'Tem certeza que deseja excluir a campanha <strong>' + (c.nome_campanha || '') + '</strong>?',
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: function() {
+        fetch(urlExcluirTpl.replace('/0/', '/' + c.id_campanha + '/'), {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
+            if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+          } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
+        }).catch(function() {
+          if (typeof showToast === 'function') showToast('Erro ao excluir campanha.', 'error');
+        });
+      }
+    });
+  };
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnSalvarCampanha');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvando...';
+    }
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
+        modal.close();
+        if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+      } else if (typeof showToast === 'function') {
+        showToast(data.error || 'Erro ao salvar campanha.', 'error');
+      }
+    })
+    .catch(function() {
+      if (typeof showToast === 'function') showToast('Erro ao salvar campanha.', 'error');
+    })
+    .finally(function() {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Campanha';
+      }
+    });
+  });
 
   function formatReal(num) {
     return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1856,102 +2000,143 @@ function abrirViewCampanha(c) {
 }
 
 (function() {
-  fetch('/api/cadu-pi/{{ pi.id_pi }}/campanhas')
-    .then(r => r.json())
-    .then(data => {
-      const container = document.getElementById('pi_campanhas_container');
-      const badge = document.getElementById('camp_count_badge');
-      if (!data.success || !data.campanhas || data.campanhas.length === 0) {
-        badge.textContent = '0';
-        container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-inbox text-gray-300 text-2xl mb-2"></i><p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
-        return;
-      }
-      const camps = data.campanhas;
-      badge.textContent = camps.length;
-      badge.className = 'ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700';
+  var piEmAprovacao = {{ 'true' if pi.id_sub_status_pi|string == '1' else 'false' }};
 
-      const fmtBrl = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      function siglaMetricaPrecoLista(nomeObjetivo, modalidade) {
-        if (modalidade === 'cpm') return 'CPM';
-        const n = (nomeObjetivo || '').toUpperCase();
-        const keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
-        for (let i = 0; i < keys.length; i++) {
-          if (n.indexOf(keys[i]) !== -1) return keys[i];
-        }
-        return '—';
-      }
+  function parseCampPayload(encoded) {
+    return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+  }
 
-      let html = '';
-
-      camps.forEach(c => {
-        const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-        const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
-          ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
-          : '';
-        const rawAt = c.totalizador_atingido;
-        const rawCt = c.obj_contratados;
-        const objAtingido = typeof rawAt === 'number' ? rawAt : (parseFloat(String(rawAt || '0').replace(/\./g, '').replace(',', '.')) || 0);
-        const objContratado = typeof rawCt === 'number' ? rawCt : (parseFloat(String(rawCt || '0').replace(/\./g, '').replace(',', '.')) || 0);
-        const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
-        const dispAting = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '0';
-        const dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
-        const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
-        const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
-        const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
-
-        html += '<details class="border border-gray-200 rounded-lg mb-2">' +
-          '<summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none [&::-webkit-details-marker]:hidden">' +
-            '<div class="flex items-center gap-2 min-w-0">' +
-              '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400 transition-transform details-open-rotate"></i>' +
-              '<span class="font-medium text-gray-800 truncate">' + (c.nome_campanha || '-') + '</span>' +
-              '<span class="text-[10px] text-gray-400">' + (c.status_nome || '') + '</span>' +
-            '</div>' +
-            '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
-          '</summary>' +
-          '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
-            '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">' +
-              '<div>' +
-                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
-                '<span class="text-gray-600 text-xs">' + periodoLinha1 + periodoLinha2 + '</span>' +
-              '</div>' +
-              '<div>' +
-                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</span>' +
-                (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))
-                  ? '<span class="text-[10px] font-semibold text-emerald-800">' + siglaMetricaPrecoLista(c.objetivo_nome, c.preco_metrica_modalidade) + '</span>' +
-                    '<div class="text-xs font-semibold text-gray-800 mt-0.5">' + fmtBrl(c.preco_metrica_brl) + '</div>'
-                  : '<span class="text-[10px] text-gray-400">—</span>') +
-              '</div>' +
-              '<div>' +
-                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Meta</span>' +
-                '<span class="' + pctColor + ' font-semibold text-xs">' + dispAting + ' / ' + dispContr + '</span>' +
-                '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span>' +
-              '</div>' +
-              '<div>' +
-                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
-                '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
-                '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span>' +
-              '</div>' +
-              '<div class="flex items-end">' +
-                '<button type="button" data-camp-view="' + btoa(unescape(encodeURIComponent(JSON.stringify(c)))) + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                  '<i class="fa-solid fa-eye text-[10px]"></i>Ver campanha</button>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</details>';
+  function bindCampanhaListEvents(container) {
+    container.querySelectorAll('.btn-ver-camp').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        abrirViewCampanha(parseCampPayload(this.dataset.campView));
       });
-      container.innerHTML = html;
-      container.querySelectorAll('.btn-ver-camp').forEach(function(btn) {
+    });
+    if (piEmAprovacao) {
+      container.querySelectorAll('.btn-editar-camp').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
-          var data = JSON.parse(decodeURIComponent(escape(atob(this.dataset.campView))));
-          abrirViewCampanha(data);
+          e.stopPropagation();
+          abrirModalEditarCampanha(parseCampPayload(this.dataset.campEdit));
         });
       });
-    })
-    .catch(() => {
-      document.getElementById('pi_campanhas_container').innerHTML =
-        '<div class="text-center py-4 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
-    });
+      container.querySelectorAll('.btn-excluir-camp').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          excluirCampanhaPi(parseCampPayload(this.dataset.campDelete));
+        });
+      });
+    }
+  }
+
+  window.recarregarCampanhasPi = function() {
+    var container = document.getElementById('pi_campanhas_container');
+    var badge = document.getElementById('camp_count_badge');
+    if (!container) return;
+    container.innerHTML = '<div class="flex items-center justify-center py-4"><i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-2"></i><span class="text-xs text-gray-500">Carregando campanhas...</span></div>';
+
+    fetch('/api/cadu-pi/{{ pi.id_pi }}/campanhas')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.success || !data.campanhas || data.campanhas.length === 0) {
+          badge.textContent = '0';
+          badge.className = 'ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500';
+          container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-inbox text-gray-300 text-2xl mb-2"></i><p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
+          return;
+        }
+        var camps = data.campanhas;
+        badge.textContent = camps.length;
+        badge.className = 'ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700';
+
+        var fmtBrl = function(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+        function siglaMetricaPrecoLista(nomeObjetivo, modalidade) {
+          if (modalidade === 'cpm') return 'CPM';
+          var n = (nomeObjetivo || '').toUpperCase();
+          var keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+          for (var i = 0; i < keys.length; i++) {
+            if (n.indexOf(keys[i]) !== -1) return keys[i];
+          }
+          return '—';
+        }
+
+        var html = '';
+        camps.forEach(function(c) {
+          var periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+          var periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
+            ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
+            : '';
+          var rawAt = c.totalizador_atingido;
+          var rawCt = c.obj_contratados;
+          var objAtingido = typeof rawAt === 'number' ? rawAt : (parseFloat(String(rawAt || '0').replace(/\./g, '').replace(',', '.')) || 0);
+          var objContratado = typeof rawCt === 'number' ? rawCt : (parseFloat(String(rawCt || '0').replace(/\./g, '').replace(',', '.')) || 0);
+          var pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
+          var dispAting = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '0';
+          var dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
+          var gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
+          var previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
+          var pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
+          var payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
+          var botoesExtra = '';
+          if (piEmAprovacao) {
+            botoesExtra =
+              '<button type="button" data-camp-edit="' + payload + '" class="btn-editar-camp text-indigo-600 hover:text-indigo-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                '<i class="fa-solid fa-pen text-[10px]"></i>Editar</button>' +
+              '<button type="button" data-camp-delete="' + payload + '" class="btn-excluir-camp text-red-500 hover:text-red-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                '<i class="fa-solid fa-trash text-[10px]"></i>Excluir</button>';
+          }
+
+          html += '<details class="border border-gray-200 rounded-lg mb-2">' +
+            '<summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none [&::-webkit-details-marker]:hidden">' +
+              '<div class="flex items-center gap-2 min-w-0">' +
+                '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400 transition-transform details-open-rotate"></i>' +
+                '<span class="font-medium text-gray-800 truncate">' + (c.nome_campanha || '-') + '</span>' +
+                '<span class="text-[10px] text-gray-400">' + (c.status_nome || '') + '</span>' +
+              '</div>' +
+              '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
+            '</summary>' +
+            '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
+              '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">' +
+                '<div>' +
+                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
+                  '<span class="text-gray-600 text-xs">' + periodoLinha1 + periodoLinha2 + '</span>' +
+                '</div>' +
+                '<div>' +
+                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</span>' +
+                  (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))
+                    ? '<span class="text-[10px] font-semibold text-emerald-800">' + siglaMetricaPrecoLista(c.objetivo_nome, c.preco_metrica_modalidade) + '</span>' +
+                      '<div class="text-xs font-semibold text-gray-800 mt-0.5">' + fmtBrl(c.preco_metrica_brl) + '</div>'
+                    : '<span class="text-[10px] text-gray-400">—</span>') +
+                '</div>' +
+                '<div>' +
+                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Meta</span>' +
+                  '<span class="' + pctColor + ' font-semibold text-xs">' + dispAting + ' / ' + dispContr + '</span>' +
+                  '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span>' +
+                '</div>' +
+                '<div>' +
+                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
+                  '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
+                  '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span>' +
+                '</div>' +
+                '<div class="flex flex-wrap items-end gap-2">' +
+                  '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                    '<i class="fa-solid fa-eye text-[10px]"></i>Ver campanha</button>' +
+                  botoesExtra +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</details>';
+        });
+        container.innerHTML = html;
+        bindCampanhaListEvents(container);
+      })
+      .catch(function() {
+        container.innerHTML = '<div class="text-center py-4 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
+      });
+  };
+
+  window.recarregarCampanhasPi();
 })();
 </script>
 {% endif %}

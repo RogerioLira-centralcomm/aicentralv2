@@ -1,0 +1,402 @@
+<!-- Modal Importar PDFs de Notas Fiscais (partial reutilizável) -->
+<dialog id="modal_nf_import" class="modal">
+  <div class="modal-box max-w-5xl w-full">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">Importar Notas Fiscais (PDF)</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+    </div>
+
+    <div id="nf_import_step_upload">
+      <div id="nf_import_dropzone"
+           class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+           onclick="document.getElementById('nf_import_files').click()">
+        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+        <p class="text-sm text-gray-600">Arraste PDFs aqui ou clique para selecionar</p>
+        <p class="text-xs text-gray-400 mt-1">Até 20 arquivos, máx. 15 MB cada</p>
+        <input type="file" id="nf_import_files" accept=".pdf,application/pdf" multiple class="hidden"
+               onchange="onNfImportFilesSelected(this.files)">
+      </div>
+      <div id="nf_import_file_list" class="mt-3 text-xs text-gray-500 hidden"></div>
+      <div class="modal-action mt-4">
+        <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
+        <button type="button" id="btn_nf_analisar" class="btn btn-primary btn-sm" disabled onclick="analisarNfImport()">
+          <i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar
+        </button>
+      </div>
+    </div>
+
+    <div id="nf_import_step_preview" class="hidden">
+      <div class="overflow-x-auto max-h-[55vh] border border-gray-200 rounded-lg">
+        <table class="table table-sm w-full text-xs">
+          <thead class="bg-gray-100 sticky top-0">
+            <tr>
+              <th>Arquivo</th>
+              <th>Nº Nota</th>
+              <th>Emissão</th>
+              <th>Valor</th>
+              <th>PI sugerido</th>
+              <th>Match</th>
+              <th>OCR</th>
+            </tr>
+          </thead>
+          <tbody id="nf_import_preview_body"></tbody>
+        </table>
+      </div>
+      <p id="nf_import_preview_hint" class="text-xs text-gray-500 mt-2"></p>
+      <div class="modal-action mt-3">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="voltarNfImportUpload()">Voltar</button>
+        <button type="button" id="btn_nf_confirmar" class="btn btn-primary btn-sm" onclick="confirmarNfImport()">
+          <i class="fa-solid fa-check mr-1"></i> Confirmar importação
+        </button>
+      </div>
+    </div>
+
+    <div id="nf_import_step_result" class="hidden">
+      <div id="nf_import_result_msg" class="text-sm mb-3"></div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-primary btn-sm" onclick="fecharNfImportRecarregar()">Fechar e atualizar</button>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+(function() {
+  if (window.__nfImportLoaded) return;
+  window.__nfImportLoaded = true;
+
+  var nfImportSelectedFiles = [];
+  var nfImportPreviewItems = [];
+
+  function nfImportFmtDate(dt) {
+    if (!dt) return '';
+    var s = String(dt);
+    if (s.length >= 10 && s[4] === '-') return s.substring(0, 10);
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  window.abrirModalImportarNf = function() {
+    nfImportSelectedFiles = [];
+    nfImportPreviewItems = [];
+    document.getElementById('nf_import_files').value = '';
+    document.getElementById('nf_import_file_list').classList.add('hidden');
+    document.getElementById('btn_nf_analisar').disabled = true;
+    document.getElementById('nf_import_step_upload').classList.remove('hidden');
+    document.getElementById('nf_import_step_preview').classList.add('hidden');
+    document.getElementById('nf_import_step_result').classList.add('hidden');
+    document.getElementById('modal_nf_import').showModal();
+  };
+
+  window.onNfImportFilesSelected = function(fileList) {
+    nfImportSelectedFiles = Array.from(fileList || []).filter(function(f) {
+      return f.name && f.name.toLowerCase().endsWith('.pdf');
+    });
+    var listEl = document.getElementById('nf_import_file_list');
+    if (!nfImportSelectedFiles.length) {
+      listEl.classList.add('hidden');
+      document.getElementById('btn_nf_analisar').disabled = true;
+      return;
+    }
+    listEl.innerHTML = nfImportSelectedFiles.map(function(f) {
+      return '<div><i class="fa-regular fa-file-pdf text-red-500 mr-1"></i>' + f.name + '</div>';
+    }).join('');
+    listEl.classList.remove('hidden');
+    document.getElementById('btn_nf_analisar').disabled = false;
+  };
+
+  function fmtValorNfImport(v) {
+    if (v == null || v === '') return '';
+    if (typeof v === 'number') return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return String(v);
+  }
+
+  function matchLabelNfImport(item) {
+    if (item.inconsistencia || item.pi_inexistente) {
+      return '<span class="text-red-600 font-medium">PI inexistente</span>';
+    }
+    var type = item.match_type;
+    if (type === 'unique') return '<span class="text-green-600 font-medium">Único</span>';
+    if (type === 'multiple') return '<span class="text-amber-600 font-medium">Ambíguo</span>';
+    if (type === 'none') return '<span class="text-amber-600 font-medium">Não identificado</span>';
+    return '<span class="text-gray-400">—</span>';
+  }
+
+  function atualizarHintNfImportPreview() {
+    var importaveis = nfImportPreviewItems.filter(function(i) {
+      return i.success && i.importable !== false && !i.inconsistencia && !i.pi_inexistente;
+    }).length;
+    var bloqueados = nfImportPreviewItems.filter(function(i) {
+      return !i.success || i.inconsistencia || i.pi_inexistente;
+    }).length;
+    var hint = importaveis + ' arquivo(s) prontos para importação.';
+    if (bloqueados) {
+      hint += ' ' + bloqueados + ' bloqueado(s) por inconsistência de dados (PI inexistente).';
+    }
+    document.getElementById('nf_import_preview_hint').textContent = hint;
+    document.getElementById('btn_nf_confirmar').disabled = importaveis === 0;
+  }
+
+  function renderNfImportPreview() {
+    var tbody = document.getElementById('nf_import_preview_body');
+    tbody.innerHTML = nfImportPreviewItems.map(function(item, idx) {
+      if (!item.success || item.inconsistencia) {
+        return '<tr class="bg-red-50">' +
+          '<td class="max-w-[120px] truncate" title="' + (item.filename || '') + '">' + (item.filename || '') + '</td>' +
+          '<td colspan="6" class="text-red-700 text-xs">' + (item.error || 'Inconsistência de dados. Não há como importar.') + '</td>' +
+          '</tr>';
+      }
+      if (item.pi_inexistente) {
+        return '<tr class="bg-red-50">' +
+          '<td class="max-w-[120px] truncate">' + (item.filename || '') + '</td>' +
+          '<td colspan="6" class="text-red-700 text-xs">' + (item.error || 'Inconsistência de dados: PI não existe no sistema. Não há como importar.') + '</td>' +
+          '</tr>';
+      }
+      var ex = item.extracted || {};
+      var piOpts = (item.candidates || []).map(function(c) {
+        var sel = (item.id_pi_sugerido && c.id_pi === item.id_pi_sugerido) ? ' selected' : '';
+        var label = (c.codigo_pi_cc || c.id_pi) + ' — ' + (c.cliente_nome || '');
+        return '<option value="' + c.id_pi + '"' + sel + '>' + label + '</option>';
+      }).join('');
+      var piSelect = '';
+      if (item.match_type === 'unique' || item.match_type === 'multiple') {
+        piSelect = '<select class="select select-bordered select-xs w-full max-w-[180px] nf-import-pi" data-idx="' + idx + '">' +
+          '<option value="">— Selecione PI —</option>' + piOpts + '</select>';
+      } else {
+        piSelect = '<input type="text" class="input input-xs w-full max-w-[120px] nf-import-pi-busca" data-idx="' + idx + '" placeholder="Cód. PI" value="' + (item.codigo_pi_referencia || '') + '">' +
+          '<input type="hidden" class="nf-import-pi-id" data-idx="' + idx + '" value="' + (item.id_pi_sugerido || '') + '">' +
+          (item.pi_validado ? '<span class="text-[10px] text-green-600 block mt-0.5">PI validado</span>' : '<span class="text-[10px] text-amber-600 block mt-0.5">Informe e valide o PI</span>');
+      }
+      return '<tr>' +
+        '<td class="max-w-[120px] truncate" title="' + (item.filename || '') + '">' + (item.filename || '') + '</td>' +
+        '<td><input type="text" class="input input-xs w-24 nf-import-numero" data-idx="' + idx + '" value="' + (ex.numero_nota || '') + '"></td>' +
+        '<td><input type="date" class="input input-xs w-32 nf-import-data" data-idx="' + idx + '" value="' + nfImportFmtDate(ex.data_emissao) + '"></td>' +
+        '<td><input type="text" class="input input-xs w-28 nf-import-valor" data-idx="' + idx + '" value="' + fmtValorNfImport(ex.valor_total) + '"></td>' +
+        '<td>' + piSelect + '</td>' +
+        '<td>' + matchLabelNfImport(item) + '</td>' +
+        '<td>' + (item.ocr_ok ? '<span class="text-green-600">OK</span>' : '<span class="text-amber-600">Revisar</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.querySelectorAll('.nf-import-pi-busca').forEach(function(inp) {
+      inp.addEventListener('blur', function() {
+        var idx = parseInt(this.dataset.idx, 10);
+        var termo = this.value.trim();
+        nfImportPreviewItems[idx].codigo_pi_referencia = termo;
+        if (!termo) {
+          nfImportPreviewItems[idx].pi_validado = false;
+          nfImportPreviewItems[idx].pi_inexistente = false;
+          nfImportPreviewItems[idx].id_pi_sugerido = null;
+          renderNfImportPreview();
+          return;
+        }
+        fetch('/api/cadu_pi/localizar?q=' + encodeURIComponent(termo))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.found && data.id_pi && !data.multiple) {
+              nfImportPreviewItems[idx].pi_validado = true;
+              nfImportPreviewItems[idx].pi_inexistente = false;
+              nfImportPreviewItems[idx].id_pi_sugerido = data.id_pi;
+              nfImportPreviewItems[idx].error = null;
+              showToast('PI localizado: ' + (data.codigo || data.id_pi), 'success');
+            } else if (data.multiple) {
+              nfImportPreviewItems[idx].pi_validado = false;
+              nfImportPreviewItems[idx].pi_inexistente = false;
+              showToast('Vários PIs encontrados — refine o código.', 'warning');
+            } else {
+              nfImportPreviewItems[idx].pi_validado = false;
+              nfImportPreviewItems[idx].pi_inexistente = true;
+              nfImportPreviewItems[idx].id_pi_sugerido = null;
+              nfImportPreviewItems[idx].error =
+                'Inconsistência de dados: o PI "' + termo + '" não existe no sistema. Não há como importar.';
+              showToast(nfImportPreviewItems[idx].error, 'error');
+            }
+            renderNfImportPreview();
+          });
+      });
+    });
+
+    atualizarHintNfImportPreview();
+  }
+
+  window.analisarNfImport = function() {
+    if (!nfImportSelectedFiles.length) {
+      showToast('Selecione ao menos um PDF.', 'warning');
+      return;
+    }
+    var btn = document.getElementById('btn_nf_analisar');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analisando...';
+
+    var fd = new FormData();
+    nfImportSelectedFiles.forEach(function(f) { fd.append('files', f); });
+
+    fetch('/api/notas-fiscais/importar/analisar', { method: 'POST', body: fd })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar';
+        if (!res.ok) {
+          showToast(res.j.error || 'Erro na análise', 'error');
+          return;
+        }
+        nfImportPreviewItems = res.j.items || [];
+        renderNfImportPreview();
+        var bloqueados = nfImportPreviewItems.filter(function(i) {
+          return !i.success || i.inconsistencia;
+        }).length;
+        if (bloqueados) {
+          showToast(bloqueados + ' arquivo(s) com inconsistência: PI inexistente. Importação bloqueada.', 'error');
+        }
+        document.getElementById('nf_import_step_upload').classList.add('hidden');
+        document.getElementById('nf_import_step_preview').classList.remove('hidden');
+      })
+      .catch(function(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar';
+        showToast('Erro ao analisar PDFs', 'error');
+        console.error(e);
+      });
+  };
+
+  window.voltarNfImportUpload = function() {
+    document.getElementById('nf_import_step_preview').classList.add('hidden');
+    document.getElementById('nf_import_step_upload').classList.remove('hidden');
+  };
+
+  window.confirmarNfImport = function() {
+    var payloadItems = [];
+    var hasInconsistencia = false;
+
+    nfImportPreviewItems.forEach(function(item, idx) {
+      if (!item.success || item.inconsistencia || item.pi_inexistente) {
+        if (item.inconsistencia || item.pi_inexistente) hasInconsistencia = true;
+        return;
+      }
+
+      var piSel = document.querySelector('.nf-import-pi[data-idx="' + idx + '"]');
+      var piHid = document.querySelector('.nf-import-pi-id[data-idx="' + idx + '"]');
+      var idPi = piSel ? piSel.value : (piHid ? piHid.value : item.id_pi_sugerido);
+      var numero = (document.querySelector('.nf-import-numero[data-idx="' + idx + '"]') || {}).value || '';
+      var dataEm = (document.querySelector('.nf-import-data[data-idx="' + idx + '"]') || {}).value || '';
+      var valor = (document.querySelector('.nf-import-valor[data-idx="' + idx + '"]') || {}).value || '';
+
+      if (item.match_type === 'none' && !item.pi_validado) {
+        hasInconsistencia = true;
+        showToast('Valide o PI informado para "' + (item.filename || '') + '" antes de importar.', 'warning');
+        return;
+      }
+
+      if (!idPi || !numero.trim()) {
+        hasInconsistencia = true;
+        return;
+      }
+
+      var ex = item.extracted || {};
+      payloadItems.push({
+        temp_id: item.temp_id,
+        hash_arquivo: item.hash_arquivo,
+        filename: item.filename,
+        id_pi: parseInt(idPi, 10),
+        codigo_pi_referencia: item.codigo_pi_referencia || ex.codigo_pi || null,
+        numero_nota: numero.trim(),
+        data_emissao: dataEm || ex.data_emissao || null,
+        valor: valor || ex.valor_total,
+        cnpj_tomador: ex.cnpj_tomador,
+        codigo_verificacao: ex.codigo_verificacao,
+        numero_rps: ex.numero_rps,
+        discriminacao: ex.discriminacao,
+        confianca_extracao: ex.confidence,
+        dados_extraidos_json: ex,
+      });
+    });
+
+    if (hasInconsistencia && !payloadItems.length) {
+      showToast('Inconsistência de dados: PI inexistente ou não validado. Não há como importar.', 'error');
+      return;
+    }
+    if (!payloadItems.length) {
+      showToast('Nenhum item válido para importar.', 'warning');
+      return;
+    }
+
+    var btn = document.getElementById('btn_nf_confirmar');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Importando...';
+
+    fetch('/api/notas-fiscais/importar/confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: payloadItems }),
+    })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Confirmar importação';
+        if (!res.ok) {
+          showToast(res.j.error || 'Erro na importação', 'error');
+          return;
+        }
+        var j = res.j;
+        var msg = '<strong>' + (j.total_importados || 0) + '</strong> nota(s) importada(s).';
+        var pisAtualizados = (j.importados || []).filter(function(i) { return i.pi_status_atualizado; }).length;
+        if (pisAtualizados) {
+          msg += ' Status de <strong>' + pisAtualizados + '</strong> PI(s) alterado para <em>NF Emitida</em>.';
+        }
+        if (j.total_erros) {
+          msg += ' <span class="text-red-600">' + j.total_erros + ' erro(s).</span>';
+          if (j.erros && j.erros.length) {
+            msg += '<ul class="list-disc pl-4 mt-2 text-xs">';
+            j.erros.forEach(function(e) {
+              var txt = e.error || '';
+              if (e.inconsistencia) {
+                txt = txt || 'Inconsistência de dados: PI inexistente. Não há como importar.';
+              }
+              msg += '<li>' + (e.filename || ('Linha ' + e.linha)) + ': ' + txt + '</li>';
+            });
+            msg += '</ul>';
+          }
+        }
+        document.getElementById('nf_import_result_msg').innerHTML = msg;
+        document.getElementById('nf_import_step_preview').classList.add('hidden');
+        document.getElementById('nf_import_step_result').classList.remove('hidden');
+      })
+      .catch(function(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Confirmar importação';
+        showToast('Erro ao confirmar importação', 'error');
+        console.error(e);
+      });
+  };
+
+  window.fecharNfImportRecarregar = function() {
+    document.getElementById('modal_nf_import').close();
+    window.location.reload();
+  };
+
+  (function initNfImportDropzone() {
+    var dz = document.getElementById('nf_import_dropzone');
+    if (!dz) return;
+    ['dragenter', 'dragover'].forEach(function(ev) {
+      dz.addEventListener(ev, function(e) {
+        e.preventDefault();
+        dz.classList.add('border-blue-400', 'bg-blue-50');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function(ev) {
+      dz.addEventListener(ev, function(e) {
+        e.preventDefault();
+        dz.classList.remove('border-blue-400', 'bg-blue-50');
+      });
+    });
+    dz.addEventListener('drop', function(e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) {
+        onNfImportFilesSelected(files);
+      }
+    });
+  })();
+})();
+</script>

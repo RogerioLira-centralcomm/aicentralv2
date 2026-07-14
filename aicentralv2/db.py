@@ -9009,6 +9009,45 @@ def obter_sub_status_pi():
         raise e
 
 
+def atualizar_pi_status_nf_emitida(id_pi):
+    """Marca PI como NF Emitida / sub_status Finalizado após criação ou importação de NF."""
+    if not id_pi:
+        return False
+
+    status_row = obter_status_pi_por_descricao('NF Emitida')
+    if not status_row or not status_row.get('id'):
+        logger.warning('Status PI "NF Emitida" não encontrado ao atualizar PI %s', id_pi)
+        return False
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT key FROM cadu_pi_sub_status WHERE display = %s LIMIT 1',
+                ('Finalizado',),
+            )
+            sub_row = cursor.fetchone()
+            sub_key = sub_row['key'] if sub_row else None
+
+            cursor.execute(
+                '''
+                UPDATE cadu_pi
+                SET id_sub_status_pi = %s,
+                    id_status_pi = %s,
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+                RETURNING id_pi
+                ''',
+                (sub_key, status_row['id'], int(id_pi)),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def garantir_colunas_spedy_nota_fiscal():
     """Aplica migração idempotente dos campos Spedy em cadu_pi_nota_fiscal."""
     conn = get_db()
@@ -9057,6 +9096,256 @@ def garantir_colunas_spedy_nota_fiscal():
             ''')
             conn.commit()
             return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def garantir_colunas_importacao_nota_fiscal():
+    """Aplica migração idempotente dos campos de importação PDF em cadu_pi_nota_fiscal."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'origem'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN origem VARCHAR(20);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'nf_arquivo_path'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN nf_arquivo_path VARCHAR(500);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'hash_arquivo'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN hash_arquivo VARCHAR(64);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'cnpj_tomador'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN cnpj_tomador VARCHAR(14);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'codigo_verificacao'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN codigo_verificacao VARCHAR(80);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'numero_rps'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN numero_rps VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'discriminacao'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN discriminacao TEXT;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'dados_extraidos_json'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN dados_extraidos_json JSONB;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'confianca_extracao'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN confianca_extracao NUMERIC(4,3);
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def _only_digits_cnpj(value):
+    if value is None:
+        return ''
+    return re.sub(r'\D', '', str(value))[:14]
+
+
+def _mes_ano_de_data(data_emissao):
+    if not data_emissao:
+        return None, None
+    if isinstance(data_emissao, str):
+        try:
+            data_emissao = datetime.strptime(data_emissao[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return None, None
+    if isinstance(data_emissao, datetime):
+        data_emissao = data_emissao.date()
+    if not isinstance(data_emissao, date):
+        return None, None
+    return data_emissao.month, data_emissao.year
+
+
+def _mes_ref_comp_compativel(mes_ref_comp, mes, ano):
+    if not mes_ref_comp or mes is None or ano is None:
+        return True
+    parts = str(mes_ref_comp).strip().split('/')
+    if len(parts) != 2:
+        return True
+    try:
+        mes_pi = int(parts[0])
+        ano_part = int(parts[1])
+        ano_pi = ano_part if ano_part > 100 else 2000 + ano_part
+    except (TypeError, ValueError):
+        return True
+    return mes_pi == mes and ano_pi == ano
+
+
+def localizar_pi_para_importacao_nf(codigo_pi=None, cnpj_tomador=None, valor=None, data_emissao=None):
+    """
+    Localiza PI para vincular NF importada.
+    Prioridade: codigo_pi → CNPJ + valor + data.
+    Retorna dict com match_type ('unique'|'multiple'|'none'), pi, candidates, match_method.
+    """
+    from aicentralv2.campanha_pi_metrics import parse_brl_float as _parse_brl
+
+    if codigo_pi and str(codigo_pi).strip():
+        row = obter_cadu_pi_por_codigo_ou_id(str(codigo_pi).strip())
+        if row:
+            pi_full = obter_cadu_pi_por_id(row['id_pi'])
+            return {
+                'match_type': 'unique',
+                'pi': pi_full or row,
+                'candidates': [pi_full or row],
+                'match_method': 'codigo_pi',
+            }
+        return {'match_type': 'none', 'pi': None, 'candidates': [], 'match_method': 'codigo_pi'}
+
+    cnpj = _only_digits_cnpj(cnpj_tomador)
+    if len(cnpj) != 14:
+        return {'match_type': 'none', 'pi': None, 'candidates': [], 'match_method': None}
+
+    valor_f = _parse_brl(valor)
+    mes, ano = _mes_ano_de_data(data_emissao)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    p.id_pi,
+                    p.codigo_pi_cc,
+                    p.codigo_pi_ag,
+                    p.vr_liquido_pi,
+                    p.vr_bruto_pi,
+                    p.mes_ref_comp,
+                    p.created_at,
+                    cli.nome_fantasia AS cliente_nome,
+                    cli.cnpj AS cliente_cnpj
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
+                WHERE regexp_replace(COALESCE(cli.cnpj, ''), '[^0-9]', '', 'g') = %s
+                   OR regexp_replace(COALESCE(cli_ag.cnpj, ''), '[^0-9]', '', 'g') = %s
+                ORDER BY p.created_at DESC
+                LIMIT 50
+                ''',
+                (cnpj, cnpj),
+            )
+            rows = cursor.fetchall() or []
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+    if not rows:
+        return {'match_type': 'none', 'pi': None, 'candidates': [], 'match_method': 'cnpj_valor_data'}
+
+    candidatos = []
+    for row in rows:
+        if valor_f is not None:
+            liq = _parse_brl(row.get('vr_liquido_pi'))
+            bru = _parse_brl(row.get('vr_bruto_pi'))
+            valor_ok = (
+                (liq is not None and abs(liq - valor_f) <= 0.05)
+                or (bru is not None and abs(bru - valor_f) <= 0.05)
+            )
+            if not valor_ok:
+                continue
+        if not _mes_ref_comp_compativel(row.get('mes_ref_comp'), mes, ano):
+            continue
+        candidatos.append(dict(row))
+
+    if not candidatos and valor_f is not None:
+        for row in rows:
+            if _mes_ref_comp_compativel(row.get('mes_ref_comp'), mes, ano):
+                candidatos.append(dict(row))
+
+    if not candidatos:
+        candidatos = [dict(r) for r in rows[:5]]
+
+    if len(candidatos) == 1:
+        pi_full = obter_cadu_pi_por_id(candidatos[0]['id_pi'])
+        return {
+            'match_type': 'unique',
+            'pi': pi_full or candidatos[0],
+            'candidates': candidatos,
+            'match_method': 'cnpj_valor_data',
+        }
+    return {
+        'match_type': 'multiple',
+        'pi': None,
+        'candidates': candidatos,
+        'match_method': 'cnpj_valor_data',
+    }
+
+
+def buscar_nota_fiscal_por_hash(hash_arquivo):
+    """Retorna NF existente com o mesmo hash de arquivo (deduplicação)."""
+    if not hash_arquivo:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, numero_nota, id_pi, hash_arquivo
+                FROM cadu_pi_nota_fiscal
+                WHERE hash_arquivo = %s
+                LIMIT 1
+                ''',
+                (hash_arquivo,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def buscar_nota_fiscal_duplicada(numero_nota, id_pi):
+    """Retorna NF existente com mesmo número e PI."""
+    if not numero_nota or not id_pi:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, numero_nota, id_pi
+                FROM cadu_pi_nota_fiscal
+                WHERE id_pi = %s AND LOWER(TRIM(numero_nota)) = LOWER(TRIM(%s))
+                LIMIT 1
+                ''',
+                (id_pi, str(numero_nota)),
+            )
+            return cursor.fetchone()
     except Exception as e:
         conn.rollback()
         raise e
@@ -9114,6 +9403,14 @@ def obter_notas_fiscais_por_pi(id_pi):
                     nf.spedy_transaction_id,
                     nf.spedy_message,
                     nf.spedy_environment,
+                    nf.origem,
+                    nf.nf_arquivo_path,
+                    nf.hash_arquivo,
+                    nf.cnpj_tomador,
+                    nf.codigo_verificacao,
+                    nf.numero_rps,
+                    nf.discriminacao,
+                    nf.confianca_extracao,
                     nfs.descricao as status_descricao
                 FROM cadu_pi_nota_fiscal nf
                 LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
@@ -9149,7 +9446,15 @@ def obter_nota_fiscal_por_id(id_nota):
                     spedy_status,
                     spedy_transaction_id,
                     spedy_message,
-                    spedy_environment
+                    spedy_environment,
+                    origem,
+                    nf_arquivo_path,
+                    hash_arquivo,
+                    cnpj_tomador,
+                    codigo_verificacao,
+                    numero_rps,
+                    discriminacao,
+                    confianca_extracao
                 FROM cadu_pi_nota_fiscal
                 WHERE id = %s
             ''', (id_nota,))
@@ -9171,10 +9476,14 @@ def criar_nota_fiscal(data):
                     googled_pi_arq_ass,
                     spedy_order_id, spedy_invoice_id, spedy_status,
                     spedy_transaction_id, spedy_message, spedy_environment,
+                    origem, nf_arquivo_path, hash_arquivo, cnpj_tomador,
+                    codigo_verificacao, numero_rps, discriminacao,
+                    dados_extraidos_json, confianca_extracao,
                     created_at, updated_at
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 ) RETURNING id
@@ -9194,6 +9503,15 @@ def criar_nota_fiscal(data):
                 data.get('spedy_transaction_id'),
                 data.get('spedy_message'),
                 data.get('spedy_environment'),
+                data.get('origem'),
+                data.get('nf_arquivo_path'),
+                data.get('hash_arquivo'),
+                data.get('cnpj_tomador'),
+                data.get('codigo_verificacao'),
+                data.get('numero_rps'),
+                data.get('discriminacao'),
+                _dv360_io_jsonb(data.get('dados_extraidos_json')),
+                data.get('confianca_extracao'),
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -9220,6 +9538,15 @@ def atualizar_nota_fiscal(id_nota, data):
         'spedy_transaction_id': 'spedy_transaction_id',
         'spedy_message': 'spedy_message',
         'spedy_environment': 'spedy_environment',
+        'origem': 'origem',
+        'nf_arquivo_path': 'nf_arquivo_path',
+        'hash_arquivo': 'hash_arquivo',
+        'cnpj_tomador': 'cnpj_tomador',
+        'codigo_verificacao': 'codigo_verificacao',
+        'numero_rps': 'numero_rps',
+        'discriminacao': 'discriminacao',
+        'confianca_extracao': 'confianca_extracao',
+        'dados_extraidos_json': 'dados_extraidos_json',
     }
 
     sets = []
@@ -9227,7 +9554,10 @@ def atualizar_nota_fiscal(id_nota, data):
     for json_key, col in field_map.items():
         if json_key in data:
             sets.append(f'{col} = %s')
-            params.append(data[json_key])
+            val = data[json_key]
+            if json_key == 'dados_extraidos_json':
+                val = _dv360_io_jsonb(val)
+            params.append(val)
 
     if not sets:
         return False

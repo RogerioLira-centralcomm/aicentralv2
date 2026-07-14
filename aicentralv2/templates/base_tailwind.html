@@ -717,7 +717,7 @@
 
                         <!-- Financeiro -->
                         <li class="mt-2">
-                            <details {% if (request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4') or (request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida') or request.endpoint in ['financeiro.gestao_reembolsos', 'financeiro.meus_reembolsos'] %}open{% endif %}>
+                            <details {% if (request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'faturamento') or (request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida') or request.endpoint in ['financeiro.gestao_reembolsos', 'financeiro.meus_reembolsos'] %}open{% endif %}>
                                 <summary>Financeiro</summary>
                                 <ul>
                                     <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>

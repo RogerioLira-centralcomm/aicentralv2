@@ -32,6 +32,8 @@ from aicentralv2.services.spedy_service import (
     map_spedy_invoice_to_nf_update,
     parse_pi_amount,
 )
+from aicentralv2.services.nf_pdf_extraction import extract_nf_pdf
+from aicentralv2.services.nf_pdf_storage import NfPdfStorage, validate_nf_pdf_upload, compute_file_hash
 from psycopg.errors import UniqueViolation, ForeignKeyViolation, NotNullViolation, ProgrammingError
 
 # Helper para serializar dados para JSON
@@ -1441,6 +1443,8 @@ def init_routes(app):
                     'status_nome': er.get('status_nome', ''),
                     'periodo_inicio': er['periodo_inicio'].strftime('%d/%m/%Y') if er.get('periodo_inicio') else None,
                     'periodo_fim': er['periodo_fim'].strftime('%d/%m/%Y') if er.get('periodo_fim') else None,
+                    'periodo_inicio_iso': er['periodo_inicio'].strftime('%Y-%m-%d') if er.get('periodo_inicio') else None,
+                    'periodo_fim_iso': er['periodo_fim'].strftime('%Y-%m-%d') if er.get('periodo_fim') else None,
                     'periodo_dias': periodo_dias,
                     'obj_contratados': er.get('obj_contratados'),
                     'totalizador_atingido': er.get('totalizador_atingido'),
@@ -1454,6 +1458,13 @@ def init_routes(app):
                     'under': er.get('under', False),
                     'codigo_pi': er.get('codigo_pi', ''),
                     'id_pi': er.get('id_pi'),
+                    'id_cliente': er.get('id_cliente'),
+                    'id_plataforma': er.get('id_plataforma'),
+                    'id_status': er.get('id_status'),
+                    'id_objetivos_campanha': er.get('id_objetivos_campanha'),
+                    'id_criativos_validados': er.get('id_criativos_validados'),
+                    'id_centralx': er.get('id_centralx'),
+                    'mes_ref_comp': er.get('mes_ref_comp'),
                     'preco_metrica_brl': er.get('preco_metrica_brl'),
                     'preco_metrica_modalidade': er.get('preco_metrica_modalidade'),
                 })
@@ -9259,6 +9270,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if status_nf_emitida:
                     filtros['id_status_pi'] = status_nf_emitida['id']
 
+            if origem_lista == 'faturamento':
+                status_faturamento = db.obter_status_pi_por_descricao('Faturamento')
+                if status_faturamento:
+                    filtros['id_status_pi'] = status_faturamento['id']
+                if not filtros.get('id_sub_status_pi'):
+                    filtros['id_sub_status_pi'] = 4
+
             if filtros.get('id_cliente'):
                 cli_info = db.obter_cliente_por_id(filtros['id_cliente'])
                 if cli_info:
@@ -11713,10 +11731,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @login_required
     def campanha_pi_excluir(id_camp):
         """Excluir campanha PI"""
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         try:
             campanha = db.obter_campanha_pi_por_id(id_camp)
 
             if not campanha:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Campanha não encontrada!'}), 404
                 flash('Campanha não encontrada!', 'error')
                 return _redirect_campanhas_pi_preservar_filtros()
 
@@ -11729,13 +11750,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     registro_tipo='campanha_pi',
                     dados_anteriores=dict(campanha)
                 )
-                flash(f'Campanha "{campanha["nome_campanha"]}" excluída com sucesso!', 'success')
+                msg = f'Campanha "{campanha["nome_campanha"]}" excluída com sucesso!'
+                if is_ajax:
+                    return jsonify({'success': True, 'message': msg})
+                flash(msg, 'success')
             else:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Erro ao excluir campanha.'}), 500
                 flash('Erro ao excluir campanha.', 'error')
 
         except Exception as e:
             app.logger.error(f"Erro ao excluir campanha PI: {str(e)}")
-            flash('Não é possível excluir esta campanha pois está em uso.', 'error')
+            err_msg = 'Não é possível excluir esta campanha pois está em uso.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': err_msg}), 500
+            flash(err_msg, 'error')
 
         return _redirect_campanhas_pi_preservar_filtros()
 
@@ -12173,6 +12202,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def notas_fiscais_lista():
         """Lista Notas Fiscais com filtros"""
         try:
+            try:
+                db.garantir_colunas_importacao_nota_fiscal()
+            except Exception as mig_exc:
+                current_app.logger.warning(f'Migração colunas importação NF: {mig_exc}')
+
             filtros = {}
 
             if request.args.get('resp_comercial'):
@@ -12298,17 +12332,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         if id_pi and novo_id:
             try:
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        UPDATE cadu_pi
-                        SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Finalizado' LIMIT 1),
-                            id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'NF Emitida' LIMIT 1),
-                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
-                        WHERE id_pi = %s
-                    ''', (id_pi,))
-                    conn.commit()
+                db.atualizar_pi_status_nf_emitida(id_pi)
             except Exception as e:
-                conn.rollback()
                 app.logger.error(f"Erro ao atualizar status PI após criar NF: {e}")
 
         return jsonify({'id': novo_id}), 201
@@ -12384,20 +12409,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         return jsonify({'success': True})
 
     def _atualizar_pi_status_nf_emitida(id_pi):
-        conn = db.get_db()
         try:
-            with conn.cursor() as cursor:
-                cursor.execute('''
-                    UPDATE cadu_pi
-                    SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Finalizado' LIMIT 1),
-                        id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'NF Emitida' LIMIT 1),
-                        updated_at = date_trunc('second', CURRENT_TIMESTAMP)
-                    WHERE id_pi = %s
-                ''', (id_pi,))
-                conn.commit()
+            return db.atualizar_pi_status_nf_emitida(id_pi)
         except Exception as e:
-            conn.rollback()
-            current_app.logger.error(f'Erro ao atualizar status PI após NF Spedy: {e}')
+            current_app.logger.error(f'Erro ao atualizar status PI após NF: {e}', exc_info=True)
+            return False
 
     def _serializar_nota_fiscal_resposta(nota):
         if not nota:
@@ -12411,6 +12427,319 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if val and hasattr(val, 'strftime'):
                 result[campo] = val.strftime('%Y-%m-%d')
         return result
+
+    MAX_NF_IMPORT_BATCH = 20
+
+    def _mensagem_inconsistencia_pi_nf(match=None, extracted=None, codigo_pi_manual=None):
+        """Mensagem padrão quando o PI referenciado não existe no sistema."""
+        ex = extracted or {}
+        codigo = codigo_pi_manual or ex.get('codigo_pi')
+        match = match or {}
+        if match.get('match_method') == 'codigo_pi' and codigo:
+            return (
+                f'Inconsistência de dados: o PI "{codigo}" constante na nota não existe no sistema. '
+                'Não há como importar.'
+            )
+        if codigo_pi_manual:
+            return (
+                f'Inconsistência de dados: o PI "{codigo_pi_manual}" não existe no sistema. '
+                'Não há como importar.'
+            )
+        return (
+            'Inconsistência de dados: PI não encontrado no sistema. '
+            'Não há como importar esta nota.'
+        )
+
+    def _serializar_pi_candidato_nf(pi_row):
+        if not pi_row:
+            return None
+        return {
+            'id_pi': pi_row.get('id_pi'),
+            'codigo_pi_cc': pi_row.get('codigo_pi_cc'),
+            'codigo_pi_ag': pi_row.get('codigo_pi_ag'),
+            'cliente_nome': pi_row.get('cliente_nome'),
+            'vr_liquido_pi': pi_row.get('vr_liquido_pi') or pi_row.get('valor_liquido'),
+            'vr_bruto_pi': pi_row.get('vr_bruto_pi') or pi_row.get('valor_bruto'),
+        }
+
+    @app.route('/api/notas-fiscais/importar/analisar', methods=['POST'])
+    @login_required
+    def api_notas_fiscais_importar_analisar():
+        """Analisa PDFs de NF: OCR + sugestão de vínculo com PI."""
+        try:
+            db.garantir_colunas_importacao_nota_fiscal()
+        except Exception as exc:
+            current_app.logger.error(f'Migração importação NF: {exc}', exc_info=True)
+            return jsonify({'error': 'Não foi possível preparar a tabela de notas fiscais.'}), 500
+
+        files = request.files.getlist('files')
+        if not files:
+            single = request.files.get('file')
+            files = [single] if single and single.filename else []
+
+        if not files:
+            return jsonify({'error': 'Envie ao menos um arquivo PDF.'}), 400
+        if len(files) > MAX_NF_IMPORT_BATCH:
+            return jsonify({'error': f'Máximo de {MAX_NF_IMPORT_BATCH} arquivos por lote.'}), 400
+
+        storage = NfPdfStorage()
+        items = []
+
+        for file in files:
+            filename = file.filename or 'nota.pdf'
+            ok, err = validate_nf_pdf_upload(file)
+            if not ok:
+                items.append({'success': False, 'filename': filename, 'error': err})
+                continue
+
+            try:
+                file.stream.seek(0)
+                file_bytes = file.stream.read()
+                file.stream.seek(0)
+            except Exception:
+                items.append({'success': False, 'filename': filename, 'error': 'Falha ao ler arquivo.'})
+                continue
+
+            file_hash = compute_file_hash(file_bytes)
+            dup = db.buscar_nota_fiscal_por_hash(file_hash)
+            if dup:
+                items.append({
+                    'success': False,
+                    'filename': filename,
+                    'error': 'PDF já importado anteriormente.',
+                    'duplicate': True,
+                    'existing_nf_id': dup.get('id'),
+                })
+                continue
+
+            ext = os.path.splitext(filename)[1].lower()
+            extracted = None
+            try:
+                extracted = extract_nf_pdf(file_bytes, ext, filename)
+            except Exception as ocr_exc:
+                current_app.logger.error(f'OCR NF {filename}: {ocr_exc}', exc_info=True)
+
+            try:
+                pending = storage.save_pending(file_bytes, filename)
+            except Exception as save_exc:
+                current_app.logger.error(f'Salvar pending NF {filename}: {save_exc}', exc_info=True)
+                items.append({'success': False, 'filename': filename, 'error': 'Falha ao armazenar arquivo.'})
+                continue
+
+            match = db.localizar_pi_para_importacao_nf(
+                codigo_pi=(extracted or {}).get('codigo_pi'),
+                cnpj_tomador=(extracted or {}).get('cnpj_tomador'),
+                valor=(extracted or {}).get('valor_total'),
+                data_emissao=(extracted or {}).get('data_emissao'),
+            )
+
+            if match.get('match_type') == 'none' and (extracted or {}).get('codigo_pi'):
+                storage.delete_pending(pending['temp_id'])
+                items.append({
+                    'success': False,
+                    'importable': False,
+                    'inconsistencia': True,
+                    'filename': filename,
+                    'error': _mensagem_inconsistencia_pi_nf(match, extracted),
+                    'extracted': extracted,
+                    'match_type': 'none',
+                    'match_method': match.get('match_method'),
+                })
+                continue
+
+            pi_sugerido = match.get('pi')
+            importable = match.get('match_type') in ('unique', 'multiple')
+            items.append({
+                'success': True,
+                'importable': importable,
+                'inconsistencia': False,
+                'filename': filename,
+                'temp_id': pending['temp_id'],
+                'hash_arquivo': file_hash,
+                'ocr_ok': bool(extracted),
+                'extracted': extracted,
+                'match_type': match.get('match_type'),
+                'match_method': match.get('match_method'),
+                'id_pi_sugerido': pi_sugerido.get('id_pi') if pi_sugerido else None,
+                'pi_sugerido': _serializar_pi_candidato_nf(pi_sugerido),
+                'candidates': [_serializar_pi_candidato_nf(c) for c in (match.get('candidates') or [])],
+            })
+
+        return jsonify({'items': items})
+
+    @app.route('/api/notas-fiscais/importar/confirmar', methods=['POST'])
+    @login_required
+    def api_notas_fiscais_importar_confirmar():
+        """Confirma importação de NF após revisão do usuário."""
+        try:
+            db.garantir_colunas_importacao_nota_fiscal()
+        except Exception as exc:
+            current_app.logger.error(f'Migração importação NF: {exc}', exc_info=True)
+            return jsonify({'error': 'Não foi possível preparar a tabela de notas fiscais.'}), 500
+
+        payload = request.json or {}
+        linhas = payload.get('items') or []
+        if not isinstance(linhas, list) or not linhas:
+            return jsonify({'error': 'Nenhum item para importar.'}), 400
+
+        conn = db.get_db()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
+                ('NF Emitida',),
+            )
+            row_st = cursor.fetchone()
+            id_status_emitida = row_st['id'] if row_st else 1
+
+        storage = NfPdfStorage()
+        importados = []
+        erros = []
+
+        for idx, linha in enumerate(linhas, 1):
+            if linha.get('skip'):
+                temp_skip = linha.get('temp_id')
+                if temp_skip:
+                    storage.delete_pending(temp_skip)
+                continue
+
+            temp_id = linha.get('temp_id')
+            id_pi = linha.get('id_pi')
+            numero_nota = str(linha.get('numero_nota') or '').strip()
+
+            if not temp_id:
+                erros.append({'linha': idx, 'error': 'Identificador temporário ausente.'})
+                continue
+            if not id_pi:
+                storage.delete_pending(temp_id)
+                erros.append({
+                    'linha': idx,
+                    'filename': linha.get('filename'),
+                    'error': _mensagem_inconsistencia_pi_nf(
+                        extracted={'codigo_pi': linha.get('codigo_pi_referencia')},
+                    ),
+                    'inconsistencia': True,
+                })
+                continue
+            if not numero_nota:
+                erros.append({'linha': idx, 'filename': linha.get('filename'), 'error': 'Número da nota obrigatório.'})
+                continue
+
+            dup_hash = db.buscar_nota_fiscal_por_hash(linha.get('hash_arquivo'))
+            if dup_hash:
+                storage.delete_pending(temp_id)
+                erros.append({
+                    'linha': idx,
+                    'filename': linha.get('filename'),
+                    'error': 'PDF já importado.',
+                    'duplicate': True,
+                    'existing_nf_id': dup_hash.get('id'),
+                })
+                continue
+
+            dup_nf = db.buscar_nota_fiscal_duplicada(numero_nota, id_pi)
+            if dup_nf and not linha.get('atualizar_duplicata'):
+                erros.append({
+                    'linha': idx,
+                    'filename': linha.get('filename'),
+                    'error': 'Já existe NF com este número para o PI.',
+                    'duplicate': True,
+                    'existing_nf_id': dup_nf.get('id'),
+                })
+                continue
+
+            pi = db.obter_cadu_pi_por_id(int(id_pi))
+            if not pi:
+                storage.delete_pending(temp_id)
+                erros.append({
+                    'linha': idx,
+                    'filename': linha.get('filename'),
+                    'error': _mensagem_inconsistencia_pi_nf(
+                        codigo_pi_manual=linha.get('codigo_pi_referencia') or str(id_pi),
+                    ),
+                    'inconsistencia': True,
+                })
+                continue
+
+            data_emissao = linha.get('data_emissao')
+            nf_data = {
+                'id_pi': int(id_pi),
+                'numero_nota': numero_nota,
+                'valor': db.formatar_real_br(linha.get('valor')),
+                'data_emissao': data_emissao,
+                'mes_ref_comp': db.formatar_mes_ref_comp(data_emissao) if data_emissao else None,
+                'status': id_status_emitida,
+                'googled_pi_arq_ass': pi.get('googled_pi_arq_ass'),
+                'origem': 'import_pdf',
+                'hash_arquivo': linha.get('hash_arquivo'),
+                'cnpj_tomador': linha.get('cnpj_tomador'),
+                'codigo_verificacao': linha.get('codigo_verificacao'),
+                'numero_rps': linha.get('numero_rps'),
+                'discriminacao': linha.get('discriminacao'),
+                'dados_extraidos_json': linha.get('dados_extraidos_json'),
+                'confianca_extracao': linha.get('confianca_extracao'),
+            }
+
+            try:
+                if dup_nf and linha.get('atualizar_duplicata'):
+                    id_nota = dup_nf['id']
+                    db.atualizar_nota_fiscal(id_nota, nf_data)
+                else:
+                    id_nota = db.criar_nota_fiscal(nf_data)
+
+                if not id_nota:
+                    erros.append({'linha': idx, 'filename': linha.get('filename'), 'error': 'Falha ao gravar NF.'})
+                    continue
+
+                path = storage.move_pending_to_permanent(temp_id, id_nota)
+                if path:
+                    db.atualizar_nota_fiscal(id_nota, {'nf_arquivo_path': path})
+
+                pi_atualizado = _atualizar_pi_status_nf_emitida(int(id_pi))
+                if not pi_atualizado:
+                    current_app.logger.warning(
+                        'NF %s importada, mas status do PI %s não foi atualizado.',
+                        id_nota, id_pi,
+                    )
+
+                importados.append({
+                    'id_nota': id_nota,
+                    'id_pi': int(id_pi),
+                    'numero_nota': numero_nota,
+                    'filename': linha.get('filename'),
+                    'pi_status_atualizado': pi_atualizado,
+                })
+            except Exception as save_exc:
+                current_app.logger.error(f'Confirmar import NF linha {idx}: {save_exc}', exc_info=True)
+                erros.append({'linha': idx, 'filename': linha.get('filename'), 'error': str(save_exc)})
+
+        return jsonify({
+            'success': True,
+            'importados': importados,
+            'erros': erros,
+            'total_importados': len(importados),
+            'total_erros': len(erros),
+        })
+
+    @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>/pdf', methods=['GET'])
+    @login_required
+    def api_download_nota_fiscal_pdf(id_nota):
+        """Download autenticado do PDF importado da NF."""
+        from flask import send_file, abort
+
+        nota = db.obter_nota_fiscal_por_id(id_nota)
+        if not nota:
+            abort(404)
+        path_key = nota.get('nf_arquivo_path')
+        if not path_key:
+            return jsonify({'error': 'Esta nota não possui PDF anexado.'}), 404
+
+        storage = NfPdfStorage()
+        abs_path = storage.absolute_path(path_key)
+        if not abs_path:
+            return jsonify({'error': 'Arquivo PDF não encontrado.'}), 404
+
+        download_name = f"NF_{nota.get('numero_nota') or id_nota}.pdf"
+        return send_file(abs_path, mimetype='application/pdf', as_attachment=True, download_name=download_name)
 
     def _confirmar_spedy_nota_fiscal(nota, *, atualizar_pi=True):
         """Consulta Spedy, persiste status e retorna payload de confirmação."""

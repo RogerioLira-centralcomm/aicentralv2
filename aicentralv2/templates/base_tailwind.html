@@ -142,6 +142,9 @@
         .nav-dd {
             position: relative;
         }
+        .nav-dd.is-open {
+            z-index: 60;
+        }
         .nav-dd-menu {
             position: absolute;
             top: 100%;
@@ -149,7 +152,7 @@
             min-width: 11.25rem;
             max-width: 13.75rem;
             width: max-content;
-            z-index: 50;
+            z-index: 60;
             visibility: hidden;
             opacity: 0;
             pointer-events: none;
@@ -918,15 +921,17 @@
             document.body.classList.remove('no-fouc');
             document.body.classList.add('fouc-ready');
 
-            // Navbar dropdowns: hover to open, close on leave, overlay + ESC
+            // Navbar dropdowns: hover (com delay) ou clique para abrir; overlay só visual
             var navDdOverlay = document.getElementById('nav-dd-overlay');
+            var NAV_DD_OPEN_DELAY = 250;
+            var NAV_DD_CLOSE_DELAY = 300;
 
             function closeAllNavDd() {
                 document.querySelectorAll('.nav-dd.is-open').forEach(function(dd) {
                     dd.classList.remove('is-open');
                 });
                 if (navDdOverlay) {
-                    navDdOverlay.classList.remove('opacity-100', 'pointer-events-auto');
+                    navDdOverlay.classList.remove('opacity-100');
                     navDdOverlay.classList.add('opacity-0', 'pointer-events-none');
                     navDdOverlay.setAttribute('aria-hidden', 'true');
                 }
@@ -938,8 +943,8 @@
                 });
                 dd.classList.add('is-open');
                 if (navDdOverlay) {
-                    navDdOverlay.classList.add('opacity-100', 'pointer-events-auto');
-                    navDdOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                    navDdOverlay.classList.add('opacity-100');
+                    navDdOverlay.classList.remove('opacity-0');
                     navDdOverlay.setAttribute('aria-hidden', 'false');
                 }
             }
@@ -947,14 +952,35 @@
             window.closeAllNavDd = closeAllNavDd;
 
             document.querySelectorAll('.nav-dd').forEach(function(dd) {
-                var timer;
+                var openTimer;
+                var closeTimer;
+
                 dd.addEventListener('mouseenter', function() {
-                    clearTimeout(timer);
-                    openNavDd(dd);
+                    clearTimeout(closeTimer);
+                    clearTimeout(openTimer);
+                    openTimer = setTimeout(function() {
+                        openNavDd(dd);
+                    }, NAV_DD_OPEN_DELAY);
                 });
                 dd.addEventListener('mouseleave', function() {
-                    timer = setTimeout(closeAllNavDd, 200);
+                    clearTimeout(openTimer);
+                    closeTimer = setTimeout(closeAllNavDd, NAV_DD_CLOSE_DELAY);
                 });
+
+                var trigger = dd.querySelector('[role="button"]');
+                if (trigger) {
+                    trigger.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        clearTimeout(openTimer);
+                        clearTimeout(closeTimer);
+                        if (dd.classList.contains('is-open')) {
+                            closeAllNavDd();
+                        } else {
+                            openNavDd(dd);
+                        }
+                    });
+                }
             });
 
             document.addEventListener('click', function(e) {
@@ -962,10 +988,6 @@
                     closeAllNavDd();
                 }
             });
-
-            if (navDdOverlay) {
-                navDdOverlay.addEventListener('click', closeAllNavDd);
-            }
 
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {

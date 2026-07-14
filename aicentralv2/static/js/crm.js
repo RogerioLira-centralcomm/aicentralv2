@@ -281,9 +281,8 @@
         container.innerHTML = labels.map(label => {
             const lista = grupos.get(label) || [];
             if (!lista.length) return '';
-            const detailsOpen = label === 'Prospecção' || label === 'Ativo' || label === 'Geladeira';
             return `
-                <details class="crm-classificacao-grupo" ${detailsOpen ? 'open' : ''} data-classificacao="${escapeHtml(label)}">
+                <details class="crm-classificacao-grupo" data-classificacao="${escapeHtml(label)}">
                     <summary class="crm-classificacao-header">
                         <span class="crm-classificacao-titulo">${escapeHtml(label)}</span>
                         <span class="crm-classificacao-count">${lista.length}</span>

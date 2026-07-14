@@ -138,10 +138,11 @@
             font-weight: 600;
         }
 
-        /* Navbar dropdown - pure JS controlled */
+        /* Navbar dropdown - hover abre; JS controla overlay */
         .nav-dd {
             position: relative;
         }
+        .nav-dd:hover,
         .nav-dd.is-open {
             z-index: 60;
         }
@@ -157,12 +158,13 @@
             opacity: 0;
             pointer-events: none;
             transform: translateY(-4px);
-            transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms;
+            transition: opacity 120ms ease-out, transform 120ms ease-out, visibility 120ms;
         }
         .nav-dd-end > .nav-dd-menu {
             left: auto;
             right: 0;
         }
+        .nav-dd:hover > .nav-dd-menu,
         .nav-dd.is-open > .nav-dd-menu {
             visibility: visible;
             opacity: 1;
@@ -173,10 +175,10 @@
             content: '';
             display: block;
             position: absolute;
-            top: -12px;
+            top: -16px;
             left: 0;
             right: 0;
-            height: 12px;
+            height: 16px;
         }
         .nav-dd-menu li > a {
             cursor: pointer;
@@ -481,9 +483,11 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-max min-w-[180px] max-w-[220px] border border-base-200">
-                            <li><a href="{{ url_for('financeiro.meus_reembolsos') }}" class="{% if request.endpoint == 'financeiro.meus_reembolsos' %}active{% endif %}">Meus Reembolsos</a></li>
+                            <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'faturamento' %}active{% endif %}">Em faturamento</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', origem='nf_emitida') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida' %}active{% endif %}">NF Emitida</a></li>
+                            <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">Reembolsos</span></li>
+                            <li><a href="{{ url_for('financeiro.meus_reembolsos') }}" class="{% if request.endpoint == 'financeiro.meus_reembolsos' %}active{% endif %}">Meus Reembolsos</a></li>
                             {% if session.get('is_finance_admin') %}
                             <li><a href="{{ url_for('financeiro.gestao_reembolsos') }}" class="{% if request.endpoint == 'financeiro.gestao_reembolsos' %}active{% endif %}">Gestão de Reembolsos</a></li>
                             {% endif %}
@@ -716,11 +720,7 @@
                             <details {% if (request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4') or (request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida') or request.endpoint in ['financeiro.gestao_reembolsos', 'financeiro.meus_reembolsos'] %}open{% endif %}>
                                 <summary>Financeiro</summary>
                                 <ul>
-                                    <li>
-                                        <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="{% if request.endpoint == 'financeiro.meus_reembolsos' %}active{% endif %}">
-                                            Meus Reembolsos
-                                        </a>
-                                    </li>
+                                    <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>
                                     <li>
                                         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'faturamento' %}active{% endif %}">
                                             Em faturamento
@@ -729,6 +729,12 @@
                                     <li>
                                         <a href="{{ url_for('cadu_pi_lista', origem='nf_emitida') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida' %}active{% endif %}">
                                             NF Emitida
+                                        </a>
+                                    </li>
+                                    <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">Reembolsos</span></li>
+                                    <li>
+                                        <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="{% if request.endpoint == 'financeiro.meus_reembolsos' %}active{% endif %}">
+                                            Meus Reembolsos
                                         </a>
                                     </li>
                                     {% if session.get('is_finance_admin') %}
@@ -921,10 +927,9 @@
             document.body.classList.remove('no-fouc');
             document.body.classList.add('fouc-ready');
 
-            // Navbar dropdowns: hover (com delay) ou clique para abrir; overlay só visual
+            // Navbar dropdowns: abre no hover, fecha ao sair
             var navDdOverlay = document.getElementById('nav-dd-overlay');
-            var NAV_DD_OPEN_DELAY = 250;
-            var NAV_DD_CLOSE_DELAY = 300;
+            var NAV_DD_CLOSE_DELAY = 280;
 
             function closeAllNavDd() {
                 document.querySelectorAll('.nav-dd.is-open').forEach(function(dd) {
@@ -952,35 +957,15 @@
             window.closeAllNavDd = closeAllNavDd;
 
             document.querySelectorAll('.nav-dd').forEach(function(dd) {
-                var openTimer;
                 var closeTimer;
 
                 dd.addEventListener('mouseenter', function() {
                     clearTimeout(closeTimer);
-                    clearTimeout(openTimer);
-                    openTimer = setTimeout(function() {
-                        openNavDd(dd);
-                    }, NAV_DD_OPEN_DELAY);
+                    openNavDd(dd);
                 });
                 dd.addEventListener('mouseleave', function() {
-                    clearTimeout(openTimer);
                     closeTimer = setTimeout(closeAllNavDd, NAV_DD_CLOSE_DELAY);
                 });
-
-                var trigger = dd.querySelector('[role="button"]');
-                if (trigger) {
-                    trigger.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        clearTimeout(openTimer);
-                        clearTimeout(closeTimer);
-                        if (dd.classList.contains('is-open')) {
-                            closeAllNavDd();
-                        } else {
-                            openNavDd(dd);
-                        }
-                    });
-                }
             });
 
             document.addEventListener('click', function(e) {

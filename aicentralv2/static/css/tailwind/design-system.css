@@ -825,6 +825,49 @@ html body select option {
     color: #ffffff !important;
 }
 
+/*
+ * Modal de cliente (Clientes + CRM): scroll vertical quando necessário, nunca horizontal.
+ */
+dialog.modal.modal-cliente-dialog {
+    align-items: flex-start !important;
+    padding: 1rem 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+dialog.modal.modal-cliente-dialog .modal-cliente-box.modal-box {
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    margin: auto;
+}
+
+dialog.modal.modal-cliente-dialog .modal-cliente-body {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+}
+
+/* Lista de contatos no modal */
+#lista_contatos_aba {
+    max-height: 30vh;
+    overflow-y: auto;
+    overflow-x: hidden !important;
+    font-size: 9px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#lista_contatos_aba > div {
+    font-size: 9px;
+    line-height: 1.2;
+}
+
+#lista_contatos_aba * {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
 /* Utility classes */
 .text-truncate {
     overflow: hidden;

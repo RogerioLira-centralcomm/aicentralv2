@@ -96,6 +96,10 @@
             </select>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
+            <label class="flex items-center gap-2 cursor-pointer select-none text-sm">
+                <input type="checkbox" id="fin-select-all" class="checkbox checkbox-xs" title="Marcar todos os elegíveis" />
+                <span>Marcar todos</span>
+            </label>
             <button type="button" class="btn btn-sm btn-primary" id="fin-btn-bulk-submit" disabled>Enviar selecionados (0)</button>
             <button type="button" class="btn btn-sm" id="fin-btn-refresh">Atualizar</button>
         </div>
@@ -202,5 +206,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=6"></script>
 {% endblock %}

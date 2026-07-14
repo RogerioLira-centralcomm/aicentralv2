@@ -130,11 +130,42 @@
 
     function syncSelectAllCheckbox() {
         const master = $('#fin-select-all');
-        if (!master) return;
         const boxes = document.querySelectorAll('.fin-row-select');
         const checked = document.querySelectorAll('.fin-row-select:checked');
-        master.indeterminate = checked.length > 0 && checked.length < boxes.length;
-        master.checked = boxes.length > 0 && checked.length === boxes.length;
+        if (master) {
+            master.indeterminate = checked.length > 0 && checked.length < boxes.length;
+            master.checked = boxes.length > 0 && checked.length === boxes.length;
+        }
+        document.querySelectorAll('.fin-detail-select-all').forEach(detailMaster => {
+            const block = detailMaster.closest('table');
+            if (!block) return;
+            const localBoxes = block.querySelectorAll('.fin-row-select');
+            const localChecked = block.querySelectorAll('.fin-row-select:checked');
+            detailMaster.indeterminate = localChecked.length > 0 && localChecked.length < localBoxes.length;
+            detailMaster.checked = localBoxes.length > 0 && localChecked.length === localBoxes.length;
+        });
+    }
+
+    function setRowSelection(checked) {
+        document.querySelectorAll('.fin-row-select').forEach(cb => {
+            cb.checked = checked;
+            if (checked) selectedIds.add(cb.dataset.id);
+            else selectedIds.delete(cb.dataset.id);
+        });
+        updateBulkSubmitButton();
+        syncSelectAllCheckbox();
+    }
+
+    function setDetailSelection(detailMaster, checked) {
+        const block = detailMaster.closest('table');
+        if (!block) return;
+        block.querySelectorAll('.fin-row-select').forEach(cb => {
+            cb.checked = checked;
+            if (checked) selectedIds.add(cb.dataset.id);
+            else selectedIds.delete(cb.dataset.id);
+        });
+        updateBulkSubmitButton();
+        syncSelectAllCheckbox();
     }
 
     function assocText(e) {
@@ -182,6 +213,11 @@
                 syncSelectAllCheckbox();
             });
         });
+        container.querySelectorAll('.fin-detail-select-all').forEach(master => {
+            master.addEventListener('change', () => {
+                setDetailSelection(master, master.checked);
+            });
+        });
         container.querySelectorAll('.fin-edit').forEach(btn => {
             btn.addEventListener('click', () => openEditModal(btn.dataset.id));
         });
@@ -222,6 +258,11 @@
         const tbody = $('#fin-lista');
         selectedIds.clear();
         updateBulkSubmitButton();
+        const masterAll = $('#fin-select-all');
+        if (masterAll) {
+            masterAll.checked = false;
+            masterAll.indeterminate = false;
+        }
         try {
             const r = await api('/my/summaries' + qs);
             const summaries = r.summaries || [];
@@ -251,7 +292,9 @@
                         <table class="table table-xs w-full">
                             <thead>
                                 <tr class="text-xs opacity-60">
-                                    <th class="w-8"></th>
+                                    <th class="w-8">
+                                        <input type="checkbox" class="checkbox checkbox-xs fin-detail-select-all" title="Marcar todos neste lote" />
+                                    </th>
                                     <th>Data</th>
                                     <th>Estabelecimento</th>
                                     <th class="text-right">Valor</th>
@@ -568,6 +611,10 @@
 
         $('#fin-btn-bulk-submit')?.addEventListener('click', () => {
             submitBulk(Array.from(selectedIds));
+        });
+
+        $('#fin-select-all')?.addEventListener('change', (e) => {
+            setRowSelection(e.target.checked);
         });
 
         $('#fin-btn-manual')?.addEventListener('click', openManualModal);

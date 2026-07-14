@@ -62,11 +62,11 @@
         </div>
         <div class="fin-field">
             <label for="fin-f-from" class="fin-label">De</label>
-            <input type="date" id="fin-f-from" class="input input-bordered input-sm w-full" />
+            <input type="date" id="fin-f-from" class="input input-bordered input-sm w-full cursor-pointer" />
         </div>
         <div class="fin-field">
             <label for="fin-f-to" class="fin-label">Até</label>
-            <input type="date" id="fin-f-to" class="input input-bordered input-sm w-full" />
+            <input type="date" id="fin-f-to" class="input input-bordered input-sm w-full cursor-pointer" />
         </div>
         <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end">
             <button type="button" class="btn btn-sm btn-ghost" id="fin-f-clear">Limpar</button>
@@ -128,7 +128,7 @@
     <input type="hidden" id="fin-adm-paid-id" />
     <div class="fin-field mb-4">
       <label for="fin-adm-paid-date" class="fin-label">Data de pagamento *</label>
-      <input type="date" id="fin-adm-paid-date" class="input input-bordered input-sm w-full" required />
+      <input type="date" id="fin-adm-paid-date" class="input input-bordered input-sm w-full cursor-pointer" required />
     </div>
     <div class="modal-action">
       <button type="button" class="btn btn-sm btn-ghost" id="fin-adm-paid-cancel">Cancelar</button>
@@ -140,5 +140,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro_gestao.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/financeiro_gestao.js') }}?v=4"></script>
 {% endblock %}

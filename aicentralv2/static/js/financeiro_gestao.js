@@ -54,6 +54,21 @@
         else alert(msg);
     }
 
+    function openDatePicker(el) {
+        if (!el) return;
+        try { if (typeof el.showPicker === 'function') el.showPicker(); }
+        catch (_) { el.focus(); }
+    }
+
+    function wireDatePickers() {
+        ['#fin-f-from', '#fin-f-to', '#fin-adm-paid-date'].forEach(sel => {
+            const el = $(sel);
+            if (!el) return;
+            el.addEventListener('click', () => openDatePicker(el));
+            el.addEventListener('focus', () => openDatePicker(el));
+        });
+    }
+
     async function api(path, opts = {}) {
         const resp = await fetch(BASE + path, {
             headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
@@ -298,6 +313,7 @@
         $('#fin-adm-paid-date').value = new Date().toISOString().slice(0, 10);
         $('#fin-adm-paid-hint').textContent = `Concluir lote ${desc || ''}. Informe a data de pagamento.`;
         paidModal().showModal();
+        openDatePicker($('#fin-adm-paid-date'));
     }
 
     async function confirmPaid() {
@@ -365,6 +381,7 @@
         $('#fin-adm-paid-cancel')?.addEventListener('click', () => paidModal().close());
 
         wireFilterAutoApply();
+        wireDatePickers();
         loadFilters().then(refreshAll);
     });
 })();

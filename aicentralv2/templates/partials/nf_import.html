@@ -1,51 +1,141 @@
-<!-- Modal Importar PDFs de Notas Fiscais (partial reutilizável) -->
+<!-- Modal Importar PDF de Nota Fiscal (por PI na lista de faturamento) -->
 <dialog id="modal_nf_import" class="modal">
-  <div class="modal-box max-w-5xl w-full">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-bold text-lg">Importar Notas Fiscais (PDF)</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+  <div class="modal-box max-w-2xl w-full max-h-[90vh] flex flex-col p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-lg">Importar Nota Fiscal (PDF)</h3>
+      <button type="button" class="btn btn-ghost btn-sm btn-circle" onclick="fecharModalNfImport()" aria-label="Fechar">✕</button>
+    </div>
+
+    <div id="nf_import_pi_context" class="hidden mb-4 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs">
+      <div class="font-semibold text-teal-800 mb-1" id="nf_import_pi_titulo"></div>
+      <div class="text-teal-700" id="nf_import_pi_detalhes"></div>
     </div>
 
     <div id="nf_import_step_upload">
-      <div id="nf_import_dropzone"
-           class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
-           onclick="document.getElementById('nf_import_files').click()">
-        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-        <p class="text-sm text-gray-600">Arraste PDFs aqui ou clique para selecionar</p>
-        <p class="text-xs text-gray-400 mt-1">Até 20 arquivos, máx. 15 MB cada</p>
-        <input type="file" id="nf_import_files" accept=".pdf,application/pdf" multiple class="hidden"
-               onchange="onNfImportFilesSelected(this.files)">
+      <input type="file" id="nf_import_files" accept="application/pdf,.pdf" class="sr-only">
+
+      <label for="nf_import_files" id="nf_import_dropzone"
+             class="block border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 hover:border-teal-400 cursor-pointer transition-colors">
+        <div id="nf_import_dropzone_empty">
+          <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+          <p class="text-sm text-gray-600">Arraste o PDF aqui ou clique para selecionar</p>
+          <p class="text-xs text-gray-400 mt-1">1 arquivo PDF, máx. 15 MB</p>
+        </div>
+        <div id="nf_import_dropzone_selected" class="hidden">
+          <i class="fa-solid fa-file-pdf text-4xl text-red-500 mb-2"></i>
+          <p id="nf_import_selected_name" class="text-sm font-semibold text-gray-800 break-all"></p>
+          <p class="text-xs text-teal-600 mt-2">Clique para trocar o arquivo</p>
+        </div>
+      </label>
+
+      <p id="nf_import_file_error" class="hidden mt-2 text-xs text-red-600"></p>
+      <div id="nf_import_validation_errors" class="hidden mt-3 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
+        <p class="font-semibold mb-1"><i class="fa-solid fa-circle-xmark mr-1"></i>Inconsistências — importação bloqueada</p>
+        <ul id="nf_import_validation_list" class="list-disc pl-4 space-y-1"></ul>
       </div>
-      <div id="nf_import_file_list" class="mt-3 text-xs text-gray-500 hidden"></div>
+
       <div class="modal-action mt-4">
-        <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
-        <button type="button" id="btn_nf_analisar" class="btn btn-primary btn-sm" disabled onclick="analisarNfImport()">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="fecharModalNfImport()">Cancelar</button>
+        <button type="button" id="btn_nf_analisar" class="btn btn-primary btn-sm" disabled>
           <i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar
         </button>
       </div>
     </div>
 
-    <div id="nf_import_step_preview" class="hidden">
-      <div class="overflow-x-auto max-h-[55vh] border border-gray-200 rounded-lg">
-        <table class="table table-sm w-full text-xs">
-          <thead class="bg-gray-100 sticky top-0">
-            <tr>
-              <th>Arquivo</th>
-              <th>Nº Nota</th>
-              <th>Emissão</th>
-              <th>Valor</th>
-              <th>PI sugerido</th>
-              <th>Match</th>
-              <th>OCR</th>
-            </tr>
-          </thead>
-          <tbody id="nf_import_preview_body"></tbody>
-        </table>
+    <div id="nf_import_step_preview" class="hidden flex-1 overflow-y-auto max-h-[70vh]">
+      <div id="nf_import_validacao_ok" class="hidden mb-3 p-2 rounded bg-green-50 border border-green-200 text-xs text-green-800"></div>
+      <div id="nf_import_avisos" class="hidden mb-3 p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800"></div>
+      <div class="space-y-4 text-sm pr-1">
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Arquivo</label>
+          <div id="nf_import_preview_filename" class="font-medium text-gray-800 truncate"></div>
+        </div>
+
+        <div>
+          <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Identificação</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Nº Nota</label>
+              <input type="text" id="nf_import_preview_numero" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Nº RPS/DPS</label>
+              <input type="text" id="nf_import_preview_rps" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Data emissão</label>
+              <input type="date" id="nf_import_preview_data" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Pgto previsto</label>
+              <input type="date" id="nf_import_preview_pgto" class="input input-bordered input-sm w-full">
+              <p class="text-[10px] text-gray-400 mt-0.5">Sugerido: emissão + 30 dias (editável)</p>
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs text-gray-500 block mb-1">Código verificação / chave</label>
+              <input type="text" id="nf_import_preview_cod_verif" class="input input-bordered input-sm w-full font-mono text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Valores</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Valor do serviço</label>
+              <input type="text" id="nf_import_preview_valor" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Valor líquido NF</label>
+              <input type="text" id="nf_import_preview_valor_liquido" class="input input-bordered input-sm w-full">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Impostos</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">ISSQN</label>
+              <input type="text" id="nf_import_preview_issqn" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">PIS</label>
+              <input type="text" id="nf_import_preview_pis" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">COFINS</label>
+              <input type="text" id="nf_import_preview_cofins" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">IRRF</label>
+              <input type="text" id="nf_import_preview_irrf" class="input input-bordered input-sm w-full">
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Alíq. ISSQN (%)</label>
+              <input type="text" id="nf_import_preview_aliquota_issqn" class="input input-bordered input-sm w-full">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Tomador</p>
+          <label class="text-xs text-gray-500 block mb-1">CNPJ</label>
+          <input type="text" id="nf_import_preview_cnpj" class="input input-bordered input-sm w-full font-mono text-xs bg-gray-50" readonly>
+        </div>
+
+        <div>
+          <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Descrição</p>
+          <textarea id="nf_import_preview_discriminacao" rows="6"
+                    class="textarea textarea-bordered textarea-sm w-full text-xs"></textarea>
+        </div>
+
+        <div id="nf_import_preview_ocr" class="text-xs text-gray-500"></div>
       </div>
-      <p id="nf_import_preview_hint" class="text-xs text-gray-500 mt-2"></p>
-      <div class="modal-action mt-3">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="voltarNfImportUpload()">Voltar</button>
-        <button type="button" id="btn_nf_confirmar" class="btn btn-primary btn-sm" onclick="confirmarNfImport()">
+      <div class="modal-action mt-4 sticky bottom-0 bg-base-100 pt-2 border-t border-gray-100">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="fecharModalNfImport()">Cancelar</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn_nf_voltar">Voltar</button>
+        <button type="button" id="btn_nf_confirmar" class="btn btn-primary btn-sm">
           <i class="fa-solid fa-check mr-1"></i> Confirmar importação
         </button>
       </div>
@@ -54,11 +144,11 @@
     <div id="nf_import_step_result" class="hidden">
       <div id="nf_import_result_msg" class="text-sm mb-3"></div>
       <div class="modal-action">
-        <button type="button" class="btn btn-primary btn-sm" onclick="fecharNfImportRecarregar()">Fechar e atualizar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn_nf_fechar">Fechar e atualizar</button>
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="modal-backdrop"><button type="submit" aria-label="Fechar">close</button></form>
 </dialog>
 
 <script>
@@ -66,8 +156,23 @@
   if (window.__nfImportLoaded) return;
   window.__nfImportLoaded = true;
 
-  var nfImportSelectedFiles = [];
-  var nfImportPreviewItems = [];
+  var nfImportSelectedFile = null;
+  var nfImportPreviewItem = null;
+  var nfImportIdPi = null;
+  var nfImportPiInfo = null;
+  var nfImportPgtoManual = false;
+
+  function nfToast(msg, type) {
+    if (typeof showToast === 'function') showToast(msg, type || 'info');
+  }
+
+  function isPdfFile(file) {
+    if (!file) return false;
+    var name = (file.name || '').toLowerCase();
+    if (name.endsWith('.pdf')) return true;
+    var mime = (file.type || '').toLowerCase();
+    return mime === 'application/pdf' || mime === 'application/x-pdf';
+  }
 
   function nfImportFmtDate(dt) {
     if (!dt) return '';
@@ -78,160 +183,261 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  window.abrirModalImportarNf = function() {
-    nfImportSelectedFiles = [];
-    nfImportPreviewItems = [];
-    document.getElementById('nf_import_files').value = '';
-    document.getElementById('nf_import_file_list').classList.add('hidden');
-    document.getElementById('btn_nf_analisar').disabled = true;
-    document.getElementById('nf_import_step_upload').classList.remove('hidden');
-    document.getElementById('nf_import_step_preview').classList.add('hidden');
-    document.getElementById('nf_import_step_result').classList.add('hidden');
-    document.getElementById('modal_nf_import').showModal();
-  };
-
-  window.onNfImportFilesSelected = function(fileList) {
-    nfImportSelectedFiles = Array.from(fileList || []).filter(function(f) {
-      return f.name && f.name.toLowerCase().endsWith('.pdf');
-    });
-    var listEl = document.getElementById('nf_import_file_list');
-    if (!nfImportSelectedFiles.length) {
-      listEl.classList.add('hidden');
-      document.getElementById('btn_nf_analisar').disabled = true;
-      return;
-    }
-    listEl.innerHTML = nfImportSelectedFiles.map(function(f) {
-      return '<div><i class="fa-regular fa-file-pdf text-red-500 mr-1"></i>' + f.name + '</div>';
-    }).join('');
-    listEl.classList.remove('hidden');
-    document.getElementById('btn_nf_analisar').disabled = false;
-  };
-
-  function fmtValorNfImport(v) {
+  function fmtAliquotaNfImport(v) {
     if (v == null || v === '') return '';
-    if (typeof v === 'number') return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (typeof v === 'number') return String(v).replace('.', ',');
     return String(v);
   }
 
-  function matchLabelNfImport(item) {
-    if (item.inconsistencia || item.pi_inexistente) {
-      return '<span class="text-red-600 font-medium">PI inexistente</span>';
+  function fmtValorNfImport(val) {
+    if (val == null || val === '') return '';
+    var n = parseFloat(String(val).replace('R$', '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
+    if (isNaN(n)) return String(val);
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function calcDataPagamentoPrevisto(dataEmissao) {
+    if (!dataEmissao) return '';
+    var parts = String(dataEmissao).substring(0, 10).split('-');
+    if (parts.length !== 3) return '';
+    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + 30);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function onNfImportEmissaoChange() {
+    if (nfImportPgtoManual) return;
+    var dataEm = document.getElementById('nf_import_preview_data').value;
+    var pgtoEl = document.getElementById('nf_import_preview_pgto');
+    if (pgtoEl && dataEm) pgtoEl.value = calcDataPagamentoPrevisto(dataEm);
+  }
+
+  function onNfImportPgtoChange() {
+    nfImportPgtoManual = true;
+  }
+
+  function fmtCnpjDisplay(cnpj) {
+    if (!cnpj) return '';
+    var d = String(cnpj).replace(/\D/g, '');
+    if (d.length !== 14) return cnpj;
+    return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  }
+
+  function showNfImportFileError(msg) {
+    var el = document.getElementById('nf_import_file_error');
+    if (!el) return;
+    if (msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    } else {
+      el.textContent = '';
+      el.classList.add('hidden');
     }
-    var type = item.match_type;
-    if (type === 'unique') return '<span class="text-green-600 font-medium">Único</span>';
-    if (type === 'multiple') return '<span class="text-amber-600 font-medium">Ambíguo</span>';
-    if (type === 'none') return '<span class="text-amber-600 font-medium">Não identificado</span>';
-    return '<span class="text-gray-400">—</span>';
   }
 
-  function atualizarHintNfImportPreview() {
-    var importaveis = nfImportPreviewItems.filter(function(i) {
-      return i.success && i.importable !== false && !i.inconsistencia && !i.pi_inexistente;
-    }).length;
-    var bloqueados = nfImportPreviewItems.filter(function(i) {
-      return !i.success || i.inconsistencia || i.pi_inexistente;
-    }).length;
-    var hint = importaveis + ' arquivo(s) prontos para importação.';
-    if (bloqueados) {
-      hint += ' ' + bloqueados + ' bloqueado(s) por inconsistência de dados (PI inexistente).';
-    }
-    document.getElementById('nf_import_preview_hint').textContent = hint;
-    document.getElementById('btn_nf_confirmar').disabled = importaveis === 0;
-  }
-
-  function renderNfImportPreview() {
-    var tbody = document.getElementById('nf_import_preview_body');
-    tbody.innerHTML = nfImportPreviewItems.map(function(item, idx) {
-      if (!item.success || item.inconsistencia) {
-        return '<tr class="bg-red-50">' +
-          '<td class="max-w-[120px] truncate" title="' + (item.filename || '') + '">' + (item.filename || '') + '</td>' +
-          '<td colspan="6" class="text-red-700 text-xs">' + (item.error || 'Inconsistência de dados. Não há como importar.') + '</td>' +
-          '</tr>';
-      }
-      if (item.pi_inexistente) {
-        return '<tr class="bg-red-50">' +
-          '<td class="max-w-[120px] truncate">' + (item.filename || '') + '</td>' +
-          '<td colspan="6" class="text-red-700 text-xs">' + (item.error || 'Inconsistência de dados: PI não existe no sistema. Não há como importar.') + '</td>' +
-          '</tr>';
-      }
-      var ex = item.extracted || {};
-      var piOpts = (item.candidates || []).map(function(c) {
-        var sel = (item.id_pi_sugerido && c.id_pi === item.id_pi_sugerido) ? ' selected' : '';
-        var label = (c.codigo_pi_cc || c.id_pi) + ' — ' + (c.cliente_nome || '');
-        return '<option value="' + c.id_pi + '"' + sel + '>' + label + '</option>';
-      }).join('');
-      var piSelect = '';
-      if (item.match_type === 'unique' || item.match_type === 'multiple') {
-        piSelect = '<select class="select select-bordered select-xs w-full max-w-[180px] nf-import-pi" data-idx="' + idx + '">' +
-          '<option value="">— Selecione PI —</option>' + piOpts + '</select>';
-      } else {
-        piSelect = '<input type="text" class="input input-xs w-full max-w-[120px] nf-import-pi-busca" data-idx="' + idx + '" placeholder="Cód. PI" value="' + (item.codigo_pi_referencia || '') + '">' +
-          '<input type="hidden" class="nf-import-pi-id" data-idx="' + idx + '" value="' + (item.id_pi_sugerido || '') + '">' +
-          (item.pi_validado ? '<span class="text-[10px] text-green-600 block mt-0.5">PI validado</span>' : '<span class="text-[10px] text-amber-600 block mt-0.5">Informe e valide o PI</span>');
-      }
-      return '<tr>' +
-        '<td class="max-w-[120px] truncate" title="' + (item.filename || '') + '">' + (item.filename || '') + '</td>' +
-        '<td><input type="text" class="input input-xs w-24 nf-import-numero" data-idx="' + idx + '" value="' + (ex.numero_nota || '') + '"></td>' +
-        '<td><input type="date" class="input input-xs w-32 nf-import-data" data-idx="' + idx + '" value="' + nfImportFmtDate(ex.data_emissao) + '"></td>' +
-        '<td><input type="text" class="input input-xs w-28 nf-import-valor" data-idx="' + idx + '" value="' + fmtValorNfImport(ex.valor_total) + '"></td>' +
-        '<td>' + piSelect + '</td>' +
-        '<td>' + matchLabelNfImport(item) + '</td>' +
-        '<td>' + (item.ocr_ok ? '<span class="text-green-600">OK</span>' : '<span class="text-amber-600">Revisar</span>') + '</td>' +
-        '</tr>';
-    }).join('');
-
-    document.querySelectorAll('.nf-import-pi-busca').forEach(function(inp) {
-      inp.addEventListener('blur', function() {
-        var idx = parseInt(this.dataset.idx, 10);
-        var termo = this.value.trim();
-        nfImportPreviewItems[idx].codigo_pi_referencia = termo;
-        if (!termo) {
-          nfImportPreviewItems[idx].pi_validado = false;
-          nfImportPreviewItems[idx].pi_inexistente = false;
-          nfImportPreviewItems[idx].id_pi_sugerido = null;
-          renderNfImportPreview();
-          return;
-        }
-        fetch('/api/cadu_pi/localizar?q=' + encodeURIComponent(termo))
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            if (data.found && data.id_pi && !data.multiple) {
-              nfImportPreviewItems[idx].pi_validado = true;
-              nfImportPreviewItems[idx].pi_inexistente = false;
-              nfImportPreviewItems[idx].id_pi_sugerido = data.id_pi;
-              nfImportPreviewItems[idx].error = null;
-              showToast('PI localizado: ' + (data.codigo || data.id_pi), 'success');
-            } else if (data.multiple) {
-              nfImportPreviewItems[idx].pi_validado = false;
-              nfImportPreviewItems[idx].pi_inexistente = false;
-              showToast('Vários PIs encontrados — refine o código.', 'warning');
-            } else {
-              nfImportPreviewItems[idx].pi_validado = false;
-              nfImportPreviewItems[idx].pi_inexistente = true;
-              nfImportPreviewItems[idx].id_pi_sugerido = null;
-              nfImportPreviewItems[idx].error =
-                'Inconsistência de dados: o PI "' + termo + '" não existe no sistema. Não há como importar.';
-              showToast(nfImportPreviewItems[idx].error, 'error');
-            }
-            renderNfImportPreview();
-          });
-      });
-    });
-
-    atualizarHintNfImportPreview();
-  }
-
-  window.analisarNfImport = function() {
-    if (!nfImportSelectedFiles.length) {
-      showToast('Selecione ao menos um PDF.', 'warning');
+  function showNfImportValidationErrors(messages) {
+    var box = document.getElementById('nf_import_validation_errors');
+    var list = document.getElementById('nf_import_validation_list');
+    if (!box || !list) return;
+    var items = (messages || []).filter(Boolean);
+    if (!items.length) {
+      list.innerHTML = '';
+      box.classList.add('hidden');
       return;
     }
+    list.innerHTML = items.map(function(m) { return '<li>' + m + '</li>'; }).join('');
+    box.classList.remove('hidden');
+  }
+
+  function clearNfImportValidationErrors() {
+    showNfImportValidationErrors([]);
+  }
+
+  function updateNfImportFileUi() {
+    var empty = document.getElementById('nf_import_dropzone_empty');
+    var selected = document.getElementById('nf_import_dropzone_selected');
+    var nameEl = document.getElementById('nf_import_selected_name');
+    var btn = document.getElementById('btn_nf_analisar');
+    var dz = document.getElementById('nf_import_dropzone');
+
+    if (nfImportSelectedFile) {
+      empty.classList.add('hidden');
+      selected.classList.remove('hidden');
+      nameEl.textContent = nfImportSelectedFile.name;
+      btn.disabled = false;
+      if (dz) dz.classList.add('border-teal-400', 'bg-teal-50');
+    } else {
+      empty.classList.remove('hidden');
+      selected.classList.add('hidden');
+      nameEl.textContent = '';
+      btn.disabled = true;
+      if (dz) dz.classList.remove('border-teal-400', 'bg-teal-50');
+    }
+  }
+
+  function resetNfImportModal() {
+    nfImportSelectedFile = null;
+    nfImportPreviewItem = null;
+    nfImportPgtoManual = false;
+    var input = document.getElementById('nf_import_files');
+    if (input) input.value = '';
+    showNfImportFileError('');
+    clearNfImportValidationErrors();
+    updateNfImportFileUi();
+    document.getElementById('nf_import_step_upload').classList.remove('hidden');
+    document.getElementById('nf_import_step_preview').classList.add('hidden');
+    document.getElementById('nf_import_step_result').classList.add('hidden');
+    document.getElementById('nf_import_avisos').classList.add('hidden');
+    var valOkEl = document.getElementById('nf_import_validacao_ok');
+    if (valOkEl) {
+      valOkEl.classList.add('hidden');
+      valOkEl.innerHTML = '';
+    }
+    var btn = document.getElementById('btn_nf_analisar');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar';
+    }
+  }
+
+  function renderNfImportPiContext() {
+    var ctx = document.getElementById('nf_import_pi_context');
+    if (!nfImportIdPi || !nfImportPiInfo) {
+      ctx.classList.add('hidden');
+      return;
+    }
+    var cod = nfImportPiInfo.codPi || nfImportIdPi;
+    var titulo = nfImportPiInfo.titulo || 'PI ' + cod;
+    document.getElementById('nf_import_pi_titulo').textContent = cod + ' — ' + titulo;
+    var detalhes = [];
+    if (nfImportPiInfo.cliente) detalhes.push(nfImportPiInfo.cliente);
+    if (nfImportPiInfo.valorLiquido) detalhes.push('Valor: ' + nfImportPiInfo.valorLiquido);
+    if (nfImportPiInfo.mesRef) detalhes.push('Ref: ' + nfImportPiInfo.mesRef);
+    document.getElementById('nf_import_pi_detalhes').textContent = detalhes.join(' · ');
+    ctx.classList.remove('hidden');
+  }
+
+  function onNfImportFilesSelected(fileList) {
+    var files = Array.from(fileList || []);
+    showNfImportFileError('');
+
+    if (!files.length) {
+      nfImportSelectedFile = null;
+      updateNfImportFileUi();
+      return;
+    }
+
+    var pdfFiles = files.filter(isPdfFile);
+    if (!pdfFiles.length) {
+      nfImportSelectedFile = null;
+      updateNfImportFileUi();
+      var rejected = files[0] ? files[0].name : 'arquivo';
+      showNfImportFileError('Formato não suportado: "' + rejected + '". Envie um arquivo PDF.');
+      nfToast('Selecione um arquivo PDF (.pdf).', 'warning');
+      return;
+    }
+
+    if (pdfFiles.length > 1) {
+      nfToast('Apenas um PDF por PI. Usando o primeiro arquivo.', 'warning');
+    }
+
+    nfImportSelectedFile = pdfFiles[0];
+    updateNfImportFileUi();
+  }
+
+  window.abrirModalImportarNf = function(idPi, piInfo) {
+    if (!idPi) {
+      nfToast('Selecione um PI na lista para importar a NF.', 'warning');
+      return;
+    }
+    var modal = document.getElementById('modal_nf_import');
+    if (!modal) {
+      nfToast('Modal de importação não disponível nesta tela.', 'error');
+      return;
+    }
+    nfImportIdPi = idPi;
+    nfImportPiInfo = piInfo || {};
+    resetNfImportModal();
+    renderNfImportPiContext();
+    modal.showModal();
+  };
+
+  function renderNfImportPreview() {
+    var item = nfImportPreviewItem;
+    if (!item || !item.success) return;
+
+    var ex = item.extracted || {};
+    var dataEm = nfImportFmtDate(ex.data_emissao);
+    nfImportPgtoManual = false;
+    document.getElementById('nf_import_preview_filename').textContent = item.filename || '';
+    document.getElementById('nf_import_preview_numero').value = ex.numero_nota || '';
+    document.getElementById('nf_import_preview_rps').value = ex.numero_rps || '';
+    document.getElementById('nf_import_preview_data').value = dataEm;
+    document.getElementById('nf_import_preview_pgto').value = calcDataPagamentoPrevisto(dataEm);
+    document.getElementById('nf_import_preview_cod_verif').value = ex.codigo_verificacao || '';
+    document.getElementById('nf_import_preview_valor').value = fmtValorNfImport(ex.valor_total);
+    document.getElementById('nf_import_preview_valor_liquido').value = fmtValorNfImport(ex.valor_liquido);
+    document.getElementById('nf_import_preview_issqn').value = fmtValorNfImport(ex.valor_issqn);
+    document.getElementById('nf_import_preview_pis').value = fmtValorNfImport(ex.valor_pis);
+    document.getElementById('nf_import_preview_cofins').value = fmtValorNfImport(ex.valor_cofins);
+    document.getElementById('nf_import_preview_irrf').value = fmtValorNfImport(ex.valor_irrf);
+    document.getElementById('nf_import_preview_aliquota_issqn').value = fmtAliquotaNfImport(ex.aliquota_issqn);
+    document.getElementById('nf_import_preview_cnpj').value = fmtCnpjDisplay(ex.cnpj_tomador);
+    document.getElementById('nf_import_preview_discriminacao').value = ex.discriminacao || '';
+    document.getElementById('nf_import_preview_ocr').innerHTML = item.ocr_ok
+      ? '<span class="text-green-600"><i class="fa-solid fa-check mr-1"></i>OCR concluído — revise os campos antes de confirmar.</span>'
+      : '<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>OCR incompleto — preencha os campos manualmente.</span>';
+
+    var valOkEl = document.getElementById('nf_import_validacao_ok');
+    var val = item.validacao || {};
+    if (valOkEl) {
+      if (val.validacao_completa || (val.pi_ok && val.cliente_ok)) {
+        var valParts = [];
+        if (val.pi_ok && val.codigo_pi_esperado) {
+          valParts.push('PI <strong>' + val.codigo_pi_esperado + '</strong> conferido na nota');
+        }
+        if (val.cliente_ok && val.cliente_nome) {
+          valParts.push('Cliente <strong>' + val.cliente_nome + '</strong> conferido (CNPJ)');
+        }
+        valOkEl.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i>' + valParts.join(' · ');
+        valOkEl.classList.remove('hidden');
+      } else {
+        valOkEl.classList.add('hidden');
+        valOkEl.innerHTML = '';
+      }
+    }
+
+    var avisosEl = document.getElementById('nf_import_avisos');
+    var avisos = item.avisos || [];
+    if (avisos.length) {
+      avisosEl.innerHTML = avisos.map(function(a) { return '<div>• ' + a + '</div>'; }).join('');
+      avisosEl.classList.remove('hidden');
+    } else {
+      avisosEl.classList.add('hidden');
+    }
+
+    document.getElementById('btn_nf_confirmar').disabled = false;
+  }
+
+  function analisarNfImport() {
+    if (!nfImportSelectedFile) {
+      nfToast('Selecione um PDF.', 'warning');
+      return;
+    }
+    if (!nfImportIdPi) {
+      nfToast('PI não identificado.', 'error');
+      return;
+    }
+
     var btn = document.getElementById('btn_nf_analisar');
     btn.disabled = true;
     btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analisando...';
+    clearNfImportValidationErrors();
 
     var fd = new FormData();
-    nfImportSelectedFiles.forEach(function(f) { fd.append('files', f); });
+    fd.append('file', nfImportSelectedFile, nfImportSelectedFile.name || 'nota.pdf');
+    fd.append('id_pi', String(nfImportIdPi));
 
     fetch('/api/notas-fiscais/importar/analisar', { method: 'POST', body: fd })
       .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
@@ -239,88 +445,116 @@
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar';
         if (!res.ok) {
-          showToast(res.j.error || 'Erro na análise', 'error');
+          nfToast(res.j.error || 'Erro na análise', 'error');
           return;
         }
-        nfImportPreviewItems = res.j.items || [];
-        renderNfImportPreview();
-        var bloqueados = nfImportPreviewItems.filter(function(i) {
-          return !i.success || i.inconsistencia;
-        }).length;
-        if (bloqueados) {
-          showToast(bloqueados + ' arquivo(s) com inconsistência: PI inexistente. Importação bloqueada.', 'error');
+        var items = res.j.items || [];
+        if (!items.length) {
+          nfToast('Nenhum resultado da análise.', 'error');
+          return;
         }
-        document.getElementById('nf_import_step_upload').classList.add('hidden');
-        document.getElementById('nf_import_step_preview').classList.remove('hidden');
+        var item = items[0];
+        if (!item.success || item.inconsistencia) {
+          var msgs = item.inconsistencias && item.inconsistencias.length
+            ? item.inconsistencias
+            : [item.error || 'Inconsistência de dados. Não há como importar.'];
+          showNfImportValidationErrors(msgs);
+          nfToast(msgs[0], 'error');
+          return;
+        }
+        nfImportPreviewItem = item;
+        try {
+          renderNfImportPreview();
+          document.getElementById('nf_import_step_upload').classList.add('hidden');
+          document.getElementById('nf_import_step_preview').classList.remove('hidden');
+        } catch (previewErr) {
+          console.error(previewErr);
+          nfToast('Erro ao exibir preview da NF. Verifique o console.', 'error');
+        }
       })
       .catch(function(e) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Analisar';
-        showToast('Erro ao analisar PDFs', 'error');
+        nfToast('Erro ao analisar PDF', 'error');
         console.error(e);
       });
-  };
+  }
 
-  window.voltarNfImportUpload = function() {
+  function voltarNfImportUpload() {
     document.getElementById('nf_import_step_preview').classList.add('hidden');
     document.getElementById('nf_import_step_upload').classList.remove('hidden');
-  };
+  }
 
-  window.confirmarNfImport = function() {
-    var payloadItems = [];
-    var hasInconsistencia = false;
+  function confirmarNfImport() {
+    var item = nfImportPreviewItem;
+    if (!item || !item.success) {
+      nfToast('Analise o PDF antes de confirmar.', 'warning');
+      return;
+    }
 
-    nfImportPreviewItems.forEach(function(item, idx) {
-      if (!item.success || item.inconsistencia || item.pi_inexistente) {
-        if (item.inconsistencia || item.pi_inexistente) hasInconsistencia = true;
-        return;
-      }
+    var numero = (document.getElementById('nf_import_preview_numero').value || '').trim();
+    var dataEm = document.getElementById('nf_import_preview_data').value || '';
+    var dataPgto = document.getElementById('nf_import_preview_pgto').value || '';
+    var valor = document.getElementById('nf_import_preview_valor').value || '';
+    var valorLiquido = document.getElementById('nf_import_preview_valor_liquido').value || '';
+    var idPi = nfImportIdPi || item.id_pi_sugerido;
 
-      var piSel = document.querySelector('.nf-import-pi[data-idx="' + idx + '"]');
-      var piHid = document.querySelector('.nf-import-pi-id[data-idx="' + idx + '"]');
-      var idPi = piSel ? piSel.value : (piHid ? piHid.value : item.id_pi_sugerido);
-      var numero = (document.querySelector('.nf-import-numero[data-idx="' + idx + '"]') || {}).value || '';
-      var dataEm = (document.querySelector('.nf-import-data[data-idx="' + idx + '"]') || {}).value || '';
-      var valor = (document.querySelector('.nf-import-valor[data-idx="' + idx + '"]') || {}).value || '';
+    if (!idPi || !numero) {
+      nfToast('Número da nota e PI são obrigatórios.', 'warning');
+      return;
+    }
 
-      if (item.match_type === 'none' && !item.pi_validado) {
-        hasInconsistencia = true;
-        showToast('Valide o PI informado para "' + (item.filename || '') + '" antes de importar.', 'warning');
-        return;
-      }
+    if (!dataPgto && dataEm) {
+      dataPgto = calcDataPagamentoPrevisto(dataEm);
+    }
 
-      if (!idPi || !numero.trim()) {
-        hasInconsistencia = true;
-        return;
-      }
-
-      var ex = item.extracted || {};
-      payloadItems.push({
-        temp_id: item.temp_id,
-        hash_arquivo: item.hash_arquivo,
-        filename: item.filename,
-        id_pi: parseInt(idPi, 10),
-        codigo_pi_referencia: item.codigo_pi_referencia || ex.codigo_pi || null,
-        numero_nota: numero.trim(),
-        data_emissao: dataEm || ex.data_emissao || null,
-        valor: valor || ex.valor_total,
-        cnpj_tomador: ex.cnpj_tomador,
-        codigo_verificacao: ex.codigo_verificacao,
-        numero_rps: ex.numero_rps,
-        discriminacao: ex.discriminacao,
-        confianca_extracao: ex.confidence,
-        dados_extraidos_json: ex,
-      });
+    var ex = item.extracted || {};
+    var dadosExtraidos = Object.assign({}, ex, {
+      numero_nota: numero,
+      data_emissao: dataEm || ex.data_emissao,
+      data_pagamento_previsto: dataPgto,
+      valor_total: valor || ex.valor_total,
+      valor_liquido: valorLiquido || ex.valor_liquido,
+      numero_rps: (document.getElementById('nf_import_preview_rps').value || '').trim() || ex.numero_rps,
+      codigo_verificacao: (document.getElementById('nf_import_preview_cod_verif').value || '').trim() || ex.codigo_verificacao,
+      discriminacao: (document.getElementById('nf_import_preview_discriminacao').value || '').trim() || ex.discriminacao,
+      valor_issqn: document.getElementById('nf_import_preview_issqn').value || ex.valor_issqn,
+      valor_pis: document.getElementById('nf_import_preview_pis').value || ex.valor_pis,
+      valor_cofins: document.getElementById('nf_import_preview_cofins').value || ex.valor_cofins,
+      valor_irrf: document.getElementById('nf_import_preview_irrf').value || ex.valor_irrf,
+      aliquota_issqn: document.getElementById('nf_import_preview_aliquota_issqn').value || ex.aliquota_issqn,
+      impostos: {
+        issqn: document.getElementById('nf_import_preview_issqn').value || ex.valor_issqn,
+        pis: document.getElementById('nf_import_preview_pis').value || ex.valor_pis,
+        cofins: document.getElementById('nf_import_preview_cofins').value || ex.valor_cofins,
+        irrf: document.getElementById('nf_import_preview_irrf').value || ex.valor_irrf,
+        aliquota_issqn: document.getElementById('nf_import_preview_aliquota_issqn').value || ex.aliquota_issqn,
+      },
     });
 
-    if (hasInconsistencia && !payloadItems.length) {
-      showToast('Inconsistência de dados: PI inexistente ou não validado. Não há como importar.', 'error');
-      return;
-    }
-    if (!payloadItems.length) {
-      showToast('Nenhum item válido para importar.', 'warning');
-      return;
-    }
+    var payloadItems = [{
+      temp_id: item.temp_id,
+      hash_arquivo: item.hash_arquivo,
+      filename: item.filename,
+      id_pi: parseInt(idPi, 10),
+      codigo_pi_referencia: nfImportPiInfo && nfImportPiInfo.codPi ? nfImportPiInfo.codPi : (ex.codigo_pi || null),
+      numero_nota: numero,
+      data_emissao: dataEm || ex.data_emissao || null,
+      data_pagamento_previsto: dataPgto || null,
+      valor: valor || ex.valor_total,
+      valor_liquido: valorLiquido || ex.valor_liquido,
+      valor_issqn: document.getElementById('nf_import_preview_issqn').value || null,
+      valor_pis: document.getElementById('nf_import_preview_pis').value || null,
+      valor_cofins: document.getElementById('nf_import_preview_cofins').value || null,
+      valor_irrf: document.getElementById('nf_import_preview_irrf').value || null,
+      aliquota_issqn: document.getElementById('nf_import_preview_aliquota_issqn').value || null,
+      cnpj_tomador: ex.cnpj_tomador,
+      codigo_verificacao: (document.getElementById('nf_import_preview_cod_verif').value || '').trim() || ex.codigo_verificacao,
+      numero_rps: (document.getElementById('nf_import_preview_rps').value || '').trim() || ex.numero_rps,
+      discriminacao: (document.getElementById('nf_import_preview_discriminacao').value || '').trim() || ex.discriminacao,
+      confianca_extracao: ex.confidence,
+      dados_extraidos_json: dadosExtraidos,
+    }];
 
     var btn = document.getElementById('btn_nf_confirmar');
     btn.disabled = true;
@@ -336,25 +570,45 @@
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Confirmar importação';
         if (!res.ok) {
-          showToast(res.j.error || 'Erro na importação', 'error');
+          nfToast(res.j.error || 'Erro na importação', 'error');
           return;
         }
         var j = res.j;
-        var msg = '<strong>' + (j.total_importados || 0) + '</strong> nota(s) importada(s).';
-        var pisAtualizados = (j.importados || []).filter(function(i) { return i.pi_status_atualizado; }).length;
-        if (pisAtualizados) {
-          msg += ' Status de <strong>' + pisAtualizados + '</strong> PI(s) alterado para <em>NF Emitida</em>.';
+        if (j.total_erros && j.erros && j.erros.length) {
+          var err0 = j.erros[0];
+          var incMsgs = err0.inconsistencias && err0.inconsistencias.length
+            ? err0.inconsistencias
+            : [err0.error || 'Erro na importação'];
+          document.getElementById('nf_import_step_preview').classList.add('hidden');
+          document.getElementById('nf_import_step_upload').classList.remove('hidden');
+          showNfImportValidationErrors(incMsgs);
+          nfToast(incMsgs[0], 'error');
+          return;
+        }
+        var imp = (j.importados || [])[0];
+        var msg = '<strong>Nota fiscal importada com sucesso.</strong>';
+        if (imp && imp.pi_status_atualizado) {
+          msg += ' PI alterado para <em>NF Emitida</em>.';
+        } else if (imp) {
+          msg += ' <span class="text-amber-700">Atenção: verifique se o status do PI foi atualizado.</span>';
+        }
+        if (imp && imp.pdf_url) {
+          msg += '<div class="mt-2 flex flex-wrap gap-2 text-xs">';
+          msg += '<a class="link link-primary" href="' + imp.pdf_url + '" target="_blank">Baixar PDF</a>';
+          if (imp.lista_pi_nf_emitida_url) {
+            msg += '<a class="link link-primary" href="' + imp.lista_pi_nf_emitida_url + '">Ver PI em NF Emitida</a>';
+          }
+          if (imp.lista_nf_url) {
+            msg += '<a class="link link-primary" href="' + imp.lista_nf_url + '">Lista de Notas Fiscais</a>';
+          }
+          msg += '</div>';
         }
         if (j.total_erros) {
           msg += ' <span class="text-red-600">' + j.total_erros + ' erro(s).</span>';
           if (j.erros && j.erros.length) {
             msg += '<ul class="list-disc pl-4 mt-2 text-xs">';
             j.erros.forEach(function(e) {
-              var txt = e.error || '';
-              if (e.inconsistencia) {
-                txt = txt || 'Inconsistência de dados: PI inexistente. Não há como importar.';
-              }
-              msg += '<li>' + (e.filename || ('Linha ' + e.linha)) + ': ' + txt + '</li>';
+              msg += '<li>' + (e.error || 'Erro desconhecido') + '</li>';
             });
             msg += '</ul>';
           }
@@ -366,37 +620,69 @@
       .catch(function(e) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Confirmar importação';
-        showToast('Erro ao confirmar importação', 'error');
+        nfToast('Erro ao confirmar importação', 'error');
         console.error(e);
       });
-  };
+  }
 
-  window.fecharNfImportRecarregar = function() {
+  function fecharModalNfImport() {
+    var modal = document.getElementById('modal_nf_import');
+    if (modal && typeof modal.close === 'function') modal.close();
+  }
+
+  function fecharNfImportRecarregar() {
     document.getElementById('modal_nf_import').close();
     window.location.reload();
-  };
+  }
 
-  (function initNfImportDropzone() {
+  window.fecharModalNfImport = fecharModalNfImport;
+  window.onNfImportFilesSelected = onNfImportFilesSelected;
+  window.analisarNfImport = analisarNfImport;
+  window.voltarNfImportUpload = voltarNfImportUpload;
+  window.confirmarNfImport = confirmarNfImport;
+  window.fecharNfImportRecarregar = fecharNfImportRecarregar;
+
+  (function initNfImport() {
+    var input = document.getElementById('nf_import_files');
     var dz = document.getElementById('nf_import_dropzone');
-    if (!dz) return;
+    if (!input || !dz) return;
+
+    input.addEventListener('change', function() {
+      onNfImportFilesSelected(this.files);
+    });
+
     ['dragenter', 'dragover'].forEach(function(ev) {
       dz.addEventListener(ev, function(e) {
         e.preventDefault();
+        e.stopPropagation();
         dz.classList.add('border-blue-400', 'bg-blue-50');
       });
     });
     ['dragleave', 'drop'].forEach(function(ev) {
       dz.addEventListener(ev, function(e) {
         e.preventDefault();
+        e.stopPropagation();
         dz.classList.remove('border-blue-400', 'bg-blue-50');
+        if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          onNfImportFilesSelected(e.dataTransfer.files);
+        }
       });
     });
-    dz.addEventListener('drop', function(e) {
-      var files = e.dataTransfer && e.dataTransfer.files;
-      if (files && files.length) {
-        onNfImportFilesSelected(files);
-      }
-    });
+
+    document.getElementById('btn_nf_analisar').addEventListener('click', analisarNfImport);
+    document.getElementById('btn_nf_voltar').addEventListener('click', voltarNfImportUpload);
+    document.getElementById('btn_nf_confirmar').addEventListener('click', confirmarNfImport);
+    document.getElementById('btn_nf_fechar').addEventListener('click', fecharNfImportRecarregar);
+
+    var emissaoEl = document.getElementById('nf_import_preview_data');
+    if (emissaoEl) {
+      emissaoEl.addEventListener('change', onNfImportEmissaoChange);
+    }
+    var pgtoEl = document.getElementById('nf_import_preview_pgto');
+    if (pgtoEl) {
+      pgtoEl.addEventListener('change', onNfImportPgtoChange);
+      pgtoEl.addEventListener('input', onNfImportPgtoChange);
+    }
   })();
 })();
 </script>

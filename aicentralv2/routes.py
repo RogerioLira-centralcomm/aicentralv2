@@ -12285,6 +12285,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         if 'valor' in data:
             data['valor'] = db.formatar_real_br(data.get('valor'))
+        if 'valor_liquido' in data:
+            data['valor_liquido'] = db.formatar_real_br(data.get('valor_liquido'))
+        for tax_field in ('valor_issqn', 'valor_pis', 'valor_cofins', 'valor_irrf'):
+            if tax_field in data:
+                data[tax_field] = db.formatar_real_br(data.get(tax_field))
+        if 'aliquota_issqn' in data:
+            data['aliquota_issqn'] = _formatar_aliquota_nf(data.get('aliquota_issqn'))
 
         conn = db.get_db()
         with conn.cursor() as cursor:
@@ -12351,6 +12358,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         if 'valor' in data:
             data['valor'] = db.formatar_real_br(data.get('valor'))
+        if 'valor_liquido' in data:
+            data['valor_liquido'] = db.formatar_real_br(data.get('valor_liquido'))
+        for tax_field in ('valor_issqn', 'valor_pis', 'valor_cofins', 'valor_irrf'):
+            if tax_field in data:
+                data[tax_field] = db.formatar_real_br(data.get(tax_field))
+        if 'aliquota_issqn' in data:
+            data['aliquota_issqn'] = _formatar_aliquota_nf(data.get('aliquota_issqn'))
 
         def _fmt_date_val(v):
             if v is None:
@@ -12430,6 +12444,29 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     MAX_NF_IMPORT_BATCH = 20
 
+    def _calc_data_pagamento_previsto_nf(data_emissao, dias=30):
+        """Calcula data de pagamento previsto (emissão + N dias corridos)."""
+        if not data_emissao:
+            return None
+        try:
+            from datetime import datetime, timedelta
+            if hasattr(data_emissao, 'strftime'):
+                base = data_emissao.date() if hasattr(data_emissao, 'date') else data_emissao
+            else:
+                base = datetime.strptime(str(data_emissao)[:10], '%Y-%m-%d').date()
+            return (base + timedelta(days=int(dias))).strftime('%Y-%m-%d')
+        except (TypeError, ValueError):
+            return None
+
+    def _formatar_aliquota_nf(valor):
+        if valor is None or valor == '':
+            return None
+        try:
+            s = str(valor).strip().replace('%', '').replace(',', '.')
+            return round(float(s), 2)
+        except (TypeError, ValueError):
+            return None
+
     def _mensagem_inconsistencia_pi_nf(match=None, extracted=None, codigo_pi_manual=None):
         """Mensagem padrão quando o PI referenciado não existe no sistema."""
         ex = extracted or {}
@@ -12449,6 +12486,149 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'Inconsistência de dados: PI não encontrado no sistema. '
             'Não há como importar esta nota.'
         )
+
+    def _formatar_cnpj_nf_display(cnpj):
+        digits = db.normalizar_cnpj(cnpj) or ''
+        if len(digits) != 14:
+            return str(cnpj or '').strip() or '—'
+        return f'{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}'
+
+    def _extrair_codigo_pi_discriminacao_nf(discriminacao):
+        if not discriminacao:
+            return None
+        m = re.search(r'\bPI\s*[#:\-]?\s*(\d+)\b', str(discriminacao), re.I)
+        return m.group(1).strip() if m else None
+
+    def _resolver_codigo_pi_nf(extracted):
+        """Normaliza código PI extraído (OCR pode trazer texto extra)."""
+        extracted = extracted or {}
+        raw = (extracted.get('codigo_pi') or '').strip()
+        if raw:
+            if re.fullmatch(r'\d+', raw):
+                return raw
+            m = re.search(r'\bPI\s*[#:\-]?\s*(\d+)\b', raw, re.I)
+            if m:
+                return m.group(1).strip()
+            if re.fullmatch(r'[\w\-]+', raw) and len(raw) <= 20:
+                return raw.upper()
+        return _extrair_codigo_pi_discriminacao_nf(extracted.get('discriminacao'))
+
+    def _codigos_pi_registro_nf(pi_row):
+        codes = []
+        for campo in ('codigo_pi_cc', 'codigo_pi_ag'):
+            valor = (pi_row.get(campo) or '').strip().upper()
+            if valor and valor not in codes:
+                codes.append(valor)
+        return codes
+
+    def _cnpjs_tomador_esperados_pi_nf(pi_row):
+        opcoes = []
+        cnpj_cliente = db.normalizar_cnpj(pi_row.get('cliente_cnpj'))
+        if cnpj_cliente:
+            nome = (
+                pi_row.get('cliente_nome')
+                or pi_row.get('cliente_razao_social')
+                or 'Cliente do PI'
+            )
+            opcoes.append({'tipo': 'cliente', 'cnpj': cnpj_cliente, 'nome': nome})
+        cnpj_agencia = db.normalizar_cnpj(pi_row.get('agencia_cnpj'))
+        if cnpj_agencia:
+            nome = (
+                pi_row.get('agencia_nome')
+                or pi_row.get('agencia_razao_social')
+                or 'Agência do PI'
+            )
+            opcoes.append({'tipo': 'agencia', 'cnpj': cnpj_agencia, 'nome': nome})
+        return opcoes
+
+    def _validar_nf_contra_pi_contexto(pi_row, extracted):
+        """
+        Valida código PI e CNPJ do tomador da NF contra o PI selecionado.
+        Retorna (ok, erros, avisos, detalhes).
+        """
+        extracted = extracted or {}
+        erros = []
+        avisos = []
+        detalhes = {'pi_ok': False, 'cliente_ok': False}
+
+        pi_codes = _codigos_pi_registro_nf(pi_row)
+        cod_pi_esperado = (pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag') or '').strip()
+        cod_nf = (_resolver_codigo_pi_nf(extracted) or '').strip().upper()
+
+        if pi_codes:
+            if not cod_nf:
+                erros.append(
+                    f'Código PI não identificado na nota. O PI selecionado é "{cod_pi_esperado}".'
+                )
+            elif cod_nf not in pi_codes:
+                ref = cod_nf
+                erros.append(
+                    f'Inconsistência no PI: a nota referencia PI "{ref}", '
+                    f'mas o PI selecionado é "{cod_pi_esperado}".'
+                )
+            else:
+                detalhes['pi_ok'] = True
+                detalhes['codigo_pi_nf'] = cod_nf
+                detalhes['codigo_pi_esperado'] = cod_pi_esperado
+
+        cnpj_nf = db.normalizar_cnpj(extracted.get('cnpj_tomador'))
+        tomadores_esperados = _cnpjs_tomador_esperados_pi_nf(pi_row)
+
+        if not tomadores_esperados:
+            if pi_row.get('id_cliente'):
+                erros.append(
+                    'Cliente do PI sem CNPJ cadastrado. Cadastre o CNPJ do cliente antes de importar a NF.'
+                )
+            elif cnpj_nf:
+                avisos.append('PI sem CNPJ cadastrado; o tomador da nota não pôde ser validado.')
+        elif not cnpj_nf:
+            esperado = '; '.join(
+                f'{t["nome"]} ({_formatar_cnpj_nf_display(t["cnpj"])})' for t in tomadores_esperados
+            )
+            erros.append(f'CNPJ do tomador não identificado na nota. Esperado: {esperado}.')
+        elif not any(cnpj_nf == t['cnpj'] for t in tomadores_esperados):
+            esperado = '; '.join(
+                f'{t["nome"]}: {_formatar_cnpj_nf_display(t["cnpj"])}' for t in tomadores_esperados
+            )
+            erros.append(
+                f'Inconsistência no cliente: CNPJ na nota ({_formatar_cnpj_nf_display(cnpj_nf)}) '
+                f'não corresponde ao PI selecionado ({esperado}).'
+            )
+        else:
+            detalhes['cliente_ok'] = True
+            detalhes['cnpj_nf'] = cnpj_nf
+            match = next(t for t in tomadores_esperados if t['cnpj'] == cnpj_nf)
+            detalhes['cliente_nome'] = match['nome']
+            detalhes['cnpj_esperado'] = match['cnpj']
+
+        ok = len(erros) == 0
+        if ok and pi_codes and tomadores_esperados:
+            detalhes['validacao_completa'] = True
+        return ok, erros, avisos, detalhes
+
+    def _extracted_from_linha_confirmacao_nf(linha):
+        import json as json_mod
+
+        extracted = {}
+        raw = linha.get('dados_extraidos_json')
+        if isinstance(raw, dict):
+            extracted = dict(raw)
+        elif isinstance(raw, str) and raw.strip():
+            try:
+                parsed = json_mod.loads(raw)
+                if isinstance(parsed, dict):
+                    extracted = parsed
+            except (TypeError, ValueError):
+                pass
+        for campo in (
+            'codigo_pi', 'cnpj_tomador', 'discriminacao', 'numero_nota',
+            'data_emissao', 'valor_total', 'valor_liquido',
+        ):
+            if linha.get(campo) is not None and linha.get(campo) != '':
+                extracted[campo] = linha[campo]
+        if linha.get('codigo_pi_referencia') and not extracted.get('codigo_pi'):
+            extracted['codigo_pi'] = linha['codigo_pi_referencia']
+        return extracted
 
     def _serializar_pi_candidato_nf(pi_row):
         if not pi_row:
@@ -12481,6 +12661,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'error': 'Envie ao menos um arquivo PDF.'}), 400
         if len(files) > MAX_NF_IMPORT_BATCH:
             return jsonify({'error': f'Máximo de {MAX_NF_IMPORT_BATCH} arquivos por lote.'}), 400
+
+        id_pi_contexto = request.form.get('id_pi', type=int)
+        pi_contexto = None
+        if id_pi_contexto:
+            pi_contexto = db.obter_cadu_pi_por_id(id_pi_contexto)
+            if not pi_contexto:
+                return jsonify({'error': 'PI selecionado não existe no sistema.'}), 400
+            if len(files) > 1:
+                return jsonify({'error': 'Selecione apenas um PDF por PI.'}), 400
 
         storage = NfPdfStorage()
         items = []
@@ -12526,14 +12715,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 items.append({'success': False, 'filename': filename, 'error': 'Falha ao armazenar arquivo.'})
                 continue
 
-            match = db.localizar_pi_para_importacao_nf(
-                codigo_pi=(extracted or {}).get('codigo_pi'),
-                cnpj_tomador=(extracted or {}).get('cnpj_tomador'),
-                valor=(extracted or {}).get('valor_total'),
-                data_emissao=(extracted or {}).get('data_emissao'),
-            )
+            if pi_contexto:
+                match = {
+                    'match_type': 'unique',
+                    'match_method': 'contexto_lista',
+                    'pi': pi_contexto,
+                    'candidates': [pi_contexto],
+                }
+            else:
+                match = db.localizar_pi_para_importacao_nf(
+                    codigo_pi=(extracted or {}).get('codigo_pi'),
+                    cnpj_tomador=(extracted or {}).get('cnpj_tomador'),
+                    valor=(extracted or {}).get('valor_total'),
+                    data_emissao=(extracted or {}).get('data_emissao'),
+                )
 
-            if match.get('match_type') == 'none' and (extracted or {}).get('codigo_pi'):
+            if not pi_contexto and match.get('match_type') == 'none' and (extracted or {}).get('codigo_pi'):
                 storage.delete_pending(pending['temp_id'])
                 items.append({
                     'success': False,
@@ -12549,6 +12746,31 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             pi_sugerido = match.get('pi')
             importable = match.get('match_type') in ('unique', 'multiple')
+            avisos = []
+            validacao = None
+
+            if pi_contexto:
+                ok_val, erros_val, avisos_val, validacao = _validar_nf_contra_pi_contexto(
+                    pi_contexto, extracted
+                )
+                avisos.extend(avisos_val)
+                if not ok_val:
+                    storage.delete_pending(pending['temp_id'])
+                    items.append({
+                        'success': False,
+                        'importable': False,
+                        'inconsistencia': True,
+                        'filename': filename,
+                        'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências encontradas na validação.',
+                        'inconsistencias': erros_val,
+                        'extracted': extracted,
+                        'match_type': match.get('match_type'),
+                        'match_method': match.get('match_method'),
+                        'id_pi_contexto': id_pi_contexto,
+                    })
+                    continue
+                importable = True
+
             items.append({
                 'success': True,
                 'importable': importable,
@@ -12563,6 +12785,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'id_pi_sugerido': pi_sugerido.get('id_pi') if pi_sugerido else None,
                 'pi_sugerido': _serializar_pi_candidato_nf(pi_sugerido),
                 'candidates': [_serializar_pi_candidato_nf(c) for c in (match.get('candidates') or [])],
+                'avisos': avisos,
+                'validacao': validacao,
+                'id_pi_contexto': id_pi_contexto,
             })
 
         return jsonify({'items': items})
@@ -12660,12 +12885,33 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 })
                 continue
 
+            extracted_conf = _extracted_from_linha_confirmacao_nf(linha)
+            ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf)
+            if not ok_val:
+                storage.delete_pending(temp_id)
+                erros.append({
+                    'linha': idx,
+                    'filename': linha.get('filename'),
+                    'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências na validação PI/cliente.',
+                    'inconsistencias': erros_val,
+                    'inconsistencia': True,
+                })
+                continue
+
             data_emissao = linha.get('data_emissao')
+            data_pag_prev = linha.get('data_pagamento_previsto') or _calc_data_pagamento_previsto_nf(data_emissao)
             nf_data = {
                 'id_pi': int(id_pi),
                 'numero_nota': numero_nota,
                 'valor': db.formatar_real_br(linha.get('valor')),
+                'valor_liquido': db.formatar_real_br(linha.get('valor_liquido')),
+                'valor_issqn': db.formatar_real_br(linha.get('valor_issqn')),
+                'valor_pis': db.formatar_real_br(linha.get('valor_pis')),
+                'valor_cofins': db.formatar_real_br(linha.get('valor_cofins')),
+                'valor_irrf': db.formatar_real_br(linha.get('valor_irrf')),
+                'aliquota_issqn': _formatar_aliquota_nf(linha.get('aliquota_issqn')),
                 'data_emissao': data_emissao,
+                'data_pagamento_previsto': data_pag_prev,
                 'mes_ref_comp': db.formatar_mes_ref_comp(data_emissao) if data_emissao else None,
                 'status': id_status_emitida,
                 'googled_pi_arq_ass': pi.get('googled_pi_arq_ass'),
@@ -12707,6 +12953,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'numero_nota': numero_nota,
                     'filename': linha.get('filename'),
                     'pi_status_atualizado': pi_atualizado,
+                    'pdf_url': url_for('api_download_nota_fiscal_pdf', id_nota=id_nota),
+                    'lista_nf_url': url_for('notas_fiscais_lista'),
+                    'lista_pi_nf_emitida_url': url_for('cadu_pi_lista', origem='nf_emitida'),
                 })
             except Exception as save_exc:
                 current_app.logger.error(f'Confirmar import NF linha {idx}: {save_exc}', exc_info=True)

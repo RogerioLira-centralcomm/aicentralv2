@@ -97,7 +97,9 @@
             <th class="font-semibold text-center" style="width: 100px;">Emissão</th>
             <th class="font-semibold text-center" style="width: 100px;">Pgto Prev.</th>
             <th class="font-semibold text-center" style="width: 100px;">Pgto Real.</th>
-            <th class="font-semibold text-right" style="width: 130px;">Valor</th>
+            <th class="font-semibold text-right" style="width: 120px;">V. Serviço</th>
+            <th class="font-semibold text-right" style="width: 120px;">V. Líquido</th>
+            <th class="font-semibold text-center" style="width: 70px;">PDF</th>
             <th class="font-semibold text-center" style="width: 120px;">Status</th>
           </tr>
         </thead>
@@ -156,6 +158,24 @@
             <td class="text-right">
               {% if nf.valor %}
               <span class="font-semibold text-gray-800 text-xs">{{ nf.valor }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-right">
+              {% if nf.valor_liquido %}
+              <span class="font-semibold text-green-700 text-xs">{{ nf.valor_liquido }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center" onclick="event.stopPropagation()">
+              {% if nf.nf_arquivo_path %}
+              <a href="/api/cadu_pi_nota_fiscal/{{ nf.id }}/pdf" target="_blank"
+                 class="inline-flex items-center justify-center w-7 h-7 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                 title="Baixar PDF">
+                <i class="fa-solid fa-file-pdf text-xs"></i>
+              </a>
               {% else %}
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
@@ -223,8 +243,12 @@
         <input type="text" id="vnf_numero_nota" class="input input-bordered input-sm w-full" readonly>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-600 mb-1 block">Valor</label>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Valor do serviço</label>
         <input type="text" id="vnf_valor" class="input input-bordered input-sm w-full" data-mask="real" inputmode="decimal" readonly>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Valor líquido NF</label>
+        <input type="text" id="vnf_valor_liquido" class="input input-bordered input-sm w-full" data-mask="real" inputmode="decimal" readonly>
       </div>
       <div>
         <label class="text-xs font-medium text-gray-600 mb-1 block">Data Emissão</label>
@@ -247,6 +271,44 @@
           {% endfor %}
         </select>
       </div>
+    </div>
+
+    <div class="mt-3 border-t border-gray-200 pt-3">
+      <p class="text-[10px] uppercase font-semibold text-gray-400 mb-2">Impostos</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">ISSQN</label>
+          <input type="text" id="vnf_valor_issqn" class="input input-bordered input-sm w-full" data-mask="real" readonly>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">PIS</label>
+          <input type="text" id="vnf_valor_pis" class="input input-bordered input-sm w-full" data-mask="real" readonly>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">COFINS</label>
+          <input type="text" id="vnf_valor_cofins" class="input input-bordered input-sm w-full" data-mask="real" readonly>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">IRRF</label>
+          <input type="text" id="vnf_valor_irrf" class="input input-bordered input-sm w-full" data-mask="real" readonly>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Alíq. ISSQN (%)</label>
+          <input type="text" id="vnf_aliquota_issqn" class="input input-bordered input-sm w-full" readonly>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <label class="text-xs font-medium text-gray-600 mb-1 block">Discriminação</label>
+      <textarea id="vnf_discriminacao" rows="3" class="textarea textarea-bordered textarea-sm w-full text-xs" readonly></textarea>
+    </div>
+
+    <div id="vnf_pdf_link_wrapper" class="hidden mt-3">
+      <a id="vnf_pdf_download_link" href="#" target="_blank"
+         class="inline-flex items-center gap-1 text-xs text-teal-700 hover:text-teal-900 font-medium">
+        <i class="fa-solid fa-file-pdf"></i> Baixar PDF importado
+      </a>
     </div>
 
     <div class="modal-action flex justify-between">
@@ -584,6 +646,13 @@ function abrirModalNfView(nfId, codPi, clienteNome) {
       document.getElementById('vnf_id_pi').value = nf.id_pi || '';
       document.getElementById('vnf_numero_nota').value = nf.numero_nota || '';
       document.getElementById('vnf_valor').value = nf.valor || '';
+      document.getElementById('vnf_valor_liquido').value = nf.valor_liquido || '';
+      document.getElementById('vnf_valor_issqn').value = nf.valor_issqn || '';
+      document.getElementById('vnf_valor_pis').value = nf.valor_pis || '';
+      document.getElementById('vnf_valor_cofins').value = nf.valor_cofins || '';
+      document.getElementById('vnf_valor_irrf').value = nf.valor_irrf || '';
+      document.getElementById('vnf_aliquota_issqn').value = nf.aliquota_issqn != null ? String(nf.aliquota_issqn).replace('.', ',') : '';
+      document.getElementById('vnf_discriminacao').value = nf.discriminacao || '';
       document.getElementById('vnf_data_emissao').value = fmtDateInput(nf.data_emissao);
       document.getElementById('vnf_data_pagamento').value = fmtDateInput(nf.data_pagamento_previsto);
       document.getElementById('vnf_data_pagamento_realizado').value = fmtDateInput(nf.data_pagamento_realizado);
@@ -593,6 +662,15 @@ function abrirModalNfView(nfId, codPi, clienteNome) {
 
       if (statusVal === STATUS_PAG_REALIZADO) {
         document.getElementById('vnf_pag_realizado_wrapper').classList.remove('hidden');
+      }
+
+      var pdfWrap = document.getElementById('vnf_pdf_link_wrapper');
+      var pdfLink = document.getElementById('vnf_pdf_download_link');
+      if (nf.nf_arquivo_path) {
+        pdfLink.href = '/api/cadu_pi_nota_fiscal/' + nfId + '/pdf';
+        pdfWrap.classList.remove('hidden');
+      } else {
+        pdfWrap.classList.add('hidden');
       }
 
       document.getElementById('modal_nf_view').showModal();
@@ -652,6 +730,13 @@ function salvarNfView() {
   var data = {
     numero_nota: numeroNota,
     valor: document.getElementById('vnf_valor').value.trim(),
+    valor_liquido: document.getElementById('vnf_valor_liquido').value.trim() || null,
+    valor_issqn: document.getElementById('vnf_valor_issqn').value.trim() || null,
+    valor_pis: document.getElementById('vnf_valor_pis').value.trim() || null,
+    valor_cofins: document.getElementById('vnf_valor_cofins').value.trim() || null,
+    valor_irrf: document.getElementById('vnf_valor_irrf').value.trim() || null,
+    aliquota_issqn: document.getElementById('vnf_aliquota_issqn').value.trim() || null,
+    discriminacao: document.getElementById('vnf_discriminacao').value.trim() || null,
     data_emissao: document.getElementById('vnf_data_emissao').value || null,
     data_pagamento_previsto: document.getElementById('vnf_data_pagamento').value || null,
     data_pagamento_realizado: document.getElementById('vnf_data_pagamento_realizado').value || null,

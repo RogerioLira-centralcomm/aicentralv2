@@ -9163,6 +9163,42 @@ def garantir_colunas_importacao_nota_fiscal():
                     ) THEN
                         ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN confianca_extracao NUMERIC(4,3);
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'valor_liquido'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN valor_liquido VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'valor_issqn'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN valor_issqn VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'valor_pis'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN valor_pis VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'valor_cofins'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN valor_cofins VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'valor_irrf'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN valor_irrf VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'aliquota_issqn'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN aliquota_issqn NUMERIC(5,2);
+                    END IF;
                 END $$;
             ''')
             conn.commit()
@@ -9388,6 +9424,7 @@ def obter_notas_fiscais_por_pi(id_pi):
                 SELECT
                     nf.id,
                     nf.valor,
+                    nf.valor_liquido,
                     nf.data_emissao,
                     nf.data_pag_prevista as data_pagamento_previsto,
                     nf.data_pag_realizado as data_pagamento_realizado,
@@ -9410,6 +9447,11 @@ def obter_notas_fiscais_por_pi(id_pi):
                     nf.codigo_verificacao,
                     nf.numero_rps,
                     nf.discriminacao,
+                    nf.valor_issqn,
+                    nf.valor_pis,
+                    nf.valor_cofins,
+                    nf.valor_irrf,
+                    nf.aliquota_issqn,
                     nf.confianca_extracao,
                     nfs.descricao as status_descricao
                 FROM cadu_pi_nota_fiscal nf
@@ -9432,6 +9474,7 @@ def obter_nota_fiscal_por_id(id_nota):
                 SELECT
                     id,
                     valor,
+                    valor_liquido,
                     data_emissao,
                     data_pag_prevista as data_pagamento_previsto,
                     data_pag_realizado as data_pagamento_realizado,
@@ -9454,6 +9497,11 @@ def obter_nota_fiscal_por_id(id_nota):
                     codigo_verificacao,
                     numero_rps,
                     discriminacao,
+                    valor_issqn,
+                    valor_pis,
+                    valor_cofins,
+                    valor_irrf,
+                    aliquota_issqn,
                     confianca_extracao
                 FROM cadu_pi_nota_fiscal
                 WHERE id = %s
@@ -9471,24 +9519,28 @@ def criar_nota_fiscal(data):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_pi_nota_fiscal (
-                    valor, data_emissao, data_pag_prevista, data_pag_realizado,
+                    valor, valor_liquido, data_emissao, data_pag_prevista, data_pag_realizado,
                     numero_nota, mes_ref_comp, id_pi, status,
                     googled_pi_arq_ass,
                     spedy_order_id, spedy_invoice_id, spedy_status,
                     spedy_transaction_id, spedy_message, spedy_environment,
                     origem, nf_arquivo_path, hash_arquivo, cnpj_tomador,
                     codigo_verificacao, numero_rps, discriminacao,
+                    valor_issqn, valor_pis, valor_cofins, valor_irrf, aliquota_issqn,
                     dados_extraidos_json, confianca_extracao,
                     created_at, updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s,
                     DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 ) RETURNING id
             ''', (
                 data.get('valor'),
+                data.get('valor_liquido'),
                 data.get('data_emissao'),
                 data.get('data_pagamento_previsto'),
                 data.get('data_pagamento_realizado'),
@@ -9510,6 +9562,11 @@ def criar_nota_fiscal(data):
                 data.get('codigo_verificacao'),
                 data.get('numero_rps'),
                 data.get('discriminacao'),
+                data.get('valor_issqn'),
+                data.get('valor_pis'),
+                data.get('valor_cofins'),
+                data.get('valor_irrf'),
+                data.get('aliquota_issqn'),
                 _dv360_io_jsonb(data.get('dados_extraidos_json')),
                 data.get('confianca_extracao'),
             ))
@@ -9525,6 +9582,7 @@ def atualizar_nota_fiscal(id_nota, data):
     """Atualiza uma nota fiscal existente (somente campos fornecidos)"""
     field_map = {
         'valor': 'valor',
+        'valor_liquido': 'valor_liquido',
         'data_emissao': 'data_emissao',
         'data_pagamento_previsto': 'data_pag_prevista',
         'data_pagamento_realizado': 'data_pag_realizado',
@@ -9545,6 +9603,11 @@ def atualizar_nota_fiscal(id_nota, data):
         'codigo_verificacao': 'codigo_verificacao',
         'numero_rps': 'numero_rps',
         'discriminacao': 'discriminacao',
+        'valor_issqn': 'valor_issqn',
+        'valor_pis': 'valor_pis',
+        'valor_cofins': 'valor_cofins',
+        'valor_irrf': 'valor_irrf',
+        'aliquota_issqn': 'aliquota_issqn',
         'confianca_extracao': 'confianca_extracao',
         'dados_extraidos_json': 'dados_extraidos_json',
     }
@@ -9603,6 +9666,7 @@ def obter_notas_fiscais_lista(filtros=None):
                 SELECT
                     nf.id,
                     nf.valor,
+                    nf.valor_liquido,
                     nf.data_emissao,
                     nf.data_pag_prevista as data_pagamento_previsto,
                     nf.data_pag_realizado as data_pagamento_realizado,
@@ -9614,6 +9678,14 @@ def obter_notas_fiscais_lista(filtros=None):
                     nf.status,
                     nf.spedy_status,
                     nf.spedy_message,
+                    nf.origem,
+                    nf.nf_arquivo_path,
+                    nf.valor_issqn,
+                    nf.valor_pis,
+                    nf.valor_cofins,
+                    nf.valor_irrf,
+                    nf.aliquota_issqn,
+                    nf.discriminacao,
                     nfs.descricao as status_descricao,
                     p.codigo_pi_cc,
                     p.titulo_pi,
@@ -9857,8 +9929,10 @@ def obter_cadu_pi_por_id(id_pi):
                     p.observacoes_operacao as obs_operacao,
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao_social,
+                    cli.cnpj as cliente_cnpj,
                     cli_ag.nome_fantasia as agencia_nome,
                     cli_ag.razao_social as agencia_razao_social,
+                    cli_ag.cnpj as agencia_cnpj,
                     cli_parc.nome_fantasia as parceiro_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,

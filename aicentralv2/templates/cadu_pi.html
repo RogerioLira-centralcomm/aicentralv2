@@ -13,11 +13,6 @@
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
         {% if origem_lista == 'faturamento' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
-        <button type="button" onclick="abrirModalImportarNf()"
-                class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded bg-primary text-primary-content hover:opacity-90 transition-opacity"
-                title="Importar notas fiscais em PDF">
-          <i class="fa-solid fa-file-import text-[9px]"></i> Importar NF (PDF)
-        </button>
         {% elif sub_status_atual|string == '1' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
         {% elif sub_status_atual|string == '2' %}
@@ -269,23 +264,31 @@
                 'valorLiquido': pi.valor_liquido or ''
               } %}
               <div class="inline-flex items-center gap-1 flex-wrap justify-center">
+              {% if origem_lista == 'faturamento' and not pi.get('nf_id') %}
+              <button type="button"
+                      onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                      class="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-medium bg-teal-100 text-teal-700 hover:bg-teal-200"
+                      title="Importar NF (PDF)">
+                <i class="fa-solid fa-file-import text-[10px]"></i>
+              </button>
+              {% endif %}
               {% if origem_lista == 'faturamento' %}
                 {% if pi.get('nf_spedy_status') == 'authorized' %}
-              <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700"
+              <span class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700"
                     title="NFS-e Spedy autorizada">
                 SP ✓
               </span>
                 {% elif pi.get('nf_id') and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
               <button type="button"
                       onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
-                      class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
+                      class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
                       title="Confirmar emissão Spedy">
                 <i class="fa-solid fa-spinner fa-spin text-[8px]"></i> SP
               </button>
                 {% else %}
               <button type="button"
                       onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                      class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
+                      class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
                       title="Emitir NFS-e de teste via Spedy (sem e-mail ao cliente)">
                 SP
               </button>
@@ -336,7 +339,7 @@
               </span>
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      class="hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
                       title="Vincular Nota Fiscal">
                 <i class="fa-solid fa-plus text-[8px]"></i>
                 Vincular NF
@@ -493,7 +496,7 @@
 
 <!-- Modal Nota Fiscal -->
 <dialog id="modal_nf" class="modal">
-  <div class="modal-box max-w-sm p-3">
+  <div class="modal-box max-w-md p-3 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-bold text-[11px]" id="modal_nf_title">Nota Fiscal</h3>
       <form method="dialog"><button class="btn btn-ghost btn-xs btn-circle">✕</button></form>
@@ -527,17 +530,61 @@
         <input type="text" id="nf_numero_nota" class="input input-bordered input-xs w-full text-[10px]" placeholder="Nº nota" required>
       </div>
       <div>
-        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor <span class="text-red-500">*</span></label>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor do serviço <span class="text-red-500">*</span></label>
         <input type="text" id="nf_valor" class="input input-bordered input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
+      </div>
+      <div>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor líquido NF</label>
+        <input type="text" id="nf_valor_liquido" class="input input-bordered input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal">
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Data Emissão <span class="text-red-500">*</span></label>
         <input type="date" id="nf_data_emissao" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
       </div>
       <div>
-        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto Previsto <span class="text-red-500">*</span></label>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto previsto <span class="text-red-500">*</span></label>
         <input type="date" id="nf_data_pagamento" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
+        <p class="text-[9px] text-gray-400 mt-0.5">Sugerido: emissão + 30 dias (editável)</p>
       </div>
+      <div>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Nº RPS/DPS</label>
+        <input type="text" id="nf_numero_rps" class="input input-bordered input-xs w-full text-[10px]" placeholder="RPS/DPS">
+      </div>
+    </div>
+    <div class="border-t border-gray-200 pt-2 mt-2">
+      <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5">Impostos</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">ISSQN</label>
+          <input type="text" id="nf_valor_issqn" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+        </div>
+        <div>
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">PIS</label>
+          <input type="text" id="nf_valor_pis" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+        </div>
+        <div>
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">COFINS</label>
+          <input type="text" id="nf_valor_cofins" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+        </div>
+        <div>
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">IRRF</label>
+          <input type="text" id="nf_valor_irrf" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+        </div>
+        <div>
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Alíq. ISSQN (%)</label>
+          <input type="text" id="nf_aliquota_issqn" class="input input-bordered input-xs w-full text-[10px]" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+    <div class="mt-2">
+      <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Discriminação / descrição</label>
+      <textarea id="nf_discriminacao" rows="3" class="textarea textarea-bordered textarea-xs w-full text-[10px]"></textarea>
+    </div>
+    <div id="nf_pdf_link_wrapper" class="hidden mt-2">
+      <a id="nf_pdf_download_link" href="#" target="_blank"
+         class="inline-flex items-center gap-1 text-[10px] text-teal-700 hover:text-teal-900 font-medium">
+        <i class="fa-solid fa-file-pdf"></i> Baixar PDF importado
+      </a>
     </div>
     <div class="border-t border-gray-200 pt-2 mt-2">
       <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5">Pagamento</p>
@@ -950,7 +997,7 @@
   <form method="dialog" class="modal-backdrop bg-black/40"><button>close</button></form>
 </dialog>
 
-{% if origem_lista == 'faturamento' and sub_status_atual|string == '4' %}
+{% if origem_lista == 'faturamento' %}
 {% include 'partials/nf_import.html' %}
 {% endif %}
 
@@ -1306,6 +1353,16 @@ function aplicarMascaraRealNf(input) {
 }
 document.querySelectorAll('#modal_nf [data-mask="real"]').forEach(aplicarMascaraRealNf);
 
+(function initNfPagamentoPrevisto() {
+  var emissaoEl = document.getElementById('nf_data_emissao');
+  var pgtoEl = document.getElementById('nf_data_pagamento');
+  if (emissaoEl) emissaoEl.addEventListener('change', onNfEmissaoChange);
+  if (pgtoEl) {
+    pgtoEl.addEventListener('change', onNfPgtoManualChange);
+    pgtoEl.addEventListener('input', onNfPgtoManualChange);
+  }
+})();
+
 function fmtValorBrl(val) {
   if (!val) return '';
   let n = parseFloat(String(val).replace('R$', '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
@@ -1319,14 +1376,47 @@ function fmtDateInput(dt) {
   return dt;
 }
 
+function calcDataPagamentoPrevistoNf(dataEmissao) {
+  if (!dataEmissao) return '';
+  var parts = String(dataEmissao).substring(0, 10).split('-');
+  if (parts.length !== 3) return '';
+  var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + 30);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+var nfPgtoManual = false;
+
+function onNfEmissaoChange() {
+  if (nfPgtoManual) return;
+  var dataEm = document.getElementById('nf_data_emissao').value;
+  var pgtoEl = document.getElementById('nf_data_pagamento');
+  if (pgtoEl && dataEm) pgtoEl.value = calcDataPagamentoPrevistoNf(dataEm);
+}
+
+function onNfPgtoManualChange() {
+  nfPgtoManual = true;
+}
+
 function abrirModalNf(idPi, nfId, piInfo, readonly) {
   document.getElementById('nf_id_pi').value = idPi;
   document.getElementById('nf_id').value = nfId || '';
   document.getElementById('nf_numero_nota').value = '';
   var today = new Date().toISOString().split('T')[0];
   document.getElementById('nf_valor').value = piInfo.valorLiquido ? fmtValorBrl(piInfo.valorLiquido) : '';
+  document.getElementById('nf_valor_liquido').value = '';
+  document.getElementById('nf_numero_rps').value = '';
+  document.getElementById('nf_valor_issqn').value = '';
+  document.getElementById('nf_valor_pis').value = '';
+  document.getElementById('nf_valor_cofins').value = '';
+  document.getElementById('nf_valor_irrf').value = '';
+  document.getElementById('nf_aliquota_issqn').value = '';
+  document.getElementById('nf_discriminacao').value = '';
+  document.getElementById('nf_pdf_link_wrapper').classList.add('hidden');
   document.getElementById('nf_data_emissao').value = today;
-  document.getElementById('nf_data_pagamento').value = '';
+  nfPgtoManual = false;
+  document.getElementById('nf_data_pagamento').value = calcDataPagamentoPrevistoNf(today);
   document.getElementById('nf_data_pagamento_realizado').value = '';
   document.getElementById('nf_mes_ref_comp').value = piInfo.mesRef || '';
   document.getElementById('nf_status').value = '';
@@ -1349,11 +1439,28 @@ function abrirModalNf(idPi, nfId, piInfo, readonly) {
       .then(nf => {
         document.getElementById('nf_numero_nota').value = nf.numero_nota || '';
         document.getElementById('nf_valor').value = fmtValorBrl(nf.valor) || '';
+        document.getElementById('nf_valor_liquido').value = fmtValorBrl(nf.valor_liquido) || '';
+        document.getElementById('nf_numero_rps').value = nf.numero_rps || '';
+        document.getElementById('nf_valor_issqn').value = fmtValorBrl(nf.valor_issqn) || '';
+        document.getElementById('nf_valor_pis').value = fmtValorBrl(nf.valor_pis) || '';
+        document.getElementById('nf_valor_cofins').value = fmtValorBrl(nf.valor_cofins) || '';
+        document.getElementById('nf_valor_irrf').value = fmtValorBrl(nf.valor_irrf) || '';
+        document.getElementById('nf_aliquota_issqn').value = nf.aliquota_issqn != null ? String(nf.aliquota_issqn).replace('.', ',') : '';
+        document.getElementById('nf_discriminacao').value = nf.discriminacao || '';
         document.getElementById('nf_data_emissao').value = fmtDateInput(nf.data_emissao);
+        nfPgtoManual = true;
         document.getElementById('nf_data_pagamento').value = fmtDateInput(nf.data_pagamento_previsto);
         document.getElementById('nf_data_pagamento_realizado').value = fmtDateInput(nf.data_pagamento_realizado);
         document.getElementById('nf_mes_ref_comp').value = nf.mes_ref_comp || piInfo.mesRef || '';
         document.getElementById('nf_status').value = nf.status || '';
+        var pdfWrap = document.getElementById('nf_pdf_link_wrapper');
+        var pdfLink = document.getElementById('nf_pdf_download_link');
+        if (nf.nf_arquivo_path) {
+          pdfLink.href = '/api/cadu_pi_nota_fiscal/' + nfId + '/pdf';
+          pdfWrap.classList.remove('hidden');
+        } else {
+          pdfWrap.classList.add('hidden');
+        }
         if (readonly) {
           formFields.forEach(function(f) { f.disabled = true; });
           btnSalvar.classList.add('hidden');
@@ -1471,6 +1578,7 @@ function salvarNf() {
   var nfId = document.getElementById('nf_id').value;
   var numeroNota = document.getElementById('nf_numero_nota').value.trim();
   var valor = document.getElementById('nf_valor').value.trim();
+  var valorLiquido = document.getElementById('nf_valor_liquido').value.trim();
   var dataEmissao = document.getElementById('nf_data_emissao').value;
   var dataPgtoPrev = document.getElementById('nf_data_pagamento').value;
 
@@ -1491,6 +1599,14 @@ function salvarNf() {
   var data = {
     numero_nota: numeroNota,
     valor: valor,
+    valor_liquido: valorLiquido || null,
+    valor_issqn: document.getElementById('nf_valor_issqn').value.trim() || null,
+    valor_pis: document.getElementById('nf_valor_pis').value.trim() || null,
+    valor_cofins: document.getElementById('nf_valor_cofins').value.trim() || null,
+    valor_irrf: document.getElementById('nf_valor_irrf').value.trim() || null,
+    aliquota_issqn: document.getElementById('nf_aliquota_issqn').value.trim() || null,
+    numero_rps: document.getElementById('nf_numero_rps').value.trim() || null,
+    discriminacao: document.getElementById('nf_discriminacao').value.trim() || null,
     data_emissao: dataEmissao || null,
     data_pagamento_previsto: dataPgtoPrev || null,
     data_pagamento_realizado: document.getElementById('nf_data_pagamento_realizado').value || null,

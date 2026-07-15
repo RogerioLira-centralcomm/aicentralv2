@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import json
 import re
-from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Optional
 
+from aicentralv2.campanha_pi_metrics import parse_brl_float
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes
 
 NF_MODEL = 'google/gemini-2.5-flash'
@@ -54,32 +54,67 @@ Regras:
   * NÃO inclua códigos de tributação (ex.: 17.25.01), títulos de seção nem textos de outras áreas da nota.
   * NÃO resuma, abrevie com "..." nem omita partes por tamanho.
 - impostos.issqn: ISSQN apurado ou retido; impostos.pis e impostos.cofins: valores de débito/apuração própria; impostos.irrf: IRRF se houver; impostos.aliquota_issqn: percentual (ex.: 5.00).
+- Todos os valores monetários (valor_total, valor_liquido, impostos) devem ser números em REAIS com até 2 casas decimais (ex.: 520.00, 76000.00). NÃO use centavos inteiros (52000) nem omita o separador decimal quando existir na nota.
 - confidence: confiança geral 0.0 a 1.0.
 - Não invente valores; use null quando incerto.
 """
 
 
 def _to_float(v: Any) -> Optional[float]:
-    if v is None or v == '':
-        return None
-    if isinstance(v, bool):
-        return None
-    if isinstance(v, (int, float)):
-        return float(v)
-    s = str(v).strip().replace('R$', '').replace(' ', '').replace('%', '')
-    if not s:
-        return None
-    if re.search(r',\d{1,2}$', s):
-        s = s.replace('.', '').replace(',', '.')
-    else:
-        s = s.replace(',', '')
-    try:
-        return float(Decimal(s))
-    except (InvalidOperation, ValueError):
-        try:
-            return float(s)
-        except ValueError:
-            return None
+    """Parse monetário/numérico alinhado ao padrão BR do sistema."""
+    return parse_brl_float(v)
+
+
+def _scale_down_to_limit(value: Optional[float], max_allowed: float) -> Optional[float]:
+    """Reduz zeros a mais escolhendo o maior valor ainda plausível."""
+    if value is None or value <= 0 or max_allowed <= 0:
+        return value
+    if value <= max_allowed:
+        return value
+    candidates = [value]
+    for factor in (10, 100):
+        candidates.append(value / factor)
+    valid = [c for c in candidates if 0 < c <= max_allowed]
+    return max(valid) if valid else value
+
+
+def _sanitize_nf_monetary_values(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Corrige leituras OCR com zeros a mais (ex.: 5200 em vez de 520,00)."""
+    if not isinstance(data, dict):
+        return data
+
+    total = _to_float(data.get('valor_total'))
+    if not total or total <= 0:
+        return data
+
+    liq = _to_float(data.get('valor_liquido'))
+    if liq:
+        adj = _scale_down_to_limit(liq, total * 1.001)
+        if adj != liq:
+            data['valor_liquido'] = adj
+
+    tax_limits = {
+        'valor_issqn': 0.20,
+        'valor_pis': 0.05,
+        'valor_cofins': 0.10,
+        'valor_irrf': 0.20,
+    }
+    impostos = data.get('impostos') if isinstance(data.get('impostos'), dict) else {}
+
+    for key, max_ratio in tax_limits.items():
+        v = _to_float(data.get(key))
+        if not v:
+            continue
+        adj = _scale_down_to_limit(v, total * max_ratio)
+        if adj != v:
+            data[key] = adj
+            imp_key = key.replace('valor_', '')
+            impostos[imp_key] = adj
+
+    if impostos:
+        data['impostos'] = impostos
+
+    return data
 
 
 def _normalize_date(s: Any) -> Optional[str]:
@@ -268,7 +303,7 @@ def _parse_nf_payload(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     impostos = _parse_impostos(src)
 
-    return {
+    result = {
         'numero_nota': (str(src.get('numero_nota')).strip() if src.get('numero_nota') else None),
         'data_emissao': _normalize_date(src.get('data_emissao')),
         'valor_total': _to_float(src.get('valor_total')),
@@ -286,6 +321,7 @@ def _parse_nf_payload(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         'aliquota_issqn': impostos.get('aliquota_issqn'),
         'confidence': _clamp_confidence(src.get('confidence')),
     }
+    return _sanitize_nf_monetary_values(result)
 
 
 def _extract_from_image(image_bytes: bytes, filename: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -389,7 +425,7 @@ def _merge_extraction_with_text_fallback(result: Optional[Dict[str, Any]], pdf_b
 
     if not result.get('numero_nota') and not result.get('valor_total'):
         return None
-    return result
+    return _sanitize_nf_monetary_values(result)
 
 
 def _extract_from_pdf(pdf_bytes: bytes, filename: Optional[str]) -> Optional[Dict[str, Any]]:

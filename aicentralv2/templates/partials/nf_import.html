@@ -189,10 +189,24 @@
     return String(v);
   }
 
+  function parseBrlNfImport(val) {
+    if (val == null || val === '') return null;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    var s = String(val).trim().replace(/R\$\s*/gi, '').replace(/\s/g, '');
+    if (!s) return null;
+    if (s.indexOf(',') >= 0) {
+      return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+    }
+    var parts = s.split('.');
+    if (parts.length > 2) return parseFloat(s.replace(/\./g, ''));
+    if (parts.length === 2) return parseFloat(s);
+    return parseFloat(s);
+  }
+
   function fmtValorNfImport(val) {
     if (val == null || val === '') return '';
-    var n = parseFloat(String(val).replace('R$', '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
-    if (isNaN(n)) return String(val);
+    var n = parseBrlNfImport(val);
+    if (n == null || isNaN(n)) return String(val);
     return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 

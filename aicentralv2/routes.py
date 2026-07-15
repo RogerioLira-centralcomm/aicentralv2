@@ -12768,11 +12768,100 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'Não há como importar esta nota.'
         )
 
-    def _formatar_cnpj_nf_display(cnpj):
-        digits = db.normalizar_cnpj(cnpj) or ''
-        if len(digits) != 14:
-            return str(cnpj or '').strip() or '—'
-        return f'{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}'
+    def _formatar_valor_nf_display(valor):
+        fmt = db.formatar_real_br(valor)
+        return fmt if fmt else str(valor or '—')
+
+    def _valores_esperados_pi_nf(pi_row):
+        liq = _parse_brl_float(pi_row.get('valor_liquido') or pi_row.get('vr_liquido_pi'))
+        bru = _parse_brl_float(pi_row.get('valor_bruto') or pi_row.get('vr_bruto_pi'))
+        return liq, bru
+
+    def _valores_nota_nf(extracted):
+        total = _parse_brl_float(extracted.get('valor_total'))
+        if total is None:
+            total = _parse_brl_float(extracted.get('valor'))
+        liq = _parse_brl_float(extracted.get('valor_liquido'))
+        return total, liq
+
+    def _valor_nf_compativel_com_pi(extracted, pi_row, tolerancia=0.05):
+        nf_total, nf_liq = _valores_nota_nf(extracted)
+        pi_liq, pi_bru = _valores_esperados_pi_nf(pi_row)
+        nf_valores = [v for v in (nf_total, nf_liq) if v is not None]
+        if not nf_valores:
+            return False, None, None, None
+        pi_valores = [v for v in (pi_liq, pi_bru) if v is not None]
+        if not pi_valores:
+            return True, None, nf_valores[0], None
+        for nv in nf_valores:
+            for pv in pi_valores:
+                if abs(pv - nv) <= tolerancia:
+                    return True, nv, pv, 'liquido' if pv == pi_liq else 'bruto'
+        return False, nf_valores[0], pi_liq or pi_bru, None
+
+    def _validar_nf_contra_pi_contexto(pi_row, extracted):
+        """
+        Valida código PI e valor da NF contra o PI selecionado.
+        Tomador/cliente não é validado (NF pode ser emitida para terceiro).
+        Retorna (ok, erros, avisos, detalhes).
+        """
+        extracted = extracted or {}
+        erros = []
+        avisos = []
+        detalhes = {'pi_ok': False, 'valor_ok': False}
+
+        pi_codes = _codigos_pi_registro_nf(pi_row)
+        cod_pi_esperado = (pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag') or '').strip()
+        cod_nf = (_resolver_codigo_pi_nf(extracted) or '').strip().upper()
+
+        if pi_codes:
+            if not cod_nf:
+                erros.append(
+                    f'Código PI não identificado na nota. O PI selecionado é "{cod_pi_esperado}".'
+                )
+            elif cod_nf not in pi_codes:
+                ref = cod_nf
+                erros.append(
+                    f'Inconsistência no PI: a nota referencia PI "{ref}", '
+                    f'mas o PI selecionado é "{cod_pi_esperado}".'
+                )
+            else:
+                detalhes['pi_ok'] = True
+                detalhes['codigo_pi_nf'] = cod_nf
+                detalhes['codigo_pi_esperado'] = cod_pi_esperado
+
+        compativel, valor_nf, valor_pi, tipo_valor = _valor_nf_compativel_com_pi(extracted, pi_row)
+        pi_liq, pi_bru = _valores_esperados_pi_nf(pi_row)
+        if not compativel:
+            nf_total, nf_liq = _valores_nota_nf(extracted)
+            if nf_total is None and nf_liq is None:
+                erros.append(
+                    'Valor da nota não identificado. Informe o valor do serviço ou valor líquido.'
+                )
+            else:
+                valor_nf_fmt = _formatar_valor_nf_display(valor_nf)
+                esperados = []
+                if pi_liq is not None:
+                    esperados.append(f'líquido {_formatar_valor_nf_display(pi_liq)}')
+                if pi_bru is not None:
+                    esperados.append(f'bruto {_formatar_valor_nf_display(pi_bru)}')
+                esperado_txt = ' / '.join(esperados) if esperados else 'valor do PI'
+                erros.append(
+                    f'Inconsistência no valor: a nota indica {valor_nf_fmt}, '
+                    f'mas o PI selecionado tem {esperado_txt}.'
+                )
+        else:
+            detalhes['valor_ok'] = True
+            if valor_nf is not None:
+                detalhes['valor_nf'] = valor_nf
+            if valor_pi is not None:
+                detalhes['valor_pi'] = valor_pi
+                detalhes['valor_pi_tipo'] = tipo_valor
+
+        ok = len(erros) == 0
+        if ok and detalhes.get('pi_ok') and detalhes.get('valor_ok'):
+            detalhes['validacao_completa'] = True
+        return ok, erros, avisos, detalhes
 
     def _extrair_codigo_pi_discriminacao_nf(discriminacao):
         if not discriminacao:
@@ -12802,91 +12891,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 codes.append(valor)
         return codes
 
-    def _cnpjs_tomador_esperados_pi_nf(pi_row):
-        opcoes = []
-        cnpj_cliente = db.normalizar_cnpj(pi_row.get('cliente_cnpj'))
-        if cnpj_cliente:
-            nome = (
-                pi_row.get('cliente_nome')
-                or pi_row.get('cliente_razao_social')
-                or 'Cliente do PI'
-            )
-            opcoes.append({'tipo': 'cliente', 'cnpj': cnpj_cliente, 'nome': nome})
-        cnpj_agencia = db.normalizar_cnpj(pi_row.get('agencia_cnpj'))
-        if cnpj_agencia:
-            nome = (
-                pi_row.get('agencia_nome')
-                or pi_row.get('agencia_razao_social')
-                or 'Agência do PI'
-            )
-            opcoes.append({'tipo': 'agencia', 'cnpj': cnpj_agencia, 'nome': nome})
-        return opcoes
-
-    def _validar_nf_contra_pi_contexto(pi_row, extracted):
-        """
-        Valida código PI e CNPJ do tomador da NF contra o PI selecionado.
-        Retorna (ok, erros, avisos, detalhes).
-        """
-        extracted = extracted or {}
-        erros = []
-        avisos = []
-        detalhes = {'pi_ok': False, 'cliente_ok': False}
-
-        pi_codes = _codigos_pi_registro_nf(pi_row)
-        cod_pi_esperado = (pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag') or '').strip()
-        cod_nf = (_resolver_codigo_pi_nf(extracted) or '').strip().upper()
-
-        if pi_codes:
-            if not cod_nf:
-                erros.append(
-                    f'Código PI não identificado na nota. O PI selecionado é "{cod_pi_esperado}".'
-                )
-            elif cod_nf not in pi_codes:
-                ref = cod_nf
-                erros.append(
-                    f'Inconsistência no PI: a nota referencia PI "{ref}", '
-                    f'mas o PI selecionado é "{cod_pi_esperado}".'
-                )
-            else:
-                detalhes['pi_ok'] = True
-                detalhes['codigo_pi_nf'] = cod_nf
-                detalhes['codigo_pi_esperado'] = cod_pi_esperado
-
-        cnpj_nf = db.normalizar_cnpj(extracted.get('cnpj_tomador'))
-        tomadores_esperados = _cnpjs_tomador_esperados_pi_nf(pi_row)
-
-        if not tomadores_esperados:
-            if pi_row.get('id_cliente'):
-                erros.append(
-                    'Cliente do PI sem CNPJ cadastrado. Cadastre o CNPJ do cliente antes de importar a NF.'
-                )
-            elif cnpj_nf:
-                avisos.append('PI sem CNPJ cadastrado; o tomador da nota não pôde ser validado.')
-        elif not cnpj_nf:
-            esperado = '; '.join(
-                f'{t["nome"]} ({_formatar_cnpj_nf_display(t["cnpj"])})' for t in tomadores_esperados
-            )
-            erros.append(f'CNPJ do tomador não identificado na nota. Esperado: {esperado}.')
-        elif not any(cnpj_nf == t['cnpj'] for t in tomadores_esperados):
-            esperado = '; '.join(
-                f'{t["nome"]}: {_formatar_cnpj_nf_display(t["cnpj"])}' for t in tomadores_esperados
-            )
-            erros.append(
-                f'Inconsistência no cliente: CNPJ na nota ({_formatar_cnpj_nf_display(cnpj_nf)}) '
-                f'não corresponde ao PI selecionado ({esperado}).'
-            )
-        else:
-            detalhes['cliente_ok'] = True
-            detalhes['cnpj_nf'] = cnpj_nf
-            match = next(t for t in tomadores_esperados if t['cnpj'] == cnpj_nf)
-            detalhes['cliente_nome'] = match['nome']
-            detalhes['cnpj_esperado'] = match['cnpj']
-
-        ok = len(erros) == 0
-        if ok and pi_codes and tomadores_esperados:
-            detalhes['validacao_completa'] = True
-        return ok, erros, avisos, detalhes
-
     def _extracted_from_linha_confirmacao_nf(linha):
         import json as json_mod
 
@@ -12903,10 +12907,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 pass
         for campo in (
             'codigo_pi', 'cnpj_tomador', 'discriminacao', 'numero_nota',
-            'data_emissao', 'valor_total', 'valor_liquido',
+            'data_emissao', 'valor_total', 'valor_liquido', 'valor',
         ):
             if linha.get(campo) is not None and linha.get(campo) != '':
                 extracted[campo] = linha[campo]
+        if linha.get('valor') and not extracted.get('valor_total'):
+            extracted['valor_total'] = linha.get('valor')
         if linha.get('codigo_pi_referencia') and not extracted.get('codigo_pi'):
             extracted['codigo_pi'] = linha['codigo_pi_referencia']
         return extracted
@@ -13173,7 +13179,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 erros.append({
                     'linha': idx,
                     'filename': linha.get('filename'),
-                    'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências na validação PI/cliente.',
+                    'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências na validação PI/valor.',
                     'inconsistencias': erros_val,
                     'inconsistencia': True,
                 })

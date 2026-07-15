@@ -406,13 +406,13 @@
     var valOkEl = document.getElementById('nf_import_validacao_ok');
     var val = item.validacao || {};
     if (valOkEl) {
-      if (val.validacao_completa || (val.pi_ok && val.cliente_ok)) {
+      if (val.validacao_completa || (val.pi_ok && val.valor_ok)) {
         var valParts = [];
         if (val.pi_ok && val.codigo_pi_esperado) {
           valParts.push('PI <strong>' + val.codigo_pi_esperado + '</strong> conferido na nota');
         }
-        if (val.cliente_ok && val.cliente_nome) {
-          valParts.push('Cliente <strong>' + val.cliente_nome + '</strong> conferido (CNPJ)');
+        if (val.valor_ok && val.valor_nf != null) {
+          valParts.push('Valor <strong>' + fmtValorNfImport(val.valor_nf) + '</strong> conferido com o PI');
         }
         valOkEl.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i>' + valParts.join(' · ');
         valOkEl.classList.remove('hidden');

@@ -128,6 +128,19 @@
         btn.disabled = n === 0;
     }
 
+    function updateBulkDeleteButton() {
+        const btn = $('#fin-btn-bulk-delete');
+        if (!btn) return;
+        const n = selectedIds.size;
+        btn.textContent = `Excluir selecionados (${n})`;
+        btn.disabled = n === 0;
+    }
+
+    function updateBulkButtons() {
+        updateBulkSubmitButton();
+        updateBulkDeleteButton();
+    }
+
     function syncSelectAllCheckbox() {
         const master = $('#fin-select-all');
         const boxes = document.querySelectorAll('.fin-row-select');
@@ -152,7 +165,7 @@
             if (checked) selectedIds.add(cb.dataset.id);
             else selectedIds.delete(cb.dataset.id);
         });
-        updateBulkSubmitButton();
+        updateBulkButtons();
         syncSelectAllCheckbox();
     }
 
@@ -164,7 +177,7 @@
             if (checked) selectedIds.add(cb.dataset.id);
             else selectedIds.delete(cb.dataset.id);
         });
-        updateBulkSubmitButton();
+        updateBulkButtons();
         syncSelectAllCheckbox();
     }
 
@@ -177,7 +190,7 @@
         const canEdit = EDITABLE.includes(e.status);
         const canDelete = DELETABLE.includes(e.status);
         const canSubmit = EDITABLE.includes(e.status);
-        const selectable = canSelectRow(e);
+        const selectable = canDelete;
         const rejected = e.status === 'rejected' && e.rejection_reason
             ? `<div class="text-xs text-error mt-0.5">Motivo: ${escapeHtml(e.rejection_reason)}</div>` : '';
         const review = e.needs_review && canEdit
@@ -209,7 +222,7 @@
             cb.addEventListener('change', () => {
                 if (cb.checked) selectedIds.add(cb.dataset.id);
                 else selectedIds.delete(cb.dataset.id);
-                updateBulkSubmitButton();
+                updateBulkButtons();
                 syncSelectAllCheckbox();
             });
         });
@@ -257,7 +270,7 @@
         const qs = status ? `?status=${encodeURIComponent(status)}` : '';
         const tbody = $('#fin-lista');
         selectedIds.clear();
-        updateBulkSubmitButton();
+        updateBulkButtons();
         const masterAll = $('#fin-select-all');
         if (masterAll) {
             masterAll.checked = false;
@@ -386,6 +399,30 @@
             refreshAll();
         } catch (err) {
             showToast(err.message, 'error');
+        }
+    }
+
+    async function deleteBulk(ids) {
+        if (!ids.length) return;
+        if (!confirm(`Excluir ${ids.length} reembolso(s)? Essa ação não pode ser desfeita.`)) return;
+        const btn = $('#fin-btn-bulk-delete');
+        btn?.classList.add('loading');
+        try {
+            const r = await api('/expenses/delete-bulk', {
+                method: 'POST',
+                body: JSON.stringify({ expense_ids: ids }),
+            });
+            const ok = (r.deleted || []).length;
+            const fail = (r.failed || []).length;
+            if (fail === 0) showToast(`${ok} reembolso(s) excluído(s).`, 'success');
+            else if (ok === 0) showToast(`Nenhum excluído: ${r.failed.map(f => f.error).join('; ')}`, 'error');
+            else showToast(`${ok} excluído(s), ${fail} com erro.`, 'warning');
+            selectedIds.clear();
+            refreshAll();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            btn?.classList.remove('loading');
         }
     }
 
@@ -611,6 +648,10 @@
 
         $('#fin-btn-bulk-submit')?.addEventListener('click', () => {
             submitBulk(Array.from(selectedIds));
+        });
+
+        $('#fin-btn-bulk-delete')?.addEventListener('click', () => {
+            deleteBulk(Array.from(selectedIds));
         });
 
         $('#fin-select-all')?.addEventListener('change', (e) => {

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 
@@ -47,7 +49,10 @@ Categorias válidas para suggested_category_slug (escolha a mais adequada):
 - outros (qualquer outra coisa)
 
 Regras:
-- expense_date: data da compra/emissão no formato YYYY-MM-DD. Se só houver DD/MM/AAAA, converta. Se não achar, use null.
+- expense_date: data da compra/emissão no formato YYYY-MM-DD. Converta qualquer formato encontrado, incluindo:
+  * DD/MM/AAAA ou DD/M/AAAA (ex.: 25/3/2026)
+  * datas em português por extenso (ex.: "25 de mar. de 2026", "25 de março de 2026")
+  Se não achar, use null.
 - total_amount: valor TOTAL pago (o maior valor final, já com impostos/serviço). Use ponto como separador decimal (ex.: 1234.56). Se ilegível, null.
 - merchant_name: nome do estabelecimento/loja. Se não achar, null.
 - suggested_category_slug: exatamente um dos slugs listados. Se em dúvida, "outros".
@@ -57,6 +62,98 @@ Regras:
 """
 
 _MAX_PDF_PAGES = 5
+
+_MONTH_PT = {
+    'jan': 1, 'janeiro': 1,
+    'fev': 2, 'fevereiro': 2,
+    'mar': 3, 'marco': 3, 'março': 3,
+    'abr': 4, 'abril': 4,
+    'mai': 5, 'maio': 5,
+    'jun': 6, 'junho': 6,
+    'jul': 7, 'julho': 7,
+    'ago': 8, 'agosto': 8,
+    'set': 9, 'setembro': 9,
+    'out': 10, 'outubro': 10,
+    'nov': 11, 'novembro': 11,
+    'dez': 12, 'dezembro': 12,
+}
+
+
+def _strip_accents(s: str) -> str:
+    nf = unicodedata.normalize('NFD', s)
+    return ''.join(c for c in nf if unicodedata.category(c) != 'Mn')
+
+
+def _month_from_pt_token(token: str) -> Optional[int]:
+    if not token:
+        return None
+    key = _strip_accents(str(token).strip().lower()).rstrip('.')
+    return _MONTH_PT.get(key)
+
+
+def _make_iso_date(y: int, mo: int, d: int) -> Optional[str]:
+    try:
+        date(y, mo, d)
+        return f'{y:04d}-{mo:02d}-{d:02d}'
+    except (ValueError, TypeError):
+        return None
+
+
+def _normalize_date(s: Any) -> Optional[str]:
+    if s is None or s == '':
+        return None
+    t = str(s).strip()
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', t):
+        return t
+    m = re.match(r'^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$', t)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if y < 100:
+            y += 2000
+        return _make_iso_date(y, mo, d)
+    m = re.search(
+        r'(\d{1,2})\s+de\s+([\w\.]+)\s+de\s+(\d{4})',
+        t,
+        re.IGNORECASE,
+    )
+    if m:
+        d = int(m.group(1))
+        mo = _month_from_pt_token(m.group(2))
+        y = int(m.group(3))
+        if mo:
+            return _make_iso_date(y, mo, d)
+    m = re.search(r'(\d{1,2})([a-z]{3})\.?(\d{4})', t, re.IGNORECASE)
+    if m:
+        d = int(m.group(1))
+        mo = _month_from_pt_token(m.group(2))
+        y = int(m.group(3))
+        if mo:
+            return _make_iso_date(y, mo, d)
+    return None
+
+
+def _date_from_filename(filename: Optional[str]) -> Optional[str]:
+    if not filename:
+        return None
+    m = re.search(r'(\d{1,2})([a-z]{3})\.?(\d{4})', filename, re.IGNORECASE)
+    if not m:
+        return None
+    d = int(m.group(1))
+    mo = _month_from_pt_token(m.group(2))
+    y = int(m.group(3))
+    if mo:
+        return _make_iso_date(y, mo, d)
+    return None
+
+
+def _apply_filename_date_fallback(result: Optional[Dict[str, Any]], filename: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not result or result.get('expense_date') or not filename:
+        return result
+    fallback = _date_from_filename(filename)
+    if fallback:
+        result = dict(result)
+        result['expense_date'] = fallback
+    return result
 
 
 def _to_float(v: Any) -> Optional[float]:
@@ -81,24 +178,6 @@ def _to_float(v: Any) -> Optional[float]:
             return float(s)
         except ValueError:
             return None
-
-
-def _normalize_date(s: Any) -> Optional[str]:
-    if s is None or s == '':
-        return None
-    t = str(s).strip()
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', t):
-        return t
-    m = re.match(r'^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$', t)
-    if m:
-        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        if y < 100:
-            y += 2000
-        try:
-            return f'{y:04d}-{mo:02d}-{d:02d}'
-        except Exception:
-            return None
-    return None
 
 
 def _normalize_category(slug: Any) -> Optional[str]:
@@ -234,7 +313,7 @@ def _extract_from_pdf(pdf_bytes: bytes, filename: Optional[str]) -> Optional[Dic
                 best_total = best.get('total_amount') or 0
                 if cur_total > best_total:
                     best = result
-        return best
+        return _apply_filename_date_fallback(best, base)
     finally:
         doc.close()
 
@@ -250,7 +329,9 @@ def extract_receipt(file_bytes: bytes, ext: str, filename: Optional[str] = None)
         e = '.' + e
     try:
         if e == '.pdf':
-            return _extract_from_pdf(file_bytes, filename)
-        return _extract_from_image(file_bytes, filename)
+            result = _extract_from_pdf(file_bytes, filename)
+        else:
+            result = _extract_from_image(file_bytes, filename)
+        return _apply_filename_date_fallback(result, filename)
     except Exception:
         return None

@@ -192,6 +192,28 @@ def _try_review_expense(expense_id, action, reviewer_id, rejection_reason=None):
     return False, 'Ação inválida'
 
 
+def _try_delete_expense(expense_id, user_id):
+    """Exclui uma despesa deletável. Retorna (success, error_msg)."""
+    expense = fin.get_expense(expense_id)
+    if not expense:
+        return False, 'Despesa não encontrada'
+    if not user_owns_expense(expense, user_id) and not is_finance_admin():
+        return False, 'Acesso negado'
+    if expense['status'] not in DELETABLE_STATUSES:
+        return False, 'Não é possível excluir uma despesa já enviada.'
+
+    storage = ReceiptStorage()
+    for r in fin.list_receipts(expense_id):
+        try:
+            storage.delete(r['storage_key'])
+        except Exception:
+            pass
+
+    fin.delete_expense(expense_id)
+    fin.write_audit(user_id, 'expense', expense_id, 'deleted')
+    return True, None
+
+
 # --------------- Páginas ---------------
 
 @bp.route('/meus-reembolsos')
@@ -392,6 +414,34 @@ def api_submit_expense_bulk():
     return jsonify({'success': True, 'submitted': submitted, 'failed': failed})
 
 
+@bp.route('/api/expenses/delete-bulk', methods=['POST'])
+@login_required_api
+def api_delete_expense_bulk():
+    """Exclui vários reembolsos de uma vez (sucesso parcial)."""
+    data = request.get_json() or {}
+    expense_ids = data.get('expense_ids') or []
+    if not isinstance(expense_ids, list) or not expense_ids:
+        return jsonify({'success': False, 'error': 'Informe expense_ids (lista de UUIDs)'}), 400
+    if len(expense_ids) > MAX_SUBMIT_BATCH:
+        return jsonify({
+            'success': False,
+            'error': f'Máximo de {MAX_SUBMIT_BATCH} reembolsos por exclusão.',
+        }), 400
+
+    user_id = _uid()
+    deleted = []
+    failed = []
+
+    for eid in expense_ids:
+        ok, err = _try_delete_expense(str(eid), user_id)
+        if ok:
+            deleted.append(str(eid))
+        else:
+            failed.append({'id': str(eid), 'error': err})
+
+    return jsonify({'success': True, 'deleted': deleted, 'failed': failed})
+
+
 @bp.route('/api/expenses/<expense_id>', methods=['GET'])
 @login_required_api
 def api_get_expense(expense_id):
@@ -450,23 +500,10 @@ def api_submit_expense(expense_id):
 @bp.route('/api/expenses/<expense_id>', methods=['DELETE'])
 @login_required_api
 def api_delete_expense(expense_id):
-    expense = fin.get_expense(expense_id)
-    if not expense:
-        return jsonify({'success': False, 'error': 'Despesa não encontrada'}), 404
-    if not user_owns_expense(expense) and not is_finance_admin():
-        return jsonify({'success': False, 'error': 'Acesso negado'}), 403
-    if expense['status'] not in DELETABLE_STATUSES:
-        return jsonify({'success': False, 'error': 'Não é possível excluir uma despesa já enviada.'}), 400
-
-    storage = ReceiptStorage()
-    for r in fin.list_receipts(expense_id):
-        try:
-            storage.delete(r['storage_key'])
-        except Exception:
-            pass
-
-    fin.delete_expense(expense_id)
-    fin.write_audit(_uid(), 'expense', expense_id, 'deleted')
+    ok, err = _try_delete_expense(expense_id, _uid())
+    if not ok:
+        status = 404 if err == 'Despesa não encontrada' else 403 if err == 'Acesso negado' else 400
+        return jsonify({'success': False, 'error': err}), status
     return jsonify({'success': True})
 
 

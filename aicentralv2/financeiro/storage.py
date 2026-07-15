@@ -86,3 +86,26 @@ class ReceiptStorage:
         path = self.absolute_path(storage_key)
         if path and path.is_file():
             path.unlink(missing_ok=True)
+
+    def delete_for_expense(self, expense_id, storage_keys=None):
+        """Remove comprovantes da despesa e limpa a pasta no disco."""
+        keys = list(storage_keys or [])
+        for key in keys:
+            try:
+                self.delete(key)
+            except Exception:
+                pass
+
+        if not expense_id:
+            return
+
+        folder = _upload_root() / str(expense_id).replace('..', '').strip('/\\')
+        if not folder.is_dir():
+            return
+        try:
+            for child in folder.iterdir():
+                if child.is_file():
+                    child.unlink(missing_ok=True)
+            folder.rmdir()
+        except OSError:
+            pass

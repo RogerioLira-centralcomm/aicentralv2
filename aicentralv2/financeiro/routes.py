@@ -203,11 +203,8 @@ def _try_delete_expense(expense_id, user_id):
         return False, 'Não é possível excluir uma despesa já enviada.'
 
     storage = ReceiptStorage()
-    for r in fin.list_receipts(expense_id):
-        try:
-            storage.delete(r['storage_key'])
-        except Exception:
-            pass
+    receipt_keys = [r['storage_key'] for r in fin.list_receipts(expense_id)]
+    storage.delete_for_expense(expense_id, receipt_keys)
 
     fin.delete_expense(expense_id)
     fin.write_audit(user_id, 'expense', expense_id, 'deleted')

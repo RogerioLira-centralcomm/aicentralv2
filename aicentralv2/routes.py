@@ -11318,6 +11318,68 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'criativos_validados': db.obter_criativos_validados_campanha(),
         }
 
+    def _id_status_campanha_ativa():
+        """ID do status 'Ativa' para filtro padrão nas telas de campanhas."""
+        try:
+            row = db.obter_status_campanha_por_descricao('Ativa')
+            if row and row.get('id') is not None:
+                return int(row['id'])
+        except (TypeError, ValueError):
+            pass
+        return None
+
+    def _id_sub_status_pi_em_andamento():
+        """Key do sub-status PI 'Em andamento' para filtro fixo no acompanhamento."""
+        try:
+            row = db.obter_sub_status_pi_por_display('Em andamento')
+            if row and row.get('key') is not None:
+                return int(row['key'])
+        except (TypeError, ValueError):
+            pass
+        return 3
+
+    def _filtros_campanhas_pi_lista_da_request():
+        """Monta filtros do acompanhamento: sem status de campanha, só PI Em andamento."""
+        from datetime import datetime as dt_cls
+        filtros = {
+            'id_cliente': request.args.get('id_cliente', type=int),
+            'id_plataforma': request.args.get('id_plataforma', type=int),
+            'id_pi': request.args.get('id_pi', type=int),
+            'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
+        }
+        if request.args.get('resp_comercial'):
+            filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
+        filtros = {k: v for k, v in filtros.items() if v is not None}
+        if 'mes_ref_comp' not in filtros:
+            now = dt_cls.now()
+            filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
+        return filtros
+
+    def _filtros_campanhas_pi_da_request():
+        """Monta filtros da listagem/dashboard de campanhas PI a partir da query string."""
+        from datetime import datetime as dt_cls
+        filtros = {
+            'id_cliente': request.args.get('id_cliente', type=int),
+            'id_plataforma': request.args.get('id_plataforma', type=int),
+            'id_pi': request.args.get('id_pi', type=int),
+            'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
+        }
+        if request.args.get('resp_comercial'):
+            filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
+        if 'id_status' in request.args:
+            id_st = request.args.get('id_status', type=int)
+            if id_st:
+                filtros['id_status'] = id_st
+        else:
+            ativa_id = _id_status_campanha_ativa()
+            if ativa_id:
+                filtros['id_status'] = ativa_id
+        filtros = {k: v for k, v in filtros.items() if v is not None}
+        if 'mes_ref_comp' not in filtros:
+            now = dt_cls.now()
+            filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
+        return filtros
+
     def _mes_ref_comp_ordem(m):
         if not m or '/' not in str(m):
             return (0, 0)
@@ -11337,20 +11399,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             from collections import defaultdict
             import json as json_mod
 
-            filtros = {
-                'id_cliente': request.args.get('id_cliente', type=int),
-                'id_status': request.args.get('id_status', type=int),
-                'id_plataforma': request.args.get('id_plataforma', type=int),
-                'id_pi': request.args.get('id_pi', type=int),
-                'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
-            }
-            if request.args.get('resp_comercial'):
-                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
-            filtros = {k: v for k, v in filtros.items() if v is not None}
-
-            if 'mes_ref_comp' not in filtros:
-                now = dt_cls.now()
-                filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
+            filtros = _filtros_campanhas_pi_da_request()
 
             vendedores = db.obter_vendedores_centralcomm()
 
@@ -11516,6 +11565,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 campanhas=campanhas, **auxiliares,
                 filtros=filtros, meses_ref=meses_ref,
                 kpis=kpis, vendedores=vendedores,
+                status_ativa_id=_id_status_campanha_ativa(),
                 mes_atual=mes_atual,
                 chart_plataformas=json_mod.dumps(chart_plataformas),
                 chart_objetivo_mes=json_mod.dumps(chart_objetivo_mes),
@@ -11536,23 +11586,28 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         flat = {k: v[0] for k, v in parse_qs(parsed.query, keep_blank_values=True).items() if v}
         path = (parsed.path or '').replace('\\', '/')
 
+        def _flat_para_lista():
+            q = dict(flat)
+            q.pop('id_status', None)
+            return q
+
         explicit = (
             (request.form.get('campanhas_retorno') or '').strip().lower()
             or (request.headers.get('X-Campanhas-Retorno') or '').strip().lower()
         )
         if explicit == 'lista':
-            return redirect(url_for('campanhas_pi_lista', **flat))
+            return redirect(url_for('campanhas_pi_lista', **_flat_para_lista()))
         if explicit == 'dashboard':
             return redirect(url_for('campanhas_pi', **flat))
 
         if 'campanhas-pi/lista' in path:
-            return redirect(url_for('campanhas_pi_lista', **flat))
+            return redirect(url_for('campanhas_pi_lista', **_flat_para_lista()))
 
         # Página legada /campanhas-pi/<id>/diarios: path contém "campanhas-pi" mas não é o dashboard.
         if '/campanhas-pi/' in path and '/diarios' in path:
             sess_d = (session.get('campanhas_pi_retorno') or '').strip().lower()
             if sess_d == 'lista':
-                return redirect(url_for('campanhas_pi_lista', **flat))
+                return redirect(url_for('campanhas_pi_lista', **_flat_para_lista()))
             return redirect(url_for('campanhas_pi', **flat))
 
         if 'campanhas-pi' in path and 'campanhas-pi/lista' not in path:
@@ -11560,7 +11615,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         sess = (session.get('campanhas_pi_retorno') or '').strip().lower()
         if sess == 'lista':
-            return redirect(url_for('campanhas_pi_lista', **flat))
+            return redirect(url_for('campanhas_pi_lista', **_flat_para_lista()))
         return redirect(url_for('campanhas_pi', **flat))
 
     @app.route('/campanhas-pi/lista')
@@ -11569,27 +11624,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Lista de campanhas PI em formato de tabela compacta"""
         try:
             session['campanhas_pi_retorno'] = 'lista'
-            filtros = {
-                'id_cliente': request.args.get('id_cliente', type=int),
-                'id_status': request.args.get('id_status', type=int),
-                'id_plataforma': request.args.get('id_plataforma', type=int),
-                'id_pi': request.args.get('id_pi', type=int),
-                'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
-            }
-            if request.args.get('resp_comercial'):
-                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
-            filtros = {k: v for k, v in filtros.items() if v is not None}
+            filtros = _filtros_campanhas_pi_lista_da_request()
 
             view_diarios = request.args.get('view') == 'diarios'
 
             from datetime import datetime as dt_cls
-            if 'mes_ref_comp' not in filtros:
-                now = dt_cls.now()
-                filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
 
             vendedores = db.obter_vendedores_centralcomm()
 
-            campanhas_raw = db.obter_campanhas_pi(filtros or None)
+            campanhas_raw = db.obter_campanhas_pi_acompanhamento(filtros)
             campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
             auxiliares = _carregar_auxiliares_campanha()
             try:

@@ -9009,6 +9009,28 @@ def obter_sub_status_pi():
         raise e
 
 
+def obter_sub_status_pi_por_display(display):
+    """Retorna sub-status PI pela coluna display (ex.: 'Em andamento')."""
+    if not display:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT key, display
+                FROM cadu_pi_sub_status
+                WHERE LOWER(TRIM(display)) = LOWER(TRIM(%s))
+                LIMIT 1
+                ''',
+                (display,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def atualizar_pi_status_nf_emitida(id_pi):
     """Marca PI como NF Emitida / sub_status Finalizado após criação ou importação de NF."""
     if not id_pi:
@@ -12232,6 +12254,23 @@ def obter_status_campanha_por_id(id_status):
         raise e
 
 
+def obter_status_campanha_por_descricao(descricao):
+    """Retorna um status de campanha pela descrição (ex.: 'Ativa')."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, descricao
+                FROM cadu_pi_camp_status
+                WHERE descricao = %s
+                LIMIT 1
+            ''', (descricao,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def criar_status_campanha(data):
     """Cria um novo status de campanha"""
     conn = get_db()
@@ -12291,12 +12330,17 @@ def excluir_status_campanha(id_status):
 
 # ==================== CAMPANHA PI - CRUD ====================
 
-def obter_campanhas_pi(filtros=None):
-    """Retorna campanhas PI com JOINs para nomes relacionados"""
+def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
+    """Retorna campanhas PI com JOINs para nomes relacionados.
+
+    somente_pi_em_andamento: quando True (tela Acompanhamento), retorna apenas
+    campanhas cujo PI pai está com sub-status «Em andamento».
+    """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            query = '''
+            pi_join = 'INNER JOIN' if somente_pi_em_andamento else 'LEFT JOIN'
+            query = f'''
                 SELECT
                     c.id_campanha,
                     c.id_pi,
@@ -12339,6 +12383,8 @@ def obter_campanhas_pi(filtros=None):
                     pi.titulo_pi,
                     pi.googled_pi_princ,
                     vend.nome_completo AS executivo_nome,
+                    vend.foto_url AS executivo_foto_url,
+                    cli.vendas_central_comm AS executivo_id,
                     pi.vr_liquido_pi AS valor_liquido_pi,
                     pi.vr_platafor_max_pi AS valor_plataformas_pi,
                     (SELECT COUNT(*) FROM cadu_pi_camp_diarios d WHERE d.id_campanha = c.id_campanha) AS qtd_diarios
@@ -12348,17 +12394,26 @@ def obter_campanhas_pi(filtros=None):
                 LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
                 LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
                 LEFT JOIN cadu_pi_camp_criativos_validados cv ON c.id_criativos_validados = cv.id
-                LEFT JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                {pi_join} cadu_pi pi ON c.id_pi = pi.id_pi
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE 1=1
             '''
             params = []
 
+            if somente_pi_em_andamento:
+                query += '''
+                    AND pi.id_sub_status_pi = (
+                        SELECT key FROM cadu_pi_sub_status
+                        WHERE LOWER(TRIM(display)) = 'em andamento'
+                        LIMIT 1
+                    )
+                '''
+
             if filtros:
                 if filtros.get('id_cliente'):
                     query += ' AND c.id_cliente = %s'
                     params.append(filtros['id_cliente'])
-                if filtros.get('id_status'):
+                if not somente_pi_em_andamento and filtros.get('id_status'):
                     query += ' AND c.id_status = %s'
                     params.append(filtros['id_status'])
                 if filtros.get('id_plataforma'):
@@ -12370,10 +12425,13 @@ def obter_campanhas_pi(filtros=None):
                 if filtros.get('mes_ref_comp'):
                     query += ' AND c.mes_ref_comp = %s'
                     params.append(filtros['mes_ref_comp'])
+                    if somente_pi_em_andamento:
+                        query += ' AND pi.mes_ref_comp = %s'
+                        params.append(filtros['mes_ref_comp'])
                 if filtros.get('resp_comercial'):
                     query += ' AND cli.vendas_central_comm = %s'
                     params.append(filtros['resp_comercial'])
-                if filtros.get('id_sub_status_pi'):
+                if not somente_pi_em_andamento and filtros.get('id_sub_status_pi'):
                     query += ' AND pi.id_sub_status_pi = %s'
                     params.append(filtros['id_sub_status_pi'])
 
@@ -12383,6 +12441,14 @@ def obter_campanhas_pi(filtros=None):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def obter_campanhas_pi_acompanhamento(filtros=None):
+    """Campanhas da tela Acompanhamento: somente PI Em andamento."""
+    filtros = {k: v for k, v in (filtros or {}).items() if v is not None}
+    filtros.pop('id_status', None)
+    filtros.pop('id_sub_status_pi', None)
+    return obter_campanhas_pi(filtros, somente_pi_em_andamento=True)
 
 
 def obter_campanhas_pi_lista_old_kpi(filtros=None):

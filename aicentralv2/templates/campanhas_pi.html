@@ -97,6 +97,33 @@
   #bulkSaveBar { position: fixed; bottom: 0; left: 0; right: 0; background: #1f2937; color: white; padding: 12px 24px; display: none; z-index: 50; }
   #bulkSaveBar.active { display: flex; }
 
+  /* Modal editar campanha — compacto */
+  #modal_campanha .modal-box { max-width: 40rem; padding: 0; }
+  #modal_campanha .camp-modal-head { padding: 0.4rem 0.85rem; }
+  #modal_campanha .camp-modal-head h3 { font-size: 11px; }
+  #modal_campanha .camp-modal-body { padding: 0.65rem 0.85rem 0.75rem; overflow: visible; max-height: none; }
+  #modal_campanha .camp-form-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem 0.6rem; }
+  #modal_campanha .camp-margem-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.35rem 0.5rem; margin-top: 0.45rem; padding-top: 0.45rem; border-top: 1px solid #f3f4f6; }
+  #modal_campanha .camp-col-2 { grid-column: span 2; }
+  #modal_campanha .camp-col-4 { grid-column: span 4; }
+  #modal_campanha .camp-field label { display: block; font-size: 9px; font-weight: 600; color: #4b5563; margin-bottom: 1px; line-height: 1.2; }
+  #modal_campanha .camp-field input:not([type=checkbox]), #modal_campanha .camp-field select {
+    width: 100%; font-size: 11px; line-height: 1.3; padding: 0.2rem 0.45rem; min-height: 26px;
+    border-radius: 0.375rem; border: 1px solid #e5e7eb; background: #f9fafb;
+  }
+  #modal_campanha .camp-field input:focus, #modal_campanha .camp-field select:focus { background: #fff; border-color: #9ca3af; outline: none; }
+  #modal_campanha .camp-field input:disabled, #modal_campanha .camp-field select:disabled { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+  #modal_campanha .camp-field input[readonly] { background: #f3f4f6; color: #6b7280; cursor: default; }
+  #modal_campanha .camp-field-check { display: flex; align-items: center; gap: 0.35rem; padding-top: 1rem; }
+  #modal_campanha .camp-field-check input { width: 13px; height: 13px; }
+  #modal_campanha .camp-field-check span { font-size: 10px; color: #6b7280; }
+  #modal_campanha .camp-modal-foot { margin-top: 0.5rem; padding-top: 0.45rem; border-top: 1px solid #f3f4f6; }
+  #modal_campanha .camp-btn-save { padding: 0.3rem 1rem; font-size: 11px; font-weight: 500; border-radius: 0.375rem; }
+  @media (max-width: 640px) {
+    #modal_campanha .camp-form-grid, #modal_campanha .camp-margem-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #modal_campanha .camp-col-2, #modal_campanha .camp-col-4 { grid-column: span 2; }
+  }
+
   @media (max-width: 768px) {
     .sidebar-panel { width: 100vw; right: -100vw; }
     .kpi-card { padding: 12px 14px; }
@@ -115,7 +142,7 @@
         <i class="fa-solid fa-circle-check absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroStatus" onchange="aplicarFiltros()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
-          <option value="">Todos os Status</option>
+          <option value="" {% if request.args.get('id_status') == '0' %}selected{% endif %}>Todos os Status</option>
           {% for st in statuses %}
             <option value="{{ st.id }}" {% if filtros.get('id_status') == st.id %}selected{% endif %}>{{ st.descricao }}</option>
           {% endfor %}
@@ -641,29 +668,27 @@
 
 {# ====== MODAL DE CRIAÇÃO/EDIÇÃO ====== #}
 <dialog id="modal_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-3.5 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-sm text-white tracking-wide" id="modal_title">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
-      <button onclick="modal_campanha.close()" class="p-1.5 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+  <div class="modal-box w-11/12 bg-white p-0 rounded-lg shadow-2xl">
+    <div class="camp-modal-head flex items-center justify-between bg-gray-600 rounded-t-lg">
+      <h3 class="font-semibold text-white tracking-wide" id="modal_title">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
+      <button onclick="modal_campanha.close()" class="p-1 hover:bg-gray-500 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
     </div>
 
-    <div class="px-6 py-5 max-h-[75vh] overflow-y-auto">
+    <div class="camp-modal-body">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="campanhas_retorno" value="dashboard">
+        <input type="hidden" id="id_pi" name="id_pi" value="">
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
-
-          <div class="sm:col-span-2">
-            <label for="nome_campanha" class="block text-xs font-semibold text-gray-700 mb-1.5">Nome da Campanha</label>
-            <input type="text" id="nome_campanha" name="nome_campanha" required placeholder="Nome da Campanha"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+        <div class="camp-form-grid">
+          <div class="camp-field camp-col-2">
+            <label for="nome_campanha">Nome da Campanha</label>
+            <input type="text" id="nome_campanha" name="nome_campanha" required placeholder="Nome da campanha">
           </div>
-          <div>
-            <label for="id_cliente" class="block text-xs font-semibold text-gray-700 mb-1.5">Cliente</label>
-            <select id="id_cliente" name="id_cliente" disabled
-                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed appearance-none">
+          <div class="camp-field camp-col-2">
+            <label for="id_cliente">Cliente</label>
+            <select id="id_cliente" name="id_cliente" disabled>
               <option value="">Selecione...</option>
               {% for cli in clientes %}
                 <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
@@ -672,157 +697,100 @@
             <input type="hidden" id="id_cliente_hidden" name="id_cliente" value="">
           </div>
 
-          <div>
-            <label for="obj_contratados" class="block text-xs font-semibold text-gray-700 mb-1.5">Obj Contratado</label>
-            <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
-                   data-mask="numero" placeholder="0"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
+          <div class="camp-field">
+            <label for="obj_contratados">Obj Contratado</label>
+            <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal" data-mask="numero" placeholder="0" class="text-right">
           </div>
-          <div>
-            <label for="valor_plataforma" class="block text-xs font-semibold text-gray-700 mb-1.5">Valor Plataforma <span class="text-red-400">*</span></label>
-            <input type="text" id="valor_plataforma" name="valor_plataforma" required
-                   data-mask="real" placeholder="R$ 0,00"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          <div class="camp-field">
+            <label for="valor_plataforma">Valor Plataforma <span class="text-red-400">*</span></label>
+            <input type="text" id="valor_plataforma" name="valor_plataforma" required data-mask="real" placeholder="R$ 0,00">
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1.5">Distribuição %</label>
-            <input type="text" id="dist_pct" readonly tabindex="-1"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default text-right focus:outline-none" value="0,00%">
+          <div class="camp-field">
+            <label for="dist_pct">Distribuição %</label>
+            <input type="text" id="dist_pct" readonly tabindex="-1" class="text-right" value="0,00%">
           </div>
-
-          <div>
-            <label for="id_status" class="block text-xs font-semibold text-gray-700 mb-1.5">Status</label>
-            <select id="id_status" name="id_status"
-                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+          <div class="camp-field">
+            <label for="id_status">Status</label>
+            <select id="id_status" name="id_status">
               {% for st in statuses %}
                 <option value="{{ st.id }}" {% if st.descricao|lower == 'aguardando' %}selected{% endif %}>{{ st.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div>
-            <label for="id_criativos_validados" class="block text-xs font-semibold text-gray-700 mb-1.5">Criativos Validados <span class="text-red-500">*</span></label>
-            <select id="id_criativos_validados" name="id_criativos_validados" required
-                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+
+          <div class="camp-field">
+            <label for="id_criativos_validados">Criativos <span class="text-red-500">*</span></label>
+            <select id="id_criativos_validados" name="id_criativos_validados" required>
               <option value="">Selecione...</option>
               {% for cv in criativos_validados|default([]) %}
                 <option value="{{ cv.id }}">{{ cv.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div>
-            <label for="periodo_inicio" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Início</label>
-            <input type="date" id="periodo_inicio" name="periodo_inicio"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          <div class="camp-field">
+            <label for="periodo_inicio">Data Início</label>
+            <input type="date" id="periodo_inicio" name="periodo_inicio">
           </div>
-          <div>
-            <label for="periodo_fim" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Fim</label>
-            <input type="date" id="periodo_fim" name="periodo_fim"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          <div class="camp-field">
+            <label for="periodo_fim">Data Fim</label>
+            <input type="date" id="periodo_fim" name="periodo_fim">
           </div>
-
-          <div>
-            <label for="id_plataforma" class="block text-xs font-semibold text-gray-700 mb-1.5">Plataforma</label>
-            <select id="id_plataforma" name="id_plataforma"
-                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+          <div class="camp-field">
+            <label for="id_plataforma">Plataforma</label>
+            <select id="id_plataforma" name="id_plataforma">
               <option value="">Selecione...</option>
               {% for plt in plataformas %}
                 <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div>
-            <label for="id_objetivos_campanha" class="block text-xs font-semibold text-gray-700 mb-1.5">Objetivos</label>
-            <select id="id_objetivos_campanha" name="id_objetivos_campanha"
-                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+
+          <div class="camp-field">
+            <label for="id_objetivos_campanha">Objetivos</label>
+            <select id="id_objetivos_campanha" name="id_objetivos_campanha">
               <option value="">Selecione...</option>
               {% for obj in objetivos %}
                 <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-
-          <div class="sm:col-span-3">
-            <label for="link_dash" class="block text-xs font-semibold text-gray-700 mb-1.5">Link Dashboard</label>
-            <input type="url" id="link_dash" name="link_dash" placeholder="https://..."
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          <div class="camp-field">
+            <label for="totalizador_atingido">Atingido</label>
+            <input type="text" id="totalizador_atingido" name="totalizador_atingido" data-mask="numero" placeholder="0" class="text-right">
           </div>
-
-          <div>
-            <label for="id_pi" class="block text-xs font-semibold text-gray-700 mb-1.5">ID PI</label>
-            <input type="number" id="id_pi" name="id_pi"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          <div class="camp-field">
+            <label for="totalizador_gasto">Gasto</label>
+            <input type="text" id="totalizador_gasto" name="totalizador_gasto" data-mask="real" placeholder="R$ 0,00">
           </div>
-          <div>
-            <label for="totalizador_atingido" class="block text-xs font-semibold text-gray-700 mb-1.5">Totalizador Atingido</label>
-            <input type="text" id="totalizador_atingido" name="totalizador_atingido"
-                   data-mask="numero" placeholder="0"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
-          </div>
-          <div>
-            <label for="totalizador_gasto" class="block text-xs font-semibold text-gray-700 mb-1.5">Totalizador Gasto</label>
-            <input type="text" id="totalizador_gasto" name="totalizador_gasto"
-                   data-mask="real" placeholder="R$ 0,00"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-          </div>
-
-          <div class="sm:col-span-3 flex items-center pt-1">
-            <label class="inline-flex items-center gap-2.5 cursor-pointer select-none">
-              <input type="checkbox" id="under" name="under"
-                     class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400 accent-gray-800">
-              <span class="text-sm text-gray-600">Under</span>
+          <div class="camp-field camp-field-check">
+            <label class="inline-flex items-center gap-1 cursor-pointer select-none m-0">
+              <input type="checkbox" id="under" name="under">
+              <span>Under</span>
             </label>
           </div>
-        </div>
 
-        <div class="mt-4 pt-4 border-t border-gray-100">
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Margem CC</label>
-              <input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Tech Fee</label>
-              <input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Com. Vendas</label>
-              <input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% PL Incentivos</label>
-              <input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Impostos</label>
-              <input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Margem CC</label>
-              <input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Tech Fee</label>
-              <input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Com. Vendas</label>
-              <input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">PL Incentivos</label>
-              <input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Impostos</label>
-              <input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
-            </div>
+          <div class="camp-field camp-col-4">
+            <label for="link_dash">Link Dashboard</label>
+            <input type="url" id="link_dash" name="link_dash" placeholder="https://...">
           </div>
         </div>
 
-        <div class="mt-6 pt-5 border-t border-gray-100 flex justify-center">
+        <div class="camp-margem-grid">
+          <div class="camp-field"><label for="perc_margem_cc">% Margem</label><input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_tech_fee">% Tech Fee</label><input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_com_vendas">% Com.</label><input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_pl_incentivos">% PL Inc.</label><input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_impostos">% Imp.</label><input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00"></div>
+          <div class="camp-field"><label for="val_margem_cc">Margem</label><input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_tech_fee">Tech Fee</label><input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_com_vendas">Com.</label><input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_pl_incentivos">PL Inc.</label><input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_impostos">Impostos</label><input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+        </div>
+
+        <div class="camp-modal-foot flex justify-center">
           <button type="submit" id="btnSalvarCampanha"
-                  class="px-8 py-2.5 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
+                  class="camp-btn-save bg-gray-800 text-white hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
             Salvar Campanha
           </button>
         </div>
@@ -1095,6 +1063,8 @@
   })();
 
   // ==================== FILTROS ====================
+  const STATUS_ATIVA_ID = {{ status_ativa_id if status_ativa_id is not none else 'null' }};
+
   function aplicarFiltros() {
     const params = new URLSearchParams();
     const statusEl = document.getElementById('filtroStatus');
@@ -1108,7 +1078,7 @@
     setCookie('cc_filtro_mes', mes, 30);
     setCookie('cc_filtro_exec', exec, 30);
 
-    if (status) params.set('id_status', status);
+    params.set('id_status', status || '0');
     if (mes) params.set('mes_ref_comp', mes);
     params.set('resp_comercial', exec);
     window.location.href = '{{ url_for("campanhas_pi") }}' + (params.toString() ? '?' + params.toString() : '');
@@ -1139,7 +1109,18 @@
         if (matched) needsRedirect = true;
       }
     }
-    if (cStatus && !params.has('id_status')) { rp.set('id_status', cStatus); needsRedirect = true; }
+    if (!params.has('id_status')) {
+      if (cStatus === null && STATUS_ATIVA_ID) {
+        rp.set('id_status', String(STATUS_ATIVA_ID));
+        needsRedirect = true;
+      } else if (cStatus) {
+        rp.set('id_status', cStatus);
+        needsRedirect = true;
+      } else {
+        rp.set('id_status', '0');
+        needsRedirect = true;
+      }
+    }
     if (!needsRedirect) return;
     rp.set('_restored', '1');
     window.location.href = '{{ url_for("campanhas_pi") }}?' + rp.toString();

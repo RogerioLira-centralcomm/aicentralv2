@@ -11636,9 +11636,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
             auxiliares = _carregar_auxiliares_campanha()
             try:
-                meses_ref = db.obter_meses_ref_campanha_pi()
+                meses_ref = db.obter_meses_ref_campanha_pi_acompanhamento()
             except Exception as ex_m:
-                app.logger.warning('obter_meses_ref_campanha_pi (lista): %s', ex_m)
+                app.logger.warning('obter_meses_ref_campanha_pi_acompanhamento (lista): %s', ex_m)
                 meses_ref = []
             meses_ref = _meses_ref_pi_seguros(meses_ref, filtros.get('mes_ref_comp'))
             if not meses_ref:

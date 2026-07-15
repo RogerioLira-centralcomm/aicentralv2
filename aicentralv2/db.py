@@ -12850,6 +12850,35 @@ def obter_meses_ref_campanha_pi():
         raise e
 
 
+def obter_meses_ref_campanha_pi_acompanhamento():
+    """Meses disponíveis no Acompanhamento: campanhas cujo PI está Em andamento no mesmo mês."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT c.mes_ref_comp,
+                    CAST(SPLIT_PART(c.mes_ref_comp, '/', 2) AS INTEGER) as ano,
+                    CAST(SPLIT_PART(c.mes_ref_comp, '/', 1) AS INTEGER) as mes
+                FROM cadu_pi_campanha c
+                INNER JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                WHERE c.mes_ref_comp IS NOT NULL
+                  AND c.mes_ref_comp != ''
+                  AND c.mes_ref_comp LIKE '%%/%%'
+                  AND pi.mes_ref_comp = c.mes_ref_comp
+                  AND pi.id_sub_status_pi = (
+                      SELECT key FROM cadu_pi_sub_status
+                      WHERE LOWER(TRIM(display)) = 'em andamento'
+                      LIMIT 1
+                  )
+                GROUP BY c.mes_ref_comp
+                ORDER BY ano DESC, mes DESC
+            ''')
+            return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def atualizar_campanhas_massa(updates):
     """Atualiza totalizador_atingido e totalizador_gasto em batch.
     updates: list of dicts com id_campanha, totalizador_atingido, totalizador_gasto"""

@@ -265,6 +265,24 @@ def rotulo_e_url_lista_pi(pi_row, id_pi_nav=None, busca_nav=None):
     return nome, url_for('cadu_pi_lista', **extra)
 
 
+def _pi_em_faturamento(pi):
+    """PI no sub-status Em faturamento (4) — somente leitura para PIs e campanhas."""
+    return _int_safe(pi.get('id_sub_status_pi')) == 4
+
+
+def _bloquear_pi_faturamento_post(pi, id_pi=None):
+    """Bloqueia POST de edição quando o PI está em faturamento."""
+    if not pi or not _pi_em_faturamento(pi):
+        return None
+    flash('PI em faturamento — somente visualização.', 'error')
+    return_url = request.form.get('return_url', '')
+    if return_url and return_url.startswith('/cadu_pi'):
+        anchor = f'#pi-{id_pi}' if id_pi else ''
+        return redirect(f'{return_url}{anchor}')
+    _, lista_url = rotulo_e_url_lista_pi(pi, id_pi_nav=id_pi)
+    return redirect(lista_url)
+
+
 # Helper para registro de auditoria
 def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
     """Helper para registrar auditoria automaticamente"""
@@ -9322,6 +9340,25 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             pi_footer_totais = _totais_rodape_pi_lista(pis)
 
+            # Progresso agregado das campanhas (visão Em andamento)
+            if filtros.get('id_sub_status_pi') == 3 and pis:
+                ids = [p['id_pi'] for p in pis if p.get('id_pi')]
+                agg_map = db.obter_progresso_campanhas_por_pis(ids)
+                for pi in pis:
+                    id_pi = pi.get('id_pi')
+                    bucket = agg_map.get(id_pi) or {}
+                    obj_total = 0.0
+                    ating_total = 0.0
+                    for raw_obj in bucket.get('obj_raw') or []:
+                        obj_total += parse_volume_campanha(raw_obj)
+                    for raw_ating in bucket.get('ating_raw') or []:
+                        ating_total += parse_volume_campanha(raw_ating)
+                    pct = round((ating_total / obj_total) * 100) if obj_total > 0 else 0
+                    pi['camp_obj_total'] = obj_total
+                    pi['camp_ating_total'] = ating_total
+                    pi['camp_pct_agregado'] = int(pct)
+                    pi['campanha_ids'] = bucket.get('campanha_ids') or []
+
             status_pi = db.obter_status_pi()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
             statuses_nf = db.obter_nota_fiscal_status()
@@ -9459,6 +9496,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return redirect(url_for('cadu_pi_lista'))
 
             if request.method == 'POST':
+                bloqueio = _bloquear_pi_faturamento_post(pi, id_pi)
+                if bloqueio:
+                    return bloqueio
+
                 data = _coletar_dados_pi_form()
                 data = _preservar_valores_monetarios_pi(data, pi)
                 return_url = request.form.get('return_url', '')
@@ -9467,19 +9508,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
 
                 if not data.get('periodo_inicio') or not data.get('periodo_fim'):
                     flash('Data de Início e Término são obrigatórias.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
 
@@ -9502,7 +9543,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return_url = _extrair_return_url(request.referrer or '', '/editar')
             auxiliares = _carregar_auxiliares_pi()
             auxiliares.update(_carregar_auxiliares_campanha())
-            return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+            return render_template(
+                'cadu_pi_form.html',
+                modo='editar',
+                pi=pi,
+                return_url=return_url,
+                somente_leitura=_pi_em_faturamento(pi),
+                **auxiliares,
+            )
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
             flash(f'Erro ao editar PI: {str(e)}', 'error')
@@ -9766,6 +9814,160 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify(_payload_andamento(pi_atualizado))
         except Exception as e:
             app.logger.error(f"api_cadu_pi_andamento_post: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    def _resolver_nome_contato_pi(contato_id):
+        if not contato_id:
+            return None
+        try:
+            c = db.obter_contato_por_id(int(contato_id))
+            return (c.get('nome_completo') or c.get('email')) if c else None
+        except (TypeError, ValueError):
+            return None
+
+    def _payload_pi_complementar(pi):
+        return {
+            'success': True,
+            'pi': {
+                'id_pi': pi.get('id_pi'),
+                'titulo_pi': pi.get('titulo_pi') or '',
+                'codigo_pi_cc': pi.get('codigo_pi_cc') or '',
+                'codigo_pi_ag': pi.get('codigo_pi_ag') or '',
+                'cliente_nome': pi.get('cliente_nome') or '',
+                'agencia_nome': pi.get('agencia_nome') or '',
+                'parceiro_nome': pi.get('parceiro_nome') or '',
+                'resp_comercial_nome': pi.get('resp_comercial_nome') or '',
+                'resp_comercial_foto_url': pi.get('resp_comercial_foto_url') or '',
+                'status_descricao': pi.get('status_descricao') or '',
+                'sub_status_descricao': pi.get('sub_status_descricao') or '',
+                'periodo_inicio': pi.get('periodo_inicio').isoformat() if pi.get('periodo_inicio') else None,
+                'periodo_fim': pi.get('periodo_fim').isoformat() if pi.get('periodo_fim') else None,
+                'valor_bruto': pi.get('valor_bruto'),
+                'valor_liquido': pi.get('valor_liquido'),
+                'valor_plataformas': pi.get('valor_plataformas'),
+                'obs_operacao': pi.get('obs_operacao') or pi.get('observacoes_operacao') or '',
+                'obs_financeiro': pi.get('obs_financeiro') or pi.get('observacoes_financeiro') or '',
+                'googled_pi_princ': pi.get('googled_pi_princ') or '',
+                'googled_pi_financ': pi.get('googled_pi_financ') or '',
+                'googled_pi_pecas': pi.get('googled_pi_pecas') or '',
+                'googled_pi_arq_ass': pi.get('googled_pi_arq_ass') or '',
+                'contato_fin_cliente': pi.get('contato_fin_cliente'),
+                'contato_midia_cliente': pi.get('contato_midia_cliente'),
+                'contato_fin_agencia': pi.get('contato_fin_agencia'),
+                'contato_midia_agencia': pi.get('contato_midia_agencia'),
+                'contato_fin_parceiro': pi.get('contato_fin_parceiro'),
+                'contato_midia_parceiro': pi.get('contato_midia_parceiro'),
+                'contato_fin_cliente_nome': _resolver_nome_contato_pi(pi.get('contato_fin_cliente')),
+                'contato_midia_cliente_nome': _resolver_nome_contato_pi(pi.get('contato_midia_cliente')),
+                'contato_fin_agencia_nome': _resolver_nome_contato_pi(pi.get('contato_fin_agencia')),
+                'contato_midia_agencia_nome': _resolver_nome_contato_pi(pi.get('contato_midia_agencia')),
+                'contato_fin_parceiro_nome': _resolver_nome_contato_pi(pi.get('contato_fin_parceiro')),
+                'contato_midia_parceiro_nome': _resolver_nome_contato_pi(pi.get('contato_midia_parceiro')),
+                'id_cliente': pi.get('id_cliente'),
+                'id_agencia': pi.get('id_agencia'),
+                'id_parceiro': pi.get('id_parceiro'),
+            },
+            'contatos': [
+                {
+                    'id_contato_cliente': c.get('id_contato_cliente'),
+                    'nome_completo': c.get('nome_completo') or c.get('email') or '',
+                }
+                for c in (db.obter_contatos_ativos() or [])
+            ],
+        }
+
+    @app.route('/api/cadu_pi/<int:id_pi>/complementar', methods=['GET'])
+    @login_required
+    def api_cadu_pi_complementar_get(id_pi):
+        """Dados complementares do PI para sidebar lateral."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
+            return jsonify(_payload_pi_complementar(pi))
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_complementar_get: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/complementar', methods=['PATCH'])
+    @login_required
+    def api_cadu_pi_complementar_patch(id_pi):
+        """Atualização parcial de dados complementares do PI."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
+            if _pi_em_faturamento(pi):
+                return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
+            body = request.get_json(silent=True) or {}
+            patch = {}
+            for key in (
+                'obs_operacao', 'obs_financeiro',
+                'googled_pi_princ', 'googled_pi_financ', 'googled_pi_pecas', 'googled_pi_arq_ass',
+                'contato_fin_cliente', 'contato_midia_cliente',
+                'contato_fin_agencia', 'contato_midia_agencia',
+                'contato_fin_parceiro', 'contato_midia_parceiro',
+            ):
+                if key in body:
+                    val = body[key]
+                    if key.startswith('contato_'):
+                        patch[key] = int(val) if val not in (None, '', 'null') else None
+                    else:
+                        patch[key] = (str(val).strip() if val is not None else None) or None
+            if not patch:
+                return jsonify({'success': False, 'message': 'Nenhum campo para atualizar.'}), 400
+            db.atualizar_cadu_pi_complementar(id_pi, patch)
+            pi_field_map = {
+                'obs_operacao': pi.get('obs_operacao') or pi.get('observacoes_operacao'),
+                'obs_financeiro': pi.get('obs_financeiro') or pi.get('observacoes_financeiro'),
+                'googled_pi_princ': pi.get('googled_pi_princ'),
+                'googled_pi_financ': pi.get('googled_pi_financ'),
+                'googled_pi_pecas': pi.get('googled_pi_pecas'),
+                'googled_pi_arq_ass': pi.get('googled_pi_arq_ass'),
+                'contato_fin_cliente': pi.get('contato_fin_cliente'),
+                'contato_midia_cliente': pi.get('contato_midia_cliente'),
+                'contato_fin_agencia': pi.get('contato_fin_agencia'),
+                'contato_midia_agencia': pi.get('contato_midia_agencia'),
+                'contato_fin_parceiro': pi.get('contato_fin_parceiro'),
+                'contato_midia_parceiro': pi.get('contato_midia_parceiro'),
+            }
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'Dados complementares atualizados (PI {pi.get("titulo_pi", "")})',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores={k: pi_field_map.get(k) for k in patch},
+                dados_novos=patch,
+            )
+            pi_atualizado = db.obter_cadu_pi_por_id(id_pi)
+            return jsonify(_payload_pi_complementar(pi_atualizado))
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_complementar_patch: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/historico', methods=['GET'])
+    @login_required
+    def api_cadu_pi_historico(id_pi):
+        """Histórico de alterações do PI via audit log."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
+            logs = db.obter_audit_logs_registro(id_pi, 'cadu_pi', limit=50) or []
+            historico = []
+            for log in logs:
+                historico.append({
+                    'id': log.get('id'),
+                    'acao': log.get('acao'),
+                    'modulo': log.get('modulo'),
+                    'descricao': log.get('descricao') or '',
+                    'usuario_nome': log.get('usuario_nome') or '',
+                    'data_acao': log.get('data_acao').isoformat() if log.get('data_acao') else None,
+                })
+            return jsonify({'success': True, 'historico': historico})
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_historico: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/cadu_pi/<int:id_pi>/gerar-pastas', methods=['POST'])
@@ -10079,6 +10281,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def api_link_destino_criar(id_pi):
         """Cria um link de destino para o PI via JSON"""
         try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if pi and _pi_em_faturamento(pi):
+                return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
             body = request.get_json(silent=True) or {}
             link = (body.get('link') or '').strip()
             if not link:
@@ -10126,6 +10331,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             ld = db.obter_link_destino_por_id(id_ld)
             if not ld:
                 return jsonify({'success': False, 'message': 'Link não encontrado'}), 404
+            if ld.get('id_pi'):
+                pi = db.obter_cadu_pi_por_id(int(ld['id_pi']))
+                if pi and _pi_em_faturamento(pi):
+                    return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
             db.excluir_link_destino(id_ld)
             return jsonify({'success': True})
         except Exception as e:
@@ -11665,6 +11874,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return_to_pi = request.form.get('return_to_pi')
             id_pi_form = data.get('id_pi')
 
+            if id_pi_form:
+                pi_ref = db.obter_cadu_pi_por_id(int(id_pi_form))
+                if pi_ref and _pi_em_faturamento(pi_ref):
+                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': msg}), 403
+                    flash(msg, 'error')
+                    if return_to_pi:
+                        return redirect(url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') + f'#pi-{id_pi_form}')
+                    return _redirect_campanhas_pi_preservar_filtros()
+
             if not data['nome_campanha']:
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
@@ -11718,6 +11938,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return jsonify({'success': False, 'error': 'Campanha não encontrada!'}), 404
                 flash('Campanha não encontrada!', 'error')
                 return _redirect_campanhas_pi_preservar_filtros()
+
+            if campanha.get('id_pi'):
+                pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
+                if pi_ref and _pi_em_faturamento(pi_ref):
+                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': msg}), 403
+                    flash(msg, 'error')
+                    return _redirect_campanhas_pi_preservar_filtros()
 
             data = _extrair_dados_campanha()
 
@@ -11783,6 +12012,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return jsonify({'success': False, 'error': 'Campanha não encontrada!'}), 404
                 flash('Campanha não encontrada!', 'error')
                 return _redirect_campanhas_pi_preservar_filtros()
+
+            if campanha.get('id_pi'):
+                pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
+                if pi_ref and _pi_em_faturamento(pi_ref):
+                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': msg}), 403
+                    flash(msg, 'error')
+                    return _redirect_campanhas_pi_preservar_filtros()
 
             if db.excluir_campanha_pi(id_camp):
                 registrar_auditoria(

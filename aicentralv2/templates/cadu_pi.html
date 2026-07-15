@@ -2,15 +2,20 @@
 
 {% block title %}PIs - CentralComm AI{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+{% endblock %}
+
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block content %}
 <div class="max-w-full mx-auto px-1">
-  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40 pi-filter-sticky">
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-center gap-2">
         <h1 class="text-sm font-semibold text-gray-800">{% if origem_lista == 'faturamento' %}Faturamento{% else %}PIs{% endif %}</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
+        {% set lista_somente_leitura = sub_status_atual|string == '4' %}
         {% if origem_lista == 'faturamento' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
         {% elif sub_status_atual|string == '1' %}
@@ -103,152 +108,228 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-white rounded border border-gray-200 overflow-hidden">
+  <div class="bg-white rounded border border-gray-200">
     {% if pis %}
-      <table class="table table-xs w-full">
-        <thead class="bg-gray-100 text-gray-600 text-[9px] uppercase">
+      <div class="overflow-x-auto">
+      <table class="table table-xs w-full pi-list-table">
+        <thead class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider">
           {% if sub_status_atual|string == '1' %}
           <tr>
-            <th class="font-semibold py-1.5 px-2" style="width: 80px;">Código</th>
+            <th class="font-semibold py-2 px-2" style="width: 80px;">Código</th>
             <th class="font-semibold px-2" style="width: 250px;">Cliente</th>
             <th class="font-semibold px-2" style="width: 180px;">Agência / Parceiro</th>
             <th class="font-semibold text-right px-2" style="width: 120px;">Valor Bruto</th>
             <th class="font-semibold text-right px-2" style="width: 120px;">Valor Líquido</th>
+            <th class="font-semibold text-center px-2" style="width: 36px;"></th>
           </tr>
           {% else %}
           <tr>
-            <th class="font-semibold py-1.5 px-2" style="width: 80px;">Código PI</th>
-            <th class="font-semibold px-2" style="width: 210px;">Cliente</th>
-            <th class="font-semibold px-2" style="width: 150px;">Agência / Parceiro</th>
-            <th class="font-semibold px-2" style="width: 90px;">Executivo</th>
-            <th class="font-semibold text-center px-2" style="width: 80px;">Período</th>
-            <th class="font-semibold text-center px-2" style="width: 45px;">Camp.</th>
-            <th class="font-semibold text-right px-2" style="width: 120px;">Bruto / Líquido</th>
+            <th class="font-semibold py-2 px-2" style="width: 72px;">Código PI</th>
+            <th class="font-semibold px-2" style="width: 200px;">Cliente</th>
+            <th class="font-semibold px-2" style="width: 130px;">Agência / Parceiro</th>
+            <th class="font-semibold px-2" style="width: 100px;">Executivo</th>
+            <th class="font-semibold text-center px-2" style="width: 76px;">Período</th>
+            {% if sub_status_atual|string == '3' %}
+            <th class="font-semibold text-center px-2" style="width: 90px;">Progresso</th>
+            {% endif %}
+            <th class="font-semibold text-center px-2" style="width: 52px;">Camp.</th>
+            <th class="font-semibold text-right px-2" style="width: 110px;">Bruto / Líquido</th>
+            <th class="font-semibold text-center px-2" style="width: 36px;"></th>
             {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
             <th class="font-semibold text-center px-2" style="width: 100px;">Nota Fiscal</th>
             {% endif %}
           </tr>
           {% endif %}
         </thead>
-        <tbody class="text-[10px]">
+        <tbody class="text-[11px]">
           {% for pi in pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row">
           {% if sub_status_atual|string == '1' %}
-            <td class="py-1.5 px-2" style="width: 80px;">
+            <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-[10px] font-semibold text-blue-600 truncate block max-w-[70px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link truncate block max-w-[68px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
                 {% if pi.get('mes_ref_comp') %}
-                <span class="text-[9px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
               </div>
             </td>
-            <td class="px-2">
+            <td class="px-2 align-top">
               <div class="flex flex-col gap-0.5">
-                <span class="font-medium text-gray-800 text-[10px] whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[9px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
-              </div>
-            </td>
-            <td class="px-2">
-              <div class="flex flex-col gap-0.5 max-w-[160px]">
-                {% if pi.get('agencia_nome') %}
-                <span class="text-[10px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
-                {% else %}
-                <span class="text-[10px] text-gray-300">-</span>
-                {% endif %}
-                {% if pi.get('parceiro_nome') %}
-                <span class="text-[9px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="text-right px-2">
-              {% if pi.get('valor_bruto') %}
-              <span class="font-semibold text-gray-800 text-[10px]">{{ pi.valor_bruto|format_brl }}</span>
-              {% else %}
-              <span class="text-[10px] text-gray-300">-</span>
-              {% endif %}
-            </td>
-            <td class="text-right px-2">
-              {% if pi.get('valor_liquido') %}
-              <span class="text-[10px] text-green-600 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
-              {% else %}
-              <span class="text-[10px] text-gray-300">-</span>
-              {% endif %}
-            </td>
-          {% else %}
-            <td class="py-1.5 px-2" style="width: 80px;">
-              <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-[10px] font-semibold text-blue-600 truncate block max-w-[70px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
-                {% if pi.get('mes_ref_comp') %}
-                <span class="text-[9px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="px-2">
-              <div class="flex flex-col gap-0.5">
-                <span class="font-medium text-gray-800 text-[10px] whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[9px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
-              </div>
-            </td>
-            <td class="px-2">
-              <div class="flex flex-col gap-0.5 max-w-[130px]">
-                {% if pi.get('agencia_nome') %}
-                <span class="text-[10px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
-                {% else %}
-                <span class="text-[10px] text-gray-300">-</span>
-                {% endif %}
-                {% if pi.get('parceiro_nome') %}
-                <span class="text-[9px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="px-2">
-              {% if pi.get('resp_comercial_nome') %}
-              <span class="text-[10px] text-gray-700 truncate block max-w-[70px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
-              {% else %}
-              <span class="text-[10px] text-gray-300">-</span>
-              {% endif %}
-            </td>
-            <td class="text-center px-2">
-              {% if pi.get('periodo_inicio') %}
-              <div class="flex flex-col items-center">
-                <span class="text-[9px] text-gray-600">
-                  {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} - {{ pi.periodo_fim.strftime('%d/%m') }} <span class="text-gray-400">({{ (pi.periodo_fim - pi.periodo_inicio).days }}d)</span>{% endif %}
-                </span>
-              </div>
-              {% else %}
-              <span class="text-[10px] text-gray-300">-</span>
-              {% endif %}
-            </td>
-            <td class="text-center px-2" onclick="event.stopPropagation()">
-              {% if pi.get('total_campanhas', 0) > 0 %}
-              <button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
-                      class="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors select-none"
-                      title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} <i class="fa-solid fa-chevron-down text-[10px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i></button>
-              {% else %}
-              <span class="text-[10px] text-gray-300">{{ pi.get('total_campanhas', 0) }}</span>
-              {% endif %}
-            </td>
-            <td class="text-right px-2">
-              <div class="flex items-center justify-end gap-1.5">
-                <div class="flex flex-col gap-0.5 items-end">
-                  {% if pi.get('valor_bruto') %}
-                  <span class="font-semibold text-gray-800 text-[10px]">{{ pi.valor_bruto|format_brl }}</span>
-                  {% else %}
-                  <span class="text-[10px] text-gray-300">-</span>
-                  {% endif %}
-                  {% if pi.get('valor_liquido') %}
-                  <span class="text-[9px] text-green-600">{{ pi.valor_liquido|format_brl }}</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-semibold text-gray-800">{{ pi.get('cliente_nome') or '—' }}</span>
+                  {% if pi.get('status_descricao') %}
+                  {% set status_lower = (pi.get('status_descricao') or '')|lower %}
+                  <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">{{ pi.status_descricao }}</span>
                   {% endif %}
                 </div>
+                {% if pi.get('titulo_pi') and pi.get('titulo_pi') != pi.get('cliente_nome') and pi.get('titulo_pi') != pi.get('agencia_nome') %}
+                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-2 align-top">
+              <div class="flex flex-col gap-0.5 max-w-[160px]">
+                {% if pi.get('agencia_nome') %}
+                <span class="text-[11px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+                {% else %}
+                <span class="cx-cell-empty empty-na">—</span>
+                {% endif %}
+                {% if pi.get('parceiro_nome') %}
+                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="text-right px-2 align-top">
+              {% if pi.get('valor_bruto') %}
+              <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.valor_bruto|format_brl }}</span>
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Valor bruto não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
+            </td>
+            <td class="text-right px-2 align-top">
+              {% if pi.get('valor_liquido') %}
+              <span class="text-[11px] tabular-nums text-green-700 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
+            </td>
+            <td class="text-center px-2 align-top">
+              <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})"
+                      class="text-gray-400 hover:text-indigo-600 p-0.5" title="Dados complementares">
+                <i class="fa-solid fa-circle-info text-[11px]"></i>
+              </button>
+            </td>
+          {% else %}
+            {% set exec_parts = (pi.get('resp_comercial_nome') or '').split(' ') %}
+            {% set exec_ini = ((exec_parts[0][0:1] if exec_parts and exec_parts[0] else '') ~ (exec_parts[-1][0:1] if exec_parts|length > 1 and exec_parts[-1] else ''))|upper %}
+            {% set status_lower = (pi.get('status_descricao') or '')|lower %}
+            {% set pct_agg = pi.get('camp_pct_agregado', 0) %}
+            {% if pct_agg <= 0 %}{% set prog_tier = 'empty' %}
+            {% elif pct_agg < 34 %}{% set prog_tier = 'low' %}
+            {% elif pct_agg < 70 %}{% set prog_tier = 'mid' %}
+            {% elif pct_agg < 100 %}{% set prog_tier = 'high' %}
+            {% elif pct_agg == 100 %}{% set prog_tier = 'complete' %}
+            {% else %}{% set prog_tier = 'over' %}{% endif %}
+            {% set prog_width = [pct_agg, 100]|min if pct_agg > 0 else 0 %}
+            <td class="py-2 px-2 align-top">
+              <div class="flex flex-col gap-0.5">
+                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link truncate block max-w-[68px]" title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
+                {% if pi.get('mes_ref_comp') %}
+                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-2 align-top">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-semibold text-gray-800">{{ pi.get('cliente_nome') or '—' }}</span>
+                  {% if pi.get('status_descricao') %}
+                  <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">{{ pi.status_descricao }}</span>
+                  {% endif %}
+                </div>
+                {% if pi.get('titulo_pi') and pi.get('titulo_pi') != pi.get('cliente_nome') and pi.get('titulo_pi') != pi.get('agencia_nome') %}
+                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-2 align-top">
+              <div class="flex flex-col gap-0.5 max-w-[130px]">
+                {% if pi.get('agencia_nome') %}
+                <span class="text-[11px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+                {% else %}
+                <span class="cx-cell-empty empty-na">—</span>
+                {% endif %}
+                {% if pi.get('parceiro_nome') %}
+                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-2 align-top">
+              {% if pi.get('resp_comercial_nome') %}
+              <div class="exec-row">
+                <span class="exec-avatar" title="{{ pi.resp_comercial_nome }}">
+                  {% if pi.get('resp_comercial_foto_url') %}
+                  <img src="{{ pi.resp_comercial_foto_url }}" alt="">
+                  {% else %}
+                  {{ exec_ini or '?' }}
+                  {% endif %}
+                </span>
+                <span class="exec-name text-gray-700">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
+              </div>
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Executivo não atribuído"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
+            </td>
+            <td class="text-center px-2 align-top">
+              {% if pi.get('periodo_inicio') %}
+              <span class="text-[11px] text-gray-600">
+                {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+              </span>
+              {% if pi.get('periodo_fim') %}
+              <span class="block text-[10px] text-gray-400">({{ (pi.periodo_fim - pi.periodo_inicio).days }}d)</span>
+              {% endif %}
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Período não definido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
+            </td>
+            {% if sub_status_atual|string == '3' %}
+            <td class="text-center px-2 align-top" data-campanha-ids='{{ pi.get("campanha_ids", [])|tojson }}' data-pi-id="{{ pi.id_pi }}">
+              {% if pi.get('total_campanhas', 0) > 0 and pi.get('camp_obj_total', 0) > 0 %}
+              <div class="flex flex-col items-center gap-0.5">
+                <div class="flex items-center gap-1">
+                  <div class="camp-progress camp-progress-sm" data-tier="{{ prog_tier }}" title="Progresso agregado: {{ pct_agg }}%">
+                    <div class="camp-progress-fill" style="width: {{ prog_width }}%"></div>
+                  </div>
+                  <span class="camp-progress-pct text-[10px]" data-tier="{{ prog_tier }}">{{ pct_agg }}%</span>
+                </div>
+                <span class="text-[10px] text-gray-500 pi-flag-summary" id="pi-flag-summary-{{ pi.id_pi }}" style="display:none"></span>
+              </div>
+              {% elif pi.get('total_campanhas', 0) > 0 %}
+              <span class="cx-cell-empty empty-na" title="Sem meta definida nas campanhas">—</span>
+              {% else %}
+              <span class="cx-cell-empty empty-na" title="Sem campanhas">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="text-center px-2 align-top">
+              {% if pi.get('total_campanhas', 0) > 0 %}
+              <button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
+                      class="pi-expand-chip" title="Expandir campanhas">
+                {{ pi.get('total_campanhas', 0) }} <i class="fa-solid fa-chevron-down text-[10px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i>
+              </button>
+              {% else %}
+              <span class="text-[11px] text-gray-400">0</span>
+              {% endif %}
+            </td>
+            <td class="text-right px-2 align-top">
+              <div class="flex flex-col gap-0.5 items-end">
+                {% if pi.get('valor_bruto') %}
+                <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.valor_bruto|format_brl }}</span>
+                {% else %}
+                <span class="cx-cell-empty empty-pending" title="Valor bruto não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+                {% endif %}
+                {% if pi.get('valor_liquido') %}
+                <span class="text-[11px] tabular-nums text-green-700 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
+                {% elif pi.get('valor_bruto') %}
+                <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="text-center px-2 align-top">
+              <div class="flex flex-col items-center gap-0.5">
                 {% if sub_status_atual|string == '3' %}
-                <button type="button" onclick="event.stopPropagation(); abrirModalAndamento({{ pi.id_pi }})"
+                <button type="button" onclick="abrirModalAndamento({{ pi.id_pi }})"
                         class="text-gray-400 hover:text-emerald-600 p-0.5" title="Acompanhar andamento">
-                  <i class="fa-solid fa-chart-line text-[10px]"></i>
+                  <i class="fa-solid fa-chart-line text-[11px]"></i>
                 </button>
                 {% endif %}
+                <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})"
+                        class="text-gray-400 hover:text-indigo-600 p-0.5" title="{% if lista_somente_leitura %}Visualizar dados complementares{% else %}Dados complementares{% endif %}">
+                  <i class="fa-solid fa-circle-info text-[11px]"></i>
+                </button>
                 {% if pi.get('googled_pi_princ') %}
-                <a href="{{ pi.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()" class="text-gray-400 hover:text-yellow-600 p-0.5" title="Pasta Google Drive">
-                  <i class="fa-solid fa-folder text-[9px]"></i>
+                <a href="{{ pi.googled_pi_princ }}" target="_blank" class="text-gray-400 hover:text-yellow-600 p-0.5" title="Pasta Google Drive">
+                  <i class="fa-solid fa-folder text-[10px]"></i>
                 </a>
                 {% endif %}
               </div>
@@ -353,11 +434,13 @@
           </tr>
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
-            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}8{% else %}7{% endif %}" class="p-0">
-              <div class="bg-blue-50/50 px-3 py-2 border-t border-blue-100">
-                <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-1.5">
-                  <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-1.5"></i>
-                  <span class="text-[10px] text-gray-500">Carregando campanhas...</span>
+            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}10{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}9{% else %}8{% endif %}{% endif %}" class="p-0">
+              <div class="pi-camp-block py-2 pr-3 border-t border-slate-200">
+                <div class="pi-camp-scroll">
+                <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
+                  <i class="fa-solid fa-spinner fa-spin text-slate-400 mr-1.5"></i>
+                  <span class="text-[11px] text-gray-500">Carregando campanhas...</span>
+                </div>
                 </div>
               </div>
             </td>
@@ -366,22 +449,23 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
 
-      <div class="px-3 py-1.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <p class="text-[10px] text-gray-600 shrink-0">
-          <strong>{{ pis|length }}</strong> PI(s)
+      <div class="pi-footer-sticky flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p class="text-[11px] text-gray-500 shrink-0">
+          <strong class="text-sm font-bold text-gray-900">{{ pis|length }}</strong> PI(s)
           {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
           <span class="text-gray-400">• filtrado</span>
           {% endif %}
         </p>
-        <p class="text-[9px] text-gray-600 text-right flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 max-w-full">
-          <span class="whitespace-nowrap"><i class="fa-solid fa-bullhorn mr-0.5 text-indigo-500"></i><strong>{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}</span>
+        <p class="text-[11px] text-gray-500 text-right flex flex-wrap items-center justify-end gap-x-3 gap-y-1 max-w-full">
+          <span class="whitespace-nowrap"><i class="fa-solid fa-bullhorn mr-0.5 text-indigo-500"></i><strong class="text-sm font-bold text-gray-900">{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}</span>
           <span class="text-gray-300 hidden sm:inline">·</span>
-          <span class="whitespace-nowrap">Invest. mídia: <strong class="text-gray-800">{% if pi_footer_totais.valor_midia %}{{ pi_footer_totais.valor_midia|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+          <span class="whitespace-nowrap">Invest. mídia: <strong class="text-sm font-bold tabular-nums text-gray-900">{% if pi_footer_totais.valor_midia %}{{ pi_footer_totais.valor_midia|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
           <span class="text-gray-300 hidden sm:inline">·</span>
-          <span class="whitespace-nowrap">Líquido: <strong class="text-green-700">{% if pi_footer_totais.valor_liquido %}{{ pi_footer_totais.valor_liquido|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+          <span class="whitespace-nowrap">Líquido: <strong class="text-sm font-bold tabular-nums text-green-700">{% if pi_footer_totais.valor_liquido %}{{ pi_footer_totais.valor_liquido|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
           <span class="text-gray-300 hidden sm:inline">·</span>
-          <span class="whitespace-nowrap">Bruto: <strong class="text-gray-800">{% if pi_footer_totais.valor_bruto %}{{ pi_footer_totais.valor_bruto|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+          <span class="whitespace-nowrap">Bruto: <strong class="text-sm font-bold tabular-nums text-gray-900">{% if pi_footer_totais.valor_bruto %}{{ pi_footer_totais.valor_bruto|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
         </p>
       </div>
     {% else %}
@@ -393,6 +477,92 @@
         </p>
       </div>
     {% endif %}
+  </div>
+</div>
+
+{# ====== SIDEBAR PI — dados complementares ====== #}
+<div class="sidebar-overlay" id="piSidebarOverlay" onclick="fecharSidebarPi()"></div>
+<div class="sidebar-panel" id="piSidebarPanel">
+  <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+    <h3 class="font-bold text-gray-800 text-base truncate" id="piSidebarTitle">Detalhes do PI</h3>
+    <button type="button" onclick="fecharSidebarPi()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+      <i class="fa-solid fa-xmark text-gray-500"></i>
+    </button>
+  </div>
+  <div class="flex flex-wrap gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/80">
+    <button type="button" class="pi-sidebar-tab-btn active" data-tab="resumo">Resumo</button>
+    <button type="button" class="pi-sidebar-tab-btn" data-tab="anotacoes">Anotações</button>
+    <button type="button" class="pi-sidebar-tab-btn" data-tab="documentos">Documentos</button>
+    <button type="button" class="pi-sidebar-tab-btn" data-tab="contatos">Contatos</button>
+    <button type="button" class="pi-sidebar-tab-btn" data-tab="historico">Histórico</button>
+  </div>
+
+  <div class="pi-sidebar-tab-content p-4" id="pi-tab-resumo">
+    <div class="space-y-3 text-sm">
+      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Cliente</span><div class="font-semibold text-gray-800 mt-0.5" id="piResumoCliente">—</div></div>
+      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Agência</span><div class="text-gray-700 mt-0.5" id="piResumoAgencia">—</div></div>
+      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Executivo</span><div class="text-gray-700 mt-0.5" id="piResumoExecutivo">—</div></div>
+      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Status</span><div class="mt-0.5" id="piResumoStatus">—</div></div>
+    </div>
+  </div>
+
+  <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-anotacoes">
+    <div class="space-y-3">
+      <div>
+        <label class="text-[10px] font-semibold text-gray-600 block mb-1">Observações de operação</label>
+        <textarea id="piObsOperacao" rows="3" class="w-full text-[11px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" placeholder="Instruções e notas da operação..."></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] font-semibold text-gray-600 block mb-1">Observações financeiras</label>
+        <textarea id="piObsFinanceiro" rows="3" class="w-full text-[11px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" placeholder="Notas para o financeiro..."></textarea>
+      </div>
+      <div id="piAnotacoesEmpty" class="hidden text-center py-4 text-gray-400 text-[11px]">
+        <i class="fa-solid fa-pen-to-square text-2xl mb-2 block text-gray-300"></i>
+        Nenhuma anotação ainda. Use os campos acima para registrar informações.
+      </div>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar anotações</button>
+    </div>
+  </div>
+
+  <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-documentos">
+    <div class="space-y-3 mb-4">
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta principal (Drive)</label><input type="url" id="piGdrivePrinc" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5" placeholder="https://..."></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta financeiro</label><input type="url" id="piGdriveFinanc" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta peças</label><input type="url" id="piGdrivePecas" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Arquivos assinados</label><input type="url" id="piGdriveArq" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar pastas</button>
+    </div>
+    <h4 class="text-[10px] font-semibold uppercase text-gray-400 mb-2">Links vinculados</h4>
+    <div id="piLinksLista" class="mb-3"></div>
+    <div id="piLinksEmpty" class="text-center py-4 text-gray-400 text-[11px]">
+      <i class="fa-solid fa-link text-2xl mb-2 block text-gray-300"></i>
+      Nenhum link vinculado. Adicione o primeiro abaixo.
+    </div>
+    <div class="flex gap-2 mt-2 pi-sidebar-edit-row">
+      <input type="url" id="piNovoLinkUrl" placeholder="URL" class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1.5">
+      <input type="text" id="piNovoLinkDesc" placeholder="Descrição" class="w-28 text-[11px] border border-gray-200 rounded px-2 py-1.5">
+      <button type="button" onclick="PiListUI.adicionarLink()" class="px-3 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">+</button>
+    </div>
+  </div>
+
+  <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-contatos">
+    <div class="space-y-3 text-[11px]">
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. cliente</label><select id="pi_contato_fin_cliente" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia cliente</label><select id="pi_contato_midia_cliente" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. agência</label><select id="pi_contato_fin_agencia" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia agência</label><select id="pi_contato_midia_agencia" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. parceiro</label><select id="pi_contato_fin_parceiro" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia parceiro</label><select id="pi_contato_midia_parceiro" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar contatos</button>
+    </div>
+  </div>
+
+  <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-historico">
+    <div id="piHistoricoLista"></div>
+    <div id="piHistoricoEmpty" class="text-center py-8 text-gray-400 text-[11px]">
+      <i class="fa-solid fa-clock-rotate-left text-2xl mb-2 block text-gray-300"></i>
+      Nenhuma alteração registrada ainda para este PI.
+    </div>
   </div>
 </div>
 
@@ -1001,15 +1171,9 @@
 {% include 'partials/nf_import.html' %}
 {% endif %}
 
-<style>
-.collapse-camp-row.hidden { display: none; }
-.chevron-camp { transition: transform 0.2s ease; }
-.chevron-camp.open { transform: rotate(180deg); }
-.camp-table { table-layout: fixed; width: 100%; }
-.camp-table th { font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #6b7280; padding: 4px 8px; white-space: nowrap; }
-.camp-table td { font-size: 0.75rem; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; overflow: hidden; }
-.camp-table tr:last-child td { border-bottom: none; }
-</style>
+<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
+<script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}"></script>
 <script>
 let debounceTimer;
 let debounceClienteTimer;
@@ -1157,8 +1321,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
-const loadedCampanhas = {};
-
 function siglaMetricaPrecoListaPi(nomeObjetivo, modalidade) {
   if (modalidade === 'cpm') return 'CPM';
   var n = (nomeObjetivo || '').toUpperCase();
@@ -1204,128 +1366,6 @@ function abrirViewCampanhaLista(c) {
     linkEl.textContent = '—';
   }
   document.getElementById('modal_ver_campanha').showModal();
-}
-
-function toggleCampanhas(idPi, event) {
-  event.stopPropagation();
-  const row = document.getElementById('camp-collapse-' + idPi);
-  const chevron = document.getElementById('chevron-' + idPi);
-  if (!row) return;
-
-  const isHidden = row.classList.contains('hidden');
-  row.classList.toggle('hidden');
-  if (chevron) chevron.classList.toggle('open', isHidden);
-
-  if (isHidden && !loadedCampanhas[idPi]) {
-    fetch('/api/cadu-pi/' + idPi + '/campanhas')
-      .then(r => r.json())
-      .then(data => {
-        loadedCampanhas[idPi] = true;
-        const container = document.getElementById('camp-content-' + idPi);
-
-        if (!data.success || !data.campanhas || data.campanhas.length === 0) {
-          container.innerHTML = '<div class="text-center py-3"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i>' +
-            '<p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
-          return;
-        }
-        function siglaMetricaPreco(nomeObjetivo, modalidade) {
-          if (modalidade === 'cpm') return 'CPM';
-          const n = (nomeObjetivo || '').toUpperCase();
-          const keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
-          for (let i = 0; i < keys.length; i++) {
-            if (n.indexOf(keys[i]) !== -1) return keys[i];
-          }
-          return '—';
-        }
-        if (!container.dataset.campRowClickDelegated) {
-          container.dataset.campRowClickDelegated = '1';
-          container.addEventListener('click', function listaCampRowClick(e) {
-            const tr = e.target.closest('tr[data-camp-payload]');
-            if (!tr) return;
-            e.stopPropagation();
-            try {
-              const c = JSON.parse(decodeURIComponent(tr.getAttribute('data-camp-payload')));
-              abrirViewCampanhaLista(c);
-            } catch (err) { console.error(err); }
-          });
-        }
-        let html = '<table class="camp-table w-full">' +
-          '<colgroup>' +
-          '<col style="width:30%">' +
-          '<col style="width:16%">' +
-          '<col style="width:16%">' +
-          '<col style="width:14%">' +
-          '<col style="width:12%">' +
-          '<col style="width:12%">' +
-          '</colgroup>' +
-          '<thead><tr>' +
-          '<th class="text-left">Campanha</th>' +
-          '<th class="text-left">Plataforma</th>' +
-          '<th class="text-center">Período</th>' +
-          '<th class="text-right">Preço (R$)</th>' +
-          '<th class="text-center">Meta</th>' +
-          '<th class="text-right">Gasto / previsto</th>' +
-          '</tr></thead><tbody>';
-        data.campanhas.forEach(c => {
-          const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-          const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
-            ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
-            : '';
-          const rawAt = c.totalizador_atingido;
-          const rawCt = c.obj_contratados;
-          const objAtingidoNum = typeof rawAt === 'number' ? rawAt : (parseFloat(String(rawAt || '0').replace(/\./g, '').replace(',', '.')) || 0);
-          const objContratadoNum = typeof rawCt === 'number' ? rawCt : (parseFloat(String(rawCt || '0').replace(/\./g, '').replace(',', '.')) || 0);
-          const pctObj = objContratadoNum > 0 ? Math.round((objAtingidoNum / objContratadoNum) * 100) : 0;
-          const dispAting = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '0';
-          const dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
-          const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
-          const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
-          const precoM = c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl)) ? Number(c.preco_metrica_brl) : null;
-          const sigla = siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade);
-          const fmtBrl = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-          const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
-          const celPreco = precoM != null
-            ? '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>' +
-              '<span class="block font-semibold text-gray-800">' + fmtBrl(precoM) + '</span>'
-            : '<span class="text-gray-400 text-xs">—</span>';
-          const payload = encodeURIComponent(JSON.stringify(c));
-
-          html += '<tr class="hover:bg-blue-100/40 cursor-pointer transition-colors" data-camp-payload="' + payload + '" title="Ver detalhes da campanha">' +
-            '<td class="text-left"><span class="font-medium text-gray-800 truncate block" title="' + (c.nome_campanha || '') + '">' + (c.nome_campanha || '-') + '</span>' +
-              '<span class="block text-[10px] text-gray-400 truncate">' + (c.status_nome || '') + '</span></td>' +
-            '<td class="text-left text-gray-600 truncate" title="' + (c.plataforma_nome || '') + '">' + (c.plataforma_nome || '-') + '</td>' +
-            '<td class="text-center text-gray-600">' + periodoLinha1 + periodoLinha2 + '</td>' +
-            '<td class="text-right">' + celPreco + '</td>' +
-            '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + dispAting + '/' + dispContr + '</span>' +
-              '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span></td>' +
-            '<td class="text-right"><span class="font-medium text-gray-800">' + fmtBrl(gasto) + '</span>' +
-              '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span></td>' +
-            '</tr>';
-        });
-        html += '</tbody></table>';
-        container.innerHTML = html;
-      })
-      .catch(() => {
-        const container = document.getElementById('camp-content-' + idPi);
-        container.innerHTML = '<div class="text-center py-3 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
-      });
-  }
-}
-
-let todasExpandidas = false;
-function toggleTodasCampanhas() {
-  todasExpandidas = !todasExpandidas;
-  document.querySelectorAll('tr.collapse-camp-row').forEach(function(row) {
-    const isHidden = row.classList.contains('hidden');
-    if (todasExpandidas === isHidden) {
-      const idPi = row.id.replace('camp-collapse-', '');
-      toggleCampanhas(parseInt(idPi, 10), { stopPropagation: function() {} });
-    }
-  });
-  const label = document.getElementById('label_expandir_todas');
-  const icon = document.getElementById('icon_expandir_todas');
-  if (label) label.textContent = todasExpandidas ? 'Recolher todas' : 'Expandir todas';
-  if (icon) icon.className = (todasExpandidas ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down') + ' text-[9px]';
 }
 
 document.addEventListener('DOMContentLoaded', function() {

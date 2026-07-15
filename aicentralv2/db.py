@@ -9849,6 +9849,7 @@ def obter_cadu_pi_lista(filtros=None):
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome,
+                    rc.foto_url as resp_comercial_foto_url,
                     (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
                     (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas,
                     nf_sub.nf_id,
@@ -9924,6 +9925,82 @@ def obter_cadu_pi_lista(filtros=None):
         raise e
 
 
+def obter_progresso_campanhas_por_pis(ids_pi):
+    """Agrega obj_contratados e totalizador_atingido por PI (somente soma para exibição)."""
+    if not ids_pi:
+        return {}
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    ca.id_pi,
+                    ca.id_campanha,
+                    ca.obj_contratados,
+                    ca.totalizador_atingido
+                FROM cadu_pi_campanha ca
+                WHERE ca.id_pi = ANY(%s)
+                ORDER BY ca.id_pi, ca.id_campanha
+            ''', (list(ids_pi),))
+            rows = cursor.fetchall() or []
+        agg = {}
+        for row in rows:
+            id_pi = row['id_pi']
+            if id_pi not in agg:
+                agg[id_pi] = {
+                    'campanha_ids': [],
+                    'obj_raw': [],
+                    'ating_raw': [],
+                }
+            agg[id_pi]['campanha_ids'].append(row['id_campanha'])
+            agg[id_pi]['obj_raw'].append(row.get('obj_contratados'))
+            agg[id_pi]['ating_raw'].append(row.get('totalizador_atingido'))
+        return agg
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_pi_complementar(id_pi, data):
+    """Atualização parcial de campos complementares do PI (obs, contatos, drive)."""
+    field_map = {
+        'obs_operacao': 'observacoes_operacao',
+        'obs_financeiro': 'observacoes_financeiro',
+        'googled_pi_princ': 'googled_pi_princ',
+        'googled_pi_financ': 'googled_pi_financ',
+        'googled_pi_pecas': 'googled_pi_pecas',
+        'googled_pi_arq_ass': 'googled_pi_arq_ass',
+        'contato_fin_cliente': 'id_cont_cliente_financ',
+        'contato_midia_cliente': 'id_cont_cliente_midia',
+        'contato_fin_agencia': 'id_cont_agen_financ',
+        'contato_midia_agencia': 'id_cont_agen_midia',
+        'contato_fin_parceiro': 'id_cont_parc_reg_financ',
+        'contato_midia_parceiro': 'id_cont_parc_reg_midia',
+    }
+    sets = []
+    params = []
+    for key, col in field_map.items():
+        if key in data:
+            sets.append(f'{col} = %s')
+            params.append(data[key])
+    if not sets:
+        return False
+    sets.append("updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)")
+    params.append(id_pi)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'UPDATE cadu_pi SET {", ".join(sets)} WHERE id_pi = %s RETURNING id_pi',
+                params,
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_cadu_pi_por_id(id_pi):
     """Retorna um PI pelo ID com JOINs"""
     conn = get_db()
@@ -9959,6 +10036,7 @@ def obter_cadu_pi_por_id(id_pi):
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome,
+                    rc.foto_url as resp_comercial_foto_url,
                     rc.email as resp_comercial_email,
                     (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
                     (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas,

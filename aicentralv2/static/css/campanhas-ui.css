@@ -1,0 +1,257 @@
+/* Campanhas UI — componentes compartilhados (PI list + Acompanhamento) */
+
+:root {
+  --camp-flag-none: #cbd5e1;
+  --camp-flag-critico: var(--camp-flag-tier-critico, #ef4444);
+  --camp-flag-atencao: var(--camp-flag-tier-atencao, #f59e0b);
+  --camp-flag-ok: var(--camp-flag-tier-ok, #22c55e);
+  --camp-progress-track: #e2e8f0;
+  --camp-progress-fill-empty: transparent;
+  --camp-progress-fill-low: var(--camp-progress-tier-low, #94a3b8);
+  --camp-progress-fill-mid: var(--camp-progress-tier-mid, #64748b);
+  --camp-progress-fill-high: var(--camp-progress-tier-high, #475569);
+  --camp-progress-fill-complete: var(--camp-progress-tier-complete, #334155);
+  --camp-progress-fill-over: var(--camp-progress-tier-over, #1e293b);
+}
+
+/* Flag operacional */
+.camp-flag-cell { width: 28px; min-width: 28px; padding-left: 0.5rem !important; padding-right: 0 !important; }
+.camp-flag-th {
+  width: 28px; min-width: 28px; padding: 0.5rem 0.25rem !important;
+  cursor: pointer; user-select: none;
+}
+.camp-flag-th:hover { color: #475569; }
+.camp-flag-th.sorted { color: #6366f1; }
+.camp-flag-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  border: none; background: transparent; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.camp-flag-btn:hover { background: #f1f5f9; }
+.camp-flag-marker {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.camp-flag-marker[data-flag="none"] {
+  background: transparent;
+  border: 2px dashed var(--camp-flag-none);
+}
+.camp-flag-marker[data-flag="critico"] {
+  background: var(--camp-flag-critico);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--camp-flag-critico) 25%, transparent);
+}
+.camp-flag-marker[data-flag="atencao"] {
+  background: var(--camp-flag-atencao);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--camp-flag-atencao) 25%, transparent);
+}
+.camp-flag-marker[data-flag="ok"] {
+  background: var(--camp-flag-ok);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--camp-flag-ok) 25%, transparent);
+}
+.camp-flag-menu {
+  position: fixed; z-index: 50; min-width: 168px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 4px; display: none;
+}
+.camp-flag-menu.open { display: block; }
+.camp-flag-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 10px; border: none; background: transparent; border-radius: 6px;
+  font-size: 12px; color: #334155; cursor: pointer; text-align: left;
+}
+.camp-flag-menu-item:hover { background: #f8fafc; }
+.camp-flag-menu-item .camp-flag-marker { width: 8px; height: 8px; }
+
+/* Ícone de plataforma */
+.platform-cell { min-width: 72px; }
+.platform-badge { display: inline-flex; align-items: center; gap: 4px; }
+.platform-icon-wrap {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--platform-bg, #f1f5f9); color: var(--platform-color, #64748b);
+  flex-shrink: 0;
+}
+.platform-icon-wrap i { font-size: 11px; line-height: 1; }
+.link-count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px; padding: 0 5px; border-radius: 99px;
+  font-size: 9px; font-weight: 700; background: #e0e7ff; color: #4338ca;
+}
+.link-count-badge.empty { background: #f1f5f9; color: #94a3b8; }
+
+/* Avatar executivo */
+.exec-row {
+  display: flex; align-items: center; gap: 5px;
+  min-width: 0; max-width: 130px;
+}
+.exec-avatar {
+  width: 20px; height: 20px; border-radius: 50%; overflow: hidden;
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: #e0e7ff; color: #4338ca;
+  font-size: 8px; font-weight: 700; line-height: 1;
+}
+.exec-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.exec-name {
+  font-size: 11px; color: #9ca3af;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0;
+}
+
+/* Progress bar */
+.camp-progress {
+  position: relative; width: 72px; height: 8px; border-radius: 99px;
+  background: var(--camp-progress-track);
+  border: 1px solid color-mix(in srgb, var(--camp-progress-track) 60%, #94a3b8);
+  overflow: hidden; flex-shrink: 0;
+}
+.camp-progress.camp-progress-sm { width: 56px; height: 6px; }
+.camp-progress-fill {
+  height: 100%; border-radius: 99px; transition: width 0.4s ease;
+  background: var(--camp-progress-fill-low);
+}
+.camp-progress[data-tier="empty"] .camp-progress-fill { width: 0 !important; background: var(--camp-progress-fill-empty); }
+.camp-progress[data-tier="low"] .camp-progress-fill { background: var(--camp-progress-fill-low); }
+.camp-progress[data-tier="mid"] .camp-progress-fill { background: var(--camp-progress-fill-mid); }
+.camp-progress[data-tier="high"] .camp-progress-fill { background: var(--camp-progress-fill-high); }
+.camp-progress[data-tier="complete"] .camp-progress-fill { background: var(--camp-progress-fill-complete); }
+.camp-progress[data-tier="over"] .camp-progress-fill {
+  background: var(--camp-progress-fill-over);
+  background-image: repeating-linear-gradient(
+    -45deg, transparent, transparent 3px,
+    color-mix(in srgb, #fff 15%, transparent) 3px,
+    color-mix(in srgb, #fff 15%, transparent) 6px
+  );
+}
+.camp-progress-pct {
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 2.5rem; text-align: right;
+}
+.camp-progress-pct[data-tier="empty"] { color: #94a3b8; }
+.camp-progress-pct[data-tier="low"] { color: var(--camp-progress-fill-low); }
+.camp-progress-pct[data-tier="mid"] { color: var(--camp-progress-fill-mid); }
+.camp-progress-pct[data-tier="high"] { color: var(--camp-progress-fill-high); }
+.camp-progress-pct[data-tier="complete"] { color: var(--camp-progress-fill-complete); }
+.camp-progress-pct[data-tier="over"] { color: var(--camp-progress-fill-over); }
+
+/* Células vazias */
+.cx-cell-empty {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; line-height: 1.2;
+}
+.cx-cell-empty.empty-na { color: #d1d5db; }
+.cx-cell-empty.empty-pending { color: #b45309; }
+.cx-cell-empty.empty-zero { color: #9ca3af; }
+
+/* PI list — link vs expand */
+.pi-code-link {
+  font-family: ui-monospace, monospace;
+  font-size: 12px; font-weight: 700; color: #4f46e5;
+  text-decoration: none;
+}
+.pi-code-link:hover { text-decoration: underline; color: #4338ca; }
+.pi-expand-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  background: #f3f4f6; color: #374151;
+  border: 1px solid #e5e7eb;
+  cursor: pointer; transition: background 0.15s ease;
+}
+.pi-expand-chip:hover { background: #e5e7eb; }
+
+/* PI nested table */
+.pi-row { border-bottom: 1px solid #e5e7eb; }
+.pi-row:hover { background: #fafafa; }
+.pi-camp-block {
+  background: #f8fafc;
+  border-left: 4px solid #cbd5e1;
+  padding-left: 1rem;
+}
+.pi-camp-scroll {
+  max-height: 40vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.camp-table { table-layout: fixed; width: 100%; }
+.camp-table th {
+  font-weight: 600; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.04em; color: #6b7280;
+  padding: 6px 8px; white-space: nowrap;
+}
+.camp-table td {
+  font-size: 11px; padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb; overflow: hidden; vertical-align: top;
+}
+.camp-table tr:last-child td { border-bottom: none; }
+.camp-table tbody tr:hover { background: #f1f5f9; }
+
+.collapse-camp-row.hidden { display: none; }
+.chevron-camp { transition: transform 0.2s ease; }
+.chevron-camp.open { transform: rotate(180deg); }
+
+.pi-row-sticky-expanded {
+  position: sticky;
+  z-index: 20;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.pi-footer-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: #fff;
+  border-top: 2px solid #e5e7eb;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+  padding: 0.6rem 1rem;
+}
+
+/* Sidebar (compartilhado PI + Campanhas) */
+.sidebar-panel {
+  position: fixed;
+  top: 0;
+  right: -480px;
+  width: 480px;
+  height: 100vh;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.08);
+  z-index: 40;
+  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+}
+.sidebar-panel.open { right: 0; }
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 39;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+.pi-sidebar-tab-btn {
+  padding: 6px 12px; font-size: 11px; font-weight: 600;
+  border-radius: 6px; border: none; background: transparent;
+  color: #64748b; cursor: pointer; transition: all 0.15s;
+}
+.pi-sidebar-tab-btn:hover { background: #f1f5f9; color: #334155; }
+.pi-sidebar-tab-btn.active { background: #6366f1; color: #fff; }
+
+.pi-status-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 99px;
+  font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+.pi-status-badge.status-aprovada { background: #dcfce7; color: #166534; }
+.pi-status-badge.status-pendente { background: #fef3c7; color: #92400e; }
+.pi-status-badge.status-rascunho { background: #f1f5f9; color: #475569; }
+.pi-status-badge.status-default { background: #f1f5f9; color: #475569; }
+
+.pi-flag-summary { font-size: 10px; color: #6b7280; margin-top: 2px; }
+
+@media (max-width: 768px) {
+  .sidebar-panel { width: 100vw; right: -100vw; }
+}

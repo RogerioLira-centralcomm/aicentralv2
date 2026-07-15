@@ -1,8 +1,10 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }} - CentralComm AI{% endblock %}
+{% block title %}{% if modo == 'novo' %}PI Recebido{% elif somente_leitura|default(false) %}Visualizar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% else %}Editar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
+{% set somente_leitura = somente_leitura|default(false) %}
+{% set pi_status_label = (pi.sub_status_descricao or pi.status_descricao or '') if modo == 'editar' and pi else '' %}
 {% macro opcoes_plataforma_campanha() %}
 <option value="">Selecione...</option>
 {% for categoria, items in (plataformas_campanha or [])|groupby('categoria') %}
@@ -23,13 +25,13 @@
           <i class="fas fa-arrow-left text-[10px]"></i>
         </a>
         <div>
-          <h1 class="text-sm font-semibold text-gray-800">{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }}</h1>
-          <p class="text-[9px] text-gray-500">{{ 'Cadastrar novo PI' if modo == 'novo' else 'Atualizar dados do PI' }}</p>
+          <h1 class="text-sm font-semibold text-gray-800">{% if modo == 'novo' %}PI Recebido{% elif somente_leitura and pi_status_label %}Visualizar PI - {{ pi_status_label }}{% elif somente_leitura %}Visualizar PI{% elif pi_status_label %}Editar PI - {{ pi_status_label }}{% else %}Editar PI{% endif %}</h1>
+          <p class="text-[9px] text-gray-500">{% if modo == 'novo' %}Cadastrar novo PI{% elif somente_leitura %}Somente visualização — alterações não permitidas{% else %}Atualizar dados do PI{% endif %}</p>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
-        <a href="{{ back_url }}" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
-        {% if modo == 'editar' and pi %}
+        <a href="{{ back_url }}" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">{% if somente_leitura %}Voltar{% else %}Cancelar{% endif %}</a>
+        {% if modo == 'editar' and pi and not somente_leitura %}
           <button type="button" onclick="abrirModalLinks()" class="px-2 py-1 text-[10px] border border-purple-400 rounded hover:bg-purple-50 text-purple-700 inline-flex items-center gap-1">
             <span id="badge_total_links" class="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full {% if pi.total_links %}bg-purple-600 text-white{% else %}bg-gray-200 text-gray-500{% endif %}">{{ pi.total_links or 0 }}</span>
             <i class="fas fa-link mr-0.5"></i>Links
@@ -64,8 +66,12 @@
             <i class="fas fa-file-invoice-dollar mr-1"></i>Enviar Financeiro
           </button>
           {% endif %}
+        {% elif modo == 'editar' and pi and somente_leitura and pi.googled_pi_princ %}
+          <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-2 py-1 text-[10px] border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
+            <i class="fab fa-google-drive mr-1"></i>Pastas
+          </a>
         {% endif %}
-        {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4']) %}
+        {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4']) and not somente_leitura %}
         <button type="submit" form="pi_form" class="px-2 py-1 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
@@ -332,9 +338,11 @@
             <span id="camp_count_badge" class="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500">...</span>
           </span>
           <div class="flex items-center gap-1.5">
+          {% if not somente_leitura %}
           <a href="{{ url_for('campanhas_pi', id_pi=pi.id_pi) }}" class="text-[9px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
             Abrir em Campanhas PI <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i>
           </a>
+          {% endif %}
           {% if pi.id_sub_status_pi|string == '1' %}
           <button type="button" onclick="abrirModalNovaCampanha()"
              class="px-2 py-1 text-[9px] bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
@@ -380,6 +388,7 @@
 (function() {
   const DEBOUNCE_MS = 300;
   const PI_MODO = {{ modo|tojson }};
+  const PI_SOMENTE_LEITURA = {{ somente_leitura|tojson }};
   const USER_IS_EXECUTIVO = {{ user_is_executivo|tojson }};
   let debounceCliente = null;
   let debounceAgencia = null;
@@ -1072,10 +1081,23 @@
   }
 
   document.addEventListener('DOMContentLoaded', async function() {
+    if (PI_SOMENTE_LEITURA) {
+      var form = document.getElementById('pi_form');
+      if (form) {
+        form.querySelectorAll('input, select, textarea').forEach(function(el) {
+          if (el.type === 'hidden') return;
+          el.disabled = true;
+          el.classList.add('bg-gray-50', 'cursor-default');
+        });
+      }
+    }
+
+    if (!PI_SOMENTE_LEITURA) {
     var execId = getExecutivoId();
     if (execId || !USER_IS_EXECUTIVO) {
       els.clienteBusca().disabled = false;
       els.agenciaBusca().disabled = false;
+    }
     }
 
     if (els.percComissaoAg().value) maskPercent(els.percComissaoAg());

@@ -4,6 +4,7 @@
 
 {% block content %}
 {% set somente_leitura = somente_leitura|default(false) %}
+{% set pi_campanhas_editaveis = modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2', '3'] and not somente_leitura %}
 {% set pi_status_label = (pi.sub_status_descricao or pi.status_descricao or '') if modo == 'editar' and pi else '' %}
 {% macro opcoes_plataforma_campanha() %}
 <option value="">Selecione...</option>
@@ -71,7 +72,7 @@
             <i class="fab fa-google-drive mr-1"></i>Pastas
           </a>
         {% endif %}
-        {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4']) and not somente_leitura %}
+        {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string == '4') and not somente_leitura %}
         <button type="submit" form="pi_form" class="px-2 py-1 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
@@ -343,7 +344,7 @@
             Abrir em Campanhas PI <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i>
           </a>
           {% endif %}
-          {% if pi.id_sub_status_pi|string == '1' %}
+          {% if pi_campanhas_editaveis %}
           <button type="button" onclick="abrirModalNovaCampanha()"
              class="px-2 py-1 text-[9px] bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
             <i class="fas fa-plus text-[8px]"></i> Nova Campanha
@@ -1525,7 +1526,7 @@
 </script>
 {% endif %}
 
-{% if modo == 'editar' and pi and pi.id_sub_status_pi|string == '1' %}
+{% if pi_campanhas_editaveis %}
 <style>
   #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
 </style>
@@ -2022,7 +2023,7 @@ function abrirViewCampanha(c) {
 }
 
 (function() {
-  var piEmAprovacao = {{ 'true' if pi.id_sub_status_pi|string == '1' else 'false' }};
+  var piCampanhasEditaveis = {{ 'true' if pi_campanhas_editaveis else 'false' }};
 
   function parseCampPayload(encoded) {
     return JSON.parse(decodeURIComponent(escape(atob(encoded))));
@@ -2035,7 +2036,7 @@ function abrirViewCampanha(c) {
         abrirViewCampanha(parseCampPayload(this.dataset.campView));
       });
     });
-    if (piEmAprovacao) {
+    if (piCampanhasEditaveis) {
       container.querySelectorAll('.btn-editar-camp').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
@@ -2101,7 +2102,7 @@ function abrirViewCampanha(c) {
           var pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
           var payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
           var botoesExtra = '';
-          if (piEmAprovacao) {
+          if (piCampanhasEditaveis) {
             botoesExtra =
               '<button type="button" data-camp-edit="' + payload + '" class="btn-editar-camp text-indigo-600 hover:text-indigo-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
                 '<i class="fa-solid fa-pen text-[10px]"></i>Editar</button>' +

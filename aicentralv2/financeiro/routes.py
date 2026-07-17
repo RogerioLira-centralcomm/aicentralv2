@@ -30,10 +30,6 @@ def _expense_payload(expense):
     return {**expense, 'items': items, 'receipts': receipts}
 
 
-MAX_IMPORT_BATCH = 20
-MAX_SUBMIT_BATCH = 50
-
-
 def _import_single_receipt(file, user_id):
     """Importa um comprovante: cria rascunho, salva arquivo e roda OCR.
 
@@ -350,11 +346,6 @@ def api_import_expense_bulk():
 
     if not files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado (campo file)'}), 400
-    if len(files) > MAX_IMPORT_BATCH:
-        return jsonify({
-            'success': False,
-            'error': f'Máximo de {MAX_IMPORT_BATCH} arquivos por importação. Divida em lotes menores.',
-        }), 400
 
     user_id = _uid()
     expenses = []
@@ -391,11 +382,6 @@ def api_submit_expense_bulk():
     expense_ids = data.get('expense_ids') or []
     if not isinstance(expense_ids, list) or not expense_ids:
         return jsonify({'success': False, 'error': 'Informe expense_ids (lista de UUIDs)'}), 400
-    if len(expense_ids) > MAX_SUBMIT_BATCH:
-        return jsonify({
-            'success': False,
-            'error': f'Máximo de {MAX_SUBMIT_BATCH} reembolsos por envio.',
-        }), 400
 
     user_id = _uid()
     submitted = []
@@ -419,11 +405,6 @@ def api_delete_expense_bulk():
     expense_ids = data.get('expense_ids') or []
     if not isinstance(expense_ids, list) or not expense_ids:
         return jsonify({'success': False, 'error': 'Informe expense_ids (lista de UUIDs)'}), 400
-    if len(expense_ids) > MAX_SUBMIT_BATCH:
-        return jsonify({
-            'success': False,
-            'error': f'Máximo de {MAX_SUBMIT_BATCH} reembolsos por exclusão.',
-        }), 400
 
     user_id = _uid()
     deleted = []

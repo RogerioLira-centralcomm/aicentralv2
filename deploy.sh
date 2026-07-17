@@ -93,14 +93,20 @@ echo "  > OK"
 
 # 6. Atualizar systemd
 echo ""
-echo "[5/7] Atualizando systemd..."
+echo "[5/8] Atualizando systemd..."
 sudo cp aicentralv2.service /etc/systemd/system/
 sudo systemctl daemon-reload
 echo "  > OK"
 
-# 7. Iniciar servico
+# 7. Nginx — limite de upload (413)
 echo ""
-echo "[6/7] Iniciando servico..."
+echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
+bash deploy/configure_nginx_upload.sh
+echo "  > OK"
+
+# 8. Iniciar servico
+echo ""
+echo "[7/8] Iniciando servico..."
 sudo systemctl start aicentralv2
 sleep 3
 
@@ -114,7 +120,7 @@ fi
 
 # 8. Health check
 echo ""
-echo "[7/7] Health check..."
+echo "[8/8] Health check..."
 sleep 2
 HTTP_CODE=$(curl -s -m 10 -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "000" ]; then

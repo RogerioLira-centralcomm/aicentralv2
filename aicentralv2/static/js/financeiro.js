@@ -4,8 +4,6 @@
     const BASE = '/financeiro/api';
     const EDITABLE = ['draft', 'rejected', 'extracted', 'extraction_failed'];
     const DELETABLE = EDITABLE;
-    const MAX_IMPORT = 20;
-
     let pendingManualFile = null;
     let selectedIds = new Set();
     const expandedSummaries = new Set();
@@ -577,10 +575,6 @@
         const files = filterValidFiles(fileList);
         if (!files.length) {
             showToast('Nenhum arquivo válido (use imagem ou PDF).', 'warning');
-            return;
-        }
-        if (files.length > MAX_IMPORT) {
-            showToast(`Máximo de ${MAX_IMPORT} arquivos por vez.`, 'warning');
             return;
         }
 

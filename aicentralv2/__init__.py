@@ -28,6 +28,20 @@ def create_app(config_class=Config):
                 static_folder='static')
     app.config.from_object(config_class)
 
+    from werkzeug.exceptions import RequestEntityTooLarge
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(e):
+        from flask import jsonify, request
+        max_mb = app.config.get('MAX_CONTENT_LENGTH', 0) // (1024 * 1024)
+        msg = (
+            f'Upload excede o limite do servidor ({max_mb} MB por requisição). '
+            'Reduza a quantidade de arquivos por vez ou aumente MAX_CONTENT_LENGTH_MB no .env.'
+        )
+        if request.path.startswith('/financeiro/api/'):
+            return jsonify({'success': False, 'error': msg}), 413
+        return msg, 413
+
     # Filtro Jinja2 para datas
     def format_datetime(value, fmt='%d/%m/%Y %H:%M'):
         from datetime import datetime

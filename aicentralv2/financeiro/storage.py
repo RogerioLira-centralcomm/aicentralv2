@@ -15,13 +15,18 @@ ALLOWED_MIMES = {
     'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
     'application/pdf',
 }
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = 25 * 1024 * 1024  # fallback se fora do app context
 
 
-def _upload_root():
-    root = Path(current_app.root_path) / 'static' / 'uploads' / 'reembolsos'
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+def _max_file_size():
+    try:
+        return int(current_app.config.get('FINANCE_MAX_FILE_SIZE', MAX_FILE_SIZE))
+    except Exception:
+        return MAX_FILE_SIZE
+
+
+def _max_file_size_mb_label():
+    return _max_file_size() // (1024 * 1024)
 
 
 def validate_upload(file_storage):
@@ -40,15 +45,22 @@ def validate_upload(file_storage):
         if mime != 'application/octet-stream':
             return False, f'MIME não permitido: {mime}'
 
+    max_size = _max_file_size()
     file_storage.stream.seek(0, os.SEEK_END)
     size = file_storage.stream.tell()
     file_storage.stream.seek(0)
-    if size > MAX_FILE_SIZE:
-        return False, 'Arquivo maior que 10 MB'
+    if size > max_size:
+        return False, f'Arquivo maior que {_max_file_size_mb_label()} MB'
     if size == 0:
         return False, 'Arquivo vazio'
 
     return True, None
+
+
+def _upload_root():
+    root = Path(current_app.root_path) / 'static' / 'uploads' / 'reembolsos'
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 class ReceiptStorage:

@@ -73,7 +73,7 @@
              class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center text-sm opacity-80 hover:border-primary cursor-pointer bg-base-200/40 transition-colors">
             <div class="text-2xl mb-1">📄</div>
             <div class="font-medium">Arraste um ou vários comprovantes aqui ou clique para selecionar</div>
-            <div class="text-xs opacity-60 mt-1">A IA lê data e valor automaticamente · até 20 arquivos · imagem ou PDF (até 10 MB cada)</div>
+            <div class="text-xs opacity-60 mt-1">A IA lê data e valor automaticamente · imagem ou PDF (até 25 MB cada) · vinculados ao lote em andamento</div>
             <input type="file" id="fin-import-file" class="hidden" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf" />
         </div>
         <div id="fin-import-status" class="hidden mt-3 space-y-2 text-sm">
@@ -207,5 +207,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/financeiro.js') }}?v=7"></script>
 {% endblock %}

@@ -25,8 +25,9 @@ class Config:
 	DEBUG = False
 	TESTING = False
 	
-	# Upload de arquivos
-	MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB máximo
+	# Upload de arquivos (reembolsos: importação em lote sem limite de quantidade)
+	FINANCE_MAX_FILE_SIZE = int(os.getenv('FINANCE_MAX_FILE_SIZE_MB', '25')) * 1024 * 1024
+	MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH_MB', '256')) * 1024 * 1024
 	
 	# URL base da aplicação (para acesso externo às imagens)
 	BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')

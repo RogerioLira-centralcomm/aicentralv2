@@ -187,8 +187,12 @@
             let html = '';
             summaries.forEach(s => {
                 const expanded = expandedSummaries.has(s.id);
+                const pending = Number(s.pending_decision_count ?? s.pending_review_count) || 0;
                 const markPaidBtn = s.status === 'open'
-                    ? `<button type="button" class="btn btn-xs btn-success fin-adm-mark-paid" data-id="${s.id}" data-desc="${escapeHtml(s.description)}">Marcar pago</button>`
+                    ? `<button type="button" class="btn btn-xs btn-success fin-adm-mark-paid"
+                        data-id="${s.id}" data-desc="${escapeHtml(s.description)}"
+                        data-pending="${pending}"
+                        title="${pending > 0 ? `${pending} item(ns) aguardando aprovação ou reprovação` : 'Concluir pagamento do lote'}">Marcar pago</button>`
                     : '';
                 html += `
                 <tr class="fin-summary-row cursor-pointer hover:bg-base-200/50" data-summary-id="${s.id}">
@@ -249,7 +253,7 @@
             tbody.querySelectorAll('.fin-adm-mark-paid').forEach(btn => {
                 btn.addEventListener('click', (ev) => {
                     ev.stopPropagation();
-                    openPaidModal(btn.dataset.id, btn.dataset.desc);
+                    tryMarkPaid(btn.dataset.id, btn.dataset.desc, Number(btn.dataset.pending) || 0);
                 });
             });
 
@@ -307,6 +311,17 @@
     }
 
     function paidModal() { return $('#fin-adm-paid-modal'); }
+
+    function tryMarkPaid(id, desc, pendingCount) {
+        if (pendingCount > 0) {
+            const msg = pendingCount === 1
+                ? 'Não é possível marcar como pago: 1 reembolso ainda não foi aprovado nem rejeitado.'
+                : `Não é possível marcar como pago: ${pendingCount} reembolsos ainda não foram aprovados nem rejeitados.`;
+            showToast(msg + ' Use Aprovar ou Reprovar em cada item do lote.', 'warning');
+            return;
+        }
+        openPaidModal(id, desc);
+    }
 
     function openPaidModal(id, desc) {
         $('#fin-adm-paid-id').value = id;

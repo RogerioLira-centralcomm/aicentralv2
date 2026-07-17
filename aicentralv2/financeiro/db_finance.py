@@ -146,6 +146,21 @@ def find_duplicate_expense(user_id, expense_date, total_amount, merchant_name, e
         return _serialize_row(cur.fetchone())
 
 
+FINAL_EXPENSE_STATUSES = ('approved', 'rejected')
+
+
+def count_unresolved_expenses_in_summary(summary_id):
+    """Reembolsos do lote que ainda não foram aprovados nem rejeitados pelo admin."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT COUNT(*) AS cnt FROM finance_expenses
+            WHERE summary_id = %s AND status NOT IN ('approved', 'rejected')
+        ''', (summary_id,))
+        row = cur.fetchone()
+    return row['cnt'] if row else 0
+
+
 def count_submitted_in_summary(summary_id):
     conn = get_db()
     with conn.cursor() as cur:
@@ -165,8 +180,14 @@ def mark_summary_paid(summary_id, payment_date, admin_id):
         return None, 'Este reembolso já foi concluído'
     if not payment_date:
         return None, 'Informe a data de pagamento'
-    if count_submitted_in_summary(summary_id) > 0:
-        return None, 'Existem despesas aguardando aprovação. Revise antes de marcar como pago.'
+    pending = count_unresolved_expenses_in_summary(summary_id)
+    if pending > 0:
+        plural = 'reembolso' if pending == 1 else 'reembolsos'
+        verbo = 'ainda não foi aprovado nem rejeitado' if pending == 1 else 'ainda não foram aprovados nem rejeitados'
+        return None, (
+            f'Não é possível marcar como pago: {pending} {plural} {verbo}. '
+            f'Use Aprovar ou Reprovar em cada item do lote antes de concluir.'
+        )
 
     conn = get_db()
     with conn.cursor() as cur:
@@ -264,6 +285,8 @@ def list_all_summaries(filtros=None):
                    u.nome_completo AS user_name,
                    u.email AS user_email,
                    (SELECT COUNT(*) FROM finance_expenses e WHERE e.summary_id = s.id) AS expense_count,
+                   (SELECT COUNT(*) FROM finance_expenses e
+                    WHERE e.summary_id = s.id AND e.status NOT IN ('approved', 'rejected')) AS pending_decision_count,
                    (SELECT COALESCE(SUM(total_amount), 0) FROM finance_expenses e
                     WHERE e.summary_id = s.id AND e.status = 'submitted') AS total_submitted
             FROM finance_summary s

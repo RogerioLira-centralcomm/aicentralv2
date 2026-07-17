@@ -120,6 +120,14 @@
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Resumo do briefing</label>
             <textarea id="crm-cotacao-briefing" name="apresentacao_dados" rows="6" maxlength="4000" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none" placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."></textarea>
+            <div data-ia-group class="flex flex-wrap items-center gap-1 mt-0.5">
+              <button type="button" data-ia-briefing="corrigir" title="Corrigir com IA" aria-label="Corrigir com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
+                <i class="fas fa-spell-check text-[9px]"></i><span class="text-[8px]">Corrigir</span>
+              </button>
+              <button type="button" data-ia-briefing="ampliar" title="Ampliar com IA" aria-label="Ampliar com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
+                <i class="fas fa-wand-magic-sparkles text-[9px]"></i><span class="text-[8px]">Ampliar</span>
+              </button>
+            </div>
           </div>
           <div>
             <label class="block font-medium text-gray-500 mb-0.5">Anexar briefing (PDF, DOC, PPT, JPG, PNG)</label>

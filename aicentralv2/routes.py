@@ -14619,6 +14619,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
                 'segmentacao': 'segmentação de audiência (target, interesses, comportamentos) de uma campanha de mídia',
                 'praca': 'praça geográfica de veiculação de uma campanha de mídia (cidades, estados, regiões)',
                 'especificacoes': 'especificações técnicas adicionais de uma linha de mídia (formatos, restrições, observações)',
+                'apresentacao_dados': 'resumo do briefing da campanha (objetivos, público-alvo, mensagens principais)',
             }
             contexto_campo = contexto_campo_map.get(campo, 'briefing de uma linha de proposta de mídia digital')
 
@@ -14626,6 +14627,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
                 'segmentacao': 100,
                 'especificacoes': 100,
                 'praca': 100,
+                'apresentacao_dados': 500,
             }
             limite_palavras = limite_palavras_map.get(campo, 100)
 

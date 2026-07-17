@@ -586,6 +586,14 @@
                       oninput="atualizarContador(this, 'contador_resumo_briefing', 4000)"></textarea>
             <span id="contador_resumo_briefing" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/4000</span>
           </div>
+          <div data-ia-group class="flex flex-wrap items-center gap-1 mt-0.5">
+            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','corrigir')" title="Corrigir com IA" aria-label="Corrigir com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
+              <i class="fas fa-spell-check text-[9px]"></i><span class="text-[8px]">Corrigir</span>
+            </button>
+            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','ampliar')" title="Ampliar com IA" aria-label="Ampliar com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
+              <i class="fas fa-wand-magic-sparkles text-[9px]"></i><span class="text-[8px]">Ampliar</span>
+            </button>
+          </div>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Anexar briefing (PDF, DOC, PPT, JPG, PNG)</label>
@@ -1029,6 +1037,43 @@ function inicializarContadores() {
       atualizarContador(textarea, campo.contador, campo.max);
     }
   });
+}
+
+// ============================================
+// IA: CORRIGIR / AMPLIAR RESUMO DO BRIEFING
+// ============================================
+
+async function melhorarCampoIABriefing(elId, acao) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const texto = (el.value || '').trim();
+  if (!texto) {
+    showToast('Preencha o resumo do briefing antes de usar a IA.', 'warning');
+    return;
+  }
+  const btnGroup = el.closest('.grid')?.querySelector('[data-ia-group]')
+    || document.querySelector('[data-ia-group]');
+  if (btnGroup) btnGroup.classList.add('opacity-50', 'pointer-events-none');
+  try {
+    const resp = await fetch('/api/ia/cotacao-briefing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto, acao, campo: 'apresentacao_dados' }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data && data.success) {
+      el.value = (data.texto || '').trim().slice(0, el.maxLength || 4000);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      showToast(acao === 'corrigir' ? 'Texto corrigido pela IA.' : 'Texto ampliado pela IA.', 'success');
+    } else {
+      showToast((data && data.message) || 'Falha na IA.', 'error');
+    }
+  } catch (e) {
+    console.error('melhorarCampoIABriefing', e);
+    showToast('Falha ao chamar a IA.', 'error');
+  } finally {
+    if (btnGroup) btnGroup.classList.remove('opacity-50', 'pointer-events-none');
+  }
 }
 
 // ============================================

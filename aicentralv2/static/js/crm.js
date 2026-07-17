@@ -2548,6 +2548,35 @@
         out.value = diff > 0 ? `${diff} dia(s)` : '';
     }
 
+    async function melhorarBriefingCotacaoCRM(acao) {
+        const el = $('#crm-cotacao-briefing');
+        if (!el) return;
+        const texto = (el.value || '').trim();
+        if (!texto) {
+            showToast('Preencha o resumo do briefing antes de usar a IA.', 'warning');
+            return;
+        }
+        const btnGroup = el.parentElement?.querySelector('[data-ia-group]');
+        if (btnGroup) btnGroup.classList.add('opacity-50', 'pointer-events-none');
+        try {
+            const data = await api('/api/ia/cotacao-briefing', {
+                method: 'POST',
+                body: JSON.stringify({ texto, acao, campo: 'apresentacao_dados' }),
+            });
+            if (data?.success) {
+                el.value = (data.texto || '').trim().slice(0, el.maxLength || 4000);
+                showToast(acao === 'corrigir' ? 'Texto corrigido pela IA.' : 'Texto ampliado pela IA.', 'success');
+            } else {
+                showToast(data?.message || 'Falha na IA.', 'error');
+            }
+        } catch (e) {
+            console.error('melhorarBriefingCotacaoCRM', e);
+            showToast(e.message || 'Falha ao chamar a IA.', 'error');
+        } finally {
+            if (btnGroup) btnGroup.classList.remove('opacity-50', 'pointer-events-none');
+        }
+    }
+
     async function carregarContatosCotacao(clienteId, selectSelector = '#crm-cotacao-contato') {
         const selectContato = $(selectSelector);
         if (!selectContato) return;
@@ -2787,6 +2816,9 @@
             if (!label) return;
             label.textContent = file ? file.name : '';
             label.classList.toggle('hidden', !file);
+        });
+        $$('[data-ia-briefing]').forEach(btn => {
+            btn.addEventListener('click', () => melhorarBriefingCotacaoCRM(btn.dataset.iaBriefing));
         });
 
         // ---- Seção WhatsApp (coluna 5) ----

@@ -15,13 +15,22 @@
       <div class="flex items-center gap-2">
         <h1 class="text-sm font-semibold text-gray-800">{% if origem_lista == 'faturamento' %}Faturamento{% else %}PIs{% endif %}</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
-        {% set lista_somente_leitura = sub_status_atual|string == '4' %}
+        {% set menu_sub_status = request.args.get('id_sub_status_pi', '') %}
+        {% set lista_somente_leitura = sub_status_atual|string in ['4', '6'] or visao_comercial|default('') == 'cancelados' %}
         {% if origem_lista == 'faturamento' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
-        {% elif sub_status_atual|string == '1' %}
+        {% elif menu_sub_status == '1' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
-        {% elif sub_status_atual|string == '2' %}
+        {% elif menu_sub_status == '2' %}
+        {% if visao_comercial|default('') == 'cancelados' %}
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-700">Cancelados</span>
+        {% else %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-700">Em configuração</span>
+        {% endif %}
+        <div class="flex items-center gap-1 ml-1.5">
+          <button onclick="filtrarVisaoComercial('')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if visao_comercial|default('') != 'cancelados' %}bg-blue-500 text-white ring-1 ring-blue-500{% else %}bg-blue-100 text-blue-700 hover:bg-blue-200{% endif %}">Em configuração</button>
+          <button onclick="filtrarVisaoComercial('cancelados')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if visao_comercial|default('') == 'cancelados' %}bg-red-500 text-white ring-1 ring-red-500{% else %}bg-red-100 text-red-700 hover:bg-red-200{% endif %}">Cancelados</button>
+        </div>
         {% elif sub_status_atual|string == '3' %}
         <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-green-100 text-green-700">Em andamento</span>
         {% elif sub_status_atual|string == '4' %}
@@ -34,7 +43,7 @@
           <button onclick="filtrarNfStatus('3')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
         </div>
         {% endif %}
-        {% if sub_status_atual|string != '1' %}
+        {% if menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados' %}
         <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()"
                 class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                 title="Abrir/fechar as campanhas de todos os PIs">
@@ -1183,7 +1192,8 @@ function debounceAplicarFiltros() {
   debounceTimer = setTimeout(aplicarFiltros, 500);
 }
 
-let subStatusAtual = '{{ filtros.get("id_sub_status_pi", "") }}';
+let subStatusAtual = new URLSearchParams(window.location.search).get('id_sub_status_pi') || '';
+let visaoComercial = new URLSearchParams(window.location.search).get('visao') || '';
 let origemLista = new URLSearchParams(window.location.search).get('origem') || '';
 
 function aplicarFiltros() {
@@ -1204,12 +1214,19 @@ function aplicarFiltros() {
   params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
+  if (visaoComercial) params.set('visao', visaoComercial);
   if (mes) params.set('mes_ref_comp', mes);
   if (busca) params.set('busca', busca);
   if (origemLista) params.set('origem', origemLista);
   params.set('_f', '1');
 
   window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function filtrarVisaoComercial(visao) {
+  subStatusAtual = '2';
+  visaoComercial = visao || '';
+  aplicarFiltros();
 }
 
 function filtrarSubStatus(key) {
@@ -1247,6 +1264,7 @@ function filtrarSubStatus(key) {
     if (matched) { rp.set('mes_ref_comp', cMes); needsRedirect = true; }
   }
   if (!needsRedirect) return;
+  if (visaoComercial && !rp.has('visao')) rp.set('visao', visaoComercial);
   if (origemLista && !rp.has('origem')) rp.set('origem', origemLista);
   else if (!rp.has('origem') && subStatusAtual === '4') {
     var cOrigem = getCookie('cc_pi_origem_lista');

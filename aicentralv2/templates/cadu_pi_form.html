@@ -21,7 +21,7 @@
   <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-center gap-2">
-        {% set back_url = (return_url ~ '#pi-' ~ pi.id_pi) if return_url and pi and pi.id_pi else (return_url if return_url else url_for('cadu_pi_lista', id_sub_status_pi=pi.id_sub_status_pi if pi and pi.id_sub_status_pi else 1)) %}
+        {% set back_url = (return_url ~ '#pi-' ~ pi.id_pi) if return_url and pi and pi.id_pi else (return_url if return_url else (url_for('cadu_pi_lista', id_sub_status_pi=2, visao='cancelados') if pi and pi.id_sub_status_pi|string == '6' else url_for('cadu_pi_lista', id_sub_status_pi=pi.id_sub_status_pi if pi and pi.id_sub_status_pi else 2))) %}
         <a href="{{ back_url }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
           <i class="fas fa-arrow-left text-[10px]"></i>
         </a>
@@ -53,6 +53,11 @@
             class="px-2 py-1 text-[10px] border border-orange-400 rounded hover:bg-orange-50 text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             title="{% if not pi.get('googled_pi_princ') %}Gere as pastas primeiro{% elif not pi.get('id_cliente') %}Selecione um cliente{% elif not pi.get('codigo_pi_cc') %}Preencha o código do PI{% else %}Enviar PI para operação{% endif %}">
             <i class="fas fa-paper-plane mr-1"></i>Enviar Operação
+          </button>
+          <button type="button" id="btn_cancelar_pi"
+            onclick="document.getElementById('modal_confirmar_cancelar_pi').showModal()"
+            class="px-2 py-1 text-[10px] border border-red-400 rounded hover:bg-red-50 text-red-700">
+            <i class="fas fa-ban mr-1"></i>Cancelar PI
           </button>
           {% elif pi.id_sub_status_pi|string == '1' and pi.total_campanhas and pi.total_campanhas > 0 %}
           <button type="button" id="btn_enviar_andamento"
@@ -1276,6 +1281,28 @@
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
+<!-- Modal confirmacao cancelar PI -->
+<dialog id="modal_confirmar_cancelar_pi" class="modal">
+  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-[11px] text-gray-800">Cancelar PI</h3>
+    </div>
+    <div class="px-4 py-3">
+      <p class="text-[10px] text-gray-600">Tem certeza que deseja cancelar este PI? O histórico será preservado, as campanhas deste PI serão marcadas como canceladas e a ação não pode ser desfeita.</p>
+      <div class="mt-2 text-[10px] text-gray-700 space-y-0.5">
+        <p><span class="font-semibold text-gray-500">PI:</span> {{ pi.codigo_pi_cc or '—' }}</p>
+        <p><span class="font-semibold text-gray-500">Título:</span> {{ pi.titulo_pi or '—' }}</p>
+        <p><span class="font-semibold text-gray-500">Cliente:</span> {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
+      </div>
+    </div>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1.5 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_cancelar_pi').close()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Voltar</button>
+      <button type="button" id="btn_confirmar_cancelar_pi" class="px-2 py-1 text-[10px] rounded text-white bg-red-600 hover:bg-red-700">Confirmar cancelamento</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
 <!-- Modal confirmacao enviar financeiro -->
 <dialog id="modal_confirmar_financeiro" class="modal">
   <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
@@ -1301,6 +1328,34 @@
 <script>
 (function() {
   var PI_ID = {{ (pi.id_pi if pi else 0)|tojson }};
+
+  // Cancelar PI
+  var btnCancelarPi = document.getElementById('btn_confirmar_cancelar_pi');
+  if (btnCancelarPi) {
+    btnCancelarPi.addEventListener('click', async function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Cancelando...';
+      try {
+        var resp = await fetch('/api/cadu_pi/' + PI_ID + '/cancelar', { method: 'POST' });
+        var data = await resp.json();
+        if (data.success) {
+          document.getElementById('modal_confirmar_cancelar_pi').close();
+          showToast('PI cancelado com sucesso!', 'success');
+          setTimeout(function() {
+            window.location.href = data.redirect || '{{ url_for("cadu_pi_lista", id_sub_status_pi=2, visao="cancelados") }}';
+          }, 800);
+        } else {
+          showToast(data.message || 'Erro ao cancelar', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao cancelar PI', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirmar cancelamento';
+      }
+    });
+  }
 
   // Enviar para Financeiro
   var btnFinanceiro = document.getElementById('btn_confirmar_financeiro');

@@ -256,8 +256,11 @@ def rotulo_e_url_lista_pi(pi_row, id_pi_nav=None, busca_nav=None):
         2: 'Em configuração',
         3: 'Em andamento',
         4: 'Em faturamento',
+        6: 'Cancelado',
     }
     nome = labels.get(ssp) or (pi_row.get('sub_status_descricao') or 'Lista de PIs')
+    if ssp == 6:
+        return 'Cancelados', url_for('cadu_pi_lista', id_sub_status_pi=2, visao='cancelados', **extra)
     if ssp == 4:
         return nome, url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao', **extra)
     if ssp in (1, 2, 3):
@@ -270,17 +273,35 @@ def _pi_em_faturamento(pi):
     return _int_safe(pi.get('id_sub_status_pi')) == 4
 
 
-def _bloquear_pi_faturamento_post(pi, id_pi=None):
-    """Bloqueia POST de edição quando o PI está em faturamento."""
-    if not pi or not _pi_em_faturamento(pi):
+def _pi_cancelado(pi):
+    """PI cancelado (sub-status 6) — somente leitura."""
+    return _int_safe(pi.get('id_sub_status_pi')) == 6
+
+
+def _pi_somente_leitura(pi):
+    """PI em faturamento ou cancelado — bloqueia edição."""
+    return _pi_em_faturamento(pi) or _pi_cancelado(pi)
+
+
+def _bloquear_pi_somente_leitura_post(pi, id_pi=None):
+    """Bloqueia POST de edição quando o PI está em faturamento ou cancelado."""
+    if not pi or not _pi_somente_leitura(pi):
         return None
-    flash('PI em faturamento — somente visualização.', 'error')
+    if _pi_cancelado(pi):
+        flash('PI cancelado — somente visualização.', 'error')
+    else:
+        flash('PI em faturamento — somente visualização.', 'error')
     return_url = request.form.get('return_url', '')
     if return_url and return_url.startswith('/cadu_pi'):
         anchor = f'#pi-{id_pi}' if id_pi else ''
         return redirect(f'{return_url}{anchor}')
     _, lista_url = rotulo_e_url_lista_pi(pi, id_pi_nav=id_pi)
     return redirect(lista_url)
+
+
+def _bloquear_pi_faturamento_post(pi, id_pi=None):
+    """Bloqueia POST de edição quando o PI está em faturamento."""
+    return _bloquear_pi_somente_leitura_post(pi, id_pi=id_pi)
 
 
 # Helper para registro de auditoria
@@ -9282,6 +9303,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['id_pi'] = int(request.args.get('id_pi').strip())
 
             origem_lista = request.args.get('origem', '')
+            visao_comercial = request.args.get('visao', '')
+
+            if filtros.get('id_sub_status_pi') == 2 and visao_comercial == 'cancelados':
+                filtros['id_sub_status_pi'] = 6
 
             if origem_lista == 'nf_emitida':
                 status_nf_emitida = db.obter_status_pi_por_descricao('NF Emitida')
@@ -9360,7 +9385,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
 
             status_pi = db.obter_status_pi()
-            meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
+            mes_sub = 6 if visao_comercial == 'cancelados' else filtros.get('id_sub_status_pi')
+            meses_ref = db.obter_meses_ref_pi(mes_sub)
             statuses_nf = db.obter_nota_fiscal_status()
 
             return render_template('cadu_pi.html',
@@ -9373,6 +9399,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    user_is_executivo=user_is_executivo,
                                    origem_lista=origem_lista,
                                    nf_status_filtro=nf_status_filtro,
+                                   visao_comercial=visao_comercial,
                                    pi_footer_totais=pi_footer_totais)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
@@ -9383,6 +9410,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    vendedores=[],
                                    statuses_nf=[],
                                    filtros={},
+                                   visao_comercial='',
                                    pi_footer_totais={
                                        'total_campanhas': 0,
                                        'valor_midia': 0.0,
@@ -9496,7 +9524,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return redirect(url_for('cadu_pi_lista'))
 
             if request.method == 'POST':
-                bloqueio = _bloquear_pi_faturamento_post(pi, id_pi)
+                bloqueio = _bloquear_pi_somente_leitura_post(pi, id_pi)
                 if bloqueio:
                     return bloqueio
 
@@ -9508,19 +9536,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 if not data.get('periodo_inicio') or not data.get('periodo_fim'):
                     flash('Data de Início e Término são obrigatórias.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_em_faturamento(pi), **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
 
@@ -9538,6 +9566,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if return_url and return_url.startswith('/cadu_pi'):
                     return redirect(f'{return_url}#pi-{id_pi}')
                 sub_status = data.get('id_sub_status_pi') or (pi.get('id_sub_status_pi') if pi else 1) or 1
+                if _int_safe(sub_status) == 6:
+                    return redirect(url_for('cadu_pi_lista', id_sub_status_pi=2, visao='cancelados'))
                 return redirect(url_for('cadu_pi_lista', id_sub_status_pi=sub_status))
 
             return_url = _extrair_return_url(request.referrer or '', '/editar')
@@ -9548,13 +9578,57 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 modo='editar',
                 pi=pi,
                 return_url=return_url,
-                somente_leitura=_pi_em_faturamento(pi),
+                somente_leitura=_pi_somente_leitura(pi),
                 **auxiliares,
             )
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
             flash(f'Erro ao editar PI: {str(e)}', 'error')
             return redirect(url_for('cadu_pi_lista'))
+
+    @app.route('/api/cadu_pi/<int:id_pi>/cancelar', methods=['POST'])
+    @login_required
+    def cadu_pi_cancelar(id_pi):
+        """Cancela PI em configuração e campanhas vinculadas (preserva histórico)."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            if _int_safe(pi.get('id_sub_status_pi')) != 2:
+                return jsonify({'success': False, 'message': 'Somente PIs em configuração podem ser cancelados.'}), 400
+
+            result = db.cancelar_cadu_pi(id_pi)
+            if not result:
+                return jsonify({
+                    'success': False,
+                    'message': 'Erro ao cancelar PI. Verifique se os status Cancelado estão cadastrados.',
+                }), 500
+
+            numero = pi.get('codigo_pi_cc', '')
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'PI cancelado: {numero}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores={
+                    'id_sub_status_pi': pi.get('id_sub_status_pi'),
+                    'id_status_pi': pi.get('id_status_pi'),
+                },
+                dados_novos={
+                    'sub_status': 'Cancelado',
+                    'campanhas_canceladas': result.get('quant_campanhas', 0),
+                },
+            )
+
+            return jsonify({
+                'success': True,
+                'redirect': url_for('cadu_pi_lista', id_sub_status_pi=2, visao='cancelados'),
+            })
+        except Exception as e:
+            app.logger.error(f"Erro ao cancelar PI: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/cadu_pi/<int:id_pi>/excluir', methods=['POST', 'DELETE'])
     @login_required
@@ -9897,8 +9971,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
                 return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
-            if _pi_em_faturamento(pi):
-                return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
+            if _pi_somente_leitura(pi):
+                msg = 'PI cancelado — somente visualização.' if _pi_cancelado(pi) else 'PI em faturamento — somente visualização.'
+                return jsonify({'success': False, 'message': msg}), 403
             body = request.get_json(silent=True) or {}
             patch = {}
             for key in (
@@ -10282,8 +10357,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Cria um link de destino para o PI via JSON"""
         try:
             pi = db.obter_cadu_pi_por_id(id_pi)
-            if pi and _pi_em_faturamento(pi):
-                return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
+            if pi and _pi_somente_leitura(pi):
+                msg = 'PI cancelado — somente visualização.' if _pi_cancelado(pi) else 'PI em faturamento — somente visualização.'
+                return jsonify({'success': False, 'message': msg}), 403
             body = request.get_json(silent=True) or {}
             link = (body.get('link') or '').strip()
             if not link:
@@ -10333,8 +10409,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'message': 'Link não encontrado'}), 404
             if ld.get('id_pi'):
                 pi = db.obter_cadu_pi_por_id(int(ld['id_pi']))
-                if pi and _pi_em_faturamento(pi):
-                    return jsonify({'success': False, 'message': 'PI em faturamento — somente visualização.'}), 403
+                if pi and _pi_somente_leitura(pi):
+                    msg = 'PI cancelado — somente visualização.' if _pi_cancelado(pi) else 'PI em faturamento — somente visualização.'
+                    return jsonify({'success': False, 'message': msg}), 403
             db.excluir_link_destino(id_ld)
             return jsonify({'success': True})
         except Exception as e:
@@ -11876,8 +11953,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if id_pi_form:
                 pi_ref = db.obter_cadu_pi_por_id(int(id_pi_form))
-                if pi_ref and _pi_em_faturamento(pi_ref):
-                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                if pi_ref and _pi_somente_leitura(pi_ref):
+                    msg = 'PI cancelado — não é possível alterar campanhas.' if _pi_cancelado(pi_ref) else 'PI em faturamento — não é possível alterar campanhas.'
                     if is_ajax:
                         return jsonify({'success': False, 'error': msg}), 403
                     flash(msg, 'error')
@@ -11941,8 +12018,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if campanha.get('id_pi'):
                 pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
-                if pi_ref and _pi_em_faturamento(pi_ref):
-                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                if pi_ref and _pi_somente_leitura(pi_ref):
+                    msg = 'PI cancelado — não é possível alterar campanhas.' if _pi_cancelado(pi_ref) else 'PI em faturamento — não é possível alterar campanhas.'
                     if is_ajax:
                         return jsonify({'success': False, 'error': msg}), 403
                     flash(msg, 'error')
@@ -12015,8 +12092,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if campanha.get('id_pi'):
                 pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
-                if pi_ref and _pi_em_faturamento(pi_ref):
-                    msg = 'PI em faturamento — não é possível alterar campanhas.'
+                if pi_ref and _pi_somente_leitura(pi_ref):
+                    msg = 'PI cancelado — não é possível alterar campanhas.' if _pi_cancelado(pi_ref) else 'PI em faturamento — não é possível alterar campanhas.'
                     if is_ajax:
                         return jsonify({'success': False, 'error': msg}), 403
                     flash(msg, 'error')

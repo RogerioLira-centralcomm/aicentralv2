@@ -11140,6 +11140,39 @@ def excluir_cadu_pi(id_pi):
         raise e
 
 
+def cancelar_cadu_pi(id_pi):
+    """Cancela PI (status Cancelado) e campanhas vinculadas (Cancelada)."""
+    if not id_pi:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_campanha
+                SET id_status = (SELECT id FROM cadu_pi_camp_status WHERE descricao = 'Cancelada' LIMIT 1),
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+            ''', (id_pi,))
+            quant_campanhas = cursor.rowcount
+
+            cursor.execute('''
+                UPDATE cadu_pi
+                SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Cancelado' LIMIT 1),
+                    id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Cancelado' LIMIT 1),
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+                RETURNING id_pi
+            ''', (id_pi,))
+            row = cursor.fetchone()
+            conn.commit()
+            if not row:
+                return None
+            return {'quant_campanhas': quant_campanhas}
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def atualizar_cadu_pi_andamento(id_pi, data):
     """UPDATE dedicado para o modal de Andamento.
 

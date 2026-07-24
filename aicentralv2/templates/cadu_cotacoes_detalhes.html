@@ -3,12 +3,12 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
-{% macro opcoes_plataforma_campanha() %}
+{% macro opcoes_plataforma_campanha(selecionada='') %}
 <option value="">Selecione...</option>
 {% for categoria, items in plataformas_campanha|groupby('categoria') %}
 <optgroup label="{{ categoria }}">
   {% for p in items %}
-  <option value="{{ p.descricao }}">{{ p.descricao }}</option>
+  <option value="{{ p.descricao }}" {% if selecionada and selecionada == p.descricao %}selected{% endif %}>{{ p.descricao }}</option>
   {% endfor %}
 </optgroup>
 {% endfor %}
@@ -311,14 +311,14 @@ function handleFileSelect(event) {
 }
 
 // Status que permitem edição (definido no início para uso em uploadAnexos)
-var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho', 'Em Análise'];
+var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho'];
 var statusAtualCotacaoInicial = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // Função de Upload de Anexos - definida no início
 async function uploadAnexos(files) {
   // Verificar se edição é permitida pelo status
   if (!STATUS_PERMITE_EDICAO_INICIAL.includes(statusAtualCotacaoInicial)) {
-    showToast('Edição não permitida. Status deve ser: Rascunho ou Em Análise.', 'warning');
+    showToast('Edição não permitida. Status deve ser: Rascunho.', 'warning');
     return;
   }
   
@@ -670,6 +670,9 @@ function getKpiDescricao(prefix) {
   var p = prefix || '';
   var el = document.getElementById(p + 'objetivo_kpi');
   if (!el) return '';
+  if (el.tagName !== 'SELECT') {
+    return String(el.value || '').trim();
+  }
   var opt = el.options[el.selectedIndex];
   if (!opt) return '';
   return String(opt.getAttribute('data-descricao') || opt.text || '').trim();
@@ -679,14 +682,19 @@ function selecionarKpiPorDescricao(prefix, descricao) {
   var p = prefix || '';
   var el = document.getElementById(p + 'objetivo_kpi');
   if (!el) return false;
-  var alvo = String(descricao || '').trim().toUpperCase();
+  var alvo = String(descricao || '').trim();
   if (!alvo) {
     el.value = '';
     return true;
   }
+  if (el.tagName !== 'SELECT') {
+    el.value = alvo;
+    return true;
+  }
+  var alvoUpper = alvo.toUpperCase();
   for (var i = 0; i < el.options.length; i++) {
     var d = String(el.options[i].getAttribute('data-descricao') || el.options[i].text || '').trim().toUpperCase();
-    if (d === alvo) {
+    if (d === alvoUpper) {
       el.selectedIndex = i;
       return true;
     }
@@ -699,6 +707,13 @@ function aplicarKpiNoSelect(prefix, idKpi, descricao) {
   var p = prefix || '';
   var el = document.getElementById(p + 'objetivo_kpi');
   if (!el) return false;
+  if (el.tagName !== 'SELECT') {
+    if (idKpi !== undefined && idKpi !== null && String(idKpi).trim() !== '' && String(idKpi) !== '0') {
+      el.value = String(idKpi);
+      return true;
+    }
+    return selecionarKpiPorDescricao(p, descricao);
+  }
   if (idKpi !== undefined && idKpi !== null && String(idKpi).trim() !== '' && String(idKpi) !== '0') {
     el.value = String(idKpi);
     if (el.selectedIndex >= 0 && String(el.value) === String(idKpi)) return true;
@@ -949,6 +964,11 @@ function calculoSincronizado(prefix) {
   return true;
 }
 
+function audienciaCatalogoPronta() {
+  var nomeEl = document.getElementById('audiencia_nome');
+  return !!(nomeEl && String(nomeEl.value || '').trim());
+}
+
 function atualizarBtnSalvarLinha(prefix) {
   var p = prefix || '';
   var btnId, modalId;
@@ -957,11 +977,14 @@ function atualizarBtnSalvarLinha(prefix) {
   else { btnId = 'btn_salvar_linha'; modalId = 'modal_nova_linha'; }
   var btn = document.getElementById(btnId);
   if (!btn) return;
-  var ok = calculoSincronizado(p);
+  var ok = (p === 'audiencia_') ? audienciaCatalogoPronta() : calculoSincronizado(p);
   btn.disabled = !ok;
   if (ok) {
     btn.removeAttribute('title');
     btn.style.cursor = '';
+  } else if (p === 'audiencia_') {
+    btn.setAttribute('title', 'Selecione uma audiência do catálogo.');
+    btn.style.cursor = 'not-allowed';
   } else {
     btn.setAttribute('title', 'Clique em Calcular antes de salvar.');
     btn.style.cursor = 'not-allowed';
@@ -1855,7 +1878,7 @@ function calcularInvestLiquidoEdit() {
 {% set tem_agencia_parceiro = (cotacao.agencia_id or cotacao.id_parceiro) if cotacao else false %}
 {% set comissao_pct = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
 {% set fator_liquido = (1 - (comissao_pct / 100)) if (tem_agencia_parceiro and comissao_pct) else 1 %}
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '' }}">
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}">
 
   <style>
     .tab-nav-item { border-bottom:2px solid transparent; }
@@ -1921,7 +1944,6 @@ function calcularInvestLiquidoEdit() {
                 </label>
                 <select id="status_header_select" data-status-atual="{{ cotacao.status }}" {% if cotacao.status == 'Aprovada' %}disabled title="Cotação aprovada: o status não pode ser alterado."{% endif %} class="w-full text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:border-gray-400 focus:outline-none {% if cotacao.status == 'Aprovada' %}cursor-not-allowed opacity-70{% endif %}" onchange="alterarStatusCotacao(this.value)">
                   <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-                  <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
                   <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
                   <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
                   <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
@@ -1946,7 +1968,7 @@ function calcularInvestLiquidoEdit() {
                 {% endif %}
               </div>
 
-              {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}
+              {% if modo == 'editar' and cotacao.status in ['Rascunho'] %}
               <button onclick="document.getElementById('modal_editar_desconto').showModal()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-percent mr-1.5 text-gray-400"></i>Editar Desconto
               </button>
@@ -1975,8 +1997,8 @@ function calcularInvestLiquidoEdit() {
                 </label>
                 <select id="select_tipo_email" class="w-full text-[10px] border border-gray-300 rounded px-1.5 py-0.5 mb-1 bg-white focus:border-gray-400 focus:outline-none">
                   <option value="">Selecione o tipo...</option>
-                  <option value="cotacao_enviada" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada'] %}disabled{% endif %}>
-                    Cotação Enviada {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada'] %}(requer Rascunho/Em Análise/Enviada){% endif %}
+                  <option value="cotacao_enviada" {% if cotacao.status not in ['Rascunho', 'Enviada'] %}disabled{% endif %}>
+                    Cotação Enviada {% if cotacao.status not in ['Rascunho', 'Enviada'] %}(requer Rascunho/Enviada){% endif %}
                   </option>
                   <option value="cotacao_aprovada" {% if cotacao.status != 'Aprovada' %}disabled{% endif %}>
                     Cotação Aprovada {% if cotacao.status != 'Aprovada' %}(requer Aprovada){% endif %}
@@ -2054,7 +2076,7 @@ function calcularInvestLiquidoEdit() {
         {% endif %}
 
         {% if modo == 'editar' %}
-        <a id="btn_editar_header" href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
+        <a id="btn_editar_header" href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
           <i class="fas fa-edit mr-1"></i>Editar
         </a>
         {% endif %}
@@ -2102,15 +2124,15 @@ function calcularInvestLiquidoEdit() {
   {% set rf_valor_liquido_final = rf_subtotal_liquido %}
 
   {# ==================== BARRA DE MÉTRICAS (7 cards) ==================== #}
-  {% set _plat_primeira = '' %}
-  {% if linhas %}
+  {% set _plat_cotacao = (cotacao.plataforma_campanha|default('', true)|trim) if cotacao else '' %}
+  {% set _plat_primeira = _plat_cotacao %}
+  {% if not _plat_primeira and linhas %}
     {% set _plats = linhas|map(attribute='plataforma')|select|list %}
     {% if _plats and _plats|length > 0 %}{% set _plat_primeira = _plats[0] %}{% endif %}
   {% endif %}
   {% set _status = cotacao.status if cotacao else '—' %}
   {% set _status_cores = {
     'Rascunho': 'bg-gray-400',
-    'Em Análise': 'bg-blue-400',
     'Enviada': 'bg-yellow-400',
     'Aprovada': 'bg-green-500',
     'Rejeitada': 'bg-red-500',
@@ -2165,12 +2187,16 @@ function calcularInvestLiquidoEdit() {
       <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
         <i class="fas fa-tv text-xs"></i>
       </span>
-      <div class="min-w-0">
+      <div class="min-w-0 flex-1">
         <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
-        {% if _plat_primeira %}
-        <span class="px-1.5 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ _plat_primeira }}</span>
+        {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %}
+        <select id="cotacao_plataforma" class="select select-xs select-bordered w-full max-w-[220px] mt-0.5 text-xs h-7 min-h-7" data-valor-anterior="{{ cotacao.plataforma_campanha if cotacao and cotacao.plataforma_campanha else '' }}" onchange="salvarPlataformaCotacao(this.value)">
+          {{ opcoes_plataforma_campanha(cotacao.plataforma_campanha if cotacao else '') }}
+        </select>
+        {% elif _plat_cotacao %}
+        <span class="px-1.5 py-0.5 text-[10px] rounded text-white inline-block mt-0.5" style="background-color: #3b82f6;">{{ _plat_cotacao }}</span>
         {% else %}
-        <p class="text-sm font-semibold text-gray-400">—</p>
+        <p class="text-sm font-semibold text-gray-400 mt-0.5">—</p>
         {% endif %}
       </div>
     </div>
@@ -2259,7 +2285,7 @@ function calcularInvestLiquidoEdit() {
               <i class="fas fa-building text-gray-400"></i> Cliente e responsáveis
             </h2>
             {% if modo == 'editar' %}
-            <button id="btn_editar_cliente" onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
+            <button id="btn_editar_cliente" onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
               <i class="fas fa-edit text-xs"></i>
             </button>
             {% endif %}
@@ -2313,7 +2339,7 @@ function calcularInvestLiquidoEdit() {
                       <span class="px-1.5 py-0.5 text-xs rounded bg-red-100 text-red-600">Rejeitado</span>
                     {% endif %}
                   {% endif %}
-                  {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}
+                  {% if modo == 'editar' and cotacao.status in ['Rascunho'] %}
                   <button onclick="desvincularBriefing()" class="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" title="Desvincular briefing">
                     <i class="fas fa-unlink text-xs"></i>
                   </button>
@@ -2322,7 +2348,7 @@ function calcularInvestLiquidoEdit() {
               {% else %}
                 <div class="flex items-center gap-2">
                   <span class="text-gray-400">Não vinculado</span>
-                  {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}
+                  {% if modo == 'editar' and cotacao.status in ['Rascunho'] %}
                   <button onclick="document.getElementById('modal_vincular_briefing').showModal()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-green-600" title="Vincular briefing">
                     <i class="fas fa-link text-xs"></i>
                   </button>
@@ -2343,7 +2369,7 @@ function calcularInvestLiquidoEdit() {
               <i class="fas fa-bullhorn text-gray-400"></i> Detalhes da campanha
             </h2>
             {% if modo == 'editar' %}
-            <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
+            <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
               <i class="fas fa-edit text-xs"></i>
             </button>
             {% endif %}
@@ -2370,28 +2396,23 @@ function calcularInvestLiquidoEdit() {
               <p class="font-medium text-gray-700">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '-' }}{% if cotacao and cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}</p>
             </div>
             <div>
-              <span class="text-[10px] text-gray-500 uppercase">Plataformas</span>
+              <span class="text-[10px] text-gray-500 uppercase">Plataforma</span>
               <div class="flex flex-wrap gap-1 mt-0.5">
-                {% if linhas %}
-                  {% set plataformas = linhas|map(attribute='plataforma')|unique|list %}
-                  {% for plat in plataformas %}
-                    {% if plat %}
-                    <span class="px-1.5 py-0.5 text-[10px] rounded text-white" style="background-color: #72cd80;">{{ plat }}</span>
-                    {% endif %}
-                  {% endfor %}
+                {% if _plat_cotacao %}
+                <span id="det_resumo_plataforma_cotacao" class="px-1.5 py-0.5 text-[10px] rounded text-white" style="background-color: #3b82f6;">{{ _plat_cotacao }}</span>
                 {% else %}
-                <span class="text-gray-400">-</span>
+                <span id="det_resumo_plataforma_cotacao" class="text-gray-400">—</span>
                 {% endif %}
               </div>
             </div>
             <div id="area_budget_campanha"
-                 class="-m-1 p-1 rounded{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Em Acompanhamento'] %} cursor-pointer hover:bg-gray-50{% endif %}"
-                 {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Em Acompanhamento'] %}onclick="abrirModalEditarCampanha()" title="Clique para editar o budget da campanha"{% endif %}>
+                 class="-m-1 p-1 rounded{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %} cursor-pointer hover:bg-gray-50{% endif %}"
+                 {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %}onclick="abrirModalEditarCampanha()" title="Clique para editar o budget da campanha"{% endif %}>
               <span class="text-[10px] text-gray-500 uppercase">Budget da campanha</span>
               <p class="font-medium text-gray-700">
                 R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}
                 <i id="icone_editar_budget_campanha" class="fas fa-edit text-xs ml-1 text-gray-400 align-middle"
-                   {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Em Acompanhamento']) %}style="display: none;"{% endif %}></i>
+                   {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento']) %}style="display: none;"{% endif %}></i>
               </p>
             </div>
           </div>
@@ -2450,11 +2471,11 @@ function calcularInvestLiquidoEdit() {
           <div class="flex items-center gap-1.5">
             <span class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
             {% if modo == 'editar' %}
-            <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-0.5 text-[10px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
+            <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-0.5 text-[10px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
               <i class="fas fa-file-import mr-1 text-emerald-600"></i>Importar
             </button>
             <input type="file" id="input_importar_linhas_imagem" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" class="hidden" aria-hidden="true">
-            <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
+            <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
               <i class="fas fa-plus mr-1"></i>Adicionar
             </button>
             {% endif %}
@@ -2528,7 +2549,7 @@ function calcularInvestLiquidoEdit() {
           <div class="flex items-center gap-1.5">
             <span class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
             {% if modo == 'editar' %}
-            <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
+            <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
               <i class="fas fa-plus mr-1"></i>Adicionar
             </button>
             {% endif %}
@@ -2540,20 +2561,12 @@ function calcularInvestLiquidoEdit() {
             <tr class="text-[10px] text-gray-600 uppercase">
               <th class="font-medium py-1 px-1.5" style="min-width: 60px;">Plataf.</th>
               <th class="font-medium py-1 px-1.5">Audiência</th>
-              <th class="font-medium py-1 px-1.5 text-center" style="min-width: 44px;">KPI</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 66px;" title="Preço unitário (CPM, CPV, etc. conforme o KPI)">Preço unit.</th>
-              <th class="font-medium py-1 px-1.5 text-center" style="min-width: 80px;">Período</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 60px;">Volume</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Bruto</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Líquido</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              {% set aud_bruto = (aud.investimento_sugerido or 0)|float %}
-              {% set aud_liquido = aud_bruto * fator_liquido %}
-              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho', 'Em Análise'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
                 <td class="py-1 px-1.5">
                   {% if aud.audiencia_calculo_plataforma %}
                   <span class="px-1 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ aud.audiencia_calculo_plataforma }}</span>
@@ -2563,7 +2576,7 @@ function calcularInvestLiquidoEdit() {
                 </td>
                 <td class="py-1 px-1.5 text-[10px]" title="{{ aud.audiencia_nome or '' }}">
                   <div class="font-medium text-gray-800">
-                    <i class="fas fa-pencil-alt text-gray-400 mr-0.5 text-[9px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
+                    <i class="fas fa-pencil-alt text-gray-400 mr-0.5 text-[9px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
                   </div>
                   <div class="text-[9px] text-gray-400">
                     {% if aud.audiencia_categoria %}{{ aud.audiencia_categoria }}{% endif %}
@@ -2573,41 +2586,12 @@ function calcularInvestLiquidoEdit() {
                     {% if aud.fonte %}{{ aud.fonte }}{% endif %}
                   </div>
                 </td>
-                <td class="py-1 px-1.5 text-center">
-                  {% if aud.audiencia_calculo_kpi %}
-                  <span class="px-1 py-0.5 text-[10px] rounded text-white" style="background-color: #72cd80;">{{ aud.audiencia_calculo_kpi }}</span>
-                  {% else %}
-                  <span class="text-[10px] text-gray-400">-</span>
-                  {% endif %}
-                </td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap font-mono">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                {% set aud_di = aud.data_inicio or (cotacao.periodo_inicio if cotacao else None) %}
-                {% set aud_df = aud.data_fim or (cotacao.periodo_fim if cotacao else None) %}
-                <td class="py-1 px-1.5 text-[10px] text-center text-gray-600 whitespace-nowrap">{{ aud_di.strftime('%d/%m') if aud_di else '-' }}-{{ aud_df.strftime('%d/%m') if aud_df else '' }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="8" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
+              <tr><td colspan="2" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
             {% endif %}
           </tbody>
-          {% if audiencias %}
-          <tfoot class="bg-gray-50">
-            {% set soma_aud = namespace(bruto=0, liquido=0) %}
-            {% for aud in audiencias %}
-              {% set _b = aud.investimento_sugerido|default(0, true)|float %}
-              {% set soma_aud.bruto = soma_aud.bruto + _b %}
-              {% set soma_aud.liquido = soma_aud.liquido + _b * fator_liquido %}
-            {% endfor %}
-            <tr class="font-semibold text-[10px] text-gray-700">
-              <td colspan="6" class="py-1 px-1 text-right">Total Audiências</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_aud.bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_aud.liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-            </tr>
-          </tfoot>
-          {% endif %}
         </table>
         </div>
       </div>
@@ -2636,7 +2620,7 @@ function calcularInvestLiquidoEdit() {
           <div class="flex items-center gap-1.5">
             <span id="contador_anexos" class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">0</span>
             {% if modo == 'editar' %}
-            <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
+            <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
               <i class="fas fa-plus mr-1"></i>Adicionar
             </button>
             {% endif %}
@@ -2649,7 +2633,7 @@ function calcularInvestLiquidoEdit() {
              ondragover="handleDragOver(event)"
              ondragleave="handleDragLeave(event)"
              ondrop="handleDrop(event)"
-             {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
+             {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
           <i class="fas fa-cloud-upload-alt text-lg text-gray-400 mb-1"></i>
           <p class="text-xs text-gray-500">Arraste arquivos aqui ou</p>
           <label class="cursor-pointer">
@@ -3746,7 +3730,6 @@ function calcularInvestLiquidoEdit() {
             {% if cotacao and cotacao.status %}
             <span class="ml-2 inline-block px-2 py-0.5 rounded text-[10px] font-medium
               {% if cotacao.status == 'Rascunho' %}bg-gray-200 text-gray-700
-              {% elif cotacao.status == 'Em Análise' %}bg-blue-100 text-blue-700
               {% elif cotacao.status == 'Enviada' %}bg-indigo-100 text-indigo-700
               {% elif cotacao.status == 'Em Acompanhamento' %}bg-emerald-100 text-emerald-700
               {% else %}bg-gray-100 text-gray-700{% endif %}">
@@ -3805,7 +3788,7 @@ function calcularInvestLiquidoEdit() {
           <input type="hidden" id="edit_budget_estimado_hidden" value="{% if cotacao and cotacao.budget_estimado is not none %}{{ cotacao.budget_estimado }}{% endif %}">
           <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
                  placeholder="0,00" inputmode="decimal" autocomplete="off">
-          <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho, Em Análise ou Em Acompanhamento.</span></label>
+          <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho ou Em Acompanhamento.</span></label>
         </div>
       </div>
     </form>
@@ -3883,7 +3866,7 @@ function calcularInvestLiquidoEdit() {
         </div>
         <div class="px-6 flex gap-1 text-sm">
           <button type="button" data-tab-trigger="inicio" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes da audiência</button>
-          <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+          <button type="button" data-tab-trigger="resultado" class="hidden px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
         </div>
       </div>
 
@@ -3914,62 +3897,21 @@ function calcularInvestLiquidoEdit() {
             </div>
           </div>
 
-          <!-- Seção: Mídia & KPI & Período -->
+          <!-- Seção: Plataforma -->
           <div class="border-t border-gray-200 pt-2">
-            <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Mídia &amp; KPI &amp; Período</h4>
-            <div class="grid grid-cols-12 gap-1.5">
-              <div class="form-control col-span-3">
-                <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
-                <select id="audiencia_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
-                  {{ opcoes_plataforma_campanha() }}
-                </select>
-              </div>
-
-              <div class="form-control col-span-3">
-                <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
-                <select id="audiencia_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
-                  <option value="">Selecione...</option>
-                  {% for obj in objetivos_campanha or [] %}
-                  <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-
-              <div class="form-control col-span-3">
-                <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
-                <div class="join w-full">
-                  <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-7 h-7"
-                          onclick="document.getElementById('audiencia_data_inicio').showPicker()">
-                    <i class="fas fa-calendar-alt text-gray-800"></i>
-                  </button>
-                  <input type="date" id="audiencia_data_inicio"
-                         class="input input-bordered input-sm join-item flex-1 min-h-7 h-7 min-w-0"
-                         onchange="calcularDiasAudiencia()">
-                </div>
-              </div>
-              <div class="form-control col-span-2">
-                <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
-                <div class="join w-full">
-                  <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-7 h-7"
-                          onclick="document.getElementById('audiencia_data_fim').showPicker()">
-                    <i class="fas fa-calendar-alt text-gray-800"></i>
-                  </button>
-                  <input type="date" id="audiencia_data_fim"
-                         class="input input-bordered input-sm join-item flex-1 min-h-7 h-7 min-w-0"
-                         onchange="calcularDiasAudiencia()">
-                </div>
-              </div>
-              <div class="form-control col-span-1">
-                <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
-                <input type="text" id="audiencia_dias_linha"
-                       class="input input-bordered bg-gray-100 text-center h-7 min-h-0 text-sm w-full px-1"
-                       readonly value="0">
-              </div>
+            <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Plataforma</h4>
+            <div class="form-control">
+              <span id="audiencia_plataforma_display" class="inline-block px-2 py-1 text-xs rounded text-white" style="background-color: #3b82f6;">—</span>
+              <p class="text-[10px] text-gray-500 mt-1">Definida automaticamente pela audiência selecionada no catálogo.</p>
             </div>
+            <input type="hidden" id="audiencia_plataforma">
+            <input type="hidden" id="audiencia_data_inicio">
+            <input type="hidden" id="audiencia_data_fim">
+            <input type="hidden" id="audiencia_objetivo_kpi">
           </div>
 
-          <!-- Seção: Precificação -->
-          <div class="border-t border-gray-200 pt-2">
+          <!-- Seção: Precificação (oculta — catálogo sem KPI/precificação) -->
+          <div class="hidden border-t border-gray-200 pt-2">
             <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1.5">
               <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
               <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
@@ -4301,8 +4243,8 @@ function calcularInvestLiquidoEdit() {
 
 <script>
 // Status que permitem edição de linhas, audiências, cliente e campanha
-const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise'];
-const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Análise', 'Em Acompanhamento'];
+const STATUS_PERMITE_EDICAO = ['Rascunho'];
+const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Acompanhamento'];
 let statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // ==================== HELPER DE ABAS DOS MODAIS ====================
@@ -4372,12 +4314,12 @@ function podeEditar() {
 
 // Função para mostrar mensagem de bloqueio de edição
 function mostrarBloqueioEdicao() {
-  showToast('Edição não permitida. Status deve ser: Rascunho ou Em Análise.', 'warning');
+  showToast('Edição não permitida. Status deve ser: Rascunho.', 'warning');
 }
 
 function mostrarBloqueioEdicaoCampanha() {
   showToast(
-    'Edição da campanha e do budget não permitida para este status. Permitido: Rascunho, Em Análise ou Em Acompanhamento.',
+    'Edição da campanha e do budget não permitida para este status. Permitido: Rascunho ou Em Acompanhamento.',
     'warning'
   );
 }
@@ -4607,6 +4549,43 @@ async function alterarStatusCotacao(novoStatus) {
   }
 }
 
+async function salvarPlataformaCotacao(valor) {
+  if (!STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao)) {
+    mostrarBloqueioEdicaoCampanha();
+    return;
+  }
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    showToast('Cotação não encontrada', 'error');
+    return;
+  }
+
+  const sel = document.getElementById('cotacao_plataforma');
+  const valorAnterior = sel ? (sel.dataset.valorAnterior || '') : '';
+  const plat = String(valor || '').trim() || null;
+
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plataforma_campanha: plat })
+    });
+    const result = await response.json();
+    if (result.success) {
+      if (sel) sel.dataset.valorAnterior = valor || '';
+      showToast('Plataforma da cotação atualizada', 'success');
+      setTimeout(function() { window.location.reload(); }, 400);
+    } else {
+      showToast('Erro: ' + (result.message || 'Erro ao salvar plataforma'), 'error');
+      if (sel) sel.value = valorAnterior;
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao salvar plataforma da cotação', 'error');
+    if (sel) sel.value = valorAnterior;
+  }
+}
+
 // Função para atualizar dinamicamente os botões de Aprovar/Rejeitar baseado no status
 function atualizarBotoesAprovarRejeitar(status) {
   const container = document.getElementById('acoes_aprovar_rejeitar');
@@ -4647,7 +4626,7 @@ function atualizarSelectTipoEmail(status) {
   if (!select) return;
   
   // Definir quais status permitem cada tipo de email
-  const statusPermiteCotacaoEnviada = ['Rascunho', 'Em Análise', 'Enviada'];
+  const statusPermiteCotacaoEnviada = ['Rascunho', 'Enviada'];
   const statusPermiteCotacaoAprovada = ['Aprovada'];
   const statusPermiteCotacaoRejeitada = ['Rejeitada'];
   
@@ -4659,7 +4638,7 @@ function atualizarSelectTipoEmail(status) {
       option.disabled = !habilitado;
       option.textContent = habilitado 
         ? 'Cotação Enviada' 
-        : 'Cotação Enviada (requer Rascunho/Em Análise/Enviada)';
+        : 'Cotação Enviada (requer Rascunho/Enviada)';
     } else if (option.value === 'cotacao_aprovada') {
       const habilitado = statusPermiteCotacaoAprovada.includes(status);
       option.disabled = !habilitado;
@@ -4923,8 +4902,8 @@ async function enviarEmailPorTipo() {
   }
   
   // Validações de status
-  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise', 'Enviada'].includes(status)) {
-    showToast('Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise ou Enviada', 'error');
+  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Enviada'].includes(status)) {
+    showToast('Email de cotação enviada só pode ser enviado para status Rascunho ou Enviada', 'error');
     return;
   }
   if (tipoEmail === 'cotacao_aprovada' && status !== 'Aprovada') {
@@ -6484,6 +6463,7 @@ async function visualizarOuEditarLinha(linhaId) {
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
     document.getElementById('edit_praca').value = linha.praca || '';
     document.getElementById('edit_plataforma').value = linha.plataforma || '';
+    aplicarPlataformaNoSelect('edit_plataforma', linha.plataforma || '');
     aplicarKpiNoSelect('edit_', linha.id_objetivo_kpi, linha.objetivo_kpi);
     document.getElementById('edit_viewability_minimo').value = linha.viewability_minimo || 70;
     document.getElementById('edit_data_inicio').value = formatarDataInput(linha.data_inicio);
@@ -6770,19 +6750,60 @@ function resetAudienciaCalculoEconomicoParaNovaOuBusca() {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
+  var platDisp = document.getElementById('audiencia_plataforma_display');
+  if (platDisp) platDisp.textContent = '—';
   var _fdAud = document.getElementById('audiencia_fator_desconto');
   if (_fdAud) _fdAud.value = '1,00';
   limparResumoPrecificacaoTeste('audiencia_');
   _ultimoCalculoLinha['audiencia_'] = null;
 }
 
+function aplicarPlataformaNoSelect(selectId, nome, onApplied) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  var plat = nome ? String(nome).trim() : '';
+  if (!plat) {
+    sel.value = '';
+    if (typeof onApplied === 'function') onApplied();
+    return;
+  }
+  sel.value = plat;
+  if (sel.value === plat) {
+    if (typeof onApplied === 'function') onApplied();
+    return;
+  }
+  var platUpper = plat.toUpperCase();
+  for (var i = 0; i < sel.options.length; i++) {
+    var val = String(sel.options[i].value || '').trim();
+    if (val && val.toUpperCase() === platUpper) {
+      sel.selectedIndex = i;
+      if (typeof onApplied === 'function') onApplied();
+      return;
+    }
+  }
+  for (var j = 0; j < sel.options.length; j++) {
+    var txt = String(sel.options[j].text || sel.options[j].value || '').trim();
+    if (!txt) continue;
+    var txtUpper = txt.toUpperCase();
+    if (txtUpper.indexOf(platUpper) >= 0 || platUpper.indexOf(txtUpper) >= 0) {
+      sel.selectedIndex = j;
+      break;
+    }
+  }
+  if (typeof onApplied === 'function') onApplied();
+}
+
+function aplicarPlataformaAudienciaCatalogo(nome) {
+  var plat = nome ? String(nome).trim() : '';
+  var platEl = document.getElementById('audiencia_plataforma');
+  if (platEl) platEl.value = plat;
+  var platDisp = document.getElementById('audiencia_plataforma_display');
+  if (platDisp) platDisp.textContent = plat || '—';
+  atualizarBtnCalcularPreco('audiencia_');
+}
+
 function aplicarDefaultsAudienciaCalculoForm() {
   selecionarKpiPorDescricao('audiencia_', 'CPM');
-  var root = document.querySelector('[data-plataforma-sugestao]');
-  var sug = root ? String(root.getAttribute('data-plataforma-sugestao') || '').trim() : '';
-  var platEl = document.getElementById('audiencia_plataforma');
-  if (platEl && sug) platEl.value = sug;
-  atualizarBtnCalcularPreco('audiencia_');
 }
 
 // Abrir modal na etapa 1 (busca)
@@ -6791,6 +6812,7 @@ function abrirModalAudiencia() {
     mostrarBloqueioEdicao();
     return;
   }
+
   resetAudienciaCalculoEconomicoParaNovaOuBusca();
   aplicarDefaultsAudienciaCalculoForm();
 
@@ -6810,17 +6832,6 @@ function abrirModalAudiencia() {
   inicializarMargemCcInput('audiencia_');
   atualizarBtnSalvarLinha('audiencia_');
   atualizarIndicadorBudget('audiencia_');
-
-  const hojeAud = new Date();
-  const dataInicioAud = new Date(hojeAud);
-  dataInicioAud.setDate(hojeAud.getDate() + 7);
-  const dataFimAud = new Date(hojeAud);
-  dataFimAud.setDate(hojeAud.getDate() + 37);
-  const elDataInicioAud = document.getElementById('audiencia_data_inicio');
-  const elDataFimAud = document.getElementById('audiencia_data_fim');
-  if (elDataInicioAud) elDataInicioAud.value = dataInicioAud.toISOString().split('T')[0];
-  if (elDataFimAud) elDataFimAud.value = dataFimAud.toISOString().split('T')[0];
-  calcularDiasAudiencia();
 
   inicializarAbasModal('modal_adicionar_audiencia', { aba: 'inicio', scope: '#etapa_detalhes_audiencia' });
   document.getElementById('modal_adicionar_audiencia').showModal();
@@ -6862,9 +6873,9 @@ async function executarBuscaAudiencias() {
               }
             </div>
             <div class="flex-1 min-w-0">
-              <h5 class="font-semibold text-sm truncate">${aud.nome}</h5>
+              <h5 class="font-semibold text-sm truncate">${aud.slug || aud.nome}</h5>
               <p class="text-xs text-gray-500 truncate">${aud.perfil_socioeconomico || ''}</p>
-              ${aud.cpm_venda ? `<span class="badge badge-sm badge-primary mt-1">CPM: R$ ${parseFloat(aud.cpm_venda).toFixed(2)}</span>` : ''}
+              ${aud.plataforma_nome ? `<span class="inline-block mt-1 px-1.5 py-0.5 text-[10px] rounded text-white" style="background-color: #3b82f6;">${aud.plataforma_nome}</span>` : ''}
             </div>
           </div>
         </div>
@@ -6912,6 +6923,7 @@ async function selecionarAudienciaCard(audienciaId) {
     
     resetAudienciaCalculoEconomicoParaNovaOuBusca();
     aplicarDefaultsAudienciaCalculoForm();
+    aplicarPlataformaAudienciaCatalogo(audiencia.plataforma_nome || audiencia.fonte || '');
 
     // CPM do catálogo → Val. Unit. Tabela na grid de precificação
     const cpm = audiencia.cpm_venda || audiencia.cpm_custo || 0;
@@ -6965,12 +6977,6 @@ async function salvarNovaAudiencia() {
   const formAudiencia = document.getElementById('form_nova_audiencia');
   const editandoId = formAudiencia.dataset.editandoId;
 
-  if (!calculoSincronizado('audiencia_')) {
-    showToast('Clique em Calcular antes de salvar.', 'warning');
-    atualizarBtnSalvarLinha('audiencia_');
-    return;
-  }
-
   const data = {
     cotacao_id: parseInt(cotacaoId),
     audiencia_id: document.getElementById('audiencia_id_selecionada').value || null,
@@ -6981,38 +6987,9 @@ async function salvarNovaAudiencia() {
     incluido_proposta: true
   };
 
-  var platVal = document.getElementById('audiencia_plataforma').value;
-  var kpiIdVal = document.getElementById('audiencia_objetivo_kpi').value;
-  var kpiDesc = getKpiDescricao('audiencia_');
+  var platValEl = document.getElementById('audiencia_plataforma');
+  var platVal = platValEl ? platValEl.value : '';
   data.plataforma = platVal && String(platVal).trim() ? platVal.trim() : null;
-  data.objetivo_kpi = kpiDesc || null;
-  data.id_objetivo_kpi = kpiIdVal && String(kpiIdVal).trim() ? kpiIdVal.trim() : null;
-
-  var vtAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
-  var invAud = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
-  var volAud = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
-  var precoUnitAud = parseMoeda(document.getElementById('audiencia_valor_unitario').value);
-  var liqAudInput = parseMoeda((document.getElementById('audiencia_investimento_liquido') || {}).value);
-  var investLiquidoAud = liqAudInput > 0 ? liqAudInput : (invAud * obterFatorLiquido());
-
-  data.cpm_estimado = vtAud > 0 ? vtAud : null;
-  data.investimento_sugerido = invAud > 0 ? invAud : null;
-  data.impressoes_estimadas = volAud > 0 ? volAud : 0;
-
-  data.valor_unitario_tabela = vtAud > 0 ? vtAud : 0;
-  data.valor_unitario = precoUnitAud > 0 ? precoUnitAud : 0;
-  data.valor_unitario_negociado = precoUnitAud > 0 ? precoUnitAud : 0;
-  data.investimento_bruto = invAud > 0 ? invAud : 0;
-  data.volume_contratado = volAud > 0 ? volAud : 0;
-  data.investimento_liquido = investLiquidoAud > 0 ? investLiquidoAud : 0;
-
-  data.data_inicio = (document.getElementById('audiencia_data_inicio') || {}).value || null;
-  data.data_fim = (document.getElementById('audiencia_data_fim') || {}).value || null;
-
-  data.fator_desconto = parseFatorDescontoBr(_lerFatorDescontoInput('audiencia_'));
-
-  var mccCheckAud = lerMargemCcOverride('audiencia_');
-  if (mccCheckAud.valid) data.margem_cc = mccCheckAud.percent;
 
   try {
     let response;
@@ -7116,8 +7093,10 @@ async function editarAudienciaCotacao(audienciaId) {
       }
     }
 
-    document.getElementById('audiencia_plataforma').value =
-      (aud.plataforma != null && String(aud.plataforma).trim()) ? aud.plataforma : (aud.audiencia_calculo_plataforma || '');
+    var platSalva = (aud.plataforma != null && String(aud.plataforma).trim())
+      ? aud.plataforma
+      : (aud.audiencia_calculo_plataforma || '');
+    aplicarPlataformaAudienciaCatalogo(platSalva);
     var audIdKpi = (aud.id_objetivo_kpi != null && aud.id_objetivo_kpi !== '')
       ? aud.id_objetivo_kpi
       : aud.id_audiencia_calculo_kpi;

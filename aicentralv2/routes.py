@@ -1492,7 +1492,6 @@ def init_routes(app):
                     'valor_total_plataforma': _parse_brl_float(er.get('valor_total_plataforma')),
                     'plataforma_nome': er.get('plataforma_nome', ''),
                     'objetivo_nome': er.get('objetivo_nome', ''),
-                    'criativos_validados_nome': er.get('criativos_validados_nome', ''),
                     'link_dash': er.get('link_dash', ''),
                     'under': er.get('under', False),
                     'codigo_pi': er.get('codigo_pi', ''),
@@ -1501,7 +1500,6 @@ def init_routes(app):
                     'id_plataforma': er.get('id_plataforma'),
                     'id_status': er.get('id_status'),
                     'id_objetivos_campanha': er.get('id_objetivos_campanha'),
-                    'id_criativos_validados': er.get('id_criativos_validados'),
                     'id_centralx': er.get('id_centralx'),
                     'mes_ref_comp': er.get('mes_ref_comp'),
                     'preco_metrica_brl': er.get('preco_metrica_brl'),
@@ -6370,6 +6368,13 @@ def init_routes(app):
             if not update_data:
                 return jsonify({'success': True, 'message': 'Nenhuma alteração necessária'})
 
+            novo_status = update_data.get('status')
+            if novo_status in ('Em Análise', 'em_analise'):
+                return jsonify({
+                    'success': False,
+                    'message': 'O status "Em Análise" não está mais disponível para cotações.',
+                }), 400
+
             codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
             if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
                 if not codigo_pi_cc:
@@ -6539,7 +6544,7 @@ def init_routes(app):
         API para enviar email de cotação por tipo (enviada, aprovada, rejeitada)
         
         Regras:
-        - cotacao_enviada: só para status Rascunho ou Em Análise
+        - cotacao_enviada: só para status Rascunho ou Enviada
         - cotacao_aprovada: só para status Aprovada (email externo + interno)
         - cotacao_rejeitada: só para status Rejeitada (email externo + interno)
         
@@ -6575,8 +6580,8 @@ def init_routes(app):
             status = cotacao.get('status', '')
             
             # Validar tipo x status
-            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise', 'Enviada']:
-                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise ou Enviada'}), 400
+            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Enviada']:
+                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho ou Enviada'}), 400
             if tipo == 'cotacao_aprovada' and status != 'Aprovada':
                 return jsonify({'success': False, 'message': 'Email de aprovação só pode ser enviado para cotações aprovadas'}), 400
             if tipo == 'cotacao_rejeitada' and status != 'Rejeitada':
@@ -7326,8 +7331,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             status = cotacao.get('status') or 'Rascunho'
             if status == 'Pendente':
                 status = 'Rascunho'
-            if status not in ('Rascunho', 'Em Análise'):
-                return jsonify({'success': False, 'message': f'Não é possível excluir cotações com status "{status}". Apenas cotações em Rascunho ou Em Análise podem ser excluídas.'}), 400
+            if status != 'Rascunho':
+                return jsonify({'success': False, 'message': f'Não é possível excluir cotações com status "{status}". Apenas cotações em Rascunho podem ser excluídas.'}), 400
 
             db.deletar_cotacao(cotacao_id)
 
@@ -11531,7 +11536,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'totalizador_gasto': _parse_real_campanha(request.form.get('totalizador_gasto')),
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
-            'id_criativos_validados': request.form.get('id_criativos_validados', type=int),
             **{
                 _k: (request.form.get(_k, '').strip() or None)
                 for _k in (
@@ -11547,6 +11551,33 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
             },
         }
+
+    def _preservar_valores_campanha_pi(data, campanha_atual):
+        """Evita que campos existentes sejam sobrescritos por vazio/ausente no formulário de edição."""
+        if not campanha_atual:
+            return data
+
+        campos = (
+            'obj_contratados', 'totalizador_atingido', 'totalizador_gasto', 'valor_plataforma',
+            'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos',
+            'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
+            'link_dash', 'id_centralx',
+            'id_objetivos_campanha', 'id_plataforma', 'id_status',
+        )
+        for campo in campos:
+            val = data.get(campo)
+            if val is not None and str(val).strip():
+                continue
+            valor_atual = campanha_atual.get(campo)
+            if valor_atual is not None and str(valor_atual).strip():
+                data[campo] = valor_atual
+
+        if '_camp_form_has_under' in request.form:
+            data['under'] = request.form.get('under') == 'on'
+        else:
+            data['under'] = bool(campanha_atual.get('under'))
+
+        return data
 
     def _diff_campanha_pi_para_auditoria(campanha, data):
         """Compara registo anterior com payload do formulário; retorna (dados_anteriores, dados_novos) só com campos alterados."""
@@ -11577,7 +11608,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_pi', 'id_cliente', 'link_dash', 'mes_ref', 'mes_ref_comp', 'nome_campanha',
             'obj_contratados', 'id_centralx', 'under', 'id_objetivos_campanha',
             'periodo_inicio', 'periodo_fim', 'id_status', 'totalizador_atingido',
-            'totalizador_gasto', 'valor_plataforma', 'id_plataforma', 'id_criativos_validados',
+            'totalizador_gasto', 'valor_plataforma', 'id_plataforma',
             'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
             'perc_pl_incentivos', 'perc_impostos',
             'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
@@ -11601,7 +11632,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'objetivos': db.obter_objetivos_campanha(),
             'statuses': db.obter_status_campanha(),
             'plataformas': db.obter_plataformas_campanha(),
-            'criativos_validados': db.obter_criativos_validados_campanha(),
         }
 
     def _id_status_campanha_ativa():
@@ -12026,6 +12056,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return _redirect_campanhas_pi_preservar_filtros()
 
             data = _extrair_dados_campanha()
+            data = _preservar_valores_campanha_pi(data, campanha)
 
             if not data['nome_campanha']:
                 if is_ajax:
@@ -13767,7 +13798,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def leads_list():
         """Página principal do dashboard de leads"""
         try:
-            executivos = db.obter_vendedores_centralcomm() or []
+            executivos = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True) or []
             tipos_cliente = db.obter_tipos_cliente() or []
             agencias = db.obter_aux_agencia() or []
             estados = db.obter_estados() or []

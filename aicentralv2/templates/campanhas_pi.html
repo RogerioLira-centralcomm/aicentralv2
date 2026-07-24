@@ -680,6 +680,7 @@
     <div class="camp-modal-body">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="campanhas_retorno" value="dashboard">
+        <input type="hidden" name="_camp_form_has_under" value="1">
         <input type="hidden" id="id_pi" name="id_pi" value="">
 
         <div class="camp-form-grid">
@@ -719,15 +720,6 @@
             </select>
           </div>
 
-          <div class="camp-field">
-            <label for="id_criativos_validados">Criativos <span class="text-red-500">*</span></label>
-            <select id="id_criativos_validados" name="id_criativos_validados" required>
-              <option value="">Selecione...</option>
-              {% for cv in criativos_validados|default([]) %}
-                <option value="{{ cv.id }}">{{ cv.descricao }}</option>
-              {% endfor %}
-            </select>
-          </div>
           <div class="camp-field">
             <label for="periodo_inicio">Data Início</label>
             <input type="date" id="periodo_inicio" name="periodo_inicio">
@@ -1500,7 +1492,6 @@
     document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
     document.getElementById('id_plataforma').value = c.id_plataforma || '';
     document.getElementById('id_status').value = c.id_status || '';
-    document.getElementById('id_criativos_validados').value = c.id_criativos_validados || '';
     document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
     document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
     document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';

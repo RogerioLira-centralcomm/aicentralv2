@@ -430,7 +430,7 @@
 
     function badgeStatusCotacao(status) {
         const s = status || 'Rascunho';
-        const cls = s === 'Enviada' ? 'crm-cot-status-enviada' : (s === 'Em Análise' ? 'crm-cot-status-analise' : 'crm-cot-status-rascunho');
+        const cls = s === 'Enviada' ? 'crm-cot-status-enviada' : 'crm-cot-status-rascunho';
         return `<span class="crm-cot-status ${cls}">${escapeHtml(s)}</span>`;
     }
 

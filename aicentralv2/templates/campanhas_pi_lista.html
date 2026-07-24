@@ -261,7 +261,7 @@
           <tr data-campanha-id="{{ c.id_campanha }}"
               data-plataforma-id="{{ c.id_plataforma or '' }}"
               data-plataforma-nome="{{ c.plataforma_nome or '' }}"
-              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "objetivo_nome": c.objetivo_nome or "", "cliente_nome": c.cliente_nome or "", "executivo_nome": c.executivo_nome or "", "executivo_foto_url": c.executivo_foto_url or "", "plataforma_nome": c.plataforma_nome or "", "status_nome": c.status_nome or "", "preco_metrica_brl": c.preco_metrica_brl, "preco_metrica_modalidade": c.preco_metrica_modalidade, "obj_contratados": (c.obj_contratados if c.obj_contratados is not none else ""), "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": (c.totalizador_atingido if c.totalizador_atingido is not none else ""), "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "id_criativos_validados": c.id_criativos_validados or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
+              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "objetivo_nome": c.objetivo_nome or "", "cliente_nome": c.cliente_nome or "", "executivo_nome": c.executivo_nome or "", "executivo_foto_url": c.executivo_foto_url or "", "plataforma_nome": c.plataforma_nome or "", "status_nome": c.status_nome or "", "preco_metrica_brl": c.preco_metrica_brl, "preco_metrica_modalidade": c.preco_metrica_modalidade, "obj_contratados": (c.obj_contratados if c.obj_contratados is not none else ""), "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": (c.totalizador_atingido if c.totalizador_atingido is not none else ""), "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "perc_margem_cc": (c.perc_margem_cc if c.perc_margem_cc is not none else ""), "perc_tech_fee": (c.perc_tech_fee if c.perc_tech_fee is not none else ""), "perc_com_vendas": (c.perc_com_vendas if c.perc_com_vendas is not none else ""), "perc_pl_incentivos": (c.perc_pl_incentivos if c.perc_pl_incentivos is not none else ""), "perc_impostos": (c.perc_impostos if c.perc_impostos is not none else ""), "val_margem_cc": c.val_margem_cc or "", "val_tech_fee": c.val_tech_fee or "", "val_com_vendas": c.val_com_vendas or "", "val_pl_incentivos": c.val_pl_incentivos or "", "val_impostos": c.val_impostos or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
               onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao parsear data-camp:', e, this.dataset.camp); showToast('Erro ao abrir edição: ' + e.message, 'error'); }" class="cursor-pointer">
 
             {# — FLAG OPERACIONAL — #}
@@ -715,6 +715,7 @@
     <div class="camp-modal-body">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="campanhas_retorno" value="lista">
+        <input type="hidden" name="_camp_form_has_under" value="1">
         <input type="hidden" id="id_centralx" name="id_centralx" value="">
         <input type="hidden" id="id_pi" name="id_pi" value="">
         <input type="hidden" id="mes_ref" name="mes_ref" value="">
@@ -757,15 +758,6 @@
             </select>
           </div>
 
-          <div class="camp-field">
-            <label for="id_criativos_validados">Criativos <span class="text-red-500">*</span></label>
-            <select id="id_criativos_validados" name="id_criativos_validados" required>
-              <option value="">Selecione...</option>
-              {% for cv in criativos_validados|default([]) %}
-                <option value="{{ cv.id }}">{{ cv.descricao }}</option>
-              {% endfor %}
-            </select>
-          </div>
           <div class="camp-field">
             <label for="periodo_inicio">Data Início <span class="text-red-400">*</span></label>
             <div class="camp-date-wrap">
@@ -818,6 +810,19 @@
             <label for="link_dash">Link Dashboard</label>
             <input type="url" id="link_dash" name="link_dash" placeholder="https://...">
           </div>
+        </div>
+
+        <div class="camp-margem-grid">
+          <div class="camp-field"><label for="perc_margem_cc">% Margem</label><input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_tech_fee">% Tech Fee</label><input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_com_vendas">% Com.</label><input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_pl_incentivos">% PL Inc.</label><input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00"></div>
+          <div class="camp-field"><label for="perc_impostos">% Imp.</label><input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00"></div>
+          <div class="camp-field"><label for="val_margem_cc">Margem</label><input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_tech_fee">Tech Fee</label><input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_com_vendas">Com.</label><input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_pl_incentivos">PL Inc.</label><input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          <div class="camp-field"><label for="val_impostos">Impostos</label><input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
         </div>
 
         <div id="campanha_timestamps" class="grid grid-cols-2 gap-2 mt-2 hidden">
@@ -1027,6 +1032,46 @@
     if (vpInput) {
       vpInput.addEventListener('input', function() { setTimeout(calcDistribuicao, 0); });
       vpInput.addEventListener('change', function() { setTimeout(calcDistribuicao, 0); });
+    }
+  })();
+
+  // ==================== AUTO-CÁLCULO PERC/VAL CAMPANHA ====================
+  var PERC_VAL_CAMP_PARES = [
+    ['perc_margem_cc', 'val_margem_cc'],
+    ['perc_tech_fee', 'val_tech_fee'],
+    ['perc_com_vendas', 'val_com_vendas'],
+    ['perc_pl_incentivos', 'val_pl_incentivos'],
+    ['perc_impostos', 'val_impostos'],
+  ];
+  function maskPctCamp(input) {
+    var v = input.value.replace(/\D/g, '').slice(0, 4);
+    if (!v) { input.value = ''; return; }
+    if (v.length <= 2) { input.value = v; return; }
+    input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
+  }
+  function recalcPercValCampanha() {
+    var vpEl = document.getElementById('valor_plataforma');
+    var base = vpEl ? parseRealVal(vpEl.value) : 0;
+    PERC_VAL_CAMP_PARES.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      var vEl = document.getElementById(par[1]);
+      if (!pEl || !vEl) return;
+      var pct = parseRealVal(pEl.value);
+      var v = (base > 0 && pct > 0) ? base * pct / 100 : 0;
+      vEl.value = v > 0 ? formatarReal(v) : '';
+    });
+  }
+  (function() {
+    PERC_VAL_CAMP_PARES.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      if (pEl) {
+        pEl.addEventListener('input', function() { maskPctCamp(this); recalcPercValCampanha(); });
+      }
+    });
+    var vpInput = document.getElementById('valor_plataforma');
+    if (vpInput) {
+      vpInput.addEventListener('input', function() { setTimeout(recalcPercValCampanha, 0); });
+      vpInput.addEventListener('change', function() { setTimeout(recalcPercValCampanha, 0); });
     }
   })();
 
@@ -1576,7 +1621,10 @@
     if (!val) return '';
     const d = new Date(val);
     if (isNaN(d)) return '';
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
   }
 
   function formatDatetimeForInput(val) {
@@ -1614,7 +1662,6 @@
       document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
       document.getElementById('id_plataforma').value = c.id_plataforma || '';
       document.getElementById('id_status').value = c.id_status || '';
-      document.getElementById('id_criativos_validados').value = c.id_criativos_validados || '';
       document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
       document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
       document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
@@ -1626,6 +1673,12 @@
       document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
       document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
       document.getElementById('id_centralx').value = c.id_centralx || '';
+
+      ['perc_margem_cc','perc_tech_fee','perc_com_vendas','perc_pl_incentivos','perc_impostos'].forEach(function(k) {
+        var el = document.getElementById(k);
+        if (el) el.value = c[k] || '';
+      });
+      if (typeof recalcPercValCampanha === 'function') recalcPercValCampanha();
 
       vrPlatMax = parseRealVal(c.valor_plataformas_pi);
       calcDistribuicao();

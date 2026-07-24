@@ -3044,24 +3044,30 @@ def obter_cadu_audiencias(plataforma_id=None):
         raise e
 
 def buscar_audiencias(termo, limite=20):
-    """Busca audiências por nome"""
+    """Busca audiências por nome ou slug"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            pattern = f'%{termo}%'
             cursor.execute('''
-                SELECT 
-                    id,
-                    nome,
-                    perfil_socioeconomico,
-                    cpm_custo,
-                    cpm_venda,
-                    imagem_url
-                FROM cadu_audiencias
-                WHERE is_active = true
-                  AND LOWER(nome) LIKE LOWER(%s)
-                ORDER BY nome
+                SELECT
+                    a.id,
+                    a.nome,
+                    a.slug,
+                    a.perfil_socioeconomico,
+                    a.cpm_custo,
+                    a.cpm_venda,
+                    a.imagem_url,
+                    a.plataforma_id,
+                    a.fonte,
+                    COALESCE(p.nome, NULLIF(TRIM(a.fonte), '')) AS plataforma_nome
+                FROM cadu_audiencias a
+                LEFT JOIN cadu_audiencias_plataformas p ON a.plataforma_id = p.id
+                WHERE a.is_active = true
+                  AND (LOWER(a.nome) LIKE LOWER(%s) OR LOWER(a.slug) LIKE LOWER(%s))
+                ORDER BY a.nome
                 LIMIT %s
-            ''', (f'%{termo}%', limite))
+            ''', (pattern, pattern, limite))
             return cursor.fetchall()
     except Exception as e:
         raise e
@@ -3096,13 +3102,15 @@ def obter_cadu_audiencia_por_id(id_audiencia):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT 
+                SELECT
                     a.*,
                     c.nome as categoria_nome,
-                    s.nome as subcategoria_nome
+                    s.nome as subcategoria_nome,
+                    COALESCE(p.nome, NULLIF(TRIM(a.fonte), '')) AS plataforma_nome
                 FROM cadu_audiencias a
                 LEFT JOIN cadu_categorias c ON a.categoria_id = c.id
                 LEFT JOIN cadu_subcategorias s ON a.subcategoria_id = s.id
+                LEFT JOIN cadu_audiencias_plataformas p ON a.plataforma_id = p.id
                 WHERE a.id = %s
             ''', (id_audiencia,))
             return cursor.fetchone()
@@ -6487,6 +6495,9 @@ def criar_tabela_cotacoes():
             cursor.execute(
                 "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS apresentacao_dados TEXT"
             )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS plataforma_campanha VARCHAR(120)"
+            )
             cursor.execute('''
                 DO $$
                 BEGIN
@@ -6770,7 +6781,8 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
-                'frequencia_impacto', 'premissas', 'observacoes_gerais'
+                'frequencia_impacto', 'premissas', 'observacoes_gerais',
+                'plataforma_campanha',
             ]
             
             for campo in campos_opcionais:
@@ -6809,11 +6821,12 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
-                'frequencia_impacto', 'premissas', 'observacoes_gerais'
+                'frequencia_impacto', 'premissas', 'observacoes_gerais',
+                'plataforma_campanha',
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id']
+            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id', 'plataforma_campanha']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']
@@ -8325,14 +8338,8 @@ def obter_cotacoes_pipeline(filtros=None):
                 params.append(int(filtros['mes']))
             
             if filtros.get('status'):
-                status_filtro = filtros['status']
-                # Aceitar tanto 'Em Análise' quanto 'em_analise'
-                if status_filtro in ['Em Análise', 'em_analise']:
-                    sql += ' AND cot.status IN (%s, %s)'
-                    params.extend(['Em Análise', 'em_analise'])
-                else:
-                    sql += ' AND cot.status = %s'
-                    params.append(status_filtro)
+                sql += ' AND cot.status = %s'
+                params.append(filtros['status'])
             
             # Ordenar por data de atualização (mais recentes primeiro)
             sql += ' ORDER BY cot.updated_at DESC NULLS LAST'
@@ -8343,7 +8350,6 @@ def obter_cotacoes_pipeline(filtros=None):
             # Agrupar por status (colunas do Kanban)
             colunas = {
                 'Rascunho': [],
-                'Em Análise': [],
                 'Enviada': [],
                 'Aprovada': [],
                 'Rejeitada': []
@@ -8354,9 +8360,9 @@ def obter_cotacoes_pipeline(filtros=None):
                 # Tratar status antigo 'Pendente' como 'Rascunho'
                 if status == 'Pendente':
                     status = 'Rascunho'
-                # Tratar 'em_analise' como 'Em Análise'
-                if status == 'em_analise':
-                    status = 'Em Análise'
+                # Status legado 'Em Análise' / em_analise → Rascunho
+                if status in ('Em Análise', 'em_analise'):
+                    status = 'Rascunho'
                 # Status legado 'Negociação' (removido) → Enviada
                 if status == 'Negociação':
                     status = 'Enviada'
@@ -8370,7 +8376,6 @@ def obter_cotacoes_pipeline(filtros=None):
         current_app.logger.error(f"Erro ao obter cotações pipeline: {e}")
         return {
             'Rascunho': [],
-            'Em Análise': [],
             'Enviada': [],
             'Aprovada': [],
             'Rejeitada': []
@@ -10568,7 +10573,8 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
         or parse_valor_monetario_para_float(item.get('investimento_sugerido'))
         or parse_valor_monetario_para_float(item.get('valor_total'))
     )
-    if valor_plat <= 0:
+    is_audiencia = bool(item.get('audiencia_nome'))
+    if valor_plat <= 0 and not is_audiencia:
         logger.warning(
             f"[criar_campanhas_pi] Item {item_id} ignorado: valor <= 0. "
             f"investimento_liquido={item.get('investimento_liquido')}, "
@@ -10577,6 +10583,8 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
             f"valor_total={item.get('valor_total')}"
         )
         return None
+    if valor_plat <= 0 and is_audiencia:
+        valor_plat = 0
 
     periodo_ini = _normalizar_data_campo_cotacao_para_pi(item.get('data_inicio'))
     periodo_fim = _normalizar_data_campo_cotacao_para_pi(item.get('data_fim'))
@@ -12369,18 +12377,6 @@ def obter_status_campanha():
         raise e
 
 
-def obter_criativos_validados_campanha():
-    """Retorna todos os criativos validados ordenados por descrição"""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT id, descricao FROM cadu_pi_camp_criativos_validados ORDER BY descricao')
-            return cursor.fetchall()
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-
 def obter_status_campanha_por_id(id_status):
     """Retorna um status de campanha específico por ID"""
     conn = get_db()
@@ -12506,7 +12502,6 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     c.valor_plataforma,
                     c.valor_total_plataforma,
                     c.id_plataforma,
-                    c.id_criativos_validados,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,
@@ -12521,7 +12516,6 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     obj.descricao AS objetivo_nome,
                     st.descricao AS status_nome,
                     plt.descricao AS plataforma_nome,
-                    cv.descricao AS criativos_validados_nome,
                     pi.codigo_pi_cc AS codigo_pi,
                     pi.titulo_pi,
                     pi.googled_pi_princ,
@@ -12536,7 +12530,6 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
                 LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
                 LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
-                LEFT JOIN cadu_pi_camp_criativos_validados cv ON c.id_criativos_validados = cv.id
                 {pi_join} cadu_pi pi ON c.id_pi = pi.id_pi
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE 1=1
@@ -12746,7 +12739,6 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.valor_plataforma,
                     c.valor_total_plataforma,
                     c.id_plataforma,
-                    c.id_criativos_validados,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,
@@ -12789,7 +12781,6 @@ def criar_campanha_pi(data):
                     periodo_inicio, periodo_fim, id_status,
                     totalizador_atingido, totalizador_gasto,
                     valor_plataforma, id_plataforma,
-                    id_criativos_validados,
                     perc_margem_cc, perc_tech_fee, perc_com_vendas,
                     perc_pl_incentivos, perc_impostos,
                     val_margem_cc, val_tech_fee, val_com_vendas,
@@ -12802,7 +12793,6 @@ def criar_campanha_pi(data):
                     %s, %s, %s,
                     %s, %s,
                     %s, %s,
-                    %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
@@ -12827,7 +12817,6 @@ def criar_campanha_pi(data):
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
                 data.get('id_plataforma'),
-                data.get('id_criativos_validados'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
                 data.get('perc_com_vendas'),
@@ -12905,7 +12894,6 @@ def atualizar_campanha_pi(id_campanha, data):
                     totalizador_gasto = %s,
                     valor_plataforma = %s,
                     id_plataforma = %s,
-                    id_criativos_validados = %s,
                     perc_margem_cc = %s,
                     perc_tech_fee = %s,
                     perc_com_vendas = %s,
@@ -12935,7 +12923,6 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
                 data.get('id_plataforma'),
-                data.get('id_criativos_validados'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
                 data.get('perc_com_vendas'),
@@ -13811,7 +13798,6 @@ def obter_funil_comercial(inicio, fim, executivo_id=None):
             cursor.execute(f'''
                 SELECT
                     COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE c.status = 'Em Análise') as em_analise,
                     COUNT(*) FILTER (WHERE c.status IN ('Enviada', 'Negociação')) as enviadas,
                     COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
                     COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
@@ -13836,7 +13822,6 @@ def obter_funil_comercial(inicio, fim, executivo_id=None):
             return {
                 'leads': leads,
                 'cotacoes_criadas': cot['total'],
-                'em_analise': cot['em_analise'],
                 'enviadas': cot['enviadas'],
                 'aprovadas': cot['aprovadas'],
                 'rejeitadas': cot['rejeitadas'],

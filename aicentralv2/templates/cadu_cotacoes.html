@@ -68,7 +68,6 @@
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
           <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
           <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-          <option value="Em Análise" {% if status_atual == 'Em Análise' %}selected{% endif %}>Em Análise</option>
           <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
           <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
           <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
@@ -204,8 +203,6 @@
               <span class="badge-status badge-aprovada">{{ status_display }}</span>
               {% elif status_display == 'Rejeitada' %}
               <span class="badge-status badge-rejeitada">{{ status_display }}</span>
-              {% elif status_display == 'Em Análise' %}
-              <span class="badge-status badge-analise">{{ status_display }}</span>
               {% else %}
               <span class="badge-status badge-default">{{ status_display }}</span>
               {% endif %}

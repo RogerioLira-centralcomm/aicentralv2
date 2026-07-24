@@ -2068,7 +2068,7 @@ function preencherAbaDetalhes(cliente, contatos) {
       const inviteBg = c.invite_status === 'accepted' ? '#dcfce7' : (c.invite_status === 'pending' ? '#fef3c7' : '#f3f4f6');
       const inviteColor = c.invite_status === 'accepted' ? '#166534' : (c.invite_status === 'pending' ? '#92400e' : '#6b7280');
       const inviteText = c.invite_status === 'accepted' ? 'Aceito' : (c.invite_status === 'pending' ? 'Pendente' : 'Sem convite');
-      return `<div style="display:flex;align-items:center;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e5e7eb;margin-bottom:3px;">
+      return `<div data-contato-id="${c.id_contato_cliente}" style="display:flex;align-items:center;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e5e7eb;margin-bottom:3px;">
         <div style="flex:1;min-width:0;cursor:pointer;" onclick="abrirModalEditarContato(${c.id_contato_cliente})">
           <div style="font-size:10px;font-weight:600;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nome_completo}</div>
           <div style="font-size:9px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.email || '—'}</div>
@@ -2076,6 +2076,7 @@ function preencherAbaDetalhes(cliente, contatos) {
         <div style="display:flex;align-items:center;gap:3px;margin-left:6px;flex-shrink:0;">
           <span style="display:inline-flex;align-items:center;gap:2px;background:${statusBg};color:${statusColor};padding:1px 4px;border-radius:3px;font-size:8px;cursor:pointer;" onclick="toggleContatoStatus(${c.id_contato_cliente}, ${cliente.id_cliente}, this, ${c.status})"><span style="width:5px;height:5px;border-radius:50%;background:${statusDot};"></span>${c.status ? 'Ativo' : 'Inativo'}</span>
           <span style="background:${inviteBg};color:${inviteColor};padding:1px 4px;border-radius:3px;font-size:8px;">${inviteText}</span>
+          ${contatoInviteBtnHtml(c)}
           <i class="fas fa-trash" style="color:#9ca3af;cursor:pointer;font-size:9px;margin-left:2px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')"></i>
         </div>
       </div>`;
@@ -2123,7 +2124,7 @@ async function carregarContatosAba(clienteId) {
         const inviteBg = c.invite_status === 'accepted' ? '#dcfce7' : (c.invite_status === 'pending' ? '#fef3c7' : '#f3f4f6');
         const inviteColor = c.invite_status === 'accepted' ? '#166534' : (c.invite_status === 'pending' ? '#92400e' : '#6b7280');
         const inviteText = c.invite_status === 'accepted' ? 'Aceito' : (c.invite_status === 'pending' ? 'Pendente' : 'Sem convite');
-        return `<div style="display:flex;align-items:center;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e5e7eb;margin-bottom:3px;">
+        return `<div data-contato-id="${c.id_contato_cliente}" style="display:flex;align-items:center;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e5e7eb;margin-bottom:3px;">
           <div style="flex:1;min-width:0;cursor:pointer;" onclick="abrirModalEditarContato(${c.id_contato_cliente})">
             <div style="font-size:10px;font-weight:600;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nome_completo}</div>
             <div style="font-size:9px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.email || '—'}</div>
@@ -2131,6 +2132,7 @@ async function carregarContatosAba(clienteId) {
           <div style="display:flex;align-items:center;gap:3px;margin-left:6px;flex-shrink:0;">
             <span style="display:inline-flex;align-items:center;gap:2px;background:${statusBg};color:${statusColor};padding:1px 4px;border-radius:3px;font-size:8px;cursor:pointer;" onclick="toggleContatoStatus(${c.id_contato_cliente}, ${clienteId}, this, ${c.status})"><span style="width:5px;height:5px;border-radius:50%;background:${statusDot};"></span>${c.status ? 'Ativo' : 'Inativo'}</span>
             <span style="background:${inviteBg};color:${inviteColor};padding:1px 4px;border-radius:3px;font-size:8px;">${inviteText}</span>
+            ${contatoInviteBtnHtml(c)}
             <i class="fas fa-trash" style="color:#9ca3af;cursor:pointer;font-size:9px;margin-left:2px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')"></i>
           </div>
         </div>`;
@@ -2735,6 +2737,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== FUNÇÕES DE INVITES ====================
 
+function contatoInviteBtnHtml(c) {
+  const emailEsc = (c.email || '').replace(/'/g, "\\'");
+  const nomeEsc = (c.nome_completo || '').replace(/'/g, "\\'");
+  if (c.email && c.status) {
+    return `<i class="fas fa-paper-plane" style="color:#22c55e;cursor:pointer;font-size:9px;" title="Enviar convite" onclick="event.stopPropagation();enviarConviteContato(${c.id_contato_cliente}, '${emailEsc}', '${nomeEsc}')"></i>`;
+  }
+  const title = !c.email ? 'Sem email cadastrado' : 'Contato inativo';
+  return `<i class="fas fa-paper-plane" style="color:#d1d5db;font-size:9px;cursor:default;" title="${title}"></i>`;
+}
+
 // Função para formatar o badge de status do convite
 function getInviteStatusBadge(inviteStatus, inviteExpiresAt) {
   // Se não há convite
@@ -2800,7 +2812,7 @@ async function enviarConviteContato(contatoId, email, nomeContato) {
     if (result.success) {
       showToast(result.message || `Convite enviado para ${nomeContato}!`, 'success');
       await carregarContatosAba(clienteId);
-      const row = document.querySelector(`tr[data-contato-id="${contatoId}"]`);
+      const row = document.querySelector(`[data-contato-id="${contatoId}"]`);
       if (row) {
         if (window.scrollIntoViewSuave) {
           window.scrollIntoViewSuave(row, { block: 'center' });

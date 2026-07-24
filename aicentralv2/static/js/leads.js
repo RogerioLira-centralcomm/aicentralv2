@@ -76,6 +76,19 @@ function getExecutivoId() {
     return document.getElementById('filtro_executivo').value;
 }
 
+function preselecionarExecutivoConversao(lead = null) {
+    const sel = document.getElementById('cv_executivo');
+    if (!sel) return;
+
+    const logged = String(window.LOGGED_USER_ID || '');
+    const filtro = getExecutivoId() || '';
+    const leadExec = lead?.id_executivo ? String(lead.id_executivo) : '';
+    const candidatos = [logged, leadExec, filtro].filter(Boolean);
+    const alvo = candidatos.find(id => [...sel.options].some(opt => opt.value === String(id)));
+
+    sel.value = alvo ? String(alvo) : '';
+}
+
 function onExecutivoChange() {
     selectedLeadId = null;
     selectedLeadData = null;
@@ -1542,11 +1555,7 @@ async function converterCliente() {
     document.getElementById('cv_numero').value = '';
     document.getElementById('cv_complemento').value = '';
 
-    if (l.id_executivo) {
-        document.getElementById('cv_executivo').value = l.id_executivo;
-    } else {
-        document.getElementById('cv_executivo').value = '';
-    }
+    preselecionarExecutivoConversao(l);
     document.getElementById('cv_tipo_cliente').value = '';
     document.getElementById('cv_agencia').value = '';
 
@@ -1571,7 +1580,7 @@ function cvTogglePessoa(tipo) {
         lblJ.querySelector('input').checked = true;
         lblJ.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #22c55e;border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:#f0fdf4;color:#15803d';
         lblF.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #d1d5db;border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:#fff;color:#6b7280';
-        lblCnpj.textContent = 'CNPJ*';
+        lblCnpj.textContent = 'CNPJ';
         lblFantasia.textContent = 'Nome Fantasia*';
         razaoContainer.style.display = '';
         inscricoes.style.display = '';
@@ -1582,7 +1591,7 @@ function cvTogglePessoa(tipo) {
         lblF.querySelector('input').checked = true;
         lblF.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #22c55e;border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:#f0fdf4;color:#15803d';
         lblJ.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #d1d5db;border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:#fff;color:#6b7280';
-        lblCnpj.textContent = 'CPF*';
+        lblCnpj.textContent = 'CPF';
         lblFantasia.textContent = 'Nome Completo*';
         razaoContainer.style.display = 'none';
         inscricoes.style.display = 'none';
@@ -1722,9 +1731,10 @@ async function cvSubmitConversao() {
     const executivo = document.getElementById('cv_executivo').value;
     const agencia = document.getElementById('cv_agencia').value;
 
-    if (!cnpj) return showToast('Informe o CNPJ/CPF', 'warning');
-    if (pessoa === 'F' && !cvValidarCPF(cnpj)) return showToast('CPF inválido', 'warning');
-    if (pessoa === 'J' && cnpj.length !== 14) return showToast('CNPJ inválido', 'warning');
+    if (cnpj) {
+        if (pessoa === 'F' && !cvValidarCPF(cnpj)) return showToast('CPF inválido', 'warning');
+        if (pessoa === 'J' && cnpj.length !== 14) return showToast('CNPJ inválido', 'warning');
+    }
     if (!nomeFantasia) return showToast('Informe o Nome Fantasia', 'warning');
     if (pessoa === 'J' && !razaoSocial) return showToast('Informe a Razão Social', 'warning');
     if (!tipoCliente) return showToast('Selecione o Tipo de Cliente', 'warning');
@@ -1738,9 +1748,12 @@ async function cvSubmitConversao() {
         if (dataNome.existe) return showToast('Já existe um cliente cadastrado com este nome', 'error');
     } catch (e) { console.error(e); }
 
+    const leadNome = (selectedLeadData?.nome || selectedLeadData?.empresa || 'este lead').trim();
+    if (!confirm(`Deseja realmente converter "${leadNome}" em cliente?`)) return;
+
     const payload = {
         pessoa,
-        cnpj,
+        cnpj: cnpj || null,
         nome_fantasia: nomeFantasia,
         razao_social: pessoa === 'J' ? razaoSocial : nomeFantasia,
         id_tipo_cliente: parseInt(tipoCliente),

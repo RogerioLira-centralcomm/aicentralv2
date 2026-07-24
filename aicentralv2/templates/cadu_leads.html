@@ -611,7 +611,7 @@
           </div>
         </div>
         <div class="col-span-3">
-          <label id="cv_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5 block">CNPJ*</label>
+          <label id="cv_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5 block">CNPJ</label>
           <input id="cv_cnpj" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00.000.000/0000-00" oninput="cvMascaraCnpjCpf(this)" onblur="cvOnCnpjBlur()" maxlength="18">
           <span id="cv_cnpj_msg" class="text-[9px] mt-0.5 block" style="min-height:12px"></span>
         </div>
@@ -962,6 +962,7 @@ window.EXECUTIVOS = [
     {id: {{ ex.id_contato_cliente }}, nome: "{{ ex.nome_completo|e }}"}{% if not loop.last %},{% endif %}
   {% endfor %}
 ];
+window.LOGGED_USER_ID = {{ session.get('user_id', 0) }};
 </script>
 {% endblock %}
 

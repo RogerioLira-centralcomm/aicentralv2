@@ -52,7 +52,6 @@
                   class="text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
             <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
             <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-            <option value="Em Análise" {% if status_atual == 'Em Análise' %}selected{% endif %}>Em Análise</option>
             <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
             <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
             <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
@@ -64,7 +63,7 @@
 
   <!-- Kanban Board -->
   <div class="flex gap-2 overflow-x-auto pb-4" style="min-height: calc(100vh - 120px);">
-    {% set status_list = ['Rascunho', 'Em Análise', 'Enviada', 'Aprovada', 'Rejeitada'] %}
+    {% set status_list = ['Rascunho', 'Enviada', 'Aprovada', 'Rejeitada'] %}
     
     {% for status in status_list %}
     {% set cotacoes = colunas.get(status, []) %}
@@ -90,7 +89,7 @@
       <div class="flex-1 p-2 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 180px);">
         {% for cotacao in cotacoes %}
         {% set dias_criacao = ((now() - cotacao.created_at).days if cotacao.created_at else 0) %}
-        {% set alerta_urgente = (status in ['Em Análise', 'Enviada']) and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
+        {% set alerta_urgente = (status == 'Enviada') and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
         
         <div class="kanban-card bg-white rounded border {% if alerta_urgente %}border-amber-400{% else %}border-gray-200{% endif %} p-2.5 cursor-grab hover:shadow transition-shadow"
              draggable="true"
@@ -377,7 +376,6 @@
                 class="text-sm border border-gray-300 rounded px-3 py-1.5 bg-white text-gray-700">
           <option value="">Mover para...</option>
           <option value="Rascunho">Rascunho</option>
-          <option value="Em Análise">Em Análise</option>
           <option value="Enviada">Enviada</option>
           <option value="Aprovada">✓ Aprovada</option>
           <option value="Rejeitada">✗ Rejeitada</option>

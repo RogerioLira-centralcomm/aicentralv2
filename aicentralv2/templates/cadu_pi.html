@@ -613,10 +613,6 @@
           <span id="view_status" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
-          <span id="view_criativos_validados" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
           <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
           <span id="view_periodo_inicio" class="text-[10px] text-gray-700">—</span>
         </div>
@@ -1359,7 +1355,6 @@ function abrirViewCampanhaLista(c) {
   document.getElementById('view_obj_contratados').textContent = c.obj_contratados != null ? String(c.obj_contratados) : '—';
   document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
   document.getElementById('view_status').textContent = c.status_nome || '—';
-  document.getElementById('view_criativos_validados').textContent = c.criativos_validados_nome || '—';
   document.getElementById('view_periodo_inicio').textContent = c.periodo_inicio || '—';
   document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
   document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';

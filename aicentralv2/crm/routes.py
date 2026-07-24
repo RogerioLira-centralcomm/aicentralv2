@@ -501,7 +501,7 @@ def api_cliente_cotacoes_abertas(cliente_id):
                 FROM cadu_cotacoes c
                 WHERE (c.client_id = %s OR c.agencia_id = %s)
                   AND c.deleted_at IS NULL
-                  AND c.status IN ('Rascunho', 'Em Análise', 'Enviada')
+                  AND c.status IN ('Rascunho', 'Enviada')
                 ORDER BY c.created_at DESC
             """, (cliente_id, cliente_id))
             cotacoes = cur.fetchall()

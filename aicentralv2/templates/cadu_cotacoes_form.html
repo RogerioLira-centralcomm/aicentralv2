@@ -96,7 +96,6 @@
   {% set _status = (cotacao.status if (modo == 'editar' and cotacao) else 'Rascunho') %}
   {% set _status_cores = {
     'Rascunho': 'bg-gray-400',
-    'Em Análise': 'bg-blue-400',
     'Enviada': 'bg-yellow-400',
     'Aprovada': 'bg-green-500',
     'Rejeitada': 'bg-red-500',

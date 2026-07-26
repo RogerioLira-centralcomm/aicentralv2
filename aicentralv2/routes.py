@@ -175,22 +175,35 @@ def _cliente_perfil_eh_agencia(pk_id_tbl_agencia):
     return (ag.get('key') is True) or (ag_key in ('sim', 'true', '1', 's', 'yes', 'y'))
 
 
-def _salvar_agencias_vinculadas_do_form(cliente_id, pk_id_tbl_agencia, pessoa):
-    """Persiste agências vinculadas do formulário ou limpa se perfil agência."""
-    from flask import request, session
+def _salvar_agencias_vinculadas_cliente(cliente_id, pk_id_tbl_agencia, pessoa, agencia_ids=None, agencia_principal_id=None):
+    """Persiste agências vinculadas ou limpa se perfil agência / PF."""
+    from flask import session
     if pessoa == 'F' or _cliente_perfil_eh_agencia(pk_id_tbl_agencia):
         db.limpar_agencias_vinculadas_cliente(cliente_id)
         return
-    agencia_ids = request.form.getlist('agencias_vinculadas[]')
-    agencia_principal_id = request.form.get('agencia_principal_id', type=int)
     db.salvar_agencias_vinculadas_cliente(
         cliente_id,
-        agencia_ids,
+        agencia_ids or [],
         agencia_principal_id=agencia_principal_id,
         created_by=session.get('user_id'),
     )
 
 
+def _salvar_agencias_vinculadas_do_form(cliente_id, pk_id_tbl_agencia, pessoa):
+    """Persiste agências vinculadas do formulário ou limpa se perfil agência."""
+    from flask import request
+    agencia_ids = request.form.getlist('agencias_vinculadas[]')
+    agencia_principal_id = request.form.get('agencia_principal_id', type=int)
+    _salvar_agencias_vinculadas_cliente(
+        cliente_id,
+        pk_id_tbl_agencia,
+        pessoa,
+        agencia_ids=agencia_ids,
+        agencia_principal_id=agencia_principal_id,
+    )
+
+
+def _pi_row_resp_json(r, opts_rows=None):
     """Monta dict só com tipos serializáveis em JSON (evita Decimal/datetime no |tojson)."""
     raw_pct = r.get('percentual')
     pct_s = '' if raw_pct is None else str(raw_pct).strip()
@@ -14372,6 +14385,26 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
 
             cliente_id = db.converter_lead_cliente_completo(lead_id, cliente_data)
             if cliente_id:
+                agencia_ids = data.get('agencias_vinculadas') or []
+                if not isinstance(agencia_ids, list):
+                    agencia_ids = [agencia_ids] if agencia_ids else []
+                agencia_ids = [
+                    int(x) for x in agencia_ids
+                    if x is not None and str(x).strip() != ''
+                ]
+                agencia_principal_raw = data.get('agencia_principal_id')
+                agencia_principal_id = None
+                if agencia_principal_raw is not None and str(agencia_principal_raw).strip() != '':
+                    agencia_principal_id = int(agencia_principal_raw)
+                pk_agencia = 2 if pessoa == 'F' else cliente_data.get('pk_id_tbl_agencia')
+                _salvar_agencias_vinculadas_cliente(
+                    cliente_id,
+                    pk_agencia,
+                    pessoa,
+                    agencia_ids=agencia_ids,
+                    agencia_principal_id=agencia_principal_id,
+                )
+
                 registrar_auditoria(
                     acao='converter',
                     modulo='leads',

@@ -2236,134 +2236,14 @@
         if (el) el.value = value ?? '';
     }
 
-    let crmAgenciasPickerCache = null;
-    let crmAgenciasVinculadasState = [];
-
-    async function carregarAgenciasPickerCrm() {
-        if (crmAgenciasPickerCache) return crmAgenciasPickerCache;
-        try {
-            const response = await fetch('/api/clientes/agencias');
-            crmAgenciasPickerCache = await response.json();
-        } catch (e) {
-            console.error(e);
-            crmAgenciasPickerCache = [];
-        }
-        return crmAgenciasPickerCache;
-    }
-
-    async function popularPickerAgenciasVinculadasCrm() {
-        const picker = $('#crm-agencias-vinculadas-picker');
-        if (!picker) return;
-        const agencias = await carregarAgenciasPickerCrm();
-        const selected = new Set(crmAgenciasVinculadasState.map(a => String(a.id_agencia_cliente)));
-        picker.innerHTML = '<option value="">Adicionar agência...</option>' +
-            agencias.filter(a => !selected.has(String(a.id_cliente)))
-                .map(a => `<option value="${a.id_cliente}">${escapeHtml(a.nome_fantasia || a.razao_social || '')}</option>`)
-                .join('');
-    }
+    let crmAgenciasVinculadasCtrl = null;
 
     function renderAgenciasVinculadasFormCrm(agencias) {
-        crmAgenciasVinculadasState = (agencias || []).map(a => ({
-            id_agencia_cliente: a.id_agencia_cliente || a.id_cliente,
-            nome_fantasia: a.nome_fantasia || '',
-            razao_social: a.razao_social || '',
-            is_principal: !!a.is_principal
-        }));
-        if (crmAgenciasVinculadasState.length === 1) {
-            crmAgenciasVinculadasState[0].is_principal = true;
-        }
-        atualizarAgenciasVinculadasUICrm();
-        popularPickerAgenciasVinculadasCrm();
+        crmAgenciasVinculadasCtrl?.render(agencias);
     }
 
     function atualizarVisibilidadeAgenciasVinculadasCrm() {
-        const block = $('#crm-agencias-vinculadas-fields');
-        if (!block) return;
-        const pessoa = $('#crm-form-cliente input[name="pessoa"]:checked')?.value || 'J';
-        const opt = $('#crm-cliente-agencia')?.selectedOptions?.[0];
-        const agenciaSim = opt && opt.getAttribute('data-agencia-sim') === '1';
-        if (pessoa === 'J' && !agenciaSim) {
-            block.style.display = '';
-        } else {
-            block.style.display = 'none';
-            if (agenciaSim || pessoa === 'F') {
-                crmAgenciasVinculadasState = [];
-                atualizarAgenciasVinculadasUICrm();
-            }
-        }
-    }
-
-    function definirAgenciaPrincipalVinculadaCrm(id) {
-        crmAgenciasVinculadasState.forEach(a => { a.is_principal = a.id_agencia_cliente === id; });
-        atualizarAgenciasVinculadasUICrm();
-    }
-
-    function removerAgenciaVinculadaCrm(id) {
-        crmAgenciasVinculadasState = crmAgenciasVinculadasState.filter(a => a.id_agencia_cliente !== id);
-        if (crmAgenciasVinculadasState.length === 1) {
-            crmAgenciasVinculadasState[0].is_principal = true;
-        } else if (!crmAgenciasVinculadasState.some(a => a.is_principal)) {
-            crmAgenciasVinculadasState.forEach(a => { a.is_principal = false; });
-        }
-        atualizarAgenciasVinculadasUICrm();
-        popularPickerAgenciasVinculadasCrm();
-    }
-
-    async function adicionarAgenciaVinculadaCrm() {
-        const picker = $('#crm-agencias-vinculadas-picker');
-        if (!picker || !picker.value) return;
-        const id = parseInt(picker.value, 10);
-        if (crmAgenciasVinculadasState.some(a => a.id_agencia_cliente === id)) return;
-        const agencias = await carregarAgenciasPickerCrm();
-        const found = agencias.find(a => a.id_cliente === id);
-        crmAgenciasVinculadasState.push({
-            id_agencia_cliente: id,
-            nome_fantasia: found?.nome_fantasia || '',
-            razao_social: found?.razao_social || '',
-            is_principal: crmAgenciasVinculadasState.length === 0
-        });
-        if (crmAgenciasVinculadasState.length === 1) {
-            crmAgenciasVinculadasState[0].is_principal = true;
-        }
-        picker.value = '';
-        atualizarAgenciasVinculadasUICrm();
-        popularPickerAgenciasVinculadasCrm();
-    }
-
-    function atualizarAgenciasVinculadasUICrm() {
-        const lista = $('#crm-agencias-vinculadas-lista');
-        const hiddenWrap = $('#crm-agencias-vinculadas-hidden');
-        if (!lista || !hiddenWrap) return;
-
-        if (!crmAgenciasVinculadasState.length) {
-            lista.innerHTML = '<div class="text-[10px] text-gray-400 italic">Nenhuma agência vinculada.</div>';
-        } else {
-            lista.innerHTML = crmAgenciasVinculadasState.map(a => {
-                const nome = escapeHtml(a.nome_fantasia || a.razao_social || ('#' + a.id_agencia_cliente));
-                return `
-                    <div class="flex items-center gap-2 text-[10px] border border-gray-200 rounded px-2 py-1 bg-white">
-                        <label class="flex items-center gap-1 cursor-pointer shrink-0">
-                            <input type="radio" name="crm_agencia_principal_radio" value="${a.id_agencia_cliente}" ${a.is_principal ? 'checked' : ''}>
-                            <span class="text-gray-500">Principal</span>
-                        </label>
-                        <span class="flex-1 truncate">${nome}</span>
-                        <button type="button" class="text-red-500 hover:text-red-700 crm-agencia-vinculada-del" data-id="${a.id_agencia_cliente}" title="Remover">×</button>
-                    </div>`;
-            }).join('');
-            $$('.crm-agencia-vinculada-del', lista).forEach(btn => {
-                btn.addEventListener('click', () => removerAgenciaVinculadaCrm(parseInt(btn.dataset.id, 10)));
-            });
-            $$('input[name="crm_agencia_principal_radio"]', lista).forEach(radio => {
-                radio.addEventListener('change', () => definirAgenciaPrincipalVinculadaCrm(parseInt(radio.value, 10)));
-            });
-        }
-
-        const principal = crmAgenciasVinculadasState.find(a => a.is_principal);
-        hiddenWrap.innerHTML = crmAgenciasVinculadasState.map(a =>
-            `<input type="hidden" name="agencias_vinculadas[]" value="${a.id_agencia_cliente}">`
-        ).join('') + (principal
-            ? `<input type="hidden" name="agencia_principal_id" value="${principal.id_agencia_cliente}">`
-            : '');
+        crmAgenciasVinculadasCtrl?.updateVisibility();
     }
 
     function atualizarBvClienteModal() {
@@ -2412,7 +2292,7 @@
         setStatusClienteModal(true);
         setPessoaClienteModal('J');
         preselecionarExecutivoClienteModal();
-        renderAgenciasVinculadasFormCrm([]);
+        crmAgenciasVinculadasCtrl?.reset();
         atualizarBvClienteModal();
         modal.showModal();
         setTimeout(() => $('#crm-input-nome')?.focus(), 50);
@@ -2792,8 +2672,18 @@
         $('#crm-cliente-percentual')?.addEventListener('input', ev => maskPercentual(ev.target));
         $('#crm-select-tipo-cliente')?.addEventListener('change', atualizarBvClienteModal);
         $('#crm-cliente-agencia')?.addEventListener('change', atualizarBvClienteModal);
-        $('#crm-btn-agencia-vinculada-add')?.addEventListener('click', adicionarAgenciaVinculadaCrm);
-        carregarAgenciasPickerCrm().then(() => popularPickerAgenciasVinculadasCrm());
+
+        crmAgenciasVinculadasCtrl = initAgenciasVinculadasForm({
+            blockId: 'crm-agencias-vinculadas-fields',
+            pickerId: 'crm-agencias-vinculadas-picker',
+            listaId: 'crm-agencias-vinculadas-lista',
+            hiddenId: 'crm-agencias-vinculadas-hidden',
+            addBtnId: 'crm-btn-agencia-vinculada-add',
+            principalRadioName: 'crm_agencia_principal_radio',
+            getAgenciaSelect: () => $('#crm-cliente-agencia'),
+            getPessoa: () => $('#crm-form-cliente input[name="pessoa"]:checked')?.value || 'J',
+        });
+        crmAgenciasVinculadasCtrl.carregarPicker().then(() => crmAgenciasVinculadasCtrl.popularPicker());
 
         // ---- Modal Nova Cotação ----
         $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrm);

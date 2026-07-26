@@ -67,7 +67,23 @@ const SOCIAL_ICONS = {
 
 // ======================== Init ========================
 
+let cvAgenciasVinculadasCtrl = null;
+
 document.addEventListener('DOMContentLoaded', () => {
+    cvAgenciasVinculadasCtrl = initAgenciasVinculadasForm({
+        blockId: 'cv_agencias_vinculadas_fields',
+        pickerId: 'cv-agencias-vinculadas-picker',
+        listaId: 'cv-agencias-vinculadas-lista',
+        hiddenId: 'cv-agencias-vinculadas-hidden',
+        addBtnId: 'cv-btn-agencia-vinculada-add',
+        principalRadioName: 'cv_agencia_principal_radio',
+        useHiddenInputs: false,
+        getAgenciaSelect: () => document.getElementById('cv_agencia'),
+        getPessoa: () => document.querySelector('input[name="cv_pessoa"]:checked')?.value || 'J',
+    });
+    cvAgenciasVinculadasCtrl.carregarPicker().then(() => cvAgenciasVinculadasCtrl.popularPicker());
+    document.getElementById('cv_agencia')?.addEventListener('change', () => cvAgenciasVinculadasCtrl?.updateVisibility());
+
     loadLeads();
     initKanbanDragDrop();
 });
@@ -1561,6 +1577,7 @@ async function converterCliente() {
 
     cvTogglePessoa('J');
     cvLoadContatos();
+    cvAgenciasVinculadasCtrl?.reset();
 
     document.getElementById('modal_converter').showModal();
 }
@@ -1601,6 +1618,7 @@ function cvTogglePessoa(tipo) {
     }
     document.getElementById('cv_cnpj').value = '';
     document.getElementById('cv_cnpj_msg').textContent = '';
+    cvAgenciasVinculadasCtrl?.updateVisibility();
 }
 
 function cvMascaraCnpjCpf(input) {
@@ -1769,6 +1787,12 @@ async function cvSubmitConversao() {
         numero: document.getElementById('cv_numero').value.trim() || null,
         complemento: document.getElementById('cv_complemento').value.trim() || null,
     };
+
+    const agenciasPayload = cvAgenciasVinculadasCtrl?.getPayload() || {};
+    if (pessoa === 'J' && agenciasPayload.agencias_vinculadas?.length) {
+        payload.agencias_vinculadas = agenciasPayload.agencias_vinculadas;
+        payload.agencia_principal_id = agenciasPayload.agencia_principal_id;
+    }
 
     const btn = document.getElementById('cv_btn_submit');
     btn.disabled = true;

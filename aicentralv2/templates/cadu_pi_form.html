@@ -2335,6 +2335,18 @@ function abrirViewCampanha(c) {
           </div>
         </div>
 
+        <div id="ncpi_agencias_vinculadas_fields" class="hidden mb-1.5">
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="text-[10px] font-medium text-gray-600">Agências:</span>
+            <select id="ncpi-agencias-vinculadas-picker" class="flex-1 min-w-[8rem] px-2 py-1 text-[10px] border border-gray-300 rounded bg-white">
+              <option value="">Adicionar...</option>
+            </select>
+            <button type="button" id="ncpi-btn-agencia-vinculada-add" class="px-1.5 py-0.5 text-[10px] bg-gray-700 text-white rounded hover:bg-gray-600">+</button>
+          </div>
+          <div id="ncpi-agencias-vinculadas-lista" class="flex flex-wrap gap-1 mt-1"></div>
+          <div id="ncpi-agencias-vinculadas-hidden"></div>
+        </div>
+
         <div class="border-t border-gray-200 pt-2 mt-2">
           <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2">Endereço</h4>
           <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
@@ -2390,7 +2402,30 @@ function abrirViewCampanha(c) {
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
+<script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
 <script>
+var ncpiAgenciasVinculadasCtrl = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  ncpiAgenciasVinculadasCtrl = initAgenciasVinculadasForm({
+    blockId: 'ncpi_agencias_vinculadas_fields',
+    pickerId: 'ncpi-agencias-vinculadas-picker',
+    listaId: 'ncpi-agencias-vinculadas-lista',
+    hiddenId: 'ncpi-agencias-vinculadas-hidden',
+    addBtnId: 'ncpi-btn-agencia-vinculada-add',
+    principalRadioName: 'ncpi_agencia_principal_radio',
+    getAgenciaSelect: function() { return document.getElementById('ncpi_agencia'); },
+    getPessoa: function() {
+      var pessoa = document.querySelector('#ncpi_form input[name="ncpi_pessoa"]:checked');
+      return pessoa ? pessoa.value : 'J';
+    },
+  });
+  ncpiAgenciasVinculadasCtrl.carregarPicker().then(function() { ncpiAgenciasVinculadasCtrl.popularPicker(); });
+  document.getElementById('ncpi_agencia')?.addEventListener('change', function() {
+    ncpiAgenciasVinculadasCtrl?.updateVisibility();
+  });
+});
+
 function ncpiMascaraCnpjCpf(input) {
   var pessoa = document.querySelector('#ncpi_form input[name="ncpi_pessoa"]:checked');
   var tipo = pessoa ? pessoa.value : 'J';
@@ -2472,6 +2507,7 @@ function abrirModalNovoClientePI(contexto) {
   }
 
   document.getElementById('modal_novo_cliente_pi').showModal();
+  ncpiAgenciasVinculadasCtrl?.reset();
 }
 
 function ncpiTogglePessoa(tipo) {
@@ -2506,6 +2542,7 @@ function ncpiTogglePessoa(tipo) {
     inputCnpj.maxLength = 14;
     document.getElementById('ncpi_razao_social').required = false;
   }
+  ncpiAgenciasVinculadasCtrl?.updateVisibility();
 }
 
 async function ncpiBuscarCep(event) {

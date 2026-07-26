@@ -650,7 +650,7 @@
           <select id="cv_agencia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
             <option value="">Selecione</option>
             {% for agencia in agencias %}
-              <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+              <option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>
             {% endfor %}
           </select>
         </div>
@@ -666,6 +666,18 @@
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Insc. Municipal</label>
           <input id="cv_im" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
         </div>
+      </div>
+
+      <div id="cv_agencias_vinculadas_fields" class="hidden mb-2">
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <span class="text-[10px] font-medium text-gray-600">Agências:</span>
+          <select id="cv-agencias-vinculadas-picker" class="flex-1 min-w-[8rem] px-2 py-1 text-[10px] border border-gray-300 rounded bg-white">
+            <option value="">Adicionar...</option>
+          </select>
+          <button type="button" id="cv-btn-agencia-vinculada-add" class="px-1.5 py-0.5 text-[10px] bg-gray-700 text-white rounded hover:bg-gray-600">+</button>
+        </div>
+        <div id="cv-agencias-vinculadas-lista" class="flex flex-wrap gap-1 mt-1"></div>
+        <div id="cv-agencias-vinculadas-hidden"></div>
       </div>
 
       <!-- Endereço -->
@@ -967,5 +979,6 @@ window.LOGGED_USER_ID = {{ session.get('user_id', 0) }};
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
 <script src="{{ url_for('static', filename='js/leads.js') }}?v={{ range(10000,99999) | random }}"></script>
 {% endblock %}

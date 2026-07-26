@@ -519,6 +519,18 @@
           </div>
         </div>
 
+        <div id="nc_agencias_vinculadas_fields" class="hidden mb-1.5">
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="text-xs font-medium text-gray-600">Agências:</span>
+            <select id="nc-agencias-vinculadas-picker" class="flex-1 min-w-[8rem] px-3 py-2 text-sm border border-gray-300 rounded bg-white">
+              <option value="">Adicionar...</option>
+            </select>
+            <button type="button" id="nc-btn-agencia-vinculada-add" class="px-2 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600">+</button>
+          </div>
+          <div id="nc-agencias-vinculadas-lista" class="flex flex-wrap gap-1 mt-1"></div>
+          <div id="nc-agencias-vinculadas-hidden"></div>
+        </div>
+
         <div class="border-t border-gray-200 pt-3 mt-3">
           <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
           <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
@@ -574,10 +586,28 @@
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
+<script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
 <script>
 // ============================================
 // FUNÇÕES UTILITÁRIAS
 // ============================================
+
+let ncAgenciasVinculadasCtrl = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  ncAgenciasVinculadasCtrl = initAgenciasVinculadasForm({
+    blockId: 'nc_agencias_vinculadas_fields',
+    pickerId: 'nc-agencias-vinculadas-picker',
+    listaId: 'nc-agencias-vinculadas-lista',
+    hiddenId: 'nc-agencias-vinculadas-hidden',
+    addBtnId: 'nc-btn-agencia-vinculada-add',
+    principalRadioName: 'nc_agencia_principal_radio',
+    getAgenciaSelect: () => document.getElementById('nc_agencia'),
+    getPessoa: () => document.querySelector('#nc_form input[name="nc_pessoa"]:checked')?.value || 'J',
+  });
+  ncAgenciasVinculadasCtrl.carregarPicker().then(() => ncAgenciasVinculadasCtrl.popularPicker());
+  document.getElementById('nc_agencia')?.addEventListener('change', () => ncAgenciasVinculadasCtrl?.updateVisibility());
+});
 
 function tornarEditavel(btn, fieldId) {
   const field = document.getElementById(fieldId);
@@ -1180,6 +1210,7 @@ function abrirModalNovoCliente(contexto) {
   }
 
   document.getElementById('modal_novo_cliente_cotacao').showModal();
+  ncAgenciasVinculadasCtrl?.reset();
 }
 
 function ncTogglePessoa(tipo) {
@@ -1214,6 +1245,7 @@ function ncTogglePessoa(tipo) {
     inputCnpj.maxLength = 14;
     document.getElementById('nc_razao_social').required = false;
   }
+  ncAgenciasVinculadasCtrl?.updateVisibility();
 }
 
 async function ncBuscarCep(event) {

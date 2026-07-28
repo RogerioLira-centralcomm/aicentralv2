@@ -122,7 +122,7 @@
         <i class="fas fa-coins text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor líquido</p>
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor Líq.</p>
         <p class="text-sm font-semibold {% if _valor_liquido_card %}text-gray-800{% else %}text-gray-400{% endif %} truncate" id="card_valor_liquido">{% if _valor_liquido_card %}R$ {{ "{:,.2f}".format(_valor_liquido_card).replace(',', '_').replace('.', ',').replace('_', '.') }}{% else %}—{% endif %}</p>
       </div>
     </div>
@@ -168,7 +168,7 @@
   </div>
   {% endif %}
 
-  <form id="cotacao_form" method="POST" enctype="multipart/form-data">
+  <form id="cotacao_form" method="POST" enctype="multipart/form-data"{% if modo == 'editar' %} data-modo="editar" data-qtd-linhas="{{ resumo_metricas.qtd_linhas if resumo_metricas else 0 }}" data-qtd-audiencias="{{ resumo_metricas.qtd_audiencias if resumo_metricas else 0 }}" data-agencia-inicial="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}" data-parceiro-inicial="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}"{% endif %}>
 
     <!-- Hidden inputs -->
     <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
@@ -1442,6 +1442,30 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
     }
   });
 
+  const form = e.target;
+  if (form.dataset.modo === 'editar') {
+    const qtdLinhas = parseInt(form.dataset.qtdLinhas || '0', 10);
+    const qtdAudiencias = parseInt(form.dataset.qtdAudiencias || '0', 10);
+    const totalItens = qtdLinhas + qtdAudiencias;
+    const agenciaInicial = form.dataset.agenciaInicial ? parseInt(form.dataset.agenciaInicial, 10) : null;
+    const parceiroInicial = form.dataset.parceiroInicial ? parseInt(form.dataset.parceiroInicial, 10) : null;
+    const agenciaAtual = parseInt(document.getElementById('agencia_id').value, 10) || null;
+    const parceiroAtual = parseInt(document.getElementById('id_parceiro').value, 10) || null;
+    const intermediarioAlterado = agenciaAtual !== agenciaInicial || parceiroAtual !== parceiroInicial;
+
+    if (totalItens > 0 && intermediarioAlterado) {
+      const confirmado = confirm(
+        'Esta cotação possui ' + totalItens + ' item(ns) de proposta salvos.\n\n'
+        + 'Alterar ou remover a agência ou o parceiro regional fará com que o cálculo dos itens seja refeito ao salvar, '
+        + 'podendo modificar comissões, preços unitários e valores líquidos/brutos.\n\n'
+        + 'Concorda com a alteração?'
+      );
+      if (!confirmado) {
+        e.preventDefault();
+        return;
+      }
+    }
+  }
 });
 
 document.addEventListener('DOMContentLoaded', function() {

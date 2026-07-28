@@ -439,7 +439,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     cabecalhos = [
         'Canais', 'Formato', 'Objetivo / Estratégia', 'Target & Interesses', 'Praça',
         'Período', 'Tipo de compra', 'Valor negociado', 'Volume total\n(impr./views)',
-        'Invest. bruto', 'Invest. líquido',
+        'Valor Líq.',
     ]
     dados_tabela = [[Paragraph(escape(c).replace('\n', '<br/>'), cel_header_style) for c in cabecalhos]]
     span_cmds = []
@@ -459,9 +459,8 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             continue
         if ln.get('is_subtotal'):
             lbl = _texto(ln.get('subtotal_label')) or 'Subtotal'
-            bruto_s = _fmt_brl(ln.get('investimento_bruto') or ln.get('valor_total'))
             liq_s = _fmt_brl(ln.get('investimento_liquido'))
-            dados_tabela.append([Paragraph(f"<b>{escape(lbl)}</b>", cel_style)] + [''] * 8 + [bruto_s, liq_s])
+            dados_tabela.append([Paragraph(f"<b>{escape(lbl)}</b>", cel_style)] + [''] * 8 + [liq_s])
             span_cmds.append(('SPAN', (0, row_i), (8, row_i)))
             row_i += 1
             continue
@@ -478,7 +477,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         valor_neg = _fmt_brl(ln.get('valor_unitario_negociado') or ln.get('valor_unitario'))
         volume = ln.get('volume_contratado')
         bruto_val = ln.get('investimento_bruto') or ln.get('valor_total')
-        liquido_val = ln.get('investimento_liquido')
+        liquido_val = ln.get('investimento_liquido') or bruto_val
 
         try:
             total_volume += float(volume or 0)
@@ -503,7 +502,6 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             Paragraph(escape(tipo_compra) or '-', cel_style),
             Paragraph(valor_neg, cel_style),
             Paragraph(_fmt_int(volume), cel_style),
-            Paragraph(_fmt_brl(bruto_val), cel_style),
             Paragraph(_fmt_brl(liquido_val), cel_style),
         ])
         row_i += 1
@@ -557,7 +555,6 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
                 Paragraph(escape(tipo_compra) or '-', cel_style),
                 Paragraph(valor_neg, cel_style),
                 Paragraph(_fmt_int(volume), cel_style),
-                Paragraph(_fmt_brl(bruto_val), cel_style),
                 Paragraph(_fmt_brl(liquido_val), cel_style),
             ])
             row_i += 1
@@ -566,13 +563,12 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     dados_tabela.append([
         Paragraph('<b>TOTAL</b>', cel_style)] + [''] * 7 + [
         Paragraph(f"<b>{_fmt_int(total_volume)}</b>", cel_style),
-        Paragraph(f"<b>{_fmt_brl(total_bruto)}</b>", cel_style),
         Paragraph(f"<b>{_fmt_brl(total_liquido)}</b>", cel_style),
     ])
     span_cmds.append(('SPAN', (0, row_i), (7, row_i)))
     span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), _COR_GOLD))
 
-    pesos = [11, 12, 16, 18, 10, 10, 9, 10, 10, 10, 10]
+    pesos = [11, 12, 16, 18, 10, 10, 9, 10, 10, 12]
     soma = sum(pesos)
     col_widths = [largura_util * (p / soma) for p in pesos]
     tabela = Table(dados_tabela, colWidths=col_widths, repeatRows=1)

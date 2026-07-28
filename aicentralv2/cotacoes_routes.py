@@ -152,6 +152,48 @@ def _serializar(obj):
     return serializar_para_json(obj)
 
 
+_CAMPOS_NULLABLE_COTACAO = frozenset({
+    'client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id',
+    'periodo_fim', 'link_publico_expires_at', 'expires_at',
+    'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id',
+    'plataforma_campanha',
+})
+
+
+def _normalizar_fk_cotacao(valor):
+    if valor is None or valor == '':
+        return None
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return valor
+
+
+def _cotacao_campo_alterado(campo, valor_anterior, valor_novo):
+    """Detecta alteração incluindo limpeza explícita (null) de FKs nullable."""
+    if valor_novo is None and campo in _CAMPOS_NULLABLE_COTACAO:
+        return valor_anterior is not None and valor_anterior != ''
+    if campo in _CAMPOS_NULLABLE_COTACAO:
+        return _normalizar_fk_cotacao(valor_anterior) != _normalizar_fk_cotacao(valor_novo)
+    return valor_anterior != valor_novo
+
+
+def _aplicar_exclusividade_agencia_parceiro(update_data):
+    """Agência e parceiro regional podem coexistir na cotação (sem limpeza cruzada)."""
+    return update_data
+
+
+def _filtrar_update_cotacao_form(update_kwargs):
+    """Mantém None em campos nullable para permitir limpar agência/parceiro no formulário."""
+    filtrado = {}
+    for chave, valor in update_kwargs.items():
+        if valor is not None and valor != '':
+            filtrado[chave] = valor
+        elif chave in _CAMPOS_NULLABLE_COTACAO:
+            filtrado[chave] = None
+    return filtrado
+
+
 def _json_forbid():
     return jsonify(
         {'success': False, 'message': 'Cotação não pertence ao ambiente de teste de cálculo.'}
@@ -306,7 +348,11 @@ def _audiencia_tem_precificacao(data):
     if id_kpi not in (None, '', 0, '0'):
         kpi = kpi or str(id_kpi)
     val_tab = _to_float(data.get('valor_unitario_tabela'))
-    inv = _to_float(data.get('investimento_bruto') or data.get('investimento_sugerido'))
+    inv = _to_float(
+        data.get('investimento_liquido')
+        or data.get('investimento_bruto')
+        or data.get('investimento_sugerido')
+    )
     vol = int(_to_float(data.get('volume_contratado') or data.get('impressoes_estimadas')))
     if not plat or not kpi or val_tab <= 0:
         return False
@@ -332,6 +378,185 @@ def _recalcular_e_montar_breakdown(cotacao, data):
         return payload_extra, None, None
     except ValueError as err:
         return None, jsonify({'error': str(err)}), 400
+
+
+def _payload_recalculo_de_linha(linha):
+    if not linha or linha.get('is_header') or linha.get('is_subtotal'):
+        return None
+    plataforma = (linha.get('plataforma') or '').strip()
+    if not plataforma or not linha.get('valor_unitario_tabela'):
+        return None
+    if linha.get('perc_tech_fee') is None and not linha.get('valor_unitario_negociado'):
+        return None
+
+    liq = db.parse_valor_monetario_para_float(linha.get('investimento_liquido'))
+    vol = db.parse_valor_monetario_para_float(linha.get('volume_contratado'))
+    bruto = db.parse_valor_monetario_para_float(linha.get('investimento_bruto'))
+
+    payload = {
+        'plataforma': plataforma,
+        'objetivo_kpi': linha.get('objetivo_kpi') or '',
+        'id_objetivo_kpi': linha.get('id_objetivo_kpi'),
+        'valor_unitario_tabela': linha.get('valor_unitario_tabela'),
+        'fator_desconto': linha.get('fator_desconto')
+        if linha.get('fator_desconto') not in (None, '')
+        else 1.0,
+    }
+    mcc = linha.get('perc_margem_cc')
+    if mcc is not None and db.parse_valor_monetario_para_float(mcc) > 0:
+        payload['margem_cc'] = db.parse_valor_monetario_para_float(mcc) * 100.0
+
+    if liq > 0:
+        payload['investimento_liquido'] = liq
+    elif vol > 0:
+        payload['volume_contratado'] = int(vol)
+    elif bruto > 0:
+        payload['investimento_bruto'] = bruto
+    else:
+        return None
+    return payload
+
+
+def _payload_recalculo_de_audiencia(aud):
+    plataforma = (aud.get('audiencia_calculo_plataforma') or '').strip()
+    val_tab = aud.get('valor_unitario_tabela') or aud.get('cpm_estimado')
+    if not plataforma or not val_tab:
+        return None
+    if aud.get('perc_tech_fee') is None and not aud.get('valor_unitario_negociado'):
+        return None
+
+    liq = db.parse_valor_monetario_para_float(
+        aud.get('investimento_liquido') or aud.get('investimento_sugerido')
+    )
+    vol = db.parse_valor_monetario_para_float(
+        aud.get('volume_contratado') or aud.get('impressoes_estimadas')
+    )
+    bruto = db.parse_valor_monetario_para_float(
+        aud.get('investimento_bruto') or aud.get('investimento_sugerido')
+    )
+
+    payload = {
+        'plataforma': plataforma,
+        'objetivo_kpi': aud.get('audiencia_calculo_kpi') or '',
+        'id_objetivo_kpi': aud.get('id_audiencia_calculo_kpi'),
+        'valor_unitario_tabela': val_tab,
+        'fator_desconto': aud.get('fator_desconto')
+        if aud.get('fator_desconto') not in (None, '')
+        else 1.0,
+    }
+    mcc = aud.get('perc_margem_cc')
+    if mcc is not None and db.parse_valor_monetario_para_float(mcc) > 0:
+        payload['margem_cc'] = db.parse_valor_monetario_para_float(mcc) * 100.0
+
+    if liq > 0:
+        payload['investimento_liquido'] = liq
+    elif vol > 0:
+        payload['volume_contratado'] = int(vol)
+    elif bruto > 0:
+        payload['investimento_bruto'] = bruto
+    else:
+        return None
+    return payload
+
+
+def _aplicar_breakdown_linha(linha_id, breakdown):
+    db.atualizar_linha_cotacao(
+        linha_id=linha_id,
+        volume_contratado=breakdown['volume_contratado'],
+        valor_unitario=breakdown['valor_unitario'],
+        valor_total=breakdown['valor_total'],
+        investimento_bruto=breakdown['investimento_bruto'],
+        investimento_liquido=breakdown['investimento_liquido'],
+        valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+        perc_margem_cc=breakdown['perc_margem_cc'],
+        perc_tech_fee=breakdown['perc_tech_fee'],
+        perc_com_vendas=breakdown['perc_com_vendas'],
+        perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+        perc_impostos=breakdown['perc_impostos'],
+        val_margem_cc=breakdown['val_margem_cc'],
+        val_tech_fee=breakdown['val_tech_fee'],
+        val_com_vendas=breakdown['val_com_vendas'],
+        val_pl_incentivos=breakdown['val_pl_incentivos'],
+        val_impostos=breakdown['val_impostos'],
+        fator_desconto=breakdown.get('fator_desconto'),
+        custo_midia=breakdown.get('custo_midia'),
+    )
+
+
+def _aplicar_breakdown_audiencia(audiencia_id, breakdown, val_tab):
+    db.atualizar_audiencia_cotacao(
+        audiencia_cotacao_id=audiencia_id,
+        cpm_estimado=db.parse_valor_monetario_para_float(val_tab),
+        investimento_sugerido=breakdown['investimento_bruto'],
+        impressoes_estimadas=breakdown['volume_contratado'],
+        perc_margem_cc=breakdown['perc_margem_cc'],
+        perc_tech_fee=breakdown['perc_tech_fee'],
+        perc_com_vendas=breakdown['perc_com_vendas'],
+        perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+        perc_impostos=breakdown['perc_impostos'],
+        val_margem_cc=breakdown['val_margem_cc'],
+        val_tech_fee=breakdown['val_tech_fee'],
+        val_com_vendas=breakdown['val_com_vendas'],
+        val_pl_incentivos=breakdown['val_pl_incentivos'],
+        val_impostos=breakdown['val_impostos'],
+        valor_unitario_tabela=db.parse_valor_monetario_para_float(val_tab),
+        valor_unitario=breakdown['valor_unitario'],
+        valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+        investimento_bruto=breakdown['investimento_bruto'],
+        investimento_liquido=breakdown['investimento_liquido'],
+        volume_contratado=breakdown['volume_contratado'],
+        custo_midia=breakdown.get('custo_midia'),
+        fator_desconto=breakdown.get('fator_desconto') or 1.0,
+    )
+
+
+def _recalcular_itens_cotacao_intermediario(cotacao_id):
+    """Recalcula linhas e audiências após alteração de agência ou parceiro regional."""
+    cotacao = db.obter_cotacao_por_id(cotacao_id)
+    if not cotacao:
+        return 0
+
+    imposto = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
+    recalculados = 0
+
+    for linha in db.obter_linhas_cotacao(cotacao_id) or []:
+        payload = _payload_recalculo_de_linha(linha)
+        if not payload:
+            continue
+        try:
+            breakdown = db.calcular_breakdown_linha_cotacao(
+                cotacao, payload, imposto_percentual=imposto
+            )
+            _aplicar_breakdown_linha(linha['id'], breakdown)
+            recalculados += 1
+        except ValueError as err:
+            current_app.logger.warning(
+                f'Recálculo linha {linha.get("id")} cotação {cotacao_id}: {err}'
+            )
+
+    for aud in db.obter_audiencias_cotacao(cotacao_id) or []:
+        payload = _payload_recalculo_de_audiencia(aud)
+        if not payload:
+            continue
+        try:
+            breakdown = db.calcular_breakdown_linha_cotacao(
+                cotacao, payload, imposto_percentual=imposto
+            )
+            val_tab = payload.get('valor_unitario_tabela')
+            _aplicar_breakdown_audiencia(aud['id'], breakdown, val_tab)
+            recalculados += 1
+        except ValueError as err:
+            current_app.logger.warning(
+                f'Recálculo audiência {aud.get("id")} cotação {cotacao_id}: {err}'
+            )
+
+    if recalculados:
+        db.calcular_valor_total_cotacao(cotacao_id)
+    return recalculados
+
+
+def _intermediario_cotacao_alterado(update_data):
+    return any(campo in update_data for campo in ('agencia_id', 'id_parceiro'))
 
 
 # --- HTML ---
@@ -587,6 +812,12 @@ def cotacao_editar(cotacao_id):
             return {
                 'valor_liquido': valor_liquido,
                 'plataforma': plataforma_txt,
+                'total_custo_midia': db.calcular_totais_financeiros_cotacao(
+                    linhas=db.obter_linhas_cotacao(cotacao_id) or [],
+                    audiencias=db.obter_audiencias_cotacao(cotacao_id) or [],
+                ).get('total_custo_midia', 0.0),
+                'qtd_linhas': len(linhas),
+                'qtd_audiencias': len(audiencias),
             }
 
         if request.method == 'POST':
@@ -652,10 +883,16 @@ def cotacao_editar(cotacao_id):
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
                 'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
             }
-            update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
+            update_kwargs = _filtrar_update_cotacao_form(update_kwargs)
+            update_kwargs = _aplicar_exclusividade_agencia_parceiro(update_kwargs)
+
+            intermediario_mudou = _intermediario_cotacao_alterado(update_kwargs)
 
             # Status não é alterável pelo formulário de edição (somente na tela de detalhes).
             db.atualizar_cotacao(cotacao_id=cotacao_id, **update_kwargs)
+
+            if intermediario_mudou:
+                _recalcular_itens_cotacao_intermediario(cotacao_id)
 
             flash('Cotação atualizada com sucesso!', 'success')
 
@@ -794,6 +1031,11 @@ def cotacao_detalhes(cotacao_id):
             briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
 
         linhas = db.obter_linhas_cotacao(cotacao_id)
+        if linhas:
+            linhas = [
+                db.normalizar_comissoes_linha_cotacao_legado(linha, cotacao)
+                for linha in linhas
+            ]
         audiencias = db.obter_audiencias_cotacao(cotacao_id)
         comentarios = db.obter_comentarios_cotacao(cotacao_id)
         plataformas_campanha = []
@@ -809,6 +1051,7 @@ def cotacao_detalhes(cotacao_id):
             obj for obj in db.obter_objetivos_campanha()
             if obj.get('status', True) is not False
         ]
+        totais_financeiros = db.calcular_totais_financeiros_cotacao(linhas=linhas, audiencias=audiencias)
 
         return render_template(
             'cadu_cotacoes_detalhes.html',
@@ -827,6 +1070,7 @@ def cotacao_detalhes(cotacao_id):
             comentarios=comentarios,
             plataformas_campanha=plataformas_campanha,
             objetivos_campanha=objetivos_campanha,
+            totais_financeiros=totais_financeiros,
         )
 
     except Exception as e:
@@ -929,6 +1173,8 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
             volume_contratado=vol,
             imposto_percentual_externo=imp,
             agencia_id=cotacao.get('agencia_id'),
+            parceiro_id=cotacao.get('id_parceiro'),
+            parceiro_percentual=cotacao.get('parceiro_percentual'),
             margem_cc_override=mcc_override,
             fator_desconto=fator_desconto,
         )
@@ -1007,10 +1253,15 @@ def api_atualizar_cotacao_teste(cotacao_id):
                         update_data[campo] = valor_novo
                         dados_anteriores[campo] = valor_anterior_str
                         dados_novos[campo] = valor_novo_str
-                elif valor_anterior != valor_novo:
+                elif _cotacao_campo_alterado(campo, valor_anterior, valor_novo):
                     update_data[campo] = valor_novo
                     dados_anteriores[campo] = valor_anterior
                     dados_novos[campo] = valor_novo
+
+        if 'agencia_id' in data or 'id_parceiro' in data:
+            _aplicar_exclusividade_agencia_parceiro(update_data)
+
+        intermediario_mudou = _intermediario_cotacao_alterado(update_data)
 
         # Origem é imutável por esta API: preserva o tipo da cotação (normal ou teste).
         update_data.pop('origem', None)
@@ -1055,6 +1306,10 @@ def api_atualizar_cotacao_teste(cotacao_id):
                 }), 400
 
         db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
+
+        itens_recalculados = 0
+        if intermediario_mudou:
+            itens_recalculados = _recalcular_itens_cotacao_intermediario(cotacao_id)
 
         id_pi_gerado = None
         status_anterior = cotacao.get('status')
@@ -1120,6 +1375,11 @@ def api_atualizar_cotacao_teste(cotacao_id):
         )
 
         response_data = {'success': True, 'message': 'Cotação atualizada com sucesso'}
+        if itens_recalculados:
+            response_data['itens_recalculados'] = itens_recalculados
+            response_data['message'] = (
+                f'Cotação atualizada com sucesso. {itens_recalculados} item(ns) recalculado(s).'
+            )
         if id_pi_gerado:
             response_data['id_pi'] = id_pi_gerado
             response_data['message'] = (
@@ -1281,6 +1541,7 @@ def criar_linha_cotacao_api_teste():
             val_pl_incentivos=breakdown['val_pl_incentivos'],
             val_impostos=breakdown['val_impostos'],
             fator_desconto=breakdown.get('fator_desconto'),
+            custo_midia=breakdown.get('custo_midia'),
         )
         db.calcular_valor_total_cotacao(int(cotacao_id))
         return jsonify({'success': True, 'linha_id': linha_id}), 201
@@ -1297,6 +1558,11 @@ def obter_linha_cotacao_api_teste(linha_id):
         return err
     try:
         linha = db.obter_linha_cotacao(linha_id)
+        if not linha:
+            return jsonify({'error': 'Linha não encontrada'}), 404
+        cotacao = db.obter_cotacao_por_id(linha['cotacao_id'])
+        if cotacao:
+            linha = db.normalizar_comissoes_linha_cotacao_legado(linha, cotacao)
         return jsonify({'success': True, 'linha': linha})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1365,6 +1631,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             val_pl_incentivos=breakdown['val_pl_incentivos'],
             val_impostos=breakdown['val_impostos'],
             fator_desconto=breakdown.get('fator_desconto'),
+            custo_midia=breakdown.get('custo_midia'),
         )
         db.calcular_valor_total_cotacao(linha['cotacao_id'])
         return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
@@ -1427,7 +1694,7 @@ def criar_audiencia_cotacao_api_teste():
 
             investimento_liquido = _to_float(data.get('investimento_liquido'))
             if investimento_liquido <= 0:
-                investimento_liquido = breakdown['investimento_bruto']
+                investimento_liquido = breakdown['investimento_liquido']
 
             audiencia_id = db.adicionar_audiencia_cotacao(
                 cotacao_id=cotacao_id,
@@ -1462,6 +1729,7 @@ def criar_audiencia_cotacao_api_teste():
                 investimento_bruto=breakdown['investimento_bruto'],
                 investimento_liquido=investimento_liquido,
                 volume_contratado=breakdown['volume_contratado'],
+                custo_midia=breakdown.get('custo_midia'),
             )
         else:
             audiencia_id = db.adicionar_audiencia_cotacao(
@@ -1537,7 +1805,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
 
                 investimento_liquido = _to_float(data.get('investimento_liquido'))
                 if investimento_liquido <= 0:
-                    investimento_liquido = breakdown['investimento_bruto']
+                    investimento_liquido = breakdown['investimento_liquido']
 
                 breakdown_kw = {
                     'perc_tech_fee': breakdown['perc_tech_fee'],
@@ -1555,6 +1823,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
                     'investimento_bruto': breakdown['investimento_bruto'],
                     'investimento_liquido': investimento_liquido,
                     'volume_contratado': breakdown['volume_contratado'],
+                    'custo_midia': breakdown.get('custo_midia'),
                 }
                 cpm_kw['cpm_estimado'] = (
                     _to_float(data.get('valor_unitario_tabela'))

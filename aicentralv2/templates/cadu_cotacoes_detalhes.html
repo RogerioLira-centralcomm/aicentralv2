@@ -619,40 +619,293 @@ function _lerFatorDescontoInput(prefix) {
 // ============================================
 // PERCENTUAL DE COMISSÃO (AGÊNCIA / PARCEIRO)
 // ============================================
-// Determinar percentual de comissão da agência ou parceiro vinculado à cotação.
-// Se não houver agência nem parceiro, fator = 1 (bruto = líquido).
-var _comissaoPercentual = null;
-var _temAgenciaOuParceiro = false;
+var _percAgencia = null;
+var _percParceiro = null;
 {% if cotacao and cotacao.agencia_id %}
-  _temAgenciaOuParceiro = true;
-  _comissaoPercentual = {{ cotacao.agencia_percentual|default('null', true) }};
-{% elif cotacao and cotacao.id_parceiro %}
-  _temAgenciaOuParceiro = true;
-  _comissaoPercentual = {{ cotacao.parceiro_percentual|default('null', true) }};
+  _percAgencia = {{ cotacao.agencia_percentual|default('null', true) }};
+{% endif %}
+{% if cotacao and cotacao.id_parceiro %}
+  _percParceiro = {{ cotacao.parceiro_percentual|default('null', true) }};
 {% endif %}
 
 var _comissaoAvisado = false;
 
-function obterFatorLiquido() {
-  if (!_temAgenciaOuParceiro) {
-    // Sem agência nem parceiro: bruto = líquido
-    return 1;
-  }
-  if (_comissaoPercentual === null || _comissaoPercentual === 0) {
+function obterMultiplicadorBrutoDeLiquido() {
+  var pa = Number(_percAgencia) || 0;
+  if (pa <= 0 || pa >= 100) return 1;
+  if (pa <= 0 && _percAgencia !== null) {
     if (!_comissaoAvisado) {
       _comissaoAvisado = true;
-      showToast('Atenção: o percentual de comissão da agência/parceiro está zerado ou não informado. O valor líquido será igual ao bruto.', 'warning', 8000);
+      showToast('Atenção: percentual de comissão da agência zerado ou não informado. Valor Líq. será igual ao bruto derivado.', 'warning', 8000);
     }
-    return 1;
   }
-  return 1 - (_comissaoPercentual / 100);
+  return 1 / (1 - pa / 100);
 }
 
-// Atualiza o percentual em tempo real (chamado ao selecionar agência/parceiro no modal de edição)
-function atualizarComissaoPercentual(percentual, temAgenciaOuParceiro) {
-  _comissaoPercentual = percentual;
-  _temAgenciaOuParceiro = temAgenciaOuParceiro;
+function obterFatorLiquidoCotacao() {
+  var pa = Number(_percAgencia) || 0;
+  if (pa <= 0 || pa >= 100) return 1;
+  return 1 - pa / 100;
+}
+
+function obterFatorBrutoDeLiquido() {
+  return obterMultiplicadorBrutoDeLiquido();
+}
+
+function derivarBrutoDeLiquido(liquido) {
+  var liq = Number(liquido) || 0;
+  if (liq <= 0) return 0;
+  return Math.round(liq * obterMultiplicadorBrutoDeLiquido() * 100) / 100;
+}
+
+function derivarLiquidoDeBruto(bruto) {
+  var b = Number(bruto) || 0;
+  if (b <= 0) return 0;
+  return Math.round(b * obterFatorLiquidoCotacao() * 100) / 100;
+}
+
+function formatarPercentualCadastro(pct) {
+  var n = Number(pct) || 0;
+  return n.toFixed(2).replace('.', ',') + '%';
+}
+
+function formatarTaxaIntermediario(pct, valor) {
+  return formatarPercentualCadastro(pct) + ' · R$ ' + formatarMoeda(valor);
+}
+
+function obterBrutoPricingLinha(prefix, j) {
+  var p = prefix || '';
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var vol = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+  if (vol <= 0) return 0;
+  var preco = (j && j.preco_unit) ? Number(j.preco_unit) : valorUnitarioEfetivoLinha(p);
+  if (preco <= 0) return 0;
+  var kpi = getKpiDescricao(p);
+  var isCpm = kpi === 'CPM';
+  var bruto = isCpm ? (vol / 1000) * preco : vol * preco;
+  return Math.round(bruto * 100) / 100;
+}
+
+function obterInvestimentoBrutoLinha(prefix, j) {
+  var p = prefix || '';
+  var liq = lerValorLiquidoPi(p);
+  if (liq > 0) return derivarBrutoDeLiquido(liq);
+  var liquidoPricing = obterLiquidoPricingLinha(p, j);
+  if (liquidoPricing > 0) return derivarBrutoDeLiquido(liquidoPricing);
+  return 0;
+}
+
+function calcularComissoesDeLiquido(liquido) {
+  var liq = Number(liquido) || 0;
+  var pa = _percAgencia !== null ? (Number(_percAgencia) || 0) : 0;
+  var comAg = (_percAgencia !== null && pa > 0) ? liq * pa / 100 : 0;
+  var bruto = liq > 0 ? derivarBrutoDeLiquido(liq) : 0;
+  return {
+    perc_agencia: pa,
+    comissao_agencia: Math.round(comAg * 100) / 100,
+    investimento_liquido: Math.round(liq * 100) / 100,
+    investimento_bruto: Math.round(bruto * 100) / 100
+  };
+}
+
+function estimarBrutoParaParceiro(prefix, j) {
+  var p = prefix || '';
+  var liq = lerValorLiquidoPi(p);
+  if (liq > 0) return derivarBrutoDeLiquido(liq);
+  if (j && Number(j.investimento_bruto) > 0) return Number(j.investimento_bruto);
+  var liquidoPricing = obterLiquidoPricingLinha(p, j);
+  if (liquidoPricing > 0) return derivarBrutoDeLiquido(liquidoPricing);
+  var preco = j && j.preco_unit ? Number(j.preco_unit) : valorUnitarioEfetivoLinha(p);
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var vol = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+  if (vol > 0 && preco > 0) {
+    var kpi = getKpiDescricao(p);
+    return kpi === 'CPM' ? (vol / 1000) * preco : vol * preco;
+  }
+  return 0;
+}
+
+function obterParceiroRegCalculo(prefix, j) {
+  var parc = Number(j && j.parc) || 0;
+  if (parc <= 0 && _percParceiro !== null) {
+    var pp = Number(_percParceiro) || 0;
+    parc = pp > 1 ? pp / 100 : pp;
+  }
+  if (parc <= 0 && !(j && j.parceiro_com_cotacao)) return null;
+  var bruto = estimarBrutoParaParceiro(prefix, j);
+  var val = j && j.val_comissao_parceiro != null ? Number(j.val_comissao_parceiro) : bruto * parc;
+  var pct = j && j.parceiro_percentual != null ? Number(j.parceiro_percentual) : parc * 100;
+  return {
+    parc: parc,
+    pct: pct,
+    val: Math.round(val * 100) / 100
+  };
+}
+
+function obterLiquidoPricingLinha(prefix, j) {
+  return obterBrutoPricingLinha(prefix, j);
+}
+
+function calcularComissoesDeBruto(brutoPricing) {
+  // vol×preço = Valor Líq.; comissões derivam do líquido com gross-up para bruto
+  return calcularComissoesDeLiquido(Number(brutoPricing) || 0);
+}
+
+function calcularComissoesIntermediarios(brutoPricing) {
+  return calcularComissoesDeLiquido(Number(brutoPricing) || 0);
+}
+
+function htmlComissoesIntermediario(liquido, brutoPricing) {
+  var liq = Number(liquido) || 0;
+  var brutoVol = Number(brutoPricing) || 0;
+  if (liq <= 0 && brutoVol <= 0) return '';
+  var cms = liq > 0 ? calcularComissoesDeLiquido(liq) : calcularComissoesDeBruto(brutoVol);
+  if (cms.investimento_bruto <= 0 && _percAgencia === null) return '';
+  var parts = [];
+  parts.push('<div class="text-[11px] font-semibold text-gray-700 mb-1 mt-2">Comissões intermediários</div>');
+  parts.push('<div class="flex flex-wrap gap-2 text-[11px]">');
+  parts.push(
+    '<span class="rounded-md bg-white border border-gray-200 px-2 py-1"><span class="text-gray-500">Valor Bruto</span> · <strong class="tabular-nums">R$ ' +
+      formatarMoeda(cms.investimento_bruto) +
+      '</strong></span>'
+  );
+  if (_percAgencia !== null) {
+    parts.push(
+      '<span class="rounded-md bg-white border border-gray-200 px-2 py-1"><span class="text-gray-500">Taxa Agência</span> · <strong class="tabular-nums">' +
+        formatarTaxaIntermediario(cms.perc_agencia, cms.comissao_agencia) +
+        '</strong></span>'
+    );
+  }
+  parts.push(
+    '<span class="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1"><span class="text-emerald-800">Valor Líq.</span> · <strong class="tabular-nums text-emerald-900">R$ ' +
+      formatarMoeda(cms.investimento_liquido) +
+      '</strong></span>'
+  );
+  parts.push('</div>');
+  return parts.join('');
+}
+
+function preencherComissoesIntermediario(prefix, j) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'comissoes_intermediario_row');
+  if (!row) return;
+  if (j && !j.success) {
+    row.classList.add('hidden');
+    return;
+  }
+  var liq = lerValorLiquidoPi(p);
+  var cms;
+  if (liq > 0) {
+    cms = calcularComissoesDeLiquido(liq);
+  } else {
+    var brutoPricing = obterBrutoPricingLinha(p, j);
+    if (brutoPricing <= 0 && _percAgencia === null) {
+      row.classList.add('hidden');
+      return;
+    }
+    cms = calcularComissoesDeBruto(brutoPricing);
+  }
+  if (cms.investimento_bruto <= 0 && _percAgencia === null) {
+    row.classList.add('hidden');
+    return;
+  }
+
+  function setEl(id, value) {
+    var el = document.getElementById(p + id);
+    if (el) el.innerHTML = value;
+  }
+
+  setEl('comissoes_bruto', 'R$ ' + formatarMoeda(cms.investimento_bruto));
+  setEl('comissoes_liquido', 'R$ ' + formatarMoeda(cms.investimento_liquido));
+
+  var agenciaItem = document.getElementById(p + 'comissoes_agencia_item');
+  var parceiroItem = document.getElementById(p + 'comissoes_parceiro_item');
+  if (agenciaItem) {
+    if (_percAgencia !== null) {
+      agenciaItem.classList.remove('hidden');
+      setEl('comissoes_agencia_val', formatarTaxaIntermediario(cms.perc_agencia, cms.comissao_agencia));
+    } else {
+      agenciaItem.classList.add('hidden');
+    }
+  }
+  if (parceiroItem) {
+    parceiroItem.classList.add('hidden');
+  }
+
+  row.classList.remove('hidden');
+}
+
+function calcularCustoMaxMidiaLinha(prefix, j) {
+  var p = prefix || '';
+  var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
+  if (valTab <= 0) return 0;
+  var fator = parseFatorDescontoBr(_lerFatorDescontoInput(p));
+  if (fator <= 0) fator = 1;
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var vol = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+  if (vol <= 0) return 0;
+  var kpi = getKpiDescricao(p);
+  var isCpm = kpi === 'CPM';
+  var volEf = isCpm ? vol / 1000 : vol;
+  return Math.round(valTab * fator * volEf * 100) / 100;
+}
+
+function atualizarCampoCustoMaxMidia(prefix, j) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'custo_midia');
+  if (!el) return;
+  var val = calcularCustoMaxMidiaLinha(p, j);
+  el.value = val > 0 ? formatarMoeda(val) : '';
+}
+
+function preencherCustoMaxMidiaResultado(prefix, j) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'custo_max_midia_row');
+  if (!row) return;
+  if (j && !j.success) {
+    row.classList.add('hidden');
+    return;
+  }
+  var val = calcularCustoMaxMidiaLinha(p, j);
+  if (val <= 0) {
+    row.classList.add('hidden');
+    return;
+  }
+  var el = document.getElementById(p + 'custo_max_midia_val');
+  if (el) el.innerHTML = 'R$ ' + formatarMoeda(val);
+  row.classList.remove('hidden');
+}
+
+function getCampoValorLiquidoPi(prefix) {
+  var p = prefix || '';
+  return document.getElementById(p + 'investimento_liquido');
+}
+
+function lerValorLiquidoPi(prefix) {
+  var el = getCampoValorLiquidoPi(prefix);
+  return el ? (parseMoeda(el.value) || 0) : 0;
+}
+
+function atualizarInvestimentoBrutoCampo(prefix) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'investimento_bruto');
+  if (!el) return;
+  var liq = lerValorLiquidoPi(p);
+  if (liq <= 0) {
+    el.value = '';
+    return;
+  }
+  var bruto = derivarBrutoDeLiquido(liq);
+  el.value = bruto > 0 ? formatarMoeda(bruto) : '';
+}
+
+function atualizarComissaoPercentual(percentual, temVinculo, tipo) {
   _comissaoAvisado = false;
+  if (tipo === 'agencia') {
+    _percAgencia = temVinculo ? percentual : null;
+  } else if (tipo === 'parceiro') {
+    _percParceiro = temVinculo ? percentual : null;
+  }
 }
 
 // Funções de cálculo — Nova Linha (precificação teste: plataforma + val. tabela + KPI obrigatórios)
@@ -730,7 +983,7 @@ function precificacaoTesteSatisfeita(prefix) {
   var kpi = kpiEl && kpiEl.value && String(kpiEl.value).trim();
   var mccCheck = lerMargemCcOverride(p);
 
-  var invEl = document.getElementById(p + 'investimento_bruto');
+  var invEl = getCampoValorLiquidoPi(p);
   var volEl = document.getElementById(p + 'volume_contratado');
   var inv = invEl ? parseMoeda(invEl.value) : 0;
   var vol = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
@@ -802,16 +1055,16 @@ function atualizarIndicadorBudget(prefix) {
   var somaItens = 0;
   document.querySelectorAll('.linha-item-cotacao').forEach(function(tr) {
     if (ignoraLinhaId && String(tr.dataset.linhaId) === String(ignoraLinhaId)) return;
-    somaItens += parseFloat(tr.dataset.investimentoBruto || '0') || 0;
+    somaItens += parseFloat(tr.dataset.investimentoLiquido || '0') || 0;
   });
 
   var somaAud = 0;
   document.querySelectorAll('.linha-audiencia-cotacao').forEach(function(tr) {
     if (ignoraAudId && String(tr.dataset.audienciaId) === String(ignoraAudId)) return;
-    somaAud += parseFloat(tr.dataset.investimentoSugerido || '0') || 0;
+    somaAud += parseFloat(tr.dataset.investimentoLiquido || tr.dataset.investimentoSugerido || '0') || 0;
   });
 
-  var invEl = document.getElementById(p + 'investimento_bruto');
+  var invEl = getCampoValorLiquidoPi(p);
   var atual = invEl ? (parseMoeda(invEl.value) || 0) : 0;
   var existente = somaItens + somaAud;
   var total = existente + atual;
@@ -867,13 +1120,11 @@ function limparResultadoCalculo(prefix) {
   if (valEl) valEl.value = '';
   limparResumoPrecificacaoTeste(p);
 
-  var invId = p + 'investimento_bruto';
+  var invId = p + 'investimento_liquido';
   var volId = p + 'volume_contratado';
-  var liqId = p + 'investimento_liquido';
 
   var invEl = document.getElementById(invId);
   var volEl = document.getElementById(volId);
-  var liqEl = document.getElementById(liqId);
 
   var invVal = invEl ? parseMoeda(invEl.value) : 0;
   var volVal = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
@@ -895,30 +1146,35 @@ function limparResultadoCalculo(prefix) {
     var clearId = (keepId === invId) ? volId : invId;
     var clearEl = document.getElementById(clearId);
     if (clearEl) clearEl.value = '';
-
-    if (clearId === invId && liqEl) {
-      liqEl.value = '';
-    }
   }
 
   _ultimoCalculoLinha[p] = null;
 }
 
 function _inferirSourceCalculo(opts) {
-  var inv = Number(opts && opts.investimento_bruto || 0);
+  var liq = Number(opts && opts.investimento_liquido || 0);
   var vol = Number(opts && opts.volume_contratado || 0);
   var preco = Number(opts && opts.preco_unitario || 0);
   var kpi = String(opts && opts.kpi || '').trim();
-  if (inv <= 0 || vol <= 0 || preco <= 0) return null;
+  if (preco <= 0) return null;
   var isCpm = kpi === 'CPM';
-  var invDerivado = isCpm ? (vol / 1000) * preco : vol * preco;
-  if (Math.abs(invDerivado - inv) <= Math.max(0.01, inv * 1e-5)) {
-    return 'vol';
+  var liquidoFromVol = 0;
+  if (vol > 0) {
+    liquidoFromVol = isCpm ? (vol / 1000) * preco : vol * preco;
   }
-  var volDerivado = isCpm ? (inv / preco) * 1000 : inv / preco;
-  if (Math.round(volDerivado) === Math.round(vol)) {
-    return 'invest';
+  if (liq > 0 && vol > 0) {
+    if (Math.abs(liquidoFromVol - liq) <= Math.max(0.01, liq * 1e-5)) {
+      return 'vol';
+    }
+    var brutoFromLiq = derivarBrutoDeLiquido(liq);
+    var volFromLiq = isCpm ? (brutoFromLiq / preco) * 1000 : brutoFromLiq / preco;
+    if (Math.round(volFromLiq) === Math.round(vol)) {
+      return 'invest';
+    }
+    return null;
   }
+  if (liq > 0) return 'invest';
+  if (vol > 0) return 'vol';
   return null;
 }
 
@@ -940,7 +1196,7 @@ function _snapshotCamposCalculo(prefix) {
     kpi: getKpiDescricao(p),
     val_tab: parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value) || 0,
     mcc_override: mccCheck.valid ? mccCheck.percent : null,
-    invest_bruto: parseMoeda(document.getElementById(p + 'investimento_bruto').value) || 0,
+    invest_liquido: lerValorLiquidoPi(p),
     volume_contratado: parseInt(String(document.getElementById(p + 'volume_contratado').value || '').replace(/\D/g, ''), 10) || 0,
     fator_desconto: parseFatorDescontoBr(_lerFatorDescontoInput(p))
   };
@@ -958,7 +1214,7 @@ function calculoSincronizado(prefix) {
   var mccB = atual.mcc_override == null ? null : Number(atual.mcc_override);
   if ((mccA == null) !== (mccB == null)) return false;
   if (mccA != null && Math.abs(mccA - mccB) > 0.001) return false;
-  if (Math.abs((cache.invest_bruto || 0) - atual.invest_bruto) > 0.005) return false;
+  if (Math.abs((cache.invest_liquido || 0) - atual.invest_liquido) > 0.005) return false;
   if ((cache.volume_contratado || 0) !== atual.volume_contratado) return false;
   if (Math.abs((cache.fator_desconto || 1) - (atual.fator_desconto || 1)) > 0.00005) return false;
   return true;
@@ -1011,7 +1267,7 @@ function limparResumoPrecificacaoTeste(prefix) {
 
 function limparDadosCalculo(prefix) {
   var p = prefix || '';
-  var ids = ['dados_calculo_row', 'como_calculado_row', 'o_que_entrou_row', 'volume_row'];
+  var ids = ['dados_calculo_row', 'como_calculado_row', 'o_que_entrou_row', 'volume_row', 'comissoes_intermediario_row', 'custo_max_midia_row'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(p + ids[i]);
     if (el) el.classList.add('hidden');
@@ -1029,6 +1285,10 @@ function preencherDadosCalculo(prefix, j, valTabFallback) {
     if (como) como.classList.add('hidden');
     if (oque) oque.classList.add('hidden');
     if (vol) vol.classList.add('hidden');
+    var cmsRow = document.getElementById(p + 'comissoes_intermediario_row');
+    if (cmsRow) cmsRow.classList.add('hidden');
+    var cmRow = document.getElementById(p + 'custo_max_midia_row');
+    if (cmRow) cmRow.classList.add('hidden');
     return;
   }
   if (como) como.classList.remove('hidden');
@@ -1044,7 +1304,8 @@ function preencherDadosCalculo(prefix, j, valTabFallback) {
   var valTabEfetivo = Number(j.val_tab_efetivo);
   if (!isFinite(valTabEfetivo) || valTabEfetivo <= 0) valTabEfetivo = valTab * fator;
 
-  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0);
+  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0) + (Number(j.parc) || 0);
+  var parceiroCalc = obterParceiroRegCalculo(p, j);
 
   var fatorFmt = (typeof formatarFatorDescontoBr === 'function')
     ? formatarFatorDescontoBr(fator)
@@ -1063,6 +1324,7 @@ function preencherDadosCalculo(prefix, j, valTabFallback) {
   setEl('dados_calculo_mcc', pctFmt(j.mcc));
   setEl('dados_calculo_com', pctFmt(j.com));
   setEl('dados_calculo_inc', pctFmt(j.inc));
+  setEl('dados_calculo_parc', parceiroCalc ? formatarTaxaIntermediario(parceiroCalc.pct, parceiroCalc.val) : pctFmt(j.parc));
   setEl('dados_calculo_imp', pctFmt(j.imp));
   setEl('dados_calculo_soma', pctFmt(sumMargens));
   setEl('dados_calculo_preco', 'R$ ' + formatarMoeda(j.preco_unit));
@@ -1071,6 +1333,9 @@ function preencherDadosCalculo(prefix, j, valTabFallback) {
 
   preencherOQueEntrou(p, j, valTab, fator, fatorFmt);
   preencherVolume(p, j);
+  preencherComissoesIntermediario(p, j);
+  preencherCustoMaxMidiaResultado(p, j);
+  atualizarCampoCustoMaxMidia(p, j);
 }
 
 function preencherOQueEntrou(prefix, j, valTab, fator, fatorFmt) {
@@ -1092,7 +1357,7 @@ function preencherOQueEntrou(prefix, j, valTab, fator, fatorFmt) {
   var volEl = document.getElementById(p + 'volume_contratado');
   var volNum = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
 
-  var invEl = document.getElementById(p + 'investimento_bruto');
+  var invEl = getCampoValorLiquidoPi(p);
   var invNum = invEl ? (parseMoeda(invEl.value) || 0) : 0;
 
   var override = (typeof lerMargemCcOverride === 'function') ? lerMargemCcOverride(p) : { valid: false, percent: null };
@@ -1114,6 +1379,8 @@ function preencherOQueEntrou(prefix, j, valTab, fator, fatorFmt) {
   setEl('o_que_entrou_fator', fatorFmt);
   setEl('o_que_entrou_volume', volNum > 0 ? formatarNumero(volNum) : '&mdash;');
   setEl('o_que_entrou_invest', invNum > 0 ? 'R$ ' + formatarMoeda(invNum) : '&mdash;');
+  var brutoEntrou = invNum > 0 ? derivarBrutoDeLiquido(invNum) : 0;
+  setEl('o_que_entrou_invest_bruto', brutoEntrou > 0 ? 'R$ ' + formatarMoeda(brutoEntrou) : '&mdash;');
   setEl('o_que_entrou_mcc', mccTexto);
 
   row.classList.remove('hidden');
@@ -1133,18 +1400,15 @@ function preencherVolume(prefix, j) {
   var volEl = document.getElementById(p + 'volume_contratado');
   var volNum = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
 
-  var invEl = document.getElementById(p + 'investimento_bruto');
-  var invNum = invEl ? (parseMoeda(invEl.value) || 0) : 0;
-
-  var liqEl = document.getElementById(p + 'investimento_liquido');
-  var liqNum = liqEl ? (parseMoeda(liqEl.value) || 0) : 0;
+  var invNum = lerValorLiquidoPi(p);
 
   var precoUnit = Number(j.preco_unit) || 0;
 
   setEl('volume_contratado_val', volNum > 0 ? formatarNumero(volNum) : '&mdash;');
   setEl('volume_preco_unit', 'R$ ' + formatarMoeda(precoUnit));
-  setEl('volume_invest_bruto', 'R$ ' + formatarMoeda(invNum));
-  setEl('volume_invest_liquido', 'R$ ' + formatarMoeda(liqNum));
+  setEl('volume_invest_liquido', 'R$ ' + formatarMoeda(invNum));
+  var brutoVol = invNum > 0 ? derivarBrutoDeLiquido(invNum) : 0;
+  setEl('volume_invest_bruto', brutoVol > 0 ? 'R$ ' + formatarMoeda(brutoVol) : '&mdash;');
 
   row.classList.remove('hidden');
 }
@@ -1165,7 +1429,7 @@ function lerMargemCcOverride(prefix) {
   if (!el) return { raw: null, valid: false, percent: null };
   var raw = el.value;
   if (raw == null || String(raw).trim() === '') return { raw: '', valid: false, percent: null };
-  var v = parseFloat(String(raw).replace(',', '.'));
+  var v = parseMoeda(raw);
   if (isNaN(v)) return { raw: raw, valid: false, percent: null };
   return { raw: raw, valid: v >= 5 && v <= 30, percent: v };
 }
@@ -1176,7 +1440,7 @@ function inicializarMargemCcInput(prefix) {
   var hint = document.getElementById(p + 'margem_cc_override_hint');
   var cadPct = obterMargemCcCadastroPercent();
   if (input) {
-    input.value = (cadPct != null) ? cadPct.toFixed(2).replace('.', ',') : '';
+    input.value = (cadPct != null) ? formatarMoeda(cadPct) : '';
   }
   if (hint) {
     if (cadPct != null) {
@@ -1201,7 +1465,7 @@ function preencherResumoDerivacaoCliente(prefix) {
   var content = document.getElementById(p + 'cliente_derivacao_resumo_content');
   if (!row || !content) return;
 
-  var inv = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
+  var inv = lerValorLiquidoPi(p);
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var precoUnit = valorUnitarioEfetivoLinha(p);
@@ -1216,20 +1480,21 @@ function preencherResumoDerivacaoCliente(prefix) {
   var html = [];
 
   if (inv > 0 && vol <= 0) {
-    var volDeriv = isCpm ? (inv / precoUnit) * 1000 : inv / precoUnit;
+    var brutoCalc = derivarBrutoDeLiquido(inv);
+    var volDeriv = isCpm ? (brutoCalc / precoUnit) * 1000 : brutoCalc / precoUnit;
     var volArred = Math.round(volDeriv);
-    var formulaTxt = isCpm ? '(Invest. bruto ÷ preço unit.) × 1.000' : 'Invest. bruto ÷ preço unit.';
+    var formulaTxt = isCpm ? '(Valor Líq. → bruto ÷ preço unit.) × 1.000' : 'Valor Líq. → bruto ÷ preço unit.';
     var volFormatado = formatarNumero(volArred);
     var passoDetalhe =
       isCpm
         ? '(' +
-          formatarMoeda(inv) +
+          formatarMoeda(brutoCalc) +
           ' ÷ ' +
           formatarMoeda(precoUnit) +
           ') × 1.000 = <strong class="text-sky-950">' +
           volFormatado +
           '</strong>'
-        : formatarMoeda(inv) +
+        : formatarMoeda(brutoCalc) +
           ' ÷ ' +
           formatarMoeda(precoUnit) +
           ' = <strong class="text-sky-950">' +
@@ -1241,7 +1506,7 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="border-b border-sky-100 bg-sky-600/10 px-3 py-2">' +
-        '<span class="text-xs font-semibold text-sky-950 tracking-tight">Derivação · objetivo (invest. bruto)</span>' +
+        '<span class="text-xs font-semibold text-sky-950 tracking-tight">Derivação · objetivo (Valor Líq.)</span>' +
         '</div>'
     );
     html.push('<div class="p-3 space-y-3">');
@@ -1257,7 +1522,7 @@ function preencherResumoDerivacaoCliente(prefix) {
     html.push(
       '<div class="flex flex-wrap gap-2">' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-sky-200">' +
-        '<span class="text-gray-500">Invest. bruto</span> ' +
+        '<span class="text-gray-500">Valor Líq.</span> ' +
         formatarMoeda(inv) +
         '</span>' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-sky-200">' +
@@ -1278,13 +1543,14 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="rounded-lg bg-sky-50/80 border border-sky-200 px-3 py-2 text-[11px] text-sky-950">' +
-        '<span class="font-medium">Volume correspondente ao invest. bruto:</span> ' +
+        '<span class="font-medium">Volume correspondente ao Valor Líq.:</span> ' +
         '<span class="font-bold tabular-nums">' +
         volFormatado +
         '</span>' +
         (isCpm ? ' <span class="text-sky-800/90">(impressões · CPM)</span>' : '') +
         '</div>'
     );
+    html.push(htmlComissoesIntermediario(inv, 0));
     html.push('</div></div>');
     content.innerHTML = html.join('');
     row.classList.remove('hidden');
@@ -1292,7 +1558,7 @@ function preencherResumoDerivacaoCliente(prefix) {
   }
 
   if (vol > 0 && inv <= 0) {
-    var invDeriv = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
+    var invDerivLiq = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
     var formulaTxt2 = isCpm ? '(Volume ÷ 1.000) × preço unit.' : 'Volume × preço unit.';
     var passo2 = isCpm
       ? '(' +
@@ -1300,13 +1566,13 @@ function preencherResumoDerivacaoCliente(prefix) {
         ' ÷ 1.000) × ' +
         formatarMoeda(precoUnit) +
         ' = <strong class="text-violet-950">' +
-        formatarMoeda(invDeriv) +
+        formatarMoeda(invDerivLiq) +
         '</strong>'
       : formatarNumero(vol) +
         ' × ' +
         formatarMoeda(precoUnit) +
         ' = <strong class="text-violet-950">' +
-        formatarMoeda(invDeriv) +
+        formatarMoeda(invDerivLiq) +
         '</strong>';
 
     html.push(
@@ -1321,7 +1587,7 @@ function preencherResumoDerivacaoCliente(prefix) {
     html.push('<div class="text-[11px] font-semibold text-slate-800 mb-1">Como é calculado</div>');
     html.push(
       '<ul class="text-[11px] text-gray-800 leading-relaxed space-y-1 list-none pl-0">' +
-        '<li><span class="text-gray-500 font-medium">Invest. bruto</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
+        '<li><span class="text-gray-500 font-medium">Valor Líq.</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
         escHtml(formulaTxt2) +
         '</span></li>' +
         '</ul>'
@@ -1351,12 +1617,13 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="rounded-lg bg-violet-50/80 border border-violet-200 px-3 py-2 text-[11px] text-violet-950">' +
-        '<span class="font-medium">Invest. bruto correspondente ao volume:</span> ' +
+        '<span class="font-medium">Valor Líq. correspondente ao volume:</span> ' +
         '<span class="font-bold tabular-nums">R$ ' +
-        formatarMoeda(invDeriv) +
+        formatarMoeda(invDerivLiq) +
         '</span>' +
         '</div>'
     );
+    html.push(htmlComissoesIntermediario(invDerivLiq, 0));
     html.push('</div></div>');
     content.innerHTML = html.join('');
     row.classList.remove('hidden');
@@ -1378,7 +1645,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   var kpi = getKpiDescricao(p);
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var volCampo = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
-  var invBruto = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
+  var invLiq = lerValorLiquidoPi(p);
   var veApi =
     j.inc_volume_base !== undefined && j.inc_volume_base !== null
       ? Number(j.inc_volume_base) || 0
@@ -1408,6 +1675,8 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       ? '<span class="text-gray-500 font-normal"> · cadastro: ' + escHtml(String(j.com_percentual_cadastro)) + '</span>'
       : '';
 
+  var parceiroCalc = obterParceiroRegCalculo(p, j);
+
   var incLinha =
     j.incentivo_com_agencia === false
       ? '<td class="py-2 px-3 font-medium text-gray-800">Inc</td>' +
@@ -1421,12 +1690,23 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
         (j.inc_provisionado_maximo ? 'Provisão máxima (2000k) — agência com incentivo.' : 'Faixa por volume (agência).') +
         '</td>';
 
+  var parcLinha =
+    !parceiroCalc
+      ? '<td class="py-2 px-3 font-medium text-gray-800">Parceiro Reg</td>' +
+        '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
+        pctFmt(0) +
+        '</td><td class="py-2 px-3 text-gray-600">Sem parceiro regional na cotação.</td>'
+      : '<td class="py-2 px-3 font-medium text-gray-800">Parceiro Reg</td>' +
+        '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
+        formatarTaxaIntermediario(parceiroCalc.pct, parceiroCalc.val) +
+        '</td><td class="py-2 px-3 text-gray-600">Taxa do parceiro regional (entra na soma de margens).</td>';
+
   var formulaVol =
     kpi === 'CPM'
-      ? '(Investimento bruto ÷ preço unit.) × 1.000'
-      : 'Investimento bruto ÷ preço unit.';
+      ? '(Valor Líq. → bruto ÷ preço unit.) × 1.000'
+      : 'Valor Líq. → bruto ÷ preço unit.';
 
-  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0);
+  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0) + (Number(j.parc) || 0);
 
   var html = [];
   html.push(
@@ -1446,7 +1726,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       '<div class="text-[10px] font-semibold uppercase tracking-wide text-emerald-900 mb-1.5">Como é calculado</div>' +
       '<ul class="text-[11px] text-gray-800 leading-relaxed space-y-1.5 list-none pl-0">' +
       '<li><span class="text-gray-500 font-medium">1)</span> Opex unitário = <span class="font-mono text-[10px] sm:text-[11px] break-all">Valor unitário de tabela ÷ (1 − TF)</span></li>' +
-      '<li><span class="text-gray-500 font-medium">2)</span> Preço unitário = <span class="font-mono text-[10px] sm:text-[11px] break-all">Opex unitário ÷ (1 − Mcc − COM − Inc − Imp)</span></li>' +
+      '<li><span class="text-gray-500 font-medium">2)</span> Preço unitário = <span class="font-mono text-[10px] sm:text-[11px] break-all">Opex unitário ÷ (1 − Mcc − COM − Inc − Imp − Parc)</span></li>' +
       '</ul>' +
       '<div class="mt-2.5 pt-2 border-t border-gray-100 text-[10px] text-gray-600 leading-snug space-y-1">' +
       '<div><span class="font-medium text-gray-700">Com estes números:</span> Vt = ' +
@@ -1461,7 +1741,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       ') = <strong class="text-gray-900">' +
       formatarMoeda(j.opex_unit) +
       '</strong></div>' +
-      '<div>Soma margens = Mcc + COM + Inc + Imp = ' +
+      '<div>Soma margens = Mcc + COM + Inc + Imp + Parc = ' +
       pctFmt(j.mcc) +
       ' + ' +
       pctFmt(j.com) +
@@ -1469,6 +1749,8 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       pctFmt(j.inc) +
       ' + ' +
       pctFmt(j.imp) +
+      ' + ' +
+      pctFmt(j.parc) +
       ' = <strong class="text-gray-900">' +
       pctFmt(sumMargens) +
       '</strong></div>' +
@@ -1549,11 +1831,11 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       escHtml(kpi || '—') +
       '</span>'
   );
-  if (invBruto > 0) {
+  if (invLiq > 0) {
     html.push(
       '<span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] text-gray-800 border border-gray-200">' +
-        '<span class="text-gray-500">Invest.</span> ' +
-        formatarMoeda(invBruto) +
+        '<span class="text-gray-500">Valor Líq.</span> ' +
+        formatarMoeda(invLiq) +
         '</span>'
     );
   }
@@ -1629,6 +1911,8 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   );
 
   html.push('<tr class="border-b border-gray-100 bg-gray-50/50">' + incLinha + '</tr>');
+
+  html.push('<tr class="border-b border-gray-100 bg-white">' + parcLinha + '</tr>');
 
   html.push(
     '<tr class="bg-white">' +
@@ -1707,28 +1991,50 @@ function valorUnitarioEfetivoLinha(prefix) {
   return valTab;
 }
 
-function derivarValorPendente(pref) {
+function derivarValorPendente(pref, opts) {
+  opts = opts || {};
   var p = _calcPrefix(pref);
-  var inv = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
-  var volRaw = document.getElementById(p + 'volume_contratado').value;
+  var editandoVolume = opts.origem === 'volume';
+  var editandoLiq = opts.origem === 'liq';
+  var liqEl = getCampoValorLiquidoPi(p);
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var liq = lerValorLiquidoPi(p);
+  var volRaw = volEl ? volEl.value : '';
   var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var precoUnit = valorUnitarioEfetivoLinha(p);
   var kpi = getKpiDescricao(p);
   var isCpm = kpi === 'CPM';
 
+  // Precificação exige exatamente um âncora (volume OU Valor Líq.): ao editar um campo, limpa o outro.
+  if (editandoVolume && vol > 0 && liq > 0 && liqEl) {
+    liqEl.value = '';
+    liq = 0;
+  } else if (editandoLiq && liq > 0 && vol > 0 && volEl) {
+    volEl.value = '';
+    vol = 0;
+  }
+
   if (precoUnit > 0) {
-    if (inv > 0 && vol <= 0) {
-      var v = isCpm ? (inv / precoUnit) * 1000 : inv / precoUnit;
+    if (liq > 0 && vol <= 0 && !editandoVolume) {
+      var bruto = derivarBrutoDeLiquido(liq);
+      var v = isCpm ? (bruto / precoUnit) * 1000 : bruto / precoUnit;
       document.getElementById(p + 'volume_contratado').value = formatarNumero(Math.round(v));
-    } else if (vol > 0 && inv <= 0) {
-      var i = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
-      document.getElementById(p + 'investimento_bruto').value = formatarMoeda(i);
+    } else if (vol > 0 && liq <= 0 && !editandoVolume && !editandoLiq) {
+      var liqDeriv = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
+      if (liqEl) liqEl.value = formatarMoeda(liqDeriv);
     }
   }
 
+  if ((editandoVolume || editandoLiq) && _ultimoCalculoLinha[p] && !calculoSincronizado(p)) {
+    var valEl = document.getElementById(p + 'valor_unitario');
+    if (valEl) valEl.value = '';
+    limparResumoPrecificacaoTeste(p);
+    _ultimoCalculoLinha[p] = null;
+  }
+
   preencherResumoDerivacaoCliente(p);
-  if (p === 'edit_') calcularInvestLiquidoEdit();
-  else calcularInvestimentoLiquidoPorPrefix(p);
+  atualizarCampoCustoMaxMidia(p, null);
+  atualizarInvestimentoBrutoCampo(p);
   atualizarBtnCalcularPreco(p);
 }
 
@@ -1760,8 +2066,8 @@ async function aplicarFormulaPrecoUnitarioTeste(pref) {
   }
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var volParaApi = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
-  var invBrutoPre = parseMoeda(document.getElementById(p + 'investimento_bruto').value) || 0;
-  var sourceCalc = invBrutoPre > 0 ? 'invest' : 'vol';
+  var invLiqPre = lerValorLiquidoPi(p) || 0;
+  var sourceCalc = invLiqPre > 0 ? 'invest' : 'vol';
   var mccCheck = lerMargemCcOverride(p);
   var fatorDesc = parseFatorDescontoBr(_lerFatorDescontoInput(p));
   var qs = {
@@ -1786,6 +2092,7 @@ async function aplicarFormulaPrecoUnitarioTeste(pref) {
     }
     derivarValorPendente(p);
     preencherResumoPrecificacaoTeste(p, j, volParaApi);
+    atualizarCampoCustoMaxMidia(p, j);
     _ultimoCalculoLinha[p] = _snapshotCamposCalculo(p);
     _ultimoCalculoLinha[p].source = sourceCalc;
     atualizarBtnSalvarLinha(p);
@@ -1844,20 +2151,6 @@ function calcularVolume() {
   void aplicarFormulaPrecoUnitarioTeste(false);
 }
 
-function calcularInvestimentoLiquidoPorPrefix(pref) {
-  var p = _calcPrefix(pref);
-  var investBruto = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
-  var liqEl = document.getElementById(p + 'investimento_liquido');
-  if (!liqEl) return;
-  if (investBruto > 0) {
-    liqEl.value = formatarMoeda(investBruto * obterFatorLiquido());
-  }
-}
-
-function calcularInvestimentoLiquido() {
-  calcularInvestimentoLiquidoPorPrefix('');
-}
-
 function calcularVolumeEdit() {
   var p = 'edit_';
   if (!precificacaoTesteSatisfeita(p)) {
@@ -1867,18 +2160,12 @@ function calcularVolumeEdit() {
   }
   void aplicarFormulaPrecoUnitarioTeste(true);
 }
-
-function calcularInvestLiquidoEdit() {
-  var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
-  var investLiquido = investBruto * obterFatorLiquido();
-  document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
-}
 </script>
 
-{% set tem_agencia_parceiro = (cotacao.agencia_id or cotacao.id_parceiro) if cotacao else false %}
-{% set comissao_pct = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
-{% set fator_liquido = (1 - (comissao_pct / 100)) if (tem_agencia_parceiro and comissao_pct) else 1 %}
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}">
+{% set _pa = cotacao.agencia_percentual|float if (cotacao and cotacao.agencia_percentual) else 0 %}
+{% set _pp = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
+{% set fator_liquido = ((1 - _pa / 100) * (1 - _pp / 100)) if (_pa or _pp) else 1 %}
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}">
 
   <style>
     .tab-nav-item { border-bottom:2px solid transparent; }
@@ -2122,8 +2409,9 @@ function calcularInvestLiquidoEdit() {
   {% set rf_desconto = [0, rf_subtotal_bruto - rf_subtotal_liquido]|max %}
   {% set rf_desconto_percentual = (100.0 * rf_desconto / rf_subtotal_bruto) if rf_subtotal_bruto > 0 else 0.0 %}
   {% set rf_valor_liquido_final = rf_subtotal_liquido %}
+  {% set rf_total_custo_midia = (totais_financeiros.total_custo_midia if totais_financeiros else 0)|float %}
 
-  {# ==================== BARRA DE MÉTRICAS (7 cards) ==================== #}
+  {# ==================== BARRA DE MÉTRICAS (6 cards) ==================== #}
   {% set _plat_cotacao = (cotacao.plataforma_campanha|default('', true)|trim) if cotacao else '' %}
   {% set _plat_primeira = _plat_cotacao %}
   {% if not _plat_primeira and linhas %}
@@ -2140,8 +2428,8 @@ function calcularInvestLiquidoEdit() {
     'Em Acompanhamento': 'bg-purple-500'
   } %}
   {% set _status_cor = _status_cores.get(_status, 'bg-gray-300') %}
-  {# ==================== BARRA DE MÉTRICAS (5 cards) ==================== #}
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
+  {# ==================== BARRA DE MÉTRICAS (6 cards) ==================== #}
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
     <!-- Status -->
     <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
       <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0">
@@ -2152,14 +2440,26 @@ function calcularInvestLiquidoEdit() {
         <p class="text-sm font-semibold text-gray-800 truncate">{{ _status }}</p>
       </div>
     </div>
-    <!-- Valor líquido -->
+    <!-- Valor Líq. / Bruto -->
     <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
       <span class="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0 text-emerald-600">
         <i class="fas fa-coins text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor líquido</p>
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor Líq.</p>
         <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+        <p class="text-[9px] uppercase tracking-wide text-gray-400 leading-tight mt-0.5">Valor Bruto</p>
+        <p class="text-xs font-semibold text-gray-600 truncate">R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+      </div>
+    </div>
+    <!-- Custo de Max Mídia -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-blue-600">
+        <i class="fas fa-photo-video text-xs"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Custo de Max Mídia</p>
+        <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(rf_total_custo_midia).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
       </div>
     </div>
     <!-- Budget -->
@@ -2491,14 +2791,15 @@ function calcularInvestLiquidoEdit() {
               <th class="font-medium py-1 px-1.5 text-right" style="min-width: 66px;" title="Valor unitário negociado (ex.: CPM, CPV conforme o KPI)">Preço unit.</th>
               <th class="font-medium py-1 px-1.5 text-center" style="min-width: 80px;">Período</th>
               <th class="font-medium py-1 px-1.5 text-right" style="min-width: 60px;">Volume</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Bruto</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Líquido</th>
+              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Líq.</th>
+              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Bruto</th>
+              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Custo de Max Mídia</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" data-investimento-bruto="{{ linha.investimento_bruto or 0 }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
+              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" data-investimento-liquido="{{ linha.investimento_liquido or 0 }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
                 <td class="py-1 px-1.5">
                   <span class="px-1 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -2510,26 +2811,30 @@ function calcularInvestLiquidoEdit() {
                 <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap font-mono">{% set pu = linha.valor_unitario_negociado if linha.valor_unitario_negociado is not none else linha.valor_unitario %}R$ {{ "{:,.2f}".format(pu or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 <td class="py-1 px-1.5 text-[10px] text-center text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
                 <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 <td class="py-1 px-1.5 text-[10px] text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-1 px-1.5 text-[10px] text-right font-semibold text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap font-mono">R$ {{ "{:,.2f}".format(linha.custo_midia or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="9" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
+              <tr><td colspan="10" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
             {% endif %}
           </tbody>
           {% if linhas %}
           <tfoot class="bg-gray-50">
-            {% set soma_bruto = namespace(total=0) %}
             {% set soma_liquido = namespace(total=0) %}
+            {% set soma_bruto = namespace(total=0) %}
+            {% set soma_custo_midia = namespace(total=0) %}
             {% for linha in linhas %}
-              {% set soma_bruto.total = soma_bruto.total + (linha.investimento_bruto|default(0, true)|float) %}
               {% set soma_liquido.total = soma_liquido.total + (linha.investimento_liquido|default(0, true)|float) %}
+              {% set soma_bruto.total = soma_bruto.total + (linha.investimento_bruto|default(0, true)|float) %}
+              {% set soma_custo_midia.total = soma_custo_midia.total + (linha.custo_midia|default(0, true)|float) %}
             {% endfor %}
             <tr class="font-semibold text-[10px] text-gray-700">
               <td colspan="7" class="py-1 px-1 text-right">Total Itens</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_bruto.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_liquido.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_bruto.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_custo_midia.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
           </tfoot>
           {% endif %}
@@ -2566,7 +2871,7 @@ function calcularInvestLiquidoEdit() {
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-liquido="{{ aud.investimento_liquido or aud.investimento_sugerido or 0 }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
                 <td class="py-1 px-1.5">
                   {% if aud.audiencia_calculo_plataforma %}
                   <span class="px-1 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ aud.audiencia_calculo_plataforma }}</span>
@@ -2994,9 +3299,9 @@ function calcularInvestLiquidoEdit() {
       <div class="border-t border-gray-200 pt-1.5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
           <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
-          <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+          <span class="text-[10px] text-gray-500">Preencha somente um: Valor Líq. <em>ou</em> Vol. Contratado</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
           <div class="form-control">
             <label class="label py-0">
               <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
@@ -3005,7 +3310,7 @@ function calcularInvestLiquidoEdit() {
               <input type="text" id="margem_cc_override"
                      class="input input-sm input-bordered join-item flex-1 min-w-0"
                      inputmode="decimal" placeholder="25,00"
-                     oninput="atualizarBtnCalcularPreco('');">
+                     oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('');">
               <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
             </div>
             <span id="margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
@@ -3036,19 +3341,25 @@ function calcularInvestLiquidoEdit() {
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs font-medium">Vol. Contratado</span></label>
             <input type="text" id="volume_contratado" class="input input-sm input-bordered w-full" placeholder="0"
-                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('');">
+                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); derivarValorPendente('', { origem: 'volume' });">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Bruto</span></label>
-            <input type="text" id="investimento_bruto" class="input input-sm input-bordered w-full" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('');">
-          </div>
-
-          <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Líquido</span></label>
+            <label class="label py-0"><span class="label-text text-xs font-medium">Valor Líq.</span></label>
             <input type="text" id="investimento_liquido" class="input input-sm input-bordered w-full" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this);">
+                   oninput="aplicarMascaraDinheiro(this); derivarValorPendente('', { origem: 'liq' });">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-xs font-medium">Valor Bruto</span></label>
+            <input type="text" id="investimento_bruto" class="input input-sm input-bordered bg-gray-100 w-full text-gray-800 font-medium" placeholder="0,00" readonly
+                   title="Valor Líq. com gross-up da taxa de agência">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+            <input type="text" id="custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
+                   title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
           </div>
 
           <div class="form-control">
@@ -3090,7 +3401,8 @@ function calcularInvestLiquidoEdit() {
               <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="o_que_entrou_vt">R$ 0,00</strong></span>
               <span><span class="text-gray-500">Fator:</span> <strong id="o_que_entrou_fator">1,00</strong></span>
               <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="o_que_entrou_volume">&mdash;</strong></span>
-              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="o_que_entrou_invest_bruto">&mdash;</strong></span>
               <span><span class="text-gray-500">Margem CC:</span> <strong id="o_que_entrou_mcc">cadastro</strong></span>
             </div>
           </div>
@@ -3116,6 +3428,7 @@ function calcularInvestLiquidoEdit() {
               <span><span class="text-gray-500">Mcc:</span> <strong id="dados_calculo_mcc">0,00%</strong></span>
               <span><span class="text-gray-500">COM:</span> <strong id="dados_calculo_com">0,00%</strong></span>
               <span><span class="text-gray-500">Inc:</span> <strong id="dados_calculo_inc">0,00%</strong></span>
+              <span><span class="text-gray-500">Parc:</span> <strong id="dados_calculo_parc">0,00%</strong></span>
               <span><span class="text-gray-500">Imp:</span> <strong id="dados_calculo_imp">0,00%</strong></span>
               <span><span class="text-gray-500">Soma margens:</span> <strong id="dados_calculo_soma">0,00%</strong></span>
               <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
@@ -3128,12 +3441,32 @@ function calcularInvestLiquidoEdit() {
             <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
               <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="volume_contratado_val">&mdash;</strong></span>
               <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="volume_preco_unit">R$ 0,00</strong></span>
-              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="volume_invest_bruto">R$ 0,00</strong></span>
-              <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="volume_invest_bruto">&mdash;</strong></span>
             </div>
           </div>
         </div>
-        <div id="cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+        <div id="custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia">
+          <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
+            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+            <div class="text-xs text-gray-800 tabular-nums">
+              <span class="text-gray-500">Valor:</span> <strong id="custo_max_midia_val" class="text-blue-900">—</strong>
+              <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>
+            </div>
+          </div>
+        </div>
+        <div id="comissoes_intermediario_row" class="hidden" role="region" aria-label="Comissões intermediários">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Comissões intermediários</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="comissoes_bruto">&mdash;</strong></span>
+              <span id="comissoes_agencia_item" class="hidden"><span class="text-gray-500">Taxa Agência:</span> <strong id="comissoes_agencia_val">&mdash;</strong></span>
+              <span id="comissoes_parceiro_item" class="hidden"><span class="text-gray-500">Taxa Parceiro Reg:</span> <strong id="comissoes_parceiro_val">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="comissoes_liquido" class="text-emerald-900">&mdash;</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação Valor Líq. ou volume contratado">
           <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
           <div id="cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
@@ -3186,8 +3519,7 @@ function calcularInvestLiquidoEdit() {
               <th class="py-2 px-2 text-right">% Desc.</th>
               <th class="py-2 px-2 text-left">Período</th>
               <th class="py-2 px-2 text-right">Volume</th>
-              <th class="py-2 px-2 text-right">Bruto</th>
-              <th class="py-2 px-2 text-right">Líquido</th>
+              <th class="py-2 px-2 text-right">Valor Líq.</th>
             </tr>
           </thead>
           <tbody id="tbody_preview_import_linhas" class="divide-y divide-gray-100"></tbody>
@@ -3396,9 +3728,9 @@ function calcularInvestLiquidoEdit() {
       <div class="border-t border-gray-200 pt-1.5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
           <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
-          <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+          <span class="text-[10px] text-gray-500">Preencha somente um: Valor Líq. <em>ou</em> Vol. Contratado</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
           <div class="form-control">
             <label class="label py-0">
               <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
@@ -3407,7 +3739,7 @@ function calcularInvestLiquidoEdit() {
               <input type="text" id="edit_margem_cc_override"
                      class="input input-sm input-bordered join-item flex-1 min-w-0"
                      inputmode="decimal" placeholder="25,00"
-                     oninput="atualizarBtnCalcularPreco('edit_');">
+                     oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('edit_');">
               <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
             </div>
             <span id="edit_margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
@@ -3438,19 +3770,25 @@ function calcularInvestLiquidoEdit() {
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs font-medium">Vol. Contratado</span></label>
             <input type="text" id="edit_volume_contratado" class="input input-sm input-bordered w-full" placeholder="0"
-                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('edit_');">
+                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); derivarValorPendente('edit_', { origem: 'volume' });">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Bruto</span></label>
-            <input type="text" id="edit_investimento_bruto" class="input input-sm input-bordered w-full" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('edit_');">
-          </div>
-
-          <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Líquido</span></label>
+            <label class="label py-0"><span class="label-text text-xs font-medium">Valor Líq.</span></label>
             <input type="text" id="edit_investimento_liquido" class="input input-sm input-bordered w-full" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this);">
+                   oninput="aplicarMascaraDinheiro(this); derivarValorPendente('edit_', { origem: 'liq' });">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-xs font-medium">Valor Bruto</span></label>
+            <input type="text" id="edit_investimento_bruto" class="input input-sm input-bordered bg-gray-100 w-full text-gray-800 font-medium" placeholder="0,00" readonly
+                   title="Valor Líq. com gross-up da taxa de agência">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+            <input type="text" id="edit_custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
+                   title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
           </div>
 
           <div class="form-control">
@@ -3492,7 +3830,8 @@ function calcularInvestLiquidoEdit() {
               <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="edit_o_que_entrou_vt">R$ 0,00</strong></span>
               <span><span class="text-gray-500">Fator:</span> <strong id="edit_o_que_entrou_fator">1,00</strong></span>
               <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="edit_o_que_entrou_volume">&mdash;</strong></span>
-              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="edit_o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="edit_o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="edit_o_que_entrou_invest_bruto">&mdash;</strong></span>
               <span><span class="text-gray-500">Margem CC:</span> <strong id="edit_o_que_entrou_mcc">cadastro</strong></span>
             </div>
           </div>
@@ -3518,6 +3857,7 @@ function calcularInvestLiquidoEdit() {
               <span><span class="text-gray-500">Mcc:</span> <strong id="edit_dados_calculo_mcc">0,00%</strong></span>
               <span><span class="text-gray-500">COM:</span> <strong id="edit_dados_calculo_com">0,00%</strong></span>
               <span><span class="text-gray-500">Inc:</span> <strong id="edit_dados_calculo_inc">0,00%</strong></span>
+              <span><span class="text-gray-500">Parc:</span> <strong id="edit_dados_calculo_parc">0,00%</strong></span>
               <span><span class="text-gray-500">Imp:</span> <strong id="edit_dados_calculo_imp">0,00%</strong></span>
               <span><span class="text-gray-500">Soma margens:</span> <strong id="edit_dados_calculo_soma">0,00%</strong></span>
               <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="edit_dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
@@ -3530,12 +3870,32 @@ function calcularInvestLiquidoEdit() {
             <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
               <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="edit_volume_contratado_val">&mdash;</strong></span>
               <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="edit_volume_preco_unit">R$ 0,00</strong></span>
-              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="edit_volume_invest_bruto">R$ 0,00</strong></span>
-              <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="edit_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="edit_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="edit_volume_invest_bruto">&mdash;</strong></span>
             </div>
           </div>
         </div>
-        <div id="edit_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+        <div id="edit_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia">
+          <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
+            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+            <div class="text-xs text-gray-800 tabular-nums">
+              <span class="text-gray-500">Valor:</span> <strong id="edit_custo_max_midia_val" class="text-blue-900">—</strong>
+              <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>
+            </div>
+          </div>
+        </div>
+        <div id="edit_comissoes_intermediario_row" class="hidden" role="region" aria-label="Comissões intermediários">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Comissões intermediários</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Valor Bruto:</span> <strong id="edit_comissoes_bruto">&mdash;</strong></span>
+              <span id="edit_comissoes_agencia_item" class="hidden"><span class="text-gray-500">Taxa Agência:</span> <strong id="edit_comissoes_agencia_val">&mdash;</strong></span>
+              <span id="edit_comissoes_parceiro_item" class="hidden"><span class="text-gray-500">Taxa Parceiro Reg:</span> <strong id="edit_comissoes_parceiro_val">&mdash;</strong></span>
+              <span><span class="text-gray-500">Valor Líq.:</span> <strong id="edit_comissoes_liquido" class="text-emerald-900">&mdash;</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="edit_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação Valor Líq. ou volume contratado">
           <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
           <div id="edit_cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
@@ -3630,9 +3990,9 @@ function calcularInvestLiquidoEdit() {
         </div>
       </div>
 
-      <!-- Aba: Intermediário (agência ou parceiro - mutuamente exclusivos) -->
+      <!-- Aba: Intermediário (agência e parceiro regional) -->
       <div data-tabpanel="intermediario" class="hidden space-y-4">
-        <p class="text-xs text-gray-500">Agência e parceiro são mutuamente exclusivos. Selecione um ou outro; quando ambos estiverem vazios, os dois blocos ficam disponíveis.</p>
+        <p class="text-xs text-gray-500">Agência e parceiro regional são independentes. Alterar um não remove o outro; ao salvar, os itens da proposta serão recalculados.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Bloco Agência -->
           <div id="edit_bloco_agencia" class="space-y-3 border border-gray-200 rounded-md p-3 bg-white">
@@ -3646,7 +4006,7 @@ function calcularInvestLiquidoEdit() {
                          placeholder="Digite para buscar agência..."
                          value="{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '' }}"
                          autocomplete="off"
-                         oninput="buscarAgenciasEditModal(this.value)"
+                         oninput="syncAgenciaEditFromBusca(); buscarAgenciasEditModal(this.value)"
                          onfocus="mostrarResultadosAgenciaEditModal()">
                   <button type="button" onclick="limparAgenciaEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
                     <i class="fas fa-times text-gray-400"></i>
@@ -3681,7 +4041,7 @@ function calcularInvestLiquidoEdit() {
                          placeholder="Digite para buscar parceiro..."
                          value="{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '' }}"
                          autocomplete="off"
-                         oninput="buscarParceirosEditModal(this.value)"
+                         oninput="syncParceiroEditFromBusca(); buscarParceirosEditModal(this.value)"
                          onfocus="mostrarResultadosParceiroEditModal()">
                   <button type="button" onclick="limparParceiroEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
                     <i class="fas fa-times text-gray-400"></i>
@@ -3914,9 +4274,9 @@ function calcularInvestLiquidoEdit() {
           <div class="hidden border-t border-gray-200 pt-2">
             <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1.5">
               <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
-              <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+              <span class="text-[10px] text-gray-500">Preencha somente um: Valor Líq. <em>ou</em> Vol. Contratado</span>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2">
               <div class="form-control">
                 <label class="label py-0">
                   <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
@@ -3925,7 +4285,7 @@ function calcularInvestLiquidoEdit() {
                   <input type="text" id="audiencia_margem_cc_override"
                          class="input input-sm input-bordered join-item flex-1 min-w-0"
                          inputmode="decimal" placeholder="25,00"
-                         oninput="atualizarBtnCalcularPreco('audiencia_');">
+                         oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('audiencia_');">
                   <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
                 </div>
                 <span id="audiencia_margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
@@ -3956,18 +4316,25 @@ function calcularInvestLiquidoEdit() {
               <div class="form-control">
                 <label class="label py-0"><span class="label-text text-xs font-medium">Vol. Contratado</span></label>
                 <input type="text" id="audiencia_volume_contratado" class="input input-sm input-bordered w-full" placeholder="0"
-                       inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('audiencia_');">
+                       inputmode="numeric" oninput="aplicarMascaraInteiro(this); derivarValorPendente('audiencia_', { origem: 'volume' });">
               </div>
 
               <div class="form-control">
-                <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Bruto</span></label>
-                <input type="text" id="audiencia_investimento_bruto" class="input input-sm input-bordered w-full" placeholder="0,00"
-                       oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('audiencia_');">
+                <label class="label py-0"><span class="label-text text-xs font-medium">Valor Líq.</span></label>
+                <input type="text" id="audiencia_investimento_liquido" class="input input-sm input-bordered w-full" placeholder="0,00"
+                       oninput="aplicarMascaraDinheiro(this); derivarValorPendente('audiencia_', { origem: 'liq' });">
               </div>
 
               <div class="form-control">
-                <label class="label py-0"><span class="label-text text-xs font-medium">Invest. Líquido</span></label>
-                <input type="text" id="audiencia_investimento_liquido" class="input input-sm input-bordered bg-gray-100 w-full" placeholder="0,00" readonly>
+                <label class="label py-0"><span class="label-text text-xs font-medium">Valor Bruto</span></label>
+                <input type="text" id="audiencia_investimento_bruto" class="input input-sm input-bordered bg-gray-100 w-full text-gray-800 font-medium" placeholder="0,00" readonly
+                       title="Valor Líq. com gross-up da taxa de agência">
+              </div>
+
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+                <input type="text" id="audiencia_custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
+                       title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
               </div>
 
               <div class="form-control">
@@ -4009,7 +4376,8 @@ function calcularInvestLiquidoEdit() {
                   <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="audiencia_o_que_entrou_vt">R$ 0,00</strong></span>
                   <span><span class="text-gray-500">Fator:</span> <strong id="audiencia_o_que_entrou_fator">1,00</strong></span>
                   <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="audiencia_o_que_entrou_volume">&mdash;</strong></span>
-                  <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="audiencia_o_que_entrou_invest">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Valor Líq.:</span> <strong id="audiencia_o_que_entrou_invest">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Valor Bruto:</span> <strong id="audiencia_o_que_entrou_invest_bruto">&mdash;</strong></span>
                   <span><span class="text-gray-500">Margem CC:</span> <strong id="audiencia_o_que_entrou_mcc">cadastro</strong></span>
                 </div>
               </div>
@@ -4035,6 +4403,7 @@ function calcularInvestLiquidoEdit() {
                   <span><span class="text-gray-500">Mcc:</span> <strong id="audiencia_dados_calculo_mcc">0,00%</strong></span>
                   <span><span class="text-gray-500">COM:</span> <strong id="audiencia_dados_calculo_com">0,00%</strong></span>
                   <span><span class="text-gray-500">Inc:</span> <strong id="audiencia_dados_calculo_inc">0,00%</strong></span>
+                  <span><span class="text-gray-500">Parc:</span> <strong id="audiencia_dados_calculo_parc">0,00%</strong></span>
                   <span><span class="text-gray-500">Imp:</span> <strong id="audiencia_dados_calculo_imp">0,00%</strong></span>
                   <span><span class="text-gray-500">Soma margens:</span> <strong id="audiencia_dados_calculo_soma">0,00%</strong></span>
                   <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="audiencia_dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
@@ -4047,8 +4416,28 @@ function calcularInvestLiquidoEdit() {
                 <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
                   <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="audiencia_volume_contratado_val">&mdash;</strong></span>
                   <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="audiencia_volume_preco_unit">R$ 0,00</strong></span>
-                  <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="audiencia_volume_invest_bruto">R$ 0,00</strong></span>
-                  <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="audiencia_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Valor Líq.:</span> <strong id="audiencia_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Valor Bruto:</span> <strong id="audiencia_volume_invest_bruto">&mdash;</strong></span>
+                </div>
+              </div>
+            </div>
+            <div id="audiencia_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia (audiência)">
+              <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
+                <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+                <div class="text-xs text-gray-800 tabular-nums">
+                  <span class="text-gray-500">Valor:</span> <strong id="audiencia_custo_max_midia_val" class="text-blue-900">—</strong>
+                  <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>
+                </div>
+              </div>
+            </div>
+            <div id="audiencia_comissoes_intermediario_row" class="hidden" role="region" aria-label="Comissões intermediários (audiência)">
+              <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Comissões intermediários</div>
+                <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+                  <span><span class="text-gray-500">Valor Bruto:</span> <strong id="audiencia_comissoes_bruto">&mdash;</strong></span>
+                  <span id="audiencia_comissoes_agencia_item" class="hidden"><span class="text-gray-500">Taxa Agência:</span> <strong id="audiencia_comissoes_agencia_val">&mdash;</strong></span>
+                  <span id="audiencia_comissoes_parceiro_item" class="hidden"><span class="text-gray-500">Taxa Parceiro Reg:</span> <strong id="audiencia_comissoes_parceiro_val">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Valor Líq.:</span> <strong id="audiencia_comissoes_liquido" class="text-emerald-900">&mdash;</strong></span>
                 </div>
               </div>
             </div>
@@ -5152,11 +5541,43 @@ function validarDataInicio(input) {
 }
 
 // Funções para editar Cliente
+var _intermediarioInicialEdit = null;
+
+function _parseIntermediarioId(valor) {
+  var n = parseInt(valor, 10);
+  return isNaN(n) ? null : n;
+}
+
+function capturarIntermediarioInicialEdit() {
+  _intermediarioInicialEdit = {
+    agencia_id: _parseIntermediarioId(document.getElementById('edit_agencia_id').value),
+    id_parceiro: _parseIntermediarioId(document.getElementById('edit_parceiro_id').value)
+  };
+}
+
+function intermediarioAlteradoNoModalEdit() {
+  if (!_intermediarioInicialEdit) return false;
+  var agenciaAtual = _parseIntermediarioId(document.getElementById('edit_agencia_id').value);
+  var parceiroAtual = _parseIntermediarioId(document.getElementById('edit_parceiro_id').value);
+  return agenciaAtual !== _intermediarioInicialEdit.agencia_id
+    || parceiroAtual !== _intermediarioInicialEdit.id_parceiro;
+}
+
+function confirmarAlteracaoIntermediarioComItens(qtdItens) {
+  return confirm(
+    'Esta cotação possui ' + qtdItens + ' item(ns) de proposta salvos.\n\n'
+    + 'Alterar ou remover a agência ou o parceiro regional fará com que o cálculo dos itens seja refeito ao salvar, '
+    + 'podendo modificar comissões, preços unitários e valores líquidos/brutos.\n\n'
+    + 'Concorda com a alteração?'
+  );
+}
+
 function abrirModalEditarCliente() {
   if (!podeEditar()) {
     mostrarBloqueioEdicao();
     return;
   }
+  capturarIntermediarioInicialEdit();
   inicializarAbasModal('modal_editar_cliente', { aba: 'cliente' });
   document.getElementById('modal_editar_cliente').showModal();
   toggleAgenciaParceiroEdit();
@@ -5325,14 +5746,9 @@ function selecionarAgenciaEdit(agenciaId, agenciaNome, percentual) {
   document.getElementById('edit_agencia_id').value = agenciaId;
   document.getElementById('edit_agencia_busca').value = agenciaNome;
   document.getElementById('resultados_agencias_edit').classList.add('hidden');
-  
-  // Carregar contatos da agência selecionada
+
   carregarContatosAgenciaEdit(agenciaId);
-  
-  // Atualizar percentual de comissão (agência selecionada = tem agência)
-  atualizarComissaoPercentual(percentual, true);
-  
-  // Atualizar visibilidade mútua
+  atualizarComissaoPercentual(percentual, true, 'agencia');
   toggleAgenciaParceiroEdit();
 }
 
@@ -5368,13 +5784,19 @@ function limparAgenciaEditModal() {
   document.getElementById('edit_agencia_busca').value = '';
   document.getElementById('edit_contato_agencia_id').innerHTML = '<option value="">Selecione um contato...</option>';
   
-  // Sem agência: verificar se há parceiro; se não, sem comissão
-  var parceiroId = document.getElementById('edit_parceiro_id').value;
-  if (!parceiroId) {
-    atualizarComissaoPercentual(null, false);
-  }
+  // Sem agência: limpar percentual da agência
+  atualizarComissaoPercentual(null, false, 'agencia');
   
   // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
+}
+
+function syncAgenciaEditFromBusca() {
+  var buscaEl = document.getElementById('edit_agencia_busca');
+  if (!buscaEl || String(buscaEl.value || '').trim()) return;
+  document.getElementById('edit_agencia_id').value = '';
+  document.getElementById('edit_contato_agencia_id').innerHTML = '<option value="">Selecione um contato...</option>';
+  atualizarComissaoPercentual(null, false, 'agencia');
   toggleAgenciaParceiroEdit();
 }
 
@@ -5438,14 +5860,9 @@ function selecionarParceiroEdit(parceiroId, parceiroNome, percentual) {
   document.getElementById('edit_parceiro_id').value = parceiroId;
   document.getElementById('edit_parceiro_busca').value = parceiroNome;
   document.getElementById('resultados_parceiros_edit').classList.add('hidden');
-  
-  // Carregar contatos do parceiro selecionado
+
   carregarContatosParceiroEdit(parceiroId);
-  
-  // Atualizar percentual de comissão (parceiro selecionado = tem parceiro)
-  atualizarComissaoPercentual(percentual, true);
-  
-  // Atualizar visibilidade mútua
+  atualizarComissaoPercentual(percentual, true, 'parceiro');
   toggleAgenciaParceiroEdit();
 }
 
@@ -5481,13 +5898,19 @@ function limparParceiroEditModal() {
   document.getElementById('edit_parceiro_busca').value = '';
   document.getElementById('edit_contato_parceiro_id').innerHTML = '<option value="">Selecione um contato...</option>';
   
-  // Sem parceiro: verificar se há agência; se não, sem comissão
-  var agenciaId = document.getElementById('edit_agencia_id').value;
-  if (!agenciaId) {
-    atualizarComissaoPercentual(null, false);
-  }
+  // Sem parceiro: limpar percentual do parceiro
+  atualizarComissaoPercentual(null, false, 'parceiro');
   
   // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
+}
+
+function syncParceiroEditFromBusca() {
+  var buscaEl = document.getElementById('edit_parceiro_busca');
+  if (!buscaEl || String(buscaEl.value || '').trim()) return;
+  document.getElementById('edit_parceiro_id').value = '';
+  document.getElementById('edit_contato_parceiro_id').innerHTML = '<option value="">Selecione um contato...</option>';
+  atualizarComissaoPercentual(null, false, 'parceiro');
   toggleAgenciaParceiroEdit();
 }
 
@@ -5503,24 +5926,10 @@ function mostrarResultadosParceiroEditModal() {
 // ============================================
 
 function toggleAgenciaParceiroEdit() {
-  const agenciaId = document.getElementById('edit_agencia_id').value;
-  const parceiroId = document.getElementById('edit_parceiro_id').value;
   const blocoAgencia = document.getElementById('edit_bloco_agencia');
   const blocoParceiro = document.getElementById('edit_bloco_parceiro');
-  
-  if (agenciaId) {
-    // Agência selecionada: mostra agência, esconde parceiro
-    blocoAgencia.style.display = '';
-    blocoParceiro.style.display = 'none';
-  } else if (parceiroId) {
-    // Parceiro selecionado: mostra parceiro, esconde agência
-    blocoAgencia.style.display = 'none';
-    blocoParceiro.style.display = '';
-  } else {
-    // Nenhum selecionado: mostra ambos
-    blocoAgencia.style.display = '';
-    blocoParceiro.style.display = '';
-  }
+  if (blocoAgencia) blocoAgencia.style.display = '';
+  if (blocoParceiro) blocoParceiro.style.display = '';
 }
 
 async function salvarEdicaoCliente() {
@@ -5528,8 +5937,16 @@ async function salvarEdicaoCliente() {
     mostrarBloqueioEdicao();
     return;
   }
-  const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
-  
+  const container = document.querySelector('[data-cotacao-id]');
+  const cotacaoId = container.dataset.cotacaoId;
+  const qtdLinhas = parseInt(container.dataset.qtdLinhas || '0', 10);
+  const qtdAudiencias = parseInt(container.dataset.qtdAudiencias || '0', 10);
+  const totalItens = qtdLinhas + qtdAudiencias;
+
+  if (totalItens > 0 && intermediarioAlteradoNoModalEdit()) {
+    if (!confirmarAlteracaoIntermediarioComItens(totalItens)) return;
+  }
+
   const data = {
     client_id: parseInt(document.getElementById('edit_cliente_id').value) || null,
     client_user_id: parseInt(document.getElementById('edit_contato_id').value) || null,
@@ -5539,7 +5956,7 @@ async function salvarEdicaoCliente() {
     parceiro_user_id: parseInt(document.getElementById('edit_contato_parceiro_id').value) || null,
     responsavel_comercial: parseInt(document.getElementById('edit_responsavel_comercial').value) || null
   };
-  
+
   try {
     const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
       method: 'PATCH',
@@ -5551,7 +5968,7 @@ async function salvarEdicaoCliente() {
     
     if (result.success) {
       document.getElementById('modal_editar_cliente').close();
-      showToast('Informações do cliente atualizadas!', 'success');
+      showToast(result.message || 'Informações do cliente atualizadas!', 'success');
       setTimeout(() => window.location.reload(), 500);
     } else {
       showToast('Erro: ' + result.message, 'error');
@@ -5640,9 +6057,12 @@ function abrirModalNovaLinha() {
   // Inicializar campos de valores com formato correto
   document.getElementById('valor_unitario_tabela').value = '';
   document.getElementById('valor_unitario').value = '';
-  document.getElementById('investimento_bruto').value = '';
   document.getElementById('volume_contratado').value = '';
   document.getElementById('investimento_liquido').value = '';
+  var _brNova = document.getElementById('investimento_bruto');
+  if (_brNova) _brNova.value = '';
+  var _cmNova = document.getElementById('custo_midia');
+  if (_cmNova) _cmNova.value = '';
   var _fdNova = document.getElementById('fator_desconto');
   if (_fdNova) _fdNova.value = '1,00';
   limparResumoPrecificacaoTeste('');
@@ -5965,10 +6385,17 @@ document.addEventListener('DOMContentLoaded', function() {
           const tdVol = document.createElement('td');
           tdVol.className = 'py-2 px-2 text-xs text-right';
           tdVol.textContent = it.volume_contratado != null ? String(it.volume_contratado) : '0';
-          const tdBruto = document.createElement('td');
-          tdBruto.className = 'py-2 px-2 text-xs text-right';
-          const brutoN = parseFloat(it.investimento_bruto);
-          tdBruto.textContent = `R$ ${formatarMoeda(Number.isFinite(brutoN) ? brutoN : 0)}`;
+          const tdLiq = document.createElement('td');
+          tdLiq.className = 'py-2 px-2 text-xs text-right';
+          const liqRaw = it.investimento_liquido;
+          let liqN = parseFloat(liqRaw);
+          if (!Number.isFinite(liqN)) {
+            const brutoFallback = parseFloat(it.investimento_bruto);
+            if (Number.isFinite(brutoFallback) && brutoFallback > 0) {
+              liqN = brutoFallback;
+            }
+          }
+          tdLiq.textContent = Number.isFinite(liqN) ? `R$ ${formatarMoeda(liqN)}` : '—';
           const tdKpi = document.createElement('td');
           tdKpi.className = 'py-2 px-2 text-xs text-center';
           const selKpi = document.createElement('select');
@@ -5996,14 +6423,6 @@ document.addEventListener('DOMContentLoaded', function() {
           tdDesc.className = 'py-2 px-2 text-xs text-right';
           const d = parseFloat(it.desconto_percentual);
           tdDesc.textContent = Number.isFinite(d) && d > 0 ? `${d.toFixed(1)}%` : '—';
-          const tdLiq = document.createElement('td');
-          tdLiq.className = 'py-2 px-2 text-xs text-right';
-          const liqRaw = it.investimento_liquido;
-          let liqN = parseFloat(liqRaw);
-          if (!Number.isFinite(liqN) && Number.isFinite(brutoN)) {
-            liqN = brutoN * obterFatorLiquido();
-          }
-          tdLiq.textContent = Number.isFinite(liqN) ? `R$ ${formatarMoeda(liqN)}` : '—';
           tr.appendChild(tdChk);
           tr.appendChild(tdSeg);
           tr.appendChild(tdPlat);
@@ -6012,7 +6431,6 @@ document.addEventListener('DOMContentLoaded', function() {
           tr.appendChild(tdDesc);
           tr.appendChild(tdPer);
           tr.appendChild(tdVol);
-          tr.appendChild(tdBruto);
           tr.appendChild(tdLiq);
           tbody.appendChild(tr);
         });
@@ -6188,11 +6606,8 @@ async function salvarNovaLinha() {
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="produto"]:checked'))
     .map(cb => cb.value);
   
-  // Invest. Líquido: priorizar o valor do campo (definido pelo Calcular ou digitado pelo usuário);
-  // se o campo estiver vazio/zero, derivar de bruto * fator da agência/parceiro.
-  const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
-  const liqInput = parseMoeda(document.getElementById('investimento_liquido').value) || 0;
-  const investLiquido = liqInput > 0 ? liqInput : (investBruto * obterFatorLiquido());
+  const investLiquido = lerValorLiquidoPi('');
+  const investBruto = derivarBrutoDeLiquido(investLiquido);
   
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
@@ -6300,11 +6715,15 @@ function _lerSelecoesImportLinha(tr) {
 }
 
 function montarPayloadLinhaImportacao(item, tr) {
-  const investBruto = parseFloat(item.investimento_bruto) || 0;
   const liquidoOcr = item.investimento_liquido;
-  const investLiquido = (liquidoOcr != null && liquidoOcr !== '' && !Number.isNaN(Number(liquidoOcr)))
+  let investLiquido = (liquidoOcr != null && liquidoOcr !== '' && !Number.isNaN(Number(liquidoOcr)))
     ? Number(liquidoOcr)
-    : investBruto * obterFatorLiquido();
+    : 0;
+  if (investLiquido <= 0) {
+    const brutoFallback = parseFloat(item.investimento_bruto) || 0;
+    if (brutoFallback > 0) investLiquido = brutoFallback;
+  }
+  const investBruto = derivarBrutoDeLiquido(investLiquido);
   const vuNeg = parseFloat(item.valor_unitario_negociado) || parseFloat(item.valor_unitario) || 0;
   const volRaw = item.volume_contratado;
   const volumeContratado = typeof volRaw === 'number' ? Math.round(volRaw) : (parseInt(String(volRaw || '').replace(/\D/g, ''), 10) || 0);
@@ -6481,9 +6900,12 @@ async function visualizarOuEditarLinha(linhaId) {
       fatorEdit.value = formatarFatorDescontoBr(fatorNum);
     }
     document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario_negociado || linha.valor_unitario || 0);
-    document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
+    var liquidoExibir = Number(linha.investimento_liquido || 0);
+    document.getElementById('edit_investimento_liquido').value = formatarMoeda(liquidoExibir);
+    atualizarInvestimentoBrutoCampo('edit_');
+    var _cmEdit = document.getElementById('edit_custo_midia');
+    if (_cmEdit) _cmEdit.value = linha.custo_midia ? formatarMoeda(linha.custo_midia) : '';
     document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
-    document.getElementById('edit_investimento_liquido').value = formatarMoeda(linha.investimento_liquido || 0);
 
     const formatos = typeof linha.formatos === 'string' ? linha.formatos.split(',').map(s => s.trim()) : (Array.isArray(linha.formatos) ? linha.formatos : []);
     document.querySelectorAll('input[name="edit_formatos"]').forEach(cb => {
@@ -6505,7 +6927,7 @@ async function visualizarOuEditarLinha(linhaId) {
     if (linha.perc_margem_cc != null && Number(linha.perc_margem_cc) > 0) {
       var mccPct = Number(linha.perc_margem_cc) * 100;
       var inputMcc = document.getElementById('edit_margem_cc_override');
-      if (inputMcc) inputMcc.value = mccPct.toFixed(2).replace('.', ',');
+      if (inputMcc) inputMcc.value = formatarMoeda(mccPct);
     } else {
       inicializarMargemCcInput('edit_');
     }
@@ -6518,6 +6940,7 @@ async function visualizarOuEditarLinha(linhaId) {
       reconstruirResumoPrecoSalvo('edit_', linha);
       _ultimoCalculoLinha['edit_'] = _snapshotCamposCalculo('edit_');
       _ultimoCalculoLinha['edit_'].source = _inferirSourceCalculo({
+        investimento_liquido: linha.investimento_liquido,
         investimento_bruto: linha.investimento_bruto,
         volume_contratado: linha.volume_contratado,
         preco_unitario: linha.valor_unitario_negociado || linha.valor_unitario,
@@ -6605,11 +7028,8 @@ async function salvarEdicaoLinha() {
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="edit_produto"]:checked'))
     .map(cb => cb.value);
   
-  // Invest. Líquido: priorizar o valor do campo (definido pelo Calcular ou digitado pelo usuário);
-  // se o campo estiver vazio/zero, derivar de bruto * fator da agência/parceiro.
-  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const liqInput = parseMoeda(document.getElementById('edit_investimento_liquido').value) || 0;
-  const investLiquido = liqInput > 0 ? liqInput : (investBruto * obterFatorLiquido());
+  const investLiquido = lerValorLiquidoPi('edit_');
+  const investBruto = derivarBrutoDeLiquido(investLiquido);
   
   const mccCheckSaveE = lerMargemCcOverride('edit_');
   const data = {
@@ -6746,7 +7166,7 @@ let audienciasSugeridas = [];
 
 function resetAudienciaCalculoEconomicoParaNovaOuBusca() {
   ['audiencia_plataforma', 'audiencia_objetivo_kpi', 'audiencia_valor_unitario_tabela', 'audiencia_valor_unitario',
-    'audiencia_volume_contratado', 'audiencia_investimento_bruto', 'audiencia_investimento_liquido'].forEach(function(id) {
+    'audiencia_volume_contratado', 'audiencia_investimento_liquido'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -7118,22 +7538,20 @@ async function editarAudienciaCotacao(audienciaId) {
     }
     var precoUnitSalvo = Number(aud.valor_unitario_negociado || aud.valor_unitario || 0);
     document.getElementById('audiencia_valor_unitario').value = precoUnitSalvo > 0 ? formatarMoeda(precoUnitSalvo) : '';
-    var invBrutoSalvo = Number(aud.investimento_bruto || 0) > 0
-      ? Number(aud.investimento_bruto)
-      : Number(aud.investimento_sugerido || 0);
-    document.getElementById('audiencia_investimento_bruto').value = invBrutoSalvo > 0 ? formatarMoeda(invBrutoSalvo) : '';
-    var volSalvo = Number(aud.volume_contratado || 0) > 0
-      ? Number(aud.volume_contratado)
-      : Number(aud.impressoes_estimadas || 0);
-    document.getElementById('audiencia_volume_contratado').value = volSalvo > 0 ? formatarNumero(volSalvo) : '';
     var liqSalvo = Number(aud.investimento_liquido || 0);
+    if (liqSalvo <= 0) {
+      var fallbackLiq = Number(aud.investimento_sugerido || aud.investimento_bruto || 0);
+      if (fallbackLiq > 0) liqSalvo = fallbackLiq;
+    }
     var elLiqAud = document.getElementById('audiencia_investimento_liquido');
     if (elLiqAud) {
       elLiqAud.value = liqSalvo > 0 ? formatarMoeda(liqSalvo) : '';
     }
-    if (liqSalvo <= 0) {
-      calcularInvestimentoLiquidoPorPrefix('audiencia_');
-    }
+    atualizarInvestimentoBrutoCampo('audiencia_');
+    var volSalvo = Number(aud.volume_contratado || 0) > 0
+      ? Number(aud.volume_contratado)
+      : Number(aud.impressoes_estimadas || 0);
+    document.getElementById('audiencia_volume_contratado').value = volSalvo > 0 ? formatarNumero(volSalvo) : '';
 
     const cotacaoPeriodoInicio = '{{ cotacao.periodo_inicio.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_inicio else "" }}';
     const cotacaoPeriodoFim = '{{ cotacao.periodo_fim.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_fim else "" }}';
@@ -7146,7 +7564,7 @@ async function editarAudienciaCotacao(audienciaId) {
     if (aud.perc_margem_cc != null && Number(aud.perc_margem_cc) > 0) {
       var mccPctAud = Number(aud.perc_margem_cc) * 100;
       var inputMccAud = document.getElementById('audiencia_margem_cc_override');
-      if (inputMccAud) inputMccAud.value = mccPctAud.toFixed(2).replace('.', ',');
+      if (inputMccAud) inputMccAud.value = formatarMoeda(mccPctAud);
       var hintAud = document.getElementById('audiencia_margem_cc_override_hint');
       var cadPctAud = obterMargemCcCadastroPercent();
       if (hintAud) {
@@ -7168,13 +7586,14 @@ async function editarAudienciaCotacao(audienciaId) {
       reconstruirResumoPrecoSalvo('audiencia_', aud);
       _ultimoCalculoLinha['audiencia_'] = _snapshotCamposCalculo('audiencia_');
       _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
+        investimento_liquido: aud.investimento_liquido,
         investimento_bruto: aud.investimento_bruto,
         volume_contratado: aud.volume_contratado,
         preco_unitario: aud.valor_unitario_negociado || aud.valor_unitario,
         kpi: aud.objetivo_kpi || aud.audiencia_calculo_kpi
       });
     } else {
-      var invL = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
+      var invL = lerValorLiquidoPi('audiencia_');
       var volL = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
       var valTabAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
       var xorOk = (invL > 0) !== (volL > 0);
@@ -7188,7 +7607,8 @@ async function editarAudienciaCotacao(audienciaId) {
           _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
         } else {
           _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
-            investimento_bruto: invL,
+            investimento_liquido: invL,
+            investimento_bruto: derivarBrutoDeLiquido(invL),
             volume_contratado: volL,
             preco_unitario: valTabAud,
             kpi: getKpiDescricao('audiencia_')

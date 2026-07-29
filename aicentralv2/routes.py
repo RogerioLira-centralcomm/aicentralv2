@@ -32,7 +32,12 @@ from aicentralv2.services.spedy_service import (
     map_spedy_invoice_to_nf_update,
     parse_pi_amount,
 )
-from aicentralv2.services.nf_pdf_extraction import extract_nf_pdf
+from aicentralv2.services.nf_pdf_extraction import (
+    extract_nf_pdf,
+    enrich_extracted_nf,
+    nf_extracao_tem_campos_legiveis,
+    serializar_extracted_nf_resposta,
+)
 from aicentralv2.services.nf_pdf_storage import NfPdfStorage, validate_nf_pdf_upload, compute_file_hash
 from psycopg.errors import UniqueViolation, ForeignKeyViolation, NotNullViolation, ProgrammingError
 
@@ -12927,6 +12932,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         Tomador/cliente não é validado (NF pode ser emitida para terceiro).
         Retorna (ok, erros, avisos, detalhes).
         """
+        from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi, codigo_pi_equivale
+
         extracted = extracted or {}
         erros = []
         avisos = []
@@ -12934,14 +12941,20 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         pi_codes = _codigos_pi_registro_nf(pi_row)
         cod_pi_esperado = (pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag') or '').strip()
-        cod_nf = (_resolver_codigo_pi_nf(extracted) or '').strip().upper()
+
+        cod_nf = normalize_codigo_pi(
+            extracted.get('codigo_pi'),
+            extracted.get('discriminacao'),
+            expected=cod_pi_esperado,
+            filename=extracted.get('_filename'),
+        )
 
         if pi_codes:
             if not cod_nf:
                 erros.append(
                     f'Código PI não identificado na nota. O PI selecionado é "{cod_pi_esperado}".'
                 )
-            elif cod_nf not in pi_codes:
+            elif not any(codigo_pi_equivale(cod_nf, pc) for pc in pi_codes):
                 ref = cod_nf
                 erros.append(
                     f'Inconsistência no PI: a nota referencia PI "{ref}", '
@@ -12951,6 +12964,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 detalhes['pi_ok'] = True
                 detalhes['codigo_pi_nf'] = cod_nf
                 detalhes['codigo_pi_esperado'] = cod_pi_esperado
+                if cod_nf != cod_pi_esperado and codigo_pi_equivale(cod_nf, cod_pi_esperado):
+                    avisos.append(
+                        f'Código PI na nota ({cod_nf}) foi ajustado para conferir com o PI '
+                        f'selecionado ({cod_pi_esperado}).'
+                    )
+                    detalhes['codigo_pi_nf'] = cod_pi_esperado
 
         nf_total, nf_liq = _valores_nota_nf(extracted)
         valor_nf = nf_total if nf_total is not None else nf_liq
@@ -12963,32 +12982,37 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         return ok, erros, avisos, detalhes
 
     def _extrair_codigo_pi_discriminacao_nf(discriminacao):
-        if not discriminacao:
-            return None
-        m = re.search(r'\bPI\s*[#:\-]?\s*(\d+)\b', str(discriminacao), re.I)
-        return m.group(1).strip() if m else None
+        from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi
+        return normalize_codigo_pi(discriminacao=discriminacao)
 
-    def _resolver_codigo_pi_nf(extracted):
+    def _resolver_codigo_pi_nf(extracted, expected=None):
         """Normaliza código PI extraído (OCR pode trazer texto extra)."""
+        from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi
         extracted = extracted or {}
-        raw = (extracted.get('codigo_pi') or '').strip()
-        if raw:
-            if re.fullmatch(r'\d+', raw):
-                return raw
-            m = re.search(r'\bPI\s*[#:\-]?\s*(\d+)\b', raw, re.I)
-            if m:
-                return m.group(1).strip()
-            if re.fullmatch(r'[\w\-]+', raw) and len(raw) <= 20:
-                return raw.upper()
-        return _extrair_codigo_pi_discriminacao_nf(extracted.get('discriminacao'))
+        return normalize_codigo_pi(
+            extracted.get('codigo_pi'),
+            extracted.get('discriminacao'),
+            expected=expected or extracted.get('codigo_pi_referencia'),
+            filename=extracted.get('_filename'),
+        )
 
     def _codigos_pi_registro_nf(pi_row):
         codes = []
         for campo in ('codigo_pi_cc', 'codigo_pi_ag'):
-            valor = (pi_row.get(campo) or '').strip().upper()
+            valor = (pi_row.get(campo) or '').strip()
             if valor and valor not in codes:
                 codes.append(valor)
         return codes
+
+    def _refinar_codigo_pi_extraido(extracted, pi_row=None, filename=None, codigo_referencia=None):
+        """Aplica normalização do código PI usando contexto do PI selecionado."""
+        expected = codigo_referencia
+        if not expected and pi_row:
+            expected = pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag')
+        result = enrich_extracted_nf(extracted, filename=filename, expected_pi=expected)
+        if filename:
+            result['_filename'] = filename
+        return result
 
     def _extracted_from_linha_confirmacao_nf(linha):
         import json as json_mod
@@ -13014,6 +13038,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             extracted['valor_total'] = linha.get('valor')
         if linha.get('codigo_pi_referencia') and not extracted.get('codigo_pi'):
             extracted['codigo_pi'] = linha['codigo_pi_referencia']
+        if linha.get('filename'):
+            extracted['_filename'] = linha.get('filename')
+        if linha.get('codigo_pi_referencia'):
+            extracted['codigo_pi_referencia'] = linha['codigo_pi_referencia']
         return extracted
 
     def _serializar_pi_candidato_nf(pi_row):
@@ -13094,6 +13122,20 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             except Exception as ocr_exc:
                 current_app.logger.error(f'OCR NF {filename}: {ocr_exc}', exc_info=True)
 
+            if pi_contexto:
+                extracted = _refinar_codigo_pi_extraido(extracted, pi_contexto, filename)
+            elif filename:
+                extracted = _refinar_codigo_pi_extraido(extracted, filename=filename)
+
+            ocr_ok = nf_extracao_tem_campos_legiveis(extracted)
+            if pi_contexto and not ocr_ok:
+                current_app.logger.warning(
+                    'OCR NF sem campos essenciais: arquivo=%s id_pi=%s keys=%s',
+                    filename,
+                    id_pi_contexto,
+                    list((extracted or {}).keys()),
+                )
+
             try:
                 pending = storage.save_pending(file_bytes, filename)
             except Exception as save_exc:
@@ -13156,6 +13198,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     })
                     continue
                 importable = True
+                if not ocr_ok:
+                    avisos.append(
+                        'OCR não leu todos os campos da nota. Preencha os dados manualmente antes de confirmar.'
+                    )
 
             items.append({
                 'success': True,
@@ -13164,8 +13210,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'filename': filename,
                 'temp_id': pending['temp_id'],
                 'hash_arquivo': file_hash,
-                'ocr_ok': bool(extracted),
-                'extracted': extracted,
+                'ocr_ok': ocr_ok,
+                'extracted': serializar_extracted_nf_resposta(extracted),
                 'match_type': match.get('match_type'),
                 'match_method': match.get('match_method'),
                 'id_pi_sugerido': pi_sugerido.get('id_pi') if pi_sugerido else None,
@@ -13272,6 +13318,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 continue
 
             extracted_conf = _extracted_from_linha_confirmacao_nf(linha)
+            extracted_conf = _refinar_codigo_pi_extraido(
+                extracted_conf,
+                pi,
+                filename=linha.get('filename'),
+                codigo_referencia=linha.get('codigo_pi_referencia'),
+            )
             ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf)
             if not ok_val:
                 storage.delete_pending(temp_id)

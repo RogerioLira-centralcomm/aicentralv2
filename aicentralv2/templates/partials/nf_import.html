@@ -382,6 +382,7 @@
     if (!item || !item.success) return;
 
     var ex = item.extracted || {};
+    var imp = ex.impostos || {};
     var dataEm = nfImportFmtDate(ex.data_emissao);
     nfImportPgtoManual = false;
     document.getElementById('nf_import_preview_filename').textContent = item.filename || '';
@@ -392,11 +393,11 @@
     document.getElementById('nf_import_preview_cod_verif').value = ex.codigo_verificacao || '';
     document.getElementById('nf_import_preview_valor').value = fmtValorNfImport(ex.valor_total);
     document.getElementById('nf_import_preview_valor_liquido').value = fmtValorNfImport(ex.valor_liquido);
-    document.getElementById('nf_import_preview_issqn').value = fmtValorNfImport(ex.valor_issqn);
-    document.getElementById('nf_import_preview_pis').value = fmtValorNfImport(ex.valor_pis);
-    document.getElementById('nf_import_preview_cofins').value = fmtValorNfImport(ex.valor_cofins);
-    document.getElementById('nf_import_preview_irrf').value = fmtValorNfImport(ex.valor_irrf);
-    document.getElementById('nf_import_preview_aliquota_issqn').value = fmtAliquotaNfImport(ex.aliquota_issqn);
+    document.getElementById('nf_import_preview_issqn').value = fmtValorNfImport(ex.valor_issqn != null ? ex.valor_issqn : imp.issqn);
+    document.getElementById('nf_import_preview_pis').value = fmtValorNfImport(ex.valor_pis != null ? ex.valor_pis : imp.pis);
+    document.getElementById('nf_import_preview_cofins').value = fmtValorNfImport(ex.valor_cofins != null ? ex.valor_cofins : imp.cofins);
+    document.getElementById('nf_import_preview_irrf').value = fmtValorNfImport(ex.valor_irrf != null ? ex.valor_irrf : imp.irrf);
+    document.getElementById('nf_import_preview_aliquota_issqn').value = fmtAliquotaNfImport(ex.aliquota_issqn != null ? ex.aliquota_issqn : imp.aliquota_issqn);
     document.getElementById('nf_import_preview_cnpj').value = fmtCnpjDisplay(ex.cnpj_tomador);
     document.getElementById('nf_import_preview_discriminacao').value = ex.discriminacao || '';
     document.getElementById('nf_import_preview_ocr').innerHTML = item.ocr_ok

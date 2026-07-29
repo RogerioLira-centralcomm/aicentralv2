@@ -45,7 +45,7 @@ Regras:
 - valor_total: valor do serviço / valor total da NFS-e antes de retenções finais (campo "Valor do Serviço").
 - valor_liquido: valor líquido da NFS-e após retenções (campo "Valor Líquido da NFS-e"); senão null.
 - cnpj_tomador: CNPJ do TOMADOR do serviço (cliente), apenas 14 dígitos.
-- codigo_pi: referência interna, código PI, pedido ou campanha se visível; senão null.
+- codigo_pi: referência interna, código PI, pedido ou campanha se visível (pode conter ponto decimal, ex.: 358.6); senão null.
 - codigo_verificacao: chave/código alfanumérico de verificação municipal; senão null.
 - numero_rps: número do RPS ou DPS; senão null.
 - discriminacao: COPIE INTEGRALMENTE e SEM RESUMIR o texto do campo "Descrição do Serviço" ou "Discriminação dos Serviços".
@@ -58,6 +58,168 @@ Regras:
 - confidence: confiança geral 0.0 a 1.0.
 - Não invente valores; use null quando incerto.
 """
+
+
+_CODIGO_PI_FROM_TEXT_RE = re.compile(r'\bPI\s*[#:\-]?\s*([\d]+(?:\.\d+)?)\b', re.I)
+_CODIGO_PI_STANDALONE_RE = re.compile(r'^[\d]+(?:\.\d+)?$')
+
+
+def normalize_codigo_pi(
+    value: Any = None,
+    discriminacao: Any = None,
+    expected: Any = None,
+    filename: Any = None,
+) -> Optional[str]:
+    """Normaliza código PI extraído pelo OCR (ex.: 358.6, PI 358.6, PI #83634)."""
+    def _from_raw(raw: str) -> Optional[str]:
+        raw = raw.strip()
+        if not raw:
+            return None
+        if _CODIGO_PI_STANDALONE_RE.fullmatch(raw):
+            return raw
+        m = _CODIGO_PI_FROM_TEXT_RE.search(raw)
+        if m:
+            return m.group(1).strip()
+        if re.fullmatch(r'[\w.\-]+', raw) and len(raw) <= 20:
+            return raw
+        return None
+
+    from_value = _from_raw(str(value)) if value is not None and str(value).strip() else None
+
+    from_text: Optional[str] = None
+    for src in (discriminacao, filename):
+        if not src:
+            continue
+        m = _CODIGO_PI_FROM_TEXT_RE.search(str(src))
+        if not m:
+            continue
+        candidate = m.group(1).strip()
+        if not from_text or len(candidate) > len(from_text):
+            from_text = candidate
+
+    exp = _from_raw(str(expected)) if expected is not None and str(expected).strip() else None
+
+    result = from_text or from_value
+    if result and exp:
+        if result.lower() == exp.lower():
+            return exp
+        # OCR truncou decimal (358 → 358.6)
+        if exp.startswith(result + '.') or (
+            result.isdigit() and '.' in exp and exp.split('.', 1)[0] == result
+        ):
+            return exp
+    elif not result and exp:
+        for src in (discriminacao, filename, value):
+            if src and exp.lower() in str(src).lower():
+                return exp
+
+    if from_value and from_text and from_text != from_value:
+        if from_text.startswith(from_value + '.') or (
+            from_value.isdigit() and '.' in from_text and from_text.split('.', 1)[0] == from_value
+        ):
+            return from_text
+
+    return result or exp
+
+
+def codigo_pi_equivale(cod_nf: Any, cod_esperado: Any) -> bool:
+    """Verifica se código PI da NF corresponde ao PI esperado (inclui decimais truncados pelo OCR)."""
+    a = normalize_codigo_pi(cod_nf)
+    b = normalize_codigo_pi(cod_esperado)
+    if not a or not b:
+        return False
+    if a.lower() == b.lower():
+        return True
+    if b.startswith(a + '.') or (a.isdigit() and '.' in b and b.split('.', 1)[0] == a):
+        return True
+    return False
+
+
+def _hints_from_filename(filename: Any) -> Dict[str, Any]:
+    """Extrai pistas do nome do arquivo (ex.: NF 131 PI 358.6.pdf)."""
+    hints: Dict[str, Any] = {}
+    if not filename:
+        return hints
+    name = str(filename)
+    m_nf = re.search(r'\bNF\s*(\d+)\b', name, re.I)
+    if m_nf:
+        hints['numero_nota'] = m_nf.group(1).strip()
+    m_pi = _CODIGO_PI_FROM_TEXT_RE.search(name)
+    if m_pi:
+        hints['codigo_pi'] = m_pi.group(1).strip()
+    return hints
+
+
+def enrich_extracted_nf(
+    extracted: Any = None,
+    filename: Any = None,
+    expected_pi: Any = None,
+) -> Dict[str, Any]:
+    """Enriquece/normaliza extração OCR sem remover campos já lidos."""
+    result: Dict[str, Any] = dict(extracted) if isinstance(extracted, dict) else {}
+
+    for key, val in _hints_from_filename(filename).items():
+        if val is not None and not result.get(key):
+            result[key] = val
+
+    codigo = normalize_codigo_pi(
+        result.get('codigo_pi'),
+        result.get('discriminacao'),
+        expected=expected_pi,
+        filename=filename,
+    )
+    if codigo:
+        result['codigo_pi'] = codigo
+
+    impostos = result.get('impostos') if isinstance(result.get('impostos'), dict) else {}
+    for flat_key, imp_key in (
+        ('valor_issqn', 'issqn'),
+        ('valor_pis', 'pis'),
+        ('valor_cofins', 'cofins'),
+        ('valor_irrf', 'irrf'),
+        ('aliquota_issqn', 'aliquota_issqn'),
+    ):
+        if result.get(flat_key) is None and impostos.get(imp_key) is not None:
+            result[flat_key] = impostos.get(imp_key)
+
+    return result
+
+
+def nf_extracao_tem_campos_legiveis(extracted: Any) -> bool:
+    if not extracted or not isinstance(extracted, dict):
+        return False
+    return bool(
+        extracted.get('numero_nota')
+        or extracted.get('valor_total')
+        or extracted.get('data_emissao')
+        or extracted.get('discriminacao')
+    )
+
+
+def serializar_extracted_nf_resposta(extracted: Any) -> Optional[Dict[str, Any]]:
+    """Prepara dict da extração OCR para resposta JSON da API."""
+    if not extracted or not isinstance(extracted, dict):
+        return extracted
+    out = dict(extracted)
+    out.pop('_filename', None)
+    out.pop('codigo_pi_referencia', None)
+    impostos = out.get('impostos') if isinstance(out.get('impostos'), dict) else {}
+    for flat_key, imp_key in (
+        ('valor_issqn', 'issqn'),
+        ('valor_pis', 'pis'),
+        ('valor_cofins', 'cofins'),
+        ('valor_irrf', 'irrf'),
+        ('aliquota_issqn', 'aliquota_issqn'),
+    ):
+        if out.get(flat_key) is None and impostos.get(imp_key) is not None:
+            out[flat_key] = impostos.get(imp_key)
+    return out
+
+
+def _extract_codigo_pi_from_text(text: str) -> Optional[str]:
+    if not text or not text.strip():
+        return None
+    return normalize_codigo_pi(discriminacao=text)
 
 
 def _to_float(v: Any) -> Optional[float]:
@@ -292,14 +454,8 @@ def _parse_nf_payload(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
     cnpj = _only_digits(src.get('cnpj_tomador'))
-    codigo_pi = src.get('codigo_pi')
-    if codigo_pi is not None:
-        codigo_pi = str(codigo_pi).strip() or None
-        if codigo_pi:
-            if not re.fullmatch(r'\d+', codigo_pi):
-                m_pi = re.search(r'\bPI\s*[#:\-]?\s*(\d+)\b', codigo_pi, re.I)
-                if m_pi:
-                    codigo_pi = m_pi.group(1).strip()
+    discriminacao = _pick_best_discriminacao(src.get('discriminacao'))
+    codigo_pi = normalize_codigo_pi(src.get('codigo_pi'), discriminacao)
 
     impostos = _parse_impostos(src)
 
@@ -312,7 +468,7 @@ def _parse_nf_payload(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         'codigo_pi': codigo_pi,
         'codigo_verificacao': (str(src.get('codigo_verificacao')).strip() if src.get('codigo_verificacao') else None),
         'numero_rps': (str(src.get('numero_rps')).strip() if src.get('numero_rps') else None),
-        'discriminacao': _pick_best_discriminacao(src.get('discriminacao')),
+        'discriminacao': discriminacao,
         'impostos': impostos,
         'valor_issqn': impostos.get('issqn'),
         'valor_pis': impostos.get('pis'),
@@ -392,6 +548,7 @@ def _extract_from_pdf_text(pdf_bytes: bytes) -> Dict[str, Any]:
         r'Al[ií]quota Aplicada\n\s*([\d.\,]+)\s*%',
     ))
     out['discriminacao'] = _extract_discriminacao_from_pdf_text(text)
+    out['codigo_pi'] = _extract_codigo_pi_from_text(text)
     return out
 
 
@@ -407,6 +564,19 @@ def _merge_extraction_with_text_fallback(result: Optional[Dict[str, Any]], pdf_b
     merged_disc = _pick_best_discriminacao(result.get('discriminacao'), fallback.get('discriminacao'))
     if merged_disc:
         result['discriminacao'] = merged_disc
+
+    if not result.get('codigo_pi'):
+        result['codigo_pi'] = normalize_codigo_pi(
+            fallback.get('codigo_pi'),
+            merged_disc or result.get('discriminacao'),
+        )
+    elif merged_disc or result.get('discriminacao'):
+        refined = normalize_codigo_pi(
+            result.get('codigo_pi'),
+            merged_disc or result.get('discriminacao'),
+        )
+        if refined:
+            result['codigo_pi'] = refined
 
     impostos = result.get('impostos') if isinstance(result.get('impostos'), dict) else {}
     impostos = {
@@ -484,17 +654,26 @@ def _extract_from_pdf(pdf_bytes: bytes, filename: Optional[str]) -> Optional[Dic
 
 def extract_nf_pdf(file_bytes: bytes, ext: str, filename: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Extrai campos de NFS-e de PDF ou imagem. Retorna dict normalizado ou None."""
+    import logging
+
+    logger = logging.getLogger(__name__)
     e = (ext or '').lower()
     if not e.startswith('.'):
         e = '.' + e
+    result: Optional[Dict[str, Any]] = None
     try:
         if e == '.pdf':
             result = _extract_from_pdf(file_bytes, filename)
-            if result:
-                return result
-            return _merge_extraction_with_text_fallback({}, file_bytes)
-        if e in ('.png', '.jpg', '.jpeg', '.webp'):
-            return _extract_from_image(file_bytes, filename)
-        return None
-    except Exception:
-        return None
+            if not result:
+                result = _merge_extraction_with_text_fallback({}, file_bytes)
+        elif e in ('.png', '.jpg', '.jpeg', '.webp'):
+            result = _extract_from_image(file_bytes, filename)
+        else:
+            return None
+
+        if result:
+            result = enrich_extracted_nf(result, filename=filename)
+        return result
+    except Exception as exc:
+        logger.exception('extract_nf_pdf falhou (%s): %s', filename, exc)
+        return result

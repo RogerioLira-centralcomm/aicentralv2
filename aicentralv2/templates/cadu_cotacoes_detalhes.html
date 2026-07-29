@@ -2452,13 +2452,13 @@ function calcularVolumeEdit() {
         <p class="text-xs font-semibold text-gray-600 truncate">R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
       </div>
     </div>
-    <!-- Custo de Max Mídia -->
+    <!-- Custo de Mídia orçado -->
     <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
       <span class="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-blue-600">
         <i class="fas fa-photo-video text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Custo de Max Mídia</p>
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Custo de Mídia orçado</p>
         <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(rf_total_custo_midia).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
       </div>
     </div>
@@ -2793,7 +2793,7 @@ function calcularVolumeEdit() {
               <th class="font-medium py-1 px-1.5 text-right" style="min-width: 60px;">Volume</th>
               <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Líq.</th>
               <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Bruto</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Custo de Max Mídia</th>
+              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Custo de Mídia orçado</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -3120,7 +3120,7 @@ function calcularVolumeEdit() {
       </div>
       <div class="px-5 flex gap-1 text-sm">
         <button type="button" data-tab-trigger="inicio" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes do item</button>
-        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Memória de cálculo</button>
       </div>
     </div>
 
@@ -3357,7 +3357,7 @@ function calcularVolumeEdit() {
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Mídia orçado</span></label>
             <input type="text" id="custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
                    title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
           </div>
@@ -3378,7 +3378,7 @@ function calcularVolumeEdit() {
       </div>
       <!-- Fim Aba Início -->
 
-      <!-- Aba: Resultado -->
+      <!-- Aba: Memória de cálculo -->
       <div data-tabpanel="resultado" class="hidden space-y-3">
         <div id="indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget">
           <div id="indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -3446,9 +3446,9 @@ function calcularVolumeEdit() {
             </div>
           </div>
         </div>
-        <div id="custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia">
+        <div id="custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Mídia orçado">
           <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
-            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Mídia orçado</div>
             <div class="text-xs text-gray-800 tabular-nums">
               <span class="text-gray-500">Valor:</span> <strong id="custo_max_midia_val" class="text-blue-900">—</strong>
               <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>
@@ -3554,7 +3554,7 @@ function calcularVolumeEdit() {
       </div>
       <div class="px-5 flex gap-1 text-sm">
         <button type="button" data-tab-trigger="inicio" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes do item</button>
-        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Memória de cálculo</button>
       </div>
     </div>
 
@@ -3786,7 +3786,7 @@ function calcularVolumeEdit() {
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+            <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Mídia orçado</span></label>
             <input type="text" id="edit_custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
                    title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
           </div>
@@ -3807,7 +3807,7 @@ function calcularVolumeEdit() {
       </div>
       <!-- Fim Aba Início -->
 
-      <!-- Aba: Resultado -->
+      <!-- Aba: Memória de cálculo -->
       <div data-tabpanel="resultado" class="hidden space-y-3">
         <div id="edit_indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget">
           <div id="edit_indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -3875,9 +3875,9 @@ function calcularVolumeEdit() {
             </div>
           </div>
         </div>
-        <div id="edit_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia">
+        <div id="edit_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Mídia orçado">
           <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
-            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+            <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Mídia orçado</div>
             <div class="text-xs text-gray-800 tabular-nums">
               <span class="text-gray-500">Valor:</span> <strong id="edit_custo_max_midia_val" class="text-blue-900">—</strong>
               <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>
@@ -4226,7 +4226,7 @@ function calcularVolumeEdit() {
         </div>
         <div class="px-6 flex gap-1 text-sm">
           <button type="button" data-tab-trigger="inicio" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes da audiência</button>
-          <button type="button" data-tab-trigger="resultado" class="hidden px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+          <button type="button" data-tab-trigger="resultado" class="hidden px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Memória de cálculo</button>
         </div>
       </div>
 
@@ -4332,7 +4332,7 @@ function calcularVolumeEdit() {
               </div>
 
               <div class="form-control">
-                <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Max Mídia</span></label>
+                <label class="label py-0"><span class="label-text text-xs font-medium">Custo de Mídia orçado</span></label>
                 <input type="text" id="audiencia_custo_midia" class="input input-sm input-bordered bg-blue-50 w-full text-blue-900 font-medium" placeholder="0,00" readonly
                        title="Volume efetivo × Val. Unit. Tabela × Fator Desconto">
               </div>
@@ -4353,7 +4353,7 @@ function calcularVolumeEdit() {
           </div>
           <!-- Fim Aba Início -->
 
-          <!-- Aba: Resultado -->
+          <!-- Aba: Memória de cálculo -->
           <div data-tabpanel="resultado" class="hidden space-y-3">
             <div id="audiencia_indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget (audiência)">
               <div id="audiencia_indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -4421,9 +4421,9 @@ function calcularVolumeEdit() {
                 </div>
               </div>
             </div>
-            <div id="audiencia_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Max Mídia (audiência)">
+            <div id="audiencia_custo_max_midia_row" class="hidden" role="region" aria-label="Custo de Mídia orçado (audiência)">
               <div class="border border-blue-200 rounded-md p-3 bg-blue-50/50">
-                <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Max Mídia</div>
+                <div class="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">Custo de Mídia orçado</div>
                 <div class="text-xs text-gray-800 tabular-nums">
                   <span class="text-gray-500">Valor:</span> <strong id="audiencia_custo_max_midia_val" class="text-blue-900">—</strong>
                   <span class="text-[10px] text-gray-500 ml-2">(Vol. efetivo × Val. Unit. Tabela × Fator Desconto)</span>

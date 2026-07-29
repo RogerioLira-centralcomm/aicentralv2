@@ -12066,7 +12066,7 @@ def _volume_efetivo_cotacao(volume, kpi):
 
 
 def calcular_custo_midia_item(item, kpi_key='objetivo_kpi'):
-    """Custo de Max Mídia de uma linha ou audiência da cotação."""
+    """Custo Mídia de uma linha ou audiência da cotação."""
     stored = parse_valor_monetario_para_float(item.get('custo_midia'))
     if stored > 0:
         return stored

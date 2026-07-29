@@ -9099,6 +9099,45 @@ def obter_sub_status_pi_por_display(display):
         raise e
 
 
+def atualizar_pi_status_faturamento(id_pi):
+    """Marca PI como Faturamento / sub_status Em faturamento (pronto para importar NF)."""
+    if not id_pi:
+        return False
+
+    status_row = obter_status_pi_por_descricao('Faturamento')
+    if not status_row or not status_row.get('id'):
+        logger.warning('Status PI "Faturamento" não encontrado ao atualizar PI %s', id_pi)
+        return False
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT key FROM cadu_pi_sub_status WHERE display = %s LIMIT 1',
+                ('Em faturamento',),
+            )
+            sub_row = cursor.fetchone()
+            sub_key = sub_row['key'] if sub_row else 4
+
+            cursor.execute(
+                '''
+                UPDATE cadu_pi
+                SET id_sub_status_pi = %s,
+                    id_status_pi = %s,
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+                RETURNING id_pi
+                ''',
+                (sub_key, status_row['id'], int(id_pi)),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def atualizar_pi_status_nf_emitida(id_pi):
     """Marca PI como NF Emitida / sub_status Finalizado após criação ou importação de NF."""
     if not id_pi:

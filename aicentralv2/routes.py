@@ -12922,14 +12922,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     def _validar_nf_contra_pi_contexto(pi_row, extracted):
         """
-        Valida código PI e valor da NF contra o PI selecionado.
+        Valida código PI da NF contra o PI selecionado.
+        Valores não são validados (podem estar desatualizados ou incorretos no PI).
         Tomador/cliente não é validado (NF pode ser emitida para terceiro).
         Retorna (ok, erros, avisos, detalhes).
         """
         extracted = extracted or {}
         erros = []
         avisos = []
-        detalhes = {'pi_ok': False, 'valor_ok': False}
+        detalhes = {'pi_ok': False, 'valor_ok': True}
 
         pi_codes = _codigos_pi_registro_nf(pi_row)
         cod_pi_esperado = (pi_row.get('codigo_pi_cc') or pi_row.get('codigo_pi_ag') or '').strip()
@@ -12951,36 +12952,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 detalhes['codigo_pi_nf'] = cod_nf
                 detalhes['codigo_pi_esperado'] = cod_pi_esperado
 
-        compativel, valor_nf, valor_pi, tipo_valor = _valor_nf_compativel_com_pi(extracted, pi_row)
-        pi_liq, pi_bru = _valores_esperados_pi_nf(pi_row)
-        if not compativel:
-            nf_total, nf_liq = _valores_nota_nf(extracted)
-            if nf_total is None and nf_liq is None:
-                erros.append(
-                    'Valor da nota não identificado. Informe o valor do serviço ou valor líquido.'
-                )
-            else:
-                valor_nf_fmt = _formatar_valor_nf_display(valor_nf)
-                esperados = []
-                if pi_liq is not None:
-                    esperados.append(f'líquido {_formatar_valor_nf_display(pi_liq)}')
-                if pi_bru is not None:
-                    esperados.append(f'bruto {_formatar_valor_nf_display(pi_bru)}')
-                esperado_txt = ' / '.join(esperados) if esperados else 'valor do PI'
-                erros.append(
-                    f'Inconsistência no valor: a nota indica {valor_nf_fmt}, '
-                    f'mas o PI selecionado tem {esperado_txt}.'
-                )
-        else:
-            detalhes['valor_ok'] = True
-            if valor_nf is not None:
-                detalhes['valor_nf'] = valor_nf
-            if valor_pi is not None:
-                detalhes['valor_pi'] = valor_pi
-                detalhes['valor_pi_tipo'] = tipo_valor
+        nf_total, nf_liq = _valores_nota_nf(extracted)
+        valor_nf = nf_total if nf_total is not None else nf_liq
+        if valor_nf is not None:
+            detalhes['valor_nf'] = valor_nf
 
         ok = len(erros) == 0
-        if ok and detalhes.get('pi_ok') and detalhes.get('valor_ok'):
+        if ok and detalhes.get('pi_ok'):
             detalhes['validacao_completa'] = True
         return ok, erros, avisos, detalhes
 

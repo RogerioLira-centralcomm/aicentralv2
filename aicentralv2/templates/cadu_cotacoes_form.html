@@ -212,7 +212,12 @@
           <!-- Agência -->
           <div>
             <label class="block text-[8px] font-medium text-gray-500">Agência</label>
-            <div class="flex gap-0.5 items-center mb-0.5">
+            <div id="agencia_combo_wrap" class="hidden mb-0.5">
+              <select id="agencia_combo" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div id="agencia_busca_wrap" class="flex gap-0.5 items-center mb-0.5">
               <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
                 <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
               </div>
@@ -493,7 +498,12 @@
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Agência</label>
-          <div class="flex gap-0.5 items-center mb-1">
+          <div id="agencia_combo_wrap" class="hidden mb-1">
+            <select id="agencia_combo" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div id="agencia_busca_wrap" class="flex gap-0.5 items-center mb-1">
             <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[22px]">
               <span id="nome_agencia_selecionada">Buscar agência...</span>
             </div>
@@ -1340,6 +1350,7 @@ async function selecionarClienteForm(clienteId, nomeFantasia) {
           selectResp.value = cliente.vendas_central_comm;
         }
       }
+      atualizarUiAgencia(cliente.agencias_vinculadas || [], null);
     }
   } catch (error) {
     console.error('Erro ao buscar dados do cliente:', error);
@@ -1509,11 +1520,121 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   atualizarEstadoBriefing();
+  iniciarAgenciaForm();
+
+  const agenciaCombo = document.getElementById('agencia_combo');
+  if (agenciaCombo) {
+    agenciaCombo.addEventListener('change', async function() {
+      const agenciaId = this.value;
+      document.getElementById('agencia_id').value = agenciaId;
+      await carregarContatosAgencia(agenciaId);
+      atualizarEstadoBriefing();
+      if (typeof atualizarStepper === 'function') atualizarStepper();
+    });
+  }
 });
 
 // ============================================
-// BUSCA DE AGÊNCIA
+// BUSCA DE AGÊNCIA / COMBO VINCULADAS
 // ============================================
+
+let agenciaModoCombo = false;
+
+function textoAgenciaVazia() {
+  const form = document.getElementById('cotacao_form');
+  return form?.dataset?.modo === 'editar' ? 'Nenhuma' : 'Buscar agência...';
+}
+
+function labelAgenciaVinculada(ag) {
+  const nome = ag.nome_fantasia || ag.razao_social || `Agência #${ag.id_agencia_cliente}`;
+  return ag.is_principal ? `${nome} (principal)` : nome;
+}
+
+function atualizarUiAgencia(agencias, agenciaSelecionadaId) {
+  const comboWrap = document.getElementById('agencia_combo_wrap');
+  const buscaWrap = document.getElementById('agencia_busca_wrap');
+  const combo = document.getElementById('agencia_combo');
+  const hiddenAgencia = document.getElementById('agencia_id');
+  const nomeSpan = document.getElementById('nome_agencia_selecionada');
+  const contatoSelect = document.getElementById('agencia_user_id');
+
+  if (!comboWrap || !buscaWrap || !combo || !hiddenAgencia) return;
+
+  const lista = Array.isArray(agencias) ? [...agencias] : [];
+  const idSel = agenciaSelecionadaId ? parseInt(agenciaSelecionadaId, 10) : null;
+
+  if (idSel && !lista.some(a => a.id_agencia_cliente === idSel)) {
+    const nomeAtual = nomeSpan?.textContent?.trim();
+    const vazio = ['Nenhuma', 'Buscar agência...', ''];
+    lista.unshift({
+      id_agencia_cliente: idSel,
+      nome_fantasia: nomeAtual && !vazio.includes(nomeAtual) ? nomeAtual : `Agência #${idSel}`,
+      is_principal: false
+    });
+  }
+
+  if (lista.length > 0) {
+    agenciaModoCombo = true;
+    comboWrap.classList.remove('hidden');
+    buscaWrap.classList.add('hidden');
+
+    combo.innerHTML = '<option value="">Selecione...</option>';
+    lista.forEach(ag => {
+      const opt = document.createElement('option');
+      opt.value = ag.id_agencia_cliente;
+      opt.textContent = labelAgenciaVinculada(ag);
+      combo.appendChild(opt);
+    });
+
+    let idParaSelecionar = idSel;
+    if (!idParaSelecionar) {
+      const principal = lista.find(a => a.is_principal);
+      if (principal) {
+        idParaSelecionar = principal.id_agencia_cliente;
+      } else if (lista.length === 1) {
+        idParaSelecionar = lista[0].id_agencia_cliente;
+      }
+    }
+
+    combo.value = idParaSelecionar ? String(idParaSelecionar) : '';
+    hiddenAgencia.value = combo.value;
+
+    if (combo.value) {
+      carregarContatosAgencia(combo.value);
+    } else if (contatoSelect) {
+      contatoSelect.innerHTML = '<option value="">Selecione...</option>';
+    }
+  } else {
+    agenciaModoCombo = false;
+    comboWrap.classList.add('hidden');
+    buscaWrap.classList.remove('hidden');
+    combo.innerHTML = '<option value="">Selecione...</option>';
+
+    if (!idSel) {
+      hiddenAgencia.value = '';
+      if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
+      if (contatoSelect) contatoSelect.innerHTML = '<option value="">Selecione...</option>';
+    }
+  }
+
+  atualizarEstadoBriefing();
+}
+
+async function iniciarAgenciaForm() {
+  const clientId = document.getElementById('client_id')?.value;
+  if (!clientId) return;
+
+  const agenciaAtual = document.getElementById('agencia_id')?.value || null;
+  try {
+    const response = await fetch(`/api/cliente/${clientId}`);
+    if (response.ok) {
+      const cliente = await response.json();
+      atualizarUiAgencia(cliente.agencias_vinculadas || [], agenciaAtual);
+    }
+  } catch (error) {
+    console.error('Erro ao carregar agências vinculadas:', error);
+  }
+}
 
 async function buscarAgenciasModal() {
   const termo = document.getElementById('busca_agencia_modal').value.trim();
@@ -1603,7 +1724,10 @@ async function carregarContatosAgencia(agenciaId) {
 
 function limparAgenciaSelecionada() {
   document.getElementById('agencia_id').value = '';
-  document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
+  const combo = document.getElementById('agencia_combo');
+  if (combo) combo.value = '';
+  const nomeSpan = document.getElementById('nome_agencia_selecionada');
+  if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
   document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
 
   atualizarEstadoBriefing();

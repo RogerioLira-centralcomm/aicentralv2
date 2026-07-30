@@ -2402,6 +2402,56 @@
 
     // ==================== Modal: Nova Cotação ====================
 
+    let crmAgenciaOptionsCache = null;
+
+    function initCrmAgenciaOptionsCache() {
+        const select = $('#crm-cotacao-agencia');
+        if (!select || crmAgenciaOptionsCache) return;
+        crmAgenciaOptionsCache = [...select.options].map(opt => ({
+            value: opt.value,
+            text: opt.textContent
+        }));
+    }
+
+    function restaurarAgenciasCotacaoCrmCompletas() {
+        const select = $('#crm-cotacao-agencia');
+        if (!select || !crmAgenciaOptionsCache) return;
+        select.innerHTML = crmAgenciaOptionsCache.map(o => (
+            `<option value="${escapeHtml(o.value)}">${escapeHtml(o.text)}</option>`
+        )).join('');
+    }
+
+    function labelAgenciaCrm(ag) {
+        const nome = ag.nome_fantasia || ag.razao_social || `Agência #${ag.id_agencia_cliente}`;
+        return ag.is_principal ? `${nome} (principal)` : nome;
+    }
+
+    function atualizarAgenciasCotacaoCrm(agenciasVinculadas, agenciaSelecionadaId) {
+        const select = $('#crm-cotacao-agencia');
+        if (!select) return;
+
+        initCrmAgenciaOptionsCache();
+
+        const lista = Array.isArray(agenciasVinculadas) ? agenciasVinculadas : [];
+        if (lista.length === 0) {
+            restaurarAgenciasCotacaoCrmCompletas();
+            if (agenciaSelecionadaId) select.value = String(agenciaSelecionadaId);
+            return;
+        }
+
+        select.innerHTML = '<option value="">Buscar agência...</option>' + lista.map(ag => (
+            `<option value="${ag.id_agencia_cliente}">${escapeHtml(labelAgenciaCrm(ag))}</option>`
+        )).join('');
+
+        if (agenciaSelecionadaId) {
+            select.value = String(agenciaSelecionadaId);
+        } else {
+            const principal = lista.find(a => a.is_principal);
+            if (principal) select.value = String(principal.id_agencia_cliente);
+            else if (lista.length === 1) select.value = String(lista[0].id_agencia_cliente);
+        }
+    }
+
     function preselecionarResponsavelCotacao(clienteData = {}) {
         const selectResp = $('#crm-cotacao-responsavel');
         if (!selectResp) return;
@@ -2487,7 +2537,9 @@
             return;
         }
 
+        initCrmAgenciaOptionsCache();
         form.reset();
+        restaurarAgenciasCotacaoCrmCompletas();
         $('#crm-cotacao-client-id').value = '';
         $('#crm-cotacao-inicio').value = isoDatePlusDays(7);
         $('#crm-cotacao-fim').value = isoDatePlusDays(37);
@@ -2504,13 +2556,24 @@
         atualizarDuracaoCotacao();
 
         const clienteCache = crmCliCache.find(c => String(c.id_cliente) === String(id)) || {};
-        preselecionarResponsavelCotacao(clienteCache);
+        let clienteData = clienteCache;
+
+        try {
+            const response = await fetch(`/api/cliente/${id}`);
+            if (response.ok) {
+                clienteData = await response.json();
+            }
+        } catch (e) {
+            console.warn('Não foi possível carregar dados do cliente para cotação.', e);
+        }
+
+        preselecionarResponsavelCotacao(clienteData);
         let focoInicial = '#crm-cotacao-nome';
-        if (clienteEhAgencia(clienteCache)) {
+        if (clienteEhAgencia(clienteData)) {
             $('#crm-cotacao-agencia').value = String(id);
             carregarContatosCotacao(id, '#crm-cotacao-agencia-contato');
             focoInicial = '#crm-cotacao-agencia';
-        } else if (clienteEhParceiroRegional(clienteCache)) {
+        } else if (clienteEhParceiroRegional(clienteData)) {
             $('#crm-cotacao-parceiro').value = String(id);
             carregarContatosCotacao(id, '#crm-cotacao-parceiro-contato');
             focoInicial = '#crm-cotacao-parceiro';
@@ -2518,7 +2581,10 @@
             $('#crm-cotacao-client-id').value = id;
             $('#crm-cotacao-cliente-select').value = String(id);
             carregarContatosCotacao(id);
-            const principalId = clienteCache.agencia_principal_id;
+            const agencias = clienteData.agencias_vinculadas || [];
+            atualizarAgenciasCotacaoCrm(agencias, null);
+            const principalId = agencias.find(a => a.is_principal)?.id_agencia_cliente
+                || clienteCache.agencia_principal_id;
             if (principalId) {
                 $('#crm-cotacao-agencia').value = String(principalId);
                 carregarContatosCotacao(principalId, '#crm-cotacao-agencia-contato');
@@ -2527,23 +2593,6 @@
 
         modal.showModal();
         setTimeout(() => $(focoInicial)?.focus(), 50);
-
-        try {
-            const response = await fetch(`/api/cliente/${id}`);
-            if (response.ok) {
-                const cliente = await response.json();
-                preselecionarResponsavelCotacao(cliente);
-                if (!clienteEhAgencia(cliente) && !clienteEhParceiroRegional(cliente)) {
-                    const principal = (cliente.agencias_vinculadas || []).find(a => a.is_principal);
-                    if (principal?.id_agencia_cliente) {
-                        $('#crm-cotacao-agencia').value = String(principal.id_agencia_cliente);
-                        carregarContatosCotacao(principal.id_agencia_cliente, '#crm-cotacao-agencia-contato');
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('Não foi possível pré-selecionar responsável pelo cliente.', e);
-        }
     }
 
     async function salvarNovaCotacaoCrm(ev) {
@@ -2686,6 +2735,7 @@
         crmAgenciasVinculadasCtrl.carregarPicker().then(() => crmAgenciasVinculadasCtrl.popularPicker());
 
         // ---- Modal Nova Cotação ----
+        initCrmAgenciaOptionsCache();
         $('#crm-form-cotacao')?.addEventListener('submit', salvarNovaCotacaoCrm);
         $('#crm-cotacao-close')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());
         $('#crm-cotacao-cancel')?.addEventListener('click', () => $('#crm-modal-cotacao')?.close());

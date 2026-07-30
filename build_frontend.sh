@@ -33,6 +33,9 @@ fi
 echo "[INFO] Instalando dependências (npm ci)..."
 npm ci
 
+echo "[INFO] Verificando vulnerabilidades conhecidas..."
+npm audit --audit-level=high
+
 chmod +x node_modules/.bin/* 2>/dev/null || true
 
 echo "[INFO] Gerando CSS de produção..."

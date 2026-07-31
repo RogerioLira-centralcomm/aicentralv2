@@ -12039,7 +12039,12 @@ def calcular_comissoes_cotacao_de_bruto(bruto, perc_agencia=0, perc_parceiro=0):
 
 
 def normalizar_comissoes_linha_cotacao_legado(linha, cotacao):
-    """Corrige linhas gravadas com vol×preço como bruto e comissão descontada do líquido."""
+    """Corrige linhas gravadas com vol×preço como bruto e comissão descontada do líquido.
+
+    Não altera linhas em que o bruto já é o gross-up correto do líquido informado
+    (fluxo «Valor Líq.» → bruto → volume recalculado). Nesse caso vol×preço ≈ bruto,
+    não líquido; a correção legada inflava o líquido exibido (ex.: 12.000 → 14.999,85).
+    """
     if not linha or not cotacao:
         return linha
     pa = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
@@ -12058,7 +12063,12 @@ def normalizar_comissoes_linha_cotacao_legado(linha, cotacao):
     liquido_from_vol = vol_ef * preco
     fator = 1.0 - pa / 100.0
     tol = max(0.02, bruto * 1e-4)
+    if abs(liquido_from_vol - liq) <= tol:
+        return linha
     if abs(bruto - liquido_from_vol) <= tol and abs(liq - bruto * fator) <= tol:
+        bruto_esperado = liq / fator if fator > 0 else liq
+        if abs(bruto - bruto_esperado) <= tol:
+            return linha
         cms = calcular_comissoes_cotacao_de_liquido(liquido_from_vol, pa)
         linha = dict(linha)
         linha['investimento_liquido'] = cms['investimento_liquido']

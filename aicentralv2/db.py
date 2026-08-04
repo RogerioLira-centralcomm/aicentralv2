@@ -10722,52 +10722,12 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
     }
 
 
-def _montar_dados_campanha_pi_geral_de_cotacao(cotacao, id_pi):
-    """Monta payload para criar_campanha_pi a partir dos dados gerais da campanha
-    da cotação (nome_campanha, objetivo_campanha, budget_estimado, período).
-
-    Esta é a campanha 'guarda-chuva' do PI, criada antes das campanhas individuais
-    de itens da proposta e audiências. Ela representa o orçamento e contexto geral
-    da campanha, sem plataforma específica.
-    """
-    cotacao_id = cotacao.get('id', 'N/A')
-    nome = (cotacao.get('nome_campanha') or '').strip() or f'Cotação #{cotacao_id}'
-
-    valor_budget = parse_valor_monetario_para_float(cotacao.get('budget_estimado'))
-
-    periodo_ini = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
-    periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
-
-    mes_ref = None
-    mes_ref_comp = None
-    if periodo_ini:
-        mes_ref = date(periodo_ini.year, periodo_ini.month, 1)
-        mes_ref_comp = formatar_mes_ref_comp(periodo_ini)
-
-    return {
-        'id_pi': id_pi,
-        'id_cliente': cotacao.get('client_id'),
-        'nome_campanha': nome,
-        'valor_plataforma': formatar_real_br(valor_budget) if valor_budget > 0 else None,
-        'id_plataforma': None,
-        'obj_contratados': None,
-        'periodo_inicio': periodo_ini,
-        'periodo_fim': periodo_fim,
-        'mes_ref': mes_ref,
-        'mes_ref_comp': mes_ref_comp,
-        'id_objetivos_campanha': None,
-        'id_status': 1,
-    }
-
-
 def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
-    """Cria campanhas PI a partir da campanha geral da cotação (guarda-chuva),
-    das linhas e das audiências incluídas na cotação.
+    """Cria campanhas PI a partir das linhas e audiências incluídas na cotação.
 
     Ordem de criação:
-    1. Campanha guarda-chuva (dados gerais da cotação)
-    2. Campanhas das linhas/itens da proposta
-    3. Campanhas das audiências
+    1. Campanhas das linhas/itens da proposta
+    2. Campanhas das audiências
     """
     cotacao_id = cotacao.get('id', 'N/A')
     titulo = (cotacao.get('nome_campanha') or '').strip() or f'Cotação #{cotacao_id}'
@@ -10778,27 +10738,6 @@ def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
         f"[criar_campanhas_pi] Iniciando para PI {id_pi}, cotação {cotacao_id}. "
         f"Total linhas: {len(linhas_list)}, Total audiências: {len(audiencias_list)}"
     )
-    
-    campanha_geral_criada = False
-    erros_geral = 0
-    try:
-        dados_geral = _montar_dados_campanha_pi_geral_de_cotacao(cotacao, id_pi)
-        id_camp_geral = criar_campanha_pi(dados_geral)
-        if id_camp_geral:
-            campanha_geral_criada = True
-            logger.info(
-                f"[criar_campanhas_pi] Campanha guarda-chuva {id_camp_geral} criada "
-                f"da cotação {cotacao_id} (nome='{dados_geral.get('nome_campanha')}')"
-            )
-        else:
-            erros_geral += 1
-            logger.error(
-                f"[criar_campanhas_pi] Falha ao criar campanha guarda-chuva "
-                f"da cotação {cotacao_id}: retornou None"
-            )
-    except Exception as e:
-        erros_geral += 1
-        logger.exception(f"[criar_campanhas_pi] Exceção ao criar campanha guarda-chuva: {e}")
 
     campanhas_criadas_linhas = 0
     campanhas_criadas_audiencias = 0
@@ -10883,16 +10822,14 @@ def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
     
     logger.info(
         f"[criar_campanhas_pi] Concluído para PI {id_pi}. "
-        f"Campanhas criadas: {1 if campanha_geral_criada else 0} guarda-chuva, "
-        f"{campanhas_criadas_linhas} de linhas, {campanhas_criadas_audiencias} de audiências. "
-        f"Erros: {erros_geral} guarda-chuva, {erros_linhas} linhas, {erros_audiencias} audiências"
+        f"Campanhas criadas: {campanhas_criadas_linhas} de linhas, "
+        f"{campanhas_criadas_audiencias} de audiências. "
+        f"Erros: {erros_linhas} linhas, {erros_audiencias} audiências"
     )
     
     return {
-        'campanha_geral': campanha_geral_criada,
         'campanhas_linhas': campanhas_criadas_linhas,
         'campanhas_audiencias': campanhas_criadas_audiencias,
-        'erros_geral': erros_geral,
         'erros_linhas': erros_linhas,
         'erros_audiencias': erros_audiencias,
     }

@@ -229,8 +229,8 @@
             <th class="text-right py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Meta</th>
             <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Link</th>
             <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Atingido</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">$ Gasto</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">$ Previsto</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Custo Mídia</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Previsto</th>
             <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
           </tr>
         </thead>
@@ -240,7 +240,7 @@
             {% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
             {# Meta e previsto: mesma lógica que Operação → Em andamento (cadu_pi.html + /api/cadu-pi/.../campanhas) #}
             {% set pct_obj = ((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0 %}
-            {% set prev_val = c.valor_plataforma|parse_brl_float %}
+            {% set prev_val = c.custo_midia_previsto if c.custo_midia_previsto else (c.valor_plataforma|parse_brl_float) %}
             {% set gasto_val = c.totalizador_gasto|parse_brl_float %}
             {% set st_lower = (c.status_nome or '')|lower %}
             {% set pct_inv = ((gasto_val / prev_val) * 100)|round(0)|int if prev_val > 0 else 0 %}
@@ -261,7 +261,7 @@
           <tr data-campanha-id="{{ c.id_campanha }}"
               data-plataforma-id="{{ c.id_plataforma or '' }}"
               data-plataforma-nome="{{ c.plataforma_nome or '' }}"
-              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "objetivo_nome": c.objetivo_nome or "", "cliente_nome": c.cliente_nome or "", "executivo_nome": c.executivo_nome or "", "executivo_foto_url": c.executivo_foto_url or "", "plataforma_nome": c.plataforma_nome or "", "status_nome": c.status_nome or "", "preco_metrica_brl": c.preco_metrica_brl, "preco_metrica_modalidade": c.preco_metrica_modalidade, "obj_contratados": (c.obj_contratados if c.obj_contratados is not none else ""), "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": (c.totalizador_atingido if c.totalizador_atingido is not none else ""), "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "perc_margem_cc": (c.perc_margem_cc if c.perc_margem_cc is not none else ""), "perc_tech_fee": (c.perc_tech_fee if c.perc_tech_fee is not none else ""), "perc_com_vendas": (c.perc_com_vendas if c.perc_com_vendas is not none else ""), "perc_pl_incentivos": (c.perc_pl_incentivos if c.perc_pl_incentivos is not none else ""), "perc_impostos": (c.perc_impostos if c.perc_impostos is not none else ""), "val_margem_cc": c.val_margem_cc or "", "val_tech_fee": c.val_tech_fee or "", "val_com_vendas": c.val_com_vendas or "", "val_pl_incentivos": c.val_pl_incentivos or "", "val_impostos": c.val_impostos or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
+              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "objetivo_nome": c.objetivo_nome or "", "cliente_nome": c.cliente_nome or "", "executivo_nome": c.executivo_nome or "", "executivo_foto_url": c.executivo_foto_url or "", "plataforma_nome": c.plataforma_nome or "", "status_nome": c.status_nome or "", "preco_metrica_brl": c.preco_metrica_brl, "preco_metrica_modalidade": c.preco_metrica_modalidade, "obj_contratados": (c.obj_contratados if c.obj_contratados is not none else ""), "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": (c.totalizador_atingido if c.totalizador_atingido is not none else ""), "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "custo_midia_orcado": c.custo_midia_orcado or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "perc_margem_cc": (c.perc_margem_cc if c.perc_margem_cc is not none else ""), "perc_tech_fee": (c.perc_tech_fee if c.perc_tech_fee is not none else ""), "perc_com_vendas": (c.perc_com_vendas if c.perc_com_vendas is not none else ""), "perc_pl_incentivos": (c.perc_pl_incentivos if c.perc_pl_incentivos is not none else ""), "perc_impostos": (c.perc_impostos if c.perc_impostos is not none else ""), "val_margem_cc": c.val_margem_cc or "", "val_tech_fee": c.val_tech_fee or "", "val_com_vendas": c.val_com_vendas or "", "val_pl_incentivos": c.val_pl_incentivos or "", "val_impostos": c.val_impostos or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
               onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao parsear data-camp:', e, this.dataset.camp); showToast('Erro ao abrir edição: ' + e.message, 'error'); }" class="cursor-pointer">
 
             {# — FLAG OPERACIONAL — #}
@@ -744,6 +744,10 @@
           <div class="camp-field">
             <label for="valor_plataforma">Valor Plataforma <span class="text-red-400">*</span></label>
             <input type="text" id="valor_plataforma" name="valor_plataforma" required data-mask="real" placeholder="R$ 0,00">
+          </div>
+          <div class="camp-field">
+            <label for="custo_midia_orcado">Custo de Mídia orçado</label>
+            <input type="text" id="custo_midia_orcado" name="custo_midia_orcado" data-mask="real" placeholder="R$ 0,00" title="Orçamento operacional de mídia (distinto do valor plataforma comercial)">
           </div>
           <div class="camp-field">
             <label for="dist_pct">Distribuição %</label>
@@ -1672,6 +1676,7 @@
       document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
       document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
       document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
+      document.getElementById('custo_midia_orcado').value = rawParaFormatado(c.custo_midia_orcado, 'real');
       document.getElementById('id_centralx').value = c.id_centralx || '';
 
       ['perc_margem_cc','perc_tech_fee','perc_com_vendas','perc_pl_incentivos','perc_impostos'].forEach(function(k) {

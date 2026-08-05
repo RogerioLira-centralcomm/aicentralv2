@@ -23,11 +23,15 @@
   }
 
   function fmtBrl(v) {
-    return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return UI.formatBrlPtBR(v);
   }
 
   function fmtInt(v) {
-    return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+    return UI.formatVolumeIntPtBR(v);
+  }
+
+  function parseBrl(v) {
+    return UI.parseBrlMoeda(v);
   }
 
   function updateFlagSummary(idPi, campanhaIds) {
@@ -41,38 +45,53 @@
   function buildCampanhaRowHtml(c) {
     const objContratadoNum = UI.parseVolume(c.obj_contratados);
     const objAtingidoNum = UI.parseVolume(c.totalizador_atingido);
-    const pctObj = objContratadoNum > 0 ? Math.round((objAtingidoNum / objContratadoNum) * 100) : 0;
-    const tier = UI.calcProgressTier(pctObj);
-    const progWidth = pctObj > 0 ? Math.min(pctObj, 100) : 0;
-    const gasto = c.totalizador_gasto != null ? UI.parseVolume(c.totalizador_gasto) : 0;
-    const previsto = c.valor_plataforma != null ? UI.parseVolume(c.valor_plataforma) : 0;
-    const precoM = c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl)) ? Number(c.preco_metrica_brl) : null;
+    const pctObj = c.pct_objetivo != null ? Number(c.pct_objetivo) : (objContratadoNum > 0 ? Math.round((objAtingidoNum / objContratadoNum) * 100) : 0);
+
+    const gasto = c.custo_midia_realizado != null ? parseBrl(c.custo_midia_realizado) : parseBrl(c.totalizador_gasto);
+    const previsto = c.custo_midia_previsto != null ? parseBrl(c.custo_midia_previsto) : parseBrl(c.valor_plataforma);
+    const pctMidia = c.pct_custo_midia != null ? Number(c.pct_custo_midia) : (previsto > 0 ? Math.round((gasto / previsto) * 100) : 0);
+
+    const precoOrc = c.preco_unitario_orcado_brl != null ? Number(c.preco_unitario_orcado_brl) : null;
+    const precoReal = c.preco_unitario_realizado_brl != null ? Number(c.preco_unitario_realizado_brl) : null;
     const sigla = siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade);
+
     const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
     const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
       ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>' : '';
+    const pctPeriodo = c.periodo_pct_elapsed != null ? Number(c.periodo_pct_elapsed) : null;
+    let celPeriodo = periodoLinha1 + periodoLinha2;
+    if (pctPeriodo != null && !isNaN(pctPeriodo)) {
+      celPeriodo += '<div class="mt-1">' + UI.buildProgressHtml(pctPeriodo, { small: true }) + '</div>';
+    }
+
     const payload = encodeURIComponent(JSON.stringify(c));
     const platId = c.id_plataforma != null ? c.id_plataforma : '';
     const platNome = (c.plataforma_nome || '').replace(/"/g, '&quot;');
 
-    let celPreco = UI.cellEmptyHtml('empty-na');
-    if (precoM != null) {
-      celPreco = '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>' +
-        '<span class="block text-xs font-semibold tabular-nums text-gray-800">' + fmtBrl(precoM) + '</span>';
+    let celCustos = UI.cellEmptyHtml('empty-na');
+    if (precoOrc != null || precoReal != null) {
+      celCustos = '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>';
+      if (precoOrc != null) {
+        celCustos += '<span class="block text-[10px] text-gray-500">Orç. ' + fmtBrl(precoOrc) + '</span>';
+      }
+      if (precoReal != null) {
+        celCustos += '<span class="block text-xs font-semibold tabular-nums text-gray-800">Real. ' + fmtBrl(precoReal) + '</span>';
+      }
     }
 
-    let celMeta = UI.cellEmptyHtml('empty-na');
+    let celObjetivo = UI.cellEmptyHtml('empty-na');
     if (objContratadoNum > 0) {
-      celMeta = '<div class="text-[11px] font-semibold text-gray-700">' + pctObj + '%</div>' +
-        '<div class="text-[11px] text-gray-600">' + fmtInt(objAtingidoNum) + '</div>' +
+      celObjetivo = UI.buildProgressHtml(pctObj, { small: true }) +
+        '<div class="text-[11px] text-gray-600 mt-0.5">' + fmtInt(objAtingidoNum) + '</div>' +
         '<div class="text-[10px] text-gray-400">' + fmtInt(objContratadoNum) + '</div>';
     }
 
-    const progressHtml = '<div class="flex items-center justify-end gap-1.5 mb-0.5">' +
-      '<div class="camp-progress camp-progress-sm" data-tier="' + tier + '" title="Progresso: ' + pctObj + '%">' +
-      '<div class="camp-progress-fill" style="width:' + progWidth + '%"></div></div>' +
-      '<span class="camp-progress-pct" data-tier="' + tier + '">' + pctObj + '%</span></div>' +
-      '<div class="text-[11px] text-gray-600">' + fmtInt(objAtingidoNum) + '</div>';
+    let celMidia = UI.cellEmptyHtml('empty-pending');
+    if (previsto > 0 || gasto > 0) {
+      celMidia = UI.buildProgressHtml(pctMidia, { small: true }) +
+        '<div class="text-xs font-semibold tabular-nums text-gray-800 mt-0.5">' + fmtBrl(gasto) + '</div>' +
+        '<div class="text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</div>';
+    }
 
     const linkCount = (c.googled_pi_princ ? 1 : 0) + (c.link_dash ? 1 : 0);
 
@@ -82,12 +101,10 @@
       '<td class="text-center platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
       '<span class="link-count-badge' + (linkCount === 0 ? ' empty' : '') + '">L' + linkCount + '</span></div>' +
       '<div class="text-[10px] text-gray-400 mt-0.5 truncate">' + (c.plataforma_nome || '') + '</div></td>' +
-      '<td class="text-center text-[11px] text-gray-600">' + periodoLinha1 + periodoLinha2 + '</td>' +
-      '<td class="text-right">' + celPreco + '</td>' +
-      '<td class="text-right">' + celMeta + '</td>' +
-      '<td class="text-right">' + progressHtml + '</td>' +
-      '<td class="text-right"><span class="text-xs font-semibold tabular-nums text-gray-800">' + fmtBrl(gasto) + '</span>' +
-      '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span></td>' +
+      '<td class="text-center text-[11px] text-gray-600">' + celPeriodo + '</td>' +
+      '<td class="text-right">' + celCustos + '</td>' +
+      '<td class="text-right">' + celObjetivo + '</td>' +
+      '<td class="text-right">' + celMidia + '</td>' +
       '</tr>';
   }
 
@@ -134,10 +151,10 @@
             });
           }
           let html = '<table class="camp-table w-full"><colgroup>' +
-            '<col style="width:22%"><col style="width:12%"><col style="width:14%"><col style="width:14%"><col style="width:14%"><col style="width:12%"><col style="width:12%">' +
+            '<col style="width:22%"><col style="width:12%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:18%">' +
             '</colgroup><thead><tr>' +
             '<th class="text-left">Campanha</th><th class="text-center">Plataforma</th><th class="text-center">Período</th>' +
-            '<th class="text-right">Preço (R$)</th><th class="text-right">Meta</th><th class="text-right">Atingido</th><th class="text-right">Gasto / previsto</th>' +
+            '<th class="text-right">Custos Unitários</th><th class="text-right">Objetivo</th><th class="text-right">Custo de Mídia</th>' +
             '</tr></thead><tbody>';
           const campIds = [];
           data.campanhas.forEach(function (c) {

@@ -78,13 +78,52 @@
 
   function parseVolume(value) {
     if (value == null || value === '') return 0;
-    if (typeof value === 'number') return value;
-    const s = String(value).trim();
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
+    let s = String(value).trim().replace(/[^\d.,-]/g, '');
     if (!s) return 0;
     if (s.indexOf(',') !== -1) {
       return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
     }
-    return parseFloat(s.replace(/[^\d.-]/g, '')) || 0;
+    const parts = s.split('.');
+    if (parts.length > 2) {
+      return parseFloat(s.replace(/\./g, '')) || 0;
+    }
+    if (parts.length === 2) {
+      if (parts[1].length <= 2) {
+        return parseFloat(s) || 0;
+      }
+      return parseFloat(s.replace(/\./g, '')) || 0;
+    }
+    return parseFloat(s) || 0;
+  }
+
+  function parseBrlMoeda(value) {
+    if (value == null || value === '') return 0;
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
+    let s = String(value).trim().replace(/R\$\s?/gi, '').replace(/[^\d.,-]/g, '');
+    if (!s) return 0;
+    if (s.indexOf(',') !== -1) {
+      return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    const parts = s.split('.');
+    if (parts.length > 2) {
+      return parseFloat(s.replace(/\./g, '')) || 0;
+    }
+    if (parts.length === 2 && parts[1].length <= 2) {
+      return parseFloat(s) || 0;
+    }
+    if (parts.length === 2) {
+      return parseFloat(s.replace(/\./g, '')) || 0;
+    }
+    return parseFloat(s) || 0;
+  }
+
+  function formatVolumeIntPtBR(n) {
+    return Math.round(Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  }
+
+  function formatBrlPtBR(n) {
+    return 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function loadCampFlags() {
@@ -155,6 +194,9 @@
     applyPlatformIcons: applyPlatformIcons,
     buildProgressHtml: buildProgressHtml,
     parseVolume: parseVolume,
+    parseBrlMoeda: parseBrlMoeda,
+    formatVolumeIntPtBR: formatVolumeIntPtBR,
+    formatBrlPtBR: formatBrlPtBR,
     loadCampFlags: loadCampFlags,
     getCampFlag: getCampFlag,
     aggregateFlagsForCampanhas: aggregateFlagsForCampanhas,

@@ -5,6 +5,7 @@ Extraído de routes.init_routes para reutilização em APIs (ex.: DV360).
 from __future__ import annotations
 
 import re
+from datetime import date, datetime
 from typing import Any, Optional
 
 
@@ -108,6 +109,37 @@ def investimento_para_preco_campanha(row: Any) -> Optional[float]:
     return float(valor) if valor > 0 else None
 
 
+def _modalidade_kpi(objetivo_nome: Any, nome_campanha: Any = None) -> str:
+    """Retorna 'cpm' ou 'unit' conforme palavras-chave no objetivo/nome."""
+    partes = [
+        (objetivo_nome or "").strip().upper(),
+        (nome_campanha or "").strip().upper(),
+    ]
+    texto = " ".join(p for p in partes if p).strip()
+    if not texto:
+        return "cpm"
+    if any(k in texto for k in ("CPV", "CPA", "CPC", "CPL", "CPI")):
+        return "unit"
+    if any(
+        k in texto
+        for k in (
+            "CONVERS",
+            "LEAD",
+            "CLIQUE",
+            "CLICK",
+            "AÇÃO",
+            "ACAO",
+            "INSTALL",
+            "INSTALA",
+            "CADASTRO",
+            "COMPRA",
+            "VENDA",
+        )
+    ):
+        return "unit"
+    return "cpm"
+
+
 def preco_unitario_por_metrica(
     objetivo_nome: Any,
     obj_contratados: Any,
@@ -124,56 +156,101 @@ def preco_unitario_por_metrica(
     if vol is None or valor_reais is None or float(valor_reais) <= 0:
         return None, None
     vr = float(valor_reais)
-    partes = [
-        (objetivo_nome or "").strip().upper(),
-        (nome_campanha or "").strip().upper(),
-    ]
-    texto = " ".join(p for p in partes if p).strip()
-
-    if texto:
-        if any(k in texto for k in ("CPV", "CPA", "CPC", "CPL", "CPI")):
-            return vr / vol, "unit"
-        if any(
-            k in texto
-            for k in (
-                "CONVERS",
-                "LEAD",
-                "CLIQUE",
-                "CLICK",
-                "AÇÃO",
-                "ACAO",
-                "INSTALL",
-                "INSTALA",
-                "CADASTRO",
-                "COMPRA",
-                "VENDA",
-            )
-        ):
-            return vr / vol, "unit"
-
-        if any(
-            k in texto
-            for k in (
-                "CPM",
-                "IMPRESS",
-                "DISPLAY",
-                "VIEWABILITY",
-                "ALCANCE",
-                "REACH",
-                "AWARENESS",
-                "RECONHECIMENTO",
-                "BRANDING",
-                "VISUALIZAÇÃO",
-                "VISUALIZACAO",
-            )
-        ):
-            return (vr / vol) * 1000, "cpm"
-
+    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha)
+    if modalidade == "unit":
+        return vr / vol, "unit"
     return (vr / vol) * 1000, "cpm"
 
 
+def custo_midia_previsto_campanha(row: Any) -> Optional[float]:
+    """Custo de mídia orçado; fallback para valor_plataforma (campanhas legadas)."""
+    v = parse_brl_float(row.get("custo_midia_orcado"))
+    if v is not None and v > 0:
+        return float(v)
+    v = parse_brl_float(row.get("valor_plataforma"))
+    return float(v) if v is not None and v > 0 else None
+
+
+def preco_unitario_realizado(
+    objetivo_nome: Any,
+    totalizador_gasto: Any,
+    totalizador_atingido: Any,
+    nome_campanha: Any = None,
+) -> Optional[float]:
+    """Custo unitário realizado: gasto / volume atingido, normalizado por KPI."""
+    gasto = parse_brl_float(totalizador_gasto)
+    vol = volume_qty_campanha(totalizador_atingido)
+    if gasto is None or gasto <= 0 or vol is None:
+        return None
+    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha)
+    if modalidade == "unit":
+        return round(gasto / vol, 2)
+    return round((gasto / vol) * 1000, 2)
+
+
+def preco_unitario_orcado_campanha(row: Any) -> Optional[float]:
+    """Preço unitário orçado da cotação ou derivado de custo mídia / volume."""
+    v = parse_brl_float(row.get("preco_unitario_orcado"))
+    if v is not None and v > 0:
+        return round(float(v), 2)
+    custo = custo_midia_previsto_campanha(row)
+    vol = volume_para_preco_campanha(row.get("obj_contratados"), row.get("totalizador_atingido"))
+    if custo is None or vol is None or vol <= 0:
+        return None
+    modalidade = _modalidade_kpi(row.get("objetivo_nome"), row.get("nome_campanha"))
+    if modalidade == "unit":
+        return round(custo / vol, 2)
+    return round((custo / vol) * 1000, 2)
+
+
+def _to_date(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value.strip():
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(value.strip()[:10], fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def calcular_periodo_progresso(
+    periodo_inicio: Any,
+    periodo_fim: Any,
+    hoje: Optional[date] = None,
+) -> dict[str, Any]:
+    """Percentual de tempo decorrido e dias restantes da campanha."""
+    d_ini = _to_date(periodo_inicio)
+    d_fim = _to_date(periodo_fim)
+    ref = hoje or date.today()
+    if not d_ini or not d_fim or d_fim < d_ini:
+        return {"periodo_pct_elapsed": None, "periodo_dias_restantes": None, "periodo_dias_total": None}
+    total = (d_fim - d_ini).days
+    if total <= 0:
+        pct = 100 if ref >= d_ini else 0
+        restantes = max((d_fim - ref).days, 0)
+        return {
+            "periodo_pct_elapsed": pct,
+            "periodo_dias_restantes": restantes,
+            "periodo_dias_total": 0,
+        }
+    elapsed = (ref - d_ini).days
+    pct = round(max(0, min(100, (elapsed / total) * 100)))
+    restantes = max((d_fim - ref).days, 0)
+    return {
+        "periodo_pct_elapsed": pct,
+        "periodo_dias_restantes": restantes,
+        "periodo_dias_total": total,
+    }
+
+
 def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
-    """Igual ao payload de /api/cadu-pi/<id>/campanhas (coluna Preço em Operação/Faturamento)."""
+    """Anexa métricas de preço, custo de mídia, objetivo e período à campanha."""
     r = dict(row)
     valor_para_preco = investimento_para_preco_campanha(r) or 0
     vol_kpi = volume_para_preco_campanha(r.get("obj_contratados"), r.get("totalizador_atingido"))
@@ -188,6 +265,30 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
     r["volume_kpi"] = vol_kpi
     r["preco_metrica_brl"] = round(preco_metrica, 2) if preco_metrica is not None else None
     r["preco_metrica_modalidade"] = modalidade_preco
+
+    custo_prev = custo_midia_previsto_campanha(r)
+    gasto = parse_brl_float(r.get("totalizador_gasto")) or 0
+    r["custo_midia_previsto"] = custo_prev
+    r["custo_midia_realizado"] = float(gasto) if gasto > 0 else None
+    if custo_prev and custo_prev > 0 and gasto > 0:
+        r["pct_custo_midia"] = round((gasto / custo_prev) * 100)
+    else:
+        r["pct_custo_midia"] = 0 if not custo_prev else 0
+
+    obj = parse_volume_float(r.get("obj_contratados"))
+    ating = parse_volume_float(r.get("totalizador_atingido"))
+    r["pct_objetivo"] = round((ating / obj) * 100) if obj > 0 else 0
+
+    r["preco_unitario_orcado_brl"] = preco_unitario_orcado_campanha(r)
+    r["preco_unitario_realizado_brl"] = preco_unitario_realizado(
+        r.get("objetivo_nome"),
+        r.get("totalizador_gasto"),
+        r.get("totalizador_atingido"),
+        r.get("nome_campanha"),
+    )
+
+    periodo = calcular_periodo_progresso(r.get("periodo_inicio"), r.get("periodo_fim"))
+    r.update(periodo)
     return r
 
 

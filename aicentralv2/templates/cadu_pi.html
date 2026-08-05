@@ -139,10 +139,13 @@
             <th class="font-semibold px-2" style="width: 100px;">Executivo</th>
             <th class="font-semibold text-center px-2" style="width: 76px;">Período</th>
             {% if sub_status_atual|string == '3' %}
-            <th class="font-semibold text-center px-2" style="width: 90px;">Progresso</th>
+            <th class="font-semibold text-center px-2" style="width: 90px;" title="Percentual de custo de mídia realizado vs orçado (Σ campanhas)">Progresso</th>
             {% endif %}
             <th class="font-semibold text-center px-2" style="width: 52px;">Camp.</th>
-            <th class="font-semibold text-right px-2" style="width: 110px;">Bruto / Líquido</th>
+            {% if sub_status_atual|string == '3' %}
+            <th class="font-semibold text-right px-2" style="width: 110px;">Custo de Mídia</th>
+            {% endif %}
+            <th class="font-semibold text-right px-2" style="width: 110px;">Valor líquido do PI</th>
             <th class="font-semibold text-center px-2" style="width: 36px;"></th>
             {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
             <th class="font-semibold text-center px-2" style="width: 100px;">Nota Fiscal</th>
@@ -283,10 +286,10 @@
             </td>
             {% if sub_status_atual|string == '3' %}
             <td class="text-center px-2 align-top" data-campanha-ids='{{ pi.get("campanha_ids", [])|tojson }}' data-pi-id="{{ pi.id_pi }}">
-              {% if pi.get('total_campanhas', 0) > 0 and pi.get('camp_obj_total', 0) > 0 %}
+              {% if pi.get('total_campanhas', 0) > 0 and pi.get('camp_midia_prev_total', 0) > 0 %}
               <div class="flex flex-col items-center gap-0.5">
                 <div class="flex items-center gap-1">
-                  <div class="camp-progress camp-progress-sm" data-tier="{{ prog_tier }}" title="Progresso agregado: {{ pct_agg }}%">
+                  <div class="camp-progress camp-progress-sm" data-tier="{{ prog_tier }}" title="Custo de mídia: {{ pct_agg }}% (realizado / previsto)">
                     <div class="camp-progress-fill" style="width: {{ prog_width }}%"></div>
                   </div>
                   <span class="camp-progress-pct text-[10px]" data-tier="{{ prog_tier }}">{{ pct_agg }}%</span>
@@ -294,7 +297,7 @@
                 <span class="text-[10px] text-gray-500 pi-flag-summary" id="pi-flag-summary-{{ pi.id_pi }}" style="display:none"></span>
               </div>
               {% elif pi.get('total_campanhas', 0) > 0 %}
-              <span class="cx-cell-empty empty-na" title="Sem meta definida nas campanhas">—</span>
+              <span class="cx-cell-empty empty-na" title="Sem custo de mídia previsto nas campanhas">—</span>
               {% else %}
               <span class="cx-cell-empty empty-na" title="Sem campanhas">—</span>
               {% endif %}
@@ -310,19 +313,40 @@
               <span class="text-[11px] text-gray-400">0</span>
               {% endif %}
             </td>
+            {% if sub_status_atual|string == '3' %}
+            {% set pct_midia_pi = pi.get('camp_pct_midia', 0) %}
+            {% if pct_midia_pi <= 0 %}{% set midia_tier = 'empty' %}
+            {% elif pct_midia_pi < 34 %}{% set midia_tier = 'low' %}
+            {% elif pct_midia_pi < 70 %}{% set midia_tier = 'mid' %}
+            {% elif pct_midia_pi < 100 %}{% set midia_tier = 'high' %}
+            {% elif pct_midia_pi == 100 %}{% set midia_tier = 'complete' %}
+            {% else %}{% set midia_tier = 'over' %}{% endif %}
+            {% set midia_width = [pct_midia_pi, 100]|min if pct_midia_pi > 0 else 0 %}
             <td class="text-right px-2 align-top">
-              <div class="flex flex-col gap-0.5 items-end">
-                {% if pi.get('valor_bruto') %}
-                <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.valor_bruto|format_brl }}</span>
-                {% else %}
-                <span class="cx-cell-empty empty-pending" title="Valor bruto não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
-                {% endif %}
-                {% if pi.get('valor_liquido') %}
-                <span class="text-[11px] tabular-nums text-green-700 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
-                {% elif pi.get('valor_bruto') %}
-                <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
-                {% endif %}
+              {% if pi.get('camp_midia_prev_total', 0) > 0 %}
+              <div class="flex flex-col items-end gap-0.5">
+                <div class="flex items-center gap-1">
+                  <div class="camp-progress camp-progress-sm" data-tier="{{ midia_tier }}" title="Custo de mídia: {{ pct_midia_pi }}%">
+                    <div class="camp-progress-fill" style="width: {{ midia_width }}%"></div>
+                  </div>
+                  <span class="camp-progress-pct text-[10px]" data-tier="{{ midia_tier }}">{{ pct_midia_pi }}%</span>
+                </div>
+                <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.camp_midia_gasto_total|format_brl }}</span>
+                <span class="text-[10px] text-gray-400">de {{ pi.camp_midia_prev_total|format_brl }}</span>
               </div>
+              {% elif pi.get('total_campanhas', 0) > 0 %}
+              <span class="cx-cell-empty empty-na" title="Sem previsto de mídia">—</span>
+              {% else %}
+              <span class="cx-cell-empty empty-na">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="text-right px-2 align-top">
+              {% if pi.get('valor_liquido') %}
+              <span class="text-xs font-semibold tabular-nums text-green-700">{{ pi.valor_liquido|format_brl }}</span>
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
             </td>
             <td class="text-center px-2 align-top">
               <div class="flex flex-col items-center gap-0.5">
@@ -443,7 +467,7 @@
           </tr>
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
-            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}10{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}9{% else %}8{% endif %}{% endif %}" class="p-0">
+            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}11{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}10{% else %}8{% endif %}{% endif %}" class="p-0">
               <div class="pi-camp-block py-2 pr-3 border-t border-slate-200">
                 <div class="pi-camp-scroll">
                 <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
@@ -594,61 +618,76 @@
         <span id="lista_modal_pi_codigo" class="text-gray-500 text-[9px] font-mono">—</span>
       </div>
     </div>
-    <div class="px-4 py-3">
-      <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-        <div class="col-span-2">
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
-          <span id="view_nome_campanha" class="text-[10px] font-medium text-gray-800">—</span>
+    <div class="px-4 py-3 space-y-3 max-h-[70vh] overflow-y-auto">
+      <section>
+        <h4 class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-1.5">Identificação</h4>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2">
+          <div class="col-span-2">
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
+            <span id="view_nome_campanha" class="text-[10px] font-medium text-gray-800">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
+            <span id="view_plataforma" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
+            <span id="view_status" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Período</label>
+            <span id="view_periodo" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Objetivo (KPI)</label>
+            <span id="view_objetivos" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div class="col-span-2" id="view_periodo_progress_wrap" style="display:none">
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Tempo decorrido</label>
+            <div id="view_periodo_progress"></div>
+          </div>
         </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
-          <span id="view_obj_contratados" class="text-[10px] text-gray-700">—</span>
+      </section>
+      <section class="border-t border-gray-100 pt-2">
+        <h4 class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-1.5">Performance</h4>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Objetivo</label>
+            <div id="view_objetivo_progress" class="mb-0.5"></div>
+            <span id="view_objetivo_valores" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Custo de Mídia</label>
+            <div id="view_midia_progress" class="mb-0.5"></div>
+            <span id="view_midia_valores" class="text-[10px] text-gray-700">—</span>
+          </div>
         </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
-          <span id="view_valor_plataforma" class="text-[10px] text-gray-700">—</span>
+      </section>
+      <section class="border-t border-gray-100 pt-2">
+        <h4 class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-1.5">Custos unitários</h4>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label id="view_preco_orc_label" class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Orçado (cotação)</label>
+            <span id="view_preco_orcado" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label id="view_preco_real_label" class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Realizado</label>
+            <span id="view_preco_realizado" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
+            <span id="view_under" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Valor plataforma (comercial)</label>
+            <span id="view_valor_plataforma" class="text-[10px] text-gray-700">—</span>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
+            <span id="view_link_dash" class="text-[10px] text-gray-700 break-all">—</span>
+          </div>
         </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
-          <span id="view_status" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
-          <span id="view_periodo_inicio" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
-          <span id="view_periodo_fim" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
-          <span id="view_plataforma" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
-          <span id="view_objetivos" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label id="view_preco_metrica_label" class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
-          <span id="view_preco_metrica" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
-          <span id="view_under" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
-          <span id="view_totalizador_atingido" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
-          <span id="view_totalizador_gasto" class="text-[10px] text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
-          <span id="view_link_dash" class="text-[10px] text-gray-700 break-all">—</span>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
@@ -1346,32 +1385,72 @@ function siglaMetricaPrecoListaPi(nomeObjetivo, modalidade) {
 }
 
 function abrirViewCampanhaLista(c) {
-  var fmtBrl = function(v) { return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'; };
+  var UI = window.CampanhasUI || {};
+  var fmtBrl = function(v) {
+    if (v == null || v === '') return '—';
+    return UI.formatBrlPtBR ? UI.formatBrlPtBR(v) : ('R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+  };
+  var fmtInt = function(v) {
+    if (v == null || v === '') return '—';
+    return UI.formatVolumeIntPtBR ? UI.formatVolumeIntPtBR(v) : Number(v).toLocaleString('pt-BR', {maximumFractionDigits: 0});
+  };
+  var parseVol = UI.parseVolume || function(v) { return Number(v) || 0; };
+  var parseBrl = UI.parseBrlMoeda || function(v) { return Number(v) || 0; };
+  var buildProg = UI.buildProgressHtml || function() { return ''; };
+
   var codEl = document.getElementById('lista_modal_pi_codigo');
   if (codEl) codEl.textContent = (c.codigo_pi != null && String(c.codigo_pi).trim() !== '') ? String(c.codigo_pi) : (c.id_pi != null ? String(c.id_pi) : '—');
   var cliEl = document.getElementById('lista_modal_cliente');
-  if (cliEl) cliEl.textContent = '—';
+  if (cliEl) cliEl.textContent = c.cliente_nome || '—';
+
   document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
-  document.getElementById('view_obj_contratados').textContent = c.obj_contratados != null ? String(c.obj_contratados) : '—';
-  document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
-  document.getElementById('view_status').textContent = c.status_nome || '—';
-  document.getElementById('view_periodo_inicio').textContent = c.periodo_inicio || '—';
-  document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
   document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';
+  document.getElementById('view_status').textContent = c.status_nome || '—';
   document.getElementById('view_objetivos').textContent = c.objetivo_nome || '—';
-  var precoEl = document.getElementById('view_preco_metrica');
-  var precoLbl = document.getElementById('view_preco_metrica_label');
-  if (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))) {
-    var sigla = siglaMetricaPrecoListaPi(c.objetivo_nome, c.preco_metrica_modalidade);
-    precoLbl.textContent = sigla !== '—' ? sigla + ' (R$)' : 'Preço (R$)';
-    precoEl.textContent = fmtBrl(c.preco_metrica_brl);
-  } else {
-    precoLbl.textContent = 'Preço (R$)';
-    precoEl.textContent = '—';
+
+  var periodoTxt = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+  if (c.periodo_dias != null) periodoTxt += ' (' + c.periodo_dias + 'd)';
+  document.getElementById('view_periodo').textContent = periodoTxt;
+
+  var periodoWrap = document.getElementById('view_periodo_progress_wrap');
+  var periodoProg = document.getElementById('view_periodo_progress');
+  if (c.periodo_pct_elapsed != null && periodoWrap && periodoProg) {
+    periodoWrap.style.display = '';
+    periodoProg.innerHTML = buildProg(Number(c.periodo_pct_elapsed), { small: true });
+  } else if (periodoWrap) {
+    periodoWrap.style.display = 'none';
   }
+
+  var objNum = parseVol(c.obj_contratados);
+  var atingNum = parseVol(c.totalizador_atingido);
+  var pctObj = c.pct_objetivo != null ? Number(c.pct_objetivo) : (objNum > 0 ? Math.round((atingNum / objNum) * 100) : 0);
+  document.getElementById('view_objetivo_progress').innerHTML = objNum > 0 ? buildProg(pctObj, { small: true }) : '—';
+  document.getElementById('view_objetivo_valores').textContent = objNum > 0
+    ? fmtInt(atingNum) + ' / ' + fmtInt(objNum) + ' (' + pctObj + '%)'
+    : (atingNum > 0 ? fmtInt(atingNum) : '—');
+
+  var gasto = c.custo_midia_realizado != null ? parseBrl(c.custo_midia_realizado) : parseBrl(c.totalizador_gasto);
+  var previsto = c.custo_midia_previsto != null ? parseBrl(c.custo_midia_previsto) : parseBrl(c.valor_plataforma);
+  var pctMidia = c.pct_custo_midia != null ? Number(c.pct_custo_midia) : (previsto > 0 ? Math.round((gasto / previsto) * 100) : 0);
+  document.getElementById('view_midia_progress').innerHTML = previsto > 0 ? buildProg(pctMidia, { small: true }) : '—';
+  document.getElementById('view_midia_valores').textContent = previsto > 0
+    ? fmtBrl(gasto) + ' / ' + fmtBrl(previsto) + ' (' + pctMidia + '%)'
+    : (gasto > 0 ? fmtBrl(gasto) : '—');
+
+  var sigla = siglaMetricaPrecoListaPi(c.objetivo_nome, c.preco_metrica_modalidade);
+  var precoOrcLbl = document.getElementById('view_preco_orc_label');
+  var precoRealLbl = document.getElementById('view_preco_real_label');
+  if (precoOrcLbl) precoOrcLbl.textContent = (sigla !== '—' ? sigla + ' ' : '') + 'Orçado (cotação)';
+  if (precoRealLbl) precoRealLbl.textContent = (sigla !== '—' ? sigla + ' ' : '') + 'Realizado';
+
+  var precoOrc = c.preco_unitario_orcado_brl;
+  var precoReal = c.preco_unitario_realizado_brl;
+  document.getElementById('view_preco_orcado').textContent = precoOrc != null ? fmtBrl(precoOrc) : '—';
+  document.getElementById('view_preco_realizado').textContent = precoReal != null ? fmtBrl(precoReal) : '—';
+
   document.getElementById('view_under').textContent = c.under ? 'Sim' : 'Não';
-  document.getElementById('view_totalizador_atingido').textContent = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '—';
-  document.getElementById('view_totalizador_gasto').textContent = c.totalizador_gasto != null ? fmtBrl(c.totalizador_gasto) : '—';
+  document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
+
   var linkEl = document.getElementById('view_link_dash');
   if (c.link_dash) {
     linkEl.innerHTML = '<a href="' + c.link_dash + '" target="_blank" class="text-blue-500 hover:text-blue-700 underline">' + c.link_dash + '</a>';

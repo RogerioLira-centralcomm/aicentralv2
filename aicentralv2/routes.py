@@ -1502,13 +1502,23 @@ def init_routes(app):
                     'periodo_fim': er['periodo_fim'].strftime('%d/%m/%Y') if er.get('periodo_fim') else None,
                     'periodo_inicio_iso': er['periodo_inicio'].strftime('%Y-%m-%d') if er.get('periodo_inicio') else None,
                     'periodo_fim_iso': er['periodo_fim'].strftime('%Y-%m-%d') if er.get('periodo_fim') else None,
-                    'periodo_dias': periodo_dias,
+                    'periodo_dias': periodo_dias or er.get('periodo_dias_total'),
+                    'periodo_pct_elapsed': er.get('periodo_pct_elapsed'),
+                    'periodo_dias_restantes': er.get('periodo_dias_restantes'),
                     'obj_contratados': er.get('obj_contratados'),
                     'totalizador_atingido': er.get('totalizador_atingido'),
                     'totalizador_gasto': _parse_brl_float(er.get('totalizador_gasto')),
                     'valor_plataforma': _parse_brl_float(er.get('valor_plataforma')),
                     'valor_total_plataforma': _parse_brl_float(er.get('valor_total_plataforma')),
+                    'custo_midia_orcado': _parse_brl_float(er.get('custo_midia_orcado')),
+                    'custo_midia_previsto': er.get('custo_midia_previsto'),
+                    'custo_midia_realizado': er.get('custo_midia_realizado'),
+                    'pct_custo_midia': er.get('pct_custo_midia', 0),
+                    'pct_objetivo': er.get('pct_objetivo', 0),
+                    'preco_unitario_orcado_brl': er.get('preco_unitario_orcado_brl'),
+                    'preco_unitario_realizado_brl': er.get('preco_unitario_realizado_brl'),
                     'plataforma_nome': er.get('plataforma_nome', ''),
+                    'cliente_nome': er.get('cliente_nome', ''),
                     'objetivo_nome': er.get('objetivo_nome', ''),
                     'link_dash': er.get('link_dash', ''),
                     'under': er.get('under', False),
@@ -9388,23 +9398,28 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             pi_footer_totais = _totais_rodape_pi_lista(pis)
 
-            # Progresso agregado das campanhas (visão Em andamento)
+            # Progresso agregado das campanhas (visão Em andamento) — % custo de mídia
             if filtros.get('id_sub_status_pi') == 3 and pis:
                 ids = [p['id_pi'] for p in pis if p.get('id_pi')]
                 agg_map = db.obter_progresso_campanhas_por_pis(ids)
                 for pi in pis:
                     id_pi = pi.get('id_pi')
                     bucket = agg_map.get(id_pi) or {}
-                    obj_total = 0.0
-                    ating_total = 0.0
-                    for raw_obj in bucket.get('obj_raw') or []:
-                        obj_total += parse_volume_campanha(raw_obj)
-                    for raw_ating in bucket.get('ating_raw') or []:
-                        ating_total += parse_volume_campanha(raw_ating)
-                    pct = round((ating_total / obj_total) * 100) if obj_total > 0 else 0
-                    pi['camp_obj_total'] = obj_total
-                    pi['camp_ating_total'] = ating_total
-                    pi['camp_pct_agregado'] = int(pct)
+                    gasto_total = 0.0
+                    previsto_total = 0.0
+                    for raw_gasto in bucket.get('gasto_raw') or []:
+                        g = _parse_brl_float(raw_gasto)
+                        if g is not None:
+                            gasto_total += g
+                    for raw_prev in bucket.get('previsto_raw') or []:
+                        p = _parse_brl_float(raw_prev)
+                        if p is not None:
+                            previsto_total += p
+                    pct_midia = round((gasto_total / previsto_total) * 100) if previsto_total > 0 else 0
+                    pi['camp_midia_gasto_total'] = gasto_total
+                    pi['camp_midia_prev_total'] = previsto_total
+                    pi['camp_pct_agregado'] = int(pct_midia)
+                    pi['camp_pct_midia'] = int(pct_midia)
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
 
             status_pi = db.obter_status_pi()
@@ -11553,6 +11568,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'totalizador_atingido': _parse_numero_campanha_formatado(request.form.get('totalizador_atingido')),
             'totalizador_gasto': _parse_real_campanha(request.form.get('totalizador_gasto')),
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
+            'custo_midia_orcado': _parse_real_campanha(request.form.get('custo_midia_orcado')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
             **{
                 _k: (request.form.get(_k, '').strip() or None)
@@ -11577,6 +11593,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         campos = (
             'obj_contratados', 'totalizador_atingido', 'totalizador_gasto', 'valor_plataforma',
+            'custo_midia_orcado',
             'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos',
             'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
             'link_dash', 'id_centralx',
@@ -12397,7 +12414,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 gasto_raw = campanha.get('totalizador_gasto') or '0'
                 gasto_val = float(str(gasto_raw).replace('R$', '').replace('.', '').replace(',', '.').strip()) if gasto_raw else 0
-                prev_raw = campanha.get('valor_plataforma') or '0'
+                prev_raw = campanha.get('custo_midia_orcado') or campanha.get('valor_plataforma') or '0'
                 prev_val = float(str(prev_raw).replace('R$', '').replace('.', '').replace(',', '.').strip()) if prev_raw else 0
                 pct_inv = round((gasto_val / prev_val) * 100, 1) if prev_val > 0 else 0
 

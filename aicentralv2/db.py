@@ -562,6 +562,28 @@ def init_db(app):
                 END $$;
             ''')
 
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi_campanha'
+                          AND column_name = 'custo_midia_orcado'
+                    ) THEN
+                        ALTER TABLE cadu_pi_campanha ADD COLUMN custo_midia_orcado VARCHAR(30);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi_campanha'
+                          AND column_name = 'preco_unitario_orcado'
+                    ) THEN
+                        ALTER TABLE cadu_pi_campanha ADD COLUMN preco_unitario_orcado VARCHAR(30);
+                    END IF;
+                END $$;
+            ''')
+
             # Criar índices para cadu_cotacao_audiencias
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_cotacao ON cadu_cotacao_audiencias(cotacao_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_audiencia ON cadu_cotacao_audiencias(audiencia_id)')
@@ -10033,7 +10055,7 @@ def obter_cadu_pi_lista(filtros=None):
 
 
 def obter_progresso_campanhas_por_pis(ids_pi):
-    """Agrega obj_contratados e totalizador_atingido por PI (somente soma para exibição)."""
+    """Agrega métricas por PI: objetivo, custo de mídia (gasto vs previsto)."""
     if not ids_pi:
         return {}
     conn = get_db()
@@ -10044,7 +10066,10 @@ def obter_progresso_campanhas_por_pis(ids_pi):
                     ca.id_pi,
                     ca.id_campanha,
                     ca.obj_contratados,
-                    ca.totalizador_atingido
+                    ca.totalizador_atingido,
+                    ca.totalizador_gasto,
+                    ca.custo_midia_orcado,
+                    ca.valor_plataforma
                 FROM cadu_pi_campanha ca
                 WHERE ca.id_pi = ANY(%s)
                 ORDER BY ca.id_pi, ca.id_campanha
@@ -10058,10 +10083,15 @@ def obter_progresso_campanhas_por_pis(ids_pi):
                     'campanha_ids': [],
                     'obj_raw': [],
                     'ating_raw': [],
+                    'gasto_raw': [],
+                    'previsto_raw': [],
                 }
             agg[id_pi]['campanha_ids'].append(row['id_campanha'])
             agg[id_pi]['obj_raw'].append(row.get('obj_contratados'))
             agg[id_pi]['ating_raw'].append(row.get('totalizador_atingido'))
+            agg[id_pi]['gasto_raw'].append(row.get('totalizador_gasto'))
+            prev = row.get('custo_midia_orcado') or row.get('valor_plataforma')
+            agg[id_pi]['previsto_raw'].append(prev)
         return agg
     except Exception as e:
         conn.rollback()
@@ -10696,11 +10726,20 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
     if id_objetivos_campanha is None and kpi:
         id_objetivos_campanha = obter_id_objetivo_campanha_por_kpi(kpi)
 
+    custo_midia_val = calcular_custo_midia_item(item, kpi_key=kpi_key)
+    preco_unit_val = (
+        parse_valor_monetario_para_float(item.get('valor_unitario_negociado'))
+        or parse_valor_monetario_para_float(item.get('cpm_estimado'))
+        or parse_valor_monetario_para_float(item.get('valor_unitario_tabela'))
+    )
+
     return {
         'id_pi': id_pi,
         'id_cliente': cotacao.get('client_id'),
         'nome_campanha': nome,
         'valor_plataforma': formatar_real_br(valor_plat),
+        'custo_midia_orcado': formatar_real_br(custo_midia_val) if custo_midia_val > 0 else None,
+        'preco_unitario_orcado': formatar_real_br(preco_unit_val) if preco_unit_val > 0 else None,
         'id_plataforma': obter_id_plataforma_por_nome(plataforma),
         'obj_contratados': obj_contratados,
         'periodo_inicio': periodo_ini,
@@ -12766,6 +12805,8 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     c.totalizador_gasto,
                     c.valor_plataforma,
                     c.valor_total_plataforma,
+                    c.custo_midia_orcado,
+                    c.preco_unitario_orcado,
                     c.id_plataforma,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
@@ -13003,6 +13044,8 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.totalizador_gasto,
                     c.valor_plataforma,
                     c.valor_total_plataforma,
+                    c.custo_midia_orcado,
+                    c.preco_unitario_orcado,
                     c.id_plataforma,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
@@ -13045,7 +13088,8 @@ def criar_campanha_pi(data):
                     created_at, updated_at, under, id_objetivos_campanha,
                     periodo_inicio, periodo_fim, id_status,
                     totalizador_atingido, totalizador_gasto,
-                    valor_plataforma, id_plataforma,
+                    valor_plataforma, custo_midia_orcado, preco_unitario_orcado,
+                    id_plataforma,
                     perc_margem_cc, perc_tech_fee, perc_com_vendas,
                     perc_pl_incentivos, perc_impostos,
                     val_margem_cc, val_tech_fee, val_com_vendas,
@@ -13057,7 +13101,8 @@ def criar_campanha_pi(data):
                     DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s, %s,
                     %s, %s, %s,
                     %s, %s,
-                    %s, %s,
+                    %s, %s, %s,
+                    %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
@@ -13081,6 +13126,8 @@ def criar_campanha_pi(data):
                 data.get('totalizador_atingido'),
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
+                data.get('custo_midia_orcado'),
+                data.get('preco_unitario_orcado'),
                 data.get('id_plataforma'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
@@ -13158,6 +13205,8 @@ def atualizar_campanha_pi(id_campanha, data):
                     totalizador_atingido = %s,
                     totalizador_gasto = %s,
                     valor_plataforma = %s,
+                    custo_midia_orcado = %s,
+                    preco_unitario_orcado = %s,
                     id_plataforma = %s,
                     perc_margem_cc = %s,
                     perc_tech_fee = %s,
@@ -13187,6 +13236,8 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('totalizador_atingido'),
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
+                data.get('custo_midia_orcado'),
+                data.get('preco_unitario_orcado'),
                 data.get('id_plataforma'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
@@ -14513,8 +14564,9 @@ def criar_cadu_lead(dados):
                     %s, %s, %s, %s,
                     %s, %s, %s, %s,
                     %s, %s,
+                    %s, %s, %s,
                     %s, %s,
-                    %s, %s,
+                    %s, %s, %s,
                     %s, %s,
                     %s, %s, %s
                 ) RETURNING id

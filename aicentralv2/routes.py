@@ -12942,12 +12942,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return True, nv, pv, 'liquido' if pv == pi_liq else 'bruto'
         return False, nf_valores[0], pi_liq or pi_bru, None
 
-    def _validar_nf_contra_pi_contexto(pi_row, extracted):
+    def _validar_nf_contra_pi_contexto(pi_row, extracted, *, confirmar=False):
         """
         Valida código PI da NF contra o PI selecionado.
         Valores não são validados (podem estar desatualizados ou incorretos no PI).
         Tomador/cliente não é validado (NF pode ser emitida para terceiro).
         Retorna (ok, erros, avisos, detalhes).
+        Na análise, divergência de PI gera aviso e preview editável.
+        Na confirmação, exige PI conferido (ou equivalente).
         """
         from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi, codigo_pi_equivale
 
@@ -12973,20 +12975,28 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
             elif not any(codigo_pi_equivale(cod_nf, pc) for pc in pi_codes):
                 ref = cod_nf
-                erros.append(
+                msg = (
                     f'Inconsistência no PI: a nota referencia PI "{ref}", '
                     f'mas o PI selecionado é "{cod_pi_esperado}".'
                 )
+                if confirmar:
+                    erros.append(msg)
+                else:
+                    avisos.append(msg + ' Confira e ajuste o código PI abaixo.')
+                    detalhes['pi_requer_edicao'] = True
+                detalhes['codigo_pi_nf'] = cod_nf
+                detalhes['codigo_pi_esperado'] = cod_pi_esperado
             else:
                 detalhes['pi_ok'] = True
                 detalhes['codigo_pi_nf'] = cod_nf
                 detalhes['codigo_pi_esperado'] = cod_pi_esperado
                 if cod_nf != cod_pi_esperado and codigo_pi_equivale(cod_nf, cod_pi_esperado):
                     avisos.append(
-                        f'Código PI na nota ({cod_nf}) foi ajustado para conferir com o PI '
-                        f'selecionado ({cod_pi_esperado}).'
+                        f'Código PI na nota ({cod_nf}) difere do PI selecionado '
+                        f'({cod_pi_esperado}). Confira o campo abaixo.'
                     )
-                    detalhes['codigo_pi_nf'] = cod_pi_esperado
+                    if not confirmar:
+                        detalhes['pi_requer_edicao'] = True
 
         nf_total, nf_liq = _valores_nota_nf(extracted)
         valor_nf = nf_total if nf_total is not None else nf_liq
@@ -13341,7 +13351,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filename=linha.get('filename'),
                 codigo_referencia=linha.get('codigo_pi_referencia'),
             )
-            ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf)
+            ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf, confirmar=True)
             if not ok_val:
                 storage.delete_pending(temp_id)
                 erros.append({

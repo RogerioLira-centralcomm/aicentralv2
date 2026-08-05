@@ -67,6 +67,13 @@
               <input type="date" id="nf_import_preview_data" class="input input-bordered input-sm w-full">
             </div>
             <div>
+              <label class="text-xs text-gray-500 block mb-1">Código PI (nota)</label>
+              <input type="text" id="nf_import_preview_codigo_pi" class="input input-bordered input-sm w-full font-mono">
+              <p id="nf_import_preview_codigo_pi_hint" class="hidden text-[10px] text-amber-700 mt-0.5">
+                Ajuste o código PI para conferir com o PI selecionado.
+              </p>
+            </div>
+            <div>
               <label class="text-xs text-gray-500 block mb-1">Pgto previsto</label>
               <input type="date" id="nf_import_preview_pgto" class="input input-bordered input-sm w-full">
               <p class="text-[10px] text-gray-400 mt-0.5">Sugerido: emissão + 30 dias (editável)</p>
@@ -264,8 +271,54 @@
     box.classList.remove('hidden');
   }
 
+  function highlightNfImportCodigoPi(requerEdicao, codigoEsperado) {
+    var el = document.getElementById('nf_import_preview_codigo_pi');
+    var hint = document.getElementById('nf_import_preview_codigo_pi_hint');
+    if (!el) return;
+    el.classList.remove('input-error', 'border-amber-400', 'bg-amber-50');
+    if (hint) hint.classList.add('hidden');
+    if (requerEdicao) {
+      el.classList.add('border-amber-400', 'bg-amber-50');
+      if (hint) {
+        hint.textContent = codigoEsperado
+          ? 'Ajuste o código PI para conferir com o PI selecionado (' + codigoEsperado + ').'
+          : 'Ajuste o código PI para conferir com o PI selecionado.';
+        hint.classList.remove('hidden');
+      }
+      el.focus();
+      el.select();
+    }
+  }
+
+  function showNfImportPreviewError(msg) {
+    var avisosEl = document.getElementById('nf_import_avisos');
+    if (!avisosEl) return;
+    avisosEl.innerHTML = '<div><i class="fa-solid fa-circle-xmark mr-1"></i>' + msg + '</div>';
+    avisosEl.classList.remove('hidden');
+    avisosEl.classList.remove('bg-amber-50', 'border-amber-200', 'text-amber-800');
+    avisosEl.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+    highlightNfImportCodigoPi(true);
+  }
+
+  function resetNfImportPreviewAvisosStyle() {
+    var avisosEl = document.getElementById('nf_import_avisos');
+    if (!avisosEl) return;
+    avisosEl.classList.remove('bg-red-50', 'border-red-200', 'text-red-800');
+    avisosEl.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+  }
+
   function clearNfImportValidationErrors() {
     showNfImportValidationErrors([]);
+  }
+
+  function resetNfImportCodigoPiField() {
+    var el = document.getElementById('nf_import_preview_codigo_pi');
+    var hint = document.getElementById('nf_import_preview_codigo_pi_hint');
+    if (el) {
+      el.value = '';
+      el.classList.remove('input-error', 'border-amber-400', 'bg-amber-50');
+    }
+    if (hint) hint.classList.add('hidden');
   }
 
   function updateNfImportFileUi() {
@@ -303,6 +356,8 @@
     document.getElementById('nf_import_step_preview').classList.add('hidden');
     document.getElementById('nf_import_step_result').classList.add('hidden');
     document.getElementById('nf_import_avisos').classList.add('hidden');
+    resetNfImportPreviewAvisosStyle();
+    resetNfImportCodigoPiField();
     var valOkEl = document.getElementById('nf_import_validacao_ok');
     if (valOkEl) {
       valOkEl.classList.add('hidden');
@@ -388,6 +443,13 @@
     document.getElementById('nf_import_preview_filename').textContent = item.filename || '';
     document.getElementById('nf_import_preview_numero').value = ex.numero_nota || '';
     document.getElementById('nf_import_preview_rps').value = ex.numero_rps || '';
+    var val = item.validacao || {};
+    var codigoPiNota = val.codigo_pi_nf || ex.codigo_pi || '';
+    document.getElementById('nf_import_preview_codigo_pi').value = codigoPiNota;
+    highlightNfImportCodigoPi(
+      !!val.pi_requer_edicao,
+      val.codigo_pi_esperado || (nfImportPiInfo && nfImportPiInfo.codPi) || ''
+    );
     document.getElementById('nf_import_preview_data').value = dataEm;
     document.getElementById('nf_import_preview_pgto').value = calcDataPagamentoPrevisto(dataEm);
     document.getElementById('nf_import_preview_cod_verif').value = ex.codigo_verificacao || '';
@@ -405,7 +467,6 @@
       : '<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>OCR incompleto — preencha os campos manualmente.</span>';
 
     var valOkEl = document.getElementById('nf_import_validacao_ok');
-    var val = item.validacao || {};
     if (valOkEl) {
       if (val.validacao_completa || val.pi_ok) {
         var valParts = [];
@@ -421,6 +482,7 @@
     }
 
     var avisosEl = document.getElementById('nf_import_avisos');
+    resetNfImportPreviewAvisosStyle();
     var avisos = item.avisos || [];
     if (avisos.length) {
       avisosEl.innerHTML = avisos.map(function(a) { return '<div>• ' + a + '</div>'; }).join('');
@@ -505,6 +567,7 @@
     }
 
     var numero = (document.getElementById('nf_import_preview_numero').value || '').trim();
+    var codigoPi = (document.getElementById('nf_import_preview_codigo_pi').value || '').trim();
     var dataEm = document.getElementById('nf_import_preview_data').value || '';
     var dataPgto = document.getElementById('nf_import_preview_pgto').value || '';
     var valor = document.getElementById('nf_import_preview_valor').value || '';
@@ -521,7 +584,9 @@
     }
 
     var ex = item.extracted || {};
+    var codigoPiEsperado = (nfImportPiInfo && nfImportPiInfo.codPi) || (item.validacao && item.validacao.codigo_pi_esperado) || '';
     var dadosExtraidos = Object.assign({}, ex, {
+      codigo_pi: codigoPi || ex.codigo_pi,
       numero_nota: numero,
       data_emissao: dataEm || ex.data_emissao,
       data_pagamento_previsto: dataPgto,
@@ -549,7 +614,8 @@
       hash_arquivo: item.hash_arquivo,
       filename: item.filename,
       id_pi: parseInt(idPi, 10),
-      codigo_pi_referencia: nfImportPiInfo && nfImportPiInfo.codPi ? nfImportPiInfo.codPi : (ex.codigo_pi || null),
+      codigo_pi: codigoPi || ex.codigo_pi || null,
+      codigo_pi_referencia: codigoPiEsperado || codigoPi || ex.codigo_pi || null,
       numero_nota: numero,
       data_emissao: dataEm || ex.data_emissao || null,
       data_pagamento_previsto: dataPgto || null,
@@ -591,6 +657,11 @@
           var incMsgs = err0.inconsistencias && err0.inconsistencias.length
             ? err0.inconsistencias
             : [err0.error || 'Erro na importação'];
+          if (err0.inconsistencia) {
+            showNfImportPreviewError(incMsgs[0]);
+            nfToast(incMsgs[0], 'error');
+            return;
+          }
           document.getElementById('nf_import_step_preview').classList.add('hidden');
           document.getElementById('nf_import_step_upload').classList.remove('hidden');
           showNfImportValidationErrors(incMsgs);

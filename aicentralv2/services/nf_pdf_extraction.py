@@ -103,6 +103,9 @@ def normalize_codigo_pi(
     if result and exp:
         if result.lower() == exp.lower():
             return exp
+        # Zeros à esquerda (2692 vs 002692)
+        if result.isdigit() and exp.isdigit() and int(result) == int(exp):
+            return exp
         # OCR truncou decimal (358 → 358.6)
         if exp.startswith(result + '.') or (
             result.isdigit() and '.' in exp and exp.split('.', 1)[0] == result
@@ -129,6 +132,8 @@ def codigo_pi_equivale(cod_nf: Any, cod_esperado: Any) -> bool:
     if not a or not b:
         return False
     if a.lower() == b.lower():
+        return True
+    if a.isdigit() and b.isdigit() and int(a) == int(b):
         return True
     if b.startswith(a + '.') or (a.isdigit() and '.' in b and b.split('.', 1)[0] == a):
         return True

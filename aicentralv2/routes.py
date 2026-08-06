@@ -466,6 +466,9 @@ def client_accessible_api(f):
 def init_routes(app):
     from aicentralv2.campanha_pi_metrics import (
         anexar_preco_metrica_campanha as _anexar_preco_metrica_campanha,
+        calc_progress_tier,
+        format_brl_ptbr as _format_brl_ptbr,
+        format_volume_ptbr as _format_volume_ptbr,
         meses_ref_pi_seguros as _meses_ref_pi_seguros,
         parse_brl_float as _parse_brl_float,
         sigla_metrica_preco,
@@ -477,9 +480,13 @@ def init_routes(app):
         return float(v) if v is not None else 0.0
 
     app.jinja_env.filters['parse_volume_campanha'] = parse_volume_campanha
+    app.jinja_env.filters['format_volume_ptbr'] = _format_volume_ptbr
+    app.jinja_env.filters['format_brl_ptbr'] = _format_brl_ptbr
+    app.jinja_env.filters['progress_tier'] = calc_progress_tier
 
     app.jinja_env.filters['sigla_metrica_preco'] = sigla_metrica_preco
     app.jinja_env.globals['sigla_metrica_preco'] = sigla_metrica_preco
+    app.jinja_env.globals['calc_progress_tier'] = calc_progress_tier
 
     @app.route('/planos')
     @login_required
@@ -11803,7 +11810,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     count_pct_objetivo += 1
 
                 gasto_val = _parse_currency(camp.get('totalizador_gasto'))
-                prev_val = _parse_currency(camp.get('valor_plataforma'))
+                prev_val = _parse_currency(camp.get('custo_midia_previsto')) or _parse_currency(camp.get('valor_plataforma'))
                 gasto_total += gasto_val
                 previsto_total += prev_val
 

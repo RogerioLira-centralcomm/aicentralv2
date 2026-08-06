@@ -162,11 +162,32 @@ def preco_unitario_por_metrica(
     return (vr / vol) * 1000, "cpm"
 
 
-def custo_midia_previsto_campanha(row: Any) -> Optional[float]:
-    """Custo de mídia orçado; fallback para valor_plataforma (campanhas legadas)."""
+def _custo_midia_de_preco_unitario(row: Any) -> Optional[float]:
+    """Deriva custo de mídia a partir de preco_unitario_orcado × volume contratado."""
+    preco = parse_brl_float(row.get("preco_unitario_orcado"))
+    vol = volume_qty_campanha(row.get("obj_contratados"))
+    if preco is None or preco <= 0 or vol is None:
+        return None
+    modalidade = _modalidade_kpi(row.get("objetivo_nome"), row.get("nome_campanha"))
+    if modalidade == "unit":
+        return round(preco * vol, 2)
+    return round((preco * vol) / 1000, 2)
+
+
+def _custo_midia_base_row(row: Any) -> Optional[float]:
+    """Custo mídia orçado (cotação ou derivado); sem fallback legado valor_plataforma."""
     v = parse_brl_float(row.get("custo_midia_orcado"))
     if v is not None and v > 0:
         return float(v)
+    v = _custo_midia_de_preco_unitario(row)
+    return float(v) if v is not None and v > 0 else None
+
+
+def custo_midia_previsto_campanha(row: Any) -> Optional[float]:
+    """Custo de mídia orçado; fallback derivado e valor_plataforma (legado)."""
+    v = _custo_midia_base_row(row)
+    if v is not None and v > 0:
+        return v
     v = parse_brl_float(row.get("valor_plataforma"))
     return float(v) if v is not None and v > 0 else None
 
@@ -193,7 +214,7 @@ def preco_unitario_orcado_campanha(row: Any) -> Optional[float]:
     v = parse_brl_float(row.get("preco_unitario_orcado"))
     if v is not None and v > 0:
         return round(float(v), 2)
-    custo = custo_midia_previsto_campanha(row)
+    custo = _custo_midia_base_row(row) or custo_midia_previsto_campanha(row)
     vol = volume_para_preco_campanha(row.get("obj_contratados"), row.get("totalizador_atingido"))
     if custo is None or vol is None or vol <= 0:
         return None
@@ -290,6 +311,43 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
     periodo = calcular_periodo_progresso(r.get("periodo_inicio"), r.get("periodo_fim"))
     r.update(periodo)
     return r
+
+
+def calc_progress_tier(pct: Any) -> str:
+    """Tier visual da barra de progresso (espelha campanhas-ui.js)."""
+    try:
+        p = int(round(float(pct or 0)))
+    except (TypeError, ValueError):
+        p = 0
+    if p <= 0:
+        return "empty"
+    if p < 34:
+        return "low"
+    if p < 70:
+        return "mid"
+    if p < 100:
+        return "high"
+    if p == 100:
+        return "complete"
+    return "over"
+
+
+def format_volume_ptbr(value: Any) -> str:
+    """Volume inteiro formatado pt-BR (ex.: 1.234.567)."""
+    if isinstance(value, (int, float)):
+        n = round(float(value))
+    else:
+        n = round(parse_volume_float(value))
+    return f"{n:,}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def format_brl_ptbr(value: Any, with_prefix: bool = True) -> str:
+    """Valor monetário formatado pt-BR."""
+    v = parse_brl_float(value)
+    if v is None:
+        v = 0.0
+    s = f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {s}" if with_prefix else s
 
 
 def sigla_metrica_preco(objetivo_nome: Any, modalidade: Any) -> str:

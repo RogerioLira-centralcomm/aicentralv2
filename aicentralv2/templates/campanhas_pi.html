@@ -339,10 +339,13 @@
       {% for c in campanhas %}
         {% set obj_val = c.obj_contratados|parse_volume_campanha %}
         {% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
-        {% set pct_obj = ((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0 %}
-        {% set prev_val = c.valor_plataforma|parse_brl_float %}
+        {% set pct_obj = c.pct_objetivo if c.pct_objetivo is not none else (((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0) %}
+        {% set prev_val = c.custo_midia_previsto|parse_brl_float if c.custo_midia_previsto is not none else 0 %}
         {% set gasto_val = c.totalizador_gasto|parse_brl_float %}
-        {% set pct_inv = ((gasto_val / prev_val) * 100)|round(0)|int if prev_val > 0 else 0 %}
+        {% set pct_inv = c.pct_custo_midia if c.pct_custo_midia is not none else (((gasto_val / prev_val) * 100)|round(0)|int if prev_val > 0 else 0) %}
+        {% set preco_orc = c.preco_unitario_orcado_brl %}
+        {% set preco_real = c.preco_unitario_realizado_brl %}
+        {% set sigla_kpi = sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) %}
 
         <div class="camp-card" data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
           <div class="flex items-start justify-between mb-2">
@@ -359,11 +362,16 @@
               <h3 class="font-semibold text-gray-800 text-sm truncate">{{ c.nome_campanha or '—' }}</h3>
               <p class="text-xs text-gray-400 truncate mt-0.5">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</p>
               {# Mesmo bloco que Operação → Faturamento (cadu_pi): Preço (R$) = sigla + valor unitário #}
-              <div class="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2 text-right">
-                <div class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider text-left">Preço (R$)</div>
-                {% if c.preco_metrica_brl is not none %}
-                  <span class="text-[10px] font-semibold text-emerald-800">{{ sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) }}</span>
-                  <div class="text-xs font-semibold text-gray-800">R$ {{ '{:,.2f}'.format(c.preco_metrica_brl)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+              <div class="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2 text-right tabular-nums">
+                <div class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider text-left">Custos Unitários</div>
+                {% if preco_orc is not none or preco_real is not none %}
+                  <span class="text-[10px] font-semibold text-emerald-800">{{ sigla_kpi }}</span>
+                  {% if preco_orc is not none %}
+                    <div class="text-[10px] text-gray-500">Orç. {{ preco_orc|format_brl_ptbr }}</div>
+                  {% endif %}
+                  {% if preco_real is not none %}
+                    <div class="text-xs font-semibold text-gray-800">Real. {{ preco_real|format_brl_ptbr }}</div>
+                  {% endif %}
                 {% else %}
                   <span class="text-gray-400 text-xs">—</span>
                 {% endif %}
@@ -414,8 +422,8 @@
             <div>
               <div class="flex items-center justify-between text-xs mb-0.5">
                 <span class="text-gray-500 font-medium">Investimento</span>
-                <span class="font-bold {% if pct_inv <= 80 %}text-emerald-600{% elif pct_inv <= 100 %}text-amber-600{% else %}text-red-500{% endif %}">
-                  R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }} <span class="font-normal text-gray-400">/ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}</span>
+                <span class="font-bold {% if pct_inv <= 80 %}text-emerald-600{% elif pct_inv <= 100 %}text-amber-600{% else %}text-red-500{% endif %} tabular-nums">
+                  {{ gasto_val|format_brl_ptbr }} <span class="font-normal text-gray-400">/ {{ prev_val|format_brl_ptbr if prev_val > 0 else '—' }}</span>
                 </span>
               </div>
               <div class="progress-slim">
@@ -466,10 +474,19 @@
         <span class="text-xs text-gray-400" id="sidebarPeriodo"></span>
       </div>
 
-      <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 mb-3 text-right">
-        <span class="text-[10px] uppercase tracking-wider text-emerald-800 font-bold block text-left">Preço (R$)</span>
-        <span class="text-[10px] font-semibold text-emerald-800" id="sidebarPrecoSigla"></span>
-        <div class="text-xl font-extrabold text-gray-900 tabular-nums mt-0.5" id="sidebarPrecoValor">—</div>
+      <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 mb-3">
+        <span class="text-[10px] uppercase tracking-wider text-emerald-800 font-bold block mb-2">Custos Unitários</span>
+        <div class="grid grid-cols-2 gap-3 text-right">
+          <div>
+            <span class="text-[10px] text-gray-500 block text-left" id="sidebarPrecoOrcLabel">Orçado (cotação)</span>
+            <div class="text-sm font-semibold text-gray-800 tabular-nums mt-0.5" id="sidebarPrecoOrcado">—</div>
+          </div>
+          <div>
+            <span class="text-[10px] text-gray-500 block text-left" id="sidebarPrecoRealLabel">Realizado</span>
+            <div class="text-sm font-semibold text-gray-800 tabular-nums mt-0.5" id="sidebarPrecoRealizado">—</div>
+          </div>
+        </div>
+        <span class="text-[10px] font-semibold text-emerald-800 mt-2 block" id="sidebarPrecoSigla"></span>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
@@ -1187,16 +1204,19 @@
     document.getElementById('sidebarCliente').textContent = camp.cliente_nome || '—';
     document.getElementById('sidebarExecutivo').textContent = camp.executivo_nome || '—';
     document.getElementById('sidebarPlataforma').textContent = camp.plataforma_nome || '—';
-    const precoM = camp.preco_metrica_brl != null && !isNaN(Number(camp.preco_metrica_brl)) ? Number(camp.preco_metrica_brl) : null;
+    const sigla = siglaMetricaPreco(camp.objetivo_nome, camp.preco_metrica_modalidade);
     const siglaPrecoEl = document.getElementById('sidebarPrecoSigla');
-    const valorPrecoEl = document.getElementById('sidebarPrecoValor');
-    if (precoM != null) {
-      siglaPrecoEl.textContent = siglaMetricaPreco(camp.objetivo_nome, camp.preco_metrica_modalidade);
-      valorPrecoEl.textContent = 'R$ ' + precoM.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      siglaPrecoEl.textContent = '';
-      valorPrecoEl.textContent = '—';
-    }
+    const precoOrcLbl = document.getElementById('sidebarPrecoOrcLabel');
+    const precoRealLbl = document.getElementById('sidebarPrecoRealLabel');
+    const precoOrcEl = document.getElementById('sidebarPrecoOrcado');
+    const precoRealEl = document.getElementById('sidebarPrecoRealizado');
+    if (siglaPrecoEl) siglaPrecoEl.textContent = sigla !== '—' ? sigla : '';
+    if (precoOrcLbl) precoOrcLbl.textContent = (sigla !== '—' ? sigla + ' ' : '') + 'Orçado (cotação)';
+    if (precoRealLbl) precoRealLbl.textContent = (sigla !== '—' ? sigla + ' ' : '') + 'Realizado';
+    const precoOrc = camp.preco_unitario_orcado_brl != null ? Number(camp.preco_unitario_orcado_brl) : null;
+    const precoReal = camp.preco_unitario_realizado_brl != null ? Number(camp.preco_unitario_realizado_brl) : null;
+    if (precoOrcEl) precoOrcEl.textContent = precoOrc != null && !isNaN(precoOrc) ? ('R$ ' + precoOrc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—';
+    if (precoRealEl) precoRealEl.textContent = precoReal != null && !isNaN(precoReal) ? ('R$ ' + precoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—';
     document.getElementById('sidebarStatus').textContent = camp.status_nome || 'N/A';
     document.getElementById('sidebarMesRef').textContent = camp.mes_ref_comp || '—';
 
@@ -1214,15 +1234,15 @@
 
     const objVal = parseVolumeCampanhaJs(camp.obj_contratados);
     const atingVal = parseVolumeCampanhaJs(camp.totalizador_atingido);
-    const pctObj = objVal > 0 ? Math.round((atingVal / objVal) * 100) : 0;
+    const pctObj = camp.pct_objetivo != null ? Number(camp.pct_objetivo) : (objVal > 0 ? Math.round((atingVal / objVal) * 100) : 0);
     document.getElementById('sidebarPctObj').textContent = pctObj + '%';
     document.getElementById('sidebarBarObj').style.width = Math.min(pctObj, 100) + '%';
     document.getElementById('sidebarAtingido').textContent = formatVolumeIntPtBR(atingVal);
     document.getElementById('sidebarObjContratados').textContent = '/ ' + (metaContratadaPreenchida(camp) ? formatVolumeIntPtBR(objVal) : '—');
 
-    const prevVal = parseBrlMoedaJs(camp.valor_plataforma);
+    const prevVal = camp.custo_midia_previsto != null ? parseBrlMoedaJs(camp.custo_midia_previsto) : parseBrlMoedaJs(camp.valor_plataforma);
     const gastoVal = parseBrlMoedaJs(camp.totalizador_gasto);
-    const pctInv = prevVal > 0 ? Math.round((gastoVal / prevVal) * 100) : 0;
+    const pctInv = camp.pct_custo_midia != null ? Number(camp.pct_custo_midia) : (prevVal > 0 ? Math.round((gastoVal / prevVal) * 100) : 0);
     document.getElementById('sidebarPctInv').textContent = pctInv + '%';
     document.getElementById('sidebarBarInv').style.width = Math.min(pctInv, 100) + '%';
     document.getElementById('sidebarGasto').textContent = 'R$ ' + gastoVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});

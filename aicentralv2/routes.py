@@ -9405,7 +9405,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             pi_footer_totais = _totais_rodape_pi_lista(pis)
 
-            # Progresso agregado das campanhas (visão Em andamento) — % custo de mídia
+            # Custo de mídia agregado das campanhas (visão Em andamento)
             if filtros.get('id_sub_status_pi') == 3 and pis:
                 ids = [p['id_pi'] for p in pis if p.get('id_pi')]
                 agg_map = db.obter_progresso_campanhas_por_pis(ids)
@@ -9425,7 +9425,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pct_midia = round((gasto_total / previsto_total) * 100) if previsto_total > 0 else 0
                     pi['camp_midia_gasto_total'] = gasto_total
                     pi['camp_midia_prev_total'] = previsto_total
-                    pi['camp_pct_agregado'] = int(pct_midia)
                     pi['camp_pct_midia'] = int(pct_midia)
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
 

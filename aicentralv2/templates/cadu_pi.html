@@ -138,9 +138,6 @@
             <th class="font-semibold px-2" style="width: 130px;">Agência / Parceiro</th>
             <th class="font-semibold px-2" style="width: 100px;">Executivo</th>
             <th class="font-semibold text-center px-2" style="width: 76px;">Período</th>
-            {% if sub_status_atual|string == '3' %}
-            <th class="font-semibold text-center px-2" style="width: 90px;" title="Percentual de custo de mídia realizado vs orçado (Σ campanhas)">Progresso</th>
-            {% endif %}
             <th class="font-semibold text-center px-2" style="width: 52px;">Camp.</th>
             {% if sub_status_atual|string == '3' %}
             <th class="font-semibold text-right px-2" style="width: 110px;">Custo de Mídia</th>
@@ -215,14 +212,6 @@
             {% set exec_parts = (pi.get('resp_comercial_nome') or '').split(' ') %}
             {% set exec_ini = ((exec_parts[0][0:1] if exec_parts and exec_parts[0] else '') ~ (exec_parts[-1][0:1] if exec_parts|length > 1 and exec_parts[-1] else ''))|upper %}
             {% set status_lower = (pi.get('status_descricao') or '')|lower %}
-            {% set pct_agg = pi.get('camp_pct_agregado', 0) %}
-            {% if pct_agg <= 0 %}{% set prog_tier = 'empty' %}
-            {% elif pct_agg < 34 %}{% set prog_tier = 'low' %}
-            {% elif pct_agg < 70 %}{% set prog_tier = 'mid' %}
-            {% elif pct_agg < 100 %}{% set prog_tier = 'high' %}
-            {% elif pct_agg == 100 %}{% set prog_tier = 'complete' %}
-            {% else %}{% set prog_tier = 'over' %}{% endif %}
-            {% set prog_width = [pct_agg, 100]|min if pct_agg > 0 else 0 %}
             <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
                 <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link truncate block max-w-[68px]" title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
@@ -284,25 +273,6 @@
               <span class="cx-cell-empty empty-pending" title="Período não definido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
               {% endif %}
             </td>
-            {% if sub_status_atual|string == '3' %}
-            <td class="text-center px-2 align-top" data-campanha-ids='{{ pi.get("campanha_ids", [])|tojson }}' data-pi-id="{{ pi.id_pi }}">
-              {% if pi.get('total_campanhas', 0) > 0 and pi.get('camp_midia_prev_total', 0) > 0 %}
-              <div class="flex flex-col items-center gap-0.5">
-                <div class="flex items-center gap-1">
-                  <div class="camp-progress camp-progress-sm" data-tier="{{ prog_tier }}" title="Custo de mídia: {{ pct_agg }}% (realizado / previsto)">
-                    <div class="camp-progress-fill" style="width: {{ prog_width }}%"></div>
-                  </div>
-                  <span class="camp-progress-pct text-[10px]" data-tier="{{ prog_tier }}">{{ pct_agg }}%</span>
-                </div>
-                <span class="text-[10px] text-gray-500 pi-flag-summary" id="pi-flag-summary-{{ pi.id_pi }}" style="display:none"></span>
-              </div>
-              {% elif pi.get('total_campanhas', 0) > 0 %}
-              <span class="cx-cell-empty empty-na" title="Sem custo de mídia previsto nas campanhas">—</span>
-              {% else %}
-              <span class="cx-cell-empty empty-na" title="Sem campanhas">—</span>
-              {% endif %}
-            </td>
-            {% endif %}
             <td class="text-center px-2 align-top">
               {% if pi.get('total_campanhas', 0) > 0 %}
               <button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
@@ -322,7 +292,7 @@
             {% elif pct_midia_pi == 100 %}{% set midia_tier = 'complete' %}
             {% else %}{% set midia_tier = 'over' %}{% endif %}
             {% set midia_width = [pct_midia_pi, 100]|min if pct_midia_pi > 0 else 0 %}
-            <td class="text-right px-2 align-top">
+            <td class="text-right px-2 align-top" data-campanha-ids='{{ pi.get("campanha_ids", [])|tojson }}' data-pi-id="{{ pi.id_pi }}">
               {% if pi.get('camp_midia_prev_total', 0) > 0 %}
               <div class="flex flex-col items-end gap-0.5">
                 <div class="flex items-center gap-1">
@@ -333,9 +303,11 @@
                 </div>
                 <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.camp_midia_gasto_total|format_brl }}</span>
                 <span class="text-[10px] text-gray-400">de {{ pi.camp_midia_prev_total|format_brl }}</span>
+                <span class="text-[10px] text-gray-500 pi-flag-summary" id="pi-flag-summary-{{ pi.id_pi }}" style="display:none"></span>
               </div>
               {% elif pi.get('total_campanhas', 0) > 0 %}
               <span class="cx-cell-empty empty-na" title="Sem previsto de mídia">—</span>
+              <span class="text-[10px] text-gray-500 pi-flag-summary" id="pi-flag-summary-{{ pi.id_pi }}" style="display:none"></span>
               {% else %}
               <span class="cx-cell-empty empty-na">—</span>
               {% endif %}
@@ -467,7 +439,7 @@
           </tr>
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
-            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}11{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}10{% else %}8{% endif %}{% endif %}" class="p-0">
+            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}10{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}9{% else %}8{% endif %}{% endif %}" class="p-0">
               <div class="pi-camp-block py-2 pr-3 border-t border-slate-200">
                 <div class="pi-camp-scroll">
                 <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">

@@ -2,7 +2,7 @@
 {% block title %}CRM - CentralX{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=4">
 
 <div class="crm-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
     <h1 class="text-sm font-bold whitespace-nowrap mr-1">CRM</h1>
@@ -53,9 +53,8 @@
     {% include "crm/_coluna_clientes.html" %}
     <div class="crm-col-stack">
         {% include "crm/_coluna_status.html" %}
-        {% include "crm/_coluna_objetivos_lista.html" %}
+        {% include "crm/_coluna_objetivos_cotacoes.html" %}
     </div>
-    {% include "crm/_coluna_objetivos.html" %}
     {% include "crm/_coluna_contatos.html" %}
     {% include "crm/_coluna_objetivos_comunicacao.html" %}
 </div>
@@ -72,5 +71,5 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
-<script src="{{ url_for('static', filename='js/crm.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/crm.js') }}?v=5"></script>
 {% endblock %}

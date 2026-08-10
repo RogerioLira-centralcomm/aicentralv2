@@ -1,0 +1,38 @@
+<div class="crm-col crm-col-obj-cot" id="col-objetivos-cotacoes">
+    <div class="crm-obj-cot-stack">
+        <section class="crm-panel-card crm-panel-objetivos" id="crm-panel-objetivos">
+            <div class="crm-col-header">
+                <div class="flex items-center justify-between w-full">
+                    <h2 class="font-semibold text-xs">Objetivos</h2>
+                    <button type="button" class="crm-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
+                </div>
+            </div>
+            <div class="crm-obj-form-wrap">
+                <div class="crm-obj-input-row hidden" id="crm-obj-input-row">
+                    <input type="text" id="input-objetivo" class="crm-obj-input" placeholder="Novo objetivo..." />
+                    <input type="date" id="input-objetivo-prazo" class="crm-obj-input-data" />
+                    <button type="button" class="crm-obj-btn-add" id="btn-add-objetivo">+</button>
+                </div>
+                <div id="ia-sugestoes" class="hidden"></div>
+            </div>
+            <div class="crm-col-body scroll-suave" id="lista-objetivos">
+                <div class="crm-empty-state">Selecione um cliente.</div>
+            </div>
+        </section>
+
+        <section class="crm-panel-card crm-panel-cotacoes" id="crm-panel-cotacoes">
+            <div class="crm-col-header">
+                <div class="flex items-center justify-between w-full">
+                    <h2 class="font-semibold text-xs">Cotações</h2>
+                    <div class="flex items-center gap-1.5">
+                        <span id="crm-cotacoes-count" class="text-[10px] text-gray-400"></span>
+                        <button type="button" id="btn-nova-cotacao-crm" class="crm-cot-header-btn" title="Nova cotação">+ Cotação</button>
+                    </div>
+                </div>
+            </div>
+            <div class="crm-col-body scroll-suave" id="lista-cotacoes">
+                <div class="crm-empty-state">Selecione um cliente.</div>
+            </div>
+        </section>
+    </div>
+</div>

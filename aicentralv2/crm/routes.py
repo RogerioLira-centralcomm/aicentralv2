@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from flask import render_template, request, jsonify, session, current_app, Response
 from ..auth import login_required
-from ..db import get_db
+from ..db import get_db, listar_clientes_vinculados_agencia, _cliente_id_eh_empresa_agencia
 from . import bp
 
 
@@ -188,6 +188,10 @@ def api_clientes():
                      JOIN tbl_cliente ag_p ON ag_p.id_cliente = ca_p.id_agencia_cliente
                      WHERE ca_p.id_cliente = cli.id_cliente AND ca_p.is_principal = TRUE
                      LIMIT 1) AS agencia_principal_nome,
+                    (SELECT COUNT(*)::int FROM tbl_cliente_agencia ca
+                     WHERE ca.id_cliente = cli.id_cliente) AS qtd_agencias_vinculadas,
+                    (SELECT COUNT(*)::int FROM tbl_cliente_agencia ca
+                     WHERE ca.id_agencia_cliente = cli.id_cliente) AS qtd_clientes_vinculados,
                     COUNT(DISTINCT cont.id_contato_cliente) AS qtd_contatos,
                     COUNT(DISTINCT sa.id) FILTER (WHERE sa.status = 'pendente') AS atividades_pendentes
                 FROM tbl_cliente cli
@@ -246,6 +250,21 @@ def api_clientes():
         return jsonify({'success': True, 'clientes': clientes})
     except Exception as e:
         current_app.logger.error(f"Erro api_clientes: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/agencia/<int:agencia_id>/clientes')
+@login_required
+def api_agencia_clientes(agencia_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if not _cliente_id_eh_empresa_agencia(cur, agencia_id):
+                return jsonify({'success': False, 'error': 'Registro não é uma agência.'}), 400
+        clientes = listar_clientes_vinculados_agencia(agencia_id)
+        return jsonify({'success': True, 'clientes': clientes, 'total': len(clientes)})
+    except Exception as e:
+        current_app.logger.error(f"Erro api_agencia_clientes: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

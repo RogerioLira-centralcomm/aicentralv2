@@ -1457,6 +1457,30 @@ def listar_agencias_vinculadas_cliente(id_cliente):
         return [dict(r) for r in cursor.fetchall()]
 
 
+def listar_clientes_vinculados_agencia(id_agencia_cliente):
+    """Lista clientes finais vinculados a uma empresa-agência."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                ca.id,
+                ca.id_cliente,
+                ca.is_principal,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao_cliente
+            FROM tbl_cliente_agencia ca
+            JOIN tbl_cliente cli ON cli.id_cliente = ca.id_cliente
+            WHERE ca.id_agencia_cliente = %s
+              AND COALESCE(cli.status, true) = true
+            ORDER BY ca.is_principal DESC,
+                     cli.nome_fantasia ASC NULLS LAST,
+                     cli.razao_social ASC NULLS LAST
+        ''', (id_agencia_cliente,))
+        return [dict(r) for r in cursor.fetchall()]
+
+
 def _validar_agencias_vinculadas(cursor, id_cliente, agencia_ids, agencia_principal_id):
     """Valida vínculos N:N cliente↔agência. Levanta ValueError se inválido."""
     agencia_ids = [int(x) for x in agencia_ids if x not in (None, '', 0)]

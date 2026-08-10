@@ -5,7 +5,7 @@
 
 .crm-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
     height: 100%;
     min-height: 480px;
@@ -21,6 +21,56 @@
 }
 
 .crm-col-stack > .crm-col {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.crm-col-obj-cot {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    overflow: visible;
+}
+
+.crm-obj-cot-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.crm-panel-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.crm-panel-objetivos {
+    flex: 1.2 1 0;
+}
+
+.crm-panel-cotacoes {
+    flex: 1 1 0;
+}
+
+.crm-obj-form-wrap {
+    padding: 0 0.625rem;
+    flex-shrink: 0;
+}
+
+.crm-panel-card > .crm-col-header {
+    flex-shrink: 0;
+}
+
+.crm-panel-card > .crm-col-body {
     flex: 1 1 0;
     min-height: 0;
 }
@@ -187,7 +237,8 @@
 }
 
 #col-atividades,
-#col-cotacoes,
+#col-objetivos-cotacoes,
+#crm-panel-cotacoes,
 #col-objetivos-comunicacao {
     min-width: 0;
 }
@@ -3277,4 +3328,71 @@ html body select.crm-consolidadas-select option {
     justify-content: space-between;
     gap: 0.25rem;
     min-width: 0;
+}
+
+/* Clientes vinculados à agência (coluna Status) */
+.crm-clientes-vinculados-section {
+    margin: 0.5rem 0 0.625rem;
+    padding: 0.5rem 0.625rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+}
+
+.crm-clientes-vinculados-titulo {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.375rem;
+}
+
+.crm-clientes-vinculados-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.crm-cliente-vinculado-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.crm-cliente-vinculado-item:hover {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.04);
+}
+
+.crm-cliente-vinculado-nome {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crm-cliente-vinc-classif {
+    font-size: 0.4375rem;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.crm-clientes-vinculados-vazio {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 0.375rem 0;
 }

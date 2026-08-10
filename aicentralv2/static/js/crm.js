@@ -147,10 +147,29 @@
         return tipo.includes('parceiro');
     }
 
+    function formatQtdAgencias(n) {
+        n = Number(n ?? 0);
+        return n === 1 ? '1 agência' : `${n} agência(s)`;
+    }
+
+    function formatQtdClientesVinculados(n) {
+        n = Number(n ?? 0);
+        return n === 1 ? '1 cliente vinculado' : `${n} clientes vinculados`;
+    }
+
     function subtituloCliente(c) {
-        if (clienteEhAgencia(c)) return 'Agência';
-        if (c.agencia_principal_nome) return `Agência principal: ${c.agencia_principal_nome}`;
-        return 'Cliente final';
+        const qtdContatos = Number(c.qtd_contatos ?? 0);
+        const contatosTxt = `${qtdContatos} contato(s)`;
+        if (clienteEhAgencia(c)) {
+            const qtdCli = Number(c.qtd_clientes_vinculados ?? 0);
+            return `Agência · ${formatQtdClientesVinculados(qtdCli)} · ${contatosTxt}`;
+        }
+        const qtdAg = Number(c.qtd_agencias_vinculadas ?? 0);
+        const agTxt = formatQtdAgencias(qtdAg);
+        if (c.agencia_principal_nome) {
+            return `Agência principal: ${c.agencia_principal_nome} · ${agTxt} · ${contatosTxt}`;
+        }
+        return `Cliente final · ${agTxt} · ${contatosTxt}`;
     }
 
     function atualizarContadoresCarteira(clientes, perfil) {
@@ -268,7 +287,7 @@
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
                         <div class="crm-cliente-nome truncate">${nomeFor(c).toUpperCase()}</div>
-                        <div class="crm-cliente-subtitulo">${subtituloCliente(c)} · ${c.qtd_contatos} contato(s)</div>
+                        <div class="crm-cliente-subtitulo">${subtituloCliente(c)}</div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <button type="button" class="crm-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
@@ -504,6 +523,54 @@
         return 'Carteira em dia. Mantenha o relacionamento com contatos-chave.';
     }
 
+    function nomeClienteVinculado(c) {
+        return (c.nome_fantasia || c.razao_social || 'Cliente').trim();
+    }
+
+    function htmlClientesVinculadosAgencia(clientes, total) {
+        if (!total) {
+            return `
+                <div class="crm-clientes-vinculados-section">
+                    <div class="crm-clientes-vinculados-titulo">Clientes vinculados (0)</div>
+                    <div class="crm-clientes-vinculados-vazio">Nenhum cliente vinculado.</div>
+                </div>`;
+        }
+        const items = clientes.map(c => {
+            const nome = escapeHtml(nomeClienteVinculado(c)).toUpperCase();
+            const badge = c.is_principal ? '<span class="crm-badge-principal">Principal</span>' : '';
+            const classif = c.classificacao_cliente
+                ? `<span class="crm-cliente-vinc-classif">${escapeHtml(c.classificacao_cliente)}</span>`
+                : '';
+            return `
+                <button type="button" class="crm-cliente-vinculado-item" data-id="${c.id_cliente}">
+                    <span class="crm-cliente-vinculado-nome">${nome}</span>
+                    ${badge}
+                    ${classif}
+                </button>`;
+        }).join('');
+        return `
+            <div class="crm-clientes-vinculados-section">
+                <div class="crm-clientes-vinculados-titulo">Clientes vinculados (${total})</div>
+                <div class="crm-clientes-vinculados-lista">${items}</div>
+            </div>`;
+    }
+
+    async function carregarClientesVinculadosAgencia(agenciaId) {
+        const sec = $('#crm-clientes-vinculados-section');
+        if (!sec) return;
+        sec.innerHTML = '<div class="crm-clientes-vinculados-vazio">Carregando clientes...</div>';
+        try {
+            const data = await api(`/api/agencia/${agenciaId}/clientes`);
+            sec.innerHTML = htmlClientesVinculadosAgencia(data.clientes || [], data.total ?? 0);
+            $$('.crm-cliente-vinculado-item', sec).forEach(btn => {
+                btn.addEventListener('click', () => selecionarCliente(parseInt(btn.dataset.id, 10)));
+            });
+        } catch (e) {
+            sec.innerHTML = '<div class="crm-clientes-vinculados-vazio">Erro ao carregar clientes vinculados.</div>';
+            console.error(e);
+        }
+    }
+
     async function carregarStatus(clienteId) {
         const container = $('#area-status');
         showSpinner(container);
@@ -512,7 +579,7 @@
             const s = data.status;
             const clienteData = crmCliCache.find(c => c.id_cliente === clienteId) || {};
             const nomeCliente = clienteData.nome_fantasia || clienteData.razao_social || 'Cliente';
-            const tipoCliente = clienteData.eh_agencia ? 'Agência' : 'Cliente final';
+            const tipoCliente = clienteEhAgencia(clienteData) ? 'Agência' : 'Cliente final';
             const categoria = s.tipo_mercado || 'Privado';
             const prioridade = s.prioridade || 'Alta';
             const inicial = nomeCliente.charAt(0).toUpperCase();
@@ -535,6 +602,8 @@
                         <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         <span class="crm-status-info-text">${s.total_contatos || 0} contato(s)</span>
                     </div>
+
+                    <div id="crm-clientes-vinculados-section"></div>
 
                     <!-- Responsável e Categoria -->
                     <div class="crm-status-details">
@@ -618,6 +687,12 @@
 
             bindStatusEvents(clienteId);
             carregarNotaCliente(clienteId);
+            if (clienteEhAgencia(clienteData)) {
+                carregarClientesVinculadosAgencia(clienteId);
+            } else {
+                const sec = $('#crm-clientes-vinculados-section');
+                if (sec) sec.innerHTML = '';
+            }
         } catch (e) {
             showEmpty(container, 'Erro ao carregar status.');
             console.error(e);
@@ -1268,21 +1343,9 @@
             const ativos = data.objetivos.filter(o => !o.conquistado);
             const conquistados = data.objetivos.filter(o => o.conquistado);
             const totalObjetivos = data.objetivos.length;
-            const hojePrazo = new Date().toISOString().slice(0, 10);
             const maxVisiveis = 5;
 
-            let html = `
-                <div class="crm-obj-header">
-                    <span class="crm-obj-titulo">Objetivos</span>
-                    <button type="button" class="crm-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
-                </div>
-                <div class="crm-obj-input-row hidden" id="crm-obj-input-row">
-                    <input type="text" id="input-objetivo" class="crm-obj-input" placeholder="Novo objetivo..." />
-                    <input type="date" id="input-objetivo-prazo" class="crm-obj-input-data" value="${hojePrazo}" />
-                    <button type="button" class="crm-obj-btn-add" id="btn-add-objetivo">+</button>
-                </div>
-                <div id="ia-sugestoes" class="hidden"></div>
-            `;
+            let html = '';
 
             const ativosVisiveis = ativos.slice(0, maxVisiveis);
             if (ativosVisiveis.length) {
@@ -1338,33 +1401,6 @@
 
             container.innerHTML = html;
 
-            $('#btn-toggle-form-obj')?.addEventListener('click', () => {
-                const row = $('#crm-obj-input-row');
-                if (!row) return;
-                row.classList.toggle('hidden');
-                if (!row.classList.contains('hidden')) $('#input-objetivo')?.focus();
-            });
-
-            $('#btn-add-objetivo')?.addEventListener('click', async () => {
-                const texto = $('#input-objetivo').value.trim();
-                if (!texto) return;
-                const dataPrazo = $('#input-objetivo-prazo').value || null;
-                try {
-                    await api(`/api/cliente/${clienteId}/objetivos`, {
-                        method: 'POST',
-                        body: JSON.stringify({ texto, data_prazo: dataPrazo })
-                    });
-                    carregarObjetivos(clienteId);
-                } catch (e) {
-                    console.error(e);
-                    showToast('Erro ao criar objetivo.', 'error');
-                }
-            });
-
-            $('#input-objetivo')?.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') $('#btn-add-objetivo')?.click();
-            });
-
             $$('.crm-obj-check', container).forEach(cb => {
                 cb.addEventListener('change', async () => {
                     try {
@@ -1413,53 +1449,10 @@
             $('#crm-ver-todos-objetivos')?.addEventListener('click', () => {
                 window.location.href = `/clientes?open=${clienteId}&tab=objetivos`;
             });
-
-            bindSugerirObjetivosIA(clienteId);
         } catch (e) {
             showEmpty(container, 'Erro ao carregar objetivos.');
             console.error(e);
         }
-    }
-
-    function bindSugerirObjetivosIA(clienteId) {
-        $('#btn-sugerir-ia-header')?.addEventListener('click', async () => {
-            const btn = $('#btn-sugerir-ia-header');
-            btn.classList.add('loading');
-            try {
-                const data = await api('/api/ia/sugerir-objetivos', {
-                    method: 'POST',
-                    body: JSON.stringify({ cliente_id: clienteId })
-                });
-                const sugestoesDiv = $('#ia-sugestoes');
-                sugestoesDiv.classList.remove('hidden');
-                sugestoesDiv.innerHTML = `
-                    <div class="text-xs font-semibold mb-1">Sugestões da IA:</div>
-                    ${data.objetivos.map((o, i) => `
-                        <label class="flex items-start gap-2 py-0.5 cursor-pointer">
-                            <input type="checkbox" class="checkbox checkbox-xs crm-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
-                            <span class="text-xs">${o}</span>
-                        </label>
-                    `).join('')}
-                    <button class="btn btn-xs btn-success w-full mt-1" id="btn-aceitar-sugestoes">Adicionar selecionados</button>
-                `;
-
-                $('#btn-aceitar-sugestoes')?.addEventListener('click', async () => {
-                    const selecionados = $$('.crm-sug-check:checked', sugestoesDiv).map(cb => cb.dataset.texto);
-                    for (const texto of selecionados) {
-                        await api(`/api/cliente/${clienteId}/objetivos`, {
-                            method: 'POST',
-                            body: JSON.stringify({ texto })
-                        });
-                    }
-                    carregarObjetivos(clienteId);
-                });
-            } catch (e) {
-                console.error(e);
-                showToast('Erro ao obter sugestões da IA.', 'error');
-            } finally {
-                btn.classList.remove('loading');
-            }
-        });
     }
 
     // ==================== Modal: Status Completo ====================
@@ -2685,6 +2678,84 @@
         }
         $('#crm-btn-novo-cliente')?.addEventListener('click', abrirModalNovoCliente);
         $('#btn-nova-cotacao-crm')?.addEventListener('click', () => abrirModalNovaCotacao(clienteSelecionadoId));
+
+        $('#btn-toggle-form-obj')?.addEventListener('click', () => {
+            if (!crmObjCtx.clienteId) { showToast('Selecione um cliente.', 'warning'); return; }
+            const row = $('#crm-obj-input-row');
+            if (!row) return;
+            row.classList.toggle('hidden');
+            if (!row.classList.contains('hidden')) {
+                const prazo = $('#input-objetivo-prazo');
+                if (prazo && !prazo.value) prazo.value = new Date().toISOString().slice(0, 10);
+                $('#input-objetivo')?.focus();
+            }
+        });
+
+        $('#btn-add-objetivo')?.addEventListener('click', async () => {
+            const clienteId = crmObjCtx.clienteId;
+            if (!clienteId) { showToast('Selecione um cliente.', 'warning'); return; }
+            const texto = $('#input-objetivo')?.value.trim();
+            if (!texto) return;
+            const dataPrazo = $('#input-objetivo-prazo')?.value || null;
+            try {
+                await api(`/api/cliente/${clienteId}/objetivos`, {
+                    method: 'POST',
+                    body: JSON.stringify({ texto, data_prazo: dataPrazo })
+                });
+                if ($('#input-objetivo')) $('#input-objetivo').value = '';
+                carregarObjetivos(clienteId);
+            } catch (e) {
+                console.error(e);
+                showToast('Erro ao criar objetivo.', 'error');
+            }
+        });
+
+        $('#input-objetivo')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') $('#btn-add-objetivo')?.click();
+        });
+
+        $('#btn-sugerir-ia-header')?.addEventListener('click', async () => {
+            const clienteId = crmObjCtx.clienteId;
+            if (!clienteId) { showToast('Selecione um cliente.', 'warning'); return; }
+            const btn = $('#btn-sugerir-ia-header');
+            btn?.classList.add('loading');
+            try {
+                const data = await api('/api/ia/sugerir-objetivos', {
+                    method: 'POST',
+                    body: JSON.stringify({ cliente_id: clienteId })
+                });
+                const sugestoesDiv = $('#ia-sugestoes');
+                if (!sugestoesDiv) return;
+                sugestoesDiv.classList.remove('hidden');
+                sugestoesDiv.innerHTML = `
+                    <div class="text-xs font-semibold mb-1">Sugestões da IA:</div>
+                    ${data.objetivos.map((o) => `
+                        <label class="flex items-start gap-2 py-0.5 cursor-pointer">
+                            <input type="checkbox" class="checkbox checkbox-xs crm-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
+                            <span class="text-xs">${o}</span>
+                        </label>
+                    `).join('')}
+                    <button class="btn btn-xs btn-success w-full mt-1" id="btn-aceitar-sugestoes">Adicionar selecionados</button>
+                `;
+                $('#btn-aceitar-sugestoes')?.addEventListener('click', async () => {
+                    const selecionados = $$('.crm-sug-check:checked', sugestoesDiv).map(cb => cb.dataset.texto);
+                    for (const t of selecionados) {
+                        await api(`/api/cliente/${clienteId}/objetivos`, {
+                            method: 'POST',
+                            body: JSON.stringify({ texto: t })
+                        });
+                    }
+                    sugestoesDiv.classList.add('hidden');
+                    sugestoesDiv.innerHTML = '';
+                    carregarObjetivos(clienteId);
+                });
+            } catch (e) {
+                console.error(e);
+                showToast('Erro ao obter sugestões da IA.', 'error');
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        });
         $('#crm-btn-nova-atividade')?.addEventListener('click', () => {
             if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
             setTabAtividades('todas');

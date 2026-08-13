@@ -29,9 +29,11 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 # Instala exatamente as versões do package-lock.json (reproducível no servidor).
-# Não usa npm outdated/npm install — isso reinstalava deps vulneráveis e exigia audit fix manual.
 echo "[INFO] Instalando dependências (npm ci)..."
 npm ci
+
+echo "[INFO] Corrigindo vulnerabilidades conhecidas (npm audit fix)..."
+npm audit fix
 
 echo "[INFO] Verificando vulnerabilidades conhecidas..."
 npm audit --audit-level=high

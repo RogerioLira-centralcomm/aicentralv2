@@ -336,7 +336,13 @@
 }
 
 .wa-msg-status-delivered { color: rgba(17, 27, 33, 0.45); }
-.wa-msg-status-read { color: #53bdeb; }
+.wa-msg-status-read {
+    color: #0078c8;
+    font-weight: 700;
+    font-size: 0.72rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
 .wa-msg-status-erro { color: #dc2626; font-weight: 700; }
 
 .wa-chat-compose {

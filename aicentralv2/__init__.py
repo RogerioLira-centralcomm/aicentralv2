@@ -152,6 +152,10 @@ def create_app(config_class=Config):
         from .financeiro import bp as financeiro_bp
         app.register_blueprint(financeiro_bp)
 
+        # Registrar blueprint WhatsApp Comercial
+        from .whatsapp import bp as whatsapp_bp
+        app.register_blueprint(whatsapp_bp)
+
         from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp, parametros_bp
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)

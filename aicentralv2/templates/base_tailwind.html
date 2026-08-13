@@ -450,6 +450,7 @@
                             {% endif %}
                             <li><a href="{{ url_for('leads_list') }}" class="{% if request.endpoint == 'leads_list' %}active{% endif %}">Leads</a></li>
                             <li><a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">Clientes</a></li>
+                            <li><a href="{{ url_for('whatsapp.index') }}" class="{% if request.endpoint == 'whatsapp.index' %}active{% endif %}">WhatsApp</a></li>
                             <li><a href="{{ url_for('cotacoes.cotacoes_list') }}" class="{% if request.endpoint and request.endpoint.startswith('cotacoes.') %}active{% endif %}">Cotações</a></li>
                             <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
                             <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>
@@ -628,7 +629,7 @@
 
                         <!-- Comercial -->
                         <li class="mt-2">
-                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index'] or (request.endpoint and request.endpoint.startswith('cotacoes.')) %}open{% endif %}>
+                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index', 'whatsapp.index'] or (request.endpoint and request.endpoint.startswith('cotacoes.')) %}open{% endif %}>
                                 <summary>Comercial</summary>
                                 <ul>
                                     {% if is_centralcomm_user %}
@@ -647,6 +648,11 @@
                                     <li>
                                         <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
                                             Clientes
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('whatsapp.index') }}" class="{% if request.endpoint == 'whatsapp.index' %}active{% endif %}">
+                                            WhatsApp
                                         </a>
                                     </li>
                                     <li>

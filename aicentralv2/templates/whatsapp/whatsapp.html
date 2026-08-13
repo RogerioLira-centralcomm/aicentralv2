@@ -1,0 +1,83 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}WhatsApp — CentralX{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="wa-page" id="wa-app">
+    <div class="wa-page-header">
+        <div>
+            <h1 class="cx-page-title flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp text-[#25D366]"></i>
+                WhatsApp Comercial
+            </h1>
+            <p class="text-xs opacity-60 mt-1">Envie e receba mensagens via WasenderAPI</p>
+        </div>
+    </div>
+
+    <div class="wa-layout">
+        <aside class="wa-sidebar">
+            <button type="button" class="wa-new-message" id="wa-btn-nova-conversa">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Nova mensagem
+            </button>
+
+            <div class="wa-chat-tabs" id="wa-chat-tabs">
+                <button type="button" class="active" data-chat-tab="todas">Todas <span id="wa-chat-count-todas" class="wa-head-count">0</span></button>
+                <button type="button" data-chat-tab="nao_lidas">Não lidas <span id="wa-chat-count-nao-lidas" class="wa-head-count wa-head-count-muted">0</span></button>
+            </div>
+
+            <div class="wa-search-row">
+                <span class="wa-search-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+                <input type="search" id="wa-chat-busca" class="wa-search" placeholder="Buscar conversas...">
+            </div>
+
+            <div id="wa-conversas-lista" class="wa-conversas-lista">
+                <div class="wa-empty-state">Carregando conversas...</div>
+            </div>
+        </aside>
+
+        <main class="wa-main">
+            <div class="wa-chat-panel">
+                <div class="wa-chat-header" id="wa-chat-header">
+                    <div id="wa-chat-contact" class="wa-chat-contact hidden"></div>
+                    <div id="wa-chat-header-empty" class="wa-chat-header-empty">Selecione uma conversa</div>
+                </div>
+                <div id="wa-chat-mensagens" class="wa-chat-mensagens">
+                    <div class="wa-empty-state">Selecione uma conversa para ver as mensagens.</div>
+                </div>
+                <div class="wa-chat-compose">
+                    <input type="text" id="wa-chat-input" class="wa-message-input" placeholder="Digite uma mensagem..." disabled>
+                    <button type="button" id="wa-chat-enviar" class="wa-send-btn" title="Enviar" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 23 12 2 3v7l15 2-15 2v7z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="wa-modal-nova" class="wa-modal hidden">
+    <div class="wa-modal-backdrop" data-close-modal></div>
+    <div class="wa-modal-box">
+        <h3 class="wa-modal-title">Nova conversa</h3>
+        <label class="wa-modal-label" for="wa-nova-telefone">Telefone (com DDD)</label>
+        <input type="tel" id="wa-nova-telefone" class="wa-modal-input" placeholder="Ex: 11999998888">
+        <label class="wa-modal-label" for="wa-nova-nome">Nome do contato (opcional)</label>
+        <input type="text" id="wa-nova-nome" class="wa-modal-input" placeholder="Nome">
+        <div class="wa-modal-actions">
+            <button type="button" class="wa-modal-btn wa-modal-btn-ghost" data-close-modal>Cancelar</button>
+            <button type="button" class="wa-modal-btn wa-modal-btn-primary" id="wa-nova-confirmar">Iniciar conversa</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=1"></script>
+{% endblock %}

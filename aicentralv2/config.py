@@ -115,6 +115,15 @@ class Config:
 		'true', '1', 'yes',
 	)
 
+	# WasenderAPI (WhatsApp standalone — página Comercial)
+	WASENDER_API_KEY = os.getenv('WASENDER_API_KEY', '')
+	WASENDER_SESSION_ID = os.getenv('WASENDER_SESSION_ID', '')
+	WASENDER_WEBHOOK_SECRET = os.getenv('WASENDER_WEBHOOK_SECRET', '')
+	WASENDER_API_BASE_URL = os.getenv(
+		'WASENDER_API_BASE_URL',
+		'https://www.wasenderapi.com/api',
+	).rstrip('/')
+
 	# Multiplicador do desvio aceitável que define a fronteira da Ruptura (Zona 5).
 	# Ruptura = orçado × (1 + N × desvio). N=10 → desvio 5% gera ruptura a +50%.
 	_PI_RUPT_MULT_RAW = os.getenv('PI_RUPTURA_MULT_DESVIO', '10').strip()

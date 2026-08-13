@@ -378,6 +378,42 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_msg_provider_id ON sales_comunicacao_mensagens(provider_message_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_com_conv_resp ON sales_comunicacao_conversas(responsavel_id)')
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS whatsapp_conversas (
+                    id SERIAL PRIMARY KEY,
+                    telefone TEXT NOT NULL,
+                    nome_contato TEXT,
+                    status VARCHAR(50) DEFAULT 'aberta',
+                    ultimo_preview TEXT,
+                    ultimo_evento_em TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    unread_count INTEGER DEFAULT 0,
+                    created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_conv_telefone ON whatsapp_conversas(telefone)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_conv_evento ON whatsapp_conversas(ultimo_evento_em DESC)')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS whatsapp_mensagens (
+                    id SERIAL PRIMARY KEY,
+                    conversa_id INTEGER NOT NULL REFERENCES whatsapp_conversas(id) ON DELETE CASCADE,
+                    direcao VARCHAR(20) DEFAULT 'outbound',
+                    texto TEXT NOT NULL,
+                    status VARCHAR(50) DEFAULT 'enviado',
+                    provider VARCHAR(50),
+                    provider_message_id TEXT,
+                    provider_status VARCHAR(80),
+                    provider_payload JSONB,
+                    created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_conversa ON whatsapp_mensagens(conversa_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_provider_id ON whatsapp_mensagens(provider_message_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_created ON whatsapp_mensagens(created_at)')
+
             # Garantir coluna de vendas_central_comm em tbl_cliente (inteiro 0/1)
             cursor.execute('''
                 DO $$

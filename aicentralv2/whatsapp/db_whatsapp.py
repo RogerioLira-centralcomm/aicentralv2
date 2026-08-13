@@ -1,0 +1,222 @@
+"""Persistência de conversas e mensagens WhatsApp (página Comercial)."""
+from psycopg.types.json import Json
+
+from ..db import get_db, normalizar_telefone_whatsapp, variantes_telefone_whatsapp
+
+
+def obter_conversa(conversa_id):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, telefone, nome_contato, status, ultimo_preview,
+                   ultimo_evento_em, unread_count, created_by, created_at, updated_at
+            FROM whatsapp_conversas
+            WHERE id = %s
+        ''', (conversa_id,))
+        return cursor.fetchone()
+
+
+def listar_conversas(busca=None, apenas_nao_lidas=False):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        params = []
+        filtros = []
+        if apenas_nao_lidas:
+            filtros.append('unread_count > 0')
+        if busca:
+            termo = f'%{busca.strip()}%'
+            filtros.append('(telefone ILIKE %s OR COALESCE(nome_contato, \'\') ILIKE %s OR COALESCE(ultimo_preview, \'\') ILIKE %s)')
+            params.extend([termo, termo, termo])
+        where = f"WHERE {' AND '.join(filtros)}" if filtros else ''
+        cursor.execute(f'''
+            SELECT id, telefone, nome_contato, status, ultimo_preview,
+                   ultimo_evento_em, unread_count, created_by, created_at, updated_at
+            FROM whatsapp_conversas
+            {where}
+            ORDER BY ultimo_evento_em DESC NULLS LAST, created_at DESC
+        ''', params)
+        return cursor.fetchall()
+
+
+def criar_conversa(telefone, nome_contato=None, created_by=None):
+    telefone = normalizar_telefone_whatsapp(telefone) or str(telefone or '').strip()
+    if not telefone:
+        raise ValueError('Telefone obrigatório.')
+    variantes = variantes_telefone_whatsapp(telefone)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id
+                FROM whatsapp_conversas
+                WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY(%s::text[])
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (variantes,))
+            existente = cursor.fetchone()
+            if existente:
+                if nome_contato:
+                    cursor.execute('''
+                        UPDATE whatsapp_conversas
+                        SET nome_contato = COALESCE(%s, nome_contato),
+                            updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                        WHERE id = %s
+                    ''', (nome_contato, existente['id']))
+                conn.commit()
+                return existente['id']
+
+            cursor.execute('''
+                INSERT INTO whatsapp_conversas (telefone, nome_contato, created_by)
+                VALUES (%s, %s, %s)
+                RETURNING id
+            ''', (telefone, nome_contato, created_by))
+            novo_id = cursor.fetchone()['id']
+        conn.commit()
+        return novo_id
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_ou_criar_conversa_por_telefone(telefone, nome_contato=None):
+    return criar_conversa(telefone, nome_contato=nome_contato)
+
+
+def atualizar_conversa_status(conversa_id, status='aberta', unread_count=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if unread_count is None:
+                cursor.execute('''
+                    UPDATE whatsapp_conversas
+                    SET status = %s, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s RETURNING id
+                ''', (status, conversa_id))
+            else:
+                cursor.execute('''
+                    UPDATE whatsapp_conversas
+                    SET status = %s, unread_count = %s,
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s RETURNING id
+                ''', (status, unread_count, conversa_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def listar_mensagens(conversa_id):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, conversa_id, direcao, texto, status, provider,
+                   provider_message_id, provider_status, provider_payload,
+                   created_by, created_at
+            FROM whatsapp_mensagens
+            WHERE conversa_id = %s
+            ORDER BY created_at ASC, id ASC
+        ''', (conversa_id,))
+        return cursor.fetchall()
+
+
+def criar_mensagem(
+    conversa_id,
+    texto,
+    direcao='outbound',
+    status='enviado',
+    created_by=None,
+    provider=None,
+    provider_message_id=None,
+    provider_status=None,
+    provider_payload=None,
+    incrementar_unread=False,
+):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id FROM whatsapp_conversas WHERE id = %s', (conversa_id,))
+            if not cursor.fetchone():
+                raise ValueError('Conversa não encontrada.')
+
+            cursor.execute('''
+                INSERT INTO whatsapp_mensagens
+                    (conversa_id, direcao, texto, status, created_by,
+                     provider, provider_message_id, provider_status, provider_payload)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, created_at
+            ''', (
+                conversa_id, direcao, texto, status, created_by,
+                provider, provider_message_id, provider_status,
+                Json(provider_payload) if provider_payload is not None else None,
+            ))
+            msg = cursor.fetchone()
+            if incrementar_unread:
+                cursor.execute('''
+                    UPDATE whatsapp_conversas
+                    SET ultimo_preview = %s,
+                        ultimo_evento_em = %s,
+                        unread_count = COALESCE(unread_count, 0) + 1,
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s
+                ''', (texto[:240], msg['created_at'], conversa_id))
+            else:
+                cursor.execute('''
+                    UPDATE whatsapp_conversas
+                    SET ultimo_preview = %s,
+                        ultimo_evento_em = %s,
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s
+                ''', (texto[:240], msg['created_at'], conversa_id))
+        conn.commit()
+        return msg['id']
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def mensagem_provider_existe(provider_message_id):
+    if not provider_message_id:
+        return False
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            'SELECT id FROM whatsapp_mensagens WHERE provider_message_id = %s LIMIT 1',
+            (provider_message_id,),
+        )
+        return cursor.fetchone() is not None
+
+
+def atualizar_mensagem_provider(
+    mensagem_id=None,
+    provider_message_id=None,
+    provider_status=None,
+    provider_payload=None,
+):
+    if not mensagem_id and not provider_message_id:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            payload_json = Json(provider_payload) if provider_payload is not None else None
+            if mensagem_id:
+                cursor.execute('''
+                    UPDATE whatsapp_mensagens
+                    SET provider_status = COALESCE(%s, provider_status),
+                        provider_payload = COALESCE(%s, provider_payload)
+                    WHERE id = %s RETURNING id
+                ''', (provider_status, payload_json, mensagem_id))
+            else:
+                cursor.execute('''
+                    UPDATE whatsapp_mensagens
+                    SET provider_status = COALESCE(%s, provider_status),
+                        provider_payload = COALESCE(%s, provider_payload)
+                    WHERE provider_message_id = %s RETURNING id
+                ''', (provider_status, payload_json, provider_message_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise

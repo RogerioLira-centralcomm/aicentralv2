@@ -191,7 +191,7 @@
         const v = String(s || '').trim().toLowerCase();
         if (v === '4' || v === 'read') return 'read';
         if (v === '3' || v === 'delivered') return 'delivered';
-        if (v === '2' || v === 'sent') return 'sent';
+        if (v === '2' || v === 'sent' || v === 'in_progress') return 'sent';
         if (v === '1' || v === 'pending') return 'pending';
         if (v === '0' || v === 'error' || v === 'failed') return 'error';
         return v;

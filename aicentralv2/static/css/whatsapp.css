@@ -335,7 +335,7 @@
     gap: 0.12rem;
 }
 
-.wa-msg-status-delivered,
+.wa-msg-status-delivered { color: rgba(17, 27, 33, 0.45); }
 .wa-msg-status-read { color: #53bdeb; }
 .wa-msg-status-erro { color: #dc2626; font-weight: 700; }
 

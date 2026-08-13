@@ -54,7 +54,8 @@ def _normalizar_provider_status(raw):
         'DELIVERED': 'delivered', 'READ': 'read', 'PLAYED': 'played',
         'error': 'error', 'pending': 'pending', 'sent': 'sent',
         'delivered': 'delivered', 'read': 'read', 'played': 'played',
-        'failed': 'error',
+        'failed': 'error', 'in_progress': 'sent', 'IN_PROGRESS': 'sent',
+        'received': 'received',
     }
     if val in mapping:
         return mapping[val]
@@ -63,14 +64,18 @@ def _normalizar_provider_status(raw):
 
 
 def _wasender_message_from_payload(payload):
+    """Wasender envia data.messages como objeto (não array) desde 2024+."""
     data = payload.get('data') if isinstance(payload, dict) else {}
     if not isinstance(data, dict):
         return None
     messages = data.get('messages')
-    if isinstance(messages, list):
-        return messages[0] if messages else None
     if isinstance(messages, dict):
         return messages
+    if isinstance(messages, list):
+        return messages[0] if messages else None
+    # fallback: data já é a mensagem
+    if data.get('key') or data.get('messageBody') or data.get('message'):
+        return data
     return None
 
 
@@ -145,18 +150,27 @@ def _extrair_texto_mensagem(message_data):
     return ''
 
 
+def _telefone_de_remote_jid(remote):
+    if not remote or not isinstance(remote, str):
+        return None
+    if '@' in remote:
+        return normalizar_telefone_whatsapp(remote.split('@')[0])
+    return normalizar_telefone_whatsapp(remote)
+
+
 def _extrair_telefone_key(key):
+    """Contato da conversa: remetente (inbound) ou destinatário (outbound fromMe)."""
     if not isinstance(key, dict):
         return None
+    from_me = key.get('fromMe') is True
+    if from_me:
+        tel = _telefone_de_remote_jid(key.get('remoteJid') or '')
+        if tel:
+            return tel
     sender = key.get('cleanedSenderPn') or key.get('cleanedParticipantPn') or ''
     if sender:
         return normalizar_telefone_whatsapp(sender)
-    remote = key.get('remoteJid') or ''
-    if isinstance(remote, str) and '@' in remote:
-        return normalizar_telefone_whatsapp(remote.split('@')[0])
-    if remote:
-        return normalizar_telefone_whatsapp(remote)
-    return None
+    return _telefone_de_remote_jid(key.get('remoteJid') or '')
 
 
 def _telefone_destino_payload(payload, message_data=None):
@@ -233,7 +247,7 @@ def _processar_inbound(payload, message_data, provider_message_id, event):
 
 
 def _processar_outbound_upsert(message_data, provider_message_id):
-    """Vincula ID Wasender à mensagem enviada pela plataforma."""
+    """Registra o key.id real do WhatsApp na mensagem enviada (substitui ID numérico da API)."""
     if not provider_message_id:
         return {'success': True, 'ignored': True, 'reason': 'no_provider_id'}
     key = message_data.get('key') or {}
@@ -244,7 +258,12 @@ def _processar_outbound_upsert(message_data, provider_message_id):
     if not conversa:
         return {'success': True, 'ignored': True, 'reason': 'conversa_not_found'}
     texto = _extrair_texto_mensagem(message_data)
-    linked = wa.vincular_provider_id_saida(conversa['id'], provider_message_id, texto or None)
+    linked = wa.registrar_provider_id_saida(conversa['id'], provider_message_id, texto or None)
+    if linked:
+        wa.atualizar_mensagem_provider(
+            provider_message_id=provider_message_id,
+            provider_status='sent',
+        )
     return {'success': True, 'linked': linked}
 
 

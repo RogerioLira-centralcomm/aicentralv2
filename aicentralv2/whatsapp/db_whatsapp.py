@@ -158,11 +158,38 @@ def criar_mensagem(
             if not cursor.fetchone():
                 raise ValueError('Conversa não encontrada.')
 
+            if incrementar_unread:
+                cursor.execute('SELECT pg_advisory_xact_lock(%s)', (conversa_id,))
+
+            if provider_message_id:
+                cursor.execute(
+                    'SELECT id FROM whatsapp_mensagens WHERE provider_message_id = %s LIMIT 1',
+                    (provider_message_id,),
+                )
+                existente = cursor.fetchone()
+                if existente:
+                    conn.commit()
+                    return existente['id']
+
+            if incrementar_unread and not provider_message_id:
+                cursor.execute('''
+                    SELECT id FROM whatsapp_mensagens
+                    WHERE conversa_id = %s AND direcao = 'inbound' AND texto = %s
+                      AND created_at >= (CURRENT_TIMESTAMP - interval '60 seconds')
+                    LIMIT 1
+                ''', (conversa_id, texto))
+                recente = cursor.fetchone()
+                if recente:
+                    conn.commit()
+                    return recente['id']
+
             cursor.execute('''
                 INSERT INTO whatsapp_mensagens
                     (conversa_id, direcao, texto, status, created_by,
                      provider, provider_message_id, provider_status, provider_payload)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL
+                    AND btrim(provider_message_id) <> '' DO NOTHING
                 RETURNING id, created_at
             ''', (
                 conversa_id, direcao, texto, status, created_by,
@@ -170,6 +197,15 @@ def criar_mensagem(
                 Json(provider_payload) if provider_payload is not None else None,
             ))
             msg = cursor.fetchone()
+            if not msg and provider_message_id:
+                cursor.execute(
+                    'SELECT id FROM whatsapp_mensagens WHERE provider_message_id = %s LIMIT 1',
+                    (provider_message_id,),
+                )
+                row = cursor.fetchone()
+                conn.commit()
+                return row['id'] if row else None
+
             if incrementar_unread:
                 cursor.execute('''
                     UPDATE whatsapp_conversas
@@ -223,12 +259,10 @@ def mensagem_inbound_duplicada(conversa_id, texto, provider_message_id=None, seg
         return cursor.fetchone() is not None
 
 
-def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
-    """Associa o ID Wasender à última mensagem outbound ainda sem ID."""
+def registrar_provider_id_saida(conversa_id, provider_message_id, texto=None):
+    """Substitui o provider_message_id da última outbound pelo key.id real do WhatsApp."""
     if not conversa_id or not provider_message_id:
         return False
-    if mensagem_provider_existe(provider_message_id):
-        return True
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -239,10 +273,7 @@ def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
                         provider = COALESCE(provider, 'wasenderapi')
                     WHERE id = (
                         SELECT id FROM whatsapp_mensagens
-                        WHERE conversa_id = %s
-                          AND direcao = 'outbound'
-                          AND (provider_message_id IS NULL OR provider_message_id = '')
-                          AND texto = %s
+                        WHERE conversa_id = %s AND direcao = 'outbound' AND texto = %s
                         ORDER BY created_at DESC, id DESC
                         LIMIT 1
                     )
@@ -255,9 +286,7 @@ def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
                         provider = COALESCE(provider, 'wasenderapi')
                     WHERE id = (
                         SELECT id FROM whatsapp_mensagens
-                        WHERE conversa_id = %s
-                          AND direcao = 'outbound'
-                          AND (provider_message_id IS NULL OR provider_message_id = '')
+                        WHERE conversa_id = %s AND direcao = 'outbound'
                         ORDER BY created_at DESC, id DESC
                         LIMIT 1
                     )
@@ -269,6 +298,13 @@ def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
     except Exception:
         conn.rollback()
         raise
+
+
+def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
+    """Compat: vincula ID apenas se ainda não existir no banco."""
+    if mensagem_provider_existe(provider_message_id):
+        return True
+    return registrar_provider_id_saida(conversa_id, provider_message_id, texto)
 
 
 _STATUS_RANK = {
@@ -283,7 +319,7 @@ def _status_rank(status):
 
 
 def _aplicar_status_update(provider_message_id, provider_status, provider_payload=None, telefone_destino=None):
-    """Atualiza status; tenta vincular ID à saída recente se ainda não existir no banco."""
+    """Atualiza status; vincula key.id real se o banco ainda tiver ID numérico da API."""
     if not provider_message_id:
         return False
     if atualizar_mensagem_provider(
@@ -295,12 +331,39 @@ def _aplicar_status_update(provider_message_id, provider_status, provider_payloa
     if telefone_destino:
         conversa = obter_conversa_por_telefone(telefone_destino)
         if conversa:
-            vincular_provider_id_saida(conversa['id'], provider_message_id)
-            return atualizar_mensagem_provider(
+            registrar_provider_id_saida(conversa['id'], provider_message_id)
+            if atualizar_mensagem_provider(
                 provider_message_id=provider_message_id,
                 provider_status=provider_status,
                 provider_payload=provider_payload,
-            )
+            ):
+                return True
+            # fallback: última outbound da conversa (ID numérico antigo da API send)
+            conn = get_db()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        SELECT id FROM whatsapp_mensagens
+                        WHERE conversa_id = %s AND direcao = 'outbound'
+                        ORDER BY created_at DESC, id DESC LIMIT 1
+                    ''', (conversa['id'],))
+                    row = cursor.fetchone()
+                    if row:
+                        cursor.execute('''
+                            UPDATE whatsapp_mensagens
+                            SET provider_message_id = %s
+                            WHERE id = %s
+                        ''', (provider_message_id, row['id']))
+                conn.commit()
+                if row:
+                    return atualizar_mensagem_provider(
+                        mensagem_id=row['id'],
+                        provider_status=provider_status,
+                        provider_payload=provider_payload,
+                    )
+            except Exception:
+                conn.rollback()
+                raise
     return False
 
 

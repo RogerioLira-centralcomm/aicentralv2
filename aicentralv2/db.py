@@ -413,6 +413,19 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_conversa ON whatsapp_mensagens(conversa_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_provider_id ON whatsapp_mensagens(provider_message_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_created ON whatsapp_mensagens(created_at)')
+            cursor.execute('''
+                DELETE FROM whatsapp_mensagens a
+                USING whatsapp_mensagens b
+                WHERE a.provider_message_id IS NOT NULL
+                  AND btrim(a.provider_message_id) <> ''
+                  AND a.provider_message_id = b.provider_message_id
+                  AND a.id > b.id
+            ''')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_msg_provider_id
+                ON whatsapp_mensagens (provider_message_id)
+                WHERE provider_message_id IS NOT NULL AND btrim(provider_message_id) <> ''
+            ''')
 
             # Garantir coluna de vendas_central_comm em tbl_cliente (inteiro 0/1)
             cursor.execute('''

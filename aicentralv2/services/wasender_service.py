@@ -51,6 +51,7 @@ def _normalize_status(raw) -> str:
     code_map = {
         '0': 'error', '1': 'pending', '2': 'sent', '3': 'delivered', '4': 'read', '5': 'played',
         'sent': 'sent', 'delivered': 'delivered', 'read': 'read', 'pending': 'pending', 'error': 'error',
+        'in_progress': 'sent', 'received': 'received',
     }
     val = str(raw).strip()
     if val in code_map:

@@ -188,6 +188,17 @@ def mensagem_provider_existe(provider_message_id):
         return cursor.fetchone() is not None
 
 
+_STATUS_RANK = {
+    'error': 0, 'pending': 1, 'sent': 2, 'delivered': 3, 'read': 4, 'played': 5,
+}
+
+
+def _status_rank(status):
+    if not status:
+        return 0
+    return _STATUS_RANK.get(str(status).lower(), 0)
+
+
 def atualizar_mensagem_provider(
     mensagem_id=None,
     provider_message_id=None,
@@ -199,24 +210,42 @@ def atualizar_mensagem_provider(
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            payload_json = Json(provider_payload) if provider_payload is not None else None
             if mensagem_id:
+                cursor.execute(
+                    'SELECT id, provider_status FROM whatsapp_mensagens WHERE id = %s',
+                    (mensagem_id,),
+                )
+            else:
+                cursor.execute(
+                    'SELECT id, provider_status FROM whatsapp_mensagens WHERE provider_message_id = %s',
+                    (provider_message_id,),
+                )
+            row = cursor.fetchone()
+            if not row:
+                return False
+
+            novo_status = provider_status
+            if provider_status and row.get('provider_status'):
+                if _status_rank(provider_status) < _status_rank(row['provider_status']):
+                    novo_status = row['provider_status']
+
+            payload_json = Json(provider_payload) if provider_payload is not None else None
+            if payload_json is not None:
                 cursor.execute('''
                     UPDATE whatsapp_mensagens
                     SET provider_status = COALESCE(%s, provider_status),
-                        provider_payload = COALESCE(%s, provider_payload)
+                        provider_payload = %s::jsonb
                     WHERE id = %s RETURNING id
-                ''', (provider_status, payload_json, mensagem_id))
+                ''', (novo_status, payload_json, row['id']))
             else:
                 cursor.execute('''
                     UPDATE whatsapp_mensagens
-                    SET provider_status = COALESCE(%s, provider_status),
-                        provider_payload = COALESCE(%s, provider_payload)
-                    WHERE provider_message_id = %s RETURNING id
-                ''', (provider_status, payload_json, provider_message_id))
-            row = cursor.fetchone()
+                    SET provider_status = COALESCE(%s, provider_status)
+                    WHERE id = %s RETURNING id
+                ''', (novo_status, row['id']))
+            updated = cursor.fetchone()
         conn.commit()
-        return row is not None
+        return updated is not None
     except Exception:
         conn.rollback()
         raise

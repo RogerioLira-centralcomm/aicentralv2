@@ -187,13 +187,24 @@
         if (enviar) enviar.disabled = false;
     }
 
+    function normalizarStatusProvider(s) {
+        const v = String(s || '').trim().toLowerCase();
+        if (v === '4' || v === 'read') return 'read';
+        if (v === '3' || v === 'delivered') return 'delivered';
+        if (v === '2' || v === 'sent') return 'sent';
+        if (v === '1' || v === 'pending') return 'pending';
+        if (v === '0' || v === 'error' || v === 'failed') return 'error';
+        return v;
+    }
+
     function metaStatusMsg(m) {
         if (m.direcao !== 'outbound') return '';
         if (m.status === 'erro') return '<span class="wa-msg-status wa-msg-status-erro" title="Falha">!</span>';
-        if (m.provider_status === 'read' || m.provider_status === 'READ') {
+        const st = normalizarStatusProvider(m.provider_status);
+        if (st === 'read') {
             return '<span class="wa-msg-status wa-msg-status-read" title="Lida">✓✓</span>';
         }
-        if (m.provider_status === 'delivered' || m.provider_status === 'DELIVERED') {
+        if (st === 'delivered') {
             return '<span class="wa-msg-status wa-msg-status-delivered" title="Entregue">✓✓</span>';
         }
         return '<span class="wa-msg-status" title="Enviada">✓</span>';

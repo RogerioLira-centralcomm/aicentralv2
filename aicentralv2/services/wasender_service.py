@@ -13,31 +13,40 @@ def _base_url() -> str:
 
 
 def _extract_message_id(payload: Dict[str, Any]) -> Optional[str]:
+    data = payload.get('data')
+    if isinstance(data, dict):
+        key = data.get('key')
+        if isinstance(key, dict) and key.get('id'):
+            return str(key['id'])
+        for key_name in ('id', 'message_id', 'messageId', 'msgId'):
+            if data.get(key_name):
+                return str(data[key_name])
+        message = data.get('message')
+        if isinstance(message, dict):
+            for key_name in ('id', 'message_id', 'messageId', 'msgId'):
+                if message.get(key_name):
+                    return str(message[key_name])
     for key in ('id', 'message_id', 'messageId', 'msgId'):
         if payload.get(key):
             return str(payload[key])
-    data = payload.get('data')
-    if isinstance(data, dict):
-        for key in ('id', 'message_id', 'messageId', 'msgId'):
-            if data.get(key):
-                return str(data[key])
-        message = data.get('message')
-        if isinstance(message, dict):
-            for key in ('id', 'message_id', 'messageId', 'msgId'):
-                if message.get(key):
-                    return str(message[key])
     return None
 
 
 def _extract_status(payload: Dict[str, Any]) -> str:
-    for key in ('status', 'message_status', 'messageStatus'):
-        if payload.get(key):
-            return str(payload[key])
     data = payload.get('data')
     if isinstance(data, dict):
+        update = data.get('update')
+        if isinstance(update, dict) and update.get('status') is not None:
+            code = str(update.get('status'))
+            code_map = {'2': 'sent', '3': 'delivered', '4': 'read', '1': 'pending', '0': 'error'}
+            if code in code_map:
+                return code_map[code]
         for key in ('status', 'message_status', 'messageStatus'):
             if data.get(key):
                 return str(data[key])
+    for key in ('status', 'message_status', 'messageStatus'):
+        if payload.get(key):
+            return str(payload[key])
     return 'sent'
 
 

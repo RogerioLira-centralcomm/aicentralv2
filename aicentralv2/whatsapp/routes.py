@@ -43,9 +43,30 @@ def _webhook_secret_ok():
     return True
 
 
+def _normalizar_provider_status(raw):
+    """Converte códigos Wasender (0-5) e strings para sent/delivered/read."""
+    if raw is None:
+        return None
+    val = str(raw).strip()
+    mapping = {
+        '0': 'error', '1': 'pending', '2': 'sent', '3': 'delivered', '4': 'read', '5': 'played',
+        'ERROR': 'error', 'PENDING': 'pending', 'SENT': 'sent',
+        'DELIVERED': 'delivered', 'READ': 'read', 'PLAYED': 'played',
+        'error': 'error', 'pending': 'pending', 'sent': 'sent',
+        'delivered': 'delivered', 'read': 'read', 'played': 'played',
+        'failed': 'error',
+    }
+    if val in mapping:
+        return mapping[val]
+    lower = val.lower()
+    return mapping.get(lower, lower)
+
+
 def _wasender_message_from_payload(payload):
     data = payload.get('data') if isinstance(payload, dict) else {}
-    messages = data.get('messages') if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    messages = data.get('messages')
     if isinstance(messages, list):
         return messages[0] if messages else None
     if isinstance(messages, dict):
@@ -54,9 +75,14 @@ def _wasender_message_from_payload(payload):
 
 
 def _wasender_message_id(payload, message_data=None):
+    data = payload.get('data') if isinstance(payload, dict) else {}
+    if isinstance(data, dict):
+        key = data.get('key')
+        if isinstance(key, dict) and key.get('id'):
+            return str(key['id'])
     message_data = message_data or _wasender_message_from_payload(payload) or {}
     key = message_data.get('key') if isinstance(message_data, dict) else {}
-    for source in (key, message_data, payload.get('data') if isinstance(payload, dict) else {}, payload):
+    for source in (key, message_data, data, payload):
         if isinstance(source, dict):
             for k in ('id', 'message_id', 'messageId', 'msgId'):
                 if source.get(k):
@@ -65,12 +91,26 @@ def _wasender_message_id(payload, message_data=None):
 
 
 def _wasender_provider_status(payload):
-    for source in (payload.get('data') if isinstance(payload, dict) else {}, payload):
+    data = payload.get('data') if isinstance(payload, dict) else {}
+    if isinstance(data, dict):
+        update = data.get('update')
+        if isinstance(update, dict) and update.get('status') is not None:
+            return _normalizar_provider_status(update.get('status'))
+        receipt = data.get('receipt')
+        if isinstance(receipt, dict):
+            if receipt.get('readTimestamp'):
+                return 'read'
+            if receipt.get('receiptTimestamp'):
+                return 'delivered'
+        for k in ('status', 'message_status', 'messageStatus'):
+            if data.get(k) is not None:
+                return _normalizar_provider_status(data.get(k))
+    for source in (payload,):
         if isinstance(source, dict):
             for k in ('status', 'message_status', 'messageStatus'):
-                if source.get(k):
-                    return str(source[k])
-    return payload.get('event') if isinstance(payload, dict) else None
+                if source.get(k) is not None:
+                    return _normalizar_provider_status(source.get(k))
+    return None
 
 
 def _extrair_nome_remetente(message_data):
@@ -226,16 +266,26 @@ def api_wasender_webhook():
 
     if event and event not in (
         'messages.received', 'messages.upsert', 'messages.update',
-        'message.status', 'messages.status',
+        'message.status', 'messages.status', 'message-receipt.update',
     ):
         return jsonify({'success': True, 'ignored': True, 'reason': 'event_not_handled'})
 
-    if event in ('messages.update', 'message.status', 'messages.status'):
+    if event in ('messages.update', 'message.status', 'messages.status', 'message-receipt.update'):
+        status = _wasender_provider_status(payload)
+        current_app.logger.info(
+            'Wasender status update: event=%s msg_id=%s status=%s',
+            event, provider_message_id, status,
+        )
         updated = wa.atualizar_mensagem_provider(
             provider_message_id=provider_message_id,
-            provider_status=_wasender_provider_status(payload),
+            provider_status=status,
             provider_payload=payload,
         )
+        if not updated and provider_message_id:
+            current_app.logger.warning(
+                'Wasender status não aplicado: msg_id=%s não encontrado no banco',
+                provider_message_id,
+            )
         return jsonify({'success': True, 'updated': updated})
 
     if not message_data:

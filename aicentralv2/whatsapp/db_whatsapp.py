@@ -78,6 +78,24 @@ def criar_conversa(telefone, nome_contato=None, created_by=None):
         raise
 
 
+def obter_conversa_por_telefone(telefone):
+    telefone = normalizar_telefone_whatsapp(telefone)
+    if not telefone:
+        return None
+    variantes = variantes_telefone_whatsapp(telefone)
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, telefone, nome_contato, status, ultimo_preview,
+                   ultimo_evento_em, unread_count, created_by, created_at, updated_at
+            FROM whatsapp_conversas
+            WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY(%s::text[])
+            ORDER BY ultimo_evento_em DESC NULLS LAST
+            LIMIT 1
+        ''', (variantes,))
+        return cursor.fetchone()
+
+
 def obter_ou_criar_conversa_por_telefone(telefone, nome_contato=None):
     return criar_conversa(telefone, nome_contato=nome_contato)
 
@@ -188,6 +206,71 @@ def mensagem_provider_existe(provider_message_id):
         return cursor.fetchone() is not None
 
 
+def mensagem_inbound_duplicada(conversa_id, texto, provider_message_id=None, segundos=60):
+    """Evita duplicata quando Wasender dispara received + upsert."""
+    if provider_message_id and mensagem_provider_existe(provider_message_id):
+        return True
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id FROM whatsapp_mensagens
+            WHERE conversa_id = %s
+              AND direcao = 'inbound'
+              AND texto = %s
+              AND created_at >= (CURRENT_TIMESTAMP - make_interval(secs => %s))
+            LIMIT 1
+        ''', (conversa_id, texto, segundos))
+        return cursor.fetchone() is not None
+
+
+def vincular_provider_id_saida(conversa_id, provider_message_id, texto=None):
+    """Associa o ID Wasender à última mensagem outbound ainda sem ID."""
+    if not conversa_id or not provider_message_id:
+        return False
+    if mensagem_provider_existe(provider_message_id):
+        return True
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if texto:
+                cursor.execute('''
+                    UPDATE whatsapp_mensagens
+                    SET provider_message_id = %s,
+                        provider = COALESCE(provider, 'wasenderapi')
+                    WHERE id = (
+                        SELECT id FROM whatsapp_mensagens
+                        WHERE conversa_id = %s
+                          AND direcao = 'outbound'
+                          AND (provider_message_id IS NULL OR provider_message_id = '')
+                          AND texto = %s
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1
+                    )
+                    RETURNING id
+                ''', (provider_message_id, conversa_id, texto))
+            else:
+                cursor.execute('''
+                    UPDATE whatsapp_mensagens
+                    SET provider_message_id = %s,
+                        provider = COALESCE(provider, 'wasenderapi')
+                    WHERE id = (
+                        SELECT id FROM whatsapp_mensagens
+                        WHERE conversa_id = %s
+                          AND direcao = 'outbound'
+                          AND (provider_message_id IS NULL OR provider_message_id = '')
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1
+                    )
+                    RETURNING id
+                ''', (provider_message_id, conversa_id))
+            row = cursor.fetchone()
+        conn.commit()
+        return row is not None
+    except Exception:
+        conn.rollback()
+        raise
+
+
 _STATUS_RANK = {
     'error': 0, 'pending': 1, 'sent': 2, 'delivered': 3, 'read': 4, 'played': 5,
 }
@@ -197,6 +280,28 @@ def _status_rank(status):
     if not status:
         return 0
     return _STATUS_RANK.get(str(status).lower(), 0)
+
+
+def _aplicar_status_update(provider_message_id, provider_status, provider_payload=None, telefone_destino=None):
+    """Atualiza status; tenta vincular ID à saída recente se ainda não existir no banco."""
+    if not provider_message_id:
+        return False
+    if atualizar_mensagem_provider(
+        provider_message_id=provider_message_id,
+        provider_status=provider_status,
+        provider_payload=provider_payload,
+    ):
+        return True
+    if telefone_destino:
+        conversa = obter_conversa_por_telefone(telefone_destino)
+        if conversa:
+            vincular_provider_id_saida(conversa['id'], provider_message_id)
+            return atualizar_mensagem_provider(
+                provider_message_id=provider_message_id,
+                provider_status=provider_status,
+                provider_payload=provider_payload,
+            )
+    return False
 
 
 def atualizar_mensagem_provider(

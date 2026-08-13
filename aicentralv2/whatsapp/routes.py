@@ -75,18 +75,23 @@ def _wasender_message_from_payload(payload):
 
 
 def _wasender_message_id(payload, message_data=None):
+    message_data = message_data or _wasender_message_from_payload(payload) or {}
+    if isinstance(message_data, dict):
+        key = message_data.get('key')
+        if isinstance(key, dict) and key.get('id'):
+            return str(key['id'])
     data = payload.get('data') if isinstance(payload, dict) else {}
     if isinstance(data, dict):
         key = data.get('key')
         if isinstance(key, dict) and key.get('id'):
             return str(key['id'])
-    message_data = message_data or _wasender_message_from_payload(payload) or {}
-    key = message_data.get('key') if isinstance(message_data, dict) else {}
-    for source in (key, message_data, data, payload):
-        if isinstance(source, dict):
-            for k in ('id', 'message_id', 'messageId', 'msgId'):
-                if source.get(k):
-                    return str(source[k])
+        for k in ('id', 'message_id', 'messageId', 'msgId'):
+            if data.get(k):
+                return str(data[k])
+    if isinstance(message_data, dict):
+        for k in ('id', 'message_id', 'messageId', 'msgId'):
+            if message_data.get(k):
+                return str(message_data[k])
     return None
 
 
@@ -121,6 +126,126 @@ def _extrair_nome_remetente(message_data):
         if val:
             return str(val).strip()
     return None
+
+
+def _extrair_texto_mensagem(message_data):
+    if not isinstance(message_data, dict):
+        return ''
+    texto = (message_data.get('messageBody') or '').strip()
+    if texto:
+        return texto
+    raw_msg = message_data.get('message') or {}
+    if isinstance(raw_msg, dict):
+        texto = (raw_msg.get('conversation') or '').strip()
+        if texto:
+            return texto
+        ext = raw_msg.get('extendedTextMessage')
+        if isinstance(ext, dict):
+            return (ext.get('text') or '').strip()
+    return ''
+
+
+def _extrair_telefone_key(key):
+    if not isinstance(key, dict):
+        return None
+    sender = key.get('cleanedSenderPn') or key.get('cleanedParticipantPn') or ''
+    if sender:
+        return normalizar_telefone_whatsapp(sender)
+    remote = key.get('remoteJid') or ''
+    if isinstance(remote, str) and '@' in remote:
+        return normalizar_telefone_whatsapp(remote.split('@')[0])
+    if remote:
+        return normalizar_telefone_whatsapp(remote)
+    return None
+
+
+def _telefone_destino_payload(payload, message_data=None):
+    data = payload.get('data') if isinstance(payload, dict) else {}
+    if isinstance(data, dict):
+        key = data.get('key')
+        if isinstance(key, dict):
+            tel = _extrair_telefone_key(key)
+            if tel:
+                return tel
+    message_data = message_data or _wasender_message_from_payload(payload) or {}
+    key = message_data.get('key') if isinstance(message_data, dict) else {}
+    return _extrair_telefone_key(key)
+
+
+def _processar_status_webhook(payload, event, provider_message_id, message_data=None):
+    status = _wasender_provider_status(payload)
+    telefone = _telefone_destino_payload(payload, message_data)
+    current_app.logger.info(
+        'Wasender status update: event=%s msg_id=%s status=%s tel=%s',
+        event, provider_message_id, status, telefone,
+    )
+    updated = wa._aplicar_status_update(
+        provider_message_id,
+        status,
+        provider_payload=payload,
+        telefone_destino=telefone,
+    )
+    if not updated and provider_message_id:
+        current_app.logger.warning(
+            'Wasender status não aplicado: msg_id=%s status=%s',
+            provider_message_id, status,
+        )
+    return updated
+
+
+def _processar_inbound(payload, message_data, provider_message_id, event):
+    key = message_data.get('key') or {}
+    if key.get('fromMe') is True:
+        return {'success': True, 'ignored': True, 'reason': 'from_me'}
+
+    telefone = _extrair_telefone_key(key)
+    texto = _extrair_texto_mensagem(message_data)
+    if not telefone:
+        return {'success': True, 'ignored': True, 'reason': 'missing_sender'}
+    if not texto:
+        return {'success': True, 'ignored': True, 'reason': 'missing_text'}
+
+    if provider_message_id and wa.mensagem_provider_existe(provider_message_id):
+        return {'success': True, 'duplicate': True, 'reason': 'provider_id_exists'}
+
+    nome = _extrair_nome_remetente(message_data)
+    conversa_id = wa.obter_ou_criar_conversa_por_telefone(telefone, nome_contato=nome)
+
+    if wa.mensagem_inbound_duplicada(conversa_id, texto, provider_message_id):
+        return {'success': True, 'duplicate': True, 'reason': 'recent_inbound'}
+
+    msg_id = wa.criar_mensagem(
+        conversa_id,
+        texto,
+        direcao='inbound',
+        status='recebido',
+        provider='wasenderapi',
+        provider_message_id=provider_message_id,
+        provider_status='received',
+        provider_payload=payload,
+        incrementar_unread=True,
+    )
+    current_app.logger.info(
+        'Wasender inbound (whatsapp) salvo: event=%s conversa=%s msg=%s telefone=%s',
+        event, conversa_id, msg_id, telefone,
+    )
+    return {'success': True, 'id': msg_id, 'conversa_id': conversa_id}
+
+
+def _processar_outbound_upsert(message_data, provider_message_id):
+    """Vincula ID Wasender à mensagem enviada pela plataforma."""
+    if not provider_message_id:
+        return {'success': True, 'ignored': True, 'reason': 'no_provider_id'}
+    key = message_data.get('key') or {}
+    telefone = _extrair_telefone_key(key)
+    if not telefone:
+        return {'success': True, 'ignored': True, 'reason': 'no_telefone'}
+    conversa = wa.obter_conversa_por_telefone(telefone)
+    if not conversa:
+        return {'success': True, 'ignored': True, 'reason': 'conversa_not_found'}
+    texto = _extrair_texto_mensagem(message_data)
+    linked = wa.vincular_provider_id_saida(conversa['id'], provider_message_id, texto or None)
+    return {'success': True, 'linked': linked}
 
 
 @bp.route('/')
@@ -200,6 +325,7 @@ def api_enviar_mensagem(conversa_id):
 
         try:
             provider_meta = enviar_mensagem_texto(api_key, destino, texto)
+            provider_status = _normalizar_provider_status(provider_meta.get('provider_status')) or 'sent'
             msg_id = wa.criar_mensagem(
                 conversa_id,
                 texto,
@@ -208,9 +334,14 @@ def api_enviar_mensagem(conversa_id):
                 created_by=session.get('user_id'),
                 provider=provider_meta.get('provider'),
                 provider_message_id=provider_meta.get('provider_message_id'),
-                provider_status=provider_meta.get('provider_status'),
+                provider_status=provider_status,
                 provider_payload=provider_meta.get('provider_payload'),
             )
+            if not provider_meta.get('provider_message_id'):
+                current_app.logger.warning(
+                    'Wasender send sem provider_message_id: conversa=%s — status virá via webhook upsert/update',
+                    conversa_id,
+                )
         except WasenderApiError as exc:
             msg_id = wa.criar_mensagem(
                 conversa_id,
@@ -270,88 +401,29 @@ def api_wasender_webhook():
     ):
         return jsonify({'success': True, 'ignored': True, 'reason': 'event_not_handled'})
 
-    if event in ('messages.update', 'message.status', 'messages.status', 'message-receipt.update'):
-        status = _wasender_provider_status(payload)
-        current_app.logger.info(
-            'Wasender status update: event=%s msg_id=%s status=%s',
-            event, provider_message_id, status,
-        )
-        updated = wa.atualizar_mensagem_provider(
-            provider_message_id=provider_message_id,
-            provider_status=status,
-            provider_payload=payload,
-        )
-        if not updated and provider_message_id:
-            current_app.logger.warning(
-                'Wasender status não aplicado: msg_id=%s não encontrado no banco',
-                provider_message_id,
-            )
-        return jsonify({'success': True, 'updated': updated})
-
-    if not message_data:
-        if provider_message_id:
-            updated = wa.atualizar_mensagem_provider(
-                provider_message_id=provider_message_id,
-                provider_status=_wasender_provider_status(payload),
-                provider_payload=payload,
-            )
-            return jsonify({'success': True, 'updated': updated})
-        return jsonify({'success': True, 'ignored': True, 'reason': 'no_message'})
-
-    key = message_data.get('key') or {}
-    if key.get('fromMe') is True:
-        return jsonify({'success': True, 'ignored': True, 'reason': 'from_me'})
-
-    sender = key.get('cleanedSenderPn') or key.get('cleanedParticipantPn') or ''
-    if not sender:
-        remote = key.get('remoteJid') or ''
-        if isinstance(remote, str) and '@' in remote:
-            sender = remote.split('@')[0]
-        elif remote:
-            sender = remote
-
-    texto = (message_data.get('messageBody') or '').strip()
-    if not texto:
-        raw_msg = message_data.get('message') or {}
-        if isinstance(raw_msg, dict):
-            texto = (raw_msg.get('conversation') or '').strip()
-            if not texto and raw_msg.get('extendedTextMessage'):
-                texto = (raw_msg['extendedTextMessage'].get('text') or '').strip()
-
-    if not sender:
-        return jsonify({'success': True, 'ignored': True, 'reason': 'missing_sender'})
-
-    if not texto:
-        return jsonify({'success': True, 'ignored': True, 'reason': 'missing_text'})
-
     try:
-        if provider_message_id and wa.mensagem_provider_existe(provider_message_id):
-            wa.atualizar_mensagem_provider(
-                provider_message_id=provider_message_id,
-                provider_status='received',
-                provider_payload=payload,
-            )
-            return jsonify({'success': True, 'duplicate': True})
+        # Atualizações de status (entregue / lida)
+        if event in ('messages.update', 'message.status', 'messages.status', 'message-receipt.update'):
+            updated = _processar_status_webhook(payload, event, provider_message_id, message_data)
+            return jsonify({'success': True, 'updated': updated})
 
-        telefone = normalizar_telefone_whatsapp(sender)
-        nome = _extrair_nome_remetente(message_data)
-        conversa_id = wa.obter_ou_criar_conversa_por_telefone(telefone, nome_contato=nome)
-        msg_id = wa.criar_mensagem(
-            conversa_id,
-            texto,
-            direcao='inbound',
-            status='recebido',
-            provider='wasenderapi',
-            provider_message_id=provider_message_id,
-            provider_status='received',
-            provider_payload=payload,
-            incrementar_unread=True,
-        )
-        current_app.logger.info(
-            'Wasender inbound (whatsapp) salvo: conversa=%s msg=%s telefone=%s',
-            conversa_id, msg_id, telefone,
-        )
-        return jsonify({'success': True, 'id': msg_id, 'conversa_id': conversa_id})
+        if not message_data:
+            return jsonify({'success': True, 'ignored': True, 'reason': 'no_message'})
+
+        key = message_data.get('key') or {}
+        from_me = key.get('fromMe') is True
+
+        # Echo da mensagem enviada — vincula ID para status ✓✓ funcionar
+        if event == 'messages.upsert' and from_me:
+            result = _processar_outbound_upsert(message_data, provider_message_id)
+            return jsonify(result)
+
+        # Mensagem inbound (received ou upsert — dedupe evita duplicata)
+        if event in ('messages.received', 'messages.upsert') and not from_me:
+            result = _processar_inbound(payload, message_data, provider_message_id, event)
+            return jsonify(result)
+
+        return jsonify({'success': True, 'ignored': True, 'reason': 'event_not_handled'})
     except Exception as e:
         current_app.logger.error('Erro api_wasender_webhook whatsapp: %s', e, exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500

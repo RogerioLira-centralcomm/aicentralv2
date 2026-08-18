@@ -11829,6 +11829,74 @@ _INCENTIVO_FAIXA_LIMITES = (
 )
 
 
+def _parse_valor_monetario_col_sql(col):
+    """Expressão SQL para converter coluna monetária (texto/varchar ou numeric) em numeric."""
+    cleaned = f"NULLIF(REGEXP_REPLACE({col}::text, '[^0-9.,]', '', 'g'), '')"
+    return f"""
+        CASE
+            WHEN {col} IS NULL OR TRIM({col}::text) = '' THEN 0
+            WHEN {cleaned} ~ '^[0-9]+,[0-9]+$'
+                THEN REPLACE({cleaned}, ',', '.')::numeric
+            WHEN {cleaned} ~ '^[0-9.]+,[0-9]+$'
+                THEN REPLACE(REPLACE({cleaned}, '.', ''), ',', '.')::numeric
+            WHEN {cleaned} ~ '^[0-9]+\\.[0-9]{{1,2}}$'
+                THEN {cleaned}::numeric
+            WHEN REGEXP_REPLACE({col}::text, '[^0-9]', '', 'g') <> ''
+                THEN REGEXP_REPLACE({col}::text, '[^0-9]', '', 'g')::numeric
+            ELSE 0
+        END
+    """
+
+
+def _parse_vr_bruto_pi_sql(alias='p'):
+    """Expressão SQL para converter vr_bruto_pi (texto) em numeric."""
+    return _parse_valor_monetario_col_sql(f'{alias}.vr_bruto_pi')
+
+
+def obter_faixa_incentivo_por_volume(volume):
+    """Retorna faixa_key, limite, próxima faixa e valor faltante para subir de faixa."""
+    vol = float(volume or 0)
+    faixa_key = '2000k'
+    limite = 2_000_000
+    for key, lim in _INCENTIVO_FAIXA_LIMITES:
+        if vol <= lim:
+            faixa_key = key
+            limite = lim
+            break
+
+    keys = [k for k, _ in _INCENTIVO_FAIXA_LIMITES]
+    idx = keys.index(faixa_key)
+    if idx < len(keys) - 1:
+        proxima_faixa = keys[idx + 1]
+        proximo_limite = _INCENTIVO_FAIXA_LIMITES[idx + 1][1]
+        falta = max(0.0, limite + 1 - vol)
+    else:
+        proxima_faixa = None
+        proximo_limite = None
+        falta = None
+
+    return {
+        'faixa_key': faixa_key,
+        'faixa_label': faixa_key.upper(),
+        'limite': limite,
+        'proxima_faixa': proxima_faixa,
+        'proxima_faixa_label': proxima_faixa.upper() if proxima_faixa else None,
+        'proximo_limite': proximo_limite,
+        'falta_para_proxima': falta,
+    }
+
+
+def obter_percentual_incentivo_faixa(row_incentivo, faixa_key):
+    """Lê percentual da faixa (0–100) a partir do row de cadu_pi_incentivos."""
+    if not row_incentivo or not faixa_key:
+        return 0.0
+    raw = row_incentivo.get(f'pct_{faixa_key}')
+    frac = _parse_percentual_texto_para_fracao(raw)
+    if frac is None:
+        return 0.0
+    return round(frac * 100, 2) if frac <= 1 else round(frac, 2)
+
+
 def cliente_possui_incentivo(cliente_id: int) -> bool:
     """Retorna True se existir cadastro em cadu_pi_incentivos para o cliente_id."""
     if not cliente_id:
@@ -17819,6 +17887,91 @@ def excluir_incentivo(id_incentivo):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def obter_relatorio_incentivos_agencias(ano=None):
+    """Relatório financeiro: agências com incentivo, volume de PIs no ano, faixa e pagamentos."""
+    from datetime import date
+
+    if not ano:
+        ano = date.today().year
+
+    conn = get_db()
+    parse_bruto = _parse_vr_bruto_pi_sql('p')
+    cols = _sql_select_incentivos_cols('i')
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT
+                    i.id,
+                    i.cliente_id,
+                    cli.nome_fantasia AS agencia_nome,
+                    cli.razao_social AS agencia_razao,
+                    {cols},
+                    COALESCE(agg.total_pis, 0) AS total_pis,
+                    COALESCE(agg.volume_bruto, 0) AS volume_bruto
+                FROM cadu_pi_incentivos i
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                LEFT JOIN (
+                    SELECT
+                        p.id_agencia,
+                        COUNT(p.id_pi) AS total_pis,
+                        SUM({parse_bruto}) AS volume_bruto
+                    FROM cadu_pi p
+                    WHERE p.id_agencia IS NOT NULL
+                      AND p.id_agencia > 0
+                      AND EXTRACT(YEAR FROM (p.created_at AT TIME ZONE 'America/Sao_Paulo')) = %s
+                    GROUP BY p.id_agencia
+                ) agg ON agg.id_agencia = i.cliente_id
+                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
+                ''',
+                (int(ano),),
+            )
+            rows = cursor.fetchall() or []
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+    resultado = []
+    for row in rows:
+        volume = float(row.get('volume_bruto') or 0)
+        cliente_id = row.get('cliente_id')
+        faixa_info = obter_faixa_incentivo_por_volume(volume)
+        perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
+        perc_atual = round(perc_frac * 100, 2) if perc_frac <= 1 else round(perc_frac, 2)
+        incentivo_provisionado = round(volume * perc_frac, 2)
+
+        proxima_faixa_label = None
+        proximo_perc = None
+        if faixa_info.get('proxima_faixa'):
+            proxima_faixa_label = faixa_info['proxima_faixa_label']
+            proximo_frac = (
+                obter_incentivo_fracao_por_cliente_volume(
+                    cliente_id, faixa_info['proximo_limite']
+                )
+                or 0.0
+            )
+            proximo_perc = round(proximo_frac * 100, 2) if proximo_frac <= 1 else round(proximo_frac, 2)
+
+        resultado.append({
+            'id': row.get('id'),
+            'cliente_id': cliente_id,
+            'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
+            'agencia_razao': row.get('agencia_razao'),
+            'total_pis': int(row.get('total_pis') or 0),
+            'volume_bruto': volume,
+            'faixa_atual': faixa_info['faixa_label'],
+            'faixa_key': faixa_info['faixa_key'],
+            'perc_atual': perc_atual,
+            'falta_para_proxima': faixa_info.get('falta_para_proxima'),
+            'proxima_faixa': proxima_faixa_label,
+            'proximo_perc': proximo_perc,
+            'incentivo_provisionado': incentivo_provisionado,
+        })
+
+    return resultado
 
 
 # ==================== CADU PI COM VENDAS ====================

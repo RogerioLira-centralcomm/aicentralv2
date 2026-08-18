@@ -1,10 +1,13 @@
 """Rotas do módulo Financeiro — Reembolsos (Fase 1)."""
+from datetime import date
+
 from flask import (
     render_template, request, jsonify, session, send_file, current_app, abort,
 )
 import os
 
 from ..auth import login_required, login_required_api
+from .. import db as main_db
 from . import bp
 from . import db_finance as fin
 from .permissions import (
@@ -220,6 +223,28 @@ def meus_reembolsos():
 def gestao_reembolsos():
     """Painel admin — listagem de reembolsos (data/valor/usuário/categoria/status)."""
     return render_template('financeiro/gestao.html')
+
+
+@bp.route('/relatorio-incentivos')
+@login_required
+def relatorio_incentivos():
+    """Relatório de incentivos por agência — volume de PIs, faixa e pagamentos."""
+    ano = request.args.get('ano', type=int) or date.today().year
+    linhas = main_db.obter_relatorio_incentivos_agencias(ano)
+    totais = {
+        'total_pis': sum(l['total_pis'] for l in linhas),
+        'volume_bruto': sum(l['volume_bruto'] for l in linhas),
+        'incentivo_provisionado': sum(l['incentivo_provisionado'] for l in linhas),
+    }
+    ano_atual = date.today().year
+    anos_disponiveis = list(range(ano_atual, ano_atual - 5, -1))
+    return render_template(
+        'financeiro/relatorio_incentivos.html',
+        linhas=linhas,
+        totais=totais,
+        ano=ano,
+        anos_disponiveis=anos_disponiveis,
+    )
 
 
 # --------------- API colaborador ---------------

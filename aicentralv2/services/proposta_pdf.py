@@ -79,6 +79,32 @@ def _fmt_data(v):
     return str(v)
 
 
+def _fmt_data_periodo(v):
+    """Data no formato dd/mm/yy para exibição de períodos no PDF."""
+    if not v:
+        return ''
+    if hasattr(v, 'strftime'):
+        return v.strftime('%d/%m/%y')
+    return str(v)
+
+
+def _fmt_periodo_linha(data_inicio=None, data_fim=None, periodo_curto=None, cotacao=None):
+    """Período legível (início e fim), não o código curto M/YY da coluna `periodo`."""
+    inicio = data_inicio
+    fim = data_fim
+    if not inicio and cotacao:
+        inicio = cotacao.get('periodo_inicio')
+    if not fim and cotacao:
+        fim = cotacao.get('periodo_fim')
+    if inicio and fim:
+        return f"{_fmt_data_periodo(inicio)} a {_fmt_data_periodo(fim)}"
+    if inicio:
+        return _fmt_data_periodo(inicio)
+    if fim:
+        return _fmt_data_periodo(fim)
+    return _texto(periodo_curto)
+
+
 def _texto(v):
     if v is None:
         return ''
@@ -306,9 +332,9 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
 
     periodo_txt = ''
     if cotacao.get('periodo_inicio'):
-        periodo_txt = _fmt_data(cotacao.get('periodo_inicio'))
+        periodo_txt = _fmt_data_periodo(cotacao.get('periodo_inicio'))
         if cotacao.get('periodo_fim'):
-            periodo_txt += f" a {_fmt_data(cotacao.get('periodo_fim'))}"
+            periodo_txt += f" a {_fmt_data_periodo(cotacao.get('periodo_fim'))}"
 
     kpis = []
     pracas_linhas = []
@@ -470,9 +496,12 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         objetivo = _texto(ln.get('detalhamento')) or _texto(ln.get('objetivo_kpi'))
         target = _texto(ln.get('target')) or _texto(ln.get('segmentacao'))
         praca = _texto(ln.get('praca'))
-        periodo = _texto(ln.get('periodo'))
-        if not periodo and ln.get('data_inicio') and ln.get('data_fim'):
-            periodo = f"{_fmt_data(ln.get('data_inicio'))} - {_fmt_data(ln.get('data_fim'))}"
+        periodo = _fmt_periodo_linha(
+            ln.get('data_inicio'),
+            ln.get('data_fim'),
+            ln.get('periodo'),
+            cotacao,
+        )
         tipo_compra = _texto(ln.get('objetivo_kpi'))
         valor_neg = _fmt_brl(ln.get('valor_unitario_negociado') or ln.get('valor_unitario'))
         volume = ln.get('volume_contratado')
@@ -528,9 +557,12 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
                 )
                 if p
             )
-            periodo = _texto(aud.get('periodo'))
-            if not periodo and aud.get('data_inicio') and aud.get('data_fim'):
-                periodo = f"{_fmt_data(aud.get('data_inicio'))} - {_fmt_data(aud.get('data_fim'))}"
+            periodo = _fmt_periodo_linha(
+                aud.get('data_inicio'),
+                aud.get('data_fim'),
+                aud.get('periodo'),
+                cotacao,
+            )
             tipo_compra = _texto(aud.get('audiencia_calculo_kpi'))
             valor_neg = _fmt_brl(
                 aud.get('valor_unitario_negociado')

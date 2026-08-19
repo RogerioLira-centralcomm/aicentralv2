@@ -11976,7 +11976,7 @@ def calcular_preco_unitario_teste_calculo(
     Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
     Parc (parceiro regional) entra se a cotação tiver parceiro (% do cadastro do parceiro).
     imposto_percentual_externo: ex. 15 → fração 0,15.
-    margem_cc_override: opcional. Se informado e estiver entre 0.05 e 0.30 (ou 5 e 30 em
+    margem_cc_override: opcional. Se informado e estiver entre 0.0 e 1.0 (ou 0 e 100 em
     percentual), substitui o Mcc lido do cadastro do cliente.
     fator_desconto: multiplicador aplicado a `valor_unitario_tabela` antes do cálculo (default 1.0).
     Retorna dict com frações, valores monetários e warnings.
@@ -12007,10 +12007,10 @@ def calcular_preco_unitario_teste_calculo(
         try:
             v = float(margem_cc_override)
             v_frac = v / 100.0 if v > 1 else v
-            if 0.05 <= v_frac <= 0.30:
+            if 0.0 <= v_frac <= 1.0:
                 mcc_override_frac = v_frac
             else:
-                warnings.append('Margem CC fora do intervalo permitido (5%–30%); usando cadastro do cliente.')
+                warnings.append('Margem CC fora do intervalo permitido (0%–100%); usando cadastro do cliente.')
         except (TypeError, ValueError):
             warnings.append('Margem CC inválida; usando cadastro do cliente.')
 

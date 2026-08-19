@@ -1431,7 +1431,7 @@ function lerMargemCcOverride(prefix) {
   if (raw == null || String(raw).trim() === '') return { raw: '', valid: false, percent: null };
   var v = parseMoeda(raw);
   if (isNaN(v)) return { raw: raw, valid: false, percent: null };
-  return { raw: raw, valid: v >= 5 && v <= 30, percent: v };
+  return { raw: raw, valid: v >= 0 && v <= 100, percent: v };
 }
 
 function inicializarMargemCcInput(prefix) {
@@ -1446,7 +1446,7 @@ function inicializarMargemCcInput(prefix) {
     if (cadPct != null) {
       hint.textContent = 'Cadastro do cliente: ' + cadPct.toFixed(2).replace('.', ',') + '%';
     } else {
-      hint.textContent = 'Cliente sem margem cadastrada — informe manualmente (5–30%)';
+      hint.textContent = 'Cliente sem margem cadastrada — informe manualmente (0–100%)';
     }
   }
 }
@@ -3304,7 +3304,7 @@ function calcularVolumeEdit() {
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
           <div class="form-control">
             <label class="label py-0">
-              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
+              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(0–100%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="margem_cc_override"
@@ -3733,7 +3733,7 @@ function calcularVolumeEdit() {
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
           <div class="form-control">
             <label class="label py-0">
-              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
+              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(0–100%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="edit_margem_cc_override"
@@ -4279,7 +4279,7 @@ function calcularVolumeEdit() {
             <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2">
               <div class="form-control">
                 <label class="label py-0">
-                  <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
+                  <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(0–100%)</span></span>
                 </label>
                 <div class="join w-full">
                   <input type="text" id="audiencia_margem_cc_override"
@@ -7571,7 +7571,7 @@ async function editarAudienciaCotacao(audienciaId) {
         if (cadPctAud != null) {
           hintAud.textContent = 'Cadastro do cliente: ' + cadPctAud.toFixed(2).replace('.', ',') + '%';
         } else {
-          hintAud.textContent = 'Cliente sem margem cadastrada — informe manualmente (5–30%)';
+          hintAud.textContent = 'Cliente sem margem cadastrada — informe manualmente (0–100%)';
         }
       }
     } else {

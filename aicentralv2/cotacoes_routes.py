@@ -268,7 +268,7 @@ def _to_float(val, default=0.0):
 
 
 def _perc_margem_cc_fracao_audiencia(cotacao, data):
-    """Fração (0–1) para audiência: override válido 5–30%; senão margem cadastrada do cliente."""
+    """Fração (0–1) para audiência: override válido 0–100%; senão margem cadastrada do cliente."""
     if not cotacao:
         return None
     mcc_arg = data.get('margem_cc') if isinstance(data, dict) else None
@@ -279,7 +279,7 @@ def _perc_margem_cc_fracao_audiencia(cotacao, data):
                 v = float(mcc_arg)
             except (TypeError, ValueError):
                 v = None
-        if v is not None and 5.0 <= float(v) <= 30.0:
+        if v is not None and 0.0 <= float(v) <= 100.0:
             return float(v) / 100.0
     cid = cotacao.get('client_id')
     if cid:

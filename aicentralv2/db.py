@@ -10063,8 +10063,8 @@ def obter_tipos_pi():
         raise e
 
 
-def obter_meses_ref_pi(id_sub_status_pi=None):
-    """Retorna valores distintos de mes_ref_comp, filtrados por sub_status se informado"""
+def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
+    """Retorna valores distintos de mes_ref_comp, filtrados por sub_status e/ou status."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -10079,9 +10079,87 @@ def obter_meses_ref_pi(id_sub_status_pi=None):
             if id_sub_status_pi:
                 query += ' AND id_sub_status_pi = %s'
                 params.append(id_sub_status_pi)
+            if id_status_pi:
+                query += ' AND id_status_pi = %s'
+                params.append(id_status_pi)
             query += ' GROUP BY mes_ref_comp ORDER BY ano DESC, mes DESC'
             cursor.execute(query, params)
             return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
+    """Retorna anos distintos (YY) de mes_ref_comp, filtrados por sub_status e/ou status."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT DISTINCT CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) AS ano
+                FROM cadu_pi
+                WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
+            '''
+            params = []
+            if id_sub_status_pi:
+                query += ' AND id_sub_status_pi = %s'
+                params.append(id_sub_status_pi)
+            if id_status_pi:
+                query += ' AND id_status_pi = %s'
+                params.append(id_status_pi)
+            query += ' ORDER BY ano DESC'
+            cursor.execute(query, params)
+            return [r['ano'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_agencias_ref_pi(id_sub_status_pi=None):
+    """Agências distintas vinculadas a PIs, opcionalmente filtradas por sub_status."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT DISTINCT p.id_agencia,
+                    COALESCE(NULLIF(TRIM(cli.nome_fantasia), ''), cli.razao_social) AS agencia_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_agencia = cli.id_cliente
+                WHERE p.id_agencia IS NOT NULL AND p.id_agencia > 0
+                  AND COALESCE(cli.nome_fantasia, cli.razao_social, '') != ''
+            '''
+            params = []
+            if id_sub_status_pi:
+                query += ' AND p.id_sub_status_pi = %s'
+                params.append(id_sub_status_pi)
+            query += ' ORDER BY agencia_nome ASC NULLS LAST'
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_clientes_ref_pi(id_sub_status_pi=None):
+    """Clientes distintos vinculados a PIs, opcionalmente filtrados por sub_status."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT DISTINCT p.id_cliente,
+                    COALESCE(NULLIF(TRIM(cli.nome_fantasia), ''), cli.razao_social) AS cliente_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                WHERE p.id_cliente IS NOT NULL AND p.id_cliente > 0
+                  AND COALESCE(cli.nome_fantasia, cli.razao_social, '') != ''
+            '''
+            params = []
+            if id_sub_status_pi:
+                query += ' AND p.id_sub_status_pi = %s'
+                params.append(id_sub_status_pi)
+            query += ' ORDER BY cliente_nome ASC NULLS LAST'
+            cursor.execute(query, params)
+            return cursor.fetchall()
     except Exception as e:
         conn.rollback()
         raise e
@@ -10161,6 +10239,15 @@ def obter_cadu_pi_lista(filtros=None):
                 if filtros.get('mes_ref_comp'):
                     query += ' AND p.mes_ref_comp = %s'
                     params.append(filtros['mes_ref_comp'])
+                elif filtros.get('ano_ref_comp'):
+                    yy = str(filtros['ano_ref_comp']).strip()
+                    query += '''
+                        AND (
+                            SPLIT_PART(p.mes_ref_comp, '/', 2) = %s
+                            OR RIGHT(SPLIT_PART(p.mes_ref_comp, '/', 2), 2) = %s
+                        )
+                    '''
+                    params.extend([yy, yy])
 
                 if filtros.get('resp_comercial'):
                     query += ' AND p.id_resp_comercial = %s'
@@ -10170,10 +10257,28 @@ def obter_cadu_pi_lista(filtros=None):
                     query += ' AND p.id_pi = %s'
                     params.append(filtros['id_pi'])
 
+                if filtros.get('tipo_entidade') == 'agencia':
+                    query += ' AND p.id_agencia IS NOT NULL AND p.id_agencia > 0'
+                elif filtros.get('tipo_entidade') == 'agencia_incentivo':
+                    query += '''
+                        AND p.id_agencia IS NOT NULL AND p.id_agencia > 0
+                        AND EXISTS (
+                            SELECT 1 FROM cadu_pi_incentivos inc
+                            WHERE inc.cliente_id = p.id_agencia
+                        )
+                    '''
+
                 if filtros.get('search'):
-                    query += ' AND (unaccent(p.titulo_pi) ILIKE unaccent(%s) OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s))'
                     search_term = f"%{filtros['search']}%"
-                    params.extend([search_term, search_term, search_term, search_term, search_term])
+                    if filtros.get('tipo_entidade') in ('agencia', 'agencia_incentivo'):
+                        query += ' AND (unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli_ag.razao_social) ILIKE unaccent(%s))'
+                        params.extend([search_term, search_term])
+                    elif filtros.get('tipo_entidade') == 'cliente':
+                        query += ' AND (unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli.razao_social) ILIKE unaccent(%s))'
+                        params.extend([search_term, search_term])
+                    else:
+                        query += ' AND (unaccent(p.titulo_pi) ILIKE unaccent(%s) OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s))'
+                        params.extend([search_term, search_term, search_term, search_term, search_term])
 
             query += ' ORDER BY p.created_at DESC'
 
@@ -17946,46 +18051,101 @@ def excluir_incentivo(id_incentivo):
         raise e
 
 
-def obter_relatorio_incentivos_agencias(ano=None):
-    """Relatório financeiro: agências com incentivo, volume de PIs no ano, faixa e pagamentos."""
-    from datetime import date
-
-    if not ano:
-        ano = date.today().year
-
+def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_entidade=None):
+    """Relatório financeiro: volume de PIs no período por agência ou por cliente."""
     conn = get_db()
     parse_bruto = _parse_vr_bruto_pi_sql('p')
-    cols = _sql_select_incentivos_cols('i')
+    modo_incentivo = tipo_entidade == 'agencia_incentivo'
+    modo_agencia = tipo_entidade == 'agencia'
+
+    agg_where = [
+        "p.mes_ref_comp IS NOT NULL",
+        "p.mes_ref_comp != ''",
+    ]
+    if modo_incentivo or modo_agencia:
+        agg_where.extend(['p.id_agencia IS NOT NULL', 'p.id_agencia > 0'])
+    else:
+        agg_where.extend(['p.id_cliente IS NOT NULL', 'p.id_cliente > 0'])
+
+    agg_params = []
+    if mes_ref_comp:
+        agg_where.append('p.mes_ref_comp = %s')
+        agg_params.append(mes_ref_comp)
+    elif ano_ref is not None:
+        yy = str(int(ano_ref))
+        agg_where.append('''
+            (
+                SPLIT_PART(p.mes_ref_comp, '/', 2) = %s
+                OR RIGHT(SPLIT_PART(p.mes_ref_comp, '/', 2), 2) = %s
+            )
+        ''')
+        agg_params.extend([yy, yy])
+
+    agg_where_sql = ' AND '.join(agg_where)
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                f'''
-                SELECT
-                    i.id,
-                    i.cliente_id,
-                    cli.nome_fantasia AS agencia_nome,
-                    cli.razao_social AS agencia_razao,
-                    {cols},
-                    COALESCE(agg.total_pis, 0) AS total_pis,
-                    COALESCE(agg.volume_bruto, 0) AS volume_bruto
-                FROM cadu_pi_incentivos i
-                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
-                LEFT JOIN (
+            if modo_incentivo:
+                cols = _sql_select_incentivos_cols('i')
+                cursor.execute(
+                    f'''
                     SELECT
-                        p.id_agencia,
+                        i.id,
+                        i.cliente_id,
+                        cli.nome_fantasia AS agencia_nome,
+                        cli.razao_social AS agencia_razao,
+                        {cols},
+                        COALESCE(agg.total_pis, 0) AS total_pis,
+                        COALESCE(agg.volume_bruto, 0) AS volume_bruto
+                    FROM cadu_pi_incentivos i
+                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                    LEFT JOIN (
+                        SELECT
+                            p.id_agencia,
+                            COUNT(p.id_pi) AS total_pis,
+                            SUM({parse_bruto}) AS volume_bruto
+                        FROM cadu_pi p
+                        WHERE {agg_where_sql}
+                        GROUP BY p.id_agencia
+                    ) agg ON agg.id_agencia = i.cliente_id
+                    ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
+                    ''',
+                    tuple(agg_params),
+                )
+            elif modo_agencia:
+                cursor.execute(
+                    f'''
+                    SELECT
+                        p.id_agencia AS cliente_id,
+                        cli.nome_fantasia AS agencia_nome,
+                        cli.razao_social AS agencia_razao,
                         COUNT(p.id_pi) AS total_pis,
                         SUM({parse_bruto}) AS volume_bruto
                     FROM cadu_pi p
-                    WHERE p.id_agencia IS NOT NULL
-                      AND p.id_agencia > 0
-                      AND EXTRACT(YEAR FROM (p.created_at AT TIME ZONE 'America/Sao_Paulo')) = %s
-                    GROUP BY p.id_agencia
-                ) agg ON agg.id_agencia = i.cliente_id
-                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
-                ''',
-                (int(ano),),
-            )
+                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_agencia
+                    WHERE {agg_where_sql}
+                    GROUP BY p.id_agencia, cli.nome_fantasia, cli.razao_social
+                    ORDER BY SUM({parse_bruto}) DESC NULLS LAST, cli.nome_fantasia ASC NULLS LAST
+                    ''',
+                    tuple(agg_params),
+                )
+            else:
+                cursor.execute(
+                    f'''
+                    SELECT
+                        p.id_cliente AS cliente_id,
+                        cli.nome_fantasia AS agencia_nome,
+                        cli.razao_social AS agencia_razao,
+                        COUNT(p.id_pi) AS total_pis,
+                        SUM({parse_bruto}) AS volume_bruto
+                    FROM cadu_pi p
+                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                    WHERE {agg_where_sql}
+                    GROUP BY p.id_cliente, cli.nome_fantasia, cli.razao_social
+                    ORDER BY SUM({parse_bruto}) DESC NULLS LAST, cli.nome_fantasia ASC NULLS LAST
+                    ''',
+                    tuple(agg_params),
+                )
             rows = cursor.fetchall() or []
     except Exception as e:
         conn.rollback()
@@ -17995,38 +18155,55 @@ def obter_relatorio_incentivos_agencias(ano=None):
     for row in rows:
         volume = float(row.get('volume_bruto') or 0)
         cliente_id = row.get('cliente_id')
-        faixa_info = obter_faixa_incentivo_por_volume(volume)
-        perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
-        perc_atual = round(perc_frac * 100, 2) if perc_frac <= 1 else round(perc_frac, 2)
-        incentivo_provisionado = round(volume * perc_frac, 2)
+        if modo_incentivo:
+            faixa_info = obter_faixa_incentivo_por_volume(volume)
+            perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
+            perc_atual = round(perc_frac * 100, 2) if perc_frac <= 1 else round(perc_frac, 2)
+            incentivo_provisionado = round(volume * perc_frac, 2)
 
-        proxima_faixa_label = None
-        proximo_perc = None
-        if faixa_info.get('proxima_faixa'):
-            proxima_faixa_label = faixa_info['proxima_faixa_label']
-            proximo_frac = (
-                obter_incentivo_fracao_por_cliente_volume(
-                    cliente_id, faixa_info['proximo_limite']
+            proxima_faixa_label = None
+            proximo_perc = None
+            if faixa_info.get('proxima_faixa'):
+                proxima_faixa_label = faixa_info['proxima_faixa_label']
+                proximo_frac = (
+                    obter_incentivo_fracao_por_cliente_volume(
+                        cliente_id, faixa_info['proximo_limite']
+                    )
+                    or 0.0
                 )
-                or 0.0
-            )
-            proximo_perc = round(proximo_frac * 100, 2) if proximo_frac <= 1 else round(proximo_frac, 2)
+                proximo_perc = round(proximo_frac * 100, 2) if proximo_frac <= 1 else round(proximo_frac, 2)
 
-        resultado.append({
-            'id': row.get('id'),
-            'cliente_id': cliente_id,
-            'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
-            'agencia_razao': row.get('agencia_razao'),
-            'total_pis': int(row.get('total_pis') or 0),
-            'volume_bruto': volume,
-            'faixa_atual': faixa_info['faixa_label'],
-            'faixa_key': faixa_info['faixa_key'],
-            'perc_atual': perc_atual,
-            'falta_para_proxima': faixa_info.get('falta_para_proxima'),
-            'proxima_faixa': proxima_faixa_label,
-            'proximo_perc': proximo_perc,
-            'incentivo_provisionado': incentivo_provisionado,
-        })
+            resultado.append({
+                'id': row.get('id'),
+                'cliente_id': cliente_id,
+                'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
+                'agencia_razao': row.get('agencia_razao'),
+                'total_pis': int(row.get('total_pis') or 0),
+                'volume_bruto': volume,
+                'faixa_atual': faixa_info['faixa_label'],
+                'faixa_key': faixa_info['faixa_key'],
+                'perc_atual': perc_atual,
+                'falta_para_proxima': faixa_info.get('falta_para_proxima'),
+                'proxima_faixa': proxima_faixa_label,
+                'proximo_perc': proximo_perc,
+                'incentivo_provisionado': incentivo_provisionado,
+            })
+        else:
+            resultado.append({
+                'id': None,
+                'cliente_id': cliente_id,
+                'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
+                'agencia_razao': row.get('agencia_razao'),
+                'total_pis': int(row.get('total_pis') or 0),
+                'volume_bruto': volume,
+                'faixa_atual': '—',
+                'faixa_key': None,
+                'perc_atual': None,
+                'falta_para_proxima': None,
+                'proxima_faixa': None,
+                'proximo_perc': None,
+                'incentivo_provisionado': 0,
+            })
 
     return resultado
 

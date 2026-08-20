@@ -9324,25 +9324,31 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             filtros = {}
             user_set_filters = '_f' in request.args or '_restored' in request.args
+            origem_lista = request.args.get('origem', '')
 
             if request.args.get('resp_comercial'):
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
-            if request.args.get('id_cliente'):
-                filtros['id_cliente'] = int(request.args.get('id_cliente'))
             if request.args.get('id_status_pi'):
                 filtros['id_status_pi'] = int(request.args.get('id_status_pi'))
             if request.args.get('id_sub_status_pi'):
                 filtros['id_sub_status_pi'] = int(request.args.get('id_sub_status_pi'))
-            if request.args.get('id_agencia'):
-                filtros['id_agencia'] = int(request.args.get('id_agencia'))
+
+            tipo_entidade = request.args.get('tipo_entidade', '').strip()
+            if tipo_entidade in ('cliente', 'agencia', 'agencia_incentivo'):
+                filtros['tipo_entidade'] = tipo_entidade
+
+            if origem_lista not in ('faturamento', 'nf_emitida') and request.args.get('id_cliente'):
+                filtros['id_cliente'] = int(request.args.get('id_cliente'))
+
             if request.args.get('mes_ref_comp'):
                 filtros['mes_ref_comp'] = request.args.get('mes_ref_comp')
+            if request.args.get('ano_ref_comp'):
+                filtros['ano_ref_comp'] = request.args.get('ano_ref_comp').strip()
             if request.args.get('busca', '').strip():
                 filtros['search'] = request.args.get('busca').strip()
             if request.args.get('id_pi', '').strip().isdigit():
                 filtros['id_pi'] = int(request.args.get('id_pi').strip())
 
-            origem_lista = request.args.get('origem', '')
             visao_comercial = request.args.get('visao', '')
 
             if filtros.get('id_sub_status_pi') == 2 and visao_comercial == 'cancelados':
@@ -9376,34 +9382,107 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 nf_status_filtro_int = int(nf_status_filtro)
                 pis = [pi for pi in (pis or []) if pi.get('nf_status') == nf_status_filtro_int]
 
-            def _totais_rodape_pi_lista(rows):
-                """Soma campanhas e valores monetários dos PIs já filtrados (lista / NF)."""
-                total_campanhas = 0
-                sum_midia = 0.0
-                sum_liq = 0.0
-                sum_bruto = 0.0
+            def _agrupar_pis_por_agencia(rows):
+                """Agrupa PIs por agência para visão comparável ao relatório de incentivos."""
+                buckets = {}
                 for pi in rows or []:
+                    aid = pi.get('id_agencia')
+                    if not aid:
+                        continue
+                    bucket = buckets.setdefault(aid, {
+                        'id_agencia': aid,
+                        'agencia_nome': pi.get('agencia_nome') or '—',
+                        'total_pis': 0,
+                        'total_campanhas': 0,
+                        'valor_midia': 0.0,
+                        'valor_liquido': 0.0,
+                        'valor_bruto': 0.0,
+                        'pis': [],
+                    })
+                    bucket['total_pis'] += 1
+                    bucket['pis'].append(pi)
                     try:
-                        total_campanhas += int(pi.get('total_campanhas') or 0)
+                        bucket['total_campanhas'] += int(pi.get('total_campanhas') or 0)
                     except (TypeError, ValueError):
                         pass
                     m = _parse_brl_float(pi.get('valor_plataformas'))
                     if m is not None:
-                        sum_midia += m
+                        bucket['valor_midia'] += m
                     l = _parse_brl_float(pi.get('valor_liquido'))
                     if l is not None:
-                        sum_liq += l
+                        bucket['valor_liquido'] += l
                     b = _parse_brl_float(pi.get('valor_bruto'))
                     if b is not None:
-                        sum_bruto += b
+                        bucket['valor_bruto'] += b
+                return sorted(
+                    buckets.values(),
+                    key=lambda x: (-x['valor_bruto'], (x['agencia_nome'] or '').lower()),
+                )
+
+            def _totais_rodape_pi_lista(rows, tipo_entidade=None):
+                """Agrega totais por agência ou por cliente conforme a visão (comparação c/ relatório incentivos)."""
+                por_agencia = tipo_entidade in ('agencia', 'agencia_incentivo')
+                if por_agencia:
+                    grupos = _agrupar_pis_por_agencia(rows)
+                    return {
+                        'total_campanhas': sum(g['total_campanhas'] for g in grupos),
+                        'valor_midia': sum(g['valor_midia'] for g in grupos),
+                        'valor_liquido': sum(g['valor_liquido'] for g in grupos),
+                        'valor_bruto': sum(g['valor_bruto'] for g in grupos),
+                        'total_pis': sum(g['total_pis'] for g in grupos),
+                        'modo_contagem': 'agencia',
+                        'com_incentivo': tipo_entidade == 'agencia_incentivo',
+                        'total_entidades': len(grupos),
+                    }
+
+                buckets = {}
+                for pi in rows or []:
+                    chave = pi.get('id_cliente')
+                    if not chave:
+                        continue
+
+                    bucket = buckets.setdefault(chave, {
+                        'campanhas': 0,
+                        'midia': 0.0,
+                        'liquido': 0.0,
+                        'bruto': 0.0,
+                        'pis': 0,
+                    })
+                    bucket['pis'] += 1
+                    try:
+                        bucket['campanhas'] += int(pi.get('total_campanhas') or 0)
+                    except (TypeError, ValueError):
+                        pass
+                    m = _parse_brl_float(pi.get('valor_plataformas'))
+                    if m is not None:
+                        bucket['midia'] += m
+                    l = _parse_brl_float(pi.get('valor_liquido'))
+                    if l is not None:
+                        bucket['liquido'] += l
+                    b = _parse_brl_float(pi.get('valor_bruto'))
+                    if b is not None:
+                        bucket['bruto'] += b
+
                 return {
-                    'total_campanhas': total_campanhas,
-                    'valor_midia': sum_midia,
-                    'valor_liquido': sum_liq,
-                    'valor_bruto': sum_bruto,
+                    'total_campanhas': sum(b['campanhas'] for b in buckets.values()),
+                    'valor_midia': sum(b['midia'] for b in buckets.values()),
+                    'valor_liquido': sum(b['liquido'] for b in buckets.values()),
+                    'valor_bruto': sum(b['bruto'] for b in buckets.values()),
+                    'total_pis': sum(b['pis'] for b in buckets.values()),
+                    'modo_contagem': 'cliente',
+                    'com_incentivo': False,
+                    'total_entidades': len(buckets),
                 }
 
-            pi_footer_totais = _totais_rodape_pi_lista(pis)
+            visao_por_agencia = (
+                origem_lista in ('faturamento', 'nf_emitida')
+                and filtros.get('tipo_entidade') in ('agencia', 'agencia_incentivo')
+            )
+            agencias_grupo = _agrupar_pis_por_agencia(pis) if visao_por_agencia else []
+
+            pi_footer_totais = _totais_rodape_pi_lista(
+                pis, filtros.get('tipo_entidade') if origem_lista in ('faturamento', 'nf_emitida') else None
+            )
 
             # Custo de mídia agregado das campanhas (visão Em andamento)
             if filtros.get('id_sub_status_pi') == 3 and pis:
@@ -9429,8 +9508,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
 
             status_pi = db.obter_status_pi()
-            mes_sub = 6 if visao_comercial == 'cancelados' else filtros.get('id_sub_status_pi')
-            meses_ref = db.obter_meses_ref_pi(mes_sub)
+            if origem_lista == 'faturamento':
+                meses_ref = db.obter_meses_ref_pi(id_sub_status_pi=4)
+                anos_ref = db.obter_anos_ref_pi(id_sub_status_pi=4)
+            elif origem_lista == 'nf_emitida':
+                meses_ref = db.obter_meses_ref_pi(id_status_pi=filtros.get('id_status_pi'))
+                anos_ref = db.obter_anos_ref_pi(id_status_pi=filtros.get('id_status_pi'))
+            else:
+                mes_sub = 6 if visao_comercial == 'cancelados' else filtros.get('id_sub_status_pi')
+                meses_ref = db.obter_meses_ref_pi(mes_sub)
+                anos_ref = []
             statuses_nf = db.obter_nota_fiscal_status()
 
             return render_template('cadu_pi.html',
@@ -9438,13 +9525,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    status_pi=status_pi,
                                    vendedores=vendedores,
                                    meses_ref=meses_ref,
+                                   anos_ref=anos_ref,
                                    filtros=filtros,
                                    statuses_nf=statuses_nf,
                                    user_is_executivo=user_is_executivo,
                                    origem_lista=origem_lista,
                                    nf_status_filtro=nf_status_filtro,
                                    visao_comercial=visao_comercial,
-                                   pi_footer_totais=pi_footer_totais)
+                                   pi_footer_totais=pi_footer_totais,
+                                   visao_por_agencia=visao_por_agencia,
+                                   agencias_grupo=agencias_grupo)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')
@@ -9460,7 +9550,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                        'valor_midia': 0.0,
                                        'valor_liquido': 0.0,
                                        'valor_bruto': 0.0,
-                                   })
+                                       'total_pis': 0,
+                                       'modo_contagem': 'cliente',
+                                       'com_incentivo': False,
+                                       'total_entidades': 0,
+                                   },
+                                   visao_por_agencia=False,
+                                   agencias_grupo=[])
 
     @app.route('/api/cadu_pi/localizar', methods=['GET'])
     @login_required

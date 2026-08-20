@@ -8,6 +8,8 @@
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
+{% set lista_financeira = origem_lista in ['faturamento', 'nf_emitida'] %}
+
 {% block content %}
 <div class="max-w-full mx-auto px-1">
   <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40 pi-filter-sticky">
@@ -44,7 +46,7 @@
           <button onclick="filtrarNfStatus('3')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
         </div>
         {% endif %}
-        {% if menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados' %}
+        {% if not visao_por_agencia|default(false) and (menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados') %}
         <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()"
                 class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                 title="Abrir/fechar as campanhas de todos os PIs">
@@ -65,6 +67,16 @@
           {% endfor %}
         </select>
 
+        {% if lista_financeira %}
+        {% set tipo_entidade = filtros.get('tipo_entidade', '') %}
+        <select name="tipo_entidade" id="filtro_tipo_entidade" onchange="aplicarFiltros();"
+                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 100px;">
+          <option value="" {% if not tipo_entidade %}selected{% endif %}>Todos</option>
+          <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Clientes</option>
+          <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Agências</option>
+          <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Agências c/ incentivo</option>
+        </select>
+        {% else %}
         <div class="relative">
           <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
           <input type="text" id="filtro_cliente_busca"
@@ -82,6 +94,18 @@
           </button>
           <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-40 overflow-y-auto hidden border border-gray-200 text-[10px]" style="min-width: 240px;"></div>
         </div>
+        {% endif %}
+
+        {% if lista_financeira %}
+        <select name="ano_ref_comp" id="filtro_ano_ref" onchange="filtrarMesesPorAno(); aplicarFiltros();"
+                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
+          <option value="">Todos anos</option>
+          {% for a in anos_ref %}
+            {% set yy = '%02d'|format(a) if a < 100 else ('%02d'|format(a % 100)) %}
+            <option value="{{ yy }}" {% if filtros.get('ano_ref_comp') == yy %}selected{% endif %}>20{{ yy }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
 
         <select name="mes_ref_comp" id="filtro_mes_ref" onchange="aplicarFiltros()"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 90px;">
@@ -94,7 +118,7 @@
         <div class="relative">
           <input type="text" name="busca" id="filtro_busca"
                  value="{{ filtros.get('search', '') }}"
-                 placeholder="Buscar..."
+                 placeholder="{% if lista_financeira and filtros.get('tipo_entidade') == 'cliente' %}Buscar cliente...{% elif lista_financeira and filtros.get('tipo_entidade') in ['agencia', 'agencia_incentivo'] %}Buscar agência...{% else %}Buscar...{% endif %}"
                  class="text-[10px] bg-gray-50 border border-gray-200 rounded pl-6 pr-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
                  style="min-width: 120px;"
                  onkeyup="debounceAplicarFiltros()">
@@ -119,8 +143,113 @@
   {% endwith %}
 
   <div class="bg-white rounded border border-gray-200">
-    {% if pis %}
+    {% if (visao_por_agencia|default(false) and agencias_grupo) or (not visao_por_agencia|default(false) and pis) %}
       <div class="overflow-x-auto">
+      {% if visao_por_agencia|default(false) %}
+      <table class="table table-xs w-full pi-list-table">
+        <thead class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider">
+          <tr>
+            <th class="font-semibold py-2 px-2" style="width: 240px;">Agência</th>
+            <th class="font-semibold text-center px-2" style="width: 52px;">PIs</th>
+            <th class="font-semibold text-center px-2" style="width: 52px;">Camp.</th>
+            <th class="font-semibold text-right px-2" style="width: 110px;">Valor bruto</th>
+            <th class="font-semibold text-right px-2" style="width: 110px;">Valor líquido</th>
+            <th class="font-semibold text-center px-2" style="width: 36px;"></th>
+          </tr>
+        </thead>
+        <tbody class="text-[11px]">
+          {% for ag in agencias_grupo %}
+          <tr class="agencia-row hover:bg-gray-50">
+            <td class="py-2 px-2 align-top">
+              <span class="text-xs font-semibold text-gray-800">{{ ag.agencia_nome }}</span>
+            </td>
+            <td class="text-center px-2 align-top">
+              <button type="button" onclick="toggleAgenciaPis({{ ag.id_agencia }}, event)"
+                      class="pi-expand-chip" title="Ver PIs da agência">
+                {{ ag.total_pis }} <i class="fa-solid fa-chevron-down text-[10px] chevron-ag" id="chevron-ag-{{ ag.id_agencia }}"></i>
+              </button>
+            </td>
+            <td class="text-center px-2 align-top text-gray-700">{{ ag.total_campanhas }}</td>
+            <td class="text-right px-2 align-top">
+              <span class="text-xs font-semibold tabular-nums text-gray-800">{{ ag.valor_bruto|format_brl }}</span>
+            </td>
+            <td class="text-right px-2 align-top">
+              <span class="text-xs font-semibold tabular-nums text-green-700">{{ ag.valor_liquido|format_brl }}</span>
+            </td>
+            <td class="text-center px-2 align-top"></td>
+          </tr>
+          <tr class="collapse-ag-row hidden" id="ag-pis-{{ ag.id_agencia }}">
+            <td colspan="6" class="p-0">
+              <div class="bg-gray-50/80 border-t border-gray-200 py-2 px-3">
+                <table class="w-full text-[10px]">
+                  <thead>
+                    <tr class="text-gray-500 uppercase">
+                      <th class="text-left py-1 px-2 font-medium">Código PI</th>
+                      <th class="text-left py-1 px-2 font-medium">Executivo</th>
+                      <th class="text-center py-1 px-2 font-medium">Período</th>
+                      <th class="text-center py-1 px-2 font-medium">Camp.</th>
+                      <th class="text-right py-1 px-2 font-medium">Líquido</th>
+                      {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
+                      <th class="text-center py-1 px-2 font-medium">Nota Fiscal</th>
+                      {% endif %}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    {% for pi in ag.pis %}
+                    {% set pi_info = {
+                      'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
+                      'titulo': pi.titulo_pi or '',
+                      'cliente': pi.cliente_nome or '',
+                      'cnpj': pi.cliente_cnpj or '',
+                      'mesRef': pi.mes_ref_comp or '',
+                      'valorLiquido': pi.valor_liquido or ''
+                    } %}
+                    <tr class="bg-white">
+                      <td class="py-1.5 px-2">
+                        <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
+                        {% if pi.get('mes_ref_comp') %}
+                        <span class="block text-[9px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                        {% endif %}
+                      </td>
+                      <td class="py-1.5 px-2 text-gray-700">{{ (pi.get('resp_comercial_nome') or '—').split(' ')[0] }}</td>
+                      <td class="py-1.5 px-2 text-center text-gray-600">
+                        {% if pi.get('periodo_inicio') %}
+                        {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+                        {% else %}—{% endif %}
+                      </td>
+                      <td class="py-1.5 px-2 text-center text-gray-600">{{ pi.get('total_campanhas', 0) }}</td>
+                      <td class="py-1.5 px-2 text-right text-green-700 font-semibold tabular-nums">
+                        {% if pi.get('valor_liquido') %}{{ pi.valor_liquido|format_brl }}{% else %}—{% endif %}
+                      </td>
+                      {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
+                      <td class="py-1.5 px-2 text-center" onclick="event.stopPropagation()">
+                        {% if pi.get('nf_id') %}
+                        <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
+                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                title="Ver Nota Fiscal">
+                          <i class="fa-solid fa-file-invoice text-[8px]"></i>
+                          {{ pi.nf_status_descricao or 'Ver' }}
+                        </button>
+                        {% elif origem_lista == 'faturamento' %}
+                        <button onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                                class="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] bg-teal-100 text-teal-700 hover:bg-teal-200"
+                                title="Importar NF (PDF)">
+                          <i class="fa-solid fa-file-import text-[10px]"></i>
+                        </button>
+                        {% else %}—{% endif %}
+                      </td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
       <table class="table table-xs w-full pi-list-table">
         <thead class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider">
           {% if sub_status_atual|string == '1' %}
@@ -455,12 +584,27 @@
           {% endfor %}
         </tbody>
       </table>
+      {% endif %}
       </div>
 
       <div class="pi-footer-sticky flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p class="text-[11px] text-gray-500 shrink-0">
+          {% if lista_financeira and pi_footer_totais.modo_contagem == 'agencia' %}
+          <strong class="text-sm font-bold text-gray-900">{{ pi_footer_totais.total_entidades }}</strong>
+          agência{% if pi_footer_totais.total_entidades != 1 %}s{% endif %}{% if pi_footer_totais.com_incentivo %} c/ incentivo{% endif %}
+          <span class="text-gray-400">·</span>
+          <strong class="text-sm font-bold text-gray-900">{{ pi_footer_totais.total_pis }}</strong> PI(s)
+          <span class="text-gray-400 text-[10px]">(por agência)</span>
+          {% elif lista_financeira %}
+          <strong class="text-sm font-bold text-gray-900">{{ pi_footer_totais.total_entidades }}</strong>
+          cliente{% if pi_footer_totais.total_entidades != 1 %}s{% endif %}
+          <span class="text-gray-400">·</span>
+          <strong class="text-sm font-bold text-gray-900">{{ pi_footer_totais.total_pis }}</strong> PI(s)
+          <span class="text-gray-400 text-[10px]">(por cliente)</span>
+          {% else %}
           <strong class="text-sm font-bold text-gray-900">{{ pis|length }}</strong> PI(s)
-          {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
+          {% endif %}
+          {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('id_agencia') or filtros.get('tipo_entidade') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('ano_ref_comp') or filtros.get('search') %}
           <span class="text-gray-400">• filtrado</span>
           {% endif %}
         </p>
@@ -477,10 +621,17 @@
     {% else %}
       <div class="p-6 text-center max-w-md mx-auto">
         <i class="fas fa-file-contract text-3xl text-gray-300 mb-2"></i>
+        {% if visao_por_agencia|default(false) %}
+        <p class="text-gray-700 font-medium text-[11px]">Nenhuma agência encontrada.</p>
+        <p class="text-gray-500 text-[10px] mt-1.5 leading-relaxed">
+          Não há agências com PIs para esta visão ou filtros selecionados.
+        </p>
+        {% else %}
         <p class="text-gray-700 font-medium text-[11px]">Nenhum PI encontrado.</p>
         <p class="text-gray-500 text-[10px] mt-1.5 leading-relaxed">
           Não há PIs para esta visão ou filtros. A criação do PI não é feita por esta lista — use o fluxo próprio do sistema (por exemplo, <span class="text-gray-700">Comercial → PI Recebido</span>).
         </p>
+        {% endif %}
       </div>
     {% endif %}
   </div>
@@ -1207,23 +1358,39 @@ let origemLista = new URLSearchParams(window.location.search).get('origem') || '
 function aplicarFiltros() {
   const params = new URLSearchParams();
   const exec = document.getElementById('filtro_executivo').value;
-  const cli = document.getElementById('filtro_cliente_id').value;
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
+  const selAno = document.getElementById('filtro_ano_ref');
+  const ano = selAno ? selAno.value : '';
+  const selTipo = document.getElementById('filtro_tipo_entidade');
+  const tipoEntidade = selTipo ? selTipo.value : '';
+  const cliInput = document.getElementById('filtro_cliente_id');
 
   setCookie('cc_filtro_exec', exec, 30);
-  setCookie('cc_filtro_mes', mes, 30);
-  if (origemLista === 'faturamento') {
-    setCookie('cc_pi_origem_lista', 'faturamento', 30);
-  } else if (origemLista === 'operacao') {
-    setCookie('cc_pi_origem_lista', 'operacao', 30);
+  if (origemLista === 'faturamento' || origemLista === 'nf_emitida') {
+    setCookie('cc_pi_origem_lista', origemLista, 30);
+    setCookie('cc_filtro_mes_' + origemLista, mes, 30);
+    setCookie('cc_filtro_ano_' + origemLista, ano, 30);
+    setCookie('cc_filtro_tipo_entidade_' + origemLista, tipoEntidade, 30);
+  } else {
+    setCookie('cc_filtro_mes', mes, 30);
+    if (origemLista === 'operacao') {
+      setCookie('cc_pi_origem_lista', 'operacao', 30);
+    }
   }
 
   params.set('resp_comercial', exec);
-  if (cli) params.set('id_cliente', cli);
+  if (tipoEntidade) params.set('tipo_entidade', tipoEntidade);
+  else if (cliInput && cliInput.value) params.set('id_cliente', cliInput.value);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (visaoComercial) params.set('visao', visaoComercial);
-  if (mes) params.set('mes_ref_comp', mes);
+  var mesVal = mes;
+  if (mesVal && ano) {
+    var mesParts = mesVal.split('/');
+    if (mesParts.length >= 2 && mesParts[1] !== ano) mesVal = '';
+  }
+  if (mesVal) params.set('mes_ref_comp', mesVal);
+  else if (ano) params.set('ano_ref_comp', ano);
   if (busca) params.set('busca', busca);
   if (origemLista) params.set('origem', origemLista);
   if (origemLista === 'nf_emitida') {
@@ -1250,41 +1417,98 @@ function filtrarSubStatus(key) {
   aplicarFiltros();
 }
 
+function filtrarMesesPorAno() {
+  var selAno = document.getElementById('filtro_ano_ref');
+  var selMes = document.getElementById('filtro_mes_ref');
+  if (!selAno || !selMes) return;
+  var ano = selAno.value;
+  for (var i = 0; i < selMes.options.length; i++) {
+    var opt = selMes.options[i];
+    if (!opt.value) { opt.hidden = false; continue; }
+    var parts = opt.value.split('/');
+    var optAno = parts.length >= 2 ? parts[1] : '';
+    opt.hidden = !!(ano && optAno !== ano);
+    if (opt.hidden && opt.selected) {
+      opt.selected = false;
+      selMes.value = '';
+    }
+  }
+  if (selMes.value && ano) {
+    var cur = selMes.value.split('/');
+    if (cur.length >= 2 && cur[1] !== ano) selMes.value = '';
+  }
+}
+
 (function restoreCaduPiFilters() {
   var params = new URLSearchParams(window.location.search);
   if (params.has('_restored')) return;
   var cExec = getCookie('cc_filtro_exec');
-  var cMes = getCookie('cc_filtro_mes');
+  var cMes = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+    ? (getCookie('cc_filtro_mes_' + origemLista) || getCookie('cc_filtro_mes'))
+    : getCookie('cc_filtro_mes');
+  var cAno = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+    ? (getCookie('cc_filtro_ano_' + origemLista) || getCookie('cc_filtro_ano'))
+    : '';
+  var cTipoEnt = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+    ? getCookie('cc_filtro_tipo_entidade_' + origemLista) : '';
   var needsRedirect = false;
   var rp = new URLSearchParams(params);
   if (cExec && !params.has('resp_comercial')) {
     rp.set('resp_comercial', cExec);
     needsRedirect = true;
   }
-  if (cMes && !params.has('mes_ref_comp')) {
-    var selMes = document.getElementById('filtro_mes_ref');
-    var matched = false;
-    for (var i = 0; i < selMes.options.length; i++) {
-      if (selMes.options[i].value === cMes) { matched = true; break; }
-    }
-    if (!matched) {
-      var m = parseInt(cMes, 10);
-      for (var i = 0; i < selMes.options.length; i++) {
-        if (parseInt(selMes.options[i].value, 10) === m) { matched = true; cMes = selMes.options[i].value; break; }
+  if (cTipoEnt && !params.has('tipo_entidade')) {
+    rp.set('tipo_entidade', cTipoEnt);
+    needsRedirect = true;
+  }
+  if (cAno && !params.has('ano_ref_comp') && !params.has('mes_ref_comp')) {
+    var selAno = document.getElementById('filtro_ano_ref');
+    if (selAno) {
+      for (var j = 0; j < selAno.options.length; j++) {
+        if (selAno.options[j].value === cAno) {
+          rp.set('ano_ref_comp', cAno);
+          needsRedirect = true;
+          break;
+        }
       }
     }
-    if (matched) { rp.set('mes_ref_comp', cMes); needsRedirect = true; }
+  }
+  if (cMes && !params.has('mes_ref_comp') && !rp.has('ano_ref_comp')) {
+    var selMes = document.getElementById('filtro_mes_ref');
+    var matched = false;
+    if (selMes) {
+      for (var i = 0; i < selMes.options.length; i++) {
+        if (selMes.options[i].value === cMes) { matched = true; break; }
+      }
+      if (!matched) {
+        var m = parseInt(cMes, 10);
+        for (var i = 0; i < selMes.options.length; i++) {
+          if (parseInt(selMes.options[i].value, 10) === m) { matched = true; cMes = selMes.options[i].value; break; }
+        }
+      }
+    }
+    if (matched) {
+      var mesAno = cMes.split('/').length >= 2 ? cMes.split('/')[1] : '';
+      if (!cAno || mesAno === cAno) {
+        rp.set('mes_ref_comp', cMes);
+        needsRedirect = true;
+      }
+    }
   }
   if (!needsRedirect) return;
   if (visaoComercial && !rp.has('visao')) rp.set('visao', visaoComercial);
   if (origemLista && !rp.has('origem')) rp.set('origem', origemLista);
   else if (!rp.has('origem') && subStatusAtual === '4') {
     var cOrigem = getCookie('cc_pi_origem_lista');
-    if (cOrigem === 'faturamento' || cOrigem === 'operacao') rp.set('origem', cOrigem);
+    if (cOrigem === 'faturamento' || cOrigem === 'operacao' || cOrigem === 'nf_emitida') rp.set('origem', cOrigem);
   }
   rp.set('_restored', '1');
   window.location.href = '/cadu_pi?' + rp.toString();
 })();
+
+if (document.getElementById('filtro_ano_ref')) {
+  filtrarMesesPorAno();
+}
 
 function buscarClientesFiltro(termo) {
   clearTimeout(debounceClienteTimer);
@@ -1346,7 +1570,8 @@ function showConfirm(title, msg, onConfirm) {
 document.addEventListener('click', function(e) {
   const container = document.getElementById('resultados_clientes_filtro');
   const input = document.getElementById('filtro_cliente_busca');
-  if (container && !container.contains(e.target) && e.target !== input) {
+  if (!container || !input) return;
+  if (!container.contains(e.target) && e.target !== input) {
     container.classList.add('hidden');
   }
 });

@@ -173,6 +173,16 @@
     }
   };
 
+  window.toggleAgenciaPis = function (idAgencia, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    const row = document.getElementById('ag-pis-' + idAgencia);
+    const chevron = document.getElementById('chevron-ag-' + idAgencia);
+    if (!row) return;
+    const isHidden = row.classList.contains('hidden');
+    row.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('open', isHidden);
+  };
+
   window.toggleTodasCampanhas = function () {
     window.todasExpandidas = !window.todasExpandidas;
     document.querySelectorAll('tr.collapse-camp-row').forEach(function (row) {

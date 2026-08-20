@@ -10,25 +10,50 @@
   {%- if val is none -%}—{%- else -%}{{ ("%.2f"|format(val|float)).replace('.', ',') }}%{%- endif -%}
 {%- endmacro %}
 
+{% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
+
 {% block content %}
 <div class="max-w-full mx-auto px-2">
   <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-4">
         <h1 class="text-lg font-semibold text-gray-800">Relatório de Incentivos</h1>
-        {% if linhas %}<span class="text-xs text-gray-500">({{ linhas|length }} agências)</span>{% endif %}
+        {% if linhas %}
+        <span class="text-xs text-gray-500">
+          ({{ totais.total_entidades }}
+          {% if totais.modo_contagem == 'agencia' %}agência{% else %}cliente{% endif %}{% if totais.total_entidades != 1 %}s{% endif %})
+        </span>
+        {% endif %}
       </div>
       <div class="flex items-center gap-3 flex-wrap">
-        <form method="GET" class="flex items-center gap-2">
-          <label for="filtro_ano" class="text-xs text-gray-500">Ano</label>
-          <select name="ano" id="filtro_ano" onchange="this.form.submit()"
+        <form method="GET" id="form_filtros_incentivo" class="flex items-center gap-2 flex-wrap">
+          <label for="filtro_tipo_entidade" class="text-xs text-gray-500">Visão</label>
+          <select name="tipo_entidade" id="filtro_tipo_entidade" onchange="this.form.submit()"
                   class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
+            <option value="" {% if not tipo_entidade %}selected{% endif %}>Todos</option>
+            <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Clientes</option>
+            <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Agências</option>
+            <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Agências c/ incentivo</option>
+          </select>
+          <label for="filtro_ano" class="text-xs text-gray-500">Ano</label>
+          <select name="ano" id="filtro_ano" onchange="filtrarMesesIncentivoPorAno(); this.form.submit();"
+                  class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
+            <option value="">Todos anos</option>
             {% for a in anos_disponiveis %}
-              <option value="{{ a }}" {% if a == ano %}selected{% endif %}>{{ a }}</option>
+              {% set yy = '%02d'|format(a) if a < 100 else ('%02d'|format(a % 100)) %}
+              <option value="{{ yy }}" {% if ano_ref == yy %}selected{% endif %}>20{{ yy }}</option>
+            {% endfor %}
+          </select>
+          <label for="filtro_mes_ref" class="text-xs text-gray-500">Mês</label>
+          <select name="mes_ref_comp" id="filtro_mes_ref" onchange="this.form.submit()"
+                  class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 110px;">
+            <option value="">Todos meses</option>
+            {% for m in meses_ref %}
+              <option value="{{ m }}" {% if mes_ref_comp == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
             {% endfor %}
           </select>
         </form>
-        <input type="text" id="searchInput" placeholder="Buscar agência..."
+        <input type="text" id="searchInput" placeholder="Buscar {% if tipo_entidade in ['agencia', 'agencia_incentivo'] %}agência{% else %}cliente{% endif %}..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
       </div>
     </div>
@@ -50,9 +75,15 @@
     {% endif %}
   {% endwith %}
 
-  <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
     <div class="bg-white border border-gray-200 rounded-lg p-3">
-      <div class="text-xs text-gray-500 uppercase">PIs no ano</div>
+      <div class="text-xs text-gray-500 uppercase">
+        {% if totais.modo_contagem == 'agencia' %}Agência{% if totais.com_incentivo %} c/ incentivo{% endif %}{% else %}Cliente{% endif %} no período
+      </div>
+      <div class="text-lg font-semibold text-gray-800">{{ totais.total_entidades }}</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+      <div class="text-xs text-gray-500 uppercase">PIs no período</div>
       <div class="text-lg font-semibold text-gray-800">{{ totais.total_pis }}</div>
     </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
@@ -71,7 +102,9 @@
         <table class="w-full text-sm whitespace-nowrap" id="tabela_incentivos_relatorio">
           <thead class="bg-gray-100">
             <tr>
-              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">Agência</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">
+                {% if tipo_entidade in ['agencia', 'agencia_incentivo'] %}Agência{% else %}Cliente{% endif %}
+              </th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">PIs</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Volume bruto</th>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Faixa atual</th>
@@ -131,6 +164,22 @@
 </div>
 
 <script>
+function filtrarMesesIncentivoPorAno() {
+  var selAno = document.getElementById('filtro_ano');
+  var selMes = document.getElementById('filtro_mes_ref');
+  if (!selAno || !selMes) return;
+  var ano = selAno.value;
+  for (var i = 0; i < selMes.options.length; i++) {
+    var opt = selMes.options[i];
+    if (!opt.value) { opt.hidden = false; continue; }
+    var parts = opt.value.split('/');
+    var optAno = parts.length >= 2 ? parts[1] : '';
+    opt.hidden = !!(ano && optAno !== ano);
+    if (opt.hidden && opt.selected) opt.selected = false;
+  }
+}
+filtrarMesesIncentivoPorAno();
+
 (function () {
   const input = document.getElementById('searchInput');
   if (!input) return;

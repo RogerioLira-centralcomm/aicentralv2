@@ -45,6 +45,15 @@
     <div id="nf_import_step_preview" class="hidden flex-1 overflow-y-auto max-h-[70vh]">
       <div id="nf_import_validacao_ok" class="hidden mb-3 p-2 rounded bg-green-50 border border-green-200 text-xs text-green-800"></div>
       <div id="nf_import_avisos" class="hidden mb-3 p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800"></div>
+
+      <div id="nf_import_pi_selecao" class="hidden mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+        <label class="text-xs font-semibold text-amber-900 block mb-1" for="nf_import_pi_select">Vincular ao PI</label>
+        <p class="text-[10px] text-amber-800 mb-2">O código PI da nota não confere. Selecione o PI correto para vincular a NF.</p>
+        <select id="nf_import_pi_select" class="select select-bordered select-sm w-full text-xs">
+          <option value="">Carregando PIs...</option>
+        </select>
+      </div>
+
       <div class="space-y-4 text-sm pr-1">
         <div>
           <label class="text-xs text-gray-500 block mb-1">Arquivo</label>
@@ -166,8 +175,12 @@
   var nfImportSelectedFile = null;
   var nfImportPreviewItem = null;
   var nfImportIdPi = null;
+  var nfImportIdPiContexto = null;
   var nfImportPiInfo = null;
   var nfImportPgtoManual = false;
+  var nfImportPiSelecionadoManual = false;
+  var nfImportPiOptionsCache = null;
+  var nfImportPiOptionsLoading = null;
 
   function nfToast(msg, type) {
     if (typeof showToast === 'function') showToast(msg, type || 'info');
@@ -321,6 +334,118 @@
     if (hint) hint.classList.add('hidden');
   }
 
+  function fmtPiOptionLabel(pi) {
+    if (!pi) return '';
+    var cod = pi.codPi || pi.codigo_pi_cc || pi.codigo_pi_ag || String(pi.id_pi || '');
+    var parts = [cod + ' — ' + (pi.titulo_pi || pi.titulo || 'PI')];
+    if (pi.cliente_nome || pi.cliente) parts.push(pi.cliente_nome || pi.cliente);
+    var val = pi.valor_liquido || pi.valorLiquido;
+    if (val) parts.push(typeof val === 'string' ? val : fmtValorNfImport(val));
+    return parts.join(' · ');
+  }
+
+  function piRowToInfo(pi) {
+    if (!pi) return {};
+    return {
+      codPi: pi.codPi || pi.codigo_pi_cc || pi.codigo_pi_ag || '',
+      titulo: pi.titulo_pi || pi.titulo || '',
+      cliente: pi.cliente_nome || pi.cliente || '',
+      mesRef: pi.mes_ref_comp || pi.mesRef || '',
+      valorLiquido: pi.valor_liquido || pi.valorLiquido || '',
+    };
+  }
+
+  function loadNfImportPiOptions() {
+    if (nfImportPiOptionsCache) {
+      return Promise.resolve(nfImportPiOptionsCache);
+    }
+    if (nfImportPiOptionsLoading) return nfImportPiOptionsLoading;
+    nfImportPiOptionsLoading = fetch('/api/cadu_pi/faturamento-sem-nf', { credentials: 'same-origin' })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+        nfImportPiOptionsLoading = null;
+        if (!res.ok) throw new Error(res.j.error || 'Erro ao carregar PIs');
+        nfImportPiOptionsCache = res.j.items || [];
+        return nfImportPiOptionsCache;
+      })
+      .catch(function(e) {
+        nfImportPiOptionsLoading = null;
+        throw e;
+      });
+    return nfImportPiOptionsLoading;
+  }
+
+  function populateNfImportPiSelect(items, selectedId) {
+    var sel = document.getElementById('nf_import_pi_select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!items || !items.length) {
+      sel.innerHTML = '<option value="">Nenhum PI disponível em faturamento</option>';
+      return;
+    }
+    items.forEach(function(pi) {
+      var opt = document.createElement('option');
+      opt.value = String(pi.id_pi);
+      opt.textContent = fmtPiOptionLabel(pi);
+      sel.appendChild(opt);
+    });
+    if (selectedId) sel.value = String(selectedId);
+  }
+
+  function applyNfImportPiSelection(idPi, piInfo, manual) {
+    nfImportIdPi = idPi ? parseInt(idPi, 10) : null;
+    nfImportPiInfo = piInfo || {};
+    if (manual) nfImportPiSelecionadoManual = true;
+    renderNfImportPiContext();
+  }
+
+  function onNfImportPiSelectChange() {
+    var sel = document.getElementById('nf_import_pi_select');
+    if (!sel || !sel.value) return;
+    var idPi = parseInt(sel.value, 10);
+    var pi = (nfImportPiOptionsCache || []).find(function(p) { return p.id_pi === idPi; });
+    applyNfImportPiSelection(idPi, piRowToInfo(pi), true);
+  }
+
+  function showNfImportPiSelecao(item) {
+    var box = document.getElementById('nf_import_pi_selecao');
+    var sel = document.getElementById('nf_import_pi_select');
+    if (!box || !sel) return;
+    var val = item.validacao || {};
+    var needsSelect = !!(val.pi_requer_selecao || val.pi_requer_edicao);
+    if (!needsSelect) {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    var preselect =
+      item.id_pi_sugerido_por_codigo ||
+      nfImportIdPiContexto ||
+      nfImportIdPi ||
+      item.id_pi_sugerido ||
+      null;
+    sel.innerHTML = '<option value="">Carregando PIs...</option>';
+    loadNfImportPiOptions()
+      .then(function(items) {
+        populateNfImportPiSelect(items, preselect);
+        var chosen = sel.value ? parseInt(sel.value, 10) : preselect;
+        if (chosen) {
+          var pi = items.find(function(p) { return p.id_pi === chosen; });
+          applyNfImportPiSelection(chosen, piRowToInfo(pi), chosen !== nfImportIdPiContexto);
+        }
+      })
+      .catch(function(e) {
+        console.error(e);
+        sel.innerHTML = '<option value="">Erro ao carregar PIs</option>';
+        nfToast('Erro ao carregar lista de PIs', 'error');
+      });
+  }
+
+  function hideNfImportPiSelecao() {
+    var box = document.getElementById('nf_import_pi_selecao');
+    if (box) box.classList.add('hidden');
+  }
+
   function updateNfImportFileUi() {
     var empty = document.getElementById('nf_import_dropzone_empty');
     var selected = document.getElementById('nf_import_dropzone_selected');
@@ -347,6 +472,8 @@
     nfImportSelectedFile = null;
     nfImportPreviewItem = null;
     nfImportPgtoManual = false;
+    nfImportPiSelecionadoManual = false;
+    hideNfImportPiSelecao();
     var input = document.getElementById('nf_import_files');
     if (input) input.value = '';
     showNfImportFileError('');
@@ -426,7 +553,9 @@
       return;
     }
     nfImportIdPi = idPi;
+    nfImportIdPiContexto = idPi;
     nfImportPiInfo = piInfo || {};
+    nfImportPiSelecionadoManual = false;
     resetNfImportModal();
     renderNfImportPiContext();
     modal.showModal();
@@ -490,6 +619,8 @@
     } else {
       avisosEl.classList.add('hidden');
     }
+
+    showNfImportPiSelecao(item);
 
     document.getElementById('btn_nf_confirmar').disabled = false;
   }
@@ -579,6 +710,18 @@
       return;
     }
 
+    var piSelecaoBox = document.getElementById('nf_import_pi_selecao');
+    var piSelecaoEl = document.getElementById('nf_import_pi_select');
+    var piSelecionadoManual = nfImportPiSelecionadoManual;
+    if (piSelecaoBox && !piSelecaoBox.classList.contains('hidden') && piSelecaoEl) {
+      piSelecionadoManual = true;
+      if (!piSelecaoEl.value) {
+        nfToast('Selecione o PI para vincular a NF.', 'warning');
+        return;
+      }
+      idPi = parseInt(piSelecaoEl.value, 10);
+    }
+
     if (!dataPgto && dataEm) {
       dataPgto = calcDataPagamentoPrevisto(dataEm);
     }
@@ -614,6 +757,8 @@
       hash_arquivo: item.hash_arquivo,
       filename: item.filename,
       id_pi: parseInt(idPi, 10),
+      id_pi_contexto: nfImportIdPiContexto || item.id_pi_contexto || null,
+      pi_selecionado_manual: piSelecionadoManual,
       codigo_pi: codigoPi || ex.codigo_pi || null,
       codigo_pi_referencia: codigoPiEsperado || codigoPi || ex.codigo_pi || null,
       numero_nota: numero,
@@ -765,6 +910,10 @@
     if (pgtoEl) {
       pgtoEl.addEventListener('change', onNfImportPgtoChange);
       pgtoEl.addEventListener('input', onNfImportPgtoChange);
+    }
+    var piSel = document.getElementById('nf_import_pi_select');
+    if (piSel) {
+      piSel.addEventListener('change', onNfImportPiSelectChange);
     }
   })();
 })();

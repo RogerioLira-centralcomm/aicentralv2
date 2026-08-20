@@ -9497,6 +9497,30 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao localizar PI: {e}", exc_info=True)
             return jsonify({'found': False, 'message': 'Erro ao localizar PI.'}), 500
 
+    @app.route('/api/cadu_pi/faturamento-sem-nf', methods=['GET'])
+    @login_required
+    def api_cadu_pi_faturamento_sem_nf():
+        """PIs em faturamento sem NF — opções da combo no modal de importação."""
+        try:
+            rows = db.listar_pis_faturamento_sem_nf()
+            items = []
+            for row in rows or []:
+                cod = row.get('codigo_pi_cc') or row.get('codigo_pi_ag') or ''
+                items.append({
+                    'id_pi': row.get('id_pi'),
+                    'codigo_pi_cc': row.get('codigo_pi_cc'),
+                    'codigo_pi_ag': row.get('codigo_pi_ag'),
+                    'codPi': cod,
+                    'titulo_pi': row.get('titulo_pi') or '',
+                    'cliente_nome': row.get('cliente_nome') or '',
+                    'mes_ref_comp': row.get('mes_ref_comp') or '',
+                    'valor_liquido': row.get('valor_liquido'),
+                })
+            return jsonify({'items': items})
+        except Exception as e:
+            app.logger.error(f'Erro ao listar PIs faturamento sem NF: {e}', exc_info=True)
+            return jsonify({'error': 'Erro ao carregar PIs.'}), 500
+
     @app.route('/cadu_pi/novo', methods=['GET', 'POST'])
     @login_required
     def cadu_pi_novo():
@@ -13014,6 +13038,39 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             detalhes['validacao_completa'] = True
         return ok, erros, avisos, detalhes
 
+    def _validar_pi_elegivel_importacao_nf(pi_row):
+        """PI pode receber NF importada: Faturamento, sub-status 4, sem NF existente."""
+        erros = []
+        if not pi_row:
+            return False, ['PI não encontrado.']
+        status_faturamento = db.obter_status_pi_por_descricao('Faturamento')
+        id_status_fat = status_faturamento.get('id') if status_faturamento else None
+        if id_status_fat and pi_row.get('id_status_pi') != id_status_fat:
+            erros.append('PI não está em faturamento.')
+        if pi_row.get('id_sub_status_pi') != 4:
+            erros.append('PI não está em sub-status Em faturamento.')
+        if db.pi_possui_nota_fiscal(pi_row.get('id_pi')):
+            erros.append('PI já possui nota fiscal vinculada.')
+        return len(erros) == 0, erros
+
+    def _id_pi_sugerido_por_codigo_nf(extracted, validacao=None):
+        """Retorna id_pi se o código extraído da NF existir no sistema."""
+        from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi
+
+        extracted = extracted or {}
+        validacao = validacao or {}
+        cod_nf = validacao.get('codigo_pi_nf')
+        if not cod_nf:
+            cod_nf = normalize_codigo_pi(
+                extracted.get('codigo_pi'),
+                extracted.get('discriminacao'),
+                filename=extracted.get('_filename'),
+            )
+        if not cod_nf:
+            return None
+        row = db.obter_cadu_pi_por_codigo_ou_id(str(cod_nf).strip())
+        return row.get('id_pi') if row else None
+
     def _extrair_codigo_pi_discriminacao_nf(discriminacao):
         from aicentralv2.services.nf_pdf_extraction import normalize_codigo_pi
         return normalize_codigo_pi(discriminacao=discriminacao)
@@ -13084,7 +13141,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_pi': pi_row.get('id_pi'),
             'codigo_pi_cc': pi_row.get('codigo_pi_cc'),
             'codigo_pi_ag': pi_row.get('codigo_pi_ag'),
+            'titulo_pi': pi_row.get('titulo_pi'),
             'cliente_nome': pi_row.get('cliente_nome'),
+            'mes_ref_comp': pi_row.get('mes_ref_comp'),
             'vr_liquido_pi': pi_row.get('vr_liquido_pi') or pi_row.get('valor_liquido'),
             'vr_bruto_pi': pi_row.get('vr_bruto_pi') or pi_row.get('valor_bruto'),
         }
@@ -13216,27 +13275,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
                 avisos.extend(avisos_val)
                 if not ok_val:
-                    storage.delete_pending(pending['temp_id'])
-                    items.append({
-                        'success': False,
-                        'importable': False,
-                        'inconsistencia': True,
-                        'filename': filename,
-                        'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências encontradas na validação.',
-                        'inconsistencias': erros_val,
-                        'extracted': extracted,
-                        'match_type': match.get('match_type'),
-                        'match_method': match.get('match_method'),
-                        'id_pi_contexto': id_pi_contexto,
-                    })
-                    continue
+                    avisos.extend(erros_val)
+                    validacao = validacao or {}
+                    validacao['pi_requer_selecao'] = True
+                    validacao['pi_ok'] = False
+                elif validacao.get('pi_requer_edicao') or not validacao.get('pi_ok'):
+                    validacao['pi_requer_selecao'] = True
                 importable = True
                 if not ocr_ok:
                     avisos.append(
                         'OCR não leu todos os campos da nota. Preencha os dados manualmente antes de confirmar.'
                     )
+                id_pi_sugerido_por_codigo = _id_pi_sugerido_por_codigo_nf(extracted, validacao)
+            else:
+                id_pi_sugerido_por_codigo = None
 
-            items.append({
+            item_payload = {
                 'success': True,
                 'importable': importable,
                 'inconsistencia': False,
@@ -13253,7 +13307,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'avisos': avisos,
                 'validacao': validacao,
                 'id_pi_contexto': id_pi_contexto,
-            })
+            }
+            if pi_contexto:
+                item_payload['id_pi_sugerido_por_codigo'] = id_pi_sugerido_por_codigo
+            items.append(item_payload)
 
         return jsonify({'items': items})
 
@@ -13357,17 +13414,37 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filename=linha.get('filename'),
                 codigo_referencia=linha.get('codigo_pi_referencia'),
             )
-            ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf, confirmar=True)
-            if not ok_val:
-                storage.delete_pending(temp_id)
-                erros.append({
-                    'linha': idx,
-                    'filename': linha.get('filename'),
-                    'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências na validação PI/valor.',
-                    'inconsistencias': erros_val,
-                    'inconsistencia': True,
-                })
-                continue
+            id_pi_contexto = linha.get('id_pi_contexto')
+            pi_selecionado_manual = bool(linha.get('pi_selecionado_manual'))
+            if id_pi_contexto is not None:
+                try:
+                    pi_selecionado_manual = pi_selecionado_manual or int(id_pi) != int(id_pi_contexto)
+                except (TypeError, ValueError):
+                    pass
+            if pi_selecionado_manual:
+                ok_elig, erros_elig = _validar_pi_elegivel_importacao_nf(pi)
+                if not ok_elig:
+                    storage.delete_pending(temp_id)
+                    erros.append({
+                        'linha': idx,
+                        'filename': linha.get('filename'),
+                        'error': erros_elig[0] if len(erros_elig) == 1 else 'PI selecionado não pode receber esta NF.',
+                        'inconsistencias': erros_elig,
+                        'inconsistencia': True,
+                    })
+                    continue
+            else:
+                ok_val, erros_val, _, _ = _validar_nf_contra_pi_contexto(pi, extracted_conf, confirmar=True)
+                if not ok_val:
+                    storage.delete_pending(temp_id)
+                    erros.append({
+                        'linha': idx,
+                        'filename': linha.get('filename'),
+                        'error': erros_val[0] if len(erros_val) == 1 else 'Inconsistências na validação PI/valor.',
+                        'inconsistencias': erros_val,
+                        'inconsistencia': True,
+                    })
+                    continue
 
             data_emissao = linha.get('data_emissao')
             data_pag_prev = linha.get('data_pagamento_previsto') or _calc_data_pagamento_previsto_nf(data_emissao)

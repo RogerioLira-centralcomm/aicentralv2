@@ -9468,6 +9468,63 @@ def _mes_ref_comp_compativel(mes_ref_comp, mes, ano):
     return mes_pi == mes and ano_pi == ano
 
 
+def listar_pis_faturamento_sem_nf():
+    """Lista PIs em Faturamento / Em faturamento (4) sem NF — combo de importação de NF."""
+    status_row = obter_status_pi_por_descricao('Faturamento')
+    if not status_row or not status_row.get('id'):
+        return []
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    p.id_pi,
+                    p.codigo_pi_cc,
+                    p.codigo_pi_ag,
+                    p.titulo_pi,
+                    p.mes_ref_comp,
+                    p.vr_liquido_pi AS valor_liquido,
+                    cli.nome_fantasia AS cliente_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN LATERAL (
+                    SELECT nf.id AS nf_id
+                    FROM cadu_pi_nota_fiscal nf
+                    WHERE nf.id_pi = p.id_pi
+                    ORDER BY nf.created_at DESC
+                    LIMIT 1
+                ) nf_sub ON true
+                WHERE p.id_status_pi = %s
+                  AND p.id_sub_status_pi = 4
+                  AND nf_sub.nf_id IS NULL
+                ORDER BY p.created_at DESC
+                ''',
+                (status_row['id'],),
+            )
+            return cursor.fetchall() or []
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def pi_possui_nota_fiscal(id_pi):
+    """True se o PI já possui ao menos uma nota fiscal vinculada."""
+    if not id_pi:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id FROM cadu_pi_nota_fiscal WHERE id_pi = %s LIMIT 1',
+                (int(id_pi),),
+            )
+            return cursor.fetchone() is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def localizar_pi_para_importacao_nf(codigo_pi=None, cnpj_tomador=None, valor=None, data_emissao=None):
     """
     Localiza PI para vincular NF importada.

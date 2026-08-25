@@ -18052,20 +18052,17 @@ def excluir_incentivo(id_incentivo):
 
 
 def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_entidade=None):
-    """Relatório financeiro: volume de PIs no período por agência ou por cliente."""
+    """Relatório de incentivos: agências em cadu_pi_incentivos com volume de PIs no período."""
     conn = get_db()
     parse_bruto = _parse_vr_bruto_pi_sql('p')
-    modo_incentivo = tipo_entidade == 'agencia_incentivo'
-    modo_agencia = tipo_entidade == 'agencia'
+    _ = tipo_entidade  # legado; relatório sempre usa cadu_pi_incentivos
 
     agg_where = [
         "p.mes_ref_comp IS NOT NULL",
         "p.mes_ref_comp != ''",
+        'p.id_agencia IS NOT NULL',
+        'p.id_agencia > 0',
     ]
-    if modo_incentivo or modo_agencia:
-        agg_where.extend(['p.id_agencia IS NOT NULL', 'p.id_agencia > 0'])
-    else:
-        agg_where.extend(['p.id_cliente IS NOT NULL', 'p.id_cliente > 0'])
 
     agg_params = []
     if mes_ref_comp:
@@ -18085,67 +18082,32 @@ def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_en
 
     try:
         with conn.cursor() as cursor:
-            if modo_incentivo:
-                cols = _sql_select_incentivos_cols('i')
-                cursor.execute(
-                    f'''
+            cols = _sql_select_incentivos_cols('i')
+            cursor.execute(
+                f'''
+                SELECT
+                    i.id,
+                    i.cliente_id,
+                    cli.nome_fantasia AS agencia_nome,
+                    cli.razao_social AS agencia_razao,
+                    {cols},
+                    COALESCE(agg.total_pis, 0) AS total_pis,
+                    COALESCE(agg.volume_bruto, 0) AS volume_bruto
+                FROM cadu_pi_incentivos i
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                LEFT JOIN (
                     SELECT
-                        i.id,
-                        i.cliente_id,
-                        cli.nome_fantasia AS agencia_nome,
-                        cli.razao_social AS agencia_razao,
-                        {cols},
-                        COALESCE(agg.total_pis, 0) AS total_pis,
-                        COALESCE(agg.volume_bruto, 0) AS volume_bruto
-                    FROM cadu_pi_incentivos i
-                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
-                    LEFT JOIN (
-                        SELECT
-                            p.id_agencia,
-                            COUNT(p.id_pi) AS total_pis,
-                            SUM({parse_bruto}) AS volume_bruto
-                        FROM cadu_pi p
-                        WHERE {agg_where_sql}
-                        GROUP BY p.id_agencia
-                    ) agg ON agg.id_agencia = i.cliente_id
-                    ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
-                    ''',
-                    tuple(agg_params),
-                )
-            elif modo_agencia:
-                cursor.execute(
-                    f'''
-                    SELECT
-                        p.id_agencia AS cliente_id,
-                        cli.nome_fantasia AS agencia_nome,
-                        cli.razao_social AS agencia_razao,
+                        p.id_agencia,
                         COUNT(p.id_pi) AS total_pis,
                         SUM({parse_bruto}) AS volume_bruto
                     FROM cadu_pi p
-                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_agencia
                     WHERE {agg_where_sql}
-                    GROUP BY p.id_agencia, cli.nome_fantasia, cli.razao_social
-                    ORDER BY SUM({parse_bruto}) DESC NULLS LAST, cli.nome_fantasia ASC NULLS LAST
-                    ''',
-                    tuple(agg_params),
-                )
-            else:
-                cursor.execute(
-                    f'''
-                    SELECT
-                        p.id_cliente AS cliente_id,
-                        cli.nome_fantasia AS agencia_nome,
-                        cli.razao_social AS agencia_razao,
-                        COUNT(p.id_pi) AS total_pis,
-                        SUM({parse_bruto}) AS volume_bruto
-                    FROM cadu_pi p
-                    LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
-                    WHERE {agg_where_sql}
-                    GROUP BY p.id_cliente, cli.nome_fantasia, cli.razao_social
-                    ORDER BY SUM({parse_bruto}) DESC NULLS LAST, cli.nome_fantasia ASC NULLS LAST
-                    ''',
-                    tuple(agg_params),
-                )
+                    GROUP BY p.id_agencia
+                ) agg ON agg.id_agencia = i.cliente_id
+                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
+                ''',
+                tuple(agg_params),
+            )
             rows = cursor.fetchall() or []
     except Exception as e:
         conn.rollback()
@@ -18155,55 +18117,38 @@ def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_en
     for row in rows:
         volume = float(row.get('volume_bruto') or 0)
         cliente_id = row.get('cliente_id')
-        if modo_incentivo:
-            faixa_info = obter_faixa_incentivo_por_volume(volume)
-            perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
-            perc_atual = round(perc_frac * 100, 2) if perc_frac <= 1 else round(perc_frac, 2)
-            incentivo_provisionado = round(volume * perc_frac, 2)
+        faixa_info = obter_faixa_incentivo_por_volume(volume)
+        perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
+        perc_atual = round(perc_frac * 100, 2) if perc_frac <= 1 else round(perc_frac, 2)
+        incentivo_provisionado = round(volume * perc_frac, 2)
 
-            proxima_faixa_label = None
-            proximo_perc = None
-            if faixa_info.get('proxima_faixa'):
-                proxima_faixa_label = faixa_info['proxima_faixa_label']
-                proximo_frac = (
-                    obter_incentivo_fracao_por_cliente_volume(
-                        cliente_id, faixa_info['proximo_limite']
-                    )
-                    or 0.0
+        proxima_faixa_label = None
+        proximo_perc = None
+        if faixa_info.get('proxima_faixa'):
+            proxima_faixa_label = faixa_info['proxima_faixa_label']
+            proximo_frac = (
+                obter_incentivo_fracao_por_cliente_volume(
+                    cliente_id, faixa_info['proximo_limite']
                 )
-                proximo_perc = round(proximo_frac * 100, 2) if proximo_frac <= 1 else round(proximo_frac, 2)
+                or 0.0
+            )
+            proximo_perc = round(proximo_frac * 100, 2) if proximo_frac <= 1 else round(proximo_frac, 2)
 
-            resultado.append({
-                'id': row.get('id'),
-                'cliente_id': cliente_id,
-                'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
-                'agencia_razao': row.get('agencia_razao'),
-                'total_pis': int(row.get('total_pis') or 0),
-                'volume_bruto': volume,
-                'faixa_atual': faixa_info['faixa_label'],
-                'faixa_key': faixa_info['faixa_key'],
-                'perc_atual': perc_atual,
-                'falta_para_proxima': faixa_info.get('falta_para_proxima'),
-                'proxima_faixa': proxima_faixa_label,
-                'proximo_perc': proximo_perc,
-                'incentivo_provisionado': incentivo_provisionado,
-            })
-        else:
-            resultado.append({
-                'id': None,
-                'cliente_id': cliente_id,
-                'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
-                'agencia_razao': row.get('agencia_razao'),
-                'total_pis': int(row.get('total_pis') or 0),
-                'volume_bruto': volume,
-                'faixa_atual': '—',
-                'faixa_key': None,
-                'perc_atual': None,
-                'falta_para_proxima': None,
-                'proxima_faixa': None,
-                'proximo_perc': None,
-                'incentivo_provisionado': 0,
-            })
+        resultado.append({
+            'id': row.get('id'),
+            'cliente_id': cliente_id,
+            'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
+            'agencia_razao': row.get('agencia_razao'),
+            'total_pis': int(row.get('total_pis') or 0),
+            'volume_bruto': volume,
+            'faixa_atual': faixa_info['faixa_label'],
+            'faixa_key': faixa_info['faixa_key'],
+            'perc_atual': perc_atual,
+            'falta_para_proxima': faixa_info.get('falta_para_proxima'),
+            'proxima_faixa': proxima_faixa_label,
+            'proximo_perc': proximo_perc,
+            'incentivo_provisionado': incentivo_provisionado,
+        })
 
     return resultado
 

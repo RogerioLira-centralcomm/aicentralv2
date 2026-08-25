@@ -239,22 +239,17 @@ def relatorio_incentivos():
         except ValueError:
             pass
 
-    tipo_entidade = request.args.get('tipo_entidade', '').strip()
-    if tipo_entidade not in ('cliente', 'agencia', 'agencia_incentivo'):
-        tipo_entidade = None
-
     linhas = main_db.obter_relatorio_incentivos_agencias(
         ano_ref=ano_ref,
         mes_ref_comp=mes_ref_comp,
-        tipo_entidade=tipo_entidade,
     )
     totais = {
         'total_pis': sum(l['total_pis'] for l in linhas),
         'volume_bruto': sum(l['volume_bruto'] for l in linhas),
         'incentivo_provisionado': sum(l['incentivo_provisionado'] for l in linhas),
         'total_entidades': len(linhas),
-        'modo_contagem': 'agencia' if tipo_entidade in ('agencia', 'agencia_incentivo') else 'cliente',
-        'com_incentivo': tipo_entidade == 'agencia_incentivo',
+        'modo_contagem': 'agencia',
+        'com_incentivo': True,
     }
     anos_disponiveis = main_db.obter_anos_ref_pi()
     meses_ref = main_db.obter_meses_ref_pi()
@@ -265,7 +260,6 @@ def relatorio_incentivos():
         totais=totais,
         ano_ref=ano_ref_str,
         mes_ref_comp=mes_ref_comp,
-        tipo_entidade=tipo_entidade or '',
         anos_disponiveis=anos_disponiveis,
         meses_ref=meses_ref,
     )

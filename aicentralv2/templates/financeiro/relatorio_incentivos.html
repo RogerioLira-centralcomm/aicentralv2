@@ -20,21 +20,12 @@
         <h1 class="text-lg font-semibold text-gray-800">Relatório de Incentivos</h1>
         {% if linhas %}
         <span class="text-xs text-gray-500">
-          ({{ totais.total_entidades }}
-          {% if totais.modo_contagem == 'agencia' %}agência{% else %}cliente{% endif %}{% if totais.total_entidades != 1 %}s{% endif %})
+          ({{ totais.total_entidades }} agência{% if totais.total_entidades != 1 %}s{% endif %} c/ incentivo)
         </span>
         {% endif %}
       </div>
       <div class="flex items-center gap-3 flex-wrap">
         <form method="GET" id="form_filtros_incentivo" class="flex items-center gap-2 flex-wrap">
-          <label for="filtro_tipo_entidade" class="text-xs text-gray-500">Visão</label>
-          <select name="tipo_entidade" id="filtro_tipo_entidade" onchange="this.form.submit()"
-                  class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
-            <option value="" {% if not tipo_entidade %}selected{% endif %}>Todos</option>
-            <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Clientes</option>
-            <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Agências</option>
-            <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Agências c/ incentivo</option>
-          </select>
           <label for="filtro_ano" class="text-xs text-gray-500">Ano</label>
           <select name="ano" id="filtro_ano" onchange="filtrarMesesIncentivoPorAno(); this.form.submit();"
                   class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
@@ -53,7 +44,7 @@
             {% endfor %}
           </select>
         </form>
-        <input type="text" id="searchInput" placeholder="Buscar {% if tipo_entidade in ['agencia', 'agencia_incentivo'] %}agência{% else %}cliente{% endif %}..."
+        <input type="text" id="searchInput" placeholder="Buscar agência..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
       </div>
     </div>
@@ -77,9 +68,7 @@
 
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
     <div class="bg-white border border-gray-200 rounded-lg p-3">
-      <div class="text-xs text-gray-500 uppercase">
-        {% if totais.modo_contagem == 'agencia' %}Agência{% if totais.com_incentivo %} c/ incentivo{% endif %}{% else %}Cliente{% endif %} no período
-      </div>
+      <div class="text-xs text-gray-500 uppercase">Agências c/ incentivo</div>
       <div class="text-lg font-semibold text-gray-800">{{ totais.total_entidades }}</div>
     </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
@@ -103,7 +92,7 @@
           <thead class="bg-gray-100">
             <tr>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">
-                {% if tipo_entidade in ['agencia', 'agencia_incentivo'] %}Agência{% else %}Cliente{% endif %}
+                Agência
               </th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">PIs</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Volume bruto</th>

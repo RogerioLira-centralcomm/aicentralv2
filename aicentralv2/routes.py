@@ -301,6 +301,22 @@ def _pi_somente_leitura(pi):
     return _pi_em_faturamento(pi) or _pi_cancelado(pi)
 
 
+def _pi_valor_monetario_vazio(valor):
+    if valor is None or str(valor).strip() == '':
+        return True
+    try:
+        return db.parse_valor_monetario_para_float(valor) <= 0
+    except Exception:
+        return True
+
+
+def _pi_financeiro_pendente(pi):
+    """True se bruto ou líquido do PI ainda não foram preenchidos."""
+    if not pi:
+        return True
+    return _pi_valor_monetario_vazio(pi.get('valor_bruto')) or _pi_valor_monetario_vazio(pi.get('valor_liquido'))
+
+
 def _bloquear_pi_somente_leitura_post(pi, id_pi=None):
     """Bloqueia POST de edição quando o PI está em faturamento ou cancelado."""
     if not pi or not _pi_somente_leitura(pi):
@@ -9714,6 +9730,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
+                sub_status_form = _int_safe(data.get('id_sub_status_pi') or pi.get('id_sub_status_pi'))
+                if sub_status_form in (1, 2) and _pi_valor_monetario_vazio(data.get('valor_bruto')):
+                    flash('Preencha os valores financeiros na calculadora antes de salvar.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares.update(_carregar_auxiliares_campanha())
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
+
                 db.atualizar_cadu_pi(id_pi, data)
 
                 registrar_auditoria(
@@ -10265,6 +10288,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not pi.get('codigo_pi_cc'):
                 return jsonify({'success': False, 'message': 'Preencha o código do PI antes de enviar'}), 400
 
+            if _pi_financeiro_pendente(pi):
+                return jsonify({
+                    'success': False,
+                    'message': 'Preencha valor bruto e líquido do PI (calculadora) antes de enviar para operação.',
+                }), 400
+
             webhook_erros = disparar_webhooks_producao_pi(pi, strict=False)
             numero = pi.get('codigo_pi_cc', '')
 
@@ -10301,6 +10330,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
                 return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            if _pi_financeiro_pendente(pi):
+                return jsonify({
+                    'success': False,
+                    'message': 'Preencha os valores financeiros do PI antes de iniciar as campanhas.',
+                }), 400
+
+            campanhas_pi = db.obter_campanhas_pi({'id_pi': id_pi}) or []
+            if not any(db.parse_valor_monetario_para_float(c.get('valor_plataforma')) > 0 for c in campanhas_pi):
+                return jsonify({
+                    'success': False,
+                    'message': 'Informe valor plataforma em ao menos uma campanha antes de iniciar.',
+                }), 400
 
             conn = db.get_db()
             try:
@@ -10636,6 +10678,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'comissao_parceiro': _parse_real_pi(request.form.get('comissao_parceiro')),
             'valor_liquido_pr': _parse_real_pi(request.form.get('valor_liquido_pr')),
             'valor_plataformas': _parse_real_pi(request.form.get('valor_plataformas')),
+            'total_plataformas': _parse_real_pi(request.form.get('valor_plataformas')),
+            'plataforma_campanha': request.form.get('plataforma_campanha', '').strip() or None,
+            'custo_base_unitario': _parse_decimal(request.form.get('custo_base_unitario')),
+            'objetivo_contratado_pi': request.form.get('objetivo_contratado_pi', '').strip() or None,
+            'meta_baseada_em_cpm': request.form.get('meta_baseada_em_cpm') in ('1', 'on', 'true'),
+            'perc_margem_cc': _parse_decimal(request.form.get('perc_margem_cc')),
+            'perc_tech_fee': _parse_decimal(request.form.get('perc_tech_fee')),
+            'perc_com_vendas': _parse_decimal(request.form.get('perc_com_vendas')),
+            'perc_pl_incentivos': _parse_decimal(request.form.get('perc_pl_incentivos')),
+            'perc_impostos': _parse_decimal(request.form.get('perc_impostos')),
+            'val_margem_cc': _parse_real_pi(request.form.get('val_margem_cc')),
+            'val_tech_fee': _parse_real_pi(request.form.get('val_tech_fee')),
+            'val_com_vendas': _parse_real_pi(request.form.get('val_com_vendas')),
+            'val_pl_incentivos': _parse_real_pi(request.form.get('val_pl_incentivos')),
+            'val_impostos': _parse_real_pi(request.form.get('val_impostos')),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'resp_comercial': request.form.get('resp_comercial', type=int),
@@ -11667,6 +11724,27 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         novo_total = total_plat + valor_camp
         db.atualizar_pi_valores_plataforma(id_pi, pi_vals.get('vr_liquido_pi'), _float_to_brl(novo_total))
 
+    def _pi_financeiro_json(pi):
+        if not pi:
+            return {}
+        return {
+            'valor_bruto': pi.get('valor_bruto'),
+            'valor_liquido': pi.get('valor_liquido'),
+            'comissao_agencia': pi.get('comissao_agencia'),
+            'comissao_parceiro': pi.get('comissao_parceiro'),
+            'valor_liquido_pr': pi.get('valor_liquido_pr'),
+            'valor_plataformas': pi.get('valor_plataformas'),
+        }
+
+    def _maybe_recalc_pi_financeiro(id_pi):
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi or _int_safe(pi.get('id_sub_status_pi')) not in (1, 2):
+            return pi
+        if not _pi_financeiro_pendente(pi):
+            return pi
+        db.recalcular_valores_monetarios_pi(id_pi, apenas_se_vazio=True)
+        return db.obter_cadu_pi_por_id(id_pi)
+
     def _parse_real_campanha(value):
         """Wrapper local sobre db.formatar_real_br: garante formato BR canônico
         'R$ 1.234,56' em todas as colunas monetárias da campanha PI."""
@@ -12175,8 +12253,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if id_camp:
                 if data.get('id_pi') and data.get('valor_plataforma'):
                     _subtrair_valor_plataforma_pi(data['id_pi'], data['valor_plataforma'])
+                pi_atualizado = None
+                if data.get('id_pi'):
+                    pi_atualizado = _maybe_recalc_pi_financeiro(int(data['id_pi']))
                 if is_ajax:
-                    return jsonify({'success': True, 'id': id_camp, 'message': f'Campanha "{data["nome_campanha"]}" criada com sucesso!'})
+                    resp = {
+                        'success': True,
+                        'id': id_camp,
+                        'message': f'Campanha "{data["nome_campanha"]}" criada com sucesso!',
+                    }
+                    if pi_atualizado:
+                        resp['pi_financeiro'] = _pi_financeiro_json(pi_atualizado)
+                    return jsonify(resp)
                 flash(f'Campanha "{data["nome_campanha"]}" criada com sucesso!', 'success')
             else:
                 if is_ajax:
@@ -12252,8 +12340,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         _somar_valor_plataforma_pi(id_pi, valor_antigo)
                     if data.get('valor_plataforma'):
                         _subtrair_valor_plataforma_pi(id_pi, data['valor_plataforma'])
+                pi_atualizado = _maybe_recalc_pi_financeiro(int(id_pi)) if id_pi else None
                 if is_ajax:
-                    return jsonify({'success': True, 'message': f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!'})
+                    resp = {
+                        'success': True,
+                        'message': f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!',
+                    }
+                    if pi_atualizado:
+                        resp['pi_financeiro'] = _pi_financeiro_json(pi_atualizado)
+                    return jsonify(resp)
                 flash(f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!', 'success')
             else:
                 if is_ajax:
@@ -12292,6 +12387,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return _redirect_campanhas_pi_preservar_filtros()
 
             if db.excluir_campanha_pi(id_camp):
+                if campanha.get('id_pi') and campanha.get('valor_plataforma'):
+                    _somar_valor_plataforma_pi(int(campanha['id_pi']), campanha['valor_plataforma'])
                 registrar_auditoria(
                     acao='deletar',
                     modulo='campanhas_pi',
@@ -12300,9 +12397,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     registro_tipo='campanha_pi',
                     dados_anteriores=dict(campanha)
                 )
+                pi_atualizado = None
+                if campanha.get('id_pi'):
+                    pi_atualizado = _maybe_recalc_pi_financeiro(int(campanha['id_pi']))
                 msg = f'Campanha "{campanha["nome_campanha"]}" excluída com sucesso!'
                 if is_ajax:
-                    return jsonify({'success': True, 'message': msg})
+                    resp = {'success': True, 'message': msg}
+                    if pi_atualizado:
+                        resp['pi_financeiro'] = _pi_financeiro_json(pi_atualizado)
+                    return jsonify(resp)
                 flash(msg, 'success')
             else:
                 if is_ajax:

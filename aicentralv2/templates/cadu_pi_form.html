@@ -5,6 +5,7 @@
 {% block content %}
 {% set somente_leitura = somente_leitura|default(false) %}
 {% set pi_campanhas_editaveis = modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2', '3'] and not somente_leitura %}
+{% set pi_valores_editaveis = (modo == 'novo' or (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2'])) and not somente_leitura %}
 {% set pi_status_label = (pi.sub_status_descricao or pi.status_descricao or '') if modo == 'editar' and pi else '' %}
 {% macro opcoes_plataforma_campanha() %}
 <option value="">Selecione...</option>
@@ -283,7 +284,146 @@
         </div>
       </div>
 
-      <input type="hidden" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+      {% if modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2'] and not pi.valor_bruto and not somente_leitura %}
+      <div id="banner_valores_pendentes" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-800">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        <strong>Valores financeiros pendentes.</strong>
+        Preencha a calculadora abaixo e clique em <strong>Salvar</strong> antes de iniciar as campanhas.
+      </div>
+      {% endif %}
+
+      <!-- Calculadora / Valores Financeiros -->
+      <div class="mb-3 bg-white border border-gray-200 shadow-sm rounded-lg p-3" id="calculadora_pi_block">
+        <div class="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-gray-100">
+          <h2 class="text-[10px] font-semibold text-gray-800">Valores Financeiros</h2>
+          <div class="text-right">
+            <span class="text-[9px] text-gray-400 block">Valor Bruto</span>
+            <span id="badge_valor_bruto" class="text-[11px] font-bold text-emerald-700 tabular-nums">{% if pi and pi.valor_bruto %}{{ pi.valor_bruto }}{% else %}—{% endif %}</span>
+          </div>
+        </div>
+        <div id="calc_warning" class="hidden mb-2 text-[10px] text-red-600"></div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+          <div class="col-span-2 md:col-span-1">
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Plataforma</label>
+            <select name="plataforma_campanha" id="sel_plataforma_campanha"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+              {% if not pi_valores_editaveis %}disabled{% endif %}>
+              {{ opcoes_plataforma_campanha() }}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Custo Base Unit.</label>
+            <input type="text" name="custo_base_unitario" id="input_custo_base_unitario"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-right"
+              placeholder="0,00"
+              value="{% if pi and pi.custo_base_unitario %}{{ '%.2f'|format(pi.custo_base_unitario|float)|replace('.', ',') }}{% endif %}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">
+              Objetivo Contratado
+              <span id="lbl_objetivo_hint" class="text-[9px] font-normal text-gray-400">(Volume direto)</span>
+            </label>
+            <input type="text" name="objetivo_contratado_pi" id="input_objetivo_contratado_pi"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-right"
+              placeholder="0"
+              value="{{ pi.objetivo_contratado_pi if pi and pi.objetivo_contratado_pi else '' }}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+          </div>
+          <div class="flex items-end pb-1">
+            <label class="flex items-center gap-1.5 text-[10px] text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" name="meta_baseada_em_cpm" id="input_meta_baseada_em_cpm" value="1"
+                class="rounded border-gray-300"
+                {% if pi and pi.meta_baseada_em_cpm %}checked{% endif %}
+                {% if not pi_valores_editaveis %}disabled{% endif %}>
+              Meta baseada em CPM
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Margem CC</label>
+            <input type="text" name="perc_margem_cc" id="input_perc_margem_cc"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+              placeholder="0,00"
+              value="{% if pi and pi.perc_margem_cc %}{{ '%.2f'|format(pi.perc_margem_cc|float)|replace('.', ',') }}{% endif %}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+            <span id="hint_margem_cc" class="text-[10px] text-gray-500 mt-0.5 block"></span>
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Tech Fee</label>
+            <input type="text" name="perc_tech_fee" id="input_perc_tech_fee"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-100 text-gray-500"
+              placeholder="0,00"
+              value="{% if pi and pi.perc_tech_fee %}{{ '%.2f'|format(pi.perc_tech_fee|float)|replace('.', ',') }}{% endif %}"
+              readonly tabindex="-1">
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Vendas</label>
+            <input type="text" name="perc_com_vendas" id="input_perc_com_vendas"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+              placeholder="0,00"
+              value="{% if pi and pi.perc_com_vendas %}{{ '%.2f'|format(pi.perc_com_vendas|float)|replace('.', ',') }}{% endif %}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% PL Incentivos</label>
+            <input type="text" name="perc_pl_incentivos" id="input_perc_pl_incentivos"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+              placeholder="0,00"
+              value="{% if pi and pi.perc_pl_incentivos %}{{ '%.2f'|format(pi.perc_pl_incentivos|float)|replace('.', ',') }}{% endif %}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Impostos</label>
+            <input type="text" name="perc_impostos" id="input_perc_impostos"
+              class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+              placeholder="0,00"
+              value="{% if pi and pi.perc_impostos %}{{ '%.2f'|format(pi.perc_impostos|float)|replace('.', ',') }}{% endif %}"
+              {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
+          </div>
+        </div>
+
+        <input type="hidden" name="val_margem_cc" id="input_val_margem_cc" value="{{ pi.val_margem_cc if pi and pi.val_margem_cc else '' }}">
+        <input type="hidden" name="val_tech_fee" id="input_val_tech_fee" value="{{ pi.val_tech_fee if pi and pi.val_tech_fee else '' }}">
+        <input type="hidden" name="val_com_vendas" id="input_val_com_vendas" value="{{ pi.val_com_vendas if pi and pi.val_com_vendas else '' }}">
+        <input type="hidden" name="val_pl_incentivos" id="input_val_pl_incentivos" value="{{ pi.val_pl_incentivos if pi and pi.val_pl_incentivos else '' }}">
+        <input type="hidden" name="val_impostos" id="input_val_impostos" value="{{ pi.val_impostos if pi and pi.val_impostos else '' }}">
+        <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 mt-2 pt-2 border-t border-gray-100">
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">Preço Cliente</span>
+            <span id="card_preco_cliente" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">Opex Unit.</span>
+            <span id="card_opex_unit" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">Mídia Orç.</span>
+            <span id="card_midia_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">TF Orç.</span>
+            <span id="card_tf_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">MCC Orç.</span>
+            <span id="card_mcc_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">Com. Orç.</span>
+            <span id="card_com_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
+            <span class="block text-[9px] text-gray-400 uppercase">Imp. Orç.</span>
+            <span id="card_imp_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Comissões de intermediários -->
       <div class="mb-3" id="comissoes_intermediarios_block">
@@ -404,6 +544,8 @@
   // (não sobrescreve com cadastro do cliente sem permissão explícita).
   let margemCcUserEdited = {{ ('true' if (modo == 'editar' and pi and pi.perc_margem_cc) else 'false') }};
   const PI_HAS_PERSISTED_VALOR_BRUTO = {{ ('true' if (modo == 'editar' and pi and pi.valor_bruto) else 'false') }};
+  const PI_VALORES_EDITAVEIS = {{ pi_valores_editaveis|tojson }};
+  const PI_SUB_STATUS = {{ (pi.id_sub_status_pi if modo == 'editar' and pi else 2)|tojson }};
 
   const els = {
     exec: () => document.getElementById('sel_resp_comercial'),
@@ -1043,6 +1185,13 @@
       els.percMargemCc().focus();
       return;
     }
+    if (PI_VALORES_EDITAVEIS && parseBRL(els.valorBruto().value) <= 0) {
+      e.preventDefault();
+      if (typeof showToast === 'function') showToast('Preencha os valores financeiros na calculadora antes de salvar.', 'error');
+      var calcBlock = document.getElementById('calculadora_pi_block');
+      if (calcBlock) calcBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
   });
 
@@ -1577,6 +1726,25 @@
   document.getElementById('input_novo_link').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); adicionarLinkDestino(); }
   });
+
+  window.atualizarFinanceiroPiTela = function(fin) {
+    if (!fin) return;
+    function setVal(id, val) {
+      var el = document.getElementById(id);
+      if (el && val != null && String(val).trim()) el.value = val;
+    }
+    setVal('input_valor_bruto', fin.valor_bruto);
+    setVal('input_valor_liquido', fin.valor_liquido);
+    setVal('input_comissao_agencia', fin.comissao_agencia);
+    setVal('input_comissao_parceiro', fin.comissao_parceiro);
+    setVal('input_valor_liquido_pr', fin.valor_liquido_pr);
+    setVal('input_valor_plataformas', fin.valor_plataformas);
+    var badge = document.getElementById('badge_valor_bruto');
+    if (badge) badge.textContent = fin.valor_bruto || '—';
+    var banner = document.getElementById('banner_valores_pendentes');
+    if (banner && fin.valor_bruto) banner.classList.add('hidden');
+    if (typeof window._setVrPlatMaxCamp === 'function') window._setVrPlatMaxCamp(fin.valor_plataformas);
+  };
 })();
 </script>
 {% endif %}
@@ -1757,8 +1925,12 @@
     if (!s) return 0;
     return parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
   }
-  var rawMax = '{{ pi.vr_platafor_max_pi|default("0") }}';
+  var rawMax = '{{ pi.valor_plataformas or pi.vr_platafor_max_pi|default("0") }}';
   var vrPlatMax = parseReal(rawMax);
+  window._setVrPlatMaxCamp = function(val) {
+    vrPlatMax = parseReal(val);
+    calcDistPct();
+  };
   var inp = document.getElementById('nova_camp_valor_plat');
   var out = document.getElementById('nova_camp_dist_pct');
 
@@ -1868,6 +2040,13 @@
     modal.showModal();
   };
 
+  function onCampanhaPiAjaxSuccess(data) {
+    if (data.pi_financeiro && typeof window.atualizarFinanceiroPiTela === 'function') {
+      window.atualizarFinanceiroPiTela(data.pi_financeiro);
+    }
+    if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+  }
+
   window.excluirCampanhaPi = function(c) {
     if (!c || !c.id_campanha) return;
     if (typeof showConfirm !== 'function') {
@@ -1878,7 +2057,7 @@
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
           if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
-          if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+          onCampanhaPiAjaxSuccess(data);
         } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
       });
       return;
@@ -1895,7 +2074,7 @@
         }).then(function(r) { return r.json(); }).then(function(data) {
           if (data.success) {
             if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
-            if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+            onCampanhaPiAjaxSuccess(data);
           } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
         }).catch(function() {
           if (typeof showToast === 'function') showToast('Erro ao excluir campanha.', 'error');
@@ -1921,7 +2100,7 @@
       if (data.success) {
         if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
         modal.close();
-        if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+        onCampanhaPiAjaxSuccess(data);
       } else if (typeof showToast === 'function') {
         showToast(data.error || 'Erro ao salvar campanha.', 'error');
       }

@@ -10885,6 +10885,124 @@ def subtrair_valor_plataforma_pi(id_pi, valor_campanha_brl):
     )
 
 
+def obter_soma_valor_plataforma_campanhas_pi(id_pi):
+    """Soma valor_plataforma de todas as campanhas vinculadas ao PI."""
+    campanhas = obter_campanhas_pi({'id_pi': id_pi}) or []
+    return sum(parse_valor_monetario_para_float(c.get('valor_plataforma')) for c in campanhas)
+
+
+def recalcular_valores_monetarios_pi(id_pi, apenas_se_vazio=True):
+    """Recalcula campos monetários do PI a partir de campanhas/cotação/percentuais."""
+    pi = obter_cadu_pi_por_id(id_pi)
+    if not pi:
+        return False
+
+    bruto = parse_valor_monetario_para_float(pi.get('valor_bruto'))
+    liquido = parse_valor_monetario_para_float(pi.get('valor_liquido'))
+    campanha_total = obter_soma_valor_plataforma_campanhas_pi(id_pi)
+
+    if apenas_se_vazio and bruto > 0 and liquido > 0:
+        return False
+
+    cotacao_id = pi.get('cotacao_id')
+    if bruto <= 0 and cotacao_id:
+        try:
+            cotacao = obter_cotacao_por_id(cotacao_id)
+            linhas = obter_linhas_cotacao(cotacao_id) or []
+            bruto_cot = parse_valor_monetario_para_float(cotacao.get('valor_total_proposta') if cotacao else None)
+            if bruto_cot <= 0 and linhas:
+                bruto_cot = sum(
+                    parse_valor_monetario_para_float(l.get('investimento_bruto') or l.get('valor_total'))
+                    for l in linhas
+                    if not l.get('is_subtotal') and not l.get('is_header')
+                )
+            if bruto_cot > 0:
+                bruto = bruto_cot
+        except Exception:
+            pass
+
+    if bruto <= 0 and campanha_total > 0:
+        bruto = campanha_total
+
+    if bruto <= 0:
+        return False
+
+    if liquido <= 0:
+        liquido = bruto
+
+    perc_agencia = parse_valor_monetario_para_float(pi.get('perc_comissao_agencia'))
+    perc_parceiro = parse_valor_monetario_para_float(pi.get('perc_comissao_parceiro'))
+    comissao_agencia = parse_valor_monetario_para_float(pi.get('comissao_agencia'))
+    if comissao_agencia <= 0 and perc_agencia > 0:
+        comissao_agencia = round(bruto * perc_agencia / 100, 2)
+    comissao_parceiro = parse_valor_monetario_para_float(pi.get('comissao_parceiro'))
+    if comissao_parceiro <= 0 and perc_parceiro > 0:
+        comissao_parceiro = round(liquido * perc_parceiro / 100, 2)
+    valor_liquido_pr = parse_valor_monetario_para_float(pi.get('valor_liquido_pr'))
+    if valor_liquido_pr <= 0:
+        valor_liquido_pr = round(liquido - comissao_parceiro, 2)
+
+    plataforma_max = parse_valor_monetario_para_float(pi.get('valor_plataformas'))
+    if plataforma_max <= 0:
+        base_plataforma = valor_liquido_pr if comissao_parceiro > 0 else liquido
+        plataforma_max = round(base_plataforma * 0.3, 2) if base_plataforma > 0 else campanha_total
+
+    total_plataformas = parse_valor_monetario_para_float(pi.get('total_platafor_max_pi'))
+    if total_plataformas <= 0:
+        total_plataformas = plataforma_max or campanha_total
+    elif campanha_total > 0:
+        total_plataformas = max(total_plataformas, campanha_total)
+
+    data = {
+        'id_cliente': pi.get('id_cliente'),
+        'titulo_pi': pi.get('titulo_pi'),
+        'codigo_pi_cc': pi.get('codigo_pi_cc'),
+        'id_pi_tipo': pi.get('id_pi_tipo'),
+        'tem_agencia': pi.get('pi_tem_agencia') if pi.get('pi_tem_agencia') is not None else bool(pi.get('id_agencia')),
+        'id_agencia': pi.get('id_agencia'),
+        'perc_comissao_agencia': pi.get('perc_comissao_agencia'),
+        'id_parceiro': pi.get('id_parceiro'),
+        'perc_comissao_parceiro': pi.get('perc_comissao_parceiro'),
+        'valor_bruto': formatar_real_br(bruto),
+        'valor_liquido': formatar_real_br(liquido),
+        'comissao_agencia': formatar_real_br(comissao_agencia) if comissao_agencia else None,
+        'comissao_parceiro': formatar_real_br(comissao_parceiro) if comissao_parceiro else None,
+        'valor_liquido_pr': formatar_real_br(valor_liquido_pr) if valor_liquido_pr else None,
+        'valor_plataformas': formatar_real_br(plataforma_max) if plataforma_max else None,
+        'total_plataformas': formatar_real_br(total_plataformas) if total_plataformas else None,
+        'periodo_inicio': pi.get('periodo_inicio'),
+        'periodo_fim': pi.get('periodo_fim'),
+        'mes_ref': pi.get('mes_ref'),
+        'mes_ref_comp': pi.get('mes_ref_comp'),
+        'resp_comercial': pi.get('id_resp_comercial') or pi.get('resp_comercial'),
+        'contato_fin_cliente': pi.get('contato_fin_cliente'),
+        'contato_midia_cliente': pi.get('contato_midia_cliente'),
+        'contato_fin_agencia': pi.get('contato_fin_agencia'),
+        'contato_midia_agencia': pi.get('contato_midia_agencia'),
+        'contato_fin_parceiro': pi.get('contato_fin_parceiro'),
+        'contato_midia_parceiro': pi.get('contato_midia_parceiro'),
+        'id_status_pi': pi.get('id_status_pi'),
+        'id_sub_status_pi': pi.get('id_sub_status_pi'),
+        'obs_financeiro': pi.get('obs_financeiro') or pi.get('observacoes_financeiro'),
+        'obs_operacao': pi.get('obs_operacao') or pi.get('observacoes_operacao'),
+        'perc_margem_cc': pi.get('perc_margem_cc'),
+        'perc_tech_fee': pi.get('perc_tech_fee'),
+        'perc_com_vendas': pi.get('perc_com_vendas'),
+        'perc_pl_incentivos': pi.get('perc_pl_incentivos'),
+        'perc_impostos': pi.get('perc_impostos'),
+        'val_margem_cc': pi.get('val_margem_cc'),
+        'val_tech_fee': pi.get('val_tech_fee'),
+        'val_com_vendas': pi.get('val_com_vendas'),
+        'val_pl_incentivos': pi.get('val_pl_incentivos'),
+        'val_impostos': pi.get('val_impostos'),
+        'meta_baseada_em_cpm': pi.get('meta_baseada_em_cpm'),
+        'custo_base_unitario': pi.get('custo_base_unitario'),
+        'objetivo_contratado_pi': pi.get('objetivo_contratado_pi'),
+        'plataforma_campanha': pi.get('plataforma_campanha'),
+    }
+    return bool(atualizar_cadu_pi(id_pi, data))
+
+
 def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataforma_key, kpi_key, nome_fallback, id_kpi_key=None):
     """Monta payload para criar_campanha_pi a partir de linha ou audiência da cotação."""
     item_id = item.get('id', 'N/A')

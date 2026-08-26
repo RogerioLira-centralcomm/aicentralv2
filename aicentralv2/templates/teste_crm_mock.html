@@ -1,0 +1,489 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Teste CRM — CentralX{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=29">
+<style>
+html, body { overflow: hidden !important; height: 100vh !important; }
+</style>
+
+<div class="crm-mock-page">
+  <div class="crm-mock-layout">
+    <div class="crm-mock-main">
+      <!-- Header CRM -->
+      <div class="crm-mock-header">
+        <h1 class="crm-mock-logo">CRM</h1>
+        <select class="crm-mock-select" id="filtro-executivo">
+          <option value="luisa">Luisa Santana</option>
+          <option value="joao">João Paulo</option>
+        </select>
+        <select class="crm-mock-select" id="filtro-tipo">
+          <option value="">Tipo: todos</option>
+          <option value="governo">Governo</option>
+          <option value="privado">Privado</option>
+        </select>
+        <select class="crm-mock-select" id="filtro-perfil">
+          <option value="">Perfil: todos</option>
+          <option value="direto">Cliente final</option>
+          <option value="agencia">Agência</option>
+        </select>
+        <div class="crm-mock-header-actions">
+          <button type="button" class="crm-mock-btn crm-mock-btn-primary">
+            <i class="fa-solid fa-plus"></i> Novo cliente
+          </button>
+          <button type="button" class="crm-mock-btn crm-mock-btn-outline">
+            <i class="fa-solid fa-download"></i> Exportar
+          </button>
+        </div>
+      </div>
+
+      <div class="crm-mock-grid-main">
+
+    <!-- Coluna esquerda: Lista de Clientes -->
+    <aside class="crm-mock-col crm-mock-col-clientes">
+      <div class="crm-mock-col-header">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-1">
+            <h2 class="crm-mock-col-title">Clientes</h2>
+            <span class="crm-mock-count">32</span>
+          </div>
+          <button type="button" class="crm-mock-icon-btn" title="Filtros">
+            <i class="fa-solid fa-sliders"></i>
+          </button>
+        </div>
+        <div class="crm-mock-search-wrap">
+          <i class="fa-solid fa-search crm-mock-search-icon"></i>
+          <input type="text" id="crm-mock-busca" class="crm-mock-search" placeholder="Buscar cliente..." />
+        </div>
+        <div class="crm-mock-pills">
+          <button type="button" class="crm-mock-pill crm-mock-pill-active" data-filter="todos">Todos <span>32</span></button>
+          <button type="button" class="crm-mock-pill crm-mock-pill-danger" data-filter="atrasado">Atrasados <span>7</span></button>
+          <button type="button" class="crm-mock-pill" data-filter="sem-atividade">Sem atividade <span>8</span></button>
+          <button type="button" class="crm-mock-pill" data-filter="seguindo">Seguindo <span>10</span></button>
+        </div>
+      </div>
+
+      <div class="crm-mock-col-body" id="crm-mock-lista-clientes">
+        <div class="crm-mock-cliente crm-mock-cliente-ativo" data-status="hoje" data-nome="ASSOCIAÇÃO DOS LOJISTAS DO PORTAL AUTO SHOPPING">
+          <div class="crm-mock-avatar crm-mock-avatar-green">A</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">ASSOCIAÇÃO DOS LOJISTAS DO PORTAL AUTO SHOPPING</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 1 contato</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <i class="fa-solid fa-map-pin crm-mock-pin-icon"></i>
+            <span class="crm-mock-badge crm-mock-badge-success">Hoje</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="atrasado" data-nome="BUILD AGÊNCIA">
+          <div class="crm-mock-avatar crm-mock-avatar-blue">B</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">BUILD AGÊNCIA</div>
+            <div class="crm-mock-cliente-sub">Agência · 3 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-warning">Atrasado 2 dias</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="seguindo" data-nome="CLX">
+          <div class="crm-mock-avatar crm-mock-avatar-purple">C</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">CLX</div>
+            <div class="crm-mock-cliente-sub">Agência · 2 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <i class="fa-solid fa-circle crm-mock-status-dot crm-mock-dot-green"></i>
+            <span class="crm-mock-badge crm-mock-badge-info">Amanhã</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="atrasado" data-nome="COPASA MG">
+          <div class="crm-mock-avatar crm-mock-avatar-orange">C</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">COPASA MG</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-warning">Atrasado 5 dias</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="sem-atividade" data-nome="CRP 04">
+          <div class="crm-mock-avatar crm-mock-avatar-pink">C</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">CRP 04</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-danger">Sem atividade 18 dias</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="seguindo" data-nome="FAZCOM">
+          <div class="crm-mock-avatar crm-mock-avatar-teal">F</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">FAZCOM</div>
+            <div class="crm-mock-cliente-sub">Agência · 3 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-success">Hoje</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="atrasado" data-nome="FULL SOLUÇÕES">
+          <div class="crm-mock-avatar crm-mock-avatar-indigo">F</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">FULL SOLUÇÕES</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-warning">Em 3 dias</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="seguindo" data-nome="GRUPO ABC">
+          <div class="crm-mock-avatar crm-mock-avatar-gray">G</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">GRUPO ABC</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 1 contato</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <i class="fa-solid fa-circle crm-mock-status-dot crm-mock-dot-green"></i>
+            <span class="crm-mock-badge crm-mock-badge-muted">Hoje</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="sem-atividade" data-nome="LINK CARE">
+          <div class="crm-mock-avatar crm-mock-avatar-red">L</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">LINK CARE</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-danger">Sem atividade 21 dias</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="sem-atividade" data-nome="MG MINAS">
+          <div class="crm-mock-avatar crm-mock-avatar-blue">M</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">MG MINAS</div>
+            <div class="crm-mock-cliente-sub">Cliente final · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-muted">Sem contato</span>
+          </div>
+        </div>
+
+        <div class="crm-mock-cliente" data-status="sem-atividade" data-nome="RECICLO">
+          <div class="crm-mock-avatar crm-mock-avatar-green">R</div>
+          <div class="crm-mock-cliente-info">
+            <div class="crm-mock-cliente-nome">RECICLO</div>
+            <div class="crm-mock-cliente-sub">Agência · 0 contatos</div>
+          </div>
+          <div class="crm-mock-cliente-right">
+            <span class="crm-mock-badge crm-mock-badge-muted">Sem contato</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="crm-mock-col-footer">
+        <span class="crm-mock-footer-label">+ ATIVO (SEM CONTATO)</span>
+        <span class="crm-mock-footer-count">4</span>
+        <div class="crm-mock-pagination">
+          <button type="button" class="crm-mock-page-btn"><i class="fa-solid fa-chevron-left"></i></button>
+          <button type="button" class="crm-mock-page-btn"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Coluna central: Detalhe do cliente -->
+    <main class="crm-mock-col crm-mock-col-center">
+      <div class="crm-mock-detail-header">
+        <div class="crm-mock-detail-row">
+          <div class="crm-mock-avatar crm-mock-avatar-lg crm-mock-avatar-green">A</div>
+          <h1 class="crm-mock-detail-title">ASSOCIAÇÃO DOS LOJISTAS DO PORTAL AUTO SHOPPING</h1>
+          <button type="button" class="crm-mock-star active"><i class="fa-solid fa-star"></i></button>
+          <button type="button" class="crm-mock-more"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          <div class="crm-mock-header-right">
+            <span class="crm-mock-header-label">Acompanhar este deal</span>
+            <div class="crm-mock-avatars-stack">
+              <div class="crm-mock-avatar-mini" style="background:#6366f1">LS</div>
+              <div class="crm-mock-avatar-mini" style="background:#f59e0b">JP</div>
+              <div class="crm-mock-avatar-mini" style="background:#ec4899">+1</div>
+            </div>
+            <button type="button" class="crm-mock-btn-seguindo"><i class="fa-solid fa-check"></i> Seguindo</button>
+          </div>
+        </div>
+        <div class="crm-mock-detail-meta">
+          <span class="crm-mock-meta-item">Responsável: <strong>Luisa Santana</strong></span>
+          <span class="crm-mock-meta-item">Categoria: <span class="crm-mock-tag">Privado</span></span>
+          <span class="crm-mock-meta-item"><span class="crm-mock-tag crm-mock-tag-danger">Prioridade: Alta</span></span>
+          <span class="crm-mock-meta-date">Última atualização: Hoje, 16:09</span>
+        </div>
+      </div>
+
+      <div class="crm-mock-metrics">
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">1</div><div class="crm-mock-metric-label">Contato</div></div>
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">0</div><div class="crm-mock-metric-label">Oportunidades</div></div>
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">R$ 0,00</div><div class="crm-mock-metric-label">Faturamento vs mês ant.</div></div>
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">R$ 0,00</div><div class="crm-mock-metric-label">Valor Pis vs mês ant.</div></div>
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">0</div><div class="crm-mock-metric-label">Tarefas abertas</div></div>
+        <div class="crm-mock-metric"><div class="crm-mock-metric-val">Hoje</div><div class="crm-mock-metric-label">Último contato</div></div>
+      </div>
+
+      <div class="crm-mock-center-content">
+        <div class="crm-mock-center-left">
+          <div class="crm-mock-section">
+            <div class="crm-mock-section-header">
+              <h3 class="crm-mock-section-title">Atividades</h3>
+              <div class="crm-mock-section-actions">
+                <button type="button" class="crm-mock-btn crm-mock-btn-primary crm-mock-btn-sm">+ Nova atividade</button>
+                <button type="button" class="crm-mock-btn crm-mock-btn-outline crm-mock-btn-sm"><i class="fa-regular fa-calendar"></i> Agendar</button>
+              </div>
+            </div>
+
+            <div class="crm-mock-tabs-bar">
+              <div class="crm-mock-tabs" data-tab-group="atividades">
+                <span class="crm-mock-tab crm-mock-tab-active" data-tab="todas">Todas</span>
+                <span class="crm-mock-tab" data-tab="pendentes">Pendentes</span>
+                <span class="crm-mock-tab" data-tab="concluidas">Concluídas</span>
+              </div>
+              <div class="crm-mock-tabs-filters">
+                <select class="crm-mock-select-sm"><option>Responsável: todos</option></select>
+                <select class="crm-mock-select-sm"><option>Tipo: todos</option></select>
+              </div>
+            </div>
+
+            <div class="crm-mock-search-wrap crm-mock-search-sm">
+              <i class="fa-solid fa-search crm-mock-search-icon"></i>
+              <input type="text" class="crm-mock-search" placeholder="Buscar atividade..." />
+            </div>
+
+            <div class="crm-mock-ativ-list">
+              <div class="crm-mock-date-group">
+                <div class="crm-mock-date-label">Hoje — 26 de maio</div>
+                <div class="crm-mock-ativ" data-status="pendente">
+                  <input type="checkbox" class="crm-mock-checkbox crm-mock-ativ-check" />
+                  <span class="crm-mock-ativ-dot crm-mock-dot-blue"></span>
+                  <div class="crm-mock-ativ-content">
+                    <div class="crm-mock-ativ-titulo">Ligar para responsável financeiro</div>
+                    <div class="crm-mock-ativ-desc">Alinhar pendências e próximos passos</div>
+                  </div>
+                  <span class="crm-mock-ativ-time">10:30</span>
+                  <span class="crm-mock-tag crm-mock-tag-danger">Alta</span>
+                  <div class="crm-mock-avatar-mini" style="background:#6366f1">LS</div>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-check"></i></button>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+                <div class="crm-mock-ativ" data-status="pendente">
+                  <input type="checkbox" class="crm-mock-checkbox crm-mock-ativ-check" />
+                  <span class="crm-mock-ativ-dot crm-mock-dot-pink"></span>
+                  <div class="crm-mock-ativ-content">
+                    <div class="crm-mock-ativ-titulo">Enviar proposta comercial</div>
+                    <div class="crm-mock-ativ-desc">Proposta de campanha Q3</div>
+                  </div>
+                  <span class="crm-mock-ativ-time">14:00</span>
+                  <span class="crm-mock-tag crm-mock-tag-warning">Média</span>
+                  <div class="crm-mock-avatar-mini" style="background:#22c55e">JP</div>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-check"></i></button>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+                <div class="crm-mock-ativ" data-status="pendente">
+                  <input type="checkbox" class="crm-mock-checkbox crm-mock-ativ-check" />
+                  <span class="crm-mock-ativ-dot crm-mock-dot-purple"></span>
+                  <div class="crm-mock-ativ-content">
+                    <div class="crm-mock-ativ-titulo">Reunião de alinhamento</div>
+                    <div class="crm-mock-ativ-desc">Apresentar estratégias e cronograma</div>
+                  </div>
+                  <span class="crm-mock-ativ-time">16:00</span>
+                  <span class="crm-mock-tag crm-mock-tag-danger">Alta</span>
+                  <div class="crm-mock-avatar-mini" style="background:#6366f1">LS</div>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-check"></i></button>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+              </div>
+              <div class="crm-mock-date-group">
+                <div class="crm-mock-date-label">Amanhã — 27 de maio</div>
+                <div class="crm-mock-ativ" data-status="pendente">
+                  <input type="checkbox" class="crm-mock-checkbox crm-mock-ativ-check" />
+                  <span class="crm-mock-ativ-dot crm-mock-dot-orange"></span>
+                  <div class="crm-mock-ativ-content">
+                    <div class="crm-mock-ativ-titulo">Acompanhar aprovação de mídia</div>
+                    <div class="crm-mock-ativ-desc">Verificar status com aprovação</div>
+                  </div>
+                  <span class="crm-mock-ativ-time">10:30</span>
+                  <span class="crm-mock-tag crm-mock-tag-warning">Média</span>
+                  <div class="crm-mock-avatar-mini" style="background:#ec4899">CM</div>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-check"></i></button>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+              </div>
+              <div class="crm-mock-date-group">
+                <div class="crm-mock-date-label">Próximos 7 dias</div>
+                <div class="crm-mock-ativ" data-status="pendente">
+                  <input type="checkbox" class="crm-mock-checkbox crm-mock-ativ-check" />
+                  <span class="crm-mock-ativ-dot crm-mock-dot-gray"></span>
+                  <div class="crm-mock-ativ-content">
+                    <div class="crm-mock-ativ-titulo">Envio de relatório mensal</div>
+                  </div>
+                  <span class="crm-mock-ativ-time">02/06</span>
+                  <span class="crm-mock-tag">Nota</span>
+                  <div class="crm-mock-avatar-mini" style="background:#f59e0b">JP</div>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-check"></i></button>
+                  <button class="crm-mock-ativ-actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-mock-section">
+            <h3 class="crm-mock-section-title">Próximos passos sugeridos</h3>
+            <div class="crm-mock-sugestao">
+              <i class="fa-solid fa-lightbulb"></i>
+              Sem atividades neste mês. Agende um contato para gerar novas oportunidades.
+              <span class="crm-mock-sugestao-date">Prazo sugerido: Hoje</span>
+            </div>
+          </div>
+
+          <div class="crm-mock-section">
+            <div class="crm-mock-section-header">
+              <h3 class="crm-mock-section-title">Objetivos</h3>
+              <button type="button" class="crm-mock-btn crm-mock-btn-outline crm-mock-btn-sm">+ Novo objetivo</button>
+            </div>
+            <div class="crm-mock-obj-list">
+              <div class="crm-mock-objetivo"><input type="checkbox" class="crm-mock-checkbox" /><span class="crm-mock-obj-text">Voltar a falar para 2º semestre</span><span class="crm-mock-obj-date">21/06</span></div>
+              <div class="crm-mock-objetivo"><input type="checkbox" class="crm-mock-checkbox" /><span class="crm-mock-obj-text">Reunião com Serasa</span><span class="crm-mock-obj-date">21/06</span></div>
+              <div class="crm-mock-objetivo"><input type="checkbox" class="crm-mock-checkbox" /><span class="crm-mock-obj-text">Acesso ao Cadu</span><span class="crm-mock-obj-date">21/06</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="crm-mock-center-right">
+          <div class="crm-mock-section">
+            <div class="crm-mock-section-header">
+              <h3 class="crm-mock-section-title">Cotações recentes</h3>
+              <button type="button" class="crm-mock-btn crm-mock-btn-outline crm-mock-btn-sm"><i class="fa-solid fa-expand"></i></button>
+            </div>
+            <div class="crm-mock-empty">
+              <div class="crm-mock-empty-icon"><i class="fa-regular fa-file-lines"></i></div>
+              <div class="crm-mock-empty-title">Nenhuma cotação aberta.</div>
+              <div class="crm-mock-empty-text">Crie uma nova cotação para este cliente.</div>
+              <button type="button" class="crm-mock-btn crm-mock-btn-outline crm-mock-btn-sm">+ Nova cotação</button>
+            </div>
+          </div>
+          <div class="crm-mock-section">
+            <h3 class="crm-mock-section-title">Histórico de cotações</h3>
+            <div class="crm-mock-empty-text">Nenhuma cotação encontrada.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+      </div><!-- fim crm-mock-grid-main -->
+    </div><!-- fim crm-mock-main -->
+
+    <!-- Coluna direita: Painel lateral -->
+    <aside class="crm-mock-col crm-mock-col-sidebar" id="crm-mock-sidebar">
+      <div class="crm-mock-sidebar-header">
+        <div class="crm-mock-avatar crm-mock-avatar-green">A</div>
+        <span class="crm-mock-sidebar-title">ASSOCIAÇÃO DOS LOJISTAS DO PORT...</span>
+        <span class="crm-mock-sidebar-sub">Cliente final</span>
+        <button type="button" class="crm-mock-close-btn" id="crm-mock-close-sidebar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="crm-mock-tabs crm-mock-tabs-sidebar" data-tab-group="sidebar">
+        <span class="crm-mock-tab crm-mock-tab-active" data-tab="contato">Contato</span>
+        <span class="crm-mock-tab" data-tab="atividades">Atividades</span>
+        <span class="crm-mock-tab" data-tab="seguidores">Seguidores</span>
+      </div>
+
+      <div class="crm-mock-sidebar-body">
+        <div class="crm-mock-tab-panel crm-mock-tab-panel-active" data-panel-group="sidebar" data-panel="contato">
+          <div class="crm-mock-contact-section">
+            <div class="crm-mock-contact-label">Contato principal</div>
+            <div class="crm-mock-contact-card">
+              <div class="crm-mock-avatar crm-mock-avatar-teal">M</div>
+              <div class="crm-mock-contact-info">
+                <div class="crm-mock-contact-name">marketing</div>
+                <div class="crm-mock-contact-role">Analista de Mídias</div>
+              </div>
+              <span class="crm-mock-badge crm-mock-badge-primary">Principal</span>
+            </div>
+            <div class="crm-mock-contact-details">
+              <div class="crm-mock-contact-row"><i class="fa-regular fa-envelope"></i><span>marketing@portalautoshopping.com.br</span></div>
+              <div class="crm-mock-contact-row"><i class="fa-brands fa-whatsapp"></i><span>(31) 99399-9939</span></div>
+            </div>
+            <a href="#" class="crm-mock-link">+ Ver todos os contatos (1)</a>
+          </div>
+
+          <div class="crm-mock-sidebar-section">
+            <div class="crm-mock-sidebar-section-title">Próximas atividades</div>
+            <div class="crm-mock-mini-ativ"><span class="crm-mock-ativ-dot crm-mock-dot-blue"></span><div class="crm-mock-mini-ativ-text">Ligar para responsável financeiro</div><span class="crm-mock-mini-ativ-time">Hoje · 10:30</span></div>
+            <div class="crm-mock-mini-ativ"><span class="crm-mock-ativ-dot crm-mock-dot-pink"></span><div class="crm-mock-mini-ativ-text">Enviar proposta comercial</div><span class="crm-mock-mini-ativ-time">Hoje · 14:00</span></div>
+            <div class="crm-mock-mini-ativ"><span class="crm-mock-ativ-dot crm-mock-dot-purple"></span><div class="crm-mock-mini-ativ-text">Reunião de alinhamento</div><span class="crm-mock-mini-ativ-time">Hoje · 16:00</span></div>
+            <a href="#" class="crm-mock-link">Ver todas as atividades &rarr;</a>
+          </div>
+
+          <div class="crm-mock-sidebar-section">
+            <div class="crm-mock-sidebar-section-title">Adicionar atividade rápida</div>
+            <div class="crm-mock-quick-actions">
+              <button type="button" class="crm-mock-quick-btn"><i class="fa-solid fa-phone"></i><span>Ligar</span></button>
+              <button type="button" class="crm-mock-quick-btn"><i class="fa-regular fa-envelope"></i><span>Email</span></button>
+              <button type="button" class="crm-mock-quick-btn"><i class="fa-solid fa-users"></i><span>Reunião</span></button>
+              <button type="button" class="crm-mock-quick-btn"><i class="fa-solid fa-list-check"></i><span>Tarefa</span></button>
+            </div>
+          </div>
+
+          <div class="crm-mock-sidebar-section">
+            <div class="crm-mock-sidebar-section-title">Informações do cliente</div>
+            <div class="crm-mock-info-grid">
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Categoria</span><span class="crm-mock-info-value">Privado</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Tipo de cliente</span><span class="crm-mock-info-value">Cliente final</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Prioridade</span><span class="crm-mock-info-value crm-mock-text-danger">Alta</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Fonte</span><span class="crm-mock-info-value">Indicação</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Criado em</span><span class="crm-mock-info-value">12/03/2024</span></div>
+            </div>
+          </div>
+
+          <div class="crm-mock-sidebar-section">
+            <div class="crm-mock-sidebar-section-header">
+              <div class="crm-mock-sidebar-section-title">Seguidores (8)</div>
+              <a href="#" class="crm-mock-link">+ Adicionar</a>
+            </div>
+            <div class="crm-mock-followers">
+              <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#6366f1">LS</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">Luisa Santana</div><div class="crm-mock-follower-role">Responsável</div></div></div>
+              <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#f59e0b">JP</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">João Paulo</div><div class="crm-mock-follower-role">Comercial</div></div></div>
+              <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#ec4899">CM</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">Carla Mendes</div><div class="crm-mock-follower-role">Gestor</div></div></div>
+              <div class="crm-mock-follower-more"><div class="crm-mock-avatar-mini" style="background:#9ca3af">+5</div><span>+ 5 seguidores</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="crm-mock-tab-panel" data-panel-group="sidebar" data-panel="atividades">
+          <div class="crm-mock-mini-ativ" style="padding:0.5rem"><span class="crm-mock-ativ-dot crm-mock-dot-blue"></span><div class="crm-mock-mini-ativ-text">Ligar para responsável financeiro</div><span class="crm-mock-mini-ativ-time">Hoje · 10:30</span></div>
+          <div class="crm-mock-mini-ativ" style="padding:0.5rem"><span class="crm-mock-ativ-dot crm-mock-dot-pink"></span><div class="crm-mock-mini-ativ-text">Enviar proposta comercial</div><span class="crm-mock-mini-ativ-time">Hoje · 14:00</span></div>
+          <div class="crm-mock-mini-ativ" style="padding:0.5rem"><span class="crm-mock-ativ-dot crm-mock-dot-purple"></span><div class="crm-mock-mini-ativ-text">Reunião de alinhamento</div><span class="crm-mock-mini-ativ-time">Hoje · 16:00</span></div>
+          <div class="crm-mock-mini-ativ" style="padding:0.5rem"><span class="crm-mock-ativ-dot crm-mock-dot-orange"></span><div class="crm-mock-mini-ativ-text">Acompanhar aprovação de mídia</div><span class="crm-mock-mini-ativ-time">Amanhã · 10:30</span></div>
+        </div>
+
+        <div class="crm-mock-tab-panel" data-panel-group="sidebar" data-panel="seguidores">
+          <div class="crm-mock-followers crm-mock-followers-full">
+            <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#6366f1">LS</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">Luisa Santana</div><div class="crm-mock-follower-role">Responsável</div></div></div>
+            <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#f59e0b">JP</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">João Paulo</div><div class="crm-mock-follower-role">Comercial</div></div></div>
+            <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#ec4899">CM</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">Carla Mendes</div><div class="crm-mock-follower-role">Gestor</div></div></div>
+            <div class="crm-mock-follower"><div class="crm-mock-avatar-mini" style="background:#22c55e">AP</div><div class="crm-mock-follower-info"><div class="crm-mock-follower-name">Apolo Lira</div><div class="crm-mock-follower-role">Admin</div></div></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/crm_mock.js') }}?v=5"></script>
+{% endblock %}

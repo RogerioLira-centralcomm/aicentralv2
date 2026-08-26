@@ -1,0 +1,136 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Teste Brevo — CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+  <div>
+    <h1 class="text-xl font-semibold text-base-content">Teste de e-mail Brevo</h1>
+    <p class="text-sm text-base-content/70 mt-1">
+      Envio direto pela API Python (sem Make.com). Dados fictícios; não altera listas de contatos no Brevo.
+    </p>
+  </div>
+
+  <div class="alert alert-info text-sm">
+    <i class="fa-solid fa-circle-info shrink-0"></i>
+    <div>
+      <p class="font-medium">Antes do primeiro envio real</p>
+      <ul class="list-disc list-inside mt-1 space-y-0.5 text-base-content/80">
+        <li><code class="text-xs">BREVO_API_KEY</code> configurada no <code class="text-xs">.env</code></li>
+        <li>Remetente verificado no painel Brevo</li>
+        <li>IP do servidor liberado em
+          <a href="https://app.brevo.com/security/authorised_ips" class="link link-primary" target="_blank" rel="noopener">Authorised IPs</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body gap-4">
+      <form method="post" class="space-y-4">
+        <div class="form-control">
+          <label class="label py-0" for="to_email">
+            <span class="label-text font-medium">E-mail destinatário *</span>
+          </label>
+          <input
+            type="email"
+            id="to_email"
+            name="to_email"
+            class="input input-bordered input-sm w-full"
+            placeholder="seu@email.com"
+            value="{{ form.to_email }}"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label py-0" for="to_name">
+            <span class="label-text font-medium">Nome do destinatário</span>
+          </label>
+          <input
+            type="text"
+            id="to_name"
+            name="to_name"
+            class="input input-bordered input-sm w-full"
+            value="{{ form.to_name }}"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label py-0" for="template">
+            <span class="label-text font-medium">Tipo de e-mail</span>
+          </label>
+          <select id="template" name="template" class="select select-bordered select-sm w-full">
+            {% for key, label in template_choices %}
+            <option value="{{ key }}" {% if form.template == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <label class="label py-0 pt-1">
+            <span class="label-text-alt text-base-content/60">Recomendado: recuperação de senha (template simples).</span>
+          </label>
+        </div>
+
+        <label class="label cursor-pointer justify-start gap-3 py-0">
+          <input type="checkbox" name="dry_run" class="checkbox checkbox-sm checkbox-primary" {% if form.dry_run %}checked{% endif %} />
+          <span class="label-text">Só pré-visualizar (não enviar)</span>
+        </label>
+
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button type="submit" class="btn btn-primary btn-sm gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            Enviar teste
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if result %}
+  <div class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body gap-3 text-sm">
+      <h2 class="font-semibold text-base-content">Resultado</h2>
+      <dl class="grid grid-cols-1 gap-2">
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">Template:</dt>
+          <dd>{{ result.template_key }} → {{ result.template_name }}</dd>
+        </div>
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">Assunto:</dt>
+          <dd>{{ result.subject }}</dd>
+        </div>
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">Remetente:</dt>
+          <dd>{{ result.sender_name }} &lt;{{ result.sender_email }}&gt;</dd>
+        </div>
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">API key:</dt>
+          <dd>{% if result.api_key_set %}configurada{% else %}ausente{% endif %}</dd>
+        </div>
+        {% if result.messageId %}
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">messageId:</dt>
+          <dd class="font-mono text-xs break-all">{{ result.messageId }}</dd>
+        </div>
+        {% endif %}
+        {% if result.status_code %}
+        <div class="flex flex-wrap gap-x-2">
+          <dt class="text-base-content/60">HTTP:</dt>
+          <dd>{{ result.status_code }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+      {% if result.preview_html %}
+      <div>
+        <p class="text-base-content/60 mb-1">Prévia HTML (início):</p>
+        <pre class="text-xs bg-base-200 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all max-h-40">{{ result.preview_html }}…</pre>
+      </div>
+      {% endif %}
+      {% if result.error and not result.success %}
+      <pre class="text-xs bg-error/10 text-error p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">{{ result.error }}</pre>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,1197 @@
+/* CRM Mock - Fiel ao mockup */
+
+html:has(.crm-mock-page),
+html:has(.crm-mock-page) body {
+    overflow: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+.crm-mock-page {
+    height: calc(100vh - 56px);
+    max-height: calc(100vh - 56px);
+    background: #fff;
+    overflow: hidden !important;
+}
+
+.crm-mock-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.crm-mock-main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #e5e7eb;
+}
+
+/* ===== HEADER CRM ===== */
+.crm-mock-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    height: 24px;
+}
+
+.crm-mock-logo {
+    font-size: 8px;
+    font-weight: 600;
+    color: #111;
+}
+
+.crm-mock-select {
+    font-size: 7px;
+    height: 16px;
+    padding: 0 14px 0 4px;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    background: #f9fafb url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 2px center/8px no-repeat;
+    color: #374151;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.crm-mock-header-actions {
+    display: flex;
+    gap: 3px;
+    margin-left: auto;
+}
+
+.crm-mock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 7px;
+    font-weight: 500;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.crm-mock-btn-sm {
+    font-size: 6px;
+    height: 14px;
+    padding: 0 4px;
+}
+
+.crm-mock-btn-primary {
+    background: #166534;
+    color: #fff;
+    border-color: #166534;
+}
+
+.crm-mock-btn-outline {
+    background: #fff;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.crm-mock-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 8px;
+}
+
+/* ===== GRID PRINCIPAL ===== */
+.crm-mock-grid-main {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.crm-mock-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+.crm-mock-col:last-child {
+    border-right: none;
+}
+
+/* ===== COLUNA CLIENTES ===== */
+.crm-mock-col-header {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.crm-mock-col-title {
+    font-size: 8px;
+    font-weight: 600;
+    color: #111;
+}
+
+.crm-mock-count {
+    font-size: 7px;
+    color: #9ca3af;
+    margin-left: 2px;
+}
+
+.crm-mock-search-wrap {
+    position: relative;
+    margin-top: 3px;
+}
+
+.crm-mock-search-icon {
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 7px;
+    color: #9ca3af;
+}
+
+.crm-mock-search {
+    width: 100%;
+    font-size: 7px;
+    height: 16px;
+    padding: 0 5px 0 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 2px;
+    background: #fff;
+}
+
+.crm-mock-search-sm {
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.crm-mock-search-sm .crm-mock-search {
+    height: 14px;
+    font-size: 7px;
+}
+
+/* ===== PILLS ===== */
+.crm-mock-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-top: 3px;
+}
+
+.crm-mock-pill {
+    font-size: 6px;
+    font-weight: 500;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 7px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.crm-mock-pill span {
+    opacity: 0.7;
+}
+
+.crm-mock-pill-active {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+}
+
+.crm-mock-pill-danger {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.crm-mock-pill-danger.crm-mock-pill-active {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+
+/* ===== LISTA DE CLIENTES ===== */
+.crm-mock-col-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.crm-mock-cliente {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 3px 8px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+}
+
+.crm-mock-cliente:hover {
+    background: #f9fafb;
+}
+
+.crm-mock-cliente-ativo {
+    background: #f0fdf4;
+    border-left: 3px solid #22c55e;
+    padding-left: 9px;
+}
+
+.crm-mock-cliente.hidden-by-filter {
+    display: none;
+}
+
+/* ===== AVATARES ===== */
+.crm-mock-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.crm-mock-avatar-lg {
+    width: 24px;
+    height: 24px;
+    font-size: 8px;
+}
+
+.crm-mock-avatar-md {
+    width: 24px;
+    height: 24px;
+    font-size: 8px;
+}
+
+.crm-mock-avatar-mini {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.crm-mock-avatar-green { background: #22c55e; }
+.crm-mock-avatar-blue { background: #3b82f6; }
+.crm-mock-avatar-purple { background: #8b5cf6; }
+.crm-mock-avatar-orange { background: #f59e0b; }
+.crm-mock-avatar-pink { background: #ec4899; }
+.crm-mock-avatar-teal { background: #14b8a6; }
+.crm-mock-avatar-indigo { background: #6366f1; }
+.crm-mock-avatar-gray { background: #6b7280; }
+.crm-mock-avatar-red { background: #ef4444; }
+
+/* ===== INFO DO CLIENTE NA LISTA ===== */
+.crm-mock-cliente-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-mock-cliente-nome {
+    font-size: 7px;
+    font-weight: 600;
+    color: #111;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.crm-mock-cliente-sub {
+    font-size: 6px;
+    color: #9ca3af;
+    margin-top: 0px;
+}
+
+.crm-mock-cliente-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.crm-mock-pin-icon {
+    font-size: 8px;
+    color: #9ca3af;
+}
+
+/* ===== BADGES ===== */
+.crm-mock-badge {
+    font-size: 6px;
+    font-weight: 500;
+    padding: 1px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.crm-mock-badge-success { background: #dcfce7; color: #166534; }
+.crm-mock-badge-warning { background: #ffedd5; color: #c2410c; }
+.crm-mock-badge-danger { background: #fef2f2; color: #dc2626; }
+.crm-mock-badge-info { background: #dbeafe; color: #1d4ed8; }
+.crm-mock-badge-muted { background: #f3f4f6; color: #6b7280; }
+.crm-mock-badge-primary { background: #dcfce7; color: #166534; }
+
+.crm-mock-status-dot {
+    font-size: 6px;
+}
+
+.crm-mock-dot-green { color: #22c55e; }
+
+/* ===== FOOTER DA COLUNA ===== */
+.crm-mock-col-footer {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 6px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.crm-mock-footer-label {
+    font-weight: 500;
+}
+
+.crm-mock-footer-count {
+    background: #f3f4f6;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.crm-mock-pagination {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.crm-mock-page-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 5px;
+}
+
+/* ===== COLUNA CENTRAL ===== */
+.crm-mock-col-center {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    overflow: hidden;
+}
+
+/* Header do cliente */
+.crm-mock-detail-header {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    margin: 2px 4px;
+    padding: 3px 6px;
+    flex-shrink: 0;
+}
+
+.crm-mock-detail-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.crm-mock-detail-title {
+    font-size: 8px;
+    font-weight: 600;
+    color: #111;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.crm-mock-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.crm-mock-header-label {
+    font-size: 8px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.crm-mock-star {
+    color: #fbbf24;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.crm-mock-star.active {
+    color: #fbbf24;
+}
+
+.crm-mock-more {
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.crm-mock-detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 1px;
+    padding-left: 34px;
+    font-size: 7px;
+    color: #6b7280;
+}
+
+.crm-mock-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.crm-mock-tag {
+    font-size: 6px;
+    font-weight: 500;
+    padding: 1px 3px;
+    border-radius: 2px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.crm-mock-tag-danger {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.crm-mock-tag-warning {
+    background: #fef9c3;
+    color: #a16207;
+}
+
+.crm-mock-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.crm-mock-meta-date {
+    color: #9ca3af;
+    font-size: 8px;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.crm-mock-avatars-stack {
+    display: flex;
+}
+
+.crm-mock-avatars-stack .crm-mock-avatar-mini {
+    margin-left: -4px;
+    border: 1px solid #fff;
+}
+
+.crm-mock-avatars-stack .crm-mock-avatar-mini:first-child {
+    margin-left: 0;
+}
+
+.crm-mock-btn-seguindo {
+    font-size: 8px;
+    font-weight: 500;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 3px;
+    border: 1px solid #22c55e;
+    background: #dcfce7;
+    color: #166534;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* ===== MÉTRICAS ===== */
+.crm-mock-metrics {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    margin: 0 4px;
+    padding: 1px 0;
+}
+
+.crm-mock-metric {
+    flex: 1;
+    padding: 1px 2px;
+    text-align: center;
+    border-right: 1px solid #f3f4f6;
+}
+
+.crm-mock-metric:last-child {
+    border-right: none;
+}
+
+.crm-mock-metric-val {
+    font-size: 8px;
+    font-weight: 600;
+    color: #111;
+}
+
+.crm-mock-metric-label {
+    font-size: 5px;
+    color: #9ca3af;
+    margin-top: 0px;
+}
+
+/* ===== CONTEÚDO CENTRAL DIVIDIDO ===== */
+.crm-mock-center-content {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    margin: 0 4px 4px;
+    gap: 4px;
+}
+
+.crm-mock-center-left {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.crm-mock-center-right {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== SEÇÕES ===== */
+.crm-mock-section {
+    padding: 4px 6px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.crm-mock-center-right .crm-mock-section {
+    border: none;
+    border-radius: 0;
+    border-bottom: 1px solid #f3f4f6;
+    margin: 0;
+}
+
+.crm-mock-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.crm-mock-section-title {
+    font-size: 7px;
+    font-weight: 600;
+    color: #111;
+}
+
+.crm-mock-section-actions {
+    display: flex;
+    gap: 2px;
+}
+
+/* ===== TABS ===== */
+.crm-mock-tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 2px;
+}
+
+.crm-mock-tabs {
+    display: flex;
+}
+
+.crm-mock-tab {
+    font-size: 7px;
+    font-weight: 500;
+    color: #6b7280;
+    padding: 2px 6px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.crm-mock-tab-active {
+    color: #111;
+    border-bottom-color: #111;
+    font-weight: 600;
+}
+
+.crm-mock-tabs-filters {
+    display: flex;
+    gap: 6px;
+}
+
+.crm-mock-select-sm {
+    font-size: 9px;
+    height: 22px;
+    padding: 0 20px 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    background: #fff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 4px center/10px no-repeat;
+    color: #6b7280;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.crm-mock-tab-panel {
+    display: none;
+}
+
+.crm-mock-tab-panel-active {
+    display: block;
+}
+
+/* ===== ATIVIDADES ===== */
+.crm-mock-ativ-list {
+    overflow: hidden;
+}
+
+.crm-mock-date-group {
+    margin-bottom: 3px;
+}
+
+.crm-mock-date-label {
+    font-size: 6px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+}
+
+.crm-mock-ativ {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 1px;
+    border-radius: 2px;
+}
+
+.crm-mock-ativ:hover {
+    background: #f9fafb;
+}
+
+.crm-mock-ativ.hidden-by-tab {
+    display: none;
+}
+
+.crm-mock-ativ-concluida .crm-mock-ativ-titulo {
+    text-decoration: line-through;
+    color: #9ca3af;
+}
+
+.crm-mock-checkbox {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.crm-mock-ativ-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.crm-mock-dot-blue { background: #3b82f6; }
+.crm-mock-dot-pink { background: #ec4899; }
+.crm-mock-dot-purple { background: #8b5cf6; }
+.crm-mock-dot-orange { background: #f59e0b; }
+.crm-mock-dot-gray { background: #9ca3af; }
+
+.crm-mock-ativ-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-mock-ativ-titulo {
+    font-size: 7px;
+    font-weight: 500;
+    color: #111;
+}
+
+.crm-mock-ativ-desc {
+    font-size: 6px;
+    color: #9ca3af;
+}
+
+.crm-mock-ativ-time {
+    font-size: 6px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.crm-mock-ativ-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 7px;
+    opacity: 0;
+}
+
+.crm-mock-ativ:hover .crm-mock-ativ-actions {
+    opacity: 1;
+}
+
+/* ===== SUGESTÃO ===== */
+.crm-mock-sugestao {
+    display: flex;
+    align-items: flex-start;
+    gap: 3px;
+    font-size: 6px;
+    color: #6b7280;
+    padding: 3px 4px;
+    background: #fef9c3;
+    border-radius: 3px;
+    border: 1px solid #fde047;
+}
+
+.crm-mock-sugestao i {
+    color: #ca8a04;
+    font-size: 7px;
+}
+
+.crm-mock-sugestao-date {
+    font-weight: 600;
+    color: #166534;
+}
+
+/* ===== OBJETIVOS ===== */
+.crm-mock-obj-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.crm-mock-objetivo {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 0;
+}
+
+.crm-mock-obj-text {
+    flex: 1;
+    font-size: 6px;
+    color: #374151;
+}
+
+.crm-mock-obj-date {
+    font-size: 5px;
+    color: #9ca3af;
+}
+
+/* ===== EMPTY STATE ===== */
+.crm-mock-empty {
+    text-align: center;
+    padding: 8px 6px;
+}
+
+.crm-mock-empty-icon {
+    font-size: 16px;
+    color: #d1d5db;
+    margin-bottom: 4px;
+}
+
+.crm-mock-empty-title {
+    font-size: 8px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 2px;
+}
+
+.crm-mock-empty-text {
+    font-size: 7px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+
+/* ===== SIDEBAR (PAINEL LATERAL) ===== */
+.crm-mock-col-sidebar {
+    background: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-right: none;
+    border-left: 1px solid #e5e7eb;
+}
+
+.crm-mock-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.crm-mock-sidebar-title {
+    font-size: 7px;
+    font-weight: 600;
+    color: #111;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-mock-sidebar-sub {
+    font-size: 6px;
+    color: #9ca3af;
+}
+
+.crm-mock-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 8px;
+}
+
+.crm-mock-tabs-sidebar {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+
+.crm-mock-sidebar-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ===== CONTATO PRINCIPAL ===== */
+.crm-mock-contact-section {
+    padding: 4px 8px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.crm-mock-contact-label {
+    font-size: 6px;
+    font-weight: 500;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 3px;
+}
+
+.crm-mock-contact-card {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 3px;
+}
+
+.crm-mock-contact-info {
+    flex: 1;
+}
+
+.crm-mock-contact-name {
+    font-size: 8px;
+    font-weight: 600;
+    color: #111;
+}
+
+.crm-mock-contact-role {
+    font-size: 6px;
+    color: #9ca3af;
+}
+
+.crm-mock-contact-details {
+    margin-top: 3px;
+}
+
+.crm-mock-contact-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 7px;
+    color: #166534;
+    margin-bottom: 2px;
+}
+
+.crm-mock-contact-row i {
+    font-size: 7px;
+    width: 10px;
+    text-align: center;
+}
+
+.crm-mock-link {
+    font-size: 6px;
+    font-weight: 500;
+    color: #166534;
+    text-decoration: none;
+    display: block;
+    margin-top: 2px;
+}
+
+/* ===== SEÇÕES DO SIDEBAR ===== */
+.crm-mock-sidebar-section {
+    padding: 3px 8px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.crm-mock-sidebar-section-title {
+    font-size: 6px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 3px;
+}
+
+.crm-mock-sidebar-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+/* ===== MINI ATIVIDADES ===== */
+.crm-mock-mini-ativ {
+    display: flex;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 2px 0;
+}
+
+.crm-mock-mini-ativ-text {
+    flex: 1;
+    font-size: 7px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.crm-mock-mini-ativ-time {
+    font-size: 6px;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+/* ===== AÇÕES RÁPIDAS ===== */
+.crm-mock-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+}
+
+.crm-mock-quick-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 2px 1px;
+    border-radius: 2px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    cursor: pointer;
+}
+
+.crm-mock-quick-btn:hover {
+    background: #f9fafb;
+}
+
+.crm-mock-quick-btn i {
+    font-size: 6px;
+    color: #6b7280;
+}
+
+.crm-mock-quick-btn span {
+    font-size: 5px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+/* ===== INFO GRID ===== */
+.crm-mock-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.crm-mock-info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 6px;
+}
+
+.crm-mock-info-label {
+    color: #9ca3af;
+}
+
+.crm-mock-info-value {
+    color: #374151;
+    font-weight: 500;
+}
+
+.crm-mock-text-danger {
+    color: #dc2626;
+}
+
+/* ===== SEGUIDORES ===== */
+.crm-mock-followers {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.crm-mock-followers-full {
+    padding: 3px 8px;
+}
+
+.crm-mock-follower {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.crm-mock-follower-info {
+    flex: 1;
+}
+
+.crm-mock-follower-name {
+    font-size: 6px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.crm-mock-follower-role {
+    font-size: 5px;
+    color: #9ca3af;
+}
+
+.crm-mock-follower-more {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 5px;
+    color: #9ca3af;
+    margin-top: 1px;
+}
+
+/* ===== RESPONSIVO ===== */
+@media (max-width: 1400px) {
+    .crm-mock-layout {
+        grid-template-columns: 1fr 280px;
+    }
+    
+    .crm-mock-grid-main {
+        grid-template-columns: 200px 1fr;
+    }
+    
+    .crm-mock-center-content {
+        grid-template-columns: 1fr 240px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .crm-mock-layout {
+        grid-template-columns: 1fr 260px;
+    }
+    
+    .crm-mock-grid-main {
+        grid-template-columns: 180px 1fr;
+    }
+    
+    .crm-mock-center-content {
+        grid-template-columns: 1fr 220px;
+    }
+}
+
+@media (max-width: 992px) {
+    .crm-mock-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .crm-mock-grid-main {
+        grid-template-columns: 1fr;
+    }
+    
+    .crm-mock-col-clientes,
+    .crm-mock-col-sidebar {
+        display: none;
+    }
+    
+    .crm-mock-center-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .crm-mock-center-right {
+        border: none;
+        border-top: 1px solid #e5e7eb;
+    }
+}

@@ -163,6 +163,12 @@ def create_app(config_class=Config):
 
         from .cotacoes_routes import register_cotacoes_routes
         register_cotacoes_routes(app)
+
+        from .brevo_test_routes import bp as brevo_test_bp
+        app.register_blueprint(brevo_test_bp)
+
+        from .crm_test_routes import bp as crm_test_bp
+        app.register_blueprint(crm_test_bp)
         
         app.logger.info("OK Rotas registradas")
     except Exception as e:

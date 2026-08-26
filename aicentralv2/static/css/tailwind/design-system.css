@@ -179,11 +179,11 @@
   font-weight: 600;
 }
 .cx-nav-section {
-  font-size: var(--font-size-xs);
+  font-size: 0.6875rem;
   font-weight: 500;
   color: #9ca3af;
   letter-spacing: 0.05em;
-  padding: 0.5rem 1rem;
+  padding: 0.375rem 0.875rem;
 }
 
 /* Layout shell: no stray top accent/loading line */

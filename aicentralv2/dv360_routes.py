@@ -2430,7 +2430,12 @@ def _lista_old_kpi_fmt_valor_kpi(c):
     preco = c.get('preco_metrica_brl')
     if preco is None:
         return ''
-    return f'R$ {_lista_old_kpi_fmt_num_br(preco)}'
+    kpi_ref = c.get('objetivo_nome') or c.get('kpi_nome')
+    sigla = sigla_metrica_preco(kpi_ref, c.get('preco_metrica_modalidade'))
+    valor = _lista_old_kpi_fmt_num_br(preco)
+    if sigla and sigla != '—':
+        return f'{sigla} R$ {valor}'
+    return f'R$ {valor}'
 
 
 def _lista_old_kpi_xlsx_cell(value):

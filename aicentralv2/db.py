@@ -13213,7 +13213,11 @@ def obter_campanhas_pi_lista_old_kpi(filtros=None):
                     c.totalizador_gasto,
                     c.totalizador_atingido,
                     cli.nome_fantasia AS cliente_nome,
-                    obj.descricao AS objetivo_nome,
+                    COALESCE(
+                        NULLIF(TRIM(obj.descricao), ''),
+                        linha_cot.kpi_nome,
+                        aud_cot.kpi_nome
+                    ) AS objetivo_nome,
                     pi.codigo_pi_cc AS codigo_pi,
                     pi.titulo_pi,
                     pi.vr_liquido_pr_pi,

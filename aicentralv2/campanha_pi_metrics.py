@@ -109,34 +109,52 @@ def investimento_para_preco_campanha(row: Any) -> Optional[float]:
     return float(valor) if valor > 0 else None
 
 
-def _modalidade_kpi(objetivo_nome: Any, nome_campanha: Any = None) -> str:
-    """Retorna 'cpm' ou 'unit' conforme palavras-chave no objetivo/nome."""
-    partes = [
-        (objetivo_nome or "").strip().upper(),
-        (nome_campanha or "").strip().upper(),
-    ]
-    texto = " ".join(p for p in partes if p).strip()
-    if not texto:
-        return "cpm"
-    if any(k in texto for k in ("CPV", "CPA", "CPC", "CPL", "CPI")):
-        return "unit"
-    if any(
-        k in texto
-        for k in (
-            "CONVERS",
-            "LEAD",
-            "CLIQUE",
-            "CLICK",
-            "AÇÃO",
-            "ACAO",
-            "INSTALL",
-            "INSTALA",
-            "CADASTRO",
-            "COMPRA",
-            "VENDA",
-        )
-    ):
-        return "unit"
+_CPM_KPI_TOKENS = ("VCPM", "CPM")
+_UNIT_KPI_TOKENS = ("CPV", "CPC", "CPA", "CPL", "CPI", "CPE", "CPO", "FIXO")
+_KPI_SIGLA_TOKENS = _CPM_KPI_TOKENS + _UNIT_KPI_TOKENS
+
+
+def _kpi_token_present(texto: str, token: str) -> bool:
+    """Match de token KPI com word boundary."""
+    return bool(re.search(rf"\b{re.escape(token)}\b", texto, flags=re.IGNORECASE))
+
+
+def kpi_sigla_from_text(kpi_text: Any) -> Optional[str]:
+    """Extrai sigla KPI (CPM, CPC, …) do texto explícito cadastrado."""
+    if kpi_text is None or not str(kpi_text).strip():
+        return None
+    k = str(kpi_text).strip().upper()
+    for token in _KPI_SIGLA_TOKENS:
+        if _kpi_token_present(k, token):
+            return "CPM" if token == "VCPM" else token
+    return None
+
+
+def _modalidade_from_kpi_text(kpi_text: Any) -> Optional[str]:
+    """Retorna 'cpm' ou 'unit' somente a partir do KPI explícito; None se vazio."""
+    if kpi_text is None or not str(kpi_text).strip():
+        return None
+    k = str(kpi_text).strip().upper()
+    for token in _CPM_KPI_TOKENS:
+        if _kpi_token_present(k, token):
+            return "cpm"
+    for token in _UNIT_KPI_TOKENS:
+        if _kpi_token_present(k, token):
+            return "unit"
+    return None
+
+
+def _modalidade_kpi(
+    objetivo_nome: Any,
+    nome_campanha: Any = None,
+    kpi_nome: Any = None,
+) -> str:
+    """Modalidade de preço só pelo KPI definido (objetivo/cotação). Nome da campanha não entra."""
+    del nome_campanha  # legado: ignorado de propósito
+    for src in (objetivo_nome, kpi_nome):
+        modalidade = _modalidade_from_kpi_text(src)
+        if modalidade:
+            return modalidade
     return "cpm"
 
 
@@ -146,6 +164,7 @@ def preco_unitario_por_metrica(
     valor_reais: Any,
     nome_campanha: Any = None,
     totalizador_atingido: Any = None,
+    kpi_nome: Any = None,
 ) -> tuple[Optional[float], Optional[str]]:
     """
     CPM: (investimento / impressões) * 1000 (volume = impressões totais).
@@ -156,7 +175,7 @@ def preco_unitario_por_metrica(
     if vol is None or valor_reais is None or float(valor_reais) <= 0:
         return None, None
     vr = float(valor_reais)
-    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha)
+    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha, kpi_nome)
     if modalidade == "unit":
         return vr / vol, "unit"
     return (vr / vol) * 1000, "cpm"
@@ -168,7 +187,9 @@ def _custo_midia_de_preco_unitario(row: Any) -> Optional[float]:
     vol = volume_qty_campanha(row.get("obj_contratados"))
     if preco is None or preco <= 0 or vol is None:
         return None
-    modalidade = _modalidade_kpi(row.get("objetivo_nome"), row.get("nome_campanha"))
+    modalidade = _modalidade_kpi(
+        row.get("objetivo_nome"), row.get("nome_campanha"), row.get("kpi_nome")
+    )
     if modalidade == "unit":
         return round(preco * vol, 2)
     return round((preco * vol) / 1000, 2)
@@ -197,13 +218,14 @@ def preco_unitario_realizado(
     totalizador_gasto: Any,
     totalizador_atingido: Any,
     nome_campanha: Any = None,
+    kpi_nome: Any = None,
 ) -> Optional[float]:
     """Custo unitário realizado: gasto / volume atingido, normalizado por KPI."""
     gasto = parse_brl_float(totalizador_gasto)
     vol = volume_qty_campanha(totalizador_atingido)
     if gasto is None or gasto <= 0 or vol is None:
         return None
-    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha)
+    modalidade = _modalidade_kpi(objetivo_nome, nome_campanha, kpi_nome)
     if modalidade == "unit":
         return round(gasto / vol, 2)
     return round((gasto / vol) * 1000, 2)
@@ -218,7 +240,9 @@ def preco_unitario_orcado_campanha(row: Any) -> Optional[float]:
     vol = volume_para_preco_campanha(row.get("obj_contratados"), row.get("totalizador_atingido"))
     if custo is None or vol is None or vol <= 0:
         return None
-    modalidade = _modalidade_kpi(row.get("objetivo_nome"), row.get("nome_campanha"))
+    modalidade = _modalidade_kpi(
+        row.get("objetivo_nome"), row.get("nome_campanha"), row.get("kpi_nome")
+    )
     if modalidade == "unit":
         return round(custo / vol, 2)
     return round((custo / vol) * 1000, 2)
@@ -281,6 +305,7 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
         valor_para_preco,
         r.get("nome_campanha"),
         r.get("totalizador_atingido"),
+        r.get("kpi_nome"),
     )
     r["investimento_kpi_brl"] = valor_para_preco if valor_para_preco > 0 else None
     r["volume_kpi"] = vol_kpi
@@ -306,6 +331,7 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
         r.get("totalizador_gasto"),
         r.get("totalizador_atingido"),
         r.get("nome_campanha"),
+        r.get("kpi_nome"),
     )
 
     periodo = calcular_periodo_progresso(r.get("periodo_inicio"), r.get("periodo_fim"))
@@ -350,14 +376,18 @@ def format_brl_ptbr(value: Any, with_prefix: bool = True) -> str:
     return f"R$ {s}" if with_prefix else s
 
 
-def sigla_metrica_preco(objetivo_nome: Any, modalidade: Any) -> str:
-    """Mesma regra que cadu_pi.html / cadu_pi_form (Preço R$ por métrica)."""
+def sigla_metrica_preco(
+    objetivo_nome: Any,
+    modalidade: Any = None,
+    kpi_nome: Any = None,
+) -> str:
+    """Sigla KPI (CPM, CPC, …) a partir do KPI definido; fallback mínimo por modalidade."""
+    for src in (objetivo_nome, kpi_nome):
+        sigla = kpi_sigla_from_text(src)
+        if sigla:
+            return sigla
     if modalidade == "cpm":
         return "CPM"
-    n = (objetivo_nome or "").upper()
-    for k in ("CPV", "CPA", "CPC", "CPL", "CPI"):
-        if k in n:
-            return k
     return "—"
 
 

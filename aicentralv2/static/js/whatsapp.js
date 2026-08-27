@@ -10,6 +10,12 @@
     let chatBusca = '';
     let pollTimer = null;
 
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStream = null;
+    let recordingTimer = null;
+    let recordingActive = false;
+
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -99,6 +105,147 @@
             return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
         }
         return tel || '—';
+    }
+
+    function formatDuracaoRec(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
+        const min = Math.floor(total / 60);
+        const sec = total % 60;
+        return `${min}:${String(sec).padStart(2, '0')}`;
+    }
+
+    function escolherMimeGravacao() {
+        const candidatos = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/ogg;codecs=opus',
+            'audio/mp4',
+        ];
+        if (typeof MediaRecorder === 'undefined') return null;
+        for (const mime of candidatos) {
+            if (MediaRecorder.isTypeSupported(mime)) return mime;
+        }
+        return '';
+    }
+
+    function extensaoPorMime(mimeType) {
+        const m = (mimeType || '').toLowerCase();
+        if (m.includes('ogg')) return 'ogg';
+        if (m.includes('mp4') || m.includes('aac')) return 'm4a';
+        if (m.includes('mpeg') || m.includes('mp3')) return 'mp3';
+        return 'webm';
+    }
+
+    function mostrarUiGravacao(ativo) {
+        recordingActive = ativo;
+        $('#wa-audio-recording')?.classList.toggle('hidden', !ativo);
+        $('#wa-chat-audio')?.classList.toggle('wa-recording', ativo);
+        const input = $('#wa-chat-input');
+        const enviar = $('#wa-chat-enviar');
+        if (input) input.disabled = ativo || !conversaSelecionadaId;
+        if (enviar) enviar.disabled = ativo || !conversaSelecionadaId;
+        if (!ativo) {
+            const timer = $('#wa-rec-timer');
+            if (timer) timer.textContent = '0:00';
+        }
+    }
+
+    function pararTimerGravacao() {
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+        }
+    }
+
+    function iniciarTimerGravacao(inicio) {
+        pararTimerGravacao();
+        const timerEl = $('#wa-rec-timer');
+        recordingTimer = setInterval(() => {
+            if (timerEl) timerEl.textContent = formatDuracaoRec(Date.now() - inicio);
+        }, 250);
+    }
+
+    function liberarStreamGravacao() {
+        if (recordingStream) {
+            recordingStream.getTracks().forEach(t => t.stop());
+            recordingStream = null;
+        }
+    }
+
+    function cancelarGravacao() {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            mostrarUiGravacao(false);
+            liberarStreamGravacao();
+            audioChunks = [];
+            mediaRecorder = null;
+            pararTimerGravacao();
+            return;
+        }
+        mediaRecorder._enviarAposStop = false;
+        mediaRecorder.stop();
+    }
+
+    async function iniciarGravacao() {
+        if (!conversaSelecionadaId || recordingActive) return;
+        if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+            showToast('Seu navegador não suporta gravação de áudio.', 'error');
+            return;
+        }
+        try {
+            recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeType = escolherMimeGravacao();
+            if (mimeType === null) {
+                showToast('Seu navegador não suporta gravação de áudio.', 'error');
+                liberarStreamGravacao();
+                return;
+            }
+            const opts = mimeType ? { mimeType } : undefined;
+            mediaRecorder = new MediaRecorder(recordingStream, opts);
+            audioChunks = [];
+            const inicio = Date.now();
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) audioChunks.push(e.data);
+            };
+            mediaRecorder.onstop = () => {
+                pararTimerGravacao();
+                liberarStreamGravacao();
+                mostrarUiGravacao(false);
+                const enviar = mediaRecorder?._enviarAposStop;
+                const mime = mediaRecorder?.mimeType || mimeType || 'audio/webm';
+                mediaRecorder = null;
+                if (!enviar || !audioChunks.length) {
+                    audioChunks = [];
+                    return;
+                }
+                const blob = new Blob(audioChunks, { type: mime });
+                audioChunks = [];
+                const ext = extensaoPorMime(mime);
+                const file = new File([blob], `gravacao.${ext}`, { type: mime });
+                enviarAudio(file);
+            };
+
+            mediaRecorder.start();
+            mostrarUiGravacao(true);
+            iniciarTimerGravacao(inicio);
+        } catch (e) {
+            liberarStreamGravacao();
+            showToast('Permita o acesso ao microfone para gravar.', 'error');
+        }
+    }
+
+    function encerrarGravacao(enviar) {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+        mediaRecorder._enviarAposStop = enviar;
+        mediaRecorder.stop();
+    }
+
+    function toggleGravacao() {
+        if (recordingActive) {
+            encerrarGravacao(true);
+        } else {
+            iniciarGravacao();
+        }
     }
 
     function pararPolling() {
@@ -359,6 +506,7 @@
     }
 
     function selecionarConversa(conversaId) {
+        if (recordingActive) cancelarGravacao();
         const conversa = conversasCache.find(x => String(x.id) === String(conversaId));
         if (!conversa) return;
         conversaSelecionadaId = conversaId;
@@ -390,8 +538,6 @@
             await carregarMensagens(conversaSelecionadaId, { silent: true });
         } finally {
             setComposeEnabled(true);
-            const fileInput = $('#wa-chat-audio-file');
-            if (fileInput) fileInput.value = '';
             $('#wa-chat-input')?.focus();
         }
     }
@@ -461,11 +607,9 @@
         $$('[data-close-modal]').forEach(el => el.addEventListener('click', fecharModalNova));
 
         $('#wa-chat-enviar')?.addEventListener('click', enviarMensagem);
-        $('#wa-chat-audio')?.addEventListener('click', () => $('#wa-chat-audio-file')?.click());
-        $('#wa-chat-audio-file')?.addEventListener('change', e => {
-            const file = e.target.files && e.target.files[0];
-            if (file) enviarAudio(file);
-        });
+        $('#wa-chat-audio')?.addEventListener('click', toggleGravacao);
+        $('#wa-rec-cancel')?.addEventListener('click', cancelarGravacao);
+        $('#wa-rec-send')?.addEventListener('click', () => encerrarGravacao(true));
         $('#wa-chat-input')?.addEventListener('keydown', e => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -488,7 +632,10 @@
         });
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') fecharModalNova();
+            if (e.key === 'Escape') {
+                if (recordingActive) cancelarGravacao();
+                else fecharModalNova();
+            }
         });
     }
 
@@ -497,5 +644,8 @@
         carregarConversas();
     });
 
-    window.addEventListener('beforeunload', pararPolling);
+    window.addEventListener('beforeunload', () => {
+        cancelarGravacao();
+        pararPolling();
+    });
 })();

@@ -386,6 +386,78 @@
 
 .wa-hidden-input { display: none; }
 
+.wa-audio-recording {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-top: 1px solid #fecaca;
+    background: #fef2f2;
+}
+
+.wa-audio-recording.hidden { display: none; }
+
+.wa-rec-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #ef4444;
+    flex-shrink: 0;
+    animation: wa-rec-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes wa-rec-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.wa-rec-label {
+    font-size: 0.78rem;
+    color: #991b1b;
+    font-weight: 500;
+}
+
+.wa-rec-timer {
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: #7f1d1d;
+    min-width: 2.5rem;
+}
+
+.wa-rec-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.35rem;
+}
+
+.wa-rec-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.wa-rec-btn-ghost {
+    background: transparent;
+    color: #64748b;
+}
+
+.wa-rec-btn-ghost:hover { background: rgba(0, 0, 0, 0.05); }
+
+.wa-rec-btn-primary {
+    background: #25D366;
+    color: #fff;
+}
+
+.wa-rec-btn-primary:hover { background: #1fb855; }
+
+.wa-icon-btn.wa-recording {
+    background: #fee2e2;
+    color: #dc2626;
+    animation: wa-rec-pulse 1.2s ease-in-out infinite;
+}
+
 .wa-audio-wrap {
     display: flex;
     flex-direction: column;

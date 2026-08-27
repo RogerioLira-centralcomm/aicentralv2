@@ -44,46 +44,29 @@ def _aplicar_midia_enriquecida(d, media):
 
 
 def _enriquecer_midia_mensagem(d):
-    payload = d.get('provider_payload')
-    if not isinstance(payload, dict):
-        return d
+    """Enriquece resposta JSON com metadados de mídia já persistidos (sem rede)."""
+    try:
+        payload = d.get('provider_payload')
+        if not isinstance(payload, dict):
+            return d
 
-    media = payload.get('_media')
-    if isinstance(media, dict) and (media.get('local_url') or media.get('url')):
-        return _aplicar_midia_enriquecida(d, media)
+        media = payload.get('_media')
+        if isinstance(media, dict):
+            return _aplicar_midia_enriquecida(d, media)
 
-    message_data = payload.get('_message_data')
-    if not isinstance(message_data, dict):
-        message_data = _wasender_message_from_payload(payload)
-    if not isinstance(message_data, dict):
-        return d
-
-    media_type, media_info = detectar_midia_mensagem(message_data)
-    if not media_type:
-        return d
-
-    _aplicar_midia_enriquecida(d, {'type': media_type, 'seconds': (media_info or {}).get('seconds'),
-                                    'ptt': (media_info or {}).get('ptt')})
-
-    api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
-    if not api_key:
-        return d
-
-    media_meta = processar_midia_inbound(api_key, message_data)
-    if not isinstance(media_meta, dict):
-        return d
-
-    url = media_meta.get('local_url') or media_meta.get('url')
-    if url:
-        _aplicar_midia_enriquecida(d, media_meta)
-        payload = dict(payload)
-        payload['_media'] = media_meta
-        if not payload.get('_message_data'):
-            payload['_message_data'] = message_data
-        d['provider_payload'] = payload
-        msg_id = d.get('id')
-        if msg_id:
-            wa.atualizar_mensagem_media_meta(msg_id, payload)
+        message_data = payload.get('_message_data')
+        if not isinstance(message_data, dict):
+            message_data = _wasender_message_from_payload(payload)
+        if isinstance(message_data, dict):
+            media_type, media_info = detectar_midia_mensagem(message_data)
+            if media_type:
+                _aplicar_midia_enriquecida(d, {
+                    'type': media_type,
+                    'seconds': (media_info or {}).get('seconds'),
+                    'ptt': (media_info or {}).get('ptt'),
+                })
+    except Exception as exc:
+        current_app.logger.warning('Falha ao enriquecer mídia msg=%s: %s', d.get('id'), exc)
     return d
 
 

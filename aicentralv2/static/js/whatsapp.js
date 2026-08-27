@@ -74,6 +74,8 @@
         if (enviar) enviar.disabled = !enabled;
         if (audioBtn) audioBtn.disabled = !enabled;
     }
+
+    function showEmpty(container, text) {
         if (!container) return;
         container.innerHTML = `<div class="wa-empty-state">${escapeHtml(text)}</div>`;
     }

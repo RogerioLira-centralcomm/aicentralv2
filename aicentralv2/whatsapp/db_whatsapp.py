@@ -367,6 +367,48 @@ def _aplicar_status_update(provider_message_id, provider_status, provider_payloa
     return False
 
 
+def _merge_provider_payload(existing, incoming):
+    """Preserva metadados de mídia ao receber webhooks de status."""
+    existing = existing if isinstance(existing, dict) else {}
+    incoming = incoming if isinstance(incoming, dict) else {}
+    if not incoming:
+        return existing or None
+    merged = dict(incoming)
+    for key in ('_media', '_message_data', 'audioUrl', 'error'):
+        if merged.get(key) is not None:
+            continue
+        val = existing.get(key)
+        if val is not None:
+            merged[key] = val
+    return merged
+
+
+def obter_mensagem(mensagem_id, conversa_id=None):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        if conversa_id is not None:
+            cursor.execute(
+                '''
+                SELECT id, conversa_id, texto, direcao, status, created_at,
+                       provider, provider_message_id, provider_status, provider_payload
+                FROM whatsapp_mensagens
+                WHERE id = %s AND conversa_id = %s
+                ''',
+                (mensagem_id, conversa_id),
+            )
+        else:
+            cursor.execute(
+                '''
+                SELECT id, conversa_id, texto, direcao, status, created_at,
+                       provider, provider_message_id, provider_status, provider_payload
+                FROM whatsapp_mensagens
+                WHERE id = %s
+                ''',
+                (mensagem_id,),
+            )
+        return cursor.fetchone()
+
+
 def atualizar_mensagem_provider(
     mensagem_id=None,
     provider_message_id=None,
@@ -380,12 +422,12 @@ def atualizar_mensagem_provider(
         with conn.cursor() as cursor:
             if mensagem_id:
                 cursor.execute(
-                    'SELECT id, provider_status FROM whatsapp_mensagens WHERE id = %s',
+                    'SELECT id, provider_status, provider_payload FROM whatsapp_mensagens WHERE id = %s',
                     (mensagem_id,),
                 )
             else:
                 cursor.execute(
-                    'SELECT id, provider_status FROM whatsapp_mensagens WHERE provider_message_id = %s',
+                    'SELECT id, provider_status, provider_payload FROM whatsapp_mensagens WHERE provider_message_id = %s',
                     (provider_message_id,),
                 )
             row = cursor.fetchone()
@@ -397,7 +439,10 @@ def atualizar_mensagem_provider(
                 if _status_rank(provider_status) < _status_rank(row['provider_status']):
                     novo_status = row['provider_status']
 
-            payload_json = Json(provider_payload) if provider_payload is not None else None
+            payload_json = None
+            if provider_payload is not None:
+                merged = _merge_provider_payload(row.get('provider_payload'), provider_payload)
+                payload_json = Json(merged)
             if payload_json is not None:
                 cursor.execute('''
                     UPDATE whatsapp_mensagens
@@ -426,11 +471,17 @@ def atualizar_mensagem_media_meta(mensagem_id, provider_payload):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT provider_payload FROM whatsapp_mensagens WHERE id = %s',
+                (mensagem_id,),
+            )
+            row = cursor.fetchone()
+            merged = _merge_provider_payload(row.get('provider_payload') if row else {}, provider_payload)
             cursor.execute('''
                 UPDATE whatsapp_mensagens
                 SET provider_payload = %s::jsonb
                 WHERE id = %s RETURNING id
-            ''', (Json(provider_payload), mensagem_id))
+            ''', (Json(merged), mensagem_id))
             updated = cursor.fetchone()
         conn.commit()
         return updated is not None

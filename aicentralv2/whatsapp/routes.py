@@ -29,17 +29,70 @@ def _jsonify_rows(rows):
     return out
 
 
+def _media_url_publica(path: str) -> str:
+    """URL absoluta para arquivos locais (player no browser)."""
+    if not path:
+        return ''
+    if path.startswith('http://') or path.startswith('https://'):
+        return path
+    return _public_app_url(path)
+
+
+def _reconstruir_message_data(payload):
+    """Extrai estrutura de mensagem do payload Wasender (vários formatos)."""
+    if not isinstance(payload, dict):
+        return None
+    cached = payload.get('_message_data')
+    if isinstance(cached, dict):
+        return cached
+    data = payload.get('data')
+    if not isinstance(data, dict):
+        return None
+    messages = data.get('messages')
+    if isinstance(messages, dict):
+        return messages
+    key = data.get('key')
+    message = data.get('message')
+    if isinstance(key, dict) and isinstance(message, dict):
+        out = {'key': key, 'message': message}
+        mb = data.get('messageBody')
+        if mb:
+            out['messageBody'] = mb
+        return out
+    return None
+
+
+def _url_midia_utilizavel(media):
+    """Só URLs locais/permanentes — URLs temporárias da Wasender expiram."""
+    if not isinstance(media, dict):
+        return None
+    local = media.get('local_url')
+    if local:
+        return local
+    url = (media.get('url') or '').strip()
+    if not url:
+        return None
+    base = (current_app.config.get('BASE_URL') or '').rstrip('/')
+    if base and url.startswith(base):
+        return url
+    if url.startswith('/static/'):
+        return url
+    return None
+
+
 def _aplicar_midia_enriquecida(d, media):
     if not isinstance(media, dict):
         return d
-    url = media.get('local_url') or media.get('url')
+    url = _url_midia_utilizavel(media)
     d['media_type'] = media.get('type')
     if url:
-        d['media_url'] = url
+        d['media_url'] = _media_url_publica(url)
     if media.get('seconds') is not None:
         d['media_seconds'] = media.get('seconds')
     if media.get('ptt'):
         d['media_ptt'] = True
+    if media.get('mimetype'):
+        d['media_mimetype'] = media.get('mimetype')
     return d
 
 
@@ -52,11 +105,12 @@ def _enriquecer_midia_mensagem(d):
 
         media = payload.get('_media')
         if isinstance(media, dict):
-            return _aplicar_midia_enriquecida(d, media)
+            d = _aplicar_midia_enriquecida(d, media)
+            if not d.get('media_url') and _reconstruir_message_data(payload):
+                d['media_repairable'] = True
+            return d
 
-        message_data = payload.get('_message_data')
-        if not isinstance(message_data, dict):
-            message_data = _wasender_message_from_payload(payload)
+        message_data = _reconstruir_message_data(payload)
         if isinstance(message_data, dict):
             media_type, media_info = detectar_midia_mensagem(message_data)
             if media_type:
@@ -65,6 +119,7 @@ def _enriquecer_midia_mensagem(d):
                     'seconds': (media_info or {}).get('seconds'),
                     'ptt': (media_info or {}).get('ptt'),
                 })
+                d['media_repairable'] = not d.get('media_url')
     except Exception as exc:
         current_app.logger.warning('Falha ao enriquecer mídia msg=%s: %s', d.get('id'), exc)
     return d
@@ -476,6 +531,63 @@ def _public_app_url(path: str) -> str:
     if not path.startswith('/'):
         path = f'/{path}'
     return f'{base}{path}'
+
+
+def _reparar_midia_mensagem(mensagem_id, conversa_id):
+    """Descriptografa e persiste mídia ausente (mensagens afetadas por webhook de status)."""
+    msg = wa.obter_mensagem(mensagem_id, conversa_id)
+    if not msg:
+        return None, 'Mensagem não encontrada.'
+    payload = msg.get('provider_payload') or {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    media = payload.get('_media')
+    if isinstance(media, dict) and _url_midia_utilizavel(media):
+        row = dict(msg)
+        _enriquecer_midia_mensagem(row)
+        return row, None
+
+    message_data = _reconstruir_message_data(payload)
+    if not message_data:
+        return None, 'Metadados de mídia indisponíveis para esta mensagem.'
+
+    api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
+    if not api_key:
+        return None, 'WASENDER_API_KEY não configurada.'
+
+    media_meta = processar_midia_inbound(api_key, message_data)
+    if not media_meta or not _url_midia_utilizavel(media_meta):
+        return None, 'Não foi possível descriptografar o áudio.'
+
+    payload = dict(payload)
+    payload['_message_data'] = message_data
+    payload['_media'] = media_meta
+    wa.atualizar_mensagem_media_meta(mensagem_id, payload)
+
+    row = dict(msg)
+    row['provider_payload'] = payload
+    _enriquecer_midia_mensagem(row)
+    return row, None
+
+
+@bp.route('/api/conversas/<int:conversa_id>/mensagens/<int:mensagem_id>/reparar-midia', methods=['POST'])
+@login_required
+def api_reparar_midia(conversa_id, mensagem_id):
+    try:
+        conversa = wa.obter_conversa(conversa_id)
+        if not conversa:
+            return jsonify({'success': False, 'error': 'Conversa não encontrada.'}), 404
+        row, err = _reparar_midia_mensagem(mensagem_id, conversa_id)
+        if err:
+            return jsonify({'success': False, 'error': err}), 422
+        for k, v in list(row.items()):
+            if hasattr(v, 'isoformat'):
+                row[k] = v.isoformat()
+        return jsonify({'success': True, 'mensagem': row})
+    except Exception as e:
+        current_app.logger.error('Erro api_reparar_midia whatsapp: %s', e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @bp.route('/api/conversas/<int:conversa_id>/mensagens', methods=['POST'])

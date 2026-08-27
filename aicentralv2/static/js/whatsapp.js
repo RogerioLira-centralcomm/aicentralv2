@@ -18,6 +18,8 @@
     let recordingStartMs = 0;
     let recordingMimeType = '';
 
+    const mediaRepairAttempted = new Set();
+
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -451,12 +453,31 @@
         return 'middle';
     }
 
+    function isAudioPlaceholder(texto) {
+        return /^\[(Áudio de voz|Áudio|audio)\]$/i.test(String(texto || '').trim());
+    }
+
     function renderConteudoMsg(m) {
         const url = m.media_url;
         const type = m.media_type;
-        const caption = m.texto && !/^\[(GIF|Imagem|Vídeo|Áudio de voz|Áudio|Documento|Sticker|Mídia)\]$/.test(m.texto)
+        const caption = m.texto && !/^\[(GIF|Imagem|Vídeo|Áudio de voz|Áudio|Documento|Sticker|Mídia)\]$/i.test(m.texto)
             ? m.texto
             : '';
+
+        if (url && type === 'audio') {
+            const dur = m.media_seconds ? `<span class="wa-audio-dur">${Math.round(Number(m.media_seconds))}s</span>` : '';
+            const label = m.media_ptt ? 'Áudio de voz' : 'Áudio';
+            const mime = m.media_mimetype ? ` type="${escapeHtml(m.media_mimetype)}"` : '';
+            return `
+                <div class="wa-audio-wrap">
+                    <span class="wa-audio-label">${escapeHtml(label)}</span>
+                    <audio class="wa-msg-audio" controls preload="metadata">
+                        <source src="${escapeHtml(url)}"${mime}>
+                    </audio>
+                    ${dur}
+                </div>
+            `;
+        }
 
         if (url && type === 'gif') {
             const isImageGif = /\.(gif|webp)(\?|$)/i.test(url);
@@ -487,25 +508,38 @@
         if (url && type === 'sticker') {
             return `<img class="wa-msg-media wa-msg-sticker" src="${escapeHtml(url)}" alt="" loading="lazy">`;
         }
-        if (url && type === 'audio') {
-            const dur = m.media_seconds ? `<span class="wa-audio-dur">${Math.round(Number(m.media_seconds))}s</span>` : '';
-            const label = m.media_ptt ? 'Áudio de voz' : 'Áudio';
-            return `
-                <div class="wa-audio-wrap">
-                    <span class="wa-audio-label">${escapeHtml(label)}</span>
-                    <audio class="wa-msg-audio" controls preload="metadata" src="${escapeHtml(url)}"></audio>
-                    ${dur}
-                </div>
-            `;
-        }
         if (url && type === 'document') {
             const label = escapeHtml(m.texto || '[Documento]');
             return `<a class="wa-msg-media-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`;
         }
-        if (type === 'audio' && !url) {
-            return `<span class="wa-msg-text wa-msg-media-pending">${escapeHtml(m.texto || '[Áudio]')} <small>(processando…)</small></span>`;
+        if ((type === 'audio' || isAudioPlaceholder(m.texto)) && !url) {
+            return `<span class="wa-msg-text wa-msg-media-pending" data-wa-repair-id="${m.id}">${escapeHtml(m.texto || '[Áudio]')} <small>(carregando áudio…)</small></span>`;
         }
         return `<span class="wa-msg-text">${escapeHtml(m.texto)}</span>`;
+    }
+
+    async function repararMidiaPendentes(mensagens) {
+        if (!conversaSelecionadaId || !mensagens?.length) return;
+        const pending = mensagens.filter(m =>
+            m.media_repairable ||
+            (!m.media_url && (m.media_type === 'audio' || isAudioPlaceholder(m.texto)))
+        );
+        if (!pending.length) return;
+        let changed = false;
+        for (const m of pending.slice(0, 6)) {
+            if (mediaRepairAttempted.has(m.id)) continue;
+            mediaRepairAttempted.add(m.id);
+            try {
+                const data = await api(
+                    `/conversas/${conversaSelecionadaId}/mensagens/${m.id}/reparar-midia`,
+                    { method: 'POST' },
+                );
+                if (data.success) changed = true;
+            } catch (_) { /* ignore */ }
+        }
+        if (changed) {
+            await carregarMensagens(conversaSelecionadaId, { silent: true });
+        }
     }
 
     function renderMensagens(mensagens) {
@@ -533,6 +567,7 @@
             return `<div class="wa-msg-group ${dirClass}">${bubbles}</div>`;
         }).join('');
         container.scrollTop = container.scrollHeight;
+        void repararMidiaPendentes(mensagens);
     }
 
     async function carregarMensagens(conversaId, opts = {}) {

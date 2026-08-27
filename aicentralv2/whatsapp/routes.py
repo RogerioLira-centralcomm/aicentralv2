@@ -2,12 +2,13 @@
 from pathlib import Path
 from typing import Optional
 
-from flask import render_template, request, jsonify, session, current_app
+from flask import render_template, request, jsonify, session, current_app, send_file, abort, url_for
 
 from ..auth import login_required
 from ..services.wasender_service import (
     WasenderApiError,
     _desembrulhar_mensagem,
+    arquivo_audio_completo,
     detectar_midia_mensagem,
     enviar_mensagem_audio,
     enviar_mensagem_texto,
@@ -103,6 +104,78 @@ def _url_midia_utilizavel(media):
     return None
 
 
+def _segundos_esperados(media):
+    if not isinstance(media, dict):
+        return None
+    raw = media.get('seconds')
+    if raw is None:
+        return None
+    try:
+        return max(1, int(float(raw)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _url_stream_audio(conversa_id, mensagem_id):
+    return url_for(
+        'whatsapp.api_stream_audio',
+        conversa_id=conversa_id,
+        mensagem_id=mensagem_id,
+    )
+
+
+def _garantir_arquivo_audio(msg):
+    """Garante arquivo local completo; re-baixa inbound se truncado."""
+    payload = msg.get('provider_payload') or {}
+    if not isinstance(payload, dict):
+        return None, None
+
+    media = payload.get('_media') or {}
+    expected = _segundos_esperados(media)
+    local = media.get('local_url')
+    mimetype = (media.get('mimetype') or 'audio/ogg').split(';')[0].strip()
+
+    if local:
+        path = _caminho_static_relativo(local)
+        if msg.get('direcao') == 'outbound':
+            if path and '/outbound/' in str(local) and path.is_file():
+                return path, mimetype
+            return None, None
+        if path and arquivo_audio_completo(path, expected):
+            return path, mimetype
+        if path and path.is_file():
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    if msg.get('direcao') == 'outbound':
+        return None, None
+
+    message_data = _reconstruir_message_data(payload)
+    if not message_data:
+        return None, None
+
+    api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
+    if not api_key:
+        return None, None
+
+    media_meta = processar_midia_inbound(api_key, message_data)
+    if not media_meta or not media_meta.get('local_url'):
+        return None, None
+
+    payload_update = dict(payload)
+    payload_update['_message_data'] = message_data
+    payload_update['_media'] = media_meta
+    wa.atualizar_mensagem_media_meta(msg['id'], payload_update)
+
+    path = _caminho_static_relativo(media_meta['local_url'])
+    mimetype = (media_meta.get('mimetype') or 'audio/ogg').split(';')[0].strip()
+    if path and path.is_file():
+        return path, mimetype
+    return None, None
+
+
 def _aplicar_midia_enriquecida(d, media):
     if not isinstance(media, dict):
         return d
@@ -119,19 +192,30 @@ def _aplicar_midia_enriquecida(d, media):
     return d
 
 
+def _finalizar_urls_audio(d):
+    texto = (d.get('texto') or '').strip()
+    if not d.get('media_type') and texto in ('[Áudio de voz]', '[Áudio]', '[audio]'):
+        d['media_type'] = 'audio'
+        d['media_ptt'] = True
+    if d.get('media_type') == 'audio' and d.get('id') and d.get('conversa_id'):
+        d['media_url'] = _url_stream_audio(d['conversa_id'], d['id'])
+        d['media_repairable'] = False
+    return d
+
+
 def _enriquecer_midia_mensagem(d):
     """Enriquece resposta JSON com metadados de mídia já persistidos (sem rede)."""
     try:
         payload = d.get('provider_payload')
         if not isinstance(payload, dict):
-            return d
+            return _finalizar_urls_audio(d)
 
         media = payload.get('_media')
         if isinstance(media, dict):
             d = _aplicar_midia_enriquecida(d, media)
             if not d.get('media_url') and _reconstruir_message_data(payload):
                 d['media_repairable'] = True
-            return d
+            return _finalizar_urls_audio(d)
 
         message_data = _reconstruir_message_data(payload)
         if isinstance(message_data, dict):
@@ -145,7 +229,7 @@ def _enriquecer_midia_mensagem(d):
                 d['media_repairable'] = not d.get('media_url')
     except Exception as exc:
         current_app.logger.warning('Falha ao enriquecer mídia msg=%s: %s', d.get('id'), exc)
-    return d
+    return _finalizar_urls_audio(d)
 
 
 def _webhook_secret_ok():
@@ -601,6 +685,28 @@ def _reparar_midia_mensagem(mensagem_id, conversa_id):
     row['provider_payload'] = payload
     _enriquecer_midia_mensagem(row)
     return row, None
+
+
+@bp.route('/api/conversas/<int:conversa_id>/mensagens/<int:mensagem_id>/audio')
+@login_required
+def api_stream_audio(conversa_id, mensagem_id):
+    """Serve áudio validado; re-baixa do Wasender se o arquivo local estiver truncado."""
+    try:
+        msg = wa.obter_mensagem(mensagem_id, conversa_id)
+        if not msg:
+            abort(404)
+        path, mimetype = _garantir_arquivo_audio(msg)
+        if not path:
+            abort(404)
+        return send_file(
+            path,
+            mimetype=mimetype or 'audio/ogg',
+            conditional=True,
+            download_name=path.name,
+        )
+    except Exception as e:
+        current_app.logger.error('Erro api_stream_audio whatsapp: %s', e, exc_info=True)
+        abort(500)
 
 
 @bp.route('/api/conversas/<int:conversa_id>/mensagens/<int:mensagem_id>/reparar-midia', methods=['POST'])

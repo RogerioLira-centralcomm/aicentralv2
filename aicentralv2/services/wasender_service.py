@@ -270,6 +270,52 @@ def converter_audio_para_ogg(src: Path) -> Optional[Path]:
         return None
 
 
+def duracao_audio_arquivo(path: Path) -> Optional[float]:
+    """Duração real do arquivo em segundos (ffprobe)."""
+    if not path.is_file():
+        return None
+    ffprobe = shutil.which('ffprobe')
+    if not ffprobe:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                ffprobe, '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return None
+        return float(proc.stdout.strip())
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def arquivo_audio_completo(path: Path, expected_seconds: Optional[int] = None) -> bool:
+    """Verifica se o arquivo de áudio local parece completo."""
+    if not path.is_file():
+        return False
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return False
+    if size < 256:
+        return False
+    if not expected_seconds or expected_seconds <= 0:
+        return True
+    dur = duracao_audio_arquivo(path)
+    if dur is not None:
+        return dur >= max(1.0, float(expected_seconds) - 2.0)
+    min_bytes = max(512, int(expected_seconds * 1200))
+    return size >= min_bytes
+
+
 def _baixar_bytes_url(url: str, timeout: int = 90, min_bytes: Optional[int] = None) -> Optional[bytes]:
     try:
         with requests.get(url, stream=True, timeout=timeout) as resp:
@@ -335,6 +381,8 @@ def salvar_midia_local(
     if not data:
         return None
 
+    if dest_path.exists():
+        dest_path.unlink(missing_ok=True)
     dest_path.write_bytes(data)
     return f'/static/media/whatsapp/{safe_id}.{ext}'
 
@@ -349,7 +397,7 @@ def processar_midia_inbound(api_key: str, message_data: Dict[str, Any]) -> Optio
     public_url = decryptar_midia_mensagem(api_key, message_data)
     local_url = None
     if public_url and msg_id:
-        time.sleep(1.5)
+        time.sleep(2.5)
         local_url = salvar_midia_local(
             public_url,
             msg_id,

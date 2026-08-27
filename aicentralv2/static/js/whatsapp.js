@@ -597,13 +597,10 @@
         if (url && type === 'audio') {
             const dur = m.media_seconds ? `<span class="wa-audio-dur">${Math.round(Number(m.media_seconds))}s</span>` : '';
             const label = m.media_ptt ? 'Áudio de voz' : 'Áudio';
-            const mime = m.media_mimetype ? ` type="${escapeHtml(m.media_mimetype)}"` : '';
             return `
                 <div class="wa-audio-wrap">
                     <span class="wa-audio-label">${escapeHtml(label)}</span>
-                    <audio class="wa-msg-audio" controls preload="metadata">
-                        <source src="${escapeHtml(url)}"${mime}>
-                    </audio>
+                    <audio class="wa-msg-audio" controls preload="auto" src="${escapeHtml(url)}"></audio>
                     ${dur}
                 </div>
             `;

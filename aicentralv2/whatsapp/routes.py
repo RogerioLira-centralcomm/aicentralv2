@@ -2,7 +2,14 @@
 from flask import render_template, request, jsonify, session, current_app
 
 from ..auth import login_required
-from ..services.wasender_service import WasenderApiError, enviar_mensagem_texto
+from ..services.wasender_service import (
+    WasenderApiError,
+    _desembrulhar_mensagem,
+    detectar_midia_mensagem,
+    enviar_mensagem_texto,
+    label_midia,
+    processar_midia_inbound,
+)
 from ..db import normalizar_telefone_whatsapp
 from . import bp
 from . import db_whatsapp as wa
@@ -15,8 +22,67 @@ def _jsonify_rows(rows):
         for k, v in list(d.items()):
             if hasattr(v, 'isoformat'):
                 d[k] = v.isoformat()
+        _enriquecer_midia_mensagem(d)
         out.append(d)
     return out
+
+
+def _aplicar_midia_enriquecida(d, media):
+    if not isinstance(media, dict):
+        return d
+    url = media.get('local_url') or media.get('url')
+    d['media_type'] = media.get('type')
+    if url:
+        d['media_url'] = url
+    if media.get('seconds') is not None:
+        d['media_seconds'] = media.get('seconds')
+    if media.get('ptt'):
+        d['media_ptt'] = True
+    return d
+
+
+def _enriquecer_midia_mensagem(d):
+    payload = d.get('provider_payload')
+    if not isinstance(payload, dict):
+        return d
+
+    media = payload.get('_media')
+    if isinstance(media, dict) and (media.get('local_url') or media.get('url')):
+        return _aplicar_midia_enriquecida(d, media)
+
+    message_data = payload.get('_message_data')
+    if not isinstance(message_data, dict):
+        message_data = _wasender_message_from_payload(payload)
+    if not isinstance(message_data, dict):
+        return d
+
+    media_type, media_info = detectar_midia_mensagem(message_data)
+    if not media_type:
+        return d
+
+    _aplicar_midia_enriquecida(d, {'type': media_type, 'seconds': (media_info or {}).get('seconds'),
+                                    'ptt': (media_info or {}).get('ptt')})
+
+    api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
+    if not api_key:
+        return d
+
+    media_meta = processar_midia_inbound(api_key, message_data)
+    if not isinstance(media_meta, dict):
+        return d
+
+    url = media_meta.get('local_url') or media_meta.get('url')
+    if url:
+        _aplicar_midia_enriquecida(d, media_meta)
+        payload = dict(payload)
+        payload['_media'] = media_meta
+        if not payload.get('_message_data'):
+            payload['_message_data'] = message_data
+        d['provider_payload'] = payload
+        msg_id = d.get('id')
+        if msg_id:
+            wa.atualizar_mensagem_media_meta(msg_id, payload)
+    return d
 
 
 def _webhook_secret_ok():
@@ -136,18 +202,56 @@ def _extrair_nome_remetente(message_data):
 def _extrair_texto_mensagem(message_data):
     if not isinstance(message_data, dict):
         return ''
+    media_type, media_info = detectar_midia_mensagem(message_data)
+    if media_type and isinstance(media_info, dict):
+        caption = (media_info.get('caption') or '').strip()
+        if caption:
+            return caption
     texto = (message_data.get('messageBody') or '').strip()
+    placeholders = {
+        '[gif]', '[imagem]', '[image]', '[vídeo]', '[video]', '[sticker]',
+        '[áudio]', '[audio]', '[áudio de voz]', '[audio de voz]',
+        'audio', 'áudio', 'voice message', 'voice note', 'mensagem de voz',
+    }
+    if media_type and (not texto or texto.lower() in placeholders):
+        return label_midia(media_type, media_info)
     if texto:
         return texto
     raw_msg = message_data.get('message') or {}
     if isinstance(raw_msg, dict):
-        texto = (raw_msg.get('conversation') or '').strip()
+        inner = _desembrulhar_mensagem(raw_msg)
+        texto = (inner.get('conversation') or '').strip()
         if texto:
             return texto
-        ext = raw_msg.get('extendedTextMessage')
+        ext = inner.get('extendedTextMessage')
         if isinstance(ext, dict):
             return (ext.get('text') or '').strip()
+        reaction = inner.get('reactionMessage')
+        if isinstance(reaction, dict):
+            emoji = (reaction.get('text') or '').strip()
+            if emoji:
+                return emoji
+        if media_type:
+            return label_midia(media_type, media_info)
     return ''
+
+
+def _wasender_reaction_from_payload(payload):
+    """Wasender envia messages.reaction com data como array (não data.messages)."""
+    data = payload.get('data') if isinstance(payload, dict) else None
+    items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        reaction = item.get('reaction')
+        if not isinstance(reaction, dict):
+            continue
+        emoji = (reaction.get('text') or '').strip()
+        if not emoji:
+            continue
+        key = item.get('key') or reaction.get('key') or {}
+        return emoji, key
+    return None, None
 
 
 def _telefone_de_remote_jid(remote):
@@ -207,16 +311,62 @@ def _processar_status_webhook(payload, event, provider_message_id, message_data=
     return updated
 
 
+def _processar_reaction(payload, event):
+    emoji, key = _wasender_reaction_from_payload(payload)
+    if not emoji:
+        return {'success': True, 'ignored': True, 'reason': 'empty_reaction'}
+    if isinstance(key, dict) and key.get('fromMe') is True:
+        return {'success': True, 'ignored': True, 'reason': 'from_me'}
+
+    telefone = _extrair_telefone_key(key)
+    if not telefone:
+        return {'success': True, 'ignored': True, 'reason': 'missing_sender'}
+
+    provider_message_id = None
+    if isinstance(key, dict) and key.get('id'):
+        provider_message_id = f"reaction:{key['id']}:{emoji}"
+
+    if provider_message_id and wa.mensagem_provider_existe(provider_message_id):
+        return {'success': True, 'duplicate': True, 'reason': 'provider_id_exists'}
+
+    conversa_id = wa.obter_ou_criar_conversa_por_telefone(telefone)
+    if wa.mensagem_inbound_duplicada(conversa_id, emoji, provider_message_id):
+        return {'success': True, 'duplicate': True, 'reason': 'recent_inbound'}
+
+    msg_id = wa.criar_mensagem(
+        conversa_id,
+        emoji,
+        direcao='inbound',
+        status='recebido',
+        provider='wasenderapi',
+        provider_message_id=provider_message_id,
+        provider_status='received',
+        provider_payload=payload,
+        incrementar_unread=True,
+    )
+    current_app.logger.info(
+        'Wasender reaction (whatsapp) salva: event=%s conversa=%s msg=%s telefone=%s emoji=%s',
+        event, conversa_id, msg_id, telefone, emoji,
+    )
+    return {'success': True, 'id': msg_id, 'conversa_id': conversa_id, 'reaction': True}
+
+
 def _processar_inbound(payload, message_data, provider_message_id, event):
     key = message_data.get('key') or {}
     if key.get('fromMe') is True:
         return {'success': True, 'ignored': True, 'reason': 'from_me'}
 
     telefone = _extrair_telefone_key(key)
+    media_type, _ = detectar_midia_mensagem(message_data)
     texto = _extrair_texto_mensagem(message_data)
     if not telefone:
         return {'success': True, 'ignored': True, 'reason': 'missing_sender'}
-    if not texto:
+    if not texto and not media_type:
+        msg_keys = list((_desembrulhar_mensagem(message_data.get('message') or {})).keys())
+        current_app.logger.info(
+            'Wasender inbound ignorado (missing_text): event=%s msg_id=%s keys=%s',
+            event, provider_message_id, msg_keys,
+        )
         return {'success': True, 'ignored': True, 'reason': 'missing_text'}
 
     if provider_message_id and wa.mensagem_provider_existe(provider_message_id):
@@ -228,6 +378,19 @@ def _processar_inbound(payload, message_data, provider_message_id, event):
     if wa.mensagem_inbound_duplicada(conversa_id, texto, provider_message_id):
         return {'success': True, 'duplicate': True, 'reason': 'recent_inbound'}
 
+    payload_salvar = dict(payload) if isinstance(payload, dict) else {}
+    payload_salvar['_message_data'] = message_data
+    if media_type:
+        api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
+        media_meta = processar_midia_inbound(api_key, message_data)
+        if media_meta:
+            payload_salvar['_media'] = media_meta
+        else:
+            current_app.logger.warning(
+                'Wasender inbound mídia não descriptografada: tipo=%s msg_id=%s',
+                media_type, provider_message_id,
+            )
+
     msg_id = wa.criar_mensagem(
         conversa_id,
         texto,
@@ -236,12 +399,12 @@ def _processar_inbound(payload, message_data, provider_message_id, event):
         provider='wasenderapi',
         provider_message_id=provider_message_id,
         provider_status='received',
-        provider_payload=payload,
+        provider_payload=payload_salvar,
         incrementar_unread=True,
     )
     current_app.logger.info(
-        'Wasender inbound (whatsapp) salvo: event=%s conversa=%s msg=%s telefone=%s',
-        event, conversa_id, msg_id, telefone,
+        'Wasender inbound (whatsapp) salvo: event=%s conversa=%s msg=%s telefone=%s media=%s',
+        event, conversa_id, msg_id, telefone, media_type,
     )
     return {'success': True, 'id': msg_id, 'conversa_id': conversa_id}
 
@@ -416,11 +579,16 @@ def api_wasender_webhook():
 
     if event and event not in (
         'messages.received', 'messages.upsert', 'messages.update',
+        'messages.reaction',
         'message.status', 'messages.status', 'message-receipt.update',
     ):
         return jsonify({'success': True, 'ignored': True, 'reason': 'event_not_handled'})
 
     try:
+        if event == 'messages.reaction':
+            result = _processar_reaction(payload, event)
+            return jsonify(result)
+
         # Atualizações de status (entregue / lida)
         if event in ('messages.update', 'message.status', 'messages.status', 'message-receipt.update'):
             updated = _processar_status_webhook(payload, event, provider_message_id, message_data)

@@ -323,7 +323,64 @@
 .wa-msg-bubble-out.wa-msg-bubble-single,
 .wa-msg-bubble-out.wa-msg-bubble-last { border-bottom-right-radius: 0.15rem; }
 
-.wa-msg-text { white-space: pre-wrap; }
+.wa-msg-text {
+    white-space: pre-wrap;
+    font-family: system-ui, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.wa-msg-media {
+    display: block;
+    max-width: min(280px, 100%);
+    border-radius: 0.35rem;
+    margin-bottom: 0.15rem;
+}
+
+.wa-msg-gif {
+    pointer-events: none;
+}
+
+.wa-msg-sticker {
+    max-width: 160px;
+    background: transparent;
+}
+
+.wa-msg-caption {
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.wa-msg-media-link {
+    color: #027eb5;
+    text-decoration: underline;
+    word-break: break-all;
+}
+
+.wa-audio-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 220px;
+}
+
+.wa-audio-label {
+    font-size: 0.72rem;
+    color: rgba(17, 27, 33, 0.55);
+}
+
+.wa-msg-audio {
+    width: 100%;
+    max-width: 280px;
+    height: 2rem;
+}
+
+.wa-audio-dur {
+    font-size: 0.65rem;
+    color: rgba(17, 27, 33, 0.45);
+}
+
+.wa-msg-media-pending small {
+    opacity: 0.65;
+}
 
 .wa-msg-meta {
     float: right;

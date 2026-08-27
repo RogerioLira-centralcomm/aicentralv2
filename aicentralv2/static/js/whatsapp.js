@@ -236,6 +236,63 @@
         return 'middle';
     }
 
+    function renderConteudoMsg(m) {
+        const url = m.media_url;
+        const type = m.media_type;
+        const caption = m.texto && !/^\[(GIF|Imagem|Vídeo|Áudio de voz|Áudio|Documento|Sticker|Mídia)\]$/.test(m.texto)
+            ? m.texto
+            : '';
+
+        if (url && type === 'gif') {
+            const isImageGif = /\.(gif|webp)(\?|$)/i.test(url);
+            if (isImageGif) {
+                const media = `<img class="wa-msg-media wa-msg-gif" src="${escapeHtml(url)}" alt="" loading="lazy">`;
+                return caption
+                    ? `${media}<span class="wa-msg-text wa-msg-caption">${escapeHtml(caption)}</span>`
+                    : media;
+            }
+            const attrs = 'class="wa-msg-media wa-msg-gif" autoplay loop muted playsinline';
+            const media = `<video ${attrs} src="${escapeHtml(url)}"></video>`;
+            return caption
+                ? `${media}<span class="wa-msg-text wa-msg-caption">${escapeHtml(caption)}</span>`
+                : media;
+        }
+        if (url && type === 'video') {
+            const media = `<video class="wa-msg-media" controls playsinline src="${escapeHtml(url)}"></video>`;
+            return caption
+                ? `${media}<span class="wa-msg-text wa-msg-caption">${escapeHtml(caption)}</span>`
+                : media;
+        }
+        if (url && type === 'image') {
+            const media = `<img class="wa-msg-media" src="${escapeHtml(url)}" alt="" loading="lazy">`;
+            return caption
+                ? `${media}<span class="wa-msg-text wa-msg-caption">${escapeHtml(caption)}</span>`
+                : media;
+        }
+        if (url && type === 'sticker') {
+            return `<img class="wa-msg-media wa-msg-sticker" src="${escapeHtml(url)}" alt="" loading="lazy">`;
+        }
+        if (url && type === 'audio') {
+            const dur = m.media_seconds ? `<span class="wa-audio-dur">${Math.round(Number(m.media_seconds))}s</span>` : '';
+            const label = m.media_ptt ? 'Áudio de voz' : 'Áudio';
+            return `
+                <div class="wa-audio-wrap">
+                    <span class="wa-audio-label">${escapeHtml(label)}</span>
+                    <audio class="wa-msg-audio" controls preload="metadata" src="${escapeHtml(url)}"></audio>
+                    ${dur}
+                </div>
+            `;
+        }
+        if (url && type === 'document') {
+            const label = escapeHtml(m.texto || '[Documento]');
+            return `<a class="wa-msg-media-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`;
+        }
+        if (type === 'audio' && !url) {
+            return `<span class="wa-msg-text wa-msg-media-pending">${escapeHtml(m.texto || '[Áudio]')} <small>(processando…)</small></span>`;
+        }
+        return `<span class="wa-msg-text">${escapeHtml(m.texto)}</span>`;
+    }
+
     function renderMensagens(mensagens) {
         const container = $('#wa-chat-mensagens');
         if (!container) return;
@@ -253,7 +310,7 @@
                 const meta = g.dir === 'out' ? metaStatusMsg(m) : '';
                 return `
                     <div class="wa-msg-bubble ${bubbleClass} wa-msg-bubble-${pos}">
-                        <span class="wa-msg-text">${escapeHtml(m.texto)}</span>
+                        ${renderConteudoMsg(m)}
                         <span class="wa-msg-meta">${hora}${meta}</span>
                     </div>
                 `;

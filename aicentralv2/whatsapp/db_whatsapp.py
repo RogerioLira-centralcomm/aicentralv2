@@ -417,3 +417,23 @@ def atualizar_mensagem_provider(
     except Exception:
         conn.rollback()
         raise
+
+
+def atualizar_mensagem_media_meta(mensagem_id, provider_payload):
+    """Persiste _media / _message_data após descriptografia tardia."""
+    if not mensagem_id or not isinstance(provider_payload, dict):
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE whatsapp_mensagens
+                SET provider_payload = %s::jsonb
+                WHERE id = %s RETURNING id
+            ''', (Json(provider_payload), mensagem_id))
+            updated = cursor.fetchone()
+        conn.commit()
+        return updated is not None
+    except Exception:
+        conn.rollback()
+        raise

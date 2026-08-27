@@ -510,12 +510,20 @@ def api_enviar_mensagem(conversa_id):
                 audio_url = _public_app_url(rel_path)
                 provider_meta = enviar_mensagem_audio(api_key, destino, audio_url)
                 texto_salvar = '[Áudio de voz]'
+                seconds = None
+                duration_raw = (request.form.get('duration') or '').strip()
+                if duration_raw:
+                    try:
+                        seconds = max(1, int(float(duration_raw.replace(',', '.'))))
+                    except ValueError:
+                        seconds = None
                 media_meta = {
                     'type': 'audio',
                     'ptt': True,
                     'local_url': rel_path,
                     'url': audio_url,
                     'mimetype': mimetype,
+                    'seconds': seconds,
                 }
                 provider_payload_extra = {'_media': media_meta, 'audioUrl': audio_url}
             else:

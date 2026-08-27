@@ -15,6 +15,8 @@
     let recordingStream = null;
     let recordingTimer = null;
     let recordingActive = false;
+    let recordingStartMs = 0;
+    let recordingMimeType = '';
 
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -172,17 +174,73 @@
         }
     }
 
+    function resetRecordingState() {
+        pararTimerGravacao();
+        liberarStreamGravacao();
+        mostrarUiGravacao(false);
+        audioChunks = [];
+        mediaRecorder = null;
+        recordingStartMs = 0;
+        recordingMimeType = '';
+    }
+
+    function duracaoGravacaoSegundos() {
+        if (!recordingStartMs) return 0;
+        return Math.max(1, Math.round((Date.now() - recordingStartMs) / 1000));
+    }
+
+    function stopRecorderAndWait(recorder) {
+        return new Promise((resolve) => {
+            if (!recorder || recorder.state === 'inactive') {
+                resolve();
+                return;
+            }
+            recorder.addEventListener('stop', () => resolve(), { once: true });
+            try {
+                if (recorder.state === 'recording') recorder.requestData();
+            } catch (_) { /* ignore */ }
+            try {
+                recorder.stop();
+            } catch (_) {
+                resolve();
+            }
+        });
+    }
+
+    async function finalizarGravacaoBlob(enviar) {
+        const recorder = mediaRecorder;
+        if (!recorder) return;
+
+        await stopRecorderAndWait(recorder);
+        await new Promise(r => setTimeout(r, 120));
+
+        const mime = recorder.mimeType || recordingMimeType || 'audio/webm';
+        const seconds = duracaoGravacaoSegundos();
+        const chunks = audioChunks.slice();
+        resetRecordingState();
+
+        if (!enviar || !chunks.length) return;
+
+        const blob = new Blob(chunks, { type: mime });
+        if (!blob.size) {
+            showToast('Gravação vazia. Tente novamente.', 'error');
+            return;
+        }
+        const ext = extensaoPorMime(mime);
+        const file = new File([blob], `gravacao.${ext}`, { type: mime });
+        await enviarAudio(file, seconds);
+    }
+
     function cancelarGravacao() {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            mostrarUiGravacao(false);
-            liberarStreamGravacao();
-            audioChunks = [];
-            mediaRecorder = null;
-            pararTimerGravacao();
+            resetRecordingState();
             return;
         }
         mediaRecorder._enviarAposStop = false;
-        mediaRecorder.stop();
+        void (async () => {
+            await stopRecorderAndWait(mediaRecorder);
+            resetRecordingState();
+        })();
     }
 
     async function iniciarGravacao() {
@@ -192,52 +250,36 @@
             return;
         }
         try {
-            recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = escolherMimeGravacao();
-            if (mimeType === null) {
+            recordingStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true },
+            });
+            recordingMimeType = escolherMimeGravacao();
+            if (recordingMimeType === null) {
                 showToast('Seu navegador não suporta gravação de áudio.', 'error');
                 liberarStreamGravacao();
                 return;
             }
-            const opts = mimeType ? { mimeType } : undefined;
+            const opts = recordingMimeType ? { mimeType: recordingMimeType } : undefined;
             mediaRecorder = new MediaRecorder(recordingStream, opts);
             audioChunks = [];
-            const inicio = Date.now();
+            recordingStartMs = Date.now();
 
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data && e.data.size > 0) audioChunks.push(e.data);
             };
-            mediaRecorder.onstop = () => {
-                pararTimerGravacao();
-                liberarStreamGravacao();
-                mostrarUiGravacao(false);
-                const enviar = mediaRecorder?._enviarAposStop;
-                const mime = mediaRecorder?.mimeType || mimeType || 'audio/webm';
-                mediaRecorder = null;
-                if (!enviar || !audioChunks.length) {
-                    audioChunks = [];
-                    return;
-                }
-                const blob = new Blob(audioChunks, { type: mime });
-                audioChunks = [];
-                const ext = extensaoPorMime(mime);
-                const file = new File([blob], `gravacao.${ext}`, { type: mime });
-                enviarAudio(file);
-            };
 
-            mediaRecorder.start();
+            mediaRecorder.start(500);
             mostrarUiGravacao(true);
-            iniciarTimerGravacao(inicio);
+            iniciarTimerGravacao(recordingStartMs);
         } catch (e) {
-            liberarStreamGravacao();
+            resetRecordingState();
             showToast('Permita o acesso ao microfone para gravar.', 'error');
         }
     }
 
     function encerrarGravacao(enviar) {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-        mediaRecorder._enviarAposStop = enviar;
-        mediaRecorder.stop();
+        void finalizarGravacaoBlob(enviar);
     }
 
     function toggleGravacao() {
@@ -524,12 +566,15 @@
         }).catch(() => {});
     }
 
-    async function enviarAudio(file) {
+    async function enviarAudio(file, durationSeconds) {
         if (!file || !conversaSelecionadaId) return;
         setComposeEnabled(false);
         try {
             const form = new FormData();
             form.append('audio', file);
+            if (durationSeconds) {
+                form.append('duration', String(durationSeconds));
+            }
             const data = await apiUpload(`/conversas/${conversaSelecionadaId}/mensagens`, form);
             renderMensagens(data.mensagens || []);
             await carregarConversas({ silent: true });

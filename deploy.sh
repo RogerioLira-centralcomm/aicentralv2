@@ -116,6 +116,13 @@ if sudo systemctl is-active --quiet aicentralv2; then
     echo "  > Servico ativo!"
 else
     echo "  > ERRO ao iniciar servico"
+    echo ""
+    echo "=== Ultimas linhas de logs/error.log ==="
+    tail -n 60 logs/error.log 2>/dev/null || echo "  (sem error.log)"
+    echo ""
+    echo "=== Teste manual de import ==="
+    venv/bin/python -c "from run import app; print('import OK')" 2>&1 || true
+    echo ""
     sudo journalctl -u aicentralv2 -n 30 --no-pager 2>&1 | cat
     exit 1
 fi

@@ -48,7 +48,32 @@
         return data;
     }
 
-    function showEmpty(container, text) {
+    async function apiUpload(path, formData) {
+        const res = await fetch(`${API}${path}`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+        });
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (_) {
+            data = {};
+        }
+        if (!res.ok || data.success === false) {
+            throw new Error(data.error || `Erro HTTP ${res.status}`);
+        }
+        return data;
+    }
+
+    function setComposeEnabled(enabled) {
+        const input = $('#wa-chat-input');
+        const enviar = $('#wa-chat-enviar');
+        const audioBtn = $('#wa-chat-audio');
+        if (input) input.disabled = !enabled;
+        if (enviar) enviar.disabled = !enabled;
+        if (audioBtn) audioBtn.disabled = !enabled;
+    }
         if (!container) return;
         container.innerHTML = `<div class="wa-empty-state">${escapeHtml(text)}</div>`;
     }
@@ -167,8 +192,8 @@
         if (!conversa) {
             card?.classList.add('hidden');
             empty?.classList.remove('hidden');
-            if (input) { input.disabled = true; input.value = ''; }
-            if (enviar) enviar.disabled = true;
+            if (input) input.value = '';
+            setComposeEnabled(false);
             return;
         }
         empty?.classList.add('hidden');
@@ -183,8 +208,7 @@
                 </div>
             `;
         }
-        if (input) input.disabled = false;
-        if (enviar) enviar.disabled = false;
+        setComposeEnabled(true);
     }
 
     function normalizarStatusProvider(s) {
@@ -350,6 +374,26 @@
         }).catch(() => {});
     }
 
+    async function enviarAudio(file) {
+        if (!file || !conversaSelecionadaId) return;
+        setComposeEnabled(false);
+        try {
+            const form = new FormData();
+            form.append('audio', file);
+            const data = await apiUpload(`/conversas/${conversaSelecionadaId}/mensagens`, form);
+            renderMensagens(data.mensagens || []);
+            await carregarConversas({ silent: true });
+        } catch (e) {
+            showToast(e.message || 'Erro ao enviar áudio.', 'error');
+            await carregarMensagens(conversaSelecionadaId, { silent: true });
+        } finally {
+            setComposeEnabled(true);
+            const fileInput = $('#wa-chat-audio-file');
+            if (fileInput) fileInput.value = '';
+            $('#wa-chat-input')?.focus();
+        }
+    }
+
     async function enviarMensagem() {
         const input = $('#wa-chat-input');
         if (!input || !conversaSelecionadaId) return;
@@ -415,6 +459,11 @@
         $$('[data-close-modal]').forEach(el => el.addEventListener('click', fecharModalNova));
 
         $('#wa-chat-enviar')?.addEventListener('click', enviarMensagem);
+        $('#wa-chat-audio')?.addEventListener('click', () => $('#wa-chat-audio-file')?.click());
+        $('#wa-chat-audio-file')?.addEventListener('change', e => {
+            const file = e.target.files && e.target.files[0];
+            if (file) enviarAudio(file);
+        });
         $('#wa-chat-input')?.addEventListener('keydown', e => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

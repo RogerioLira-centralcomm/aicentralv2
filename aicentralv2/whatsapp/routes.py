@@ -6,9 +6,11 @@ from ..services.wasender_service import (
     WasenderApiError,
     _desembrulhar_mensagem,
     detectar_midia_mensagem,
+    enviar_mensagem_audio,
     enviar_mensagem_texto,
     label_midia,
     processar_midia_inbound,
+    salvar_audio_outbound_upload,
 )
 from ..db import normalizar_telefone_whatsapp
 from . import bp
@@ -484,13 +486,24 @@ def api_listar_mensagens(conversa_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _public_app_url(path: str) -> str:
+    base = (current_app.config.get('BASE_URL') or '').rstrip('/')
+    if not base:
+        base = request.url_root.rstrip('/')
+    if not path.startswith('/'):
+        path = f'/{path}'
+    return f'{base}{path}'
+
+
 @bp.route('/api/conversas/<int:conversa_id>/mensagens', methods=['POST'])
 @login_required
 def api_enviar_mensagem(conversa_id):
-    data = request.get_json() or {}
-    texto = (data.get('texto') or '').strip()
-    if not texto:
-        return jsonify({'success': False, 'error': 'Mensagem obrigatória.'}), 400
+    audio_file = request.files.get('audio')
+    data = request.get_json(silent=True) or {}
+    texto = (data.get('texto') or request.form.get('texto') or '').strip()
+
+    if not texto and not audio_file:
+        return jsonify({'success': False, 'error': 'Mensagem ou áudio obrigatório.'}), 400
 
     api_key = (current_app.config.get('WASENDER_API_KEY') or '').strip()
     if not api_key:
@@ -505,19 +518,42 @@ def api_enviar_mensagem(conversa_id):
         if not destino:
             return jsonify({'success': False, 'error': 'Conversa sem telefone de destino.'}), 400
 
+        provider_payload_extra = None
+        media_meta = None
+
         try:
-            provider_meta = enviar_mensagem_texto(api_key, destino, texto)
+            if audio_file:
+                rel_path, mimetype = salvar_audio_outbound_upload(audio_file)
+                audio_url = _public_app_url(rel_path)
+                provider_meta = enviar_mensagem_audio(api_key, destino, audio_url)
+                texto_salvar = '[Áudio de voz]'
+                media_meta = {
+                    'type': 'audio',
+                    'ptt': True,
+                    'local_url': rel_path,
+                    'url': audio_url,
+                    'mimetype': mimetype,
+                }
+                provider_payload_extra = {'_media': media_meta, 'audioUrl': audio_url}
+            else:
+                provider_meta = enviar_mensagem_texto(api_key, destino, texto)
+                texto_salvar = texto
+
             provider_status = _normalizar_provider_status(provider_meta.get('provider_status')) or 'sent'
+            payload_salvar = dict(provider_meta.get('provider_payload') or {})
+            if provider_payload_extra:
+                payload_salvar.update(provider_payload_extra)
+
             msg_id = wa.criar_mensagem(
                 conversa_id,
-                texto,
+                texto_salvar,
                 direcao='outbound',
                 status='enviado',
                 created_by=session.get('user_id'),
                 provider=provider_meta.get('provider'),
                 provider_message_id=provider_meta.get('provider_message_id'),
                 provider_status=provider_status,
-                provider_payload=provider_meta.get('provider_payload'),
+                provider_payload=payload_salvar,
             )
             if not provider_meta.get('provider_message_id'):
                 current_app.logger.warning(
@@ -525,9 +561,10 @@ def api_enviar_mensagem(conversa_id):
                     conversa_id,
                 )
         except WasenderApiError as exc:
+            texto_erro = texto or '[Áudio de voz]'
             msg_id = wa.criar_mensagem(
                 conversa_id,
-                texto,
+                texto_erro,
                 direcao='outbound',
                 status='erro',
                 created_by=session.get('user_id'),

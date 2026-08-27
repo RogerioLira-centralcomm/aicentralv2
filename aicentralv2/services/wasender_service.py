@@ -325,6 +325,37 @@ def enviar_mensagem_texto(api_key: str, telefone_destino: str, texto: str, timeo
     if not texto:
         raise WasenderApiError('Texto da mensagem obrigatório.')
 
+    return _enviar_mensagem_wasender(
+        api_key,
+        telefone_destino,
+        {'text': texto},
+        timeout=timeout,
+    )
+
+
+def enviar_mensagem_audio(api_key: str, telefone_destino: str, audio_url: str, timeout: int = 60) -> Dict[str, Any]:
+    """Envia nota de voz/áudio via URL pública (WasenderAPI audioUrl)."""
+    if not api_key:
+        raise WasenderApiError('API key da WasenderAPI não configurada.')
+    if not telefone_destino:
+        raise WasenderApiError('Telefone de destino obrigatório.')
+    if not audio_url:
+        raise WasenderApiError('URL do áudio obrigatória.')
+
+    return _enviar_mensagem_wasender(
+        api_key,
+        telefone_destino,
+        {'audioUrl': audio_url},
+        timeout=timeout,
+    )
+
+
+def _enviar_mensagem_wasender(
+    api_key: str,
+    telefone_destino: str,
+    payload_extra: Dict[str, Any],
+    timeout: int = 20,
+) -> Dict[str, Any]:
     try:
         resp = requests.post(
             f'{_base_url()}/send-message',
@@ -332,7 +363,7 @@ def enviar_mensagem_texto(api_key: str, telefone_destino: str, texto: str, timeo
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json',
             },
-            json={'to': telefone_destino, 'text': texto},
+            json={'to': telefone_destino, **payload_extra},
             timeout=timeout,
         )
     except requests.RequestException as exc:
@@ -353,3 +384,35 @@ def enviar_mensagem_texto(api_key: str, telefone_destino: str, texto: str, timeo
         'provider_status': _normalize_status(_extract_status(payload)),
         'provider_payload': payload,
     }
+
+
+def salvar_audio_outbound_upload(file_storage, outbound_id: Optional[str] = None) -> Tuple[str, str]:
+    """Salva upload de áudio outbound; retorna (caminho_relativo, mimetype)."""
+    if not file_storage or not getattr(file_storage, 'filename', None):
+        raise WasenderApiError('Arquivo de áudio obrigatório.')
+
+    filename = file_storage.filename or 'audio'
+    ext = Path(filename).suffix.lower().lstrip('.')
+    allowed = {'ogg', 'opus', 'mp3', 'aac', 'm4a', 'amr', 'wav', 'webm', 'mp4'}
+    if ext not in allowed:
+        raise WasenderApiError('Formato não suportado. Use OGG, MP3, M4A, AAC ou AMR.')
+
+    mime_map = {
+        'ogg': 'audio/ogg',
+        'opus': 'audio/ogg',
+        'mp3': 'audio/mpeg',
+        'aac': 'audio/aac',
+        'm4a': 'audio/mp4',
+        'amr': 'audio/amr',
+        'wav': 'audio/wav',
+        'webm': 'audio/webm',
+        'mp4': 'audio/mp4',
+    }
+    mimetype = mime_map.get(ext, 'audio/ogg')
+    safe_id = re.sub(r'[^a-zA-Z0-9._-]+', '_', outbound_id or os.urandom(8).hex())
+    dest_dir = _whatsapp_media_dir() / 'outbound'
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / f'{safe_id}.{ext}'
+    file_storage.save(dest_path)
+    rel = f'/static/media/whatsapp/outbound/{safe_id}.{ext}'
+    return rel, mimetype

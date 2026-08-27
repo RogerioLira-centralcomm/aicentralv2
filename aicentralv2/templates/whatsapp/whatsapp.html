@@ -52,6 +52,10 @@
                     <div class="wa-empty-state">Selecione uma conversa para ver as mensagens.</div>
                 </div>
                 <div class="wa-chat-compose">
+                    <input type="file" id="wa-chat-audio-file" class="wa-hidden-input" accept="audio/*,.ogg,.mp3,.m4a,.aac,.amr,.wav,.webm" hidden>
+                    <button type="button" id="wa-chat-audio" class="wa-icon-btn" title="Enviar áudio" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.71V21h2v-3.29A7 7 0 0 0 19 11h-2z"/></svg>
+                    </button>
                     <input type="text" id="wa-chat-input" class="wa-message-input" placeholder="Digite uma mensagem..." disabled>
                     <button type="button" id="wa-chat-enviar" class="wa-send-btn" title="Enviar" disabled>
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 23 12 2 3v7l15 2-15 2v7z"/></svg>
@@ -79,5 +83,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=9"></script>
 {% endblock %}

@@ -81,8 +81,10 @@ cleanup_pip_orphans "$VENV_PIP"
 echo "  > OK"
 
 # 4. Criar diretorios
-mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes logs
-chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes logs
+mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
+    aicentralv2/static/media/whatsapp/outbound logs
+chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
+    aicentralv2/static/media/whatsapp aicentralv2/static/media/whatsapp/outbound logs
 
 # 5. Limpar cache Python
 echo ""

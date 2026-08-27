@@ -80,11 +80,18 @@ $VENV_PIP install -r requirements.txt --upgrade --quiet 2>&1
 cleanup_pip_orphans "$VENV_PIP"
 echo "  > OK"
 
-# 4. Criar diretorios
+# 4. Criar diretorios e dependencias do sistema
 mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
     aicentralv2/static/media/whatsapp/outbound logs
 chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
     aicentralv2/static/media/whatsapp aicentralv2/static/media/whatsapp/outbound logs
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+    echo ""
+    echo "  > ffmpeg nao encontrado — instalando (necessario para audio WhatsApp)..."
+    sudo apt-get update -qq && sudo apt-get install -y ffmpeg >/dev/null 2>&1 || \
+        echo "  > AVISO: instale ffmpeg manualmente (sudo apt install ffmpeg)"
+fi
 
 # 5. Limpar cache Python
 echo ""

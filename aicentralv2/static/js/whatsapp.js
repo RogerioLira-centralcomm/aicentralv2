@@ -197,14 +197,48 @@
                 resolve();
                 return;
             }
-            recorder.addEventListener('stop', () => resolve(), { once: true });
+            let settled = false;
+            let lastChunkAt = Date.now();
+
+            const onData = (e) => {
+                if (e.data && e.data.size > 0) {
+                    lastChunkAt = Date.now();
+                }
+            };
+            recorder.addEventListener('dataavailable', onData);
+
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                recorder.removeEventListener('dataavailable', onData);
+                resolve();
+            };
+
+            const waitFlush = () => {
+                const quietMs = Date.now() - lastChunkAt;
+                if (quietMs >= 350) {
+                    finish();
+                } else {
+                    setTimeout(waitFlush, 80);
+                }
+            };
+
+            recorder.addEventListener('stop', () => {
+                setTimeout(waitFlush, 150);
+            }, { once: true });
+
             try {
                 if (recorder.state === 'recording') recorder.requestData();
             } catch (_) { /* ignore */ }
+            setTimeout(() => {
+                try {
+                    if (recorder.state === 'recording') recorder.requestData();
+                } catch (_) { /* ignore */ }
+            }, 40);
             try {
                 recorder.stop();
             } catch (_) {
-                resolve();
+                finish();
             }
         });
     }
@@ -214,7 +248,7 @@
         if (!recorder) return;
 
         await stopRecorderAndWait(recorder);
-        await new Promise(r => setTimeout(r, 120));
+        await new Promise(r => setTimeout(r, 200));
 
         const mime = recorder.mimeType || recordingMimeType || 'audio/webm';
         const seconds = duracaoGravacaoSegundos();
@@ -270,7 +304,7 @@
                 if (e.data && e.data.size > 0) audioChunks.push(e.data);
             };
 
-            mediaRecorder.start(500);
+            mediaRecorder.start(250);
             mostrarUiGravacao(true);
             iniciarTimerGravacao(recordingStartMs);
         } catch (e) {

@@ -2,6 +2,8 @@ import base64
 import logging
 import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -210,7 +212,86 @@ def decryptar_midia_mensagem(api_key: str, message_data: Dict[str, Any], timeout
     return str(public_url).strip() if public_url else None
 
 
-def salvar_midia_local(public_url: str, file_id: str, mimetype: Optional[str], media_type: Optional[str]) -> Optional[str]:
+def _file_length_bytes(media_info: Optional[Dict[str, Any]]) -> Optional[int]:
+    if not isinstance(media_info, dict):
+        return None
+    fl = media_info.get('fileLength')
+    if isinstance(fl, int):
+        return max(0, fl)
+    if isinstance(fl, dict):
+        low = fl.get('low')
+        if low is None:
+            return None
+        high = fl.get('high') or 0
+        try:
+            return max(0, int(low) + (int(high) << 32))
+        except (TypeError, ValueError):
+            return max(0, int(low))
+    return None
+
+
+def _ffmpeg_disponivel() -> bool:
+    return shutil.which('ffmpeg') is not None
+
+
+def converter_audio_para_ogg(src: Path) -> Optional[Path]:
+    """Converte áudio gravado no browser (WebM etc.) para OGG/Opus aceito pelo WhatsApp."""
+    if not src.exists() or src.stat().st_size < 256:
+        return None
+    if src.suffix.lower() == '.ogg' and src.stat().st_size >= 256:
+        return src
+    if not _ffmpeg_disponivel():
+        logger.warning('ffmpeg indisponível; mantendo áudio em %s', src.suffix)
+        return None
+    dest = src.with_suffix('.ogg')
+    try:
+        proc = subprocess.run(
+            [
+                'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error',
+                '-i', str(src),
+                '-ac', '1', '-c:a', 'libopus', '-b:a', '48k',
+                '-application', 'voip',
+                str(dest),
+            ],
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+        if proc.returncode != 0 or not dest.exists() or dest.stat().st_size < 256:
+            err = (proc.stderr or b'').decode(errors='replace')[:400]
+            logger.warning('ffmpeg conversão falhou (%s): %s', src.name, err)
+            if dest.exists():
+                dest.unlink(missing_ok=True)
+            return None
+        return dest
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning('ffmpeg erro ao converter %s: %s', src.name, exc)
+        return None
+
+
+def _baixar_bytes_url(url: str, timeout: int = 90) -> Optional[bytes]:
+    try:
+        with requests.get(url, stream=True, timeout=timeout) as resp:
+            resp.raise_for_status()
+            chunks = []
+            for part in resp.iter_content(chunk_size=65536):
+                if part:
+                    chunks.append(part)
+            if not chunks:
+                return None
+            return b''.join(chunks)
+    except requests.RequestException as exc:
+        logger.warning('Download mídia falhou: %s', exc)
+        return None
+
+
+def salvar_midia_local(
+    public_url: str,
+    file_id: str,
+    mimetype: Optional[str],
+    media_type: Optional[str],
+    expected_bytes: Optional[int] = None,
+) -> Optional[str]:
     """Baixa mídia descriptografada e salva em static/media/whatsapp/."""
     if not public_url or not file_id:
         return None
@@ -219,12 +300,28 @@ def salvar_midia_local(public_url: str, file_id: str, mimetype: Optional[str], m
     dest_dir = _whatsapp_media_dir()
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_path = dest_dir / f'{safe_id}.{ext}'
-    try:
-        resp = requests.get(public_url, timeout=60)
-        resp.raise_for_status()
-        dest_path.write_bytes(resp.content)
-    except requests.RequestException:
+
+    min_expected = None
+    if expected_bytes and expected_bytes > 0:
+        min_expected = max(256, int(expected_bytes * 0.85))
+
+    data = None
+    for attempt in range(3):
+        data = _baixar_bytes_url(public_url)
+        if not data:
+            continue
+        if min_expected and len(data) < min_expected:
+            logger.warning(
+                'Download mídia incompleto: id=%s bytes=%s esperado>=%s tentativa=%s',
+                safe_id, len(data), min_expected, attempt + 1,
+            )
+            data = None
+            continue
+        break
+    if not data:
         return None
+
+    dest_path.write_bytes(data)
     return f'/static/media/whatsapp/{safe_id}.{ext}'
 
 
@@ -243,6 +340,7 @@ def processar_midia_inbound(api_key: str, message_data: Dict[str, Any]) -> Optio
             msg_id,
             media_info.get('mimetype'),
             media_type,
+            expected_bytes=_file_length_bytes(media_info),
         )
     return {
         'type': media_type,
@@ -414,5 +512,15 @@ def salvar_audio_outbound_upload(file_storage, outbound_id: Optional[str] = None
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_path = dest_dir / f'{safe_id}.{ext}'
     file_storage.save(dest_path)
-    rel = f'/static/media/whatsapp/outbound/{safe_id}.{ext}'
+
+    if ext in ('webm', 'mp4', 'wav', 'm4a', 'aac'):
+        converted = converter_audio_para_ogg(dest_path)
+        if converted:
+            if converted != dest_path and dest_path.exists():
+                dest_path.unlink(missing_ok=True)
+            dest_path = converted
+            ext = 'ogg'
+            mimetype = 'audio/ogg'
+
+    rel = f'/static/media/whatsapp/outbound/{dest_path.name}'
     return rel, mimetype

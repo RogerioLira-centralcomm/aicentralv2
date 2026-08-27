@@ -1,4 +1,7 @@
 """Rotas da página WhatsApp Comercial (WasenderAPI)."""
+from pathlib import Path
+from typing import Optional
+
 from flask import render_template, request, jsonify, session, current_app
 
 from ..auth import login_required
@@ -62,12 +65,32 @@ def _reconstruir_message_data(payload):
     return None
 
 
+def _caminho_static_relativo(rel_path: str) -> Optional[Path]:
+    if not rel_path or not str(rel_path).startswith('/static/'):
+        return None
+    rel = str(rel_path).lstrip('/')
+    if rel.startswith('static/'):
+        rel = rel[len('static/'):]
+    static_root = current_app.static_folder or 'static'
+    return Path(static_root) / rel
+
+
+def _arquivo_midia_valido(rel_path: str, min_bytes: int = 256) -> bool:
+    path = _caminho_static_relativo(rel_path)
+    if not path or not path.is_file():
+        return False
+    try:
+        return path.stat().st_size >= min_bytes
+    except OSError:
+        return False
+
+
 def _url_midia_utilizavel(media):
     """Só URLs locais/permanentes — URLs temporárias da Wasender expiram."""
     if not isinstance(media, dict):
         return None
     local = media.get('local_url')
-    if local:
+    if local and _arquivo_midia_valido(local):
         return local
     url = (media.get('url') or '').strip()
     if not url:
@@ -619,6 +642,10 @@ def api_enviar_mensagem(conversa_id):
         try:
             if audio_file:
                 rel_path, mimetype = salvar_audio_outbound_upload(audio_file)
+                if mimetype == 'audio/webm':
+                    current_app.logger.warning(
+                        'Áudio outbound permanece WebM (instale ffmpeg no servidor para converter para OGG).'
+                    )
                 audio_url = _public_app_url(rel_path)
                 provider_meta = enviar_mensagem_audio(api_key, destino, audio_url)
                 texto_salvar = '[Áudio de voz]'

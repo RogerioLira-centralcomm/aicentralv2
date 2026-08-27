@@ -557,10 +557,19 @@ def _public_app_url(path: str) -> str:
 
 
 def _reparar_midia_mensagem(mensagem_id, conversa_id):
-    """Descriptografa e persiste mídia ausente (mensagens afetadas por webhook de status)."""
+    """Descriptografa e persiste mídia ausente (somente inbound)."""
     msg = wa.obter_mensagem(mensagem_id, conversa_id)
     if not msg:
         return None, 'Mensagem não encontrada.'
+    if msg.get('direcao') == 'outbound':
+        payload = msg.get('provider_payload') or {}
+        media = payload.get('_media') if isinstance(payload, dict) else None
+        if isinstance(media, dict) and _url_midia_utilizavel(media):
+            row = dict(msg)
+            _enriquecer_midia_mensagem(row)
+            return row, None
+        return None, 'Áudio enviado indisponível no servidor (arquivo outbound não encontrado).'
+
     payload = msg.get('provider_payload') or {}
     if not isinstance(payload, dict):
         payload = {}

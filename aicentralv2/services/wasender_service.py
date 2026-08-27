@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -269,17 +270,28 @@ def converter_audio_para_ogg(src: Path) -> Optional[Path]:
         return None
 
 
-def _baixar_bytes_url(url: str, timeout: int = 90) -> Optional[bytes]:
+def _baixar_bytes_url(url: str, timeout: int = 90, min_bytes: Optional[int] = None) -> Optional[bytes]:
     try:
         with requests.get(url, stream=True, timeout=timeout) as resp:
             resp.raise_for_status()
-            chunks = []
-            for part in resp.iter_content(chunk_size=65536):
-                if part:
-                    chunks.append(part)
-            if not chunks:
+            data = resp.content
+            if not data:
                 return None
-            return b''.join(chunks)
+            header_len = resp.headers.get('Content-Length')
+            if header_len:
+                try:
+                    expected = int(header_len)
+                    if len(data) < expected:
+                        logger.warning(
+                            'Download curto vs Content-Length: got=%s expected=%s',
+                            len(data), expected,
+                        )
+                        return None
+                except ValueError:
+                    pass
+            if min_bytes and len(data) < min_bytes:
+                return None
+            return data
     except requests.RequestException as exc:
         logger.warning('Download mídia falhou: %s', exc)
         return None
@@ -303,11 +315,13 @@ def salvar_midia_local(
 
     min_expected = None
     if expected_bytes and expected_bytes > 0:
-        min_expected = max(256, int(expected_bytes * 0.85))
+        min_expected = max(256, int(expected_bytes * 0.5))
 
     data = None
     for attempt in range(3):
-        data = _baixar_bytes_url(public_url)
+        if attempt > 0:
+            time.sleep(2)
+        data = _baixar_bytes_url(public_url, min_bytes=min_expected)
         if not data:
             continue
         if min_expected and len(data) < min_expected:
@@ -335,6 +349,7 @@ def processar_midia_inbound(api_key: str, message_data: Dict[str, Any]) -> Optio
     public_url = decryptar_midia_mensagem(api_key, message_data)
     local_url = None
     if public_url and msg_id:
+        time.sleep(1.5)
         local_url = salvar_midia_local(
             public_url,
             msg_id,
@@ -521,6 +536,10 @@ def salvar_audio_outbound_upload(file_storage, outbound_id: Optional[str] = None
             dest_path = converted
             ext = 'ogg'
             mimetype = 'audio/ogg'
+        elif ext == 'webm':
+            raise WasenderApiError(
+                'Áudio gravado não pôde ser convertido. Instale ffmpeg no servidor (sudo apt install ffmpeg).'
+            )
 
     rel = f'/static/media/whatsapp/outbound/{dest_path.name}'
     return rel, mimetype

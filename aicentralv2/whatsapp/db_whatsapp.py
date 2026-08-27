@@ -367,12 +367,29 @@ def _aplicar_status_update(provider_message_id, provider_status, provider_payloa
     return False
 
 
+def _preservar_midia_outbound(existing, incoming):
+    """Não substitui upload outbound por arquivo re-descriptografado (pode vir truncado)."""
+    if not isinstance(existing, dict) or not isinstance(incoming, dict):
+        return incoming
+    ex_local = str(existing.get('local_url') or '')
+    in_local = str(incoming.get('local_url') or '')
+    if '/outbound/' in ex_local and '/outbound/' not in in_local:
+        merged = dict(incoming)
+        merged['local_url'] = existing.get('local_url')
+        for key in ('mimetype', 'url', 'seconds'):
+            if existing.get(key) is not None:
+                merged[key] = existing[key]
+        return merged
+    return incoming
+
+
 def _merge_provider_payload(existing, incoming):
     """Preserva metadados de mídia ao receber webhooks de status."""
     existing = existing if isinstance(existing, dict) else {}
     incoming = incoming if isinstance(incoming, dict) else {}
     if not incoming:
         return existing or None
+    incoming = _preservar_midia_outbound(existing, incoming)
     merged = dict(incoming)
     for key in ('_media', '_message_data', 'audioUrl', 'error'):
         if merged.get(key) is not None:

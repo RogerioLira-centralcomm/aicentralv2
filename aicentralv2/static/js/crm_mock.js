@@ -2,12 +2,27 @@
     'use strict';
 
     /* ===== SELEÇÃO DE CLIENTE ===== */
+    function selectCliente(card) {
+        document.querySelectorAll('.crm-mock-cliente').forEach(function (c) {
+            c.classList.remove('crm-mock-cliente-ativo');
+            c.setAttribute('aria-current', 'false');
+        });
+        card.classList.add('crm-mock-cliente-ativo');
+        card.setAttribute('aria-current', 'true');
+    }
+
     document.querySelectorAll('.crm-mock-cliente').forEach(function (card) {
+        card.setAttribute('aria-current', card.classList.contains('crm-mock-cliente-ativo') ? 'true' : 'false');
+
         card.addEventListener('click', function () {
-            document.querySelectorAll('.crm-mock-cliente').forEach(function (c) {
-                c.classList.remove('crm-mock-cliente-ativo');
-            });
-            card.classList.add('crm-mock-cliente-ativo');
+            selectCliente(card);
+        });
+
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectCliente(card);
+            }
         });
     });
 
@@ -16,8 +31,10 @@
         pill.addEventListener('click', function () {
             document.querySelectorAll('.crm-mock-pill').forEach(function (p) {
                 p.classList.remove('crm-mock-pill-active');
+                p.setAttribute('aria-pressed', 'false');
             });
             pill.classList.add('crm-mock-pill-active');
+            pill.setAttribute('aria-pressed', 'true');
 
             var filtro = pill.getAttribute('data-filter');
             document.querySelectorAll('.crm-mock-cliente').forEach(function (card) {
@@ -29,13 +46,13 @@
                 }
             });
 
-            // Atualizar contador
             var visibles = document.querySelectorAll('.crm-mock-cliente:not(.hidden-by-filter)').length;
             var countEl = document.querySelector('.crm-mock-count');
             if (countEl) {
                 countEl.textContent = visibles;
             }
         });
+        pill.setAttribute('aria-pressed', pill.classList.contains('crm-mock-pill-active') ? 'true' : 'false');
     });
 
     /* ===== ABAS GENÉRICAS ===== */
@@ -43,26 +60,52 @@
         var tabContainer = document.querySelector('[data-tab-group="' + groupName + '"]');
         if (!tabContainer) return;
 
-        tabContainer.querySelectorAll('.crm-mock-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                var target = tab.getAttribute('data-tab');
+        var tabs = tabContainer.querySelectorAll('.crm-mock-tab');
 
-                // Atualizar tabs ativas
-                tabContainer.querySelectorAll('.crm-mock-tab').forEach(function (t) {
-                    t.classList.remove('crm-mock-tab-active');
-                });
-                tab.classList.add('crm-mock-tab-active');
+        function activateTab(tab) {
+            var target = tab.getAttribute('data-tab');
 
-                // Atualizar painéis
-                document.querySelectorAll('[data-panel-group="' + groupName + '"]').forEach(function (panel) {
-                    var isTarget = panel.getAttribute('data-panel') === target;
-                    panel.classList.toggle('crm-mock-tab-panel-active', isTarget);
-                });
+            tabs.forEach(function (t) {
+                t.classList.remove('crm-mock-tab-active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            tab.classList.add('crm-mock-tab-active');
+            tab.setAttribute('aria-selected', 'true');
 
-                // Se for aba de atividades, filtrar a lista
-                if (groupName === 'atividades') {
-                    filterAtividades(target);
+            document.querySelectorAll('[data-panel-group="' + groupName + '"]').forEach(function (panel) {
+                var isTarget = panel.getAttribute('data-panel') === target;
+                panel.classList.toggle('crm-mock-tab-panel-active', isTarget);
+                if (panel.hasAttribute('hidden')) {
+                    panel.hidden = !isTarget;
                 }
+            });
+
+            if (groupName === 'atividades') {
+                filterAtividades(target);
+            }
+        }
+
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener('click', function () {
+                activateTab(tab);
+            });
+
+            tab.addEventListener('keydown', function (e) {
+                var nextIndex = index;
+                if (e.key === 'ArrowRight') {
+                    nextIndex = (index + 1) % tabs.length;
+                } else if (e.key === 'ArrowLeft') {
+                    nextIndex = (index - 1 + tabs.length) % tabs.length;
+                } else if (e.key === 'Home') {
+                    nextIndex = 0;
+                } else if (e.key === 'End') {
+                    nextIndex = tabs.length - 1;
+                } else {
+                    return;
+                }
+                e.preventDefault();
+                tabs[nextIndex].focus();
+                activateTab(tabs[nextIndex]);
             });
         });
     }
@@ -85,7 +128,6 @@
             item.classList.toggle('hidden-by-tab', !show);
         });
 
-        // Esconder grupos de data vazios
         document.querySelectorAll('.crm-mock-date-group').forEach(function (group) {
             var visibleItems = group.querySelectorAll('.crm-mock-ativ:not(.hidden-by-tab)').length;
             group.style.display = visibleItems > 0 ? '' : 'none';
@@ -114,7 +156,6 @@
                 card.classList.toggle('hidden-by-filter', shouldHide);
             });
 
-            // Atualizar contador
             var visibles = document.querySelectorAll('.crm-mock-cliente:not(.hidden-by-filter)').length;
             var countEl = document.querySelector('.crm-mock-count');
             if (countEl) {
@@ -128,61 +169,26 @@
     var sidebar = document.getElementById('crm-mock-sidebar');
     if (closeBtn && sidebar) {
         closeBtn.addEventListener('click', function () {
-            sidebar.style.display = sidebar.style.display === 'none' ? '' : 'none';
+            sidebar.classList.toggle('is-hidden');
         });
     }
 
     /* ===== FAVORITAR CLIENTE ===== */
     document.querySelectorAll('.crm-mock-star').forEach(function (star) {
         star.addEventListener('click', function () {
-            star.classList.toggle('active');
-        });
-    });
-
-    /* ===== HOVER NOS BOTÕES DE AÇÃO RÁPIDA ===== */
-    document.querySelectorAll('.crm-mock-quick-btn').forEach(function (btn) {
-        btn.addEventListener('mouseenter', function () {
-            btn.style.transform = 'translateY(-2px)';
-        });
-        btn.addEventListener('mouseleave', function () {
-            btn.style.transform = '';
+            var isActive = star.classList.toggle('active');
+            star.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            star.setAttribute('aria-label', isActive ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
         });
     });
 
     /* ===== SELECTS DO HEADER ===== */
     document.querySelectorAll('.crm-mock-select').forEach(function (select) {
         select.addEventListener('change', function () {
-            // Simular ação visual
-            select.style.borderColor = '#22c55e';
+            select.style.borderColor = '#1E4D4F';
             setTimeout(function () {
                 select.style.borderColor = '';
             }, 300);
-        });
-    });
-
-    /* ===== EFEITO NOS CARDS DE CLIENTE ===== */
-    document.querySelectorAll('.crm-mock-cliente').forEach(function (card) {
-        card.addEventListener('mouseenter', function () {
-            if (!card.classList.contains('crm-mock-cliente-ativo')) {
-                card.style.transform = 'translateX(2px)';
-            }
-        });
-        card.addEventListener('mouseleave', function () {
-            card.style.transform = '';
-        });
-    });
-
-    /* ===== BOTÕES DE AÇÃO NAS ATIVIDADES ===== */
-    document.querySelectorAll('.crm-mock-ativ-actions').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            // Simular feedback visual
-            btn.style.background = '#dcfce7';
-            btn.style.color = '#166534';
-            setTimeout(function () {
-                btn.style.background = '';
-                btn.style.color = '';
-            }, 200);
         });
     });
 

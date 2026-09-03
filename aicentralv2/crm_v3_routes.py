@@ -5,7 +5,7 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 `@login_required_api` (retornam 401 JSON) para permitir chamadas fetch.
 """
 
-from flask import Blueprint, jsonify, render_template, request, session
+from flask import Blueprint, jsonify, render_template, request, session, url_for
 
 from .auth import login_required, login_required_api
 from .crm_v3_helpers import parse_texto_contatos
@@ -257,11 +257,34 @@ def api_cotacoes(cliente_id):
 @bp.route("/api/clientes/<cliente_id>/cotacoes", methods=["POST"])
 @login_required_api
 def api_create_cotacao(cliente_id):
+    """Cria o cabeçalho da cotação (Caminho A).
+
+    Após criar, devolvemos `redirect_url` apontando para a tela dedicada
+    de montagem (`/cotacoes/<id>/detalhes`), onde o usuário completa
+    audiência, produtos, valores e comissões. O CRM v3 usa esse campo
+    para abrir a próxima etapa em nova aba quando o usuário escolhe
+    "Salvar e montar cotação".
+    """
     try:
         cotacao = store.create_cotacao(cliente_id, request.get_json(silent=True) or {})
         if cotacao is None:
             return _err("Cliente não encontrado", 404)
-        return _ok(cotacao, cotacao=cotacao), 201
+        redirect_url = None
+        cot_id = cotacao.get("id") if isinstance(cotacao, dict) else None
+        if cot_id:
+            try:
+                # Rota do módulo legado — mantém a URL estável independente
+                # de refactors internos do CRM v3.
+                redirect_url = url_for(
+                    "cotacoes.cotacao_detalhes", cotacao_id=cot_id
+                )
+            except Exception:  # noqa: BLE001 — rota ausente em testes/dev sem blueprint
+                redirect_url = f"/cotacoes/{cot_id}/detalhes"
+            cotacao["detalhes_url"] = redirect_url
+        payload = {"cotacao": cotacao}
+        if redirect_url:
+            payload["redirect_url"] = redirect_url
+        return _ok(cotacao, **payload), 201
     except ValueError as e:
         return _err(str(e))
 

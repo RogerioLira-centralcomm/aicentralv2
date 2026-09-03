@@ -771,6 +771,50 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   font-weight: 500;
   font-style: italic;
 }
+/* Subtítulo/explicação abaixo do title (usado no drawer de nova cotação
+   para orientar o usuário que só o cabeçalho é criado aqui). */
+.cx-drawer-section-subtitle {
+  font-size: 12.5px;
+  color: var(--cx-text-muted, var(--cx-text-subtle));
+  line-height: 1.45;
+  margin: -6px 0 12px;
+}
+
+/* Bloco de aviso destacado (call-to-action visual) — usado no drawer
+   de nova cotação para reforçar o próximo passo (tela de montagem). */
+.cx-drawer-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--cx-brand-soft, rgba(37, 99, 235, 0.08));
+  border: 1px solid var(--cx-brand-border, rgba(37, 99, 235, 0.22));
+  color: var(--cx-text, inherit);
+}
+.cx-drawer-note-icon {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--cx-brand, #2563eb);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.cx-drawer-note-body {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cx-text-muted, var(--cx-text-subtle));
+}
+.cx-drawer-note-body strong {
+  display: block;
+  color: var(--cx-text, inherit);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
 
 .cx-drawer-grid {
   display: grid;

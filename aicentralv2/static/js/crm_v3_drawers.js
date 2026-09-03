@@ -446,89 +446,112 @@
     }
 
     /* -----------------------------------------------------------
-       Drawer: Cotação
+       Drawer: Cotação — Caminho A
+       -----------------------------------------------------------
+       Só os campos essenciais do cabeçalho (mesma Seção 1 do form
+       /cotacoes/nova). Após criar, redireciona para /cotacoes/<id>/detalhes
+       para o usuário completar audiência/produtos/preço/comissões.
+
+       Ações:
+       - "Salvar rascunho": cria e permanece no CRM v3.
+       - "Salvar e montar cotação": cria e navega para a tela dedicada.
        ----------------------------------------------------------- */
+
+    function populateResponsaveis(select, cotacao) {
+        if (!select) return;
+        var ctx = window.CRM_V3_CONTEXT || {};
+        var lista = Array.isArray(ctx.executivos) ? ctx.executivos : [];
+        // Mantém o placeholder que já veio do template.
+        var selectedId = cotacao && (cotacao.responsavel_comercial || cotacao.responsavel_id);
+        // Se não veio da cotação (nova), usa o usuário logado.
+        if (!selectedId && ctx.userId) selectedId = ctx.userId;
+        lista.forEach(function (ex) {
+            var opt = document.createElement('option');
+            opt.value = String(ex.id_contato_cliente || ex.id || '');
+            opt.textContent = ex.nome_completo || ex.nome || opt.value;
+            if (selectedId && String(selectedId) === opt.value) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    function submitCotacaoCaminhoA(form, cotacao, clienteId, drawerId, abrirMontagem) {
+        var payload = serializeForm(form);
+        // Sanidade mínima do lado do cliente. O server valida definitivamente.
+        var nome = (payload.nome_campanha || '').trim();
+        if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
+        if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
+
+        var isEdit = !!(cotacao && cotacao.id);
+        var req = isEdit
+            ? apiFetch('/cotacoes/' + encodeURIComponent(cotacao.id), { method: 'PATCH', body: payload })
+            : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/cotacoes', { method: 'POST', body: payload });
+
+        req.then(function (resp) {
+            toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
+            cxDrawer.close(drawerId);
+            if (window.crmV3 && typeof window.crmV3.reloadCotacoes === 'function') {
+                window.crmV3.reloadCotacoes();
+            }
+            if (abrirMontagem) {
+                // Preferência: URL vinda do backend (mais seguro se a rota mudar).
+                // Fallback: /cotacoes/<id>/detalhes (padrão do módulo legado).
+                var url = (resp && resp.redirect_url)
+                    || (resp && resp.cotacao && resp.cotacao.detalhes_url)
+                    || null;
+                if (!url) {
+                    var novoId = (resp && resp.cotacao && resp.cotacao.id) || (cotacao && cotacao.id);
+                    if (novoId) url = '/cotacoes/' + encodeURIComponent(novoId) + '/detalhes';
+                }
+                if (url) {
+                    // Nova aba: o usuário mantém contexto no CRM v3 e volta
+                    // com um "Ctrl+W" após montar. Comportamento amigável a
+                    // multi-tarefa comercial.
+                    window.open(url, '_blank', 'noopener');
+                }
+            }
+        }).catch(function (err) { toast(err.message, true); });
+    }
 
     function openDrawerCotacao(cotacao, clienteId) {
         var frag = cloneTpl('cx-drawer-cotacao-tpl');
-        if (!frag) return;
+        if (!frag) { toast('Template do drawer não encontrado', true); return; }
         var wrapper = document.createElement('div');
         wrapper.appendChild(frag);
         var form = wrapper.querySelector('form');
+
+        // Populações antes do fill (o `data-field` do responsável precisa
+        // ter as <option>s renderizadas para conseguir setar o valor).
+        populateResponsaveis(wrapper.querySelector('#cx-cot-responsavel'), cotacao);
+
         fillForm(form, cotacao || {});
 
-        var linhasContainer = wrapper.querySelector('#cx-drawer-cotacao-linhas');
-        var totalEl = wrapper.querySelector('[data-drawer-total]');
-
-        function addLinha(linha) {
-            var row = document.createElement('div');
-            row.className = 'grid grid-cols-6 gap-2 items-center';
-            row.innerHTML = (
-                '<input type="text" class="input input-bordered input-sm col-span-3" placeholder="Descrição" value="' + escapeHtml((linha && linha.descricao) || '') + '" data-linha-descricao />' +
-                '<input type="number" step="0.01" min="0" class="input input-bordered input-sm" placeholder="Qtd" value="' + escapeHtml((linha && linha.quantidade) || 1) + '" data-linha-qtd />' +
-                '<input type="number" step="0.01" min="0" class="input input-bordered input-sm" placeholder="Unit." value="' + escapeHtml((linha && linha.valor_unitario) || 0) + '" data-linha-valor />' +
-                '<button type="button" class="btn btn-ghost btn-xs" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>'
-            );
-            row.querySelector('button').addEventListener('click', function () {
-                row.remove();
-                atualizarTotal();
-            });
-            row.querySelectorAll('input').forEach(function (input) {
-                input.addEventListener('input', atualizarTotal);
-            });
-            linhasContainer.appendChild(row);
-            atualizarTotal();
-        }
-        function atualizarTotal() {
-            var total = 0;
-            $$('.grid.grid-cols-6', linhasContainer).forEach(function (row) {
-                var q = parseFloat(row.querySelector('[data-linha-qtd]').value) || 0;
-                var v = parseFloat(row.querySelector('[data-linha-valor]').value) || 0;
-                total += q * v;
-            });
-            if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
-        }
-
-        var linhas = (cotacao && cotacao.linhas) || [];
-        if (linhas.length) linhas.forEach(addLinha);
-        else addLinha();
-
-        wrapper.querySelector('[data-drawer-action="add-linha"]').addEventListener('click', function () { addLinha(); });
+        var isEdit = !!(cotacao && cotacao.id);
+        var actions = [
+            { label: 'Cancelar', variant: 'ghost', close: true },
+            {
+                label: isEdit ? 'Salvar alterações' : 'Salvar rascunho',
+                variant: 'ghost',
+                onClick: function (ev, id) {
+                    submitCotacaoCaminhoA(form, cotacao, clienteId, id, false);
+                }
+            },
+            {
+                label: isEdit ? 'Salvar e abrir montagem' : 'Salvar e montar cotação',
+                variant: 'primary',
+                onClick: function (ev, id) {
+                    submitCotacaoCaminhoA(form, cotacao, clienteId, id, true);
+                }
+            }
+        ];
 
         cxDrawer.open({
-            title: cotacao ? 'Editar cotação' : 'Nova cotação',
-            breadcrumb: 'CRM v3 · Cotação',
-            size: 'lg',
+            title: isEdit ? 'Editar cotação' : 'Nova cotação',
+            breadcrumb: 'CRM v3 · Cotação · Cabeçalho',
+            size: 'md',
             contentEl: wrapper,
-            actions: [
-                { label: 'Cancelar', variant: 'ghost', close: true },
-                {
-                    label: cotacao ? 'Salvar' : 'Criar cotação',
-                    variant: 'primary',
-                    onClick: function (ev, id) {
-                        var payload = serializeForm(form);
-                        payload.linhas = $$('.grid.grid-cols-6', linhasContainer).map(function (row) {
-                            return {
-                                descricao: row.querySelector('[data-linha-descricao]').value,
-                                quantidade: parseFloat(row.querySelector('[data-linha-qtd]').value) || 0,
-                                valor_unitario: parseFloat(row.querySelector('[data-linha-valor]').value) || 0,
-                            };
-                        });
-                        payload.valor_total = payload.linhas.reduce(function (s, l) { return s + l.quantidade * l.valor_unitario; }, 0);
-                        var isEdit = !!(cotacao && cotacao.id);
-                        var req = isEdit
-                            ? apiFetch('/cotacoes/' + encodeURIComponent(cotacao.id), { method: 'PATCH', body: payload })
-                            : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/cotacoes', { method: 'POST', body: payload });
-                        req.then(function () {
-                            toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
-                            cxDrawer.close(id);
-                            if (window.crmV3 && typeof window.crmV3.reloadCotacoes === 'function') {
-                                window.crmV3.reloadCotacoes();
-                            }
-                        }).catch(function (err) { toast(err.message, true); });
-                    }
-                }
-            ]
+            // Sobreposto ao layout — não empurra as colunas do CRM.
+            split: false,
+            actions: actions
         });
     }
 

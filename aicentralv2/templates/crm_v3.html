@@ -14,7 +14,10 @@
 <script>
   window.CRM_V3_CONTEXT = {
     userId: {{ (usuario_atual.id if usuario_atual else 0)|default(0)|tojson }},
-    userName: {{ (usuario_atual.nome if usuario_atual else '')|default('')|tojson }}
+    userName: {{ (usuario_atual.nome if usuario_atual else '')|default('')|tojson }},
+    // Executivos reais do banco (vendas_central_comm). O drawer de cotação
+    // usa esta lista para popular o select "Responsável comercial".
+    executivos: {{ (executivos or [])|tojson }}
   };
 </script>
 <div class="crm-v3-page">
@@ -402,6 +405,6 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=12"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

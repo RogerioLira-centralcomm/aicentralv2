@@ -64,6 +64,17 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertTrue(data["success"])
         self.assertIsInstance(data["clientes"], list)
         self.assertGreater(len(data["clientes"]), 0)
+        cliente = data["clientes"][0]
+        self.assertRegex(cliente["cnpj"], r"^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$")
+        self.assertIn(
+            cliente["classificacao_cliente"], ("Prospecção", "Ativo", "Geladeira")
+        )
+        self.assertIn(cliente["tipo"], ("Público", "Privado"))
+        for campo in (
+            "razao_social", "nome_fantasia", "perfil", "cidade", "uf",
+            "segmento", "fonte", "data_cadastro", "responsavel",
+        ):
+            self.assertTrue(cliente[campo], campo)
 
     def test_post_contato_valido(self):
         res = self.client.post(
@@ -72,6 +83,8 @@ class CrmTestApiTest(unittest.TestCase):
                 "nome": "Teste API",
                 "email": "teste.api@example.com",
                 "telefone": "11988887777",
+                "setor": "Compras",
+                "status": "Ativo",
             }),
             content_type="application/json",
         )
@@ -79,6 +92,16 @@ class CrmTestApiTest(unittest.TestCase):
         data = json.loads(res.data)
         self.assertTrue(data["success"])
         self.assertEqual(data["contato"]["email"], "teste.api@example.com")
+        self.assertEqual(data["contato"]["setor"], "Compras")
+        self.assertEqual(data["contato"]["status"], "Ativo")
+
+        updated = self.client.patch(
+            f"/teste-crm/api/contatos/{data['contato']['id']}",
+            json={"setor": "Marketing", "status": "Inativo"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.get_json()["contato"]["setor"], "Marketing")
+        self.assertEqual(updated.get_json()["contato"]["status"], "Inativo")
 
     def test_post_contato_sem_email(self):
         res = self.client.post(
@@ -143,7 +166,22 @@ class CrmTestApiTest(unittest.TestCase):
     def test_cria_cliente_com_status_de_prazo_separado_de_seguindo(self):
         res = self.client.post(
             "/teste-crm/api/clientes",
-            json={"nome": "Novo Cliente", "seguindo": True},
+            json={
+                "nome": "Novo Cliente",
+                "cnpj": "12.345.678/0001-90",
+                "razao_social": "Novo Cliente Serviços Ltda.",
+                "nome_fantasia": "Novo Cliente",
+                "classificacao_cliente": "Ativo",
+                "tipo": "Privado",
+                "perfil": "direto",
+                "cidade": "Recife",
+                "uf": "pe",
+                "segmento": "Serviços",
+                "fonte": "Indicação",
+                "data_cadastro": "2026-09-03",
+                "responsavel": "Ana Souza",
+                "seguindo": True,
+            },
         )
         self.assertEqual(res.status_code, 201)
         cliente = res.get_json()["cliente"]
@@ -151,7 +189,46 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertNotEqual(cliente["status"], "seguindo")
         self.assertFalse(cliente["seguindo"])
         self.assertFalse(cliente["favorito"])
+        self.assertEqual(cliente["cnpj"], "12.345.678/0001-90")
+        self.assertEqual(cliente["razao_social"], "Novo Cliente Serviços Ltda.")
+        self.assertEqual(cliente["classificacao_cliente"], "Ativo")
+        self.assertEqual(cliente["tipo"], "Privado")
+        self.assertEqual(cliente["uf"], "PE")
+        self.assertEqual(cliente["data_cadastro"], "2026-09-03")
         self.assertEqual(store.list_notas(cliente["id"]), [])
+
+    def test_patch_cliente_atualiza_campos_realistas(self):
+        res = self.client.patch(
+            "/teste-crm/api/clientes/auto-shopping",
+            json={
+                "classificacao_cliente": "Geladeira",
+                "tipo": "Público",
+                "cidade": "Betim",
+                "uf": "mg",
+                "segmento": "Mobilidade",
+                "fonte": "Licitação",
+                "data_cadastro": "2025-01-10",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        cliente = res.get_json()["cliente"]
+        self.assertEqual(cliente["classificacao_cliente"], "Geladeira")
+        self.assertEqual(cliente["tipo"], "Público")
+        self.assertEqual(cliente["cidade"], "Betim")
+        self.assertEqual(cliente["uf"], "MG")
+        self.assertEqual(cliente["data_cadastro"], "2025-01-10")
+
+    def test_cliente_valida_classificacao_e_data_cadastro(self):
+        classificacao = self.client.post(
+            "/teste-crm/api/clientes",
+            json={"nome": "Inválido", "classificacao_cliente": "Lead"},
+        )
+        self.assertEqual(classificacao.status_code, 400)
+        data = self.client.patch(
+            "/teste-crm/api/clientes/auto-shopping",
+            json={"data_cadastro": "03/09/2026"},
+        )
+        self.assertEqual(data.status_code, 400)
 
     def test_crud_objetivo(self):
         created = self.client.post(
@@ -186,23 +263,108 @@ class CrmTestApiTest(unittest.TestCase):
     def test_crud_cotacao(self):
         created = self.client.post(
             "/teste-crm/api/clientes/auto-shopping/cotacoes",
-            json={"titulo": "Plano anual", "valor": "R$ 10.000,00"},
+            json={
+                "nome_campanha": "Plano anual 2027",
+                "titulo": "Plano anual",
+                "valor_total": 10000.50,
+                "valor": "R$ 10.000,50",
+                "status": "Rascunho",
+                "periodo_inicio": "2027-01-01",
+                "periodo_fim": "2027-12-31",
+            },
         )
         self.assertEqual(created.status_code, 201)
         cotacao = created.get_json()["cotacao"]
+        self.assertRegex(cotacao["numero_cotacao"], r"^COT-202701-[A-F0-9]{4}$")
+        self.assertEqual(cotacao["nome_campanha"], "Plano anual 2027")
+        self.assertEqual(cotacao["titulo"], "Plano anual")
+        self.assertEqual(cotacao["valor_total"], 10000.50)
+        self.assertEqual(cotacao["valor"], "R$ 10.000,50")
         self.assertEqual(cotacao["status"], "rascunho")
+        self.assertEqual(cotacao["status_canonico"], "Rascunho")
+        self.assertEqual(cotacao["status_label"], "Rascunho")
         updated = self.client.patch(
             f"/teste-crm/api/cotacoes/{cotacao['id']}",
-            json={"status": "enviada", "status_label": "Enviada"},
+            json={
+                "status_canonico": "Em Acompanhamento",
+                "valor_total": 12500,
+                "periodo_fim": "2027-11-30",
+            },
         )
         self.assertEqual(updated.status_code, 200)
-        self.assertEqual(updated.get_json()["cotacao"]["status"], "enviada")
+        item = updated.get_json()["cotacao"]
+        self.assertEqual(item["status"], "em-acompanhamento")
+        self.assertEqual(item["status_canonico"], "Em Acompanhamento")
+        self.assertEqual(item["status_label"], "Em Acompanhamento")
+        self.assertEqual(item["valor_total"], 12500.0)
         deleted = self.client.delete(f"/teste-crm/api/cotacoes/{cotacao['id']}")
         self.assertEqual(deleted.status_code, 200)
         self.assertEqual(
             self.client.delete("/teste-crm/api/cotacoes/inexistente").status_code,
             404,
         )
+
+    def test_cotacao_aceita_apenas_statuses_canonicos_e_aliases(self):
+        created = self.client.post(
+            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            json={
+                "titulo": "Campanha",
+                "status": "enviada",
+                "valor": "R$ 2.500,75",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        criada = created.get_json()["cotacao"]
+        self.assertEqual(criada["valor_total"], 2500.75)
+        cotacao_id = criada["id"]
+        expected = {
+            "Rascunho": "rascunho",
+            "Enviada": "enviada",
+            "Aprovada": "aprovada",
+            "Rejeitada": "rejeitada",
+            "Expirada": "expirada",
+            "Em Acompanhamento": "em-acompanhamento",
+        }
+        for canonico, slug in expected.items():
+            with self.subTest(status=canonico):
+                res = self.client.patch(
+                    f"/teste-crm/api/cotacoes/{cotacao_id}",
+                    json={"status": canonico},
+                )
+                self.assertEqual(res.status_code, 200)
+                item = res.get_json()["cotacao"]
+                self.assertEqual(item["status"], slug)
+                self.assertEqual(item["status_canonico"], canonico)
+
+        invalid = self.client.patch(
+            f"/teste-crm/api/cotacoes/{cotacao_id}",
+            json={"status": "Cancelada"},
+        )
+        self.assertEqual(invalid.status_code, 400)
+        legado = self.client.patch(
+            f"/teste-crm/api/cotacoes/{cotacao_id}",
+            json={"status": "negociacao"},
+        )
+        self.assertEqual(legado.status_code, 200)
+        self.assertEqual(
+            legado.get_json()["cotacao"]["status_canonico"], "Em Acompanhamento"
+        )
+
+    def test_cotacao_valida_periodo_e_valor_total(self):
+        periodo = self.client.post(
+            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            json={
+                "titulo": "Período inválido",
+                "periodo_inicio": "2027-12-31",
+                "periodo_fim": "2027-01-01",
+            },
+        )
+        self.assertEqual(periodo.status_code, 400)
+        valor = self.client.post(
+            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            json={"titulo": "Valor inválido", "valor_total": "dez mil"},
+        )
+        self.assertEqual(valor.status_code, 400)
 
     def test_crud_notas(self):
         listed = self.client.get("/teste-crm/api/clientes/auto-shopping/notas")

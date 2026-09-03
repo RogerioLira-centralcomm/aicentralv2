@@ -84,8 +84,11 @@ def badge_daisy_class(badge_type: Optional[str]) -> str:
         "atrasado": "badge-warning",
         "seguindo": "badge-info",
         "sem-atividade": "badge-ghost",
-        "negociacao": "badge-success",
+        "rascunho": "badge-ghost",
         "enviada": "badge-info",
-        "perdida": "badge-error",
+        "aprovada": "badge-success",
+        "rejeitada": "badge-error",
+        "expirada": "badge-warning",
+        "em-acompanhamento": "badge-info",
     }
     return mapping.get((badge_type or "").lower(), "badge-neutral")

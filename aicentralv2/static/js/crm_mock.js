@@ -88,11 +88,13 @@
 
     function badgeDaisy(type) {
         var map = {
-            success: 'badge-success', hoje: 'badge-success', negociacao: 'badge-success',
+            success: 'badge-success', hoje: 'badge-success',
+            aprovada: 'badge-success',
             warning: 'badge-warning', atrasado: 'badge-warning', amanha: 'badge-warning', media: 'badge-warning',
-            info: 'badge-info', enviada: 'badge-info', seguindo: 'badge-info',
-            danger: 'badge-error', error: 'badge-error', perdida: 'badge-error', alta: 'badge-error',
-            muted: 'badge-ghost', 'sem-atividade': 'badge-ghost', baixa: 'badge-ghost'
+            expirada: 'badge-warning',
+            info: 'badge-info', enviada: 'badge-info', seguindo: 'badge-info', 'em acompanhamento': 'badge-info',
+            danger: 'badge-error', error: 'badge-error', alta: 'badge-error', rejeitada: 'badge-error',
+            muted: 'badge-ghost', 'sem-atividade': 'badge-ghost', baixa: 'badge-ghost', rascunho: 'badge-ghost'
         };
         return 'badge badge-sm ' + (map[(type || '').toLowerCase()] || 'badge-neutral');
     }
@@ -242,7 +244,7 @@
             if (state.filtroPill === 'seguindo' && !c.seguindo) return false;
             if (state.filtroPill !== 'todos' && state.filtroPill !== 'seguindo' && c.status !== state.filtroPill) return false;
             if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
-            if (state.filtroTipo && String(c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
+            if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
             if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
             if (termo && c.nome.toLowerCase().indexOf(termo) === -1) return false;
             return true;
@@ -270,8 +272,8 @@
         container.innerHTML = pagina.map(function (c) {
             var ativo = c.id === state.clienteId;
             return (
-                '<div class="crm-mock-cliente flex items-start gap-2 px-2 py-2 border-l-4 border-transparent cursor-pointer transition-colors hover:bg-base-200' +
-                (ativo ? ' crm-mock-cliente-ativo border-primary bg-base-200' : '') + '"' +
+                '<div class="crm-mock-cliente flex items-start gap-2 px-2 py-2 cursor-pointer transition-colors' +
+                (ativo ? ' crm-mock-cliente-ativo' : '') + '"' +
                 ' role="listitem" tabindex="0" data-cliente-id="' + escapeHtml(c.id) + '" data-status="' + escapeHtml(c.status) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
                 avatarHtml(c.nome, 'w-7 h-7') +
@@ -343,7 +345,7 @@
         if (metaResp) metaResp.textContent = cliente.responsavel || '—';
 
         var metaCat = $('#crm-mock-meta-categoria');
-        if (metaCat) metaCat.textContent = cliente.categoria || '—';
+        if (metaCat) metaCat.textContent = cliente.tipo || cliente.categoria || '—';
 
         var metaPri = $('#crm-mock-meta-prioridade');
         if (metaPri) {
@@ -351,22 +353,23 @@
             metaPri.className = 'badge badge-sm ' + (cliente.prioridade === 'Alta' ? 'badge-error' : cliente.prioridade === 'Média' ? 'badge-warning' : 'badge-ghost');
         }
 
-        var sidebarTitle = $('#crm-mock-sidebar-title');
-        if (sidebarTitle) {
-            sidebarTitle.textContent = cliente.nome.length > 32 ? cliente.nome.slice(0, 30) + '...' : cliente.nome;
-            sidebarTitle.title = cliente.nome;
-        }
-        var sidebarSub = $('#crm-mock-sidebar-sub');
-        if (sidebarSub) sidebarSub.textContent = cliente.tipo_label || '—';
-
-        var avSidebar = $('#crm-mock-sidebar-avatar');
-        if (avSidebar) avSidebar.textContent = cliente.avatar || avatarIniciais(cliente.nome);
-
         var infoCategoria = $('#crm-mock-info-categoria');
+        var infoClassificacao = $('#crm-mock-info-classificacao');
         var infoTipo = $('#crm-mock-info-tipo');
         var infoPrioridade = $('#crm-mock-info-prioridade');
-        if (infoCategoria) infoCategoria.textContent = cliente.categoria || '—';
-        if (infoTipo) infoTipo.textContent = cliente.tipo_label || '—';
+        var infoCnpj = $('#crm-mock-info-cnpj');
+        var infoFonte = $('#crm-mock-info-fonte');
+        var infoCriado = $('#crm-mock-info-criado');
+        var infoSegmento = $('#crm-mock-info-segmento');
+        var infoCidade = $('#crm-mock-info-cidade');
+        if (infoCategoria) infoCategoria.textContent = cliente.tipo_label || '—';
+        if (infoClassificacao) infoClassificacao.textContent = cliente.classificacao_cliente || cliente.classificacao || '—';
+        if (infoTipo) infoTipo.textContent = cliente.tipo || cliente.categoria || '—';
+        if (infoCnpj) infoCnpj.textContent = cliente.cnpj || '—';
+        if (infoFonte) infoFonte.textContent = cliente.fonte || '—';
+        if (infoCriado) infoCriado.textContent = dataParaExibicao(cliente.data_cadastro) || '—';
+        if (infoSegmento) infoSegmento.textContent = cliente.segmento || '—';
+        if (infoCidade) infoCidade.textContent = [cliente.cidade, cliente.uf].filter(Boolean).join(', ') || '—';
         if (infoPrioridade) {
             infoPrioridade.textContent = cliente.prioridade || '—';
             infoPrioridade.classList.toggle('text-error', cliente.prioridade === 'Alta');
@@ -405,6 +408,7 @@
     function updateSidebarContato(contato) {
         var nomeEl = $('#crm-mock-sidebar-contato-nome');
         var cargoEl = $('#crm-mock-sidebar-contato-cargo');
+        var setorEl = $('#crm-mock-sidebar-contato-setor');
         var emailEl = $('#crm-mock-sidebar-contato-email');
         var telEl = $('#crm-mock-sidebar-contato-telefone');
         var avatarEl = $('#crm-mock-sidebar-contato-avatar');
@@ -418,6 +422,7 @@
         if (!contato) {
             if (nomeEl) nomeEl.textContent = '—';
             if (cargoEl) cargoEl.textContent = 'Selecione um contato';
+            if (setorEl) setorEl.textContent = '';
             if (emailEl) { emailEl.textContent = '—'; emailEl.title = ''; }
             if (telEl) { telEl.textContent = '—'; telEl.title = ''; }
             if (badgeEl) badgeEl.hidden = true;
@@ -430,6 +435,7 @@
 
         if (nomeEl) nomeEl.textContent = contato.nome;
         if (cargoEl) cargoEl.textContent = contato.cargo || '—';
+        if (setorEl) setorEl.textContent = contato.setor || contato.status || '';
         if (emailEl) {
             emailEl.textContent = contato.email || '—';
             emailEl.title = contato.email || '';
@@ -771,18 +777,17 @@
     }
 
     function renderObjetivos() {
-        var container = $('#crm-mock-obj-list');
+        var container = $('#crm-mock-sidebar-objetivos-list');
         if (!container) return;
         if (!state.objetivos.length) {
-            container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhum objetivo.</div>';
-            renderSidebarObjetivos();
+            container.innerHTML = '<div class="text-sm text-base-content/60">Nenhum objetivo registrado.</div>';
             return;
         }
         container.innerHTML = state.objetivos.map(function (o) {
             return (
-                '<div class="crm-mock-objetivo flex items-center gap-2 py-1" data-objetivo-id="' + escapeHtml(o.id) + '">' +
+                '<div class="crm-mock-objetivo flex items-center gap-2 py-2" data-objetivo-id="' + escapeHtml(o.id) + '">' +
                 '<input type="checkbox" class="checkbox checkbox-xs crm-mock-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
-                '<span class="crm-mock-obj-text text-sm flex-1 truncate" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
+                '<span class="crm-mock-obj-text text-sm flex-1" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
                 '<span class="crm-mock-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
                 '<div class="crm-mock-obj-actions flex gap-0">' +
                 '<button type="button" class="crm-mock-obj-edit btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
@@ -814,21 +819,6 @@
                 openModal('crm-mock-modal-confirm-obj');
             });
         });
-        renderSidebarObjetivos();
-    }
-
-    function renderSidebarObjetivos() {
-        var container = $('#crm-mock-sidebar-objetivos-list');
-        if (!container) return;
-        if (!state.objetivos.length) {
-            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhum objetivo registrado.</p>';
-            return;
-        }
-        container.innerHTML = state.objetivos.map(function (o) {
-            return '<div class="crm-mock-objetivo"><input type="checkbox" class="checkbox checkbox-xs" disabled ' +
-                (o.concluido ? 'checked' : '') + '><span class="crm-mock-obj-text">' + escapeHtml(o.texto) +
-                '</span><span class="crm-mock-obj-date">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span></div>';
-        }).join('');
     }
 
     function renderCotacoes() {
@@ -839,9 +829,14 @@
             return;
         }
         container.innerHTML = state.cotacoes.map(function (c) {
+            var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
+            var numero = c.numero_cotacao || '';
+            var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
             return (
                 '<article class="crm-mock-cotacao-card p-2 border border-base-200 rounded-lg mb-2">' +
-                '<div class="flex items-start gap-1"><div class="crm-mock-cotacao-titulo text-sm font-medium truncate flex-1">' + escapeHtml(c.titulo) + '</div>' +
+                '<div class="flex items-start gap-1"><div class="min-w-0 flex-1">' +
+                (numero ? '<div class="crm-mock-cotacao-numero">' + escapeHtml(numero) + '</div>' : '') +
+                '<div class="crm-mock-cotacao-titulo text-sm font-medium">' + escapeHtml(titulo) + '</div></div>' +
                 '<div class="dropdown dropdown-end"><button type="button" class="btn btn-ghost btn-xs btn-square" tabindex="0" aria-label="Ações da cotação"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                 '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-32 border border-base-200 z-50 text-xs">' +
                 '<li><button type="button" class="crm-mock-cotacao-edit" data-cotacao-id="' + escapeHtml(c.id) + '">Editar</button></li>' +
@@ -849,7 +844,7 @@
                 '<div class="crm-mock-cotacao-valor text-sm font-semibold">' + escapeHtml(c.valor) + '</div>' +
                 '<div class="crm-mock-cotacao-meta flex items-center gap-2 mt-1">' +
                 '<span class="' + badgeDaisy(c.status) + '">' + escapeHtml(c.status_label || c.status) + '</span>' +
-                '<span class="crm-mock-cotacao-data text-xs text-base-content/60">' + escapeHtml(dataParaExibicao(c.data)) + '</span>' +
+                '<span class="crm-mock-cotacao-data text-xs text-base-content/60">' + escapeHtml(periodo || dataParaExibicao(c.data)) + '</span>' +
                 '</div></article>'
             );
         }).join('');
@@ -1020,6 +1015,8 @@
             $('#crm-mock-contato-nome').value = c.nome;
             $('#crm-mock-contato-email').value = c.email;
             $('#crm-mock-contato-cargo').value = c.cargo || '';
+            $('#crm-mock-contato-setor').value = c.setor || '';
+            $('#crm-mock-contato-status').value = c.status || 'Ativo';
             $('#crm-mock-contato-telefone').value = c.telefone || '';
             $('#crm-mock-contato-telefone2').value = c.telefone_secundario || '';
             $('#crm-mock-contato-principal').checked = c.principal;
@@ -1039,7 +1036,7 @@
         if (cliente) {
             $('#crm-mock-cliente-nome').value = cliente.nome || '';
             $('#crm-mock-cliente-perfil').value = cliente.perfil || 'direto';
-            $('#crm-mock-cliente-categoria').value = cliente.categoria || 'Privado';
+            $('#crm-mock-cliente-categoria').value = cliente.tipo || cliente.categoria || 'Privado';
             $('#crm-mock-cliente-prioridade').value = cliente.prioridade || 'Média';
             $('#crm-mock-cliente-responsavel').value = cliente.responsavel || 'Luisa Santana';
         }
@@ -1083,12 +1080,14 @@
         if (form) form.reset();
         $('#crm-mock-cotacao-id').value = cotacao ? cotacao.id : '';
         $('#crm-mock-modal-cotacao-title').textContent = cotacao ? 'Editar cotação' : 'Nova cotação';
-        var data = $('#crm-mock-cotacao-data');
-        if (data) data.value = cotacao ? dataParaInput(cotacao.data) : new Date().toISOString().slice(0, 10);
+        var inicio = $('#crm-mock-cotacao-inicio');
+        var fim = $('#crm-mock-cotacao-fim');
+        if (inicio) inicio.value = cotacao ? dataParaInput(cotacao.periodo_inicio || cotacao.data) : new Date().toISOString().slice(0, 10);
+        if (fim) fim.value = cotacao ? dataParaInput(cotacao.periodo_fim) : '';
         if (cotacao) {
-            $('#crm-mock-cotacao-titulo').value = cotacao.titulo || '';
-            $('#crm-mock-cotacao-valor').value = cotacao.valor || '';
-            $('#crm-mock-cotacao-status').value = cotacao.status || 'negociacao';
+            $('#crm-mock-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
+            $('#crm-mock-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
+            $('#crm-mock-cotacao-status').value = cotacao.status || 'rascunho';
         }
         openModal('crm-mock-modal-cotacao');
     }
@@ -1148,6 +1147,8 @@
                     nome: $('#crm-mock-contato-nome').value,
                     email: $('#crm-mock-contato-email').value,
                     cargo: $('#crm-mock-contato-cargo').value,
+                    setor: $('#crm-mock-contato-setor').value,
+                    status: $('#crm-mock-contato-status').value,
                     telefone: $('#crm-mock-contato-telefone').value,
                     telefone_secundario: $('#crm-mock-contato-telefone2').value,
                     principal: $('#crm-mock-contato-principal').checked
@@ -1173,11 +1174,13 @@
                 var btn = $('#crm-mock-cliente-submit');
                 var clienteId = $('#crm-mock-cliente-id').value;
                 var perfil = $('#crm-mock-cliente-perfil').value;
+                var tipoCliente = $('#crm-mock-cliente-categoria').value;
                 var body = {
                     nome: $('#crm-mock-cliente-nome').value,
                     perfil: perfil,
                     tipo_label: perfil === 'agencia' ? 'Agência' : 'Cliente final',
-                    categoria: $('#crm-mock-cliente-categoria').value,
+                    categoria: tipoCliente,
+                    tipo: tipoCliente,
                     prioridade: $('#crm-mock-cliente-prioridade').value,
                     responsavel: $('#crm-mock-cliente-responsavel').value
                 };
@@ -1257,16 +1260,27 @@
                 e.preventDefault();
                 var btn = $('#crm-mock-cotacao-submit');
                 var cotacaoId = $('#crm-mock-cotacao-id').value;
+                var status = $('#crm-mock-cotacao-status').value;
+                var titulo = $('#crm-mock-cotacao-titulo').value;
+                var valor = $('#crm-mock-cotacao-valor').value;
+                var inicio = $('#crm-mock-cotacao-inicio').value;
                 var body = {
-                    titulo: $('#crm-mock-cotacao-titulo').value,
-                    valor: $('#crm-mock-cotacao-valor').value,
-                    status: $('#crm-mock-cotacao-status').value,
+                    titulo: titulo,
+                    nome_campanha: titulo,
+                    valor: valor,
+                    valor_total: valor,
+                    status: status,
                     status_label: {
-                        negociacao: 'Em negociação',
+                        rascunho: 'Rascunho',
                         enviada: 'Enviada',
-                        perdida: 'Perdida'
-                    }[$('#crm-mock-cotacao-status').value],
-                    data: $('#crm-mock-cotacao-data').value
+                        aprovada: 'Aprovada',
+                        rejeitada: 'Rejeitada',
+                        expirada: 'Expirada',
+                        'em-acompanhamento': 'Em Acompanhamento'
+                    }[status],
+                    data: inicio,
+                    periodo_inicio: inicio,
+                    periodo_fim: $('#crm-mock-cotacao-fim').value
                 };
                 setBtnLoading(btn, true);
                 var req = cotacaoId
@@ -1443,11 +1457,13 @@
         function activateTab(tab) {
             var target = tab.getAttribute('data-tab');
             tabs.forEach(function (t) {
-                t.classList.remove('tab-active', 'crm-mock-tab-active');
+                t.classList.remove('is-active');
                 t.setAttribute('aria-selected', 'false');
+                t.setAttribute('tabindex', '-1');
             });
-            tab.classList.add('tab-active', 'crm-mock-tab-active');
+            tab.classList.add('is-active');
             tab.setAttribute('aria-selected', 'true');
+            tab.setAttribute('tabindex', '0');
             document.querySelectorAll('[data-panel-group="' + groupName + '"]').forEach(function (panel) {
                 var isTarget = panel.getAttribute('data-panel') === target;
                 panel.classList.toggle('crm-mock-tab-panel-active', isTarget);
@@ -1460,11 +1476,14 @@
         }
 
         tabs.forEach(function (tab, index) {
+            tab.setAttribute('tabindex', tab.getAttribute('aria-selected') === 'true' ? '0' : '-1');
             tab.addEventListener('click', function () { activateTab(tab); });
             tab.addEventListener('keydown', function (e) {
                 var next = index;
                 if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
                 else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = tabs.length - 1;
                 else return;
                 e.preventDefault();
                 tabs[next].focus();
@@ -1477,10 +1496,10 @@
         $$('.crm-mock-pill').forEach(function (pill) {
             pill.addEventListener('click', function () {
                 $$('.crm-mock-pill').forEach(function (p) {
-                    p.classList.remove('btn-active');
+                    p.classList.remove('is-active');
                     p.setAttribute('aria-pressed', 'false');
                 });
-                pill.classList.add('btn-active');
+                pill.classList.add('is-active');
                 pill.setAttribute('aria-pressed', 'true');
                 state.filtroPill = pill.getAttribute('data-filter') || 'todos';
                 state.paginaCliente = 1;
@@ -1587,7 +1606,7 @@
             $('#filtro-perfil').value = '';
             $$('.crm-mock-pill').forEach(function (pill) {
                 var active = pill.getAttribute('data-filter') === 'todos';
-                pill.classList.toggle('btn-active', active);
+                pill.classList.toggle('is-active', active);
                 pill.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
             renderClientes();
@@ -1659,6 +1678,19 @@
             verTodos.addEventListener('click', function () {
                 var col = $('.crm-mock-col-contatos');
                 if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        }
+
+        var verTodasAtividades = $('#crm-mock-ver-todas-atividades');
+        if (verTodasAtividades) {
+            verTodasAtividades.addEventListener('click', function () {
+                var painel = $('.crm-mock-section-atividades');
+                var tabTodas = $('#tab-atividades-todas');
+                if (tabTodas) tabTodas.click();
+                if (painel) {
+                    painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    painel.focus({ preventScroll: true });
+                }
             });
         }
 

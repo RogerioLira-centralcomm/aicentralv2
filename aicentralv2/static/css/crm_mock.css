@@ -15,6 +15,7 @@
 :root {
     --crm-primary: #1E4D4F;
     --crm-primary-dark: #153638;
+    --crm-primary-content: #ffffff;
     --crm-accent: #9CCF31;
     --crm-accent-bg: #eef6dc;
     --crm-success: #28A745;
@@ -24,6 +25,7 @@
     --crm-warning-bg: #fef9c3;
     --crm-warning-text: #a16207;
     --crm-danger: #DC3545;
+    --crm-danger-content: #ffffff;
     --crm-danger-bg: #fef2f2;
     --crm-danger-text: #dc2626;
     --crm-info: #2094f3;
@@ -57,8 +59,8 @@ html:has(.crm-mock-page) body {
 }
 
 .crm-mock-page {
-    height: calc(100vh - 64px);
-    max-height: calc(100vh - 64px);
+    height: calc(100vh - 56px);
+    max-height: calc(100vh - 56px);
     background: #fff;
     overflow: hidden !important;
     font-size: var(--crm-font-base);
@@ -67,23 +69,38 @@ html:has(.crm-mock-page) body {
 }
 
 #crm-mock-metrics {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     flex-shrink: 0;
     max-width: calc(100% - 1rem);
-    overflow-x: auto;
+    overflow: hidden;
+}
+
+#crm-mock-metrics .stat {
+    min-width: 0;
+}
+
+#crm-mock-metrics .stat-title,
+#crm-mock-metrics .stat-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1500px) {
+    #crm-mock-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 .crm-mock-tabs-sidebar {
     flex-shrink: 0;
-    overflow-x: auto;
-}
-
-.crm-mock-tabs-sidebar .tab {
-    min-width: max-content;
+    overflow: visible;
 }
 
 .crm-mock-layout {
     display: grid;
-    grid-template-columns: 1fr 290px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
     height: 100%;
     max-height: 100%;
     overflow: hidden;
@@ -93,7 +110,6 @@ html:has(.crm-mock-page) body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-right: 1px solid var(--crm-border);
     min-width: 0;
 }
 
@@ -107,13 +123,6 @@ html:has(.crm-mock-page) body {
     border-bottom: 1px solid var(--crm-border);
     flex-shrink: 0;
     min-height: 34px;
-}
-
-.crm-mock-logo {
-    font-size: var(--crm-font-lg);
-    font-weight: 600;
-    color: var(--crm-text);
-    margin: 0;
 }
 
 .crm-mock-select {
@@ -168,12 +177,13 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-btn-primary {
     background: var(--crm-primary);
-    color: #fff;
+    color: var(--crm-primary-content);
     border-color: var(--crm-primary);
 }
 
 .crm-mock-btn-primary:hover {
     background: var(--crm-primary-dark);
+    color: var(--crm-primary-content);
 }
 
 .crm-mock-btn-outline {
@@ -240,12 +250,45 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-btn-header-primary {
     background: var(--crm-primary);
-    color: #fff;
+    color: var(--crm-primary-content);
     border-color: var(--crm-primary);
 }
 
 .crm-mock-btn-header-primary:hover {
     background: var(--crm-primary-dark);
+    color: var(--crm-primary-content);
+}
+
+.crm-mock-page .btn-primary,
+.crm-mock-page .btn-primary:hover,
+.crm-mock-page .btn-primary:focus-visible {
+    color: var(--crm-primary-content);
+}
+
+.crm-mock-page .btn-error,
+.crm-mock-page .btn-error:hover,
+.crm-mock-page .btn-error:focus-visible {
+    color: var(--crm-danger-content);
+}
+
+.crm-mock-page .btn-outline:hover,
+.crm-mock-page .btn-outline:focus-visible {
+    border-color: var(--crm-primary);
+    background: var(--crm-primary);
+    color: var(--crm-primary-content);
+}
+
+.crm-mock-page .btn-outline.btn-error:hover,
+.crm-mock-page .btn-outline.btn-error:focus-visible {
+    border-color: var(--crm-danger);
+    background: var(--crm-danger);
+    color: var(--crm-danger-content);
+}
+
+.crm-mock-page .btn-ghost:hover,
+.crm-mock-page .btn-ghost:focus-visible {
+    background: var(--crm-surface);
+    color: var(--crm-text);
 }
 
 .crm-mock-btn-header-outline {
@@ -521,6 +564,8 @@ html:has(.crm-mock-page) body {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    gap: 1px;
+    background: var(--crm-border-light);
 }
 
 .crm-mock-col {
@@ -528,7 +573,7 @@ html:has(.crm-mock-page) body {
     flex-direction: column;
     min-height: 0;
     background: #fff;
-    border-right: 1px solid var(--crm-border);
+    border-right: 0;
     overflow: hidden;
 }
 
@@ -611,46 +656,45 @@ html:has(.crm-mock-page) body {
 
 /* ===== PILLS ===== */
 .crm-mock-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px;
     margin-top: 6px;
 }
 
 .crm-mock-pill {
-    font-size: var(--crm-font-xs);
+    min-width: 0;
+    font-size: 10px;
     font-weight: 500;
     height: 20px;
-    padding: 0 7px;
-    border-radius: 999px;
+    min-height: 20px;
+    padding: 0 4px;
+    border-radius: 5px;
     border: 1px solid var(--crm-border);
     background: #fff;
-    color: var(--crm-text-muted);
+    color: var(--crm-text);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .crm-mock-pill span {
     opacity: 0.75;
 }
 
-.crm-mock-pill-active {
-    background: var(--crm-text);
-    border-color: var(--crm-text);
-    color: #fff;
+.crm-mock-pill:hover {
+    background: var(--crm-accent-bg);
+    border-color: var(--crm-primary);
+    color: var(--crm-primary-dark);
 }
 
-.crm-mock-pill-danger {
-    color: var(--crm-danger);
-    border-color: #fecaca;
-    background: var(--crm-danger-bg);
-}
-
-.crm-mock-pill-danger.crm-mock-pill-active {
-    background: var(--crm-danger);
-    border-color: var(--crm-danger);
+.crm-mock-pill.is-active {
+    background: var(--crm-primary);
+    border-color: var(--crm-primary);
     color: #fff;
 }
 
@@ -666,7 +710,8 @@ html:has(.crm-mock-page) body {
     align-items: flex-start;
     gap: 6px;
     padding: 6px 10px;
-    border-bottom: 1px solid var(--crm-border-light);
+    border-bottom: 0;
+    border-left: 3px solid transparent;
     cursor: pointer;
     transition: background 0.15s;
 }
@@ -683,7 +728,6 @@ html:has(.crm-mock-page) body {
 .crm-mock-cliente-ativo {
     background: var(--crm-accent-bg);
     border-left: 3px solid var(--crm-accent);
-    padding-left: 7px;
 }
 
 .crm-mock-cliente.hidden-by-filter {
@@ -1045,8 +1089,8 @@ html:has(.crm-mock-page) body {
 /* ===== CONTEÚDO CENTRAL DIVIDIDO ===== */
 .crm-mock-center-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 3fr) minmax(230px, 2fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -1085,11 +1129,6 @@ html:has(.crm-mock-page) body {
     grid-row: 2;
 }
 
-.crm-mock-section-objetivos {
-    grid-column: 1 / -1;
-    grid-row: 3;
-}
-
 .crm-mock-section-atividades .crm-mock-ativ-list,
 .crm-mock-center-right .crm-mock-cotacao-list {
     min-height: 0;
@@ -1100,7 +1139,7 @@ html:has(.crm-mock-page) body {
 .crm-mock-section {
     padding: 6px 8px;
     background: #fff;
-    border: 1px solid var(--crm-border);
+    border: 0;
     border-radius: 6px;
     flex-shrink: 0;
 }
@@ -1108,7 +1147,6 @@ html:has(.crm-mock-page) body {
 .crm-mock-center-right .crm-mock-section {
     border: none;
     border-radius: 0;
-    border-bottom: 1px solid var(--crm-border-light);
     margin: 0;
 }
 
@@ -1133,48 +1171,39 @@ html:has(.crm-mock-page) body {
 }
 
 /* ===== TABS ===== */
-.crm-mock-tabs-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 6px;
-    border-bottom: 1px solid var(--crm-border);
-    margin-bottom: 6px;
-}
-
-.crm-mock-tabs {
-    display: flex;
+.crm-mock-ativ-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    width: min(100%, 280px);
+    padding: 2px;
+    border-radius: 6px;
+    background: var(--crm-surface);
+    margin-bottom: 5px;
 }
 
 .crm-mock-tab {
-    font-size: var(--crm-font-md);
+    min-width: 0;
+    font-size: var(--crm-font-xs);
     font-weight: 500;
     color: var(--crm-text-muted);
-    padding: 10px 14px;
+    padding: 5px 6px;
     cursor: pointer;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: 4px;
     background: transparent;
     font-family: inherit;
     line-height: 1.2;
 }
 
-.crm-mock-tabs-sidebar .crm-mock-tab {
-    font-size: var(--crm-font-sm);
-    padding: 11px 10px;
-    flex: 1;
-    text-align: center;
-    min-width: 0;
-}
-
 .crm-mock-tab:hover {
+    background: #fff;
     color: var(--crm-text);
 }
 
-.crm-mock-tab-active {
-    color: var(--crm-text);
-    border-bottom-color: var(--crm-primary);
+.crm-mock-tab.is-active {
+    background: var(--crm-primary);
+    color: #fff;
     font-weight: 600;
 }
 
@@ -1185,7 +1214,20 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-tabs-filters {
     display: flex;
-    gap: 8px;
+    gap: 4px;
+    min-width: 0;
+}
+
+.crm-mock-ativ-filter-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.crm-mock-ativ-filter-row .crm-mock-search-wrap {
+    margin: 0;
 }
 
 .crm-mock-select-sm {
@@ -1199,6 +1241,7 @@ html:has(.crm-mock-page) body {
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
+    max-width: 120px;
 }
 
 .crm-mock-tab-panel {
@@ -1345,13 +1388,6 @@ html:has(.crm-mock-page) body {
     color: var(--crm-success-text);
 }
 
-/* ===== OBJETIVOS ===== */
-.crm-mock-obj-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
 .crm-mock-objetivo {
     display: flex;
     align-items: center;
@@ -1416,6 +1452,14 @@ html:has(.crm-mock-page) body {
     margin-bottom: 4px;
 }
 
+.crm-mock-cotacao-numero {
+    margin-bottom: 2px;
+    color: var(--crm-text-subtle);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+}
+
 .crm-mock-cotacao-valor {
     font-size: var(--crm-font-sm);
     font-weight: 500;
@@ -1453,63 +1497,26 @@ html:has(.crm-mock-page) body {
     display: flex;
     flex-direction: column;
     border-right: none;
-    border-left: 1px solid var(--crm-border);
-}
-
-.crm-mock-sidebar-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--crm-surface);
-    border-bottom: 1px solid var(--crm-border);
-    flex-shrink: 0;
-}
-
-.crm-mock-sidebar-header-text {
-    flex: 1;
-    min-width: 0;
-}
-
-.crm-mock-sidebar-title {
-    font-size: var(--crm-font-sm);
-    font-weight: 600;
-    color: var(--crm-text);
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.crm-mock-sidebar-sub {
-    font-size: var(--crm-font-xs);
-    color: var(--crm-text-subtle);
-}
-
-.crm-mock-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: var(--crm-radius-sm);
-    border: none;
-    background: transparent;
-    color: var(--crm-text-subtle);
-    cursor: pointer;
-    font-size: var(--crm-font-sm);
-}
-
-.crm-mock-close-btn:focus-visible {
-    outline: 2px solid var(--crm-primary);
+    box-shadow: -1px 0 0 var(--crm-border-light);
 }
 
 .crm-mock-tabs-sidebar {
-    border-bottom: 1px solid var(--crm-border);
-    padding: 0 4px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px;
+    padding: 6px;
     flex-shrink: 0;
-    display: flex;
     width: 100%;
+    overflow: hidden;
+    background: var(--crm-surface);
+}
+
+.crm-mock-tabs-sidebar .crm-mock-tab {
+    width: 100%;
+    padding: 6px 2px;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 10px;
 }
 
 .crm-mock-sidebar-body {
@@ -1521,19 +1528,31 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-sidebar-panel-wrap {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 
 .crm-mock-sidebar-footer {
-    padding: 8px 10px;
-    border-top: 1px solid var(--crm-border);
+    padding: 10px 12px;
+    box-shadow: 0 -1px 0 var(--crm-border-light);
     flex-shrink: 0;
 }
 
 /* ===== SIDEBAR SECTIONS ===== */
 .crm-mock-sidebar-section {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--crm-border-light);
+    padding: 12px;
+}
+
+.crm-mock-sidebar-section + .crm-mock-sidebar-section {
+    padding-top: 4px;
+}
+
+.crm-mock-sidebar-section + .crm-mock-sidebar-section::before {
+    content: "";
+    display: block;
+    height: 1px;
+    margin: 0 0 12px;
+    background: var(--crm-border-light);
 }
 
 .crm-mock-sidebar-section-title {
@@ -1591,6 +1610,43 @@ html:has(.crm-mock-page) body {
     margin-bottom: 6px;
 }
 
+.crm-mock-contact-card-sidebar {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--crm-surface);
+}
+
+.crm-mock-contact-card-sidebar .crm-mock-contact-name,
+.crm-mock-contact-card-sidebar .crm-mock-contact-role {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.crm-mock-sidebar-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 12px 4px;
+}
+
+.crm-mock-sidebar-panel-heading h2 {
+    margin: 0;
+    font-size: var(--crm-font-md);
+    font-weight: 650;
+    color: var(--crm-text);
+}
+
+.crm-mock-sidebar-panel-heading p {
+    margin: 2px 0 0;
+    font-size: var(--crm-font-xs);
+    color: var(--crm-text-subtle);
+}
+
 .crm-mock-contact-info {
     flex: 1;
 }
@@ -1635,6 +1691,13 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-link:hover {
     text-decoration: underline;
+    color: var(--crm-primary-dark);
+}
+
+.crm-mock-link:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid var(--crm-primary);
+    outline-offset: 2px;
 }
 
 .crm-mock-responsavel-card {
@@ -1721,7 +1784,7 @@ html:has(.crm-mock-page) body {
 /* ===== RESPONSIVO ===== */
 @media (max-width: 1400px) {
     .crm-mock-layout {
-        grid-template-columns: 1fr 270px;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
     }
 
     .crm-mock-grid-main {
@@ -1731,11 +1794,24 @@ html:has(.crm-mock-page) body {
 
 @media (max-width: 1200px) {
     .crm-mock-layout {
-        grid-template-columns: 1fr 250px;
+        grid-template-columns: minmax(0, 1fr) 320px;
     }
 
     .crm-mock-grid-main {
         grid-template-columns: 190px minmax(0, 1fr) 220px;
+    }
+
+    .crm-mock-center-content {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        overflow-y: auto;
+    }
+
+    .crm-mock-section-atividades,
+    .crm-mock-center-right {
+        grid-column: 1;
+        grid-row: auto;
+        max-height: 30rem;
     }
 
 }
@@ -1743,10 +1819,10 @@ html:has(.crm-mock-page) body {
 @media (max-width: 1024px) {
     .crm-mock-col-sidebar {
         position: fixed;
-        top: 64px;
+        top: 56px;
         right: 0;
-        width: 290px;
-        height: calc(100vh - 64px);
+        width: min(340px, 100vw);
+        height: calc(100vh - 56px);
         z-index: 40;
         box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
     }
@@ -1792,8 +1868,7 @@ html:has(.crm-mock-page) body {
         max-height: 28rem;
     }
 
-    .crm-mock-section-sugestao,
-    .crm-mock-section-objetivos {
+    .crm-mock-section-sugestao {
         grid-column: 1;
         grid-row: auto;
     }
@@ -2099,9 +2174,4 @@ html:has(.crm-mock-page) body {
 
 .crm-mock-toast[hidden] {
     display: none !important;
-}
-
-.crm-mock-pill.btn-active {
-    border-color: oklch(var(--p));
-    background-color: oklch(var(--p) / 0.12);
 }

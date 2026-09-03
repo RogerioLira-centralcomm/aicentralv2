@@ -34,14 +34,28 @@ Em erro:
 
 ## Campos compartilhados
 
-- Cliente: `nome`, `tipo_label`, `perfil`, `categoria`, `prioridade`,
+- Cliente: `nome`, `cnpj`, `razao_social`, `nome_fantasia`,
+  `classificacao_cliente` (`Prospecção`, `Ativo` ou `Geladeira`), `tipo`
+  (`Público` ou `Privado`), `tipo_label`, `perfil`, `categoria`, `cidade`,
+  `uf`, `segmento`, `fonte`, `data_cadastro` (`YYYY-MM-DD`), `prioridade`,
   `responsavel`, `seguindo`, `favorito`.
 - Contato: `nome`, `email`, `cargo`, `telefone`, `telefone_secundario`,
-  `principal`.
+  `setor`, `status`, `principal`.
 - Atividade: `titulo`, `descricao`, `data` (`YYYY-MM-DD`), `data_label`,
   `hora`, `prioridade`, `status`, `tipo`, `responsavel`.
 - Objetivo: `texto`, `prazo`, `concluido`.
-- Cotação: `titulo`, `valor`, `status`, `status_label`, `data`.
+- Cotação: `numero_cotacao` (`COT-YYYYMM-HEX`), `nome_campanha`, `titulo`,
+  `valor_total` (numérico), `valor` (alias textual), `periodo_inicio` e
+  `periodo_fim` (`YYYY-MM-DD`), `status_canonico`, `status`, `status_label`
+  e `data`.
 - Nota: `texto`, `autor`, `data` (`YYYY-MM-DD`).
+
+Em cotações, `status_canonico` e `status_label` retornam um destes valores:
+`Rascunho`, `Enviada`, `Aprovada`, `Rejeitada`, `Expirada` ou
+`Em Acompanhamento`. O campo `status` preserva o alias em slug usado pelo
+frontend (`rascunho`, `enviada`, `aprovada`, `rejeitada`, `expirada` ou
+`em-acompanhamento`). Create e update aceitam tanto o valor canônico quanto
+o slug; os aliases legados `negociacao`, `Em negociação` e `perdida` também
+são normalizados para manter compatibilidade.
 
 Exportação de clientes é gerada em CSV no navegador e não possui endpoint.

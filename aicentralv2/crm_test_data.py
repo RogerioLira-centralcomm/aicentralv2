@@ -6,6 +6,171 @@ from datetime import date
 
 from .crm_test_helpers import pluralizar_contatos
 
+CLASSIFICACOES_CLIENTE = ("Prospecção", "Ativo", "Geladeira")
+COTACAO_STATUS = {
+    "rascunho": "Rascunho",
+    "enviada": "Enviada",
+    "aprovada": "Aprovada",
+    "rejeitada": "Rejeitada",
+    "expirada": "Expirada",
+    "em-acompanhamento": "Em Acompanhamento",
+}
+COTACAO_STATUS_ALIASES = {
+    **{label.casefold(): slug for slug, label in COTACAO_STATUS.items()},
+    **{slug: slug for slug in COTACAO_STATUS},
+    "negociacao": "em-acompanhamento",
+    "em negociação": "em-acompanhamento",
+    "perdida": "rejeitada",
+}
+
+_CLIENTE_REALISMO = {
+    "auto-shopping": {
+        "cnpj": "05.419.347/0001-47",
+        "razao_social": "Associação dos Lojistas do Portal Auto Shopping",
+        "nome_fantasia": "Portal Auto Shopping",
+        "classificacao_cliente": "Ativo",
+        "tipo": "Privado",
+        "cidade": "Contagem",
+        "uf": "MG",
+        "segmento": "Automotivo",
+        "fonte": "Indicação",
+        "data_cadastro": "2023-02-14",
+    },
+    "build-agencia": {
+        "cnpj": "21.845.372/0001-60",
+        "razao_social": "Build Comunicação e Marketing Ltda.",
+        "nome_fantasia": "Build Agência",
+        "classificacao_cliente": "Prospecção",
+        "tipo": "Privado",
+        "cidade": "São Paulo",
+        "uf": "SP",
+        "segmento": "Publicidade e Propaganda",
+        "fonte": "Evento",
+        "data_cadastro": "2024-01-22",
+    },
+    "clx": {
+        "cnpj": "36.124.908/0001-15",
+        "razao_social": "CLX Comunicação Integrada Ltda.",
+        "nome_fantasia": "CLX",
+        "classificacao_cliente": "Ativo",
+        "tipo": "Privado",
+        "cidade": "Rio de Janeiro",
+        "uf": "RJ",
+        "segmento": "Publicidade e Propaganda",
+        "fonte": "Prospecção ativa",
+        "data_cadastro": "2022-11-08",
+    },
+    "copasa-mg": {
+        "cnpj": "17.281.106/0001-03",
+        "razao_social": "Companhia de Saneamento de Minas Gerais",
+        "nome_fantasia": "COPASA MG",
+        "classificacao_cliente": "Ativo",
+        "tipo": "Público",
+        "cidade": "Belo Horizonte",
+        "uf": "MG",
+        "segmento": "Saneamento",
+        "fonte": "Licitação",
+        "data_cadastro": "2021-06-17",
+    },
+    "crp-04": {
+        "cnpj": "16.718.255/0001-37",
+        "razao_social": "Conselho Regional de Psicologia da 4ª Região",
+        "nome_fantasia": "CRP 04",
+        "classificacao_cliente": "Geladeira",
+        "tipo": "Público",
+        "cidade": "Belo Horizonte",
+        "uf": "MG",
+        "segmento": "Conselho profissional",
+        "fonte": "Licitação",
+        "data_cadastro": "2020-09-03",
+    },
+    "fazcom": {
+        "cnpj": "08.702.516/0001-42",
+        "razao_social": "Fazcom Comunicação Ltda.",
+        "nome_fantasia": "Fazcom",
+        "classificacao_cliente": "Ativo",
+        "tipo": "Privado",
+        "cidade": "Belo Horizonte",
+        "uf": "MG",
+        "segmento": "Publicidade e Propaganda",
+        "fonte": "Indicação",
+        "data_cadastro": "2022-04-12",
+    },
+    "full-solucoes": {
+        "cnpj": "42.507.193/0001-08",
+        "razao_social": "Full Soluções em Tecnologia Ltda.",
+        "nome_fantasia": "Full Soluções",
+        "classificacao_cliente": "Prospecção",
+        "tipo": "Privado",
+        "cidade": "Nova Lima",
+        "uf": "MG",
+        "segmento": "Tecnologia",
+        "fonte": "Site",
+        "data_cadastro": "2024-03-19",
+    },
+    "grupo-abc": {
+        "cnpj": "29.630.481/0001-74",
+        "razao_social": "Grupo ABC Participações S.A.",
+        "nome_fantasia": "Grupo ABC",
+        "classificacao_cliente": "Ativo",
+        "tipo": "Privado",
+        "cidade": "Curitiba",
+        "uf": "PR",
+        "segmento": "Varejo",
+        "fonte": "Carteira comercial",
+        "data_cadastro": "2021-10-25",
+    },
+    "link-care": {
+        "cnpj": "45.918.206/0001-31",
+        "razao_social": "Link Care Serviços de Saúde Ltda.",
+        "nome_fantasia": "Link Care",
+        "classificacao_cliente": "Geladeira",
+        "tipo": "Privado",
+        "cidade": "Campinas",
+        "uf": "SP",
+        "segmento": "Saúde",
+        "fonte": "Inbound",
+        "data_cadastro": "2023-07-06",
+    },
+    "mg-minas": {
+        "cnpj": "33.741.925/0001-56",
+        "razao_social": "MG Minas Comércio e Serviços Ltda.",
+        "nome_fantasia": "MG Minas",
+        "classificacao_cliente": "Geladeira",
+        "tipo": "Privado",
+        "cidade": "Uberlândia",
+        "uf": "MG",
+        "segmento": "Serviços",
+        "fonte": "Prospecção ativa",
+        "data_cadastro": "2022-08-30",
+    },
+    "reciclo": {
+        "cnpj": "14.286.509/0001-22",
+        "razao_social": "Reciclo Comunicação Socioambiental Ltda.",
+        "nome_fantasia": "Reciclo",
+        "classificacao_cliente": "Prospecção",
+        "tipo": "Privado",
+        "cidade": "Belo Horizonte",
+        "uf": "MG",
+        "segmento": "Sustentabilidade",
+        "fonte": "Evento",
+        "data_cadastro": "2024-02-05",
+    },
+}
+
+_CONTATO_REALISMO = {
+    "c1": ("Marketing", "Ativo"),
+    "c2": ("Mídia", "Ativo"),
+    "c3": ("Planejamento", "Ativo"),
+    "c4": ("Atendimento", "Ativo"),
+    "c5": ("Diretoria", "Ativo"),
+    "c6": ("Comercial", "Ativo"),
+    "c7": ("Atendimento", "Ativo"),
+    "c8": ("Mídia", "Ativo"),
+    "c9": ("Financeiro", "Inativo"),
+    "c10": ("Marketing", "Ativo"),
+}
+
 _INITIAL_CLIENTES = [
     {
         "id": "auto-shopping",
@@ -352,26 +517,44 @@ _INITIAL_COTACOES = {
     "auto-shopping": [
         {
             "id": "cot1",
+            "numero_cotacao": "COT-202405-A3F9",
+            "nome_campanha": "Campanha institucional Q3",
             "titulo": "Proposta comercial Q3",
+            "valor_total": 45000.00,
             "valor": "R$ 45.000,00",
-            "status": "negociacao",
-            "status_label": "Em negociação",
+            "status": "em-acompanhamento",
+            "status_canonico": "Em Acompanhamento",
+            "status_label": "Em Acompanhamento",
+            "periodo_inicio": "2024-07-01",
+            "periodo_fim": "2024-09-30",
             "data": "15/05/2024",
         },
         {
             "id": "cot2",
+            "numero_cotacao": "COT-202405-7BC2",
+            "nome_campanha": "Presença de marca 2024",
             "titulo": "Campanha institucional",
+            "valor_total": 28500.00,
             "valor": "R$ 28.500,00",
             "status": "enviada",
+            "status_canonico": "Enviada",
             "status_label": "Enviada",
+            "periodo_inicio": "2024-06-01",
+            "periodo_fim": "2024-06-30",
             "data": "02/05/2024",
         },
         {
             "id": "cot3",
+            "numero_cotacao": "COT-202404-D81E",
+            "nome_campanha": "Performance digital Q2",
             "titulo": "Mídia digital Q2",
+            "valor_total": 12000.00,
             "valor": "R$ 12.000,00",
-            "status": "perdida",
-            "status_label": "Perdida",
+            "status": "rejeitada",
+            "status_canonico": "Rejeitada",
+            "status_label": "Rejeitada",
+            "periodo_inicio": "2024-04-01",
+            "periodo_fim": "2024-06-30",
             "data": "20/04/2024",
         },
     ],
@@ -406,6 +589,35 @@ def _require_text(data, field, label):
     return value
 
 
+def _cotacao_status(value):
+    raw = str(value or "Rascunho").strip()
+    slug = COTACAO_STATUS_ALIASES.get(raw.casefold())
+    if not slug:
+        permitidos = ", ".join(COTACAO_STATUS.values())
+        raise ValueError(f"Status de cotação inválido. Use: {permitidos}")
+    return slug, COTACAO_STATUS[slug]
+
+
+def _decimal_value(value):
+    if value in (None, ""):
+        return 0.0
+    try:
+        if isinstance(value, str):
+            normalized = value.replace("R$", "").replace(" ", "")
+            if "," in normalized:
+                normalized = normalized.replace(".", "").replace(",", ".")
+            value = normalized
+        return round(float(value), 2)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Valor total deve ser numérico") from exc
+
+
+def _format_brl(value):
+    inteiro, centavos = f"{value:,.2f}".split(".")
+    inteiro = inteiro.replace(",", ".")
+    return f"R$ {inteiro},{centavos}"
+
+
 class CrmTestStore:
     def __init__(self):
         self.reset()
@@ -413,6 +625,12 @@ class CrmTestStore:
     def reset(self):
         self.clientes = copy.deepcopy(_INITIAL_CLIENTES)
         self.contatos = copy.deepcopy(_INITIAL_CONTATOS)
+        for cliente in self.clientes:
+            cliente.update(_CLIENTE_REALISMO[cliente["id"]])
+        for contatos in self.contatos.values():
+            for contato in contatos:
+                setor, status = _CONTATO_REALISMO[contato["id"]]
+                contato.update({"setor": setor, "status": status})
         self.atividades = copy.deepcopy(_INITIAL_ATIVIDADES)
         self.objetivos = copy.deepcopy(_INITIAL_OBJETIVOS)
         self.cotacoes = copy.deepcopy(_INITIAL_COTACOES)
@@ -456,11 +674,32 @@ class CrmTestStore:
         status = str(data.get("status") or "sem-atividade").strip()
         if status == "seguindo":
             status = "sem-atividade"
+        classificacao = str(
+            data.get("classificacao_cliente") or "Prospecção"
+        ).strip()
+        if classificacao not in CLASSIFICACOES_CLIENTE:
+            raise ValueError(
+                "Classificação do cliente deve ser Prospecção, Ativo ou Geladeira"
+            )
+        data_cadastro = _validate_iso_date(
+            data.get("data_cadastro") or date.today().isoformat(),
+            "data_cadastro",
+        )
         cliente = {
             "id": cliente_id,
             "nome": nome,
+            "cnpj": str(data.get("cnpj") or "").strip(),
+            "razao_social": str(data.get("razao_social") or nome).strip(),
+            "nome_fantasia": str(data.get("nome_fantasia") or nome).strip(),
+            "classificacao_cliente": classificacao,
+            "tipo": str(data.get("tipo") or data.get("categoria") or "Privado").strip(),
             "tipo_label": data.get("tipo_label") or "Cliente final",
             "perfil": data.get("perfil") or "direto",
+            "cidade": str(data.get("cidade") or "").strip(),
+            "uf": str(data.get("uf") or "").strip().upper(),
+            "segmento": str(data.get("segmento") or "").strip(),
+            "fonte": str(data.get("fonte") or "Cadastro manual").strip(),
+            "data_cadastro": data_cadastro,
             "status": status,
             "badge": "Novo",
             "badge_type": "info",
@@ -486,7 +725,8 @@ class CrmTestStore:
             updated = dict(cliente)
             text_fields = (
                 "nome", "tipo_label", "perfil", "status", "badge", "badge_type",
-                "prioridade", "categoria", "responsavel",
+                "prioridade", "categoria", "responsavel", "cnpj", "razao_social",
+                "nome_fantasia", "tipo", "cidade", "uf", "segmento", "fonte",
             )
             for key in text_fields:
                 if key in data:
@@ -494,6 +734,19 @@ class CrmTestStore:
                     if key == "nome" and not value:
                         raise ValueError("Nome é obrigatório")
                     updated[key] = value
+            if "classificacao_cliente" in data:
+                classificacao = str(data["classificacao_cliente"] or "").strip()
+                if classificacao not in CLASSIFICACOES_CLIENTE:
+                    raise ValueError(
+                        "Classificação do cliente deve ser Prospecção, Ativo ou Geladeira"
+                    )
+                updated["classificacao_cliente"] = classificacao
+            if "data_cadastro" in data:
+                updated["data_cadastro"] = _validate_iso_date(
+                    data["data_cadastro"], "data_cadastro"
+                )
+            if "uf" in data:
+                updated["uf"] = updated["uf"].upper()
             for key in ("seguindo", "favorito"):
                 if key in data:
                     if not isinstance(data[key], bool):
@@ -527,6 +780,8 @@ class CrmTestStore:
             "id": contato_id,
             "nome": nome,
             "cargo": (data.get("cargo") or "").strip(),
+            "setor": (data.get("setor") or "Comercial").strip(),
+            "status": (data.get("status") or "Ativo").strip(),
             "email": email,
             "telefone": (data.get("telefone") or "").strip(),
             "telefone_secundario": (data.get("telefone_secundario") or "").strip(),
@@ -542,7 +797,10 @@ class CrmTestStore:
             for i, c in enumerate(contatos):
                 if c["id"] == contato_id:
                     updated = dict(c)
-                    for key in ("nome", "cargo", "email", "telefone", "telefone_secundario"):
+                    for key in (
+                        "nome", "cargo", "setor", "status", "email", "telefone",
+                        "telefone_secundario",
+                    ):
                         if key in data and data[key] is not None:
                             updated[key] = str(data[key]).strip()
                     if data.get("principal"):
@@ -663,12 +921,42 @@ class CrmTestStore:
     def create_cotacao(self, cliente_id, data):
         if not self.get_cliente(cliente_id):
             return None
+        titulo = str(data.get("titulo") or data.get("nome_campanha") or "").strip()
+        if not titulo:
+            raise ValueError("Título é obrigatório")
+        nome_campanha = str(data.get("nome_campanha") or titulo).strip()
+        status, status_canonico = _cotacao_status(
+            data.get("status_canonico") or data.get("status") or "Rascunho"
+        )
+        periodo_inicio = _validate_iso_date(
+            data.get("periodo_inicio"), "periodo_inicio"
+        )
+        periodo_fim = _validate_iso_date(data.get("periodo_fim"), "periodo_fim")
+        if periodo_inicio and periodo_fim and periodo_fim < periodo_inicio:
+            raise ValueError("Período final não pode ser anterior ao período inicial")
+        referencia = periodo_inicio or date.today().isoformat()
+        numero_cotacao = str(data.get("numero_cotacao") or "").strip()
+        if not numero_cotacao:
+            numero_cotacao = (
+                f"COT-{referencia[:4]}{referencia[5:7]}-{uuid.uuid4().hex[:4].upper()}"
+            )
+        valor_total = _decimal_value(
+            data.get("valor_total")
+            if data.get("valor_total") not in (None, "")
+            else data.get("valor")
+        )
         cotacao = {
             "id": f"cot-{uuid.uuid4().hex[:8]}",
-            "titulo": _require_text(data, "titulo", "Título"),
-            "valor": str(data.get("valor") or "").strip(),
-            "status": str(data.get("status") or "rascunho").strip(),
-            "status_label": str(data.get("status_label") or "Rascunho").strip(),
+            "numero_cotacao": numero_cotacao,
+            "nome_campanha": nome_campanha,
+            "titulo": titulo,
+            "valor_total": valor_total,
+            "valor": str(data.get("valor") or _format_brl(valor_total)).strip(),
+            "status": status,
+            "status_canonico": status_canonico,
+            "status_label": status_canonico,
+            "periodo_inicio": periodo_inicio,
+            "periodo_fim": periodo_fim,
             "data": str(data.get("data") or "").strip(),
         }
         self.cotacoes.setdefault(cliente_id, []).append(cotacao)
@@ -680,11 +968,37 @@ class CrmTestStore:
                 if cotacao["id"] != cotacao_id:
                     continue
                 updated = dict(cotacao)
-                for key in ("titulo", "valor", "status", "status_label", "data"):
+                for key in (
+                    "numero_cotacao", "nome_campanha", "titulo", "valor", "data",
+                ):
                     if key in data:
                         updated[key] = str(data[key] or "").strip()
                 if "titulo" in data and not updated["titulo"]:
                     raise ValueError("Título é obrigatório")
+                if "valor_total" in data:
+                    updated["valor_total"] = _decimal_value(data["valor_total"])
+                    if "valor" not in data:
+                        updated["valor"] = _format_brl(updated["valor_total"])
+                elif "valor" in data:
+                    updated["valor_total"] = _decimal_value(data["valor"])
+                if "status" in data or "status_canonico" in data:
+                    status, status_canonico = _cotacao_status(
+                        data.get("status_canonico") or data.get("status")
+                    )
+                    updated["status"] = status
+                    updated["status_canonico"] = status_canonico
+                    updated["status_label"] = status_canonico
+                for key in ("periodo_inicio", "periodo_fim"):
+                    if key in data:
+                        updated[key] = _validate_iso_date(data[key], key)
+                if (
+                    updated.get("periodo_inicio")
+                    and updated.get("periodo_fim")
+                    and updated["periodo_fim"] < updated["periodo_inicio"]
+                ):
+                    raise ValueError(
+                        "Período final não pode ser anterior ao período inicial"
+                    )
                 items[i] = updated
                 return updated, cliente_id
         return None, None

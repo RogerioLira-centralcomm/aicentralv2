@@ -23,6 +23,16 @@
       </div>
       <div class="grid grid-cols-2 gap-2 mb-3">
         <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-contato-setor"><span class="label-text text-xs">Setor</span></label>
+          <input type="text" id="crm-mock-contato-setor" name="setor" placeholder="Ex.: Marketing" class="input input-bordered input-sm w-full" />
+        </div>
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-contato-status"><span class="label-text text-xs">Status</span></label>
+          <select id="crm-mock-contato-status" name="status" class="select select-bordered select-sm w-full"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="form-control w-full">
           <label class="label py-0" for="crm-mock-contato-telefone"><span class="label-text text-xs">Telefone</span></label>
           <input type="text" id="crm-mock-contato-telefone" name="telefone" placeholder="(11) 99999-9999" class="input input-bordered input-sm w-full" />
         </div>
@@ -70,10 +80,10 @@
           </select>
         </div>
         <div class="form-control w-full">
-          <label class="label py-0" for="crm-mock-cliente-categoria"><span class="label-text text-xs">Categoria</span></label>
+          <label class="label py-0" for="crm-mock-cliente-categoria"><span class="label-text text-xs">Tipo</span></label>
           <select id="crm-mock-cliente-categoria" name="categoria" class="select select-bordered select-sm w-full">
             <option value="Privado">Privado</option>
-            <option value="Governo">Governo</option>
+            <option value="Público">Público</option>
           </select>
         </div>
       </div>
@@ -258,12 +268,15 @@
     </div>
     <form id="crm-mock-form-cotacao">
       <input type="hidden" id="crm-mock-cotacao-id" value="">
-      <div class="form-control mb-3"><label class="label py-0" for="crm-mock-cotacao-titulo"><span class="label-text text-xs">Título *</span></label><input type="text" id="crm-mock-cotacao-titulo" required class="input input-bordered input-sm w-full"></div>
+      <div class="form-control mb-3"><label class="label py-0" for="crm-mock-cotacao-titulo"><span class="label-text text-xs">Nome da campanha *</span></label><input type="text" id="crm-mock-cotacao-titulo" required class="input input-bordered input-sm w-full"></div>
       <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-valor"><span class="label-text text-xs">Valor *</span></label><input type="text" id="crm-mock-cotacao-valor" required placeholder="R$ 0,00" class="input input-bordered input-sm w-full"></div>
-        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-status"><span class="label-text text-xs">Status</span></label><select id="crm-mock-cotacao-status" class="select select-bordered select-sm w-full"><option value="negociacao">Em negociação</option><option value="enviada">Enviada</option><option value="perdida">Perdida</option></select></div>
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-valor"><span class="label-text text-xs">Valor total *</span></label><input type="text" id="crm-mock-cotacao-valor" required placeholder="R$ 0,00" class="input input-bordered input-sm w-full"></div>
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-status"><span class="label-text text-xs">Status</span></label><select id="crm-mock-cotacao-status" class="select select-bordered select-sm w-full"><option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="aprovada">Aprovada</option><option value="rejeitada">Rejeitada</option><option value="expirada">Expirada</option><option value="em-acompanhamento">Em Acompanhamento</option></select></div>
       </div>
-      <div class="form-control mb-4"><label class="label py-0" for="crm-mock-cotacao-data"><span class="label-text text-xs">Data</span></label><input type="date" id="crm-mock-cotacao-data" class="input input-bordered input-sm w-full"></div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-inicio"><span class="label-text text-xs">Início</span></label><input type="date" id="crm-mock-cotacao-inicio" class="input input-bordered input-sm w-full"></div>
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-fim"><span class="label-text text-xs">Fim</span></label><input type="date" id="crm-mock-cotacao-fim" class="input input-bordered input-sm w-full"></div>
+      </div>
       <div class="modal-action mt-0"><button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-cotacao">Cancelar</button><button type="submit" class="btn btn-sm btn-primary" id="crm-mock-cotacao-submit"><span class="crm-mock-btn-text">Criar</span><span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span></button></div>
     </form>
   </div>

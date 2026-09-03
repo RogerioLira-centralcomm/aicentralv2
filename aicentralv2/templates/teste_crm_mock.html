@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=38">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=39">
 {% endblock %}
 
 {% block content %}
@@ -13,7 +13,6 @@
   <div class="crm-mock-layout">
     <div class="crm-mock-main">
       <header class="crm-mock-header">
-        <div class="crm-mock-logo" aria-label="CRM">CRM</div>
         <label class="sr-only" for="filtro-executivo">Filtrar por executivo</label>
         <select class="crm-mock-select" id="filtro-executivo" aria-label="Executivo">
           <option value="">Executivo: todos</option>
@@ -23,7 +22,7 @@
         <label class="sr-only" for="filtro-tipo">Filtrar por tipo</label>
         <select class="crm-mock-select" id="filtro-tipo" aria-label="Tipo">
           <option value="">Tipo: todos</option>
-          <option value="governo">Governo</option>
+          <option value="público">Público</option>
           <option value="privado">Privado</option>
         </select>
         <label class="sr-only" for="filtro-perfil">Filtrar por perfil</label>
@@ -65,11 +64,11 @@
               <label class="sr-only" for="crm-mock-busca">Buscar cliente</label>
               <input type="search" id="crm-mock-busca" class="crm-mock-search" placeholder="Buscar cliente..." autocomplete="off" />
             </div>
-            <div class="crm-mock-pills flex flex-wrap gap-1" role="group" aria-label="Filtrar clientes">
-              <button type="button" class="btn btn-sm btn-outline btn-active crm-mock-pill" data-filter="todos" aria-pressed="true">Todos <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="btn btn-sm btn-outline btn-error crm-mock-pill" data-filter="atrasado" aria-pressed="false">Atrasados <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="btn btn-sm btn-outline crm-mock-pill" data-filter="sem-atividade" aria-pressed="false">Sem atividade <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="btn btn-sm btn-outline crm-mock-pill" data-filter="seguindo" aria-pressed="false">Seguindo <span class="crm-mock-pill-count">0</span></button>
+            <div class="crm-mock-pills" role="group" aria-label="Filtrar clientes">
+              <button type="button" class="crm-mock-pill is-active" data-filter="todos" aria-pressed="true">Todos <span class="crm-mock-pill-count">0</span></button>
+              <button type="button" class="crm-mock-pill" data-filter="atrasado" aria-pressed="false">Atrasados <span class="crm-mock-pill-count">0</span></button>
+              <button type="button" class="crm-mock-pill" data-filter="sem-atividade" aria-pressed="false">Sem atividade <span class="crm-mock-pill-count">0</span></button>
+              <button type="button" class="crm-mock-pill" data-filter="seguindo" aria-pressed="false">Seguindo <span class="crm-mock-pill-count">0</span></button>
             </div>
           </div>
 
@@ -121,13 +120,13 @@
             </div>
             <div class="crm-mock-detail-meta flex flex-wrap gap-2 mt-2 text-xs">
               <span class="crm-mock-meta-item">Responsável: <strong id="crm-mock-meta-responsavel">Luisa Santana</strong></span>
-              <span class="crm-mock-meta-item">Categoria: <span class="badge badge-sm badge-ghost" id="crm-mock-meta-categoria">Privado</span></span>
+              <span class="crm-mock-meta-item">Tipo: <span class="badge badge-sm badge-ghost" id="crm-mock-meta-categoria">Privado</span></span>
               <span class="crm-mock-meta-item" id="crm-mock-meta-prioridade-wrap"><span class="badge badge-sm badge-error" id="crm-mock-meta-prioridade">Prioridade: Alta</span></span>
               <span class="crm-mock-meta-date text-base-content/60">Última atualização: Hoje, 16:09</span>
             </div>
           </div>
 
-          <div class="stats stats-horizontal shadow-sm border border-base-200 mx-2 mb-2" role="group" aria-label="Indicadores do cliente" id="crm-mock-metrics">
+          <div class="stats stats-horizontal shadow-sm mx-2 mb-2" role="group" aria-label="Indicadores do cliente" id="crm-mock-metrics">
             <div class="stat py-2 px-3"><div class="stat-value text-lg" id="crm-metric-contatos">1</div><div class="stat-title text-xs">Contato</div></div>
             <div class="stat py-2 px-3"><div class="stat-value text-lg" id="crm-metric-oportunidades">0</div><div class="stat-title text-xs">Oportunidades</div></div>
             <div class="stat py-2 px-3"><div class="stat-value text-sm" id="crm-metric-faturamento">R$ 12.500,00</div><div class="stat-title text-xs">Faturamento vs mês ant.</div></div>
@@ -146,11 +145,17 @@
                   </div>
                 </div>
 
-                <div class="crm-mock-tabs-bar flex flex-wrap items-center gap-2 justify-between">
-                  <div class="tabs tabs-boxed tabs-sm" role="tablist" aria-label="Filtrar atividades" data-tab-group="atividades">
-                    <button type="button" role="tab" class="tab tab-active crm-mock-tab" data-tab="todas" aria-selected="true" id="tab-atividades-todas">Todas</button>
-                    <button type="button" role="tab" class="tab crm-mock-tab" data-tab="pendentes" aria-selected="false" id="tab-atividades-pendentes">Pendentes</button>
-                    <button type="button" role="tab" class="tab crm-mock-tab" data-tab="concluidas" aria-selected="false" id="tab-atividades-concluidas">Concluídas</button>
+                <div class="crm-mock-ativ-tabs" role="tablist" aria-label="Filtrar atividades" data-tab-group="atividades">
+                  <button type="button" role="tab" class="crm-mock-tab is-active" data-tab="todas" aria-selected="true" id="tab-atividades-todas">Todas</button>
+                  <button type="button" role="tab" class="crm-mock-tab" data-tab="pendentes" aria-selected="false" id="tab-atividades-pendentes">Pendentes</button>
+                  <button type="button" role="tab" class="crm-mock-tab" data-tab="concluidas" aria-selected="false" id="tab-atividades-concluidas">Concluídas</button>
+                </div>
+
+                <div class="crm-mock-ativ-filter-row">
+                  <div class="crm-mock-search-wrap crm-mock-search-sm">
+                    <i class="fa-solid fa-search crm-mock-search-icon" aria-hidden="true"></i>
+                    <label class="sr-only" for="busca-atividade">Buscar atividade</label>
+                    <input type="search" id="busca-atividade" class="crm-mock-search" placeholder="Buscar atividade..." />
                   </div>
                   <div class="crm-mock-tabs-filters">
                     <label class="sr-only" for="filtro-resp-ativ">Responsável</label>
@@ -166,12 +171,6 @@
                       <option value="atividade">Atividade</option>
                     </select>
                   </div>
-                </div>
-
-                <div class="crm-mock-search-wrap crm-mock-search-sm">
-                  <i class="fa-solid fa-search crm-mock-search-icon" aria-hidden="true"></i>
-                  <label class="sr-only" for="busca-atividade">Buscar atividade</label>
-                  <input type="search" id="busca-atividade" class="crm-mock-search" placeholder="Buscar atividade..." />
                 </div>
 
                 <div class="crm-mock-ativ-list min-h-0" role="list" id="crm-mock-ativ-list">
@@ -202,15 +201,6 @@
                 </div>
               </section>
 
-              <section class="crm-mock-section crm-mock-section-objetivos" aria-labelledby="crm-obj-title">
-                <div class="crm-mock-section-header">
-                  <h3 class="crm-mock-section-title" id="crm-obj-title">Objetivos</h3>
-                  <button type="button" class="btn btn-sm btn-outline" id="crm-mock-btn-novo-objetivo">+ Novo objetivo</button>
-                </div>
-                <div class="crm-mock-obj-list" id="crm-mock-obj-list">
-                  <!-- renderizado via crm_mock.js -->
-                </div>
-              </section>
           </div>
         </section>
 
@@ -251,52 +241,39 @@
     </div>
 
     <aside class="crm-mock-col crm-mock-col-sidebar min-h-0" id="crm-mock-sidebar" aria-label="Detalhes do cliente">
-      <div class="crm-mock-sidebar-header p-4 border-b border-base-200">
-        <div class="flex items-center gap-2 min-w-0">
-          <div class="avatar placeholder">
-            <div class="bg-primary text-primary-content rounded-full w-8 h-8" id="crm-mock-sidebar-avatar-wrap">
-              <span class="text-xs font-semibold" id="crm-mock-sidebar-avatar">A</span>
-            </div>
-          </div>
-          <div class="crm-mock-sidebar-header-text min-w-0">
-            <div class="crm-mock-sidebar-title truncate text-sm font-medium" id="crm-mock-sidebar-title" title="">ASSOCIAÇÃO DOS LOJISTAS DO PORT...</div>
-            <div class="crm-mock-sidebar-sub text-xs text-base-content/60" id="crm-mock-sidebar-sub">Cliente final</div>
-          </div>
-        </div>
+      <div class="crm-mock-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
+        <button type="button" role="tab" class="crm-mock-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info">Informações</button>
+        <button type="button" role="tab" class="crm-mock-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas">Notas</button>
+        <button type="button" role="tab" class="crm-mock-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj">Objetivos</button>
+        <button type="button" role="tab" class="crm-mock-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ">Atividades</button>
       </div>
 
-      <div class="tabs tabs-boxed tabs-sm px-4 py-2 crm-mock-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
-        <button type="button" role="tab" class="tab tab-active crm-mock-tab" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info">Informações</button>
-        <button type="button" role="tab" class="tab crm-mock-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas">Notas</button>
-        <button type="button" role="tab" class="tab crm-mock-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj">Objetivos</button>
-        <button type="button" role="tab" class="tab crm-mock-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ">Atividades</button>
-      </div>
-
-      <div class="crm-mock-sidebar-panel-wrap flex-1 min-h-0 overflow-y-auto p-4">
+      <div class="crm-mock-sidebar-panel-wrap">
         <div class="crm-mock-tab-panel crm-mock-tab-panel-active" role="tabpanel" data-panel-group="sidebar" data-panel="informacoes" aria-labelledby="tab-sidebar-info">
-          <div class="crm-mock-sidebar-section mb-4">
-            <div class="crm-mock-sidebar-section-title text-xs font-semibold mb-2">Informações básicas</div>
+          <div class="crm-mock-sidebar-section">
+            <div class="crm-mock-sidebar-section-title">Informações básicas</div>
             <div class="crm-mock-info-grid">
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Categoria</span><span class="crm-mock-info-value" id="crm-mock-info-categoria">—</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Perfil</span><span class="crm-mock-info-value" id="crm-mock-info-categoria">—</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Classificação</span><span class="crm-mock-info-value" id="crm-mock-info-classificacao">—</span></div>
               <div class="crm-mock-info-row"><span class="crm-mock-info-label">Tipo de cliente</span><span class="crm-mock-info-value" id="crm-mock-info-tipo">—</span></div>
               <div class="crm-mock-info-row"><span class="crm-mock-info-label">Prioridade</span><span class="crm-mock-info-value" id="crm-mock-info-prioridade">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Fonte</span><span class="crm-mock-info-value">Indicação</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Criado em</span><span class="crm-mock-info-value">12/03/2024</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">CNPJ</span><span class="crm-mock-info-value" id="crm-mock-info-cnpj">—</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Fonte</span><span class="crm-mock-info-value" id="crm-mock-info-fonte">—</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Criado em</span><span class="crm-mock-info-value" id="crm-mock-info-criado">—</span></div>
             </div>
           </div>
 
-          <div class="divider my-2"></div>
-
-          <div class="crm-mock-sidebar-section mb-4" id="crm-mock-sidebar-contato-resumo">
+          <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-contato-resumo">
             <div class="crm-mock-sidebar-section-header">
               <div class="crm-mock-sidebar-section-title">Contato selecionado</div>
               <button type="button" class="crm-mock-link crm-mock-link-btn" id="crm-mock-ver-todos-contatos" title="Ver coluna de contatos">Ver todos</button>
             </div>
             <div class="crm-mock-contact-card crm-mock-contact-card-sidebar" id="crm-mock-sidebar-contato-card">
               <div class="crm-mock-avatar crm-mock-avatar-muted" id="crm-mock-sidebar-contato-avatar" aria-hidden="true">M</div>
-              <div class="crm-mock-contact-info">
+              <div class="crm-mock-contact-info min-w-0">
                 <div class="crm-mock-contact-name" id="crm-mock-sidebar-contato-nome">marketing</div>
                 <div class="crm-mock-contact-role" id="crm-mock-sidebar-contato-cargo">Analista de Mídias</div>
+                <div class="crm-mock-contact-role" id="crm-mock-sidebar-contato-setor">Marketing</div>
               </div>
               <span class="badge badge-sm badge-primary" id="crm-mock-sidebar-contato-badge">Principal</span>
             </div>
@@ -315,9 +292,7 @@
             </div>
           </div>
 
-          <div class="divider my-2"></div>
-
-          <div class="crm-mock-sidebar-section mb-4">
+          <div class="crm-mock-sidebar-section">
             <div class="crm-mock-sidebar-section-title">Responsável interno</div>
             <div class="crm-mock-responsavel-card">
               <div class="crm-mock-avatar crm-mock-avatar-muted" id="crm-mock-responsavel-avatar" aria-hidden="true">—</div>
@@ -328,17 +303,15 @@
             </div>
           </div>
 
-          <div class="divider my-2"></div>
-
-          <div class="crm-mock-sidebar-section mb-4">
+          <div class="crm-mock-sidebar-section">
             <div class="crm-mock-info-grid">
               <div class="crm-mock-info-row"><span class="crm-mock-info-label">Origem</span><span class="crm-mock-info-value">CRM</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Segmento</span><span class="crm-mock-info-value">Varejo Automotivo</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Cidade</span><span class="crm-mock-info-value">Contagem, MG</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Segmento</span><span class="crm-mock-info-value" id="crm-mock-info-segmento">—</span></div>
+              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Cidade</span><span class="crm-mock-info-value" id="crm-mock-info-cidade">—</span></div>
             </div>
           </div>
 
-          <div class="crm-mock-sidebar-section mb-4">
+          <div class="crm-mock-sidebar-section">
             <div class="crm-mock-sidebar-section-header">
               <div class="crm-mock-sidebar-section-title">Acompanham este cliente</div>
             </div>
@@ -360,15 +333,29 @@
         </div>
 
         <div class="crm-mock-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="objetivos" aria-labelledby="tab-sidebar-obj" hidden>
+          <div class="crm-mock-sidebar-panel-heading">
+            <div>
+              <h2>Objetivos</h2>
+              <p>Metas comerciais deste cliente</p>
+            </div>
+            <button type="button" class="crm-mock-btn crm-mock-btn-primary crm-mock-btn-sm" id="crm-mock-btn-novo-objetivo">+ Novo</button>
+          </div>
           <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-objetivos-list"></div>
         </div>
 
         <div class="crm-mock-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="atividades" aria-labelledby="tab-sidebar-ativ" hidden>
+          <div class="crm-mock-sidebar-panel-heading">
+            <div>
+              <h2>Atividades recentes</h2>
+              <p>Resumo do histórico comercial</p>
+            </div>
+            <button type="button" class="crm-mock-link crm-mock-link-btn" id="crm-mock-ver-todas-atividades">Ver todas</button>
+          </div>
           <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-atividades-list"></div>
         </div>
       </div>
 
-      <div class="crm-mock-sidebar-footer p-4 border-t border-base-200">
+      <div class="crm-mock-sidebar-footer">
         <button type="button" class="btn btn-sm btn-outline w-full" id="crm-mock-seguir-toggle" aria-pressed="false">Seguir cliente</button>
       </div>
     </aside>
@@ -385,5 +372,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_mock.js') }}?v=10"></script>
+<script src="{{ url_for('static', filename='js/crm_mock.js') }}?v=11"></script>
 {% endblock %}

@@ -179,6 +179,25 @@ def api_clientes():
     return _ok(clientes, clientes=clientes)
 
 
+@bp.route("/api/lookups")
+@login_required_api
+def api_lookups():
+    """Agregador dos combos "de dominio" usados pelos drawers/modais.
+
+    Consolidação de set/2026: antes cada combo estava hardcoded no
+    template (tipos, UF, executivos "Luisa Santana", etc.). Agora um
+    único GET traz tudo em uma resposta cacheável no cliente.
+
+    Response:
+      { tipos_cliente, estados, setores, cargos, executivos,
+        plataformas, classificacoes }
+    """
+    data = store.list_lookups()
+    # Achata tudo no root do body (`body.tipos_cliente`, etc). O JS
+    # lê direto sem indireção — vale para todos os drawers/modais.
+    return _ok(**data)
+
+
 @bp.route("/api/agencias")
 @login_required_api
 def api_agencias():

@@ -897,6 +897,36 @@ class CrmTestStore:
     def list_clientes(self):
         return [self._enrich_cliente(c) for c in self.clientes]
 
+    def list_lookups(self):
+        """Paridade com CrmV3Repository.list_lookups — retorna dicts
+        estáticos de dev. Executivos são derivados dos responsáveis
+        atualmente cadastrados nos clientes mock (Luisa/João Paulo/etc)."""
+        execs_uniq = {}
+        for c in self.clientes:
+            nome = (c.get("responsavel") or "").strip()
+            if nome and nome not in execs_uniq:
+                execs_uniq[nome] = {"id": nome, "nome": nome, "email": ""}
+        return {
+            "tipos_cliente": [
+                {"id": "publico", "label": "Público"},
+                {"id": "privado", "label": "Privado"},
+            ],
+            "estados": [
+                {"id": "MG", "sigla": "MG", "nome": "Minas Gerais"},
+                {"id": "SP", "sigla": "SP", "nome": "São Paulo"},
+                {"id": "RJ", "sigla": "RJ", "nome": "Rio de Janeiro"},
+            ],
+            "setores": [],
+            "cargos": [],
+            "executivos": list(execs_uniq.values()),
+            "plataformas": [],
+            "classificacoes": [
+                {"id": "Prospecção", "nome": "Prospecção"},
+                {"id": "Ativo", "nome": "Ativo"},
+                {"id": "Geladeira", "nome": "Geladeira"},
+            ],
+        }
+
     def list_agencias(self):
         """Paridade com CrmV3Repository.list_agencias — retorna todas
         as agências como {"id": <id>, "nome": <nome>}. No mock a fonte

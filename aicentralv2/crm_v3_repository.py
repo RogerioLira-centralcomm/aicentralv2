@@ -131,6 +131,9 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
     endereco = {
         "cep": row.get("cep") or "",
         "uf": sigla_estado,
+        # ID numérico do estado — útil para debug/consistência. O drawer
+        # continua exibindo/enviando pela sigla; o backend resolve.
+        "pk_id_aux_estado": row.get("pk_id_aux_estado") or None,
         "cidade": row.get("cidade") or "",
         "bairro": row.get("bairro") or "",
         "logradouro": row.get("logradouro") or "",
@@ -229,6 +232,89 @@ class CrmV3Repository:
                 ]
             items.append(mapped)
         return items
+
+    def list_lookups(self) -> Dict[str, Any]:
+        """Consolida todos os combos "de dominio" usados pela UI (drawers,
+        modais, filtros) em UMA única chamada.
+
+        Motivo (set/2026): o CRM v3 tinha vários `<option>` hardcoded
+        (tipo Público/Privado, UF, executivos "Luisa Santana", "João Paulo"
+        etc.) que não refletiam a base real. Um endpoint agregado evita
+        N+1 chamadas e simplifica o cache no frontend.
+
+        Retorna:
+          - tipos_cliente : [{id, label}] via db.obter_tipos_cliente
+          - estados       : [{id, sigla, nome}] via db.obter_estados
+          - setores       : [{id, nome}] via db.obter_setores
+          - cargos        : [{id, nome, setor_id}] via db.obter_cargos
+          - executivos    : [{id, nome, email}] via db.obter_vendedores_centralcomm
+          - plataformas   : [{id, nome}] via db.obter_plataformas_campanha
+          - classificacoes: enum fixo (Prospecção/Ativo/Geladeira)
+        """
+        db = _db()
+
+        def _safe(fn, default=None):
+            try:
+                return fn() or default or []
+            except Exception:
+                return default if default is not None else []
+
+        tipos = [
+            {"id": str(r.get("id_tipo_cliente")), "label": r.get("display") or ""}
+            for r in _safe(db.obter_tipos_cliente)
+            if r.get("id_tipo_cliente") is not None
+        ]
+        estados = [
+            {
+                "id": str(r.get("id_estado")),
+                "sigla": (r.get("sigla") or "").strip(),
+                "nome": r.get("descricao") or "",
+            }
+            for r in _safe(db.obter_estados)
+            if r.get("id_estado") is not None
+        ]
+        setores = [
+            {"id": str(r.get("id_setor")), "nome": r.get("display") or r.get("nome") or ""}
+            for r in _safe(db.obter_setores)
+            if r.get("id_setor") is not None
+        ]
+        cargos = [
+            {
+                "id": str(r.get("id_cargo")),
+                "nome": r.get("display") or r.get("nome") or "",
+                "setor_id": str(r.get("pk_id_tbl_setor")) if r.get("pk_id_tbl_setor") else "",
+            }
+            for r in _safe(db.obter_cargos)
+            if r.get("id_cargo") is not None
+        ]
+        executivos = [
+            {
+                "id": str(r.get("id_contato_cliente")),
+                "nome": r.get("nome_completo") or "",
+                "email": r.get("email") or "",
+            }
+            for r in _safe(db.obter_vendedores_centralcomm)
+            if r.get("id_contato_cliente") is not None
+        ]
+        plataformas = [
+            {"id": str(r.get("id_plataforma_campanha")), "nome": r.get("display") or r.get("nome") or ""}
+            for r in _safe(db.obter_plataformas_campanha)
+            if r.get("id_plataforma_campanha") is not None
+        ]
+
+        return {
+            "tipos_cliente": tipos,
+            "estados": estados,
+            "setores": setores,
+            "cargos": cargos,
+            "executivos": executivos,
+            "plataformas": plataformas,
+            "classificacoes": [
+                {"id": "Prospecção", "nome": "Prospecção"},
+                {"id": "Ativo", "nome": "Ativo"},
+                {"id": "Geladeira", "nome": "Geladeira"},
+            ],
+        }
 
     def list_agencias(self) -> List[Dict[str, Any]]:
         """Retorna TODAS as agências reais da base (não só as que estão

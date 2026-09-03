@@ -415,6 +415,15 @@
     function openModal(id) {
         var dialog = document.getElementById(id);
         if (!dialog) return;
+        // Popula qualquer <select data-lookup=""> DENTRO do modal usando
+        // o cache central de lookups (tipos_cliente, estados, executivos
+        // reais, etc). Antes esses combos tinham options hardcoded
+        // ("Luisa Santana", "João Paulo") — set/2026.
+        try {
+            if (window.crmV3Drawer && window.crmV3Drawer.lookups) {
+                window.crmV3Drawer.lookups.applyToRoot(dialog);
+            }
+        } catch (_) { /* fallback silencioso: options ficam como placeholders */ }
         dialog.classList.remove('crm-v3-modal-visible');
         dialog.showModal();
         requestAnimationFrame(function () {
@@ -2227,6 +2236,15 @@
         if (title) title.textContent = cliente ? 'Editar cliente' : 'Novo cliente';
         if (submitText) submitText.textContent = cliente ? 'Salvar alterações' : 'Criar cliente';
 
+        // Popula os selects com dados reais ANTES do setVal — senão o
+        // select ainda está com placeholder "Carregando…" e o valor
+        // selecionado se perde. Passamos o cliente para o helper pré-
+        // selecionar via data-field.
+        var _modal = document.getElementById('crm-v3-modal-cliente');
+        if (_modal && window.crmV3Drawer && window.crmV3Drawer.lookups) {
+            try { window.crmV3Drawer.lookups.applyToRoot(_modal, cliente); } catch (_) {}
+        }
+
         var setVal = function (sel, val) {
             var el = $(sel);
             if (el) el.value = val == null ? '' : val;
@@ -2244,8 +2262,15 @@
             setVal('#crm-v3-cliente-razao', cliente.razao_social || '');
             setVal('#crm-v3-cliente-ie', cliente.inscricao_estadual || '');
             setVal('#crm-v3-cliente-im', cliente.inscricao_municipal || '');
-            var tipoLower = (cliente.tipo || cliente.categoria || '').toLowerCase();
-            setVal('#crm-v3-cliente-tipo', tipoLower === 'público' ? 'publico' : (tipoLower === 'privado' ? 'privado' : (cliente.id_tipo_cliente || '')));
+            // O select de Tipo agora usa id_tipo_cliente numérico direto
+            // (populado por /crm-v3/api/lookups). Antes convertíamos label
+            // → "publico"/"privado" — inconsistente com a base real. As
+            // options são reescritas em `openModal` via applyToRoot, então
+            // o setVal aqui só precisa passar o id.
+            setVal('#crm-v3-cliente-tipo', cliente.id_tipo_cliente || '');
+            // Executivo: select agora usa executivo_id (int). Convertemos
+            // string→string do mesmo id que já vem no _map_cliente.
+            setVal('#crm-v3-cliente-responsavel', cliente.executivo_id || '');
             setVal('#crm-v3-cliente-perfil', cliente.perfil || (cliente.is_agencia ? 'agencia' : 'direto'));
 
             setVal('#crm-v3-cliente-cep', endereco.cep || cliente.cep || '');
@@ -2257,7 +2282,7 @@
             setVal('#crm-v3-cliente-complemento', endereco.complemento || cliente.complemento || '');
 
             setVal('#crm-v3-cliente-classificacao', cliente.classificacao_cliente || cliente.classificacao || 'Prospecção');
-            setVal('#crm-v3-cliente-responsavel', cliente.responsavel || 'Luisa Santana');
+            // (Executivo já foi setado acima com o id numérico do lookup.)
             // Prioridade removida do modelo do cliente em set/2026 —
             // não existe na base (`tbl_cliente`). Mantido setChk/setVal
             // para os campos que realmente existem.
@@ -2500,8 +2525,24 @@
                 var btn = $('#crm-v3-cliente-submit');
                 var clienteId = $('#crm-v3-cliente-id').value;
                 var perfil = $('#crm-v3-cliente-perfil').value;
-                var tipoValue = $('#crm-v3-cliente-tipo').value;
-                var tipoLabel = tipoValue === 'publico' ? 'Público' : (tipoValue === 'privado' ? 'Privado' : '');
+                var tipoSelect = $('#crm-v3-cliente-tipo');
+                var tipoValue = tipoSelect ? tipoSelect.value : '';
+                // O select agora usa o id_tipo_cliente numérico da base
+                // (via /crm-v3/api/lookups). Antes eram strings hardcoded
+                // "privado"/"publico" — set/2026.
+                var tipoLabelOpt = tipoSelect && tipoSelect.options[tipoSelect.selectedIndex];
+                var tipoLabel = tipoLabelOpt ? tipoLabelOpt.textContent.trim() : '';
+                var tipoIntVal = parseInt(tipoValue, 10);
+                if (!isNaN(tipoIntVal)) tipoValue = tipoIntVal;
+                // Executivo agora usa id_contato_cliente (executivo_id).
+                var execSelect = $('#crm-v3-cliente-responsavel');
+                var execIdVal = execSelect ? parseInt(execSelect.value, 10) : NaN;
+                var execIdSend = isNaN(execIdVal) ? null : execIdVal;
+                var execNomeSend = '';
+                if (execSelect && execSelect.selectedIndex >= 0) {
+                    var _opt = execSelect.options[execSelect.selectedIndex];
+                    if (_opt) execNomeSend = _opt.textContent.trim();
+                }
                 var body = {
                     // Identificação
                     pessoa: $('#crm-v3-cliente-pessoa').value,
@@ -2528,8 +2569,9 @@
                     },
                     // Comercial
                     classificacao_cliente: $('#crm-v3-cliente-classificacao').value,
-                    responsavel: $('#crm-v3-cliente-responsavel').value,
-                    prioridade: $('#crm-v3-cliente-prioridade').value,
+                    responsavel: execNomeSend,
+                    executivo_id: execIdSend,
+                    prioridade: null,
                     bv_percentual: parseFloat($('#crm-v3-cliente-bv').value) || 0,
                     margem_cc: parseFloat($('#crm-v3-cliente-margem').value) || 0,
                     opera_midia: $('#crm-v3-cliente-opera-midia').checked,

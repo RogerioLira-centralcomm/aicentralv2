@@ -15,11 +15,19 @@
         </div>
         <div class="cx-drawer-field">
           <label for="cx-contato-cargo">Cargo</label>
-          <input id="cx-contato-cargo" type="text" name="cargo" data-field="cargo" placeholder="Ex.: Gerente de mídia" />
+          {# Input livre por enquanto: o CrmV3Repository.update_contato
+             ainda não persiste cargo/setor (não há coluna direta em
+             tbl_contato_cliente — só FK para tbl_cargo_contato).
+             Ligação total fica para a próxima iteração. #}
+          <input id="cx-contato-cargo" type="text" name="cargo" data-field="cargo"
+                 list="cx-contato-cargos-datalist" placeholder="Ex.: Gerente de mídia" />
+          <datalist id="cx-contato-cargos-datalist" data-lookup-datalist="cargos" data-lookup-value="nome"></datalist>
         </div>
         <div class="cx-drawer-field">
           <label for="cx-contato-setor">Setor</label>
-          <input id="cx-contato-setor" type="text" name="setor" data-field="setor" placeholder="Ex.: Marketing" />
+          <input id="cx-contato-setor" type="text" name="setor" data-field="setor"
+                 list="cx-contato-setores-datalist" placeholder="Ex.: Marketing" />
+          <datalist id="cx-contato-setores-datalist" data-lookup-datalist="setores" data-lookup-value="nome"></datalist>
         </div>
         <div class="cx-drawer-field">
           <label for="cx-contato-status">Status</label>

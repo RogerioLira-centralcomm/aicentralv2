@@ -101,10 +101,11 @@
           </div>
           <div class="form-control w-full">
             <label class="label py-0" for="crm-v3-cliente-tipo"><span class="label-text text-xs">Tipo de cliente</span></label>
-            <select id="crm-v3-cliente-tipo" name="id_tipo_cliente" class="select select-bordered select-sm w-full">
-              <option value="">—</option>
-              <option value="privado">Privado</option>
-              <option value="publico">Público</option>
+            {# Populado por JS via /crm-v3/api/lookups (tbl_tipo_cliente).
+               Antes tinha "privado"/"publico" hardcoded. #}
+            <select id="crm-v3-cliente-tipo" name="id_tipo_cliente" class="select select-bordered select-sm w-full"
+                    data-lookup="tipos_cliente" data-lookup-label="label">
+              <option value="">— Carregando… —</option>
             </select>
           </div>
           <div class="form-control w-full">
@@ -127,7 +128,11 @@
           </div>
           <div class="form-control w-full md:col-span-1">
             <label class="label py-0" for="crm-v3-cliente-uf"><span class="label-text text-xs">UF</span></label>
-            <input type="text" id="crm-v3-cliente-uf" name="uf" maxlength="2" class="input input-bordered input-sm w-full" />
+            {# Populado por JS via /crm-v3/api/lookups (tbl_estado). #}
+            <select id="crm-v3-cliente-uf" name="uf" class="select select-bordered select-sm w-full"
+                    data-lookup="estados" data-lookup-value="sigla" data-lookup-label="sigla">
+              <option value="">—</option>
+            </select>
           </div>
           <div class="form-control w-full md:col-span-2">
             <label class="label py-0" for="crm-v3-cliente-cidade"><span class="label-text text-xs">Cidade</span></label>
@@ -166,9 +171,12 @@
           </div>
           <div class="form-control w-full">
             <label class="label py-0" for="crm-v3-cliente-responsavel"><span class="label-text text-xs">Executivo</span></label>
-            <select id="crm-v3-cliente-responsavel" name="responsavel" class="select select-bordered select-sm w-full">
-              <option value="Luisa Santana">Luisa Santana</option>
-              <option value="João Paulo">João Paulo</option>
+            {# Populado por JS com executivos reais (tbl_contato_cliente
+               where vendas_central_comm). Value = id (int) para o
+               backend gravar em vendas_central_comm. #}
+            <select id="crm-v3-cliente-responsavel" name="executivo_id" class="select select-bordered select-sm w-full"
+                    data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome">
+              <option value="">— Carregando… —</option>
             </select>
           </div>
           {# Removido em set/2026: `tbl_cliente` não tem coluna
@@ -268,10 +276,11 @@
         </div>
         <div class="form-control w-full">
           <label class="label py-0" for="crm-v3-atividade-responsavel"><span class="label-text text-xs">Responsável</span></label>
-          <select id="crm-v3-atividade-responsavel" class="select select-bordered select-sm w-full">
-            <option value="LS">Luisa Santana</option>
-            <option value="JP">João Paulo</option>
-            <option value="CM">Carla Mendes</option>
+          {# Populado por JS via /crm-v3/api/lookups (executivos reais).
+             Value = id_contato_cliente (o backend converte para responsavel_id). #}
+          <select id="crm-v3-atividade-responsavel" name="responsavel_id" class="select select-bordered select-sm w-full"
+                  data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome">
+            <option value="">— Carregando… —</option>
           </select>
         </div>
       </div>

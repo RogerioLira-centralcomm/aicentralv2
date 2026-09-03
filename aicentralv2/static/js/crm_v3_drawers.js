@@ -100,6 +100,12 @@
         var form = wrapper.querySelector('form');
         fillForm(form, cliente || {});
 
+        // Popula os selects com dados reais da base
+        // (tipos_cliente, estados, executivos) — o template só tem
+        // placeholders. Se os lookups ainda não carregaram, o helper
+        // volta a popular quando a promise resolver.
+        populateLookupSelects(wrapper, cliente);
+
         // Vínculos
         renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
         wrapper.querySelector('[data-drawer-action="add-agencia"]').addEventListener('click', function () {
@@ -130,9 +136,31 @@
         var payload = serializeForm(form);
         payload.is_agencia = payload.perfil === 'agencia';
         payload.tipo_label = payload.is_agencia ? 'Agência' : 'Cliente final';
-        if (payload.id_tipo_cliente === 'publico') payload.tipo = 'Público';
-        else if (payload.id_tipo_cliente === 'privado') payload.tipo = 'Privado';
+
+        // `id_tipo_cliente` agora vem como ID numérico do tbl_tipo_cliente
+        // (antes eram strings "publico"/"privado" hardcoded no template).
+        // Populamos `tipo` (label humano) a partir do <option> selecionado
+        // para retro-compat com a UI legada; o backend usa apenas o id.
+        if (payload.id_tipo_cliente) {
+            var _sel = form.querySelector('select[name="id_tipo_cliente"]');
+            var _opt = _sel && _sel.options[_sel.selectedIndex];
+            payload.tipo = _opt ? _opt.textContent.trim() : payload.id_tipo_cliente;
+            var _n = parseInt(payload.id_tipo_cliente, 10);
+            if (!isNaN(_n)) payload.id_tipo_cliente = _n;
+        }
         payload.categoria = payload.tipo;
+
+        // `executivo_id` também é numérico agora (id_contato_cliente do
+        // vendedor em vendas_central_comm). Convertemos para int para o
+        // backend não precisar coagir a string.
+        if (payload.executivo_id) {
+            var _e = parseInt(payload.executivo_id, 10);
+            if (!isNaN(_e)) payload.executivo_id = _e;
+            var _selE = form.querySelector('select[name="executivo_id"]');
+            var _optE = _selE && _selE.options[_selE.selectedIndex];
+            if (_optE) payload.responsavel = _optE.textContent.trim();
+        }
+
         payload.bv_percentual = parseFloat(payload.bv_percentual) || 0;
         payload.margem_cc = parseFloat(payload.margem_cc) || 0;
         payload.agencias_vinculadas = coletarAgenciasVinculadasFrom(form.closest('div').querySelector('#cx-drawer-cliente-agencias'));
@@ -267,12 +295,94 @@
             .map(function (c) { return { id: c.id, nome: c.nome }; });
     }
 
-    // Prefetch em background após o boot da página — deixa o drawer
-    // instantâneo na primeira abertura. Falhas são silenciosas (o
-    // renderAgenciaRows tenta de novo e reporta erro visualmente).
+    /* ============================================================
+       Cache central de LOOKUPS (tipos_cliente, estados, setores,
+       cargos, executivos reais, plataformas, classificações).
+       Antes cada combo tinha <option> hardcoded no template com
+       nomes mock ("Luisa Santana", "João Paulo"). Agora um único
+       GET /crm-v3/api/lookups traz tudo direto do Postgres e
+       populamos os selects programaticamente.
+       ============================================================ */
+    var _lookupsCache = null;
+    var _lookupsPromise = null;
+
+    function ensureLookupsCarregados(force) {
+        if (!force && _lookupsCache) return Promise.resolve(_lookupsCache);
+        if (_lookupsPromise && !force) return _lookupsPromise;
+        _lookupsPromise = apiFetch('/lookups').then(function (data) {
+            // Backend envia os campos no root (spread) e também em `data`.
+            _lookupsCache = {
+                tipos_cliente:   data.tipos_cliente   || [],
+                estados:         data.estados         || [],
+                setores:         data.setores         || [],
+                cargos:          data.cargos          || [],
+                executivos:      data.executivos      || [],
+                plataformas:     data.plataformas     || [],
+                classificacoes:  data.classificacoes  || []
+            };
+            _lookupsPromise = null;
+            return _lookupsCache;
+        }).catch(function (err) {
+            _lookupsPromise = null;
+            throw err;
+        });
+        return _lookupsPromise;
+    }
+
+    function getLookups() {
+        return _lookupsCache || {
+            tipos_cliente: [], estados: [], setores: [], cargos: [],
+            executivos: [], plataformas: [], classificacoes: []
+        };
+    }
+
+    /**
+     * Popula um <select> a partir de uma lista de items com forma
+     * {id/value, label/nome, ...}. Preserva o valor atualmente
+     * selecionado, e adiciona uma option "não encontrada" quando o
+     * valor salvo não aparece na lista — assim o PATCH não zera o
+     * dado só porque o combo carregou tarde.
+     */
+    function populateSelect(select, items, opts) {
+        if (!select) return;
+        opts = opts || {};
+        var placeholder = opts.placeholder || '— Selecionar —';
+        var valueKey    = opts.valueKey    || 'id';
+        var labelKey    = opts.labelKey    || 'nome';
+        var current     = opts.currentValue != null ? String(opts.currentValue) : String(select.value || '');
+        var htmlParts   = [];
+        if (opts.allowEmpty !== false) {
+            htmlParts.push('<option value="">' + placeholder + '</option>');
+        }
+        var achou = false;
+        (items || []).forEach(function (it) {
+            var val = it[valueKey] != null ? String(it[valueKey]) : '';
+            var lab = it[labelKey] != null ? String(it[labelKey]) : val;
+            var sel = (val === current) ? ' selected' : '';
+            if (sel) achou = true;
+            htmlParts.push('<option value="' + escapeAttr(val) + '"' + sel + '>' + escapeHtml(lab) + '</option>');
+        });
+        // Preservação de vínculo legado (mesma lógica de agências).
+        if (current && !achou && current !== '') {
+            htmlParts.push('<option value="' + escapeAttr(current) + '" selected>' + escapeHtml(current) + ' — (não listado)</option>');
+        }
+        select.innerHTML = htmlParts.join('');
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    // Prefetch em background após o boot da página — deixa TODOS os
+    // drawers instantâneos na primeira abertura. Falhas são silenciosas
+    // (os renderers usam o fallback antigo e tentam de novo).
     if (typeof window !== 'undefined') {
         var _prefetch = function () {
             ensureAgenciasCarregadas().catch(function () { /* silencioso */ });
+            ensureLookupsCarregados().catch(function () { /* silencioso */ });
         };
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
             setTimeout(_prefetch, 200);
@@ -282,6 +392,97 @@
             });
         }
     }
+
+    /**
+     * Faz o scan de todos os `<select data-lookup="<chave>">` dentro de
+     * `root` e popula usando o cache de lookups. Atributos suportados:
+     *   - data-lookup       (obrigatório): chave do lookup (tipos_cliente|estados|...).
+     *   - data-lookup-value (opcional, default: "id"): campo do item usado como value.
+     *   - data-lookup-label (opcional, default: "nome"): campo do item usado como label.
+     *   - data-lookup-empty (opcional): texto do placeholder vazio; se "false" omite.
+     *
+     * Preserva o valor atualmente selecionado (fillForm já rodou antes).
+     * Se os lookups ainda não foram carregados, retorna já com os selects
+     * exibindo "— Carregando… —" e re-popula assim que a promise resolver.
+     */
+    function populateLookupSelects(root, cliente) {
+        if (!root) return;
+        var selects = $$('select[data-lookup]', root);
+        var datalists = $$('datalist[data-lookup-datalist]', root);
+        if (!selects.length && !datalists.length) return;
+
+        var apply = function () {
+            var lookups = getLookups();
+            // Datalists (autocomplete em inputs) — a "value" é usada
+            // como conteúdo do <option> (input.list usa value para
+            // sugerir). Não seleciona nada; só popula sugestões.
+            datalists.forEach(function (dl) {
+                var key = dl.getAttribute('data-lookup-datalist');
+                var lista = lookups[key] || [];
+                var valueKey = dl.getAttribute('data-lookup-value') || 'nome';
+                dl.innerHTML = lista.map(function (it) {
+                    var v = it[valueKey] != null ? String(it[valueKey]) : '';
+                    return '<option value="' + escapeAttr(v) + '"></option>';
+                }).join('');
+            });
+            selects.forEach(function (sel) {
+                var key = sel.getAttribute('data-lookup');
+                var lista = lookups[key] || [];
+                var valueKey = sel.getAttribute('data-lookup-value') || 'id';
+                var labelKey = sel.getAttribute('data-lookup-label') || 'nome';
+                var placeholderAttr = sel.getAttribute('data-lookup-empty');
+                var allowEmpty = placeholderAttr !== 'false';
+                var placeholder = placeholderAttr && placeholderAttr !== 'false'
+                    ? placeholderAttr
+                    : '— Selecionar —';
+
+                // Descobre o valor atual: se `cliente` foi passado, usamos
+                // cliente[data-field] — isso resolve o caso do fillForm
+                // ter rodado ANTES do lookup chegar (quando o select só
+                // tinha placeholder "Carregando…"): a atribuição
+                // `select.value = "7"` foi silenciosamente descartada
+                // porque a option "7" ainda não existia. Sem esse
+                // reforço, o select ficaria em branco na 1a abertura.
+                var currentValue = sel.value;
+                if (cliente) {
+                    var field = sel.getAttribute('data-field');
+                    if (field) {
+                        var v = field.indexOf('.') >= 0
+                            ? field.split('.').reduce(function (o, k) { return o ? o[k] : undefined; }, cliente)
+                            : cliente[field];
+                        if (v !== undefined && v !== null && v !== '') currentValue = String(v);
+                    }
+                }
+                populateSelect(sel, lista, {
+                    valueKey: valueKey,
+                    labelKey: labelKey,
+                    allowEmpty: allowEmpty,
+                    placeholder: placeholder,
+                    currentValue: currentValue
+                });
+            });
+        };
+
+        if (_lookupsCache) {
+            apply();
+        } else {
+            ensureLookupsCarregados().then(apply).catch(function (err) {
+                // Falha silenciosa: os placeholders "Carregando…" ficam.
+                // Reportamos apenas se o usuário tentar salvar sem
+                // conseguir selecionar (validação do form).
+                console.warn('[crm-v3] Falha ao carregar lookups:', err && err.message);
+            });
+        }
+    }
+
+    // Exposto para outros módulos (crm_v3.js) reutilizarem se quiserem.
+    window.crmV3Drawer = window.crmV3Drawer || {};
+    window.crmV3Drawer.lookups = {
+        ensure: ensureLookupsCarregados,
+        get: getLookups,
+        populateSelect: populateSelect,
+        applyToRoot: populateLookupSelects
+    };
 
     /* -----------------------------------------------------------
        Drawer: Atividade + IA
@@ -639,6 +840,10 @@
         wrapper.appendChild(frag);
         var form = wrapper.querySelector('form');
         fillForm(form, contato || {});
+        // Popula cargos/setores reais (tbl_cargo_contato / tbl_setor) —
+        // antes eram inputs livres, agora combos padronizados. Passa o
+        // `contato` para preservar seleção existente.
+        populateLookupSelects(wrapper, contato);
         cxDrawer.open({
             title: contato ? 'Editar contato' : 'Novo contato',
             breadcrumb: 'CRM v3 · Contato',

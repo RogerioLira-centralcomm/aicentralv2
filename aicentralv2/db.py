@@ -1733,6 +1733,8 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
 # real em `tbl_cliente`. Campos ausentes desta lista são silenciosamente
 # ignorados — evita SQL injection e alteração de colunas críticas
 # (id_cliente, data_cadastro, agencia, is_agencia, etc.) por acidente.
+_CLIENTE_INLINE_EDITABLE_UF_ALIASES = ("uf", "estado_sigla", "sigla_estado")
+
 _CLIENTE_INLINE_EDITABLE = {
     # Identidade
     "razao_social": "razao_social",
@@ -1762,6 +1764,12 @@ _CLIENTE_INLINE_EDITABLE = {
     "numero": "numero",
     "complemento": "complemento",
     "pk_id_aux_estado": "pk_id_aux_estado",
+    # Alias amigável: o CRM v3 envia `uf` como sigla ("MG"). O UPDATE
+    # abaixo resolve sigla → id_estado antes de gravar em
+    # pk_id_aux_estado. Antes o PATCH silenciosamente ignorava.
+    "uf": "pk_id_aux_estado",
+    "estado_sigla": "pk_id_aux_estado",
+    "sigla_estado": "pk_id_aux_estado",
     # Vínculos administrativos
     "vendas_central_comm": "vendas_central_comm",
     "executivo_id": "vendas_central_comm",
@@ -1828,6 +1836,39 @@ def atualizar_campos_cliente(id_cliente, patches):
                 continue
             if col == "site_url" and not tem_site_url:
                 continue
+
+            # Alias UF: o frontend envia sigla ("MG"), precisamos gravar
+            # o id (pk_id_aux_estado). Se receber int direto, aceita.
+            if col == "pk_id_aux_estado" and k in _CLIENTE_INLINE_EDITABLE_UF_ALIASES:
+                if raw in (None, ""):
+                    sets.append(f"{col} = %s")
+                    vals.append(None)
+                    continue
+                # Se já for int, cai no _CLIENTE_INLINE_INT_COLS normal.
+                if not str(raw).isdigit():
+                    sigla = str(raw).strip().upper()
+                    try:
+                        cur.execute(
+                            "SELECT id_estado FROM tbl_estado WHERE UPPER(sigla) = %s LIMIT 1",
+                            (sigla,)
+                        )
+                        row = cur.fetchone()
+                    except Exception:
+                        row = None
+                    id_est = None
+                    if row:
+                        if isinstance(row, dict):
+                            id_est = row.get("id_estado")
+                        else:
+                            id_est = row[0]
+                    if id_est is None:
+                        # Sigla inexistente: ignora esse patch em vez de
+                        # gravar NULL silenciosamente.
+                        continue
+                    sets.append(f"{col} = %s")
+                    vals.append(int(id_est))
+                    continue
+
             # Normalização por tipo
             if col in _CLIENTE_INLINE_BOOL_COLS:
                 if isinstance(raw, bool):

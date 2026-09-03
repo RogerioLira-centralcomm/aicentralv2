@@ -73,11 +73,10 @@
                 {% if usuario_atual and usuario_atual.nome and ex.nome_completo == usuario_atual.nome %}data-eu="true"{% endif %}
               >{{ ex.nome_completo }}</option>
             {% endfor %}
-          {% else %}
-            {# Fallback caso o banco não esteja acessível: mantém executivos do mock. #}
-            <option value="Luisa Santana">Luisa Santana</option>
-            <option value="João Paulo">João Paulo</option>
           {% endif %}
+          {# Fallback removido em set/2026: sem executivos reais na base
+             não mostramos nomes mock — a UI fica com apenas "todos", e
+             o banner de indisponibilidade explica o motivo. #}
         </select>
         <label class="sr-only" for="filtro-tipo">Filtrar por tipo</label>
         <select class="crm-v3-select" id="filtro-tipo" aria-label="Tipo">

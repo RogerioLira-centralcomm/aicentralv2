@@ -36,10 +36,10 @@
         </div>
         <div class="cx-drawer-field">
           <label>Tipo</label>
-          <select name="id_tipo_cliente" data-field="id_tipo_cliente">
-            <option value="">—</option>
-            <option value="privado">Privado</option>
-            <option value="publico">Público</option>
+          {# Opções vêm de tbl_tipo_cliente via /crm-v3/api/lookups.
+             O placeholder abaixo é reescrito pelo JS ao abrir o drawer. #}
+          <select name="id_tipo_cliente" data-field="id_tipo_cliente" data-lookup="tipos_cliente" data-lookup-label="label">
+            <option value="">— Carregando tipos… —</option>
           </select>
         </div>
         <div class="cx-drawer-field">
@@ -61,7 +61,11 @@
         </div>
         <div class="cx-drawer-field">
           <label>UF</label>
-          <input type="text" name="uf" data-field="endereco.uf" maxlength="2" />
+          {# Populado por JS a partir de tbl_estado via /crm-v3/api/lookups.
+             Value = sigla (mesma convenção usada por endereco.uf no CRM legado). #}
+          <select name="uf" data-field="endereco.uf" data-lookup="estados" data-lookup-value="sigla" data-lookup-label="sigla">
+            <option value="">—</option>
+          </select>
         </div>
         <div class="cx-drawer-field" style="grid-column: span 2;">
           <label>Cidade</label>
@@ -99,9 +103,13 @@
         </div>
         <div class="cx-drawer-field">
           <label>Executivo</label>
-          <select name="responsavel" data-field="responsavel">
-            <option value="Luisa Santana">Luisa Santana</option>
-            <option value="João Paulo">João Paulo</option>
+          {# Populado por JS com executivos reais (tbl_contato_cliente
+             filtrado por vendas_central_comm). Value = id (int) porque
+             _CLIENTE_INLINE_EDITABLE aliaseia `executivo_id` para a
+             coluna `vendas_central_comm`, que é INT. Antes usávamos o
+             nome — quebrava toda edição do responsável. #}
+          <select name="executivo_id" data-field="executivo_id" data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome">
+            <option value="">— Carregando… —</option>
           </select>
         </div>
         {# Removido em set/2026: `tbl_cliente` não possui coluna

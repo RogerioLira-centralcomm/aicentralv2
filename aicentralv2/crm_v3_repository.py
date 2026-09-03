@@ -53,6 +53,36 @@ def _db():
     return _real_db
 
 
+def _rollback_if_failed(reason: str = "") -> None:
+    """Faz ROLLBACK na conexão do request quando a transação está morta.
+
+    Contexto crítico (set/2026): `db.get_db()` cria a conexão com
+    `autocommit=False`. Toda a request compartilha essa MESMA conexão
+    dentro de uma transação implícita. Se qualquer query falha
+    (schema divergente, coluna inexistente, deadlock, etc.), o
+    Postgres coloca a transação em `aborted` e devolve
+    `InFailedSqlTransaction` em TODAS as queries seguintes — até
+    que um ROLLBACK explícito seja executado.
+
+    Sem essa recuperação, um único cliente com dados inconsistentes
+    derrubava toda a listagem: try/except no repo capturava, mas a
+    próxima iteração recebia InFailedSqlTransaction e recaptura, etc.
+    O log ficava cheio de InFailedSqlTransaction em cascata.
+
+    Uso: chamar dentro do `except Exception` sempre que uma query do
+    módulo `db` falhar em cima de uma transação compartilhada.
+    """
+    try:
+        conn = _db().get_db()
+        if conn and not getattr(conn, "closed", True):
+            conn.rollback()
+    except Exception:
+        # Se o rollback falhou, a conexão está perdida — o `close_db`
+        # do teardown_request vai limpar e o próximo request começa
+        # do zero. Não há muito o que fazer aqui.
+        pass
+
+
 # =============================================================================
 # Feature flag
 # =============================================================================
@@ -234,8 +264,15 @@ class CrmV3Repository:
             except Exception as e:  # noqa: BLE001
                 import logging
                 logging.getLogger("aicentral.crm_v3").warning(
-                    "_metrics_for falhou para cliente %s: %s", mapped.get("id"), e
+                    "_metrics_for falhou para cliente %s: %s: %s",
+                    mapped.get("id"), type(e).__name__, e,
                 )
+                # ROLLBACK crítico: se _metrics_for morreu por causa de
+                # uma query com erro, TODAS as queries seguintes retornam
+                # InFailedSqlTransaction até dar rollback. Sem essa
+                # linha, o try/except abaixo (listar_clientes_vinculados_agencia)
+                # e o próximo cliente da lista também falhariam em cascata.
+                _rollback_if_failed("_metrics_for")
                 mapped["metrics"] = dict(_metrics_default)
                 mapped["metrics_error"] = f"{type(e).__name__}: {str(e)[:120]}"
 
@@ -256,9 +293,10 @@ class CrmV3Repository:
                 except Exception as e:  # noqa: BLE001
                     import logging
                     logging.getLogger("aicentral.crm_v3").warning(
-                        "listar_clientes_vinculados_agencia falhou para %s: %s",
-                        mapped.get("id"), e,
+                        "listar_clientes_vinculados_agencia falhou para %s: %s: %s",
+                        mapped.get("id"), type(e).__name__, e,
                     )
+                    _rollback_if_failed("listar_clientes_vinculados_agencia")
                     mapped["clientes_finais_ids"] = []
                     mapped["clientes_finais_count"] = 0
                     mapped["clientes_finais"] = []
@@ -597,11 +635,21 @@ class CrmV3Repository:
         """
         try:
             contatos = self.list_contatos(cliente_id) or []
-        except Exception:
+        except Exception as e:
+            _rollback_if_failed("list_contatos")
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "list_contatos %s falhou: %s: %s", cliente_id, type(e).__name__, e
+            )
             contatos = []
         try:
             cotacoes = _db().obter_cotacoes_cliente(cliente_id) or []
-        except Exception:
+        except Exception as e:
+            _rollback_if_failed("obter_cotacoes_cliente")
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "obter_cotacoes_cliente %s falhou: %s: %s", cliente_id, type(e).__name__, e
+            )
             cotacoes = []
         abertas = [
             c for c in cotacoes
@@ -654,8 +702,13 @@ class CrmV3Repository:
                         )
                     except Exception:
                         ultimo_contato = iso
-        except Exception:
-            pass
+        except Exception as e:
+            _rollback_if_failed("obter_atividades_cliente")
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "obter_atividades_cliente %s falhou: %s: %s",
+                cliente_id, type(e).__name__, e
+            )
 
         return {
             "contatos": len(contatos),

@@ -254,17 +254,23 @@
 
     <aside class="crm-v3-col crm-v3-col-sidebar min-h-0" id="crm-v3-sidebar" aria-label="Detalhes do cliente">
       <div class="crm-v3-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
-        <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info">Informações</button>
-        <button type="button" role="tab" class="crm-v3-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas">
+        <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info" title="Informações">
+          <i class="fas fa-info-circle" aria-hidden="true"></i>
+          <span>Info</span>
+        </button>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas" title="Notas">
+          <i class="fas fa-sticky-note" aria-hidden="true"></i>
           <span>Notas</span>
           <span class="crm-v3-tab-count" data-tab-count="notas">0</span>
         </button>
-        <button type="button" role="tab" class="crm-v3-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj">
-          <span>Objetivos</span>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj" title="Objetivos">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+          <span>Obj.</span>
           <span class="crm-v3-tab-count" data-tab-count="objetivos">0</span>
         </button>
-        <button type="button" role="tab" class="crm-v3-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ">
-          <span>Atividades</span>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ" title="Atividades">
+          <i class="fas fa-tasks" aria-hidden="true"></i>
+          <span>Ativ.</span>
           <span class="crm-v3-tab-count" data-tab-count="atividades">0</span>
         </button>
       </div>

@@ -813,9 +813,9 @@ html:has(.crm-v3-page) body {
     position: relative;
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    min-height: 72px;
-    padding: 10px 12px 10px 14px;
+    gap: 8px;
+    min-height: 68px;
+    padding: 8px 10px 8px 12px;
     border-bottom: 1px solid var(--crm-border-light);
     border-left: 4px solid transparent;
     cursor: pointer;
@@ -998,12 +998,12 @@ html:has(.crm-v3-page) body {
 }
 
 .crm-v3-cliente-nome {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--crm-text);
-    line-height: 1.25;
+    line-height: 1.3;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-break: break-word;
@@ -1734,19 +1734,28 @@ html:has(.crm-v3-page) body {
 
 .crm-v3-tabs-sidebar .crm-v3-tab {
     width: 100%;
-    padding: 10px 8px;
+    padding: 6px 4px;
     text-align: center;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
-    min-height: 44px;
-    gap: 6px;
-    flex-direction: row;
+    min-height: 36px;
+    gap: 3px;
+    flex-direction: column;
+    line-height: 1.1;
 }
 
-.crm-v3-tabs-sidebar .crm-v3-tab > span:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
+.crm-v3-tabs-sidebar .crm-v3-tab i {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.crm-v3-tabs-sidebar .crm-v3-tab.is-active i {
+    opacity: 1;
+}
+
+.crm-v3-tabs-sidebar .crm-v3-tab > span:first-of-type {
+    display: block;
 }
 
 .crm-v3-tabs-sidebar .crm-v3-tab-count {

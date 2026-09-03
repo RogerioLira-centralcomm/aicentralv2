@@ -664,6 +664,26 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(self.repo.update_nota("1", {"texto": "x"}), (None, None))
         self.assertEqual(self.repo.delete_nota("1"), (False, None))
 
+    # ---- Cliente inline-edit (PATCH parcial) -------------------------
+
+    def test_update_cliente_delega_para_atualizar_campos_cliente(self):
+        # Mockamos `get_cliente` para não descer no `_map_cliente`
+        # (que exige campos completos); só queremos verificar que o
+        # PATCH parcial delega para `db.atualizar_campos_cliente` com
+        # o payload correto.
+        from unittest.mock import patch as _patch
+        self.db.obter_cliente_por_id.return_value = {"id_cliente": 1}
+        self.db.atualizar_campos_cliente.return_value = True
+        with _patch.object(self.repo, "get_cliente", return_value={"id": "1"}):
+            result = self.repo.update_cliente("1", {
+                "cnpj": "123",
+                "classificacao_cliente": "Ativo",
+            })
+        self.assertIsNotNone(result)
+        self.db.atualizar_campos_cliente.assert_called_once_with(
+            "1", {"cnpj": "123", "classificacao_cliente": "Ativo"}
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

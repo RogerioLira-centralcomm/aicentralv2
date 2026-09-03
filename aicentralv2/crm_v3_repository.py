@@ -250,19 +250,34 @@ class CrmV3Repository:
         return self.get_cliente(new_id) or {}
 
     def update_cliente(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """PATCH parcial no cliente.
+
+        Aceita qualquer subconjunto dos campos suportados pelo edit-in-place
+        (ver `_CLIENTE_INLINE_EDITABLE` em `db.py`), incluindo o
+        alias `nome` → `nome_fantasia`. Só chama `db.atualizar_campos_cliente`
+        quando há campos válidos; assim, um PATCH que envia só
+        `agencias_vinculadas` (sem tocar em outros campos) atualiza
+        apenas os vínculos, sem gerar UPDATE ruidoso em tbl_cliente.
+        """
         atual = _db().obter_cliente_por_id(cliente_id)
         if not atual:
             return None
-        _db().atualizar_cliente(
-            id_cliente=cliente_id,
-            razao_social=data.get("razao_social") or atual.get("razao_social"),
-            nome_fantasia=data.get("nome") or data.get("nome_fantasia") or atual.get("nome_fantasia"),
-            id_tipo_cliente=data.get("id_tipo_cliente") or atual.get("id_tipo_cliente"),
-            pessoa=data.get("pessoa") or atual.get("pessoa") or "J",
-            cnpj=data.get("cnpj") if "cnpj" in data else atual.get("cnpj"),
-            inscricao_municipal=data.get("inscricao_municipal") if "inscricao_municipal" in data else atual.get("inscricao_municipal"),
-            inscricao_estadual=data.get("inscricao_estadual") if "inscricao_estadual" in data else atual.get("inscricao_estadual"),
-        )
+        # Campos individuais → PATCH parcial (whitelist em db.py).
+        try:
+            _db().atualizar_campos_cliente(cliente_id, data)
+        except Exception:
+            # Se a assinatura antiga estiver em uso (raro), tenta o fallback
+            # completo com merge — preserva estabilidade em bases legadas.
+            _db().atualizar_cliente(
+                id_cliente=cliente_id,
+                razao_social=data.get("razao_social") or atual.get("razao_social"),
+                nome_fantasia=data.get("nome") or data.get("nome_fantasia") or atual.get("nome_fantasia"),
+                id_tipo_cliente=data.get("id_tipo_cliente") or atual.get("id_tipo_cliente"),
+                pessoa=data.get("pessoa") or atual.get("pessoa") or "J",
+                cnpj=data.get("cnpj") if "cnpj" in data else atual.get("cnpj"),
+                inscricao_municipal=data.get("inscricao_municipal") if "inscricao_municipal" in data else atual.get("inscricao_municipal"),
+                inscricao_estadual=data.get("inscricao_estadual") if "inscricao_estadual" in data else atual.get("inscricao_estadual"),
+            )
         # Reconciliar vínculos, se enviados
         if "agencias_vinculadas" in data:
             vinculos = data.get("agencias_vinculadas") or []

@@ -584,39 +584,47 @@
             metaPri.className = 'badge badge-sm ' + (cliente.prioridade === 'Alta' ? 'badge-error' : cliente.prioridade === 'Média' ? 'badge-warning' : 'badge-ghost');
         }
 
-        // Aba Info — todos os valores vêm do backend (`_map_cliente` do
-        // repositório real popula esses campos a partir de tbl_cliente +
-        // JOINs de tipo/estado/executivo/agência).
+        // Aba Info — populada pelo backend (`_map_cliente` do repositório
+        // real) e enriquecida ao vivo pelos edit-in-place (initInfoEditable).
+        // Read-only fields são setados via textContent; editáveis passam
+        // por `setEditableDisplay` que aplica classe `.is-empty` e
+        // placeholder quando o valor vem vazio (Pipedrive-style).
         var setText = function (sel, val) {
             var el = $(sel);
             if (el) el.textContent = (val == null || val === '') ? '—' : val;
         };
         setText('#crm-v3-info-categoria', cliente.tipo_label);
-        setText('#crm-v3-info-classificacao', cliente.classificacao_cliente || cliente.classificacao);
         setText('#crm-v3-info-tipo', cliente.tipo || cliente.categoria);
-        setText('#crm-v3-info-cnpj', cliente.cnpj);
         setText('#crm-v3-info-criado', dataParaExibicao(cliente.data_cadastro));
         setText('#crm-v3-info-atualizado', dataParaExibicao(cliente.data_modificacao));
-        setText('#crm-v3-info-cidade', [cliente.cidade, cliente.uf].filter(Boolean).join(', '));
+        setText('#crm-v3-info-uf', cliente.uf);
 
-        // Perfil comercial — números e booleanos reais.
+        // Perfil comercial — formatação amigável para o display.
         var fmtPct = function (v) {
             var n = parseFloat(v);
-            if (!isFinite(n) || n === 0) return '—';
+            if (!isFinite(n) || n === 0) return '';
             return n.toFixed(2).replace('.', ',') + '%';
         };
         var yesno = function (v) { return v ? 'Sim' : 'Não'; };
-        setText('#crm-v3-info-bv', fmtPct(cliente.bv_percentual));
-        setText('#crm-v3-info-margem', fmtPct(cliente.margem_cc));
-        setText('#crm-v3-info-opera', yesno(cliente.opera_midia));
-        setText('#crm-v3-info-demanda-dados', yesno(cliente.demanda_dados));
-        setText('#crm-v3-info-demanda-prog', yesno(cliente.demanda_programatica_canais));
 
-        var obsWrap = $('#crm-v3-info-obs-wrap');
-        var obsText = $('#crm-v3-info-obs');
-        var obs = (cliente.observacoes_comerciais_adicionais || '').trim();
-        if (obsWrap) obsWrap.hidden = !obs;
-        if (obsText) obsText.textContent = obs || '—';
+        // Campos editáveis: propagam o valor real via helper.
+        setEditableDisplay('#crm-v3-info-classificacao',
+            cliente.classificacao_cliente || cliente.classificacao);
+        setEditableDisplay('#crm-v3-info-cnpj', cliente.cnpj);
+        setEditableDisplay('#crm-v3-info-cidade-only', cliente.cidade);
+        setEditableDisplay('#crm-v3-info-bv', fmtPct(cliente.bv_percentual));
+        setEditableDisplay('#crm-v3-info-margem', fmtPct(cliente.margem_cc));
+        setEditableDisplay('#crm-v3-info-opera', yesno(cliente.opera_midia), { alwaysFilled: true });
+        setEditableDisplay('#crm-v3-info-demanda-dados', yesno(cliente.demanda_dados), { alwaysFilled: true });
+        setEditableDisplay('#crm-v3-info-demanda-prog', yesno(cliente.demanda_programatica_canais), { alwaysFilled: true });
+        setEditableDisplay('#crm-v3-info-obs', cliente.observacoes_comerciais_adicionais);
+        // Endereço
+        setEditableDisplay('#crm-v3-info-cep', cliente.cep || (cliente.endereco && cliente.endereco.cep));
+        setEditableDisplay('#crm-v3-info-bairro', cliente.bairro || (cliente.endereco && cliente.endereco.bairro));
+        setEditableDisplay('#crm-v3-info-logradouro', cliente.logradouro || (cliente.endereco && cliente.endereco.logradouro));
+        setEditableDisplay('#crm-v3-info-numero', cliente.numero || (cliente.endereco && cliente.endereco.numero));
+        setEditableDisplay('#crm-v3-info-complemento', cliente.complemento || (cliente.endereco && cliente.endereco.complemento));
+        setEditableDisplay('#crm-v3-info-nota-executivo', cliente.nota_executivo);
 
         var responsavelNome = $('#crm-v3-responsavel-nome');
         var responsavelAvatar = $('#crm-v3-responsavel-avatar');
@@ -2533,6 +2541,290 @@
         });
     }
 
+    /* ==================================================================
+     * Edit-in-place (Pipedrive-style) para a aba Info da sidebar.
+     * ------------------------------------------------------------------
+     * Registro único de listeners via event delegation em document. Cada
+     * `.crm-v3-editable-row` com `data-field` vira clicável — abre o
+     * editor apropriado (text/number/select/textarea/bool). O PATCH é
+     * enviado no blur/Enter; a UI recebe feedback visual (spinner /
+     * check) para confirmar o auto-save. Campos vazios ficam colapsados
+     * com placeholder '+ Adicionar X'.
+     * ================================================================== */
+
+    // Aplica valor + estado (empty/filled) num display. Alguns campos
+    // (booleans, datas) nunca ficam "vazios" no sentido do UI (Sim/Não).
+    function setEditableDisplay(sel, value, opts) {
+        opts = opts || {};
+        var el = typeof sel === 'string' ? $(sel) : sel;
+        if (!el) return;
+        var row = el.closest ? el.closest('.crm-v3-editable-row') : null;
+        var placeholder = row ? (row.getAttribute('data-placeholder') || '') : '';
+        var suffix = row ? (row.getAttribute('data-suffix') || '') : '';
+        var raw = value;
+        // Trata string vazia / null / undefined como "sem valor".
+        var isEmpty = !opts.alwaysFilled && (raw === null || raw === undefined || String(raw).trim() === '');
+        if (row) row.classList.toggle('is-empty', !!isEmpty);
+        if (isEmpty) {
+            el.textContent = placeholder ? '+ ' + placeholder : '—';
+        } else {
+            var txt = String(raw);
+            // Se o backend já formatou (ex.: "5,00%"), não duplica sufixo.
+            if (suffix && txt && txt.indexOf(suffix) === -1) txt = txt + suffix;
+            el.textContent = txt;
+        }
+    }
+
+    // Retorna o valor "cru" do campo para inicializar o editor (não o
+    // valor formatado do display). Usa state.cliente como fonte da verdade.
+    function rawFieldValue(field) {
+        var c = state.cliente || {};
+        // Aliases de rótulo → coluna do banco.
+        switch (field) {
+            case 'nome': return c.nome_fantasia || c.nome;
+            case 'observacoes_comerciais_adicionais':
+                return c.observacoes_comerciais_adicionais;
+            case 'nota_executivo_vendas': return c.nota_executivo;
+            case 'percentual': return c.bv_percentual;
+            case 'cnpj': return c.cnpj;
+            case 'cidade': return c.cidade || (c.endereco && c.endereco.cidade);
+            case 'cep': return c.cep || (c.endereco && c.endereco.cep);
+            case 'bairro': return c.bairro || (c.endereco && c.endereco.bairro);
+            case 'logradouro': return c.logradouro || (c.endereco && c.endereco.logradouro);
+            case 'numero': return c.numero || (c.endereco && c.endereco.numero);
+            case 'complemento': return c.complemento || (c.endereco && c.endereco.complemento);
+            case 'classificacao_cliente':
+                return c.classificacao_cliente || c.classificacao;
+            case 'opera_midia':
+            case 'demanda_dados':
+            case 'demanda_programatica_canais':
+            case 'margem_cc':
+                return c[field];
+            default:
+                return c[field];
+        }
+    }
+
+    // Constrói o editor apropriado para o tipo do campo. Retorna
+    // {editor, getValue, focus} para uso pelo controlador.
+    function buildEditor(row) {
+        var type = row.getAttribute('data-type') || 'text';
+        var field = row.getAttribute('data-field');
+        var currentValue = rawFieldValue(field);
+        var editor;
+        if (type === 'select') {
+            editor = document.createElement('select');
+            editor.className = 'crm-v3-editable-input';
+            var options = [];
+            try { options = JSON.parse(row.getAttribute('data-options') || '[]'); }
+            catch (e) { options = []; }
+            options.forEach(function (opt) {
+                var o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                if (String(currentValue || '') === String(opt.value)) o.selected = true;
+                editor.appendChild(o);
+            });
+        } else if (type === 'textarea') {
+            editor = document.createElement('textarea');
+            editor.className = 'crm-v3-editable-input crm-v3-editable-textarea';
+            editor.rows = 4;
+            editor.value = currentValue == null ? '' : String(currentValue);
+        } else if (type === 'bool') {
+            // Toggle inline via par de radios com aparência de segmented control.
+            editor = document.createElement('div');
+            editor.className = 'crm-v3-editable-bool';
+            editor.setAttribute('role', 'group');
+            ['true', 'false'].forEach(function (v) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.value = v;
+                btn.className = 'crm-v3-editable-bool-btn';
+                btn.textContent = v === 'true' ? 'Sim' : 'Não';
+                if ((v === 'true' && !!currentValue) || (v === 'false' && !currentValue)) {
+                    btn.classList.add('is-active');
+                }
+                editor.appendChild(btn);
+            });
+        } else {
+            editor = document.createElement('input');
+            editor.type = type === 'number' ? 'number' : 'text';
+            if (type === 'number') { editor.step = '0.01'; editor.min = '0'; }
+            editor.className = 'crm-v3-editable-input';
+            editor.value = currentValue == null ? '' : String(currentValue);
+        }
+        return {
+            editor: editor,
+            getValue: function () {
+                if (type === 'bool') {
+                    var active = editor.querySelector('.is-active');
+                    return active ? (active.dataset.value === 'true') : false;
+                }
+                if (type === 'number') {
+                    var v = String(editor.value || '').trim();
+                    if (!v) return null;
+                    return parseFloat(v.replace(',', '.'));
+                }
+                return String(editor.value || '').trim();
+            },
+            focus: function () {
+                if (type === 'bool') {
+                    var active = editor.querySelector('.is-active') || editor.firstElementChild;
+                    if (active) active.focus();
+                } else {
+                    editor.focus();
+                    if (typeof editor.select === 'function') editor.select();
+                }
+            }
+        };
+    }
+
+    function _isSameValue(a, b) {
+        // Igualdade leniente: '' == null, número/string equivalentes.
+        if (a === b) return true;
+        var aa = a == null || a === '' ? '' : String(a);
+        var bb = b == null || b === '' ? '' : String(b);
+        return aa === bb;
+    }
+
+    // Persiste o valor via PATCH /api/clientes/<id>. Atualiza o display
+    // e o state.cliente. Se o server der 4xx/5xx, reverte o display
+    // para o valor anterior e exibe toast — comportamento previsível.
+    function saveEditableField(row, newValue) {
+        var field = row.getAttribute('data-field');
+        var display = row.querySelector('[data-editable-display]');
+        if (!field || !state.clienteId) return Promise.resolve();
+        var prev = rawFieldValue(field);
+        if (_isSameValue(prev, newValue)) return Promise.resolve(); // no-op
+
+        row.classList.add('is-saving');
+        row.classList.remove('is-error');
+
+        var payload = {};
+        payload[field] = newValue;
+
+        return api('/clientes/' + encodeURIComponent(state.clienteId), {
+            method: 'PATCH',
+            body: payload
+        }).then(function (resp) {
+            row.classList.remove('is-saving');
+            row.classList.add('is-saved');
+            setTimeout(function () { row.classList.remove('is-saved'); }, 1200);
+            // Atualiza state a partir do cliente que o backend devolveu.
+            if (resp && resp.cliente) {
+                state.cliente = Object.assign({}, state.cliente || {}, resp.cliente);
+                var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
+                if (idx !== -1) state.clientes[idx] = state.cliente;
+            } else if (state.cliente) {
+                state.cliente[field] = newValue;
+            }
+            // Re-formata o display com base no state atualizado.
+            updateDetailPanel(state.cliente);
+        }).catch(function (err) {
+            row.classList.remove('is-saving');
+            row.classList.add('is-error');
+            setTimeout(function () { row.classList.remove('is-error'); }, 1600);
+            showToast(err.message || 'Falha ao salvar', true);
+            // Reverte o texto para o valor original.
+            if (display) updateDetailPanel(state.cliente);
+        });
+    }
+
+    // Abre o editor inline para uma linha. Um único editor aberto por vez.
+    var _activeEditable = null;
+    function closeActiveEditable(save) {
+        if (!_activeEditable) return;
+        var ctx = _activeEditable;
+        _activeEditable = null;
+        var row = ctx.row;
+        row.classList.remove('is-editing');
+        if (ctx.editorWrap && ctx.editorWrap.parentNode) {
+            ctx.editorWrap.parentNode.removeChild(ctx.editorWrap);
+        }
+        if (ctx.display) ctx.display.hidden = false;
+        if (save) {
+            var val = ctx.getValue();
+            saveEditableField(row, val);
+        }
+    }
+
+    function openEditable(row) {
+        if (_activeEditable && _activeEditable.row === row) return;
+        // Fecha o editor anterior (salvando).
+        closeActiveEditable(true);
+
+        var type = row.getAttribute('data-type');
+        if (!type || type === 'readonly') return;
+        var display = row.querySelector('[data-editable-display]');
+        if (!display) return;
+
+        var built = buildEditor(row);
+        var wrap = document.createElement('div');
+        wrap.className = 'crm-v3-editable-editor';
+        wrap.appendChild(built.editor);
+        row.classList.add('is-editing');
+        display.hidden = true;
+        display.parentNode.insertBefore(wrap, display.nextSibling);
+
+        _activeEditable = { row: row, editorWrap: wrap, display: display, getValue: built.getValue, type: type };
+
+        // Handlers: Enter/blur/Escape.
+        var handleKeydown = function (e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeActiveEditable(false);
+            } else if (e.key === 'Enter' && type !== 'textarea') {
+                e.preventDefault();
+                closeActiveEditable(true);
+            }
+        };
+        var handleChange = function () {
+            if (type === 'select' || type === 'bool') closeActiveEditable(true);
+        };
+        var handleBoolClick = function (ev) {
+            var btn = ev.target.closest('.crm-v3-editable-bool-btn');
+            if (!btn) return;
+            $$('.crm-v3-editable-bool-btn', built.editor).forEach(function (b) {
+                b.classList.remove('is-active');
+            });
+            btn.classList.add('is-active');
+            // Salva imediatamente após clique.
+            closeActiveEditable(true);
+        };
+        var handleBlur = function () {
+            // Delay para permitir click em <option>/<button> antes do blur.
+            setTimeout(function () {
+                if (_activeEditable && _activeEditable.row === row
+                    && !row.contains(document.activeElement)) {
+                    closeActiveEditable(true);
+                }
+            }, 100);
+        };
+
+        built.editor.addEventListener('keydown', handleKeydown);
+        if (type === 'select') built.editor.addEventListener('change', handleChange);
+        if (type === 'bool') built.editor.addEventListener('click', handleBoolClick);
+        built.editor.addEventListener('blur', handleBlur, true);
+
+        built.focus();
+    }
+
+    function initInfoEditable() {
+        // Delegação: um único listener no sidebar cobre todas as linhas.
+        var sidebar = document.getElementById('crm-v3-sidebar');
+        if (!sidebar) return;
+        sidebar.addEventListener('click', function (ev) {
+            var row = ev.target.closest && ev.target.closest('.crm-v3-editable-row');
+            if (!row) return;
+            var type = row.getAttribute('data-type');
+            if (!type || type === 'readonly') return;
+            // Clique já dentro de um editor aberto — ignora.
+            if (row.classList.contains('is-editing') && ev.target.closest('.crm-v3-editable-editor')) return;
+            ev.preventDefault();
+            openEditable(row);
+        });
+    }
+
     initModals();
     initTabs('sidebar');
     // Restaura filtros do localStorage antes de bindar handlers para não
@@ -2543,6 +2835,7 @@
     syncFiltrosParaDom();
     initFilters();
     initButtons();
+    initInfoEditable();
     showOverlay('Carregando CRM…');
     loadClientes().finally(hideOverlay);
 

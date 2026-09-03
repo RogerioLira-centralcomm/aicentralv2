@@ -2627,22 +2627,140 @@ html:has(.crm-v3-page) body {
     line-height: var(--crm-line-tight);
 }
 
-/* Bloco de observações comerciais — parágrafo abaixo do grid. */
-.crm-v3-info-obs {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--crm-border, rgba(0, 0, 0, 0.08));
-}
-.crm-v3-info-obs .crm-v3-info-label {
-    display: block;
-    margin-bottom: 4px;
-}
 .crm-v3-info-obs-text {
     font-size: var(--crm-font-sm);
     color: var(--crm-text);
     line-height: 1.45;
     white-space: pre-wrap;
     margin: 0;
+}
+
+/* ==============================================================
+   Edit-in-place (Pipedrive-style) — usado na aba Info da sidebar.
+   Cada .crm-v3-editable-row é clicável e mostra hover + estados
+   is-empty / is-editing / is-saving / is-saved / is-error.
+   ============================================================== */
+.crm-v3-editable-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--crm-font-sm);
+    gap: 8px;
+    padding: 4px 6px;
+    margin: 0 -6px;   /* alarga a área de clique sem quebrar o grid */
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.12s ease, box-shadow 0.12s ease;
+    position: relative;
+}
+.crm-v3-editable-row:hover:not(.is-editing):not([data-type="readonly"]) {
+    background: var(--crm-surface-hover, rgba(0, 0, 0, 0.03));
+}
+.crm-v3-editable-row[data-type="readonly"] {
+    cursor: default;
+}
+.crm-v3-editable-row[data-type="readonly"]:hover {
+    background: transparent;
+}
+.crm-v3-editable-row-block {
+    display: block;
+    padding: 8px 6px;
+}
+.crm-v3-editable-row-block .crm-v3-info-label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* Estado "vazio" — mostra placeholder '+ Adicionar X' em tom discreto,
+   como o Pipedrive faz. Ícone é gerado via ::before. */
+.crm-v3-editable-row.is-empty [data-editable-display] {
+    color: var(--crm-text-subtle);
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.8;
+}
+.crm-v3-editable-row.is-empty:hover [data-editable-display] {
+    color: var(--crm-primary, #2563eb);
+    opacity: 1;
+    font-style: normal;
+}
+
+/* Feedback visual de estado de gravação. */
+.crm-v3-editable-row.is-saving::after,
+.crm-v3-editable-row.is-saved::after,
+.crm-v3-editable-row.is-error::after {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 10px;
+    line-height: 1;
+    pointer-events: none;
+}
+.crm-v3-editable-row.is-saving::after {
+    content: "\f110"; /* spinner */
+    color: var(--crm-text-subtle);
+    animation: crmv3-spin 0.8s linear infinite;
+}
+.crm-v3-editable-row.is-saved::after {
+    content: "\f00c"; /* check */
+    color: var(--crm-success, #16a34a);
+}
+.crm-v3-editable-row.is-error::after {
+    content: "\f071"; /* triangle-exclamation */
+    color: var(--crm-danger, #dc2626);
+}
+@keyframes crmv3-spin {
+    to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Editor inline (input/select/textarea injetado logo abaixo do display). */
+.crm-v3-editable-editor {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 4px;
+}
+.crm-v3-editable-input {
+    width: 100%;
+    border: 1px solid var(--crm-primary, #2563eb);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: var(--crm-font-sm);
+    font-family: inherit;
+    background: var(--crm-surface, #fff);
+    color: var(--crm-text);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.crm-v3-editable-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Segmented control para booleanos (Sim/Não). */
+.crm-v3-editable-bool {
+    display: inline-flex;
+    border: 1px solid var(--crm-primary, #2563eb);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.crm-v3-editable-bool-btn {
+    padding: 4px 12px;
+    font-size: var(--crm-font-sm);
+    background: var(--crm-surface, #fff);
+    color: var(--crm-text);
+    border: 0;
+    cursor: pointer;
+}
+.crm-v3-editable-bool-btn + .crm-v3-editable-bool-btn {
+    border-left: 1px solid var(--crm-border, rgba(0, 0, 0, 0.1));
+}
+.crm-v3-editable-bool-btn.is-active {
+    background: var(--crm-primary, #2563eb);
+    color: #fff;
 }
 
 /* Notas (append-only) — cartão simples e legível. */

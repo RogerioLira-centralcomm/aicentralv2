@@ -1724,6 +1724,143 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
         conn.rollback()
         raise e
 
+
+# Whitelist de colunas editáveis via PATCH inline (edit-in-place do CRM v3).
+# Cada entrada mapeia o nome de campo aceito no frontend → nome da coluna
+# real em `tbl_cliente`. Campos ausentes desta lista são silenciosamente
+# ignorados — evita SQL injection e alteração de colunas críticas
+# (id_cliente, data_cadastro, agencia, is_agencia, etc.) por acidente.
+_CLIENTE_INLINE_EDITABLE = {
+    # Identidade
+    "razao_social": "razao_social",
+    "nome_fantasia": "nome_fantasia",
+    "nome": "nome_fantasia",  # alias amigável do frontend
+    "pessoa": "pessoa",
+    "cnpj": "cnpj",
+    "inscricao_estadual": "inscricao_estadual",
+    "inscricao_municipal": "inscricao_municipal",
+    # Comercial
+    "classificacao_cliente": "classificacao_cliente",
+    "classificacao": "classificacao_cliente",
+    "percentual": "percentual",
+    "bv_percentual": "percentual",
+    "margem_cc": "margem_cc",
+    "opera_midia": "opera_midia",
+    "demanda_dados": "demanda_dados",
+    "demanda_programatica_canais": "demanda_programatica_canais",
+    "observacoes_comerciais_adicionais": "observacoes_comerciais_adicionais",
+    "observacoes": "observacoes_comerciais_adicionais",
+    # Endereço
+    "cep": "cep",
+    "bairro": "bairro",
+    "cidade": "cidade",
+    "logradouro": "logradouro",
+    "rua": "logradouro",
+    "numero": "numero",
+    "complemento": "complemento",
+    "pk_id_aux_estado": "pk_id_aux_estado",
+    # Vínculos administrativos
+    "vendas_central_comm": "vendas_central_comm",
+    "executivo_id": "vendas_central_comm",
+    "id_tipo_cliente": "id_tipo_cliente",
+    "pk_id_tbl_agencia": "pk_id_tbl_agencia",
+    "agencia_id": "pk_id_tbl_agencia",
+    # Nota livre do executivo (uma linha em tbl_cliente, não em histórico)
+    "nota_executivo_vendas": "nota_executivo_vendas",
+    "nota_executivo": "nota_executivo_vendas",
+}
+
+# Colunas que sempre devem ser tratadas como boolean.
+_CLIENTE_INLINE_BOOL_COLS = {
+    "opera_midia", "demanda_dados", "demanda_programatica_canais"
+}
+# Colunas numeric (float/decimal) — converte "" → NULL, string BRL → float.
+_CLIENTE_INLINE_NUMERIC_COLS = {"percentual", "margem_cc"}
+# Colunas inteiras — converte "" → NULL, string → int.
+_CLIENTE_INLINE_INT_COLS = {
+    "pk_id_aux_estado", "vendas_central_comm", "id_tipo_cliente",
+    "pk_id_tbl_agencia",
+}
+
+
+def atualizar_campos_cliente(id_cliente, patches):
+    """UPDATE parcial em `tbl_cliente` (edit-in-place do CRM v3).
+
+    - `patches` é um dict {campo_frontend: valor}. Só as chaves em
+      `_CLIENTE_INLINE_EDITABLE` são consideradas; as demais são
+      ignoradas silenciosamente.
+    - Booleans, numéricos e inteiros são normalizados antes do UPDATE
+      (aceita "sim"/"não", "true"/"false", "1"/"0" para booleans e
+      converte string vazia para NULL nos demais).
+    - Sempre atualiza `data_modificacao = NOW()`.
+    - Se a coluna `nota_executivo_vendas` for pedida mas não existir
+      no schema atual, ela é ignorada e o UPDATE continua com o
+      resto (retrocompat com bases antigas).
+
+    Retorna True em sucesso, None se nenhum campo válido, e raise em erro.
+    """
+    if not patches or not isinstance(patches, dict):
+        return None
+    conn = get_db()
+    with conn.cursor() as cur:
+        # Descobre colunas nulificáveis condicionalmente (só nota executivo
+        # é condicional na estrutura atual; as demais são estáveis).
+        tem_nota_executivo = _has_column(cur, "tbl_cliente", "nota_executivo_vendas")
+        sets, vals = [], []
+        for k, raw in patches.items():
+            col = _CLIENTE_INLINE_EDITABLE.get(k)
+            if not col:
+                continue
+            if col == "nota_executivo_vendas" and not tem_nota_executivo:
+                continue
+            # Normalização por tipo
+            if col in _CLIENTE_INLINE_BOOL_COLS:
+                if isinstance(raw, bool):
+                    val = raw
+                else:
+                    s = str(raw or "").strip().lower()
+                    val = s in ("1", "true", "sim", "s", "yes", "y", "on")
+            elif col in _CLIENTE_INLINE_NUMERIC_COLS:
+                if raw in (None, ""):
+                    val = None
+                else:
+                    s = str(raw).strip().replace("%", "").replace(",", ".")
+                    try:
+                        val = float(s)
+                    except ValueError:
+                        continue  # ignora valor inválido, não corrompe o UPDATE
+            elif col in _CLIENTE_INLINE_INT_COLS:
+                if raw in (None, ""):
+                    val = None
+                else:
+                    try:
+                        val = int(raw)
+                    except (TypeError, ValueError):
+                        continue
+            else:
+                val = None if raw in (None, "") else str(raw).strip()
+                # Trim para strings; mantém None para NULL explícito.
+                if isinstance(val, str) and not val:
+                    val = None
+            sets.append(f"{col} = %s")
+            vals.append(val)
+        if not sets:
+            return None
+        sets.append("data_modificacao = NOW()")
+        vals.append(id_cliente)
+        try:
+            cur.execute(
+                f"UPDATE tbl_cliente SET {', '.join(sets)} WHERE id_cliente = %s RETURNING id_cliente",
+                vals,
+            )
+            row = cur.fetchone()
+            conn.commit()
+            return row is not None
+        except Exception:
+            conn.rollback()
+            raise
+
+
 # ==================== PERCENTUAL (CTA) ====================
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================

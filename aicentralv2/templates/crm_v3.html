@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=40">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=41">
 {% endblock %}
 
 {% block content %}
@@ -291,31 +291,122 @@
             <div class="crm-v3-vinculos-list" id="crm-v3-vinculos-list"></div>
           </div>
 
+          {# Bloco de infos com edit-in-place estilo Pipedrive.
+
+             Cada .crm-v3-editable-row tem:
+              - data-field         → chave enviada no PATCH /api/clientes/<id>
+              - data-type          → text | number | select | textarea | bool
+              - data-placeholder   → texto exibido no estado "vazio"
+              - data-options       → apenas para select: JSON [{value,label}]
+
+             O crm_v3.js registra listeners únicos (delegação) para
+             clicar no display → abrir editor inline → PATCH em AJAX no
+             blur/Enter. Campos sem valor recebem a classe .is-empty e
+             mostram '+ Adicionar <label>' colapsado.
+          #}
           <div class="crm-v3-sidebar-section">
             <div class="crm-v3-sidebar-section-title">Informações básicas</div>
-            <div class="crm-v3-info-grid">
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Perfil</span><span class="crm-v3-info-value" id="crm-v3-info-categoria">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Classificação</span><span class="crm-v3-info-value" id="crm-v3-info-classificacao">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Tipo de cliente</span><span class="crm-v3-info-value" id="crm-v3-info-tipo">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">CNPJ</span><span class="crm-v3-info-value" id="crm-v3-info-cnpj">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Cidade / UF</span><span class="crm-v3-info-value" id="crm-v3-info-cidade">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Criado em</span><span class="crm-v3-info-value" id="crm-v3-info-criado">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Atualizado em</span><span class="crm-v3-info-value" id="crm-v3-info-atualizado">—</span></div>
+            <div class="crm-v3-info-grid" data-editable-scope="cliente">
+              <div class="crm-v3-editable-row" data-field="__readonly_perfil" data-type="readonly">
+                <span class="crm-v3-info-label">Perfil</span>
+                <span class="crm-v3-info-value" id="crm-v3-info-categoria">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="classificacao_cliente" data-type="select"
+                   data-options='[{"value":"Prospecção","label":"Prospecção"},{"value":"Ativo","label":"Ativo"},{"value":"Geladeira","label":"Geladeira"}]'>
+                <span class="crm-v3-info-label">Classificação</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-classificacao">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="__readonly_tipo" data-type="readonly">
+                <span class="crm-v3-info-label">Tipo de cliente</span>
+                <span class="crm-v3-info-value" id="crm-v3-info-tipo">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="cnpj" data-type="text" data-placeholder="Adicionar CNPJ">
+                <span class="crm-v3-info-label">CNPJ</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cnpj">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="cidade" data-type="text" data-placeholder="Adicionar cidade">
+                <span class="crm-v3-info-label">Cidade</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cidade-only">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="__readonly_uf" data-type="readonly">
+                <span class="crm-v3-info-label">UF</span>
+                <span class="crm-v3-info-value" id="crm-v3-info-uf">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="__readonly_criado" data-type="readonly">
+                <span class="crm-v3-info-label">Criado em</span>
+                <span class="crm-v3-info-value" id="crm-v3-info-criado">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="__readonly_atualizado" data-type="readonly">
+                <span class="crm-v3-info-label">Atualizado em</span>
+                <span class="crm-v3-info-value" id="crm-v3-info-atualizado">—</span>
+              </div>
             </div>
           </div>
 
           <div class="crm-v3-sidebar-section">
             <div class="crm-v3-sidebar-section-title">Perfil comercial</div>
-            <div class="crm-v3-info-grid">
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">BV</span><span class="crm-v3-info-value" id="crm-v3-info-bv">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Margem CC</span><span class="crm-v3-info-value" id="crm-v3-info-margem">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Opera mídia</span><span class="crm-v3-info-value" id="crm-v3-info-opera">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Demanda dados</span><span class="crm-v3-info-value" id="crm-v3-info-demanda-dados">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Programática/Canais</span><span class="crm-v3-info-value" id="crm-v3-info-demanda-prog">—</span></div>
+            <div class="crm-v3-info-grid" data-editable-scope="cliente">
+              <div class="crm-v3-editable-row" data-field="percentual" data-type="number" data-suffix="%" data-placeholder="Adicionar BV">
+                <span class="crm-v3-info-label">BV</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-bv">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="margem_cc" data-type="number" data-suffix="%" data-placeholder="Adicionar margem">
+                <span class="crm-v3-info-label">Margem CC</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-margem">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="opera_midia" data-type="bool">
+                <span class="crm-v3-info-label">Opera mídia</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-opera">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="demanda_dados" data-type="bool">
+                <span class="crm-v3-info-label">Demanda dados</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-demanda-dados">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="demanda_programatica_canais" data-type="bool">
+                <span class="crm-v3-info-label">Programática/Canais</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-demanda-prog">—</span>
+              </div>
             </div>
-            <div class="crm-v3-info-obs" id="crm-v3-info-obs-wrap" hidden>
-              <div class="crm-v3-info-label">Observações comerciais</div>
-              <p class="crm-v3-info-obs-text" id="crm-v3-info-obs">—</p>
+            <div class="crm-v3-editable-row crm-v3-editable-row-block"
+                 data-field="observacoes_comerciais_adicionais" data-type="textarea"
+                 data-placeholder="Adicionar observações comerciais">
+              <span class="crm-v3-info-label">Observações comerciais</span>
+              <p class="crm-v3-info-obs-text" data-editable-display id="crm-v3-info-obs">—</p>
+            </div>
+          </div>
+
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Endereço</div>
+            <div class="crm-v3-info-grid" data-editable-scope="cliente">
+              <div class="crm-v3-editable-row" data-field="cep" data-type="text" data-placeholder="Adicionar CEP">
+                <span class="crm-v3-info-label">CEP</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cep">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="bairro" data-type="text" data-placeholder="Adicionar bairro">
+                <span class="crm-v3-info-label">Bairro</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-bairro">—</span>
+              </div>
+              <div class="crm-v3-editable-row crm-v3-editable-row-block" data-field="logradouro" data-type="text" data-placeholder="Adicionar logradouro">
+                <span class="crm-v3-info-label">Logradouro</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-logradouro">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="numero" data-type="text" data-placeholder="Adicionar nº">
+                <span class="crm-v3-info-label">Nº</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-numero">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="complemento" data-type="text" data-placeholder="Adicionar complemento">
+                <span class="crm-v3-info-label">Complemento</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-complemento">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Nota do executivo</div>
+            <div class="crm-v3-editable-row crm-v3-editable-row-block"
+                 data-field="nota_executivo_vendas" data-type="textarea"
+                 data-placeholder="Escrever uma nota rápida sobre este cliente…">
+              <p class="crm-v3-info-obs-text" data-editable-display id="crm-v3-info-nota-executivo">—</p>
             </div>
           </div>
 
@@ -411,7 +502,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=13"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=14"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

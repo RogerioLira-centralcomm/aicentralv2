@@ -970,6 +970,61 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   color: var(--cx-text-muted);
 }
 
+/* ============================================================
+   Chip Group — botões de seleção única (radio visual)
+   Usado no drawer de Atividade para Tipo e Status, substituindo
+   selects com opção invisível. Também replicável em outros drawers.
+   O `<input type="hidden" data-field>` correspondente é atualizado
+   via JS quando o usuário clica em uma chip.
+   ============================================================ */
+.cx-drawer-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cx-drawer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--cx-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--cx-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease,
+              background 140ms ease, box-shadow 140ms ease;
+  white-space: nowrap;
+  line-height: 1;
+}
+.cx-drawer-chip i { font-size: 12px; line-height: 1; }
+.cx-drawer-chip:hover {
+  border-color: var(--cx-border-strong);
+  color: var(--cx-text);
+}
+.cx-drawer-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--cx-focus);
+}
+.cx-drawer-chip.is-active {
+  background: var(--cx-brand-soft, rgba(37, 99, 235, 0.10));
+  border-color: var(--cx-brand);
+  color: var(--cx-brand);
+}
+.cx-drawer-chip.is-active i { color: var(--cx-brand); }
+/* Estado "concluída" — feedback semântico (verde) apenas para o chip
+   de status "concluida" quando ativo. */
+.cx-drawer-chip-group[data-chip-group="status"] .cx-drawer-chip[data-value="concluida"].is-active {
+  background: rgba(22, 163, 74, 0.10);
+  border-color: #16a34a;
+  color: #15803d;
+}
+.cx-drawer-chip-group[data-chip-group="status"] .cx-drawer-chip[data-value="concluida"].is-active i {
+  color: #15803d;
+}
+
 /* Painel IA dentro do drawer de atividade */
 .cx-drawer-ia-panel {
   margin-top: 12px;

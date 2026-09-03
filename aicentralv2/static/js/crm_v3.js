@@ -1237,7 +1237,13 @@
                     })
                     .catch(function (err) { showToast(err.message, true); });
             } else if (action === 'editar') {
-                openAtividadeModal(a);
+                // Prefere o drawer novo (design system cx-*) — só cai
+                // no modal legado se o plugin de drawers não carregou.
+                if (window.crmV3Drawer && typeof window.crmV3Drawer.openAtividade === 'function') {
+                    window.crmV3Drawer.openAtividade(a, state.clienteId);
+                } else {
+                    openAtividadeModal(a);
+                }
             } else if (action === 'excluir') {
                 if (!window.confirm('Excluir esta atividade?')) return;
                 api('/atividades/' + encodeURIComponent(id), { method: 'DELETE' })

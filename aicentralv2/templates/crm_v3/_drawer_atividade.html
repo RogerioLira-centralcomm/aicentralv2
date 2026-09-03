@@ -1,56 +1,156 @@
-{# Drawer LG — Nova/Editar atividade + painel de IA (Fase 2). #}
-<template id="cx-drawer-atividade-tpl">
-  <form id="cx-drawer-atividade-form" data-drawer-form="atividade">
-    <input type="hidden" name="id" data-field="id" />
+{# ================================================================
+   Drawer MD — Nova/Editar atividade (design system vanilla cx-*).
+   ================================================================
 
-    <div class="cx-drawer-section">
-      <div class="cx-drawer-section-title">Atividade</div>
+   Segue o mesmo padrão visual do drawer de Contato:
+   - `cx-drawer-form` + seções com `cx-drawer-section-head` (title/hint)
+   - Chips (`cx-drawer-chip-group`) para escolha rápida de Tipo e Status
+   - Toggle iOS-style para "Marcar como concluída" na edição
+   - Painel de IA harmonioso (Melhorar texto, Sugerir próxima, etc.)
+
+   Sobre os campos reais (tabela `sales_atividades`):
+   - Persistidos: titulo, descricao, tipo, data_atividade, data_prazo,
+     status (pendente/em_andamento/concluida), executivo_id, contato_id.
+   - Removidos aqui (não existem na base): "hora", "prioridade".
+#}
+<template id="cx-drawer-atividade-tpl">
+  <form id="cx-drawer-atividade-form" data-drawer-form="atividade" class="cx-drawer-form">
+    <input type="hidden" name="id" data-field="id" />
+    <input type="hidden" name="tipo" data-field="tipo" value="atividade" />
+    <input type="hidden" name="status" data-field="status" value="pendente" />
+
+    {# --------------------------------------------------------------
+       Seção 1 · O que precisa ser feito
+       -------------------------------------------------------------- #}
+    <section class="cx-drawer-section">
+      <header class="cx-drawer-section-head">
+        <span class="cx-drawer-section-title">Sobre a atividade</span>
+        <span class="cx-drawer-section-hint">O que precisa ser feito</span>
+      </header>
       <div class="cx-drawer-grid">
-        <div class="cx-drawer-field" style="grid-column: span 2;">
-          <label>Título *</label>
-          <input type="text" name="titulo" data-field="titulo" required placeholder="Ex.: Ligar para o responsável" />
+        <div class="cx-drawer-field cx-drawer-field-full">
+          <label for="cx-ativ-titulo">Título <span class="cx-required">*</span></label>
+          <div class="cx-drawer-input-wrap">
+            <i class="fa-regular fa-circle-check cx-drawer-input-icon" aria-hidden="true"></i>
+            <input id="cx-ativ-titulo" type="text" name="titulo" data-field="titulo"
+                   required placeholder="Ex.: Ligar para alinhar próxima campanha" />
+          </div>
         </div>
-        <div class="cx-drawer-field" style="grid-column: span 2;">
-          <label>Descrição / roteiro</label>
-          <textarea rows="5" name="descricao" data-field="descricao" placeholder="Contexto, próximos passos, links..."></textarea>
+        <div class="cx-drawer-field cx-drawer-field-full">
+          <label for="cx-ativ-desc">Descrição / roteiro</label>
+          <textarea id="cx-ativ-desc" rows="4" name="descricao" data-field="descricao"
+                    placeholder="Contexto, próximos passos, links de referência…"></textarea>
         </div>
+      </div>
+    </section>
+
+    {# --------------------------------------------------------------
+       Seção 2 · Tipo (chips) + Responsável + Contato
+       --------------------------------------------------------------
+       Chips substituem o antigo <select> de tipo — visualmente mais
+       amigável e alinhado com o composer inline da coluna Atividades.
+    #}
+    <section class="cx-drawer-section">
+      <header class="cx-drawer-section-head">
+        <span class="cx-drawer-section-title">Categorização</span>
+        <span class="cx-drawer-section-hint">Tipo, dono e pessoa envolvida</span>
+      </header>
+      <div class="cx-drawer-field cx-drawer-field-full">
+        <label>Tipo</label>
+        <div class="cx-drawer-chip-group" data-chip-group="tipo" role="radiogroup" aria-label="Tipo de atividade">
+          <button type="button" class="cx-drawer-chip is-active" data-value="atividade" role="radio" aria-checked="true">
+            <i class="fa-regular fa-circle-check" aria-hidden="true"></i><span>Atividade</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="ligacao" role="radio" aria-checked="false">
+            <i class="fa-solid fa-phone" aria-hidden="true"></i><span>Ligação</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="reuniao" role="radio" aria-checked="false">
+            <i class="fa-solid fa-users" aria-hidden="true"></i><span>Reunião</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false">
+            <i class="fa-regular fa-envelope" aria-hidden="true"></i><span>E-mail</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="doc" role="radio" aria-checked="false">
+            <i class="fa-regular fa-file-lines" aria-hidden="true"></i><span>Documento</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="planejamento" role="radio" aria-checked="false">
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i><span>Planejamento</span>
+          </button>
+        </div>
+      </div>
+      <div class="cx-drawer-grid" style="margin-top: 12px;">
         <div class="cx-drawer-field">
-          <label>Tipo</label>
-          <select name="tipo" data-field="tipo">
-            <option value="ligacao">Ligação</option>
-            <option value="email">E-mail</option>
-            <option value="reuniao">Reunião</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="tarefa">Tarefa</option>
+          <label for="cx-ativ-responsavel">Responsável</label>
+          <select id="cx-ativ-responsavel" name="responsavel" data-field="responsavel">
+            {# Populado dinamicamente em JS a partir de CRM_V3_CONTEXT.executivos #}
+            <option value="">— Selecionar —</option>
           </select>
         </div>
         <div class="cx-drawer-field">
-          <label>Prioridade</label>
-          <select name="prioridade" data-field="prioridade">
-            <option value="Alta">Alta</option>
-            <option value="Média" selected>Média</option>
-            <option value="Baixa">Baixa</option>
-          </select>
-        </div>
-        <div class="cx-drawer-field">
-          <label>Data *</label>
-          <input type="date" name="data" data-field="data" required />
-        </div>
-        <div class="cx-drawer-field">
-          <label>Hora</label>
-          <input type="time" name="hora" data-field="hora" />
-        </div>
-        <div class="cx-drawer-field">
-          <label>Responsável</label>
-          <select name="responsavel" data-field="responsavel">
-            <option value="Luisa Santana">Luisa Santana</option>
-            <option value="João Paulo">João Paulo</option>
+          <label for="cx-ativ-contato">Contato relacionado</label>
+          <select id="cx-ativ-contato" name="contato_id" data-field="contato_id">
+            {# Populado dinamicamente em JS a partir de state.contatos #}
+            <option value="">— Nenhum —</option>
           </select>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="cx-drawer-section">
+    {# --------------------------------------------------------------
+       Seção 3 · Agenda (data + prazo + status)
+       --------------------------------------------------------------
+       "Data" é obrigatória — quando ocorreu / quando ocorre.
+       "Prazo" é opcional (data_prazo no banco) — usado por atividades
+       que têm um limite (ex.: montar proposta até sexta).
+       Status vira chips + toggle rápido de "concluída" na parte de baixo.
+    #}
+    <section class="cx-drawer-section">
+      <header class="cx-drawer-section-head">
+        <span class="cx-drawer-section-title">Quando</span>
+        <span class="cx-drawer-section-hint">Data, prazo e status atual</span>
+      </header>
+      <div class="cx-drawer-grid">
+        <div class="cx-drawer-field">
+          <label for="cx-ativ-data">Data <span class="cx-required">*</span></label>
+          <div class="cx-drawer-input-wrap">
+            <i class="fa-regular fa-calendar cx-drawer-input-icon" aria-hidden="true"></i>
+            <input id="cx-ativ-data" type="date" name="data" data-field="data" required />
+          </div>
+        </div>
+        <div class="cx-drawer-field">
+          <label for="cx-ativ-prazo">Prazo (opcional)</label>
+          <div class="cx-drawer-input-wrap">
+            <i class="fa-regular fa-clock cx-drawer-input-icon" aria-hidden="true"></i>
+            <input id="cx-ativ-prazo" type="date" name="data_prazo" data-field="data_prazo" />
+          </div>
+        </div>
+      </div>
+      <div class="cx-drawer-field cx-drawer-field-full" style="margin-top: 12px;">
+        <label>Status</label>
+        <div class="cx-drawer-chip-group" data-chip-group="status" role="radiogroup" aria-label="Status">
+          <button type="button" class="cx-drawer-chip is-active" data-value="pendente" role="radio" aria-checked="true">
+            <i class="fa-regular fa-circle" aria-hidden="true"></i><span>Pendente</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="em_andamento" role="radio" aria-checked="false">
+            <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i><span>Em andamento</span>
+          </button>
+          <button type="button" class="cx-drawer-chip" data-value="concluida" role="radio" aria-checked="false">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Concluída</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    {# --------------------------------------------------------------
+       Seção 4 · Assistente IA
+       --------------------------------------------------------------
+       Ações headless — os resultados populam campos do form acima e
+       são exibidos no `data-ia-output` para transparência.
+    #}
+    <section class="cx-drawer-section">
       <div class="cx-drawer-ia-panel" role="region" aria-label="Assistente IA para atividade">
         <div class="cx-drawer-ia-title">
           <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
@@ -58,20 +158,24 @@
         </div>
         <div class="cx-drawer-ia-actions">
           <button type="button" class="cx-drawer-ia-action" data-ia-action="melhorar-texto">
-            <i class="fa-solid fa-feather" aria-hidden="true"></i> Melhorar texto
+            <i class="fa-solid fa-feather" aria-hidden="true"></i>
+            <span>Melhorar texto</span>
           </button>
           <button type="button" class="cx-drawer-ia-action" data-ia-action="sugerir-atividade">
-            <i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Sugerir próxima atividade
+            <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+            <span>Sugerir próxima atividade</span>
           </button>
           <button type="button" class="cx-drawer-ia-action" data-ia-action="touchpoints">
-            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Sequência de touchpoints
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+            <span>Sequência de touchpoints</span>
           </button>
           <button type="button" class="cx-drawer-ia-action" data-ia-action="gerar-comunicacao">
-            <i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i> Gerar e-mail p/ contato principal
+            <i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i>
+            <span>Gerar e-mail p/ contato principal</span>
           </button>
         </div>
         <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
       </div>
-    </div>
+    </section>
   </form>
 </template>

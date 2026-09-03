@@ -213,13 +213,131 @@
        Drawer: Atividade + IA
        ----------------------------------------------------------- */
 
+    /**
+     * Popula um <select> a partir da lista de executivos reais do
+     * `window.CRM_V3_CONTEXT.executivos` (mesmo formato usado no drawer
+     * de cotação). Usa o nome como VALOR — o backend
+     * (`update_atividade` / `create_atividade`) resolve para
+     * `executivo_id` via `_executivo_id_por_nome` ou usa o executivo
+     * logado como default.
+     */
+    function populateAtividadeResponsaveis(select, atividade) {
+        if (!select) return;
+        var ctx = window.CRM_V3_CONTEXT || {};
+        var lista = Array.isArray(ctx.executivos) ? ctx.executivos : [];
+        // Preserva a option "— Selecionar —" (index 0) já no template.
+        // Deduplica por nome porque a lista pode vir do estado do CRM.
+        var vistos = {};
+        lista.forEach(function (ex) {
+            var nome = ex.nome_completo || ex.nome || '';
+            if (!nome || vistos[nome]) return;
+            vistos[nome] = true;
+            var opt = document.createElement('option');
+            opt.value = nome;
+            opt.textContent = nome;
+            select.appendChild(opt);
+        });
+        // Preferência de valor selecionado:
+        //   1) responsavel já vindo da atividade (edição)
+        //   2) responsável do cliente atualmente selecionado no CRM
+        //   3) usuário logado (ctx.userName)
+        var preferido = (atividade && atividade.responsavel)
+            || (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente && window.crmV3.state.cliente.responsavel)
+            || ctx.userName
+            || '';
+        if (preferido) {
+            var achou = false;
+            for (var i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === preferido) { achou = true; select.selectedIndex = i; break; }
+            }
+            // Se não estava na lista, adiciona no topo para não perder o
+            // valor (ex.: legado com nome fora do vendas_central_comm).
+            if (!achou) {
+                var extra = document.createElement('option');
+                extra.value = preferido;
+                extra.textContent = preferido;
+                extra.selected = true;
+                select.insertBefore(extra, select.options[1] || null);
+            }
+        }
+    }
+
+    /**
+     * Popula o <select> de contato relacionado com os contatos do
+     * cliente atualmente carregado no CRM (`state.contatos`).
+     */
+    function populateAtividadeContatos(select, atividade) {
+        if (!select) return;
+        var contatos = (window.crmV3 && window.crmV3.state && window.crmV3.state.contatos) || [];
+        contatos.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = String(c.id);
+            opt.textContent = c.nome + (c.cargo ? ' — ' + c.cargo : '');
+            select.appendChild(opt);
+        });
+        var pref = atividade && (atividade.contato_id != null ? String(atividade.contato_id) : '');
+        if (pref) {
+            for (var i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === pref) { select.selectedIndex = i; break; }
+            }
+        }
+    }
+
+    /**
+     * Conecta um grupo de chips a um <input type="hidden">. Cada chip
+     * tem `data-value=X`; a hidden `data-field=<name>` recebe o valor
+     * selecionado. `data-chip-group` no container define qual field
+     * é alvo. Suporta valor inicial vindo do form (ex.: edição).
+     */
+    function wireChipGroups(wrapper, form) {
+        $$('.cx-drawer-chip-group', wrapper).forEach(function (group) {
+            var field = group.getAttribute('data-chip-group');
+            if (!field) return;
+            var hidden = form.querySelector('[data-field="' + field + '"]');
+            var chips = $$('.cx-drawer-chip', group);
+
+            function markActive(val) {
+                chips.forEach(function (chip) {
+                    var active = chip.getAttribute('data-value') === val;
+                    chip.classList.toggle('is-active', active);
+                    chip.setAttribute('aria-checked', active ? 'true' : 'false');
+                });
+            }
+
+            // Sincroniza com o valor inicial da hidden.
+            var initial = hidden ? hidden.value : (chips[0] && chips[0].getAttribute('data-value'));
+            if (initial) markActive(initial);
+
+            chips.forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    var val = chip.getAttribute('data-value');
+                    if (hidden) hidden.value = val;
+                    markActive(val);
+                });
+            });
+        });
+    }
+
     function openDrawerAtividade(atividade, clienteId) {
         var frag = cloneTpl('cx-drawer-atividade-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
         var wrapper = document.createElement('div');
         wrapper.appendChild(frag);
         var form = wrapper.querySelector('form');
+
+        // Popula selects ANTES do fillForm — o `data-field` só reflete
+        // o valor se as <option>s já existem no DOM.
+        populateAtividadeResponsaveis(wrapper.querySelector('#cx-ativ-responsavel'), atividade);
+        populateAtividadeContatos(wrapper.querySelector('#cx-ativ-contato'), atividade);
+
+        // Preenche todos os `data-field` (input/select/hidden) a partir
+        // do objeto atividade. Isso alimenta as hiddens `tipo` e
+        // `status` — que serão sincronizadas com os chips logo abaixo.
         fillForm(form, atividade || {});
+
+        // Conecta os chip-groups (Tipo, Status) à respectiva hidden.
+        // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
+        wireChipGroups(wrapper, form);
 
         // IA actions
         $$('[data-ia-action]', wrapper).forEach(function (btn) {
@@ -238,7 +356,7 @@
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
                 {
-                    label: atividade ? 'Salvar' : 'Criar atividade',
+                    label: atividade ? 'Salvar alterações' : 'Criar atividade',
                     variant: 'primary',
                     onClick: function (ev, id) { submitAtividade(form, atividade, clienteId, id); }
                 }
@@ -248,8 +366,16 @@
 
     function submitAtividade(form, atividade, clienteId, drawerId) {
         var payload = serializeForm(form);
-        if (!payload.titulo) { toast('Título é obrigatório', true); return; }
+        if (!payload.titulo || !payload.titulo.trim()) { toast('Título é obrigatório', true); return; }
         if (!payload.data) { toast('Data é obrigatória', true); return; }
+        // Normalizações:
+        // - status vazio → pendente (default do banco)
+        // - contato_id "" (sem seleção) → null para o backend
+        if (!payload.status) payload.status = 'pendente';
+        if (payload.contato_id === '' || payload.contato_id == null) payload.contato_id = null;
+        // Prazo vazio significa "sem prazo" — mande null para o server.
+        if (!payload.data_prazo) payload.data_prazo = null;
+
         var isEdit = !!(atividade && atividade.id);
         var req = isEdit
             ? apiFetch('/atividades/' + encodeURIComponent(atividade.id), { method: 'PATCH', body: payload })
@@ -283,11 +409,31 @@
                 }
             } else if (action === 'sugerir-atividade') {
                 if (data) {
-                    if (data.titulo) form.querySelector('[data-field="titulo"]').value = data.titulo;
-                    if (data.descricao) form.querySelector('[data-field="descricao"]').value = data.descricao;
-                    if (data.tipo) form.querySelector('[data-field="tipo"]').value = data.tipo;
-                    if (data.prioridade) form.querySelector('[data-field="prioridade"]').value = data.prioridade;
-                    if (data.data_sugerida) form.querySelector('[data-field="data"]').value = data.data_sugerida;
+                    // Helper defensivo: só atualiza se o campo existir
+                    // no drawer atual (o form de atividade pode não ter
+                    // todos os campos legados como "prioridade").
+                    var setField = function (name, value) {
+                        if (value == null) return;
+                        var el = form.querySelector('[data-field="' + name + '"]');
+                        if (!el) return;
+                        el.value = value;
+                        // Se o field é uma hidden ligada a chip-group,
+                        // reflete visualmente o novo valor.
+                        var chipGroup = form.parentNode
+                            && form.parentNode.querySelector
+                            && form.parentNode.querySelector('.cx-drawer-chip-group[data-chip-group="' + name + '"]');
+                        if (chipGroup) {
+                            $$('.cx-drawer-chip', chipGroup).forEach(function (chip) {
+                                var active = chip.getAttribute('data-value') === value;
+                                chip.classList.toggle('is-active', active);
+                                chip.setAttribute('aria-checked', active ? 'true' : 'false');
+                            });
+                        }
+                    };
+                    setField('titulo', data.titulo);
+                    setField('descricao', data.descricao);
+                    setField('tipo', data.tipo);
+                    setField('data', data.data_sugerida);
                     output.textContent = 'Sugestão preenchida no formulário.';
                 }
             } else if (action === 'touchpoints') {

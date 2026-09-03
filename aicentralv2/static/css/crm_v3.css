@@ -68,28 +68,84 @@ html:has(.crm-v3-page) body {
     color: var(--crm-text);
 }
 
-#crm-v3-metrics {
+/* ==============================================================
+   Métricas do cliente — grid próprio (substitui DaisyUI stats).
+   • Sem bordas verticais divisórias (limpo).
+   • Labels quebram em 2 linhas quando necessário — nada de "…".
+   • Valor monetário em fonte tabular para ficar alinhado.
+   • Colapsa para 3 colunas em telas apertadas.
+   ============================================================== */
+#crm-v3-metrics,
+.crm-v3-metrics-grid {
     display: grid;
     grid-auto-flow: row;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px 12px;
+    padding: 6px 10px;
+    background: var(--crm-surface, #fff);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     flex-shrink: 0;
     max-width: calc(100% - 1rem);
     overflow: hidden;
 }
 
-#crm-v3-metrics .stat {
+.crm-v3-metric {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     min-width: 0;
+    padding: 4px 2px;
+    /* Sem border-inline-start — remove a linha escura vertical
+       do DaisyUI que separava as métricas. */
+    border: 0;
 }
 
-#crm-v3-metrics .stat-title,
-#crm-v3-metrics .stat-value {
+.crm-v3-metric-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--crm-text);
+    line-height: 1.15;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Valores monetários costumam ser mais longos ("R$ 12.500,00");
+   deixamos um pouco menor para respirar dentro da coluna. */
+.crm-v3-metric-value-money {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.crm-v3-metric-label {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.25;
+    color: var(--crm-text-subtle);
+    /* Deixa quebrar em 2 linhas ao invés de truncar (o que gerava
+       "Cotações em a…" / "Cotações apro…" na captura anterior). */
+    white-space: normal;
+    word-break: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 @media (max-width: 1500px) {
-    #crm-v3-metrics {
+    #crm-v3-metrics,
+    .crm-v3-metrics-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@media (max-width: 640px) {
+    #crm-v3-metrics,
+    .crm-v3-metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

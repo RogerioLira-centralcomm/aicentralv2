@@ -1288,13 +1288,6 @@ html:has(.crm-v3-page) body {
     min-width: 200px;
 }
 
-.crm-v3-header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
 .crm-v3-header-label {
     font-size: var(--crm-font-sm);
     color: var(--crm-text-muted);
@@ -1381,19 +1374,6 @@ html:has(.crm-v3-page) body {
     font-size: var(--crm-font-xs);
     margin-left: auto;
     white-space: nowrap;
-}
-
-.crm-v3-avatars-stack {
-    display: flex;
-}
-
-.crm-v3-avatars-stack .crm-v3-avatar-mini {
-    margin-left: -5px;
-    border: 2px solid #fff;
-}
-
-.crm-v3-avatars-stack .crm-v3-avatar-mini:first-child {
-    margin-left: 0;
 }
 
 /* ===== MÉTRICAS ===== */
@@ -2730,23 +2710,6 @@ html:has(.crm-v3-page) body {
 .crm-v3-responsavel-email {
     font-size: var(--crm-font-xs);
     color: var(--crm-primary);
-}
-
-.crm-v3-followers-row {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-}
-
-.crm-v3-followers-row .crm-v3-avatar-mini {
-    margin-left: -4px;
-    border: 2px solid #fff;
-}
-
-.crm-v3-followers-row .crm-v3-avatar-mini:first-child {
-    margin-left: 0;
 }
 
 .crm-v3-mini-ativ {

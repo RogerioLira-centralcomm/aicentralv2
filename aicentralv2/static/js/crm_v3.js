@@ -513,13 +513,12 @@
     }
 
     function updateTabCounts() {
-        // Somente contadores da sidebar (Contatos / Notas / Objetivos /
-        // Atividades). Abas Todas/Pendentes/Concluídas de atividades foram
-        // removidas em favor do agrupamento por data.
+        // Contadores da sidebar principal. A aba "Atividades" foi
+        // removida em set/2026 (redundante com a coluna central), então
+        // não precisamos mais atualizar o contador dela aqui.
         var counts = {
             notas: (state.notas || []).length,
             objetivos: (state.objetivos || []).length,
-            atividades: (state.atividades || []).length,
         };
         $$('.crm-v3-tab-count').forEach(function (el) {
             var key = el.getAttribute('data-tab-count');
@@ -1168,7 +1167,6 @@
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-ativ-empty">Selecione um cliente.</div>';
-            renderSidebarAtividades();
             renderSugestao();
             updateTabCounts();
             return;
@@ -1176,7 +1174,6 @@
 
         if (!filtrados.length) {
             container.innerHTML = '<div class="crm-v3-ativ-empty">Nenhuma atividade registrada.</div>';
-            renderSidebarAtividades();
             renderSugestao();
             updateTabCounts();
             return;
@@ -1212,27 +1209,13 @@
 
         container.innerHTML = html;
         bindAtividadeEvents(container);
-        renderSidebarAtividades();
         renderSugestao();
         updateTabCounts();
     }
 
-    function renderSidebarAtividades() {
-        var container = $('#crm-v3-sidebar-atividades-list');
-        if (!container) return;
-        var items = state.atividades.slice(0, 6);
-        if (!items.length) {
-            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhuma atividade registrada.</p>';
-            return;
-        }
-        container.innerHTML = items.map(function (a) {
-            return '<div class="crm-v3-mini-ativ">' +
-                ativIconHtml(a.tipo) +
-                '<div class="crm-v3-mini-ativ-text">' + escapeHtml(a.titulo) + '</div>' +
-                '<span class="crm-v3-mini-ativ-time">' + escapeHtml((a.data_label || '') + (a.hora ? ' · ' + a.hora : '')) + '</span>' +
-                '</div>';
-        }).join('');
-    }
+    // renderSidebarAtividades removida em set/2026: a aba "Atividades"
+    // da sidebar foi eliminada por ser redundante com a coluna central
+    // (que é o foco do CRM v3). Nada mais renderiza uma mini-lista.
 
     function renderSugestao() {
         var el = $('#crm-v3-sugestao-texto');
@@ -2655,16 +2638,9 @@
             });
         }
 
-        var verTodasAtividades = $('#crm-v3-ver-todas-atividades');
-        if (verTodasAtividades) {
-            verTodasAtividades.addEventListener('click', function () {
-                var painel = $('.crm-v3-section-atividades');
-                if (painel) {
-                    painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    painel.focus({ preventScroll: true });
-                }
-            });
-        }
+        // Handler do botão "Ver todas atividades" removido em set/2026
+        // junto com a aba "Atividades" da sidebar (redundante com a
+        // coluna central).
 
         // O botão "estrela / favorito" foi removido da UI (setembro/2026)
         // porque `tbl_cliente` não possui coluna `favorito`. Preferimos

@@ -3134,25 +3134,9 @@ button:hover > .crm-v3-menu-hint {
     color: var(--crm-primary);
 }
 
-.crm-v3-mini-ativ {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 4px 0;
-}
-
-.crm-v3-mini-ativ-text {
-    flex: 1;
-    font-size: var(--crm-font-sm);
-    font-weight: 500;
-    color: var(--crm-text);
-}
-
-.crm-v3-mini-ativ-time {
-    font-size: var(--crm-font-xs);
-    color: var(--crm-text-subtle);
-    white-space: nowrap;
-}
+/* Estilos .crm-v3-mini-ativ* removidos em set/2026: a mini-lista de
+   atividades da sidebar foi eliminada (aba "Atividades" duplicava a
+   coluna central). Ver renderAtividades no crm_v3.js. */
 
 .crm-v3-placeholder-text {
     font-size: var(--crm-font-sm);

@@ -96,8 +96,9 @@
             <i class="fa-solid fa-plus" aria-hidden="true"></i> Novo cliente
           </button>
           {# Atalhos secundários para as telas consolidadas do CRM legado.
-             O botão "Exportar" foi removido — os exports viraram links
-             dentro deste mesmo dropdown, com um separador visual. #}
+             Set/2026: removidas as opções de exportar CSV — o time
+             comercial não usa exports por esta tela. Só ficam as
+             visões consolidadas do legado. #}
           <div class="dropdown dropdown-end">
             <button type="button" tabindex="0" class="crm-v3-btn crm-v3-btn-outline" id="crm-v3-btn-atalhos" aria-label="Mais atalhos" aria-haspopup="menu">
               <i class="fa-solid fa-table-list" aria-hidden="true"></i>
@@ -120,21 +121,6 @@
                   <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
                   <span>Todos os objetivos</span>
                   <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
-                </a>
-              </li>
-              <li class="menu-title pt-2">
-                <span><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Exportações (CSV)</span>
-              </li>
-              <li>
-                <a href="{{ url_for('crm.api_export_atividades') }}" target="_blank" rel="noopener">
-                  <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
-                  <span>Exportar atividades</span>
-                </a>
-              </li>
-              <li>
-                <a href="{{ url_for('crm.api_export_objetivos') }}" target="_blank" rel="noopener">
-                  <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
-                  <span>Exportar objetivos</span>
                 </a>
               </li>
             </ul>
@@ -408,11 +394,9 @@
           <span>Obj.</span>
           <span class="crm-v3-tab-count" data-tab-count="objetivos">0</span>
         </button>
-        <button type="button" role="tab" class="crm-v3-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ" title="Atividades">
-          <i class="fas fa-tasks" aria-hidden="true"></i>
-          <span>Ativ.</span>
-          <span class="crm-v3-tab-count" data-tab-count="atividades">0</span>
-        </button>
+        {# Aba "Atividades" removida da sidebar em set/2026:
+           era redundante com a coluna central de atividades, que já
+           é o foco principal da tela. #}
       </div>
 
       <div class="crm-v3-sidebar-panel-wrap">
@@ -612,16 +596,9 @@
           <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-objetivos-list"></div>
         </div>
 
-        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="atividades" aria-labelledby="tab-sidebar-ativ" hidden>
-          <div class="crm-v3-sidebar-panel-heading">
-            <div>
-              <h2>Atividades recentes</h2>
-              <p>Resumo do histórico comercial</p>
-            </div>
-            <button type="button" class="crm-v3-link crm-v3-link-btn" id="crm-v3-ver-todas-atividades">Ver todas</button>
-          </div>
-          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-atividades-list"></div>
-        </div>
+        {# Painel "Atividades" da sidebar removido em set/2026 — a
+           coluna central de atividades é o foco principal do CRM v3;
+           duplicar a listagem na sidebar só confundia o time. #}
       </div>
 
     </aside>

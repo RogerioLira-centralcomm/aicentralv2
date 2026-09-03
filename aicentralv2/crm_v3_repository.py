@@ -14,27 +14,33 @@ dev/sandbox e continua servindo o CRM v3.
 
 Escopo desta iteração
 ---------------------
-Nesta primeira versão o repositório implementa:
+O repositório implementa (Fase 3.2b completa):
 - Clientes (list/get/create/update) via `db.obter_clientes_paginado`,
   `db.obter_cliente_por_id`, `db.criar_cliente`, `db.atualizar_cliente`.
 - Contatos via `db.obter_contatos_por_cliente`, `db.criar_contato`,
   `db.atualizar_contato`.
 - Agencias vinculadas via `db.listar_agencias_vinculadas_cliente`,
   `db.listar_clientes_vinculados_agencia`, `db.salvar_agencias_vinculadas_cliente`.
-- Atividades/objetivos/notas/cotações usam a query padrão de `sales_atividades`,
-  `sales_objetivos_cliente`, `sales_historico_cliente`, `cadu_cotacoes`
-  reaproveitando os selects que já existem em `crm/routes.py`. Nesta primeira
-  entrega **os writes são no-op stub** para preservar a integridade do banco
-  em ambientes de produção — habilite gradualmente conforme validar cada
-  fluxo. Isso é intencional (fail-safe) e está documentado.
+- Atividades (leitura + create/update/delete) em `sales_atividades` via
+  `db.obter/criar/atualizar/excluir_atividade_cliente`.
+- Objetivos (leitura + create/update/delete + conquistar) em
+  `sales_objetivos_cliente` via `db.obter/criar/atualizar/conquistar/excluir_objetivo_cliente`.
+- Notas (leitura + create; histórico é append-only, sem PATCH/DELETE,
+  espelhando o CRM legado) em `sales_historico_cliente` via
+  `db.listar_historico_cliente` e `db.criar_historico_cliente`.
+- Cotações (leitura + create/update/delete) em `cadu_cotacoes` via
+  `db.obter_cotacoes_cliente`, `db.criar_cotacao`, `db.atualizar_cotacao`,
+  `db.deletar_cotacao` (soft delete).
 
-Os métodos ausentes/no-op levantam `NotImplementedError` para deixar claro
-que ainda faltam pontos de escrita real (Fase 3.2 em andamento).
+`update_nota` e `delete_nota` retornam `(None, None)` / `(False, None)`
+propositalmente para preservar o contrato *append-only* do histórico.
 """
 
 from __future__ import annotations
 
 import os
+import re
+from datetime import date as _date, datetime as _datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -304,17 +310,72 @@ class CrmV3Repository:
         }
 
     # ---------------- Atividades / Objetivos / Notas / Cotações --------------
-    # Nesta versão inicial os writes ficam desativados no repositório para
-    # preservar integridade em produção. As leituras vão retornar listas vazias
-    # até que sejam plugadas em consultas específicas (Fase 3.2b).
+    # Fase 3.2b: leitura + writes reais em `sales_atividades`,
+    # `sales_objetivos_cliente`, `sales_historico_cliente` e `cadu_cotacoes`.
+    # Toda validação de campos obrigatórios acontece aqui (o mesmo contrato do
+    # CrmTestStore) para preservar as respostas 400 esperadas pelo frontend.
+
+    # -- utilitários privados -------------------------------------------------
+
+    def _current_executivo_id(self) -> Optional[int]:
+        """Retorna o `user_id` da sessão Flask (o executivo autor).
+
+        Falha silenciosa fora de contexto de request (scripts/tests).
+        """
+        try:
+            from flask import session  # import local para evitar side-effects
+            uid = session.get("user_id")
+            return int(uid) if uid else None
+        except Exception:
+            return None
+
+    def _iso_date(self, value: Any) -> str:
+        """Converte date/datetime/string para 'YYYY-MM-DD'. Falha silenciosa → ''."""
+        if not value:
+            return ""
+        if hasattr(value, "isoformat"):
+            try:
+                return value.isoformat()[:10]
+            except Exception:
+                return str(value)[:10]
+        s = str(value).strip()
+        # Aceita 'YYYY-MM-DD' e 'DD/MM/YYYY'
+        if re.match(r"^\d{4}-\d{2}-\d{2}", s):
+            return s[:10]
+        m = re.match(r"^(\d{2})/(\d{2})/(\d{4})", s)
+        if m:
+            return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+        return s
+
+    def _validate_iso_date(self, value: Any, field: str = "data") -> Optional[str]:
+        """Valida e normaliza data ISO. Retorna None quando vazio; ValueError se inválido."""
+        if value in (None, ""):
+            return None
+        iso = self._iso_date(value)
+        try:
+            _datetime.strptime(iso, "%Y-%m-%d")
+        except Exception:
+            raise ValueError(f"{field} inválida (use YYYY-MM-DD)")
+        return iso
+
+    @staticmethod
+    def _initials(name: str) -> str:
+        parts = [p for p in str(name or "").split() if p]
+        if not parts:
+            return "?"
+        return (parts[0][:1] + (parts[1][:1] if len(parts) > 1 else "")).upper()
+
+    @staticmethod
+    def _brl(v: float) -> str:
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     def _metrics_for(self, cliente_id: str) -> Dict[str, Any]:
         """Métricas resumidas do cliente para o header do CRM v3.
 
         Não é a fonte da verdade final — o frontend recomputa a partir das
-        listas carregadas (contatos, atividades, cotações). Este método é
-        um fallback para renderização inicial quando o UI ainda não puxou
-        os relacionamentos.
+        listas carregadas (contatos, atividades, cotações) via
+        `computeMetricas`. Este método é o fallback para renderização
+        inicial e para casos em que a UI ainda não puxou relacionamentos.
         """
         contatos = self.list_contatos(cliente_id) or []
         try:
@@ -339,48 +400,263 @@ class CrmV3Repository:
         faturamento = _sum(aprovadas)
         pipeline = _sum(abertas)
 
-        def _brl(v: float) -> str:
-            return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        # Tarefas abertas + último contato baseado em atividades reais.
+        tarefas_abertas = 0
+        ultimo_contato = "—"
+        try:
+            atividades = _db().obter_atividades_cliente(cliente_id) or []
+            tarefas_abertas = sum(
+                1 for a in atividades
+                if str(a.get("status") or "").casefold() != "concluida"
+            )
+            # Última atividade concluída (data_atividade).
+            concluidas = sorted(
+                [
+                    a for a in atividades
+                    if str(a.get("status") or "").casefold() == "concluida"
+                    and a.get("data_atividade")
+                ],
+                key=lambda a: a.get("data_atividade"),
+                reverse=True,
+            )
+            if concluidas:
+                dt = concluidas[0].get("data_atividade")
+                iso = self._iso_date(dt)
+                if iso:
+                    try:
+                        d = _datetime.strptime(iso, "%Y-%m-%d").date()
+                        diff = (_date.today() - d).days
+                        ultimo_contato = (
+                            "Hoje" if diff == 0 else
+                            "Ontem" if diff == 1 else
+                            f"{diff}d atrás"
+                        )
+                    except Exception:
+                        ultimo_contato = iso
+        except Exception:
+            pass
 
         return {
             "contatos": len(contatos),
             "oportunidades": len(abertas),
-            "faturamento": _brl(faturamento),
-            "valor_pis": _brl(pipeline),
-            "tarefas_abertas": 0,
+            "faturamento": self._brl(faturamento),
+            "valor_pis": self._brl(pipeline),
+            "tarefas_abertas": tarefas_abertas,
             "cotacoes_abertas": len(abertas),
-            "ultimo_contato": "—",
+            "ultimo_contato": ultimo_contato,
+        }
+
+    # ---------------- Atividades (sales_atividades) --------------------------
+
+    def _map_atividade(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Converte um registro de `sales_atividades` para o shape do v3 UI.
+
+        - `data_atividade` → `data` (ISO YYYY-MM-DD).
+        - `descricao` mantém o texto; `titulo` cai de volta para `descricao`
+          quando ausente (colunas novas podem estar vazias em bases antigas).
+        - `responsavel_nome` vira `responsavel` (apenas exibição). O
+          `executivo_id` continua disponível para lógica futura.
+        """
+        if not row:
+            return {}
+        data_iso = self._iso_date(row.get("data_atividade"))
+        titulo = (row.get("titulo") or "").strip() or (row.get("descricao") or "").strip()
+        return {
+            "id": str(row.get("id")),
+            "titulo": titulo,
+            "descricao": row.get("descricao") or "",
+            "data": data_iso,
+            "data_label": "",  # UI computa o rótulo (Hoje/Amanhã/etc.)
+            "hora": "",  # tabela é DATE; hora não é persistida
+            "prioridade": "Média",  # tabela não persiste prioridade
+            "status": row.get("status") or "pendente",
+            "tipo": row.get("tipo") or "atividade",
+            "responsavel": row.get("responsavel_nome") or "",
+            "responsavel_iniciais": self._initials(row.get("responsavel_nome") or ""),
+            "contato_id": (
+                str(row.get("contato_id")) if row.get("contato_id") is not None else ""
+            ),
+            "contato_nome": row.get("contato_nome") or "",
+            "data_prazo": self._iso_date(row.get("data_prazo")) or "",
+            "created_at": self._iso_date(row.get("created_at")) or "",
         }
 
     def list_atividades(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
-        return []  # TODO Fase 3.2b: consultar sales_atividades
+        try:
+            rows = _db().obter_atividades_cliente(cliente_id) or []
+        except Exception:
+            return []
+        return [self._map_atividade(r) for r in rows]
 
     def create_atividade(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("create_atividade real: pendente Fase 3.2b")
+        cliente = _db().obter_cliente_por_id(cliente_id)
+        if not cliente:
+            return None
+        titulo = (data.get("titulo") or "").strip()
+        descricao = (data.get("descricao") or "").strip() or titulo
+        if not descricao:
+            raise ValueError("Título é obrigatório")
+        data_iso = self._validate_iso_date(data.get("data"), "data")
+        if not data_iso:
+            # Fallback: hoje se o UI não enviar (composer inline pode omitir)
+            data_iso = _date.today().isoformat()
+        tipo = (data.get("tipo") or "atividade").strip() or "atividade"
+        contato_raw = data.get("contato_id")
+        contato_id = None
+        if contato_raw not in (None, "", 0, "0"):
+            try:
+                contato_id = int(contato_raw)
+            except (TypeError, ValueError):
+                contato_id = None
+        row = _db().criar_atividade_cliente(
+            cliente_id=cliente_id,
+            executivo_id=self._current_executivo_id(),
+            descricao=descricao,
+            data_atividade=data_iso,
+            contato_id=contato_id,
+            tipo=tipo,
+            titulo=titulo or None,
+            data_prazo=self._validate_iso_date(data.get("data_prazo"), "data_prazo"),
+        )
+        if not row:
+            return None
+        detail = _db().obter_atividade_cliente_por_id(row["id"])
+        return self._map_atividade(detail) if detail else None
 
     def update_atividade(self, atividade_id: str, data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        raise NotImplementedError("update_atividade real: pendente Fase 3.2b")
+        # Mapeamento shape v3 → colunas do banco:
+        payload: Dict[str, Any] = {}
+        if "titulo" in data:
+            titulo = (data.get("titulo") or "").strip()
+            payload["titulo"] = titulo or None
+            # Quando o UI edita só o título, mantemos `descricao` sincronizada
+            # (base legada usa descricao como texto principal).
+            if titulo and "descricao" not in data:
+                payload["descricao"] = titulo
+        if "descricao" in data:
+            payload["descricao"] = (data.get("descricao") or "").strip()
+        if "data" in data:
+            payload["data_atividade"] = self._validate_iso_date(data.get("data"), "data")
+        if "data_prazo" in data:
+            payload["data_prazo"] = self._validate_iso_date(data.get("data_prazo"), "data_prazo")
+        if "tipo" in data:
+            payload["tipo"] = (data.get("tipo") or "atividade").strip() or "atividade"
+        if "status" in data:
+            status = (data.get("status") or "").strip()
+            if status not in ("pendente", "em_andamento", "concluida"):
+                raise ValueError("status inválido")
+            payload["status"] = status
+        if "contato_id" in data:
+            payload["contato_id"] = data.get("contato_id")
+        if not payload:
+            return None, None
+        try:
+            row = _db().atualizar_atividade_cliente(atividade_id, payload)
+        except ValueError as e:
+            raise
+        if not row:
+            return None, None
+        detail = _db().obter_atividade_cliente_por_id(atividade_id)
+        if not detail:
+            return None, None
+        return self._map_atividade(detail), str(detail.get("cliente_id"))
 
     def delete_atividade(self, atividade_id: str) -> Tuple[bool, Optional[str]]:
-        raise NotImplementedError("delete_atividade real: pendente Fase 3.2b")
+        # Precisamos do cliente_id antes do DELETE para o response payload.
+        detail = _db().obter_atividade_cliente_por_id(atividade_id)
+        if not detail:
+            return False, None
+        cliente_id = str(detail.get("cliente_id")) if detail.get("cliente_id") else None
+        row = _db().excluir_atividade_cliente(atividade_id)
+        return (row is not None), cliente_id
+
+    # ---------------- Objetivos (sales_objetivos_cliente) --------------------
+
+    def _map_objetivo(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """DB → shape v3. Mapeia `conquistado` → `concluido`, `data_prazo` → `prazo`."""
+        if not row:
+            return {}
+        return {
+            "id": str(row.get("id")),
+            "texto": row.get("texto") or "",
+            "prazo": self._iso_date(row.get("data_prazo")) or "",
+            "concluido": bool(row.get("conquistado")),
+            "data_conquista": self._iso_date(row.get("data_conquista")) or "",
+            "created_at": self._iso_date(row.get("created_at")) or "",
+        }
 
     def list_objetivos(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
-        return []  # TODO Fase 3.2b: sales_objetivos_cliente
+        try:
+            rows = _db().obter_objetivos_cliente(cliente_id) or []
+        except Exception:
+            return []
+        return [self._map_objetivo(r) for r in rows]
 
     def create_objetivo(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("create_objetivo real: pendente Fase 3.2b")
+        cliente = _db().obter_cliente_por_id(cliente_id)
+        if not cliente:
+            return None
+        texto = (data.get("texto") or "").strip()
+        if not texto:
+            raise ValueError("Texto é obrigatório")
+        prazo = self._validate_iso_date(data.get("prazo") or data.get("data_prazo"), "prazo")
+        row = _db().criar_objetivo_cliente(
+            cliente_id=cliente_id,
+            executivo_id=self._current_executivo_id(),
+            texto=texto,
+            data_prazo=prazo,
+        )
+        if not row:
+            return None
+        detail = _db().obter_objetivo_cliente_por_id(row["id"])
+        return self._map_objetivo(detail) if detail else None
 
     def update_objetivo(self, objetivo_id: str, data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        raise NotImplementedError("update_objetivo real: pendente Fase 3.2b")
+        # Atualiza texto/prazo via um caminho, `concluido` via outro (a
+        # coluna `conquistado` tem seu próprio update com data_conquista).
+        detail_before = _db().obter_objetivo_cliente_por_id(objetivo_id)
+        if not detail_before:
+            return None, None
+
+        # 1) update de texto/prazo
+        payload: Dict[str, Any] = {}
+        if "texto" in data:
+            texto = (data.get("texto") or "").strip()
+            if not texto:
+                raise ValueError("Texto é obrigatório")
+            payload["texto"] = texto
+        if "prazo" in data or "data_prazo" in data:
+            payload["data_prazo"] = self._validate_iso_date(
+                data.get("prazo") or data.get("data_prazo"), "prazo"
+            )
+        if payload:
+            _db().atualizar_objetivo_cliente(objetivo_id, payload)
+
+        # 2) update de concluido (mapeia para conquistado)
+        if "concluido" in data:
+            concluido = data.get("concluido")
+            if not isinstance(concluido, bool):
+                raise ValueError("concluido deve ser booleano")
+            _db().conquistar_objetivo_cliente(objetivo_id, concluido)
+
+        detail = _db().obter_objetivo_cliente_por_id(objetivo_id)
+        if not detail:
+            return None, None
+        return self._map_objetivo(detail), str(detail.get("cliente_id"))
 
     def delete_objetivo(self, objetivo_id: str) -> Tuple[bool, Optional[str]]:
-        raise NotImplementedError("delete_objetivo real: pendente Fase 3.2b")
+        detail = _db().obter_objetivo_cliente_por_id(objetivo_id)
+        if not detail:
+            return False, None
+        cliente_id = str(detail.get("cliente_id")) if detail.get("cliente_id") else None
+        row = _db().excluir_objetivo_cliente(objetivo_id)
+        return (row is not None), cliente_id
 
     def list_cotacoes(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
         """Cotações reais do cliente (tabela `cadu_cotacoes`).
@@ -400,14 +676,160 @@ class CrmV3Repository:
             return []
         return [self._map_cotacao(r) for r in rows]
 
+    def _prepare_cotacao_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Normaliza o JSON do frontend v3 para os kwargs de `db.criar/atualizar_cotacao`.
+
+        Regras:
+        - `titulo` funciona como fallback de `nome_campanha`.
+        - `valor_total` / `valor` (string BRL) → `valor_total_proposta` (float).
+        - `status` (slug do v3) → label do banco via `COTACAO_STATUS`.
+        - `plataformas` (lista) → string CSV em `plataforma_campanha`.
+        - Datas: aceita YYYY-MM-DD ou DD/MM/YYYY.
+        """
+        from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
+
+        payload: Dict[str, Any] = {}
+        titulo = (data.get("titulo") or "").strip()
+        nome_campanha = (data.get("nome_campanha") or titulo).strip()
+        if nome_campanha:
+            payload["nome_campanha"] = nome_campanha
+        if "objetivo" in data:
+            payload["objetivo_campanha"] = (data.get("objetivo") or "").strip()
+        if "periodo_inicio" in data:
+            payload["periodo_inicio"] = self._validate_iso_date(
+                data.get("periodo_inicio"), "periodo_inicio"
+            )
+        if "periodo_fim" in data:
+            payload["periodo_fim"] = self._validate_iso_date(
+                data.get("periodo_fim"), "periodo_fim"
+            )
+        # Validação cruzada de período
+        if (
+            payload.get("periodo_inicio")
+            and payload.get("periodo_fim")
+            and payload["periodo_fim"] < payload["periodo_inicio"]
+        ):
+            raise ValueError("Período final não pode ser anterior ao período inicial")
+        if "status" in data or "status_canonico" in data:
+            raw = str(data.get("status_canonico") or data.get("status") or "").strip()
+            slug = COTACAO_STATUS_ALIASES.get(raw.casefold())
+            if slug is None and raw:
+                raise ValueError("Status de cotação inválido")
+            if slug:
+                payload["status"] = COTACAO_STATUS[slug]  # armazena label canônico
+        if "numero_cotacao" in data and str(data.get("numero_cotacao") or "").strip():
+            payload["numero_cotacao"] = str(data["numero_cotacao"]).strip()
+        # Valor: aceita `valor_total` (número) ou `valor` (BRL string "R$ 1.234,56").
+        if "valor_total" in data and data["valor_total"] not in (None, ""):
+            try:
+                payload["valor_total_proposta"] = float(data["valor_total"])
+            except (TypeError, ValueError):
+                raise ValueError("valor_total inválido")
+        elif "valor" in data and data["valor"]:
+            raw_val = str(data["valor"]).strip()
+            # "R$ 1.234,56" → 1234.56
+            cleaned = re.sub(r"[^\d,\.\-]", "", raw_val).replace(".", "").replace(",", ".")
+            try:
+                payload["valor_total_proposta"] = float(cleaned) if cleaned else 0.0
+            except ValueError:
+                raise ValueError("valor inválido")
+        if "plataformas" in data:
+            plats = data.get("plataformas") or []
+            if isinstance(plats, str):
+                plats = [p.strip() for p in plats.split(",") if p.strip()]
+            elif isinstance(plats, (list, tuple)):
+                plats = [str(p).strip() for p in plats if str(p).strip()]
+            else:
+                plats = []
+            payload["plataforma_campanha"] = ", ".join(plats)
+        return payload
+
     def create_cotacao(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("create_cotacao real: pendente Fase 3.2b")
+        cliente = _db().obter_cliente_por_id(cliente_id)
+        if not cliente:
+            return None
+        payload = self._prepare_cotacao_payload(data)
+        nome = payload.pop("nome_campanha", None)
+        periodo_inicio = payload.pop("periodo_inicio", None)
+        if not nome:
+            raise ValueError("Título é obrigatório")
+        if not periodo_inicio:
+            # UI do CRM v3 pode não pedir período; assumimos hoje como default
+            # para satisfazer o NOT NULL de `cadu_cotacoes.periodo_inicio`.
+            periodo_inicio = _date.today().isoformat()
+        # Se status não veio, usa Rascunho (mesmo default do CRM legado).
+        payload.setdefault("status", "Rascunho")
+        # Assina o executivo responsável (mesma regra do form legado)
+        responsavel = self._current_executivo_id()
+        if responsavel:
+            payload.setdefault("responsavel_comercial", responsavel)
+        try:
+            new_id, _numero = _db().criar_cotacao(
+                client_id=cliente_id,
+                nome_campanha=nome,
+                periodo_inicio=periodo_inicio,
+                **payload,
+            )
+        except TypeError:
+            # Assinatura antiga (retorno único) — segurança extra.
+            new_id = _db().criar_cotacao(
+                client_id=cliente_id,
+                nome_campanha=nome,
+                periodo_inicio=periodo_inicio,
+                **payload,
+            )
+        if not new_id:
+            return None
+        # Rebusca via `obter_cotacoes_cliente` para manter o mesmo shape
+        # do `list_cotacoes` (evita divergência entre create e list).
+        rows = _db().obter_cotacoes_cliente(cliente_id) or []
+        row = next((r for r in rows if str(r.get("id")) == str(new_id)), None)
+        return self._map_cotacao(row) if row else {"id": str(new_id)}
 
     def update_cotacao(self, cotacao_id: str, data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        raise NotImplementedError("update_cotacao real: pendente Fase 3.2b")
+        # `db.atualizar_cotacao` aceita kwargs; primeiro precisamos localizar
+        # o cliente da cotação para devolver no payload de resposta.
+        payload = self._prepare_cotacao_payload(data)
+        if not payload:
+            return None, None
+        try:
+            ok = _db().atualizar_cotacao(cotacao_id, **payload)
+        except Exception:
+            return None, None
+        if not ok:
+            return None, None
+        # Busca a linha atualizada — precisa do client_id para popular a resposta.
+        conn = _db().get_db()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT client_id FROM cadu_cotacoes WHERE id = %s",
+                (cotacao_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return None, None
+        cliente_id = str(row.get("client_id"))
+        rows = _db().obter_cotacoes_cliente(cliente_id) or []
+        detail = next((r for r in rows if str(r.get("id")) == str(cotacao_id)), None)
+        return (self._map_cotacao(detail) if detail else {"id": str(cotacao_id)}), cliente_id
 
     def delete_cotacao(self, cotacao_id: str) -> Tuple[bool, Optional[str]]:
-        raise NotImplementedError("delete_cotacao real: pendente Fase 3.2b")
+        # Descobre o cliente antes do soft-delete.
+        conn = _db().get_db()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT client_id FROM cadu_cotacoes WHERE id = %s",
+                (cotacao_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return False, None
+        cliente_id = str(row.get("client_id")) if row.get("client_id") else None
+        try:
+            ok = _db().deletar_cotacao(cotacao_id, soft_delete=True)
+        except Exception:
+            return False, None
+        return bool(ok), cliente_id
 
     def _map_cotacao(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """Converte um registro de `cadu_cotacoes` para o shape do v3 UI."""
@@ -455,20 +877,80 @@ class CrmV3Repository:
             "contato_nome": row.get("contato_nome") or "",
         }
 
+    # ---------------- Notas / histórico (sales_historico_cliente) ------------
+
+    def _map_nota(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """DB (sales_historico_cliente) → shape v3 UI.
+
+        Frontend consome: id, texto, autor, data.
+        """
+        if not row:
+            return {}
+        return {
+            "id": str(row.get("id")),
+            "texto": row.get("texto") or "",
+            "autor": row.get("autor") or "",
+            "data": (
+                self._iso_date(row.get("data_registro"))
+                or self._iso_date(row.get("created_at"))
+                or ""
+            ),
+        }
+
     def list_notas(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
-        return []  # TODO Fase 3.2b: sales_historico_cliente / nota_executivo_vendas
+        try:
+            # Paginação server-side rasa: pegamos as 100 mais recentes.
+            # O CRM legado (`/crm/api/cliente/<id>/historico`) usa 10/página,
+            # mas o v3 renderiza tudo na sidebar; um cap alto evita 2ª chamada.
+            data = _db().listar_historico_cliente(cliente_id, page=1, per_page=100)
+        except Exception:
+            return []
+        return [self._map_nota(r) for r in (data.get("registros") if data else []) or []]
 
     def create_nota(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("create_nota real: pendente Fase 3.2b")
+        cliente = _db().obter_cliente_por_id(cliente_id)
+        if not cliente:
+            return None
+        texto = (data.get("texto") or "").strip()
+        if not texto:
+            raise ValueError("Texto é obrigatório")
+        row = _db().criar_historico_cliente(
+            cliente_id=cliente_id,
+            executivo_id=self._current_executivo_id(),
+            texto=texto,
+        )
+        if not row:
+            return None
+        # Rebuscar em SELECT para pegar o autor via JOIN.
+        conn = _db().get_db()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT h.id, h.texto, h.data_registro, h.created_at,
+                       c.nome_completo AS autor
+                FROM sales_historico_cliente h
+                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = h.executivo_id
+                WHERE h.id = %s
+                """,
+                (row["id"],),
+            )
+            detail = cur.fetchone()
+        return self._map_nota(detail) if detail else self._map_nota(
+            {"id": row["id"], "texto": texto, "data_registro": row.get("data_registro")}
+        )
 
     def update_nota(self, nota_id: str, data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        raise NotImplementedError("update_nota real: pendente Fase 3.2b")
+        # `sales_historico_cliente` é append-only no CRM legado (não há PATCH).
+        # Preservamos esse contrato para não vazar edições reversíveis por
+        # histórico. Retornamos 404-like via (None, None).
+        return None, None
 
     def delete_nota(self, nota_id: str) -> Tuple[bool, Optional[str]]:
-        raise NotImplementedError("delete_nota real: pendente Fase 3.2b")
+        # Idem update_nota: histórico não é apagável pelo CRM v3.
+        return False, None
 
     def import_contatos(self, cliente_id: str, rows: Iterable[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
         cliente = _db().obter_cliente_por_id(cliente_id)

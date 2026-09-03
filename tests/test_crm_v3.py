@@ -551,5 +551,119 @@ class CrmTestApiTest(unittest.TestCase):
         )
 
 
+class CrmV3RepositoryUnitTest(unittest.TestCase):
+    """Testes de unidade do `CrmV3Repository` com `_db()` stubado.
+
+    Não tocam no Postgres — apenas validam mapeamento e regras de validação
+    que ficam sob responsabilidade do repositório (o SQL em si é coberto
+    pelas rotas do CRM legado, já testado em produção).
+    """
+
+    def setUp(self):
+        from unittest.mock import MagicMock
+        from aicentralv2 import crm_v3_repository as repo_mod
+
+        self.repo_mod = repo_mod
+        self.repo = repo_mod.CrmV3Repository()
+        self.db = MagicMock()
+        # Cliente sempre existe por padrão nos testes (validação inicial).
+        self.db.obter_cliente_por_id.return_value = {"id_cliente": 1}
+        self._orig_db = repo_mod._db
+        repo_mod._db = lambda: self.db
+
+    def tearDown(self):
+        self.repo_mod._db = self._orig_db
+
+    # ---- Atividades --------------------------------------------------
+
+    def test_map_atividade_converte_data_iso(self):
+        from datetime import date
+        mapped = self.repo._map_atividade({
+            "id": 42, "descricao": "Ligar", "data_atividade": date(2026, 9, 4),
+            "status": "pendente", "titulo": "", "tipo": "ligacao",
+            "responsavel_nome": "Luisa Santana",
+        })
+        self.assertEqual(mapped["data"], "2026-09-04")
+        self.assertEqual(mapped["titulo"], "Ligar")  # fallback: descricao
+        self.assertEqual(mapped["responsavel_iniciais"], "LS")
+
+    def test_create_atividade_valida_titulo_obrigatorio(self):
+        with self.assertRaises(ValueError):
+            self.repo.create_atividade("1", {"data": "2026-09-04"})
+
+    def test_create_atividade_chama_db_com_defaults(self):
+        self.db.criar_atividade_cliente.return_value = {"id": 99}
+        self.db.obter_atividade_cliente_por_id.return_value = {
+            "id": 99, "descricao": "Ligar", "data_atividade": "2026-09-04",
+            "status": "pendente", "titulo": "Ligar",
+        }
+        result = self.repo.create_atividade(
+            "1", {"titulo": "Ligar", "data": "2026-09-04"}
+        )
+        self.assertEqual(result["id"], "99")
+        kwargs = self.db.criar_atividade_cliente.call_args.kwargs
+        self.assertEqual(kwargs["descricao"], "Ligar")
+        self.assertEqual(kwargs["data_atividade"], "2026-09-04")
+        self.assertEqual(kwargs["tipo"], "atividade")
+
+    def test_update_atividade_rejeita_status_invalido(self):
+        with self.assertRaises(ValueError):
+            self.repo.update_atividade("1", {"status": "wtf"})
+
+    # ---- Objetivos ---------------------------------------------------
+
+    def test_map_objetivo_traduz_conquistado_para_concluido(self):
+        from datetime import date
+        mapped = self.repo._map_objetivo({
+            "id": 7, "texto": "Fechar Q3", "conquistado": True,
+            "data_prazo": date(2026, 12, 31), "data_conquista": date(2026, 10, 1),
+        })
+        self.assertTrue(mapped["concluido"])
+        self.assertEqual(mapped["prazo"], "2026-12-31")
+
+    def test_update_objetivo_valida_concluido_boolean(self):
+        # detail_before existe
+        self.db.obter_objetivo_cliente_por_id.return_value = {
+            "id": 1, "cliente_id": 1, "texto": "x", "conquistado": False,
+        }
+        with self.assertRaises(ValueError):
+            self.repo.update_objetivo("1", {"concluido": "sim"})
+
+    # ---- Cotações ----------------------------------------------------
+
+    def test_prepare_cotacao_payload_converte_status_slug_para_label(self):
+        payload = self.repo._prepare_cotacao_payload({
+            "titulo": "Campanha", "status": "em-acompanhamento",
+        })
+        self.assertEqual(payload["status"], "Em Acompanhamento")
+        self.assertEqual(payload["nome_campanha"], "Campanha")
+
+    def test_prepare_cotacao_payload_valida_periodo_invertido(self):
+        with self.assertRaises(ValueError):
+            self.repo._prepare_cotacao_payload({
+                "titulo": "X",
+                "periodo_inicio": "2026-09-30",
+                "periodo_fim": "2026-09-01",
+            })
+
+    def test_prepare_cotacao_payload_parseia_valor_brl(self):
+        payload = self.repo._prepare_cotacao_payload({
+            "titulo": "X", "valor": "R$ 12.500,00",
+        })
+        self.assertEqual(payload["valor_total_proposta"], 12500.0)
+
+    def test_prepare_cotacao_payload_normaliza_plataformas(self):
+        payload = self.repo._prepare_cotacao_payload({
+            "titulo": "X", "plataformas": ["YouTube", " Meta ", ""],
+        })
+        self.assertEqual(payload["plataforma_campanha"], "YouTube, Meta")
+
+    # ---- Notas (histórico append-only) -------------------------------
+
+    def test_update_nota_e_delete_nota_sao_no_ops(self):
+        self.assertEqual(self.repo.update_nota("1", {"texto": "x"}), (None, None))
+        self.assertEqual(self.repo.delete_nota("1"), (False, None))
+
+
 if __name__ == "__main__":
     unittest.main()

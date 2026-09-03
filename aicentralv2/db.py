@@ -5451,6 +5451,477 @@ def cancelar_invite(invite_id):
         raise e
 
 
+# ============================================================
+# CRM v3 — atividades / objetivos / histórico do cliente
+# ============================================================
+# Estas funções encapsulam o SQL que estava inline em
+# `aicentralv2/crm/routes.py` para as tabelas `sales_atividades`,
+# `sales_objetivos_cliente` e `sales_historico_cliente`.
+#
+# Todas seguem o mesmo padrão do CRM legado (mesma coluna, mesmo
+# fallback quando colunas novas — `tipo`, `titulo`, `data_prazo` —
+# ainda não foram migradas). Isso permite que o CrmV3Repository seja
+# ligado ao banco real sem duplicar lógica em routes.
+
+def _has_column(cur, table_name, column_name):
+    """Retorna True se `table_name.column_name` existir no schema atual."""
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND column_name = %s
+        LIMIT 1
+        """,
+        (table_name, column_name),
+    )
+    return cur.fetchone() is not None
+
+
+# ---------- sales_atividades ----------
+
+def _atividades_tem_colunas_novas(cur):
+    return _has_column(cur, "sales_atividades", "tipo")
+
+
+def obter_atividades_cliente(cliente_id, contato_id=None):
+    """Lista atividades do cliente, com contato/responsável populados.
+
+    Espelha o SELECT de `crm.routes.api_cliente_atividades` (L1548–1590),
+    incluindo a ordenação `pendente → em_andamento → resto` e o fallback
+    para bancos sem as colunas novas (`tipo`, `titulo`, `data_prazo`).
+    """
+    conn = get_db()
+    with conn.cursor() as cur:
+        has_new = _atividades_tem_colunas_novas(cur)
+        select_extra = (
+            "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
+            if has_new
+            else "'atividade' AS tipo, NULL AS data_prazo, NULL AS titulo"
+        )
+        order = (
+            "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
+            "sa.data_prazo ASC NULLS LAST, sa.data_atividade DESC"
+            if has_new
+            else "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
+                 "sa.data_atividade DESC"
+        )
+        params = [cliente_id]
+        query = f"""
+            SELECT
+                sa.id, sa.descricao, sa.data_atividade, sa.status,
+                sa.contato_id, sa.created_at,
+                {select_extra},
+                c.nome_completo AS contato_nome,
+                ex.nome_completo AS responsavel_nome
+            FROM sales_atividades sa
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+            LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+            WHERE sa.cliente_id = %s
+        """
+        if contato_id:
+            query += " AND sa.contato_id = %s"
+            params.append(contato_id)
+        query += f" ORDER BY {order}"
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+    return rows
+
+
+def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
+                            contato_id=None, tipo="atividade", titulo=None, data_prazo=None):
+    """INSERT em sales_atividades. Retorna dict {id}.
+
+    Espelha `crm.routes.api_criar_atividade` (L1620–1638). `descricao` e
+    `data_atividade` são obrigatórios pelo contrato do CRM legado; o
+    caller (CrmV3Repository) valida antes.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if _atividades_tem_colunas_novas(cur):
+                cur.execute(
+                    """
+                    INSERT INTO sales_atividades
+                        (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                         tipo, titulo, data_prazo)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                     tipo or "atividade", titulo or None, data_prazo or None),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO sales_atividades
+                        (cliente_id, contato_id, executivo_id, descricao, data_atividade)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, contato_id, executivo_id, descricao, data_atividade),
+                )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_atividade_cliente(atividade_id, dados):
+    """PATCH parcial em sales_atividades. Retorna dict {id} ou None.
+
+    Aceita chaves: descricao, data_atividade, status, titulo, tipo,
+    data_prazo, contato_id. Só aplica campos das colunas novas se elas
+    existirem. Espelha `crm.routes.api_atualizar_atividade` (L1673–1723).
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            has_new = _atividades_tem_colunas_novas(cur)
+            sets, vals = [], []
+            if "descricao" in dados:
+                d = (dados.get("descricao") or "").strip()
+                if not d:
+                    raise ValueError("descricao não pode ser vazia")
+                sets.append("descricao = %s")
+                vals.append(d)
+            if "data_atividade" in dados and dados["data_atividade"]:
+                sets.append("data_atividade = %s")
+                vals.append(dados["data_atividade"])
+            if "status" in dados:
+                st = dados["status"]
+                if st not in ("pendente", "em_andamento", "concluida"):
+                    raise ValueError("status inválido")
+                sets.append("status = %s")
+                vals.append(st)
+            if has_new:
+                if "titulo" in dados:
+                    t = (dados.get("titulo") or "").strip() or None
+                    sets.append("titulo = %s")
+                    vals.append(t)
+                if "tipo" in dados:
+                    sets.append("tipo = %s")
+                    vals.append(dados.get("tipo") or "atividade")
+                if "data_prazo" in dados:
+                    sets.append("data_prazo = %s")
+                    vals.append(dados.get("data_prazo") or None)
+                if "contato_id" in dados:
+                    cid = dados.get("contato_id")
+                    sets.append("contato_id = %s")
+                    vals.append(int(cid) if cid else None)
+            if not sets:
+                return None
+            sets.append("updated_at = NOW()")
+            vals.append(atividade_id)
+            cur.execute(
+                f"UPDATE sales_atividades SET {', '.join(sets)} WHERE id = %s RETURNING id",
+                vals,
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_status_atividade_cliente(atividade_id, status):
+    """PATCH rápido de status. Retorna {id} ou None."""
+    if status not in ("pendente", "em_andamento", "concluida"):
+        raise ValueError("status inválido")
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE sales_atividades
+                SET status = %s, updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
+                (status, atividade_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def excluir_atividade_cliente(atividade_id):
+    """DELETE físico (mesmo comportamento do CRM legado)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM sales_atividades WHERE id = %s RETURNING id",
+                (atividade_id,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_atividade_cliente_por_id(atividade_id):
+    """Busca uma atividade individual com joins de contato/responsável."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        has_new = _atividades_tem_colunas_novas(cur)
+        select_extra = (
+            "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
+            if has_new
+            else "'atividade' AS tipo, NULL AS data_prazo, NULL AS titulo"
+        )
+        cur.execute(
+            f"""
+            SELECT
+                sa.id, sa.cliente_id, sa.descricao, sa.data_atividade, sa.status,
+                sa.contato_id, sa.executivo_id, sa.created_at,
+                {select_extra},
+                c.nome_completo AS contato_nome,
+                ex.nome_completo AS responsavel_nome
+            FROM sales_atividades sa
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+            LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+            WHERE sa.id = %s
+            """,
+            (atividade_id,),
+        )
+        return cur.fetchone()
+
+
+# ---------- sales_objetivos_cliente ----------
+
+def _objetivos_tem_data_prazo(cur):
+    return _has_column(cur, "sales_objetivos_cliente", "data_prazo")
+
+
+def obter_objetivos_cliente(cliente_id):
+    """SELECT em sales_objetivos_cliente. Espelha L1762–1775."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        if _objetivos_tem_data_prazo(cur):
+            cur.execute(
+                """
+                SELECT id, texto, conquistado, data_conquista, data_prazo, created_at
+                FROM sales_objetivos_cliente
+                WHERE cliente_id = %s
+                ORDER BY conquistado ASC, created_at DESC
+                """,
+                (cliente_id,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, texto, conquistado, data_conquista,
+                       NULL::date AS data_prazo, created_at
+                FROM sales_objetivos_cliente
+                WHERE cliente_id = %s
+                ORDER BY conquistado ASC, created_at DESC
+                """,
+                (cliente_id,),
+            )
+        return cur.fetchall() or []
+
+
+def criar_objetivo_cliente(cliente_id, executivo_id, texto, data_prazo=None):
+    """INSERT em sales_objetivos_cliente. Retorna {id}."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if _objetivos_tem_data_prazo(cur) and data_prazo:
+                cur.execute(
+                    """
+                    INSERT INTO sales_objetivos_cliente
+                        (cliente_id, executivo_id, texto, data_prazo)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, executivo_id, texto, data_prazo),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO sales_objetivos_cliente
+                        (cliente_id, executivo_id, texto)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, executivo_id, texto),
+                )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_objetivo_cliente(objetivo_id, dados):
+    """PATCH parcial. Aceita: texto, data_prazo. Retorna {id} ou None."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            has_prazo = _objetivos_tem_data_prazo(cur)
+            sets, vals = [], []
+            if "texto" in dados:
+                t = (dados.get("texto") or "").strip()
+                if not t:
+                    raise ValueError("texto não pode ser vazio")
+                sets.append("texto = %s")
+                vals.append(t)
+            if has_prazo and "data_prazo" in dados:
+                sets.append("data_prazo = %s")
+                vals.append(dados.get("data_prazo") or None)
+            if not sets:
+                return None
+            sets.append("updated_at = NOW()")
+            vals.append(objetivo_id)
+            cur.execute(
+                f"UPDATE sales_objetivos_cliente SET {', '.join(sets)} WHERE id = %s RETURNING id",
+                vals,
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def conquistar_objetivo_cliente(objetivo_id, conquistado=True):
+    """Marca objetivo como conquistado (ou reverte). Set data_conquista."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE sales_objetivos_cliente
+                SET conquistado = %s,
+                    data_conquista = CASE WHEN %s THEN CURRENT_DATE ELSE NULL END,
+                    updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
+                (conquistado, conquistado, objetivo_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def excluir_objetivo_cliente(objetivo_id):
+    """DELETE físico. Retorna {id} ou None."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM sales_objetivos_cliente WHERE id = %s RETURNING id",
+                (objetivo_id,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_objetivo_cliente_por_id(objetivo_id):
+    """Busca um objetivo individual com todos os campos."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        if _objetivos_tem_data_prazo(cur):
+            cur.execute(
+                """
+                SELECT id, cliente_id, texto, conquistado, data_conquista,
+                       data_prazo, created_at, executivo_id
+                FROM sales_objetivos_cliente WHERE id = %s
+                """,
+                (objetivo_id,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, cliente_id, texto, conquistado, data_conquista,
+                       NULL::date AS data_prazo, created_at, executivo_id
+                FROM sales_objetivos_cliente WHERE id = %s
+                """,
+                (objetivo_id,),
+            )
+        return cur.fetchone()
+
+
+# ---------- sales_historico_cliente ----------
+
+def listar_historico_cliente(cliente_id, page=1, per_page=10):
+    """Histórico paginado do cliente. Espelha L757–796.
+
+    Retorna dict {registros: [...], total, page, pages}.
+    """
+    page = max(int(page or 1), 1)
+    per_page = max(int(per_page or 10), 1)
+    offset = (page - 1) * per_page
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) AS total FROM sales_historico_cliente WHERE cliente_id = %s",
+            (cliente_id,),
+        )
+        total = cur.fetchone()["total"]
+        cur.execute(
+            """
+            SELECT
+                h.id, h.texto, h.data_registro, h.created_at,
+                c.nome_completo AS autor
+            FROM sales_historico_cliente h
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = h.executivo_id
+            WHERE h.cliente_id = %s
+            ORDER BY h.data_registro DESC, h.created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (cliente_id, per_page, offset),
+        )
+        registros = cur.fetchall() or []
+    return {
+        "registros": registros,
+        "total": int(total or 0),
+        "page": page,
+        "pages": (int(total or 0) + per_page - 1) // per_page,
+    }
+
+
+def criar_historico_cliente(cliente_id, executivo_id, texto):
+    """INSERT em sales_historico_cliente. Retorna {id, data_registro}."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO sales_historico_cliente (cliente_id, executivo_id, texto)
+                VALUES (%s, %s, %s)
+                RETURNING id, data_registro
+                """,
+                (cliente_id, executivo_id, texto),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
 # ==================== COTAÇÕES ====================
 
 def obter_cotacoes_cliente(cliente_id):

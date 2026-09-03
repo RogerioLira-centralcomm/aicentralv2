@@ -163,22 +163,47 @@
             }
         }
         if (!vinculos.length) vinculos.push({ agencia_id: '', is_principal: true });
-        vinculos.forEach(function (v) { addAgenciaRow(container, v.agencia_id, v.is_principal); });
+
+        // Placeholder visual enquanto a lista de agências é carregada
+        // (só na primeira abertura do drawer). Assim o usuário vê algo
+        // imediatamente sem parecer que o drawer travou.
+        var loading = document.createElement('div');
+        loading.className = 'text-xs text-base-content/60 py-1';
+        loading.textContent = 'Carregando agências…';
+        container.appendChild(loading);
+
+        ensureAgenciasCarregadas().then(function () {
+            container.innerHTML = '';
+            vinculos.forEach(function (v) { addAgenciaRow(container, v.agencia_id, v.is_principal); });
+        }).catch(function (err) {
+            container.innerHTML = '';
+            toast(err.message || 'Falha ao carregar agências.', true);
+            vinculos.forEach(function (v) { addAgenciaRow(container, v.agencia_id, v.is_principal); });
+        });
     }
 
     function addAgenciaRow(container, selectedId, isPrincipal) {
         if (!container) return;
         var agencias = getAgencias();
-        var opts = ['<option value="">— Selecionar agência —</option>'].concat(
-            agencias.map(function (a) {
-                var sel = a.id === selectedId ? ' selected' : '';
-                return '<option value="' + a.id + '"' + sel + '>' + a.nome + '</option>';
-            })
-        ).join('');
+        var sid = String(selectedId || '');
+        // Se a agência salva não estiver na lista carregada (ex.: outra
+        // filial, agência desativada), preservamos o vínculo criando
+        // uma option extra "id — não encontrada". Assim o PATCH não
+        // apaga o dado por engano só porque o combo não tem o item.
+        var opts = ['<option value="">— Selecionar agência —</option>'];
+        var achou = false;
+        agencias.forEach(function (a) {
+            var sel = String(a.id) === sid ? ' selected' : '';
+            if (sel) achou = true;
+            opts.push('<option value="' + a.id + '"' + sel + '>' + a.nome + '</option>');
+        });
+        if (sid && !achou) {
+            opts.push('<option value="' + sid + '" selected>#' + sid + ' — (não encontrada)</option>');
+        }
         var row = document.createElement('div');
         row.className = 'crm-v3-agencia-row';
         row.innerHTML = (
-            '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts + '</select>' +
+            '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts.join('') + '</select>' +
             '<label class="crm-v3-agencia-principal">' +
             '<input type="radio" name="cx-drawer-cliente-principal" class="radio radio-xs" ' + (isPrincipal ? 'checked' : '') + ' />' +
             '<span>Principal</span></label>' +
@@ -203,10 +228,59 @@
         return out;
     }
 
+    /* Cache de agências reais, carregado via /crm-v3/api/agencias.
+       Antes o combo dependia de `state.clientes` (paginado), o que
+       fazia aparecer só 2-3 agências. Agora buscamos a lista completa
+       do backend uma única vez e reutilizamos em todos os drawers. */
+    var _agenciasCache = null;   // Array<{id, nome}> uma vez carregado
+    var _agenciasPromise = null; // dedup de chamadas concorrentes
+
+    function ensureAgenciasCarregadas(force) {
+        if (!force && Array.isArray(_agenciasCache)) {
+            return Promise.resolve(_agenciasCache);
+        }
+        if (_agenciasPromise && !force) return _agenciasPromise;
+        _agenciasPromise = apiFetch('/agencias').then(function (data) {
+            var lista = (data && (data.agencias || data.data)) || [];
+            _agenciasCache = lista.slice().sort(function (a, b) {
+                return (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' });
+            });
+            _agenciasPromise = null;
+            return _agenciasCache;
+        }).catch(function (err) {
+            _agenciasPromise = null;
+            throw err;
+        });
+        return _agenciasPromise;
+    }
+
     function getAgencias() {
+        // Sempre prefere o cache real; se não estiver carregado ainda
+        // (ex.: drawer aberto antes do primeiro fetch), cai no fallback
+        // antigo de state.clientes filtrado por is_agencia — assim o
+        // combo ao menos não fica vazio.
+        if (Array.isArray(_agenciasCache) && _agenciasCache.length) {
+            return _agenciasCache;
+        }
         var lista = (window.crmV3 && window.crmV3.state && window.crmV3.state.clientes) || [];
         return lista.filter(function (c) { return c.is_agencia; })
             .map(function (c) { return { id: c.id, nome: c.nome }; });
+    }
+
+    // Prefetch em background após o boot da página — deixa o drawer
+    // instantâneo na primeira abertura. Falhas são silenciosas (o
+    // renderAgenciaRows tenta de novo e reporta erro visualmente).
+    if (typeof window !== 'undefined') {
+        var _prefetch = function () {
+            ensureAgenciasCarregadas().catch(function () { /* silencioso */ });
+        };
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            setTimeout(_prefetch, 200);
+        } else {
+            document.addEventListener('DOMContentLoaded', function () {
+                setTimeout(_prefetch, 200);
+            });
+        }
     }
 
     /* -----------------------------------------------------------

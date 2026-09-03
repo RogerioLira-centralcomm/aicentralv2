@@ -230,6 +230,29 @@ class CrmV3Repository:
             items.append(mapped)
         return items
 
+    def list_agencias(self) -> List[Dict[str, Any]]:
+        """Retorna TODAS as agências reais da base (não só as que estão
+        na página atual de clientes carregada no frontend).
+
+        Motivo (set/2026): o drawer de editar cliente precisa exibir
+        todas as agências disponíveis no dropdown "Vínculos com agência".
+        Antes o frontend derivava a lista de `state.clientes` (paginado),
+        o que fazia aparecer só 2–3 agências mesmo com a base tendo
+        dezenas. Agora usamos `db.obter_clientes_agencias()`, que já é
+        a fonte oficial usada pelas telas de agência do CRM legado.
+
+        Retorna dicts no formato mínimo esperado pelo select:
+          {"id": "<id_cliente>", "nome": "<nome_fantasia_ou_razao>"}
+        """
+        rows = _db().obter_clientes_agencias() or []
+        out = []
+        for r in rows:
+            nome = (r.get("nome_fantasia") or r.get("razao_social") or "").strip()
+            if not nome:
+                continue
+            out.append({"id": str(r["id_cliente"]), "nome": nome})
+        return out
+
     def get_cliente(self, cliente_id: str) -> Optional[Dict[str, Any]]:
         row = _db().obter_cliente_por_id(cliente_id)
         if not row:

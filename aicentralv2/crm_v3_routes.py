@@ -179,6 +179,20 @@ def api_clientes():
     return _ok(clientes, clientes=clientes)
 
 
+@bp.route("/api/agencias")
+@login_required_api
+def api_agencias():
+    """Lista TODAS as agências reais da base (não paginado).
+
+    Usada pelo drawer 'Editar cliente' → seção "Vínculos com agência"
+    para popular o <select>. Antes o frontend derivava a lista de
+    state.clientes (paginado), o que fazia aparecer só 2-3 agências
+    mesmo quando a base tinha dezenas.
+    """
+    agencias = store.list_agencias()
+    return _ok(agencias, agencias=agencias)
+
+
 @bp.route("/api/clientes/<cliente_id>")
 @login_required_api
 def api_cliente_detail(cliente_id):

@@ -897,6 +897,21 @@ class CrmTestStore:
     def list_clientes(self):
         return [self._enrich_cliente(c) for c in self.clientes]
 
+    def list_agencias(self):
+        """Paridade com CrmV3Repository.list_agencias — retorna todas
+        as agências como {"id": <id>, "nome": <nome>}. No mock a fonte
+        é o próprio state.clientes filtrado por is_agencia.
+        """
+        out = []
+        for c in self.clientes:
+            if not c.get("is_agencia"):
+                continue
+            nome = (c.get("nome") or c.get("nome_fantasia") or "").strip()
+            if not nome:
+                continue
+            out.append({"id": c["id"], "nome": nome})
+        return out
+
     def get_cliente(self, cliente_id):
         for c in self.clientes:
             if c["id"] == cliente_id:

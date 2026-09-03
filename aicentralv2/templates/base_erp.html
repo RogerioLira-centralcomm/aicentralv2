@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="centralcomm">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CentralX{% endblock %}</title>
+
+    <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: light)">
+    <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/design-system.css') }}">
+
+    <script>
+    function setCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        let c = name + '=' + encodeURIComponent(value === '' ? '__all__' : value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+        if (location.protocol === 'https:') c += ';Secure';
+        document.cookie = c;
+    }
+    function getCookie(name) {
+        const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+        if (!v) return null;
+        const val = decodeURIComponent(v[2]);
+        return val === '__all__' ? '' : val;
+    }
+    </script>
+
+    <style>
+        :root {
+            --erp-sidebar-w: 16rem;
+            --erp-topbar-h: 3.5rem;
+            --erp-primary: #1e4d4f;
+            --erp-muted: #64748b;
+            --erp-border: #e5e7eb;
+            --erp-surface: #f8fafc;
+        }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            background: var(--erp-surface);
+            color: #111827;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .erp-shell {
+            min-height: 100vh;
+            background:
+                linear-gradient(180deg, rgba(30, 77, 79, 0.04), transparent 18rem),
+                var(--erp-surface);
+        }
+        .erp-sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 40;
+            width: var(--erp-sidebar-w);
+            background: #0f2f31;
+            color: #e5f0ef;
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            transform: translateX(-100%);
+            transition: transform 180ms ease;
+        }
+        .erp-sidebar.is-open { transform: translateX(0); }
+        .erp-sidebar-inner {
+            display: flex;
+            min-height: 100%;
+            flex-direction: column;
+        }
+        .erp-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .erp-brand img {
+            height: 2rem;
+            width: auto;
+            filter: drop-shadow(0 1px 1px rgba(0,0,0,.2));
+        }
+        .erp-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+        }
+        .erp-nav-section {
+            margin: 0.875rem 0 0.375rem;
+            padding: 0 0.625rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(229, 240, 239, 0.52);
+        }
+        .erp-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            border-radius: 0.625rem;
+            padding: 0.5rem 0.625rem;
+            color: rgba(229, 240, 239, 0.82);
+            font-size: 0.875rem;
+            line-height: 1.2;
+            transition: background 140ms ease, color 140ms ease;
+        }
+        .erp-nav-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+        .erp-nav-link.active {
+            background: #ffffff;
+            color: var(--erp-primary);
+            font-weight: 700;
+        }
+        .erp-nav-link i {
+            width: 1rem;
+            text-align: center;
+            opacity: 0.88;
+        }
+        .erp-user-panel {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.75rem;
+        }
+        .erp-main {
+            min-height: 100vh;
+            transition: margin-left 180ms ease;
+        }
+        .erp-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            min-height: var(--erp-topbar-h);
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--erp-border);
+            background: rgba(255, 255, 255, 0.92);
+            padding: 0.625rem 1rem;
+            backdrop-filter: blur(12px);
+        }
+        .erp-main-content {
+            min-height: calc(100vh - var(--erp-topbar-h));
+            padding: 1rem;
+        }
+        .erp-main-content.is-crm {
+            padding: 0;
+            overflow: hidden;
+        }
+        .erp-menu-toggle,
+        .erp-icon-button {
+            display: inline-flex;
+            height: 2.25rem;
+            width: 2.25rem;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--erp-border);
+            border-radius: 0.625rem;
+            background: #fff;
+            color: #334155;
+            transition: background 140ms ease, border-color 140ms ease;
+        }
+        .erp-menu-toggle:hover,
+        .erp-icon-button:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        .erp-search {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            width: min(26rem, 38vw);
+            border: 1px solid var(--erp-border);
+            border-radius: 0.75rem;
+            background: #f8fafc;
+            padding: 0 0.75rem;
+            color: var(--erp-muted);
+        }
+        .erp-search input {
+            height: 2.25rem;
+            min-width: 0;
+            flex: 1;
+            border: 0;
+            background: transparent;
+            color: #111827;
+            font-size: 0.875rem;
+            outline: 0;
+        }
+        .erp-user-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid var(--erp-border);
+            border-radius: 999px;
+            background: #fff;
+            padding: 0.25rem 0.625rem 0.25rem 0.25rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .erp-avatar {
+            display: inline-flex;
+            height: 1.75rem;
+            width: 1.75rem;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 999px;
+            background: var(--erp-primary);
+            color: #fff;
+            font-size: 0.6875rem;
+            font-weight: 700;
+        }
+        .erp-avatar img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+        }
+        .erp-user-menu {
+            position: absolute;
+            right: 1rem;
+            top: calc(var(--erp-topbar-h) - 0.25rem);
+            display: none;
+            min-width: 13rem;
+            border: 1px solid var(--erp-border);
+            border-radius: 0.875rem;
+            background: #fff;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+            padding: 0.375rem;
+        }
+        .erp-user-menu.is-open { display: block; }
+        .erp-user-menu a,
+        .erp-user-menu button {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: 0.5rem;
+            border: 0;
+            border-radius: 0.625rem;
+            background: transparent;
+            padding: 0.5rem 0.625rem;
+            color: #334155;
+            font-size: 0.875rem;
+            text-align: left;
+        }
+        .erp-user-menu a:hover,
+        .erp-user-menu button:hover { background: #f8fafc; }
+        .erp-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 35;
+            display: none;
+            background: rgba(15, 23, 42, 0.32);
+        }
+        .erp-backdrop.is-open { display: block; }
+        #toast-container {
+            position: fixed !important;
+            top: 1rem !important;
+            right: 1rem !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            max-width: min(100vw - 2rem, 28rem);
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+        @media (min-width: 1024px) {
+            .erp-sidebar { transform: none; }
+            .erp-main { margin-left: var(--erp-sidebar-w); }
+            .erp-menu-toggle { display: none; }
+            .erp-search { display: flex; }
+        }
+        .cx-erp-shell .crm-mock-page {
+            height: calc(100vh - var(--erp-topbar-h));
+            max-height: calc(100vh - var(--erp-topbar-h));
+        }
+    </style>
+    {% block styles %}{% endblock %}
+</head>
+<body class="cx-erp-shell">
+    <div id="toast-container" aria-live="polite"></div>
+    <div id="erp-backdrop" class="erp-backdrop" aria-hidden="true"></div>
+
+    {% set erp_nav = [
+        {'section': 'Geral', 'items': [
+            {'label': 'Início', 'endpoint': 'index', 'url': url_for('index'), 'icon': 'fa-house'}
+        ]},
+        {'section': 'Comercial', 'items': [
+            {'label': 'CRM', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-address-book', 'central_only': true},
+            {'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
+            {'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
+            {'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
+            {'label': 'Cotações', 'match_prefix': 'cotacoes.', 'url': url_for('cotacoes.cotacoes_list'), 'icon': 'fa-file-invoice-dollar'},
+            {'label': 'Briefings', 'endpoint': 'briefing_list', 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
+            {'label': 'PI Recebido', 'endpoint': 'cadu_pi_novo', 'url': url_for('cadu_pi_novo'), 'icon': 'fa-inbox'},
+            {'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'}
+        ]},
+        {'section': 'Operação', 'items': [
+            {'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'},
+            {'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
+            {'label': 'Campanhas', 'endpoint': 'campanhas_pi', 'url': url_for('campanhas_pi'), 'icon': 'fa-chart-simple'},
+            {'label': 'Acompanhamento', 'endpoint': 'campanhas_pi_lista', 'url': url_for('campanhas_pi_lista'), 'icon': 'fa-list-check'}
+        ]},
+        {'section': 'Financeiro', 'items': [
+            {'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
+            {'label': 'NF Emitida', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
+            {'label': 'Incentivos', 'endpoint': 'financeiro.relatorio_incentivos', 'url': url_for('financeiro.relatorio_incentivos'), 'icon': 'fa-percent'},
+            {'label': 'Meus Reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'}
+        ]},
+        {'section': 'Cadu', 'items': [
+            {'label': 'Interesses', 'endpoint': 'interesse_produto_listar', 'url': url_for('interesse_produto_listar'), 'icon': 'fa-star'},
+            {'label': 'Métricas Plataforma', 'endpoint': 'admin_metrics_dashboard', 'url': url_for('admin_metrics_dashboard'), 'icon': 'fa-gauge-high'},
+            {'label': 'Nova Audiência', 'endpoint': 'up_audiencia', 'url': url_for('up_audiencia'), 'icon': 'fa-upload'},
+            {'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
+            {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'}
+        ]}
+    ] %}
+
+    <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal">
+        <div class="erp-sidebar-inner">
+            <div class="erp-brand">
+                <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX">
+                <div class="min-w-0">
+                    <div class="font-bold leading-tight">CentralX</div>
+                    <div class="text-xs text-white/55">ERP interno</div>
+                </div>
+            </div>
+            <nav class="erp-nav">
+                {% for group in erp_nav %}
+                    <div class="erp-nav-section">{{ group['section'] }}</div>
+                    {% for item in group['items'] %}
+                        {% if not item.get('central_only', false) or is_centralcomm_user %}
+                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                            <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
+                                <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
+                                <span>{{ item['label'] }}</span>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+
+                {% if session.get('user_type') in ['admin', 'superadmin'] %}
+                    <div class="erp-nav-section">Parâmetros</div>
+                    <a href="{{ url_for('tipos_cliente') }}" class="erp-nav-link {% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i><span>Tipos de Cliente</span>
+                    </a>
+                    <a href="{{ url_for('tbl_setor') }}" class="erp-nav-link {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                        <i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Setores</span>
+                    </a>
+                    <a href="{{ url_for('crm_test.teste_crm_mock') }}" class="erp-nav-link {% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}">
+                        <i class="fa-solid fa-flask" aria-hidden="true"></i><span>Teste CRM</span>
+                    </a>
+                {% endif %}
+            </nav>
+            <div class="erp-user-panel">
+                <div class="flex items-center gap-2">
+                    <span class="erp-avatar">
+                        {% if perfil_contato and perfil_contato.foto_url %}
+                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                        {% else %}
+                            {{ session.get('user_name', 'U')[:2]|upper }}
+                        {% endif %}
+                    </span>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-white">{{ session.get('user_name', 'Usuário') }}</div>
+                        <div class="truncate text-xs text-white/50">{{ session.get('user_email', '') }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="erp-shell">
+        <div class="erp-main">
+            <header class="erp-topbar">
+                <button type="button" class="erp-menu-toggle" id="erp-menu-toggle" aria-label="Abrir menu">
+                    <i class="fa-solid fa-bars" aria-hidden="true"></i>
+                </button>
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-slate-900">{% block page_label %}CentralX{% endblock %}</div>
+                    <div class="hidden text-xs text-slate-500 sm:block">{% block page_subtitle %}Gestão interna{% endblock %}</div>
+                </div>
+                <div class="erp-search ml-auto">
+                    <i class="fa-solid fa-search text-xs" aria-hidden="true"></i>
+                    <label class="sr-only" for="nav-busca-pi-input">Buscar PI por código ou título</label>
+                    <input type="text" id="nav-busca-pi-input" maxlength="200" placeholder="Buscar PI por código ou título" autocomplete="off">
+                    <button type="button" id="nav-busca-pi-btn" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Buscar</button>
+                </div>
+                <button type="button" class="erp-icon-button" id="erp-refresh-page" aria-label="Atualizar página">
+                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                </button>
+                <div class="relative">
+                    <button type="button" class="erp-user-trigger" id="erp-user-trigger" aria-haspopup="menu" aria-expanded="false">
+                        <span class="erp-avatar">
+                            {% if perfil_contato and perfil_contato.foto_url %}
+                                <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                            {% else %}
+                                {{ session.get('user_name', 'U')[:2]|upper }}
+                            {% endif %}
+                        </span>
+                        <span class="hidden max-w-[8rem] truncate sm:inline">{{ session.get('user_name', 'Usuário') }}</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
+                    </button>
+                    <div class="erp-user-menu" id="erp-user-menu" role="menu">
+                        <a href="{{ url_for('financeiro.meus_reembolsos') }}" role="menuitem"><i class="fa-solid fa-wallet" aria-hidden="true"></i>Meus Reembolsos</a>
+                        <button type="button" role="menuitem" id="erp-profile-button"><i class="fa-solid fa-user" aria-hidden="true"></i>Meu perfil</button>
+                        <a href="{{ url_for('logout') }}" role="menuitem" class="text-red-600"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sair</a>
+                    </div>
+                </div>
+            </header>
+
+            <main class="erp-main-content {% if request.endpoint == 'crm_test.teste_crm_mock' %}is-crm{% endif %}">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <dialog id="modal-meu-perfil" class="rounded-2xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/40">
+        <div class="w-[min(100vw-2rem,32rem)]">
+            <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h3 class="text-base font-bold">Meu perfil</h3>
+                <form method="dialog"><button class="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar">x</button></form>
+            </div>
+            <div class="space-y-3 px-4 py-4 text-sm">
+                <div class="flex items-center gap-3">
+                    <span class="erp-avatar h-10 w-10">
+                        {% if perfil_contato and perfil_contato.foto_url %}
+                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                        {% else %}
+                            {{ session.get('user_name', 'U')[:2]|upper }}
+                        {% endif %}
+                    </span>
+                    <div class="min-w-0">
+                        <p class="truncate font-semibold">{{ session.get('user_name', 'Usuário') }}</p>
+                        <p class="truncate text-xs text-slate-500">{{ session.get('user_email', '') }}</p>
+                    </div>
+                </div>
+                {% if perfil_contato %}
+                    <dl class="grid grid-cols-2 gap-3 text-xs">
+                        <div><dt class="font-semibold uppercase tracking-wide text-slate-400">Telefone</dt><dd class="mt-1">{{ perfil_contato.telefone or '—' }}</dd></div>
+                        <div><dt class="font-semibold uppercase tracking-wide text-slate-400">Cargo</dt><dd class="mt-1">{{ perfil_contato.cargo_descricao or '—' }}</dd></div>
+                        <div><dt class="font-semibold uppercase tracking-wide text-slate-400">Setor</dt><dd class="mt-1">{{ perfil_contato.setor_display or '—' }}</dd></div>
+                        <div><dt class="font-semibold uppercase tracking-wide text-slate-400">Tipo</dt><dd class="mt-1">{{ perfil_contato.user_type or session.get('user_type', '—') }}</dd></div>
+                    </dl>
+                {% endif %}
+            </div>
+            <form method="dialog" class="flex justify-end border-t border-slate-200 bg-slate-50 px-4 py-3">
+                <button class="rounded-lg bg-[#1e4d4f] px-4 py-2 text-sm font-semibold text-white">Fechar</button>
+            </form>
+        </div>
+    </dialog>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var body = document.body;
+        var sidebar = document.getElementById('erp-sidebar');
+        var backdrop = document.getElementById('erp-backdrop');
+        var toggle = document.getElementById('erp-menu-toggle');
+        var userTrigger = document.getElementById('erp-user-trigger');
+        var userMenu = document.getElementById('erp-user-menu');
+        var profileButton = document.getElementById('erp-profile-button');
+        var refreshButton = document.getElementById('erp-refresh-page');
+
+        body.classList.add('fouc-ready');
+
+        function closeSidebar() {
+            if (sidebar) sidebar.classList.remove('is-open');
+            if (backdrop) backdrop.classList.remove('is-open');
+        }
+        function toggleUserMenu(force) {
+            if (!userMenu || !userTrigger) return;
+            var open = typeof force === 'boolean' ? force : !userMenu.classList.contains('is-open');
+            userMenu.classList.toggle('is-open', open);
+            userTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', function () {
+                sidebar.classList.add('is-open');
+                if (backdrop) backdrop.classList.add('is-open');
+            });
+        }
+        if (backdrop) backdrop.addEventListener('click', closeSidebar);
+        document.querySelectorAll('.erp-nav-link').forEach(function (link) {
+            link.addEventListener('click', closeSidebar);
+        });
+        if (userTrigger) {
+            userTrigger.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                toggleUserMenu();
+            });
+        }
+        document.addEventListener('click', function (ev) {
+            if (!ev.target.closest('#erp-user-trigger') && !ev.target.closest('#erp-user-menu')) toggleUserMenu(false);
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') {
+                closeSidebar();
+                toggleUserMenu(false);
+            }
+        });
+        if (profileButton) {
+            profileButton.addEventListener('click', function () {
+                toggleUserMenu(false);
+                var modal = document.getElementById('modal-meu-perfil');
+                if (modal && typeof modal.showModal === 'function') modal.showModal();
+            });
+        }
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function () {
+                window.location.reload();
+            });
+        }
+
+        (function initNavBuscaPi() {
+            var input = document.getElementById('nav-busca-pi-input');
+            var btn = document.getElementById('nav-busca-pi-btn');
+            function run() {
+                var q = (input && input.value || '').trim();
+                if (!q) {
+                    if (typeof showToast === 'function') showToast('Informe o código ou o título do PI.', 'warning');
+                    return;
+                }
+                fetch('/api/cadu_pi/localizar?' + new URLSearchParams({ q: q }), { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.found) {
+                            if (typeof showToast === 'function') showToast(data.message || 'Nenhum PI encontrado com este termo.', 'error', 5000);
+                            return;
+                        }
+                        if (data.lista_url && data.lista_url.indexOf('/') === 0) window.location.assign(data.lista_url);
+                    })
+                    .catch(function () {
+                        if (typeof showToast === 'function') showToast('Erro ao buscar PI. Faça login se necessário.', 'error');
+                    });
+            }
+            if (btn) btn.addEventListener('click', run);
+            if (input) input.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    run();
+                }
+            });
+        })();
+    });
+
+    (function(){
+        const s = document.createElement('style');
+        s.textContent = '@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}';
+        document.head.appendChild(s);
+    })();
+    window.showToast = function(msg, type, duration) {
+        type = type || 'info';
+        duration = duration || 3500;
+        var container = document.getElementById('toast-container');
+        var colors = {
+            success: 'background:#dcfce7;color:#15803d;border-color:#86efac',
+            error: 'background:#fee2e2;color:#991b1b;border-color:#fca5a5',
+            warning: 'background:#fef9c3;color:#854d0e;border-color:#fde68a',
+            info: 'background:#dbeafe;color:#1e40af;border-color:#93c5fd'
+        };
+        var icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+        if (!container) return;
+        var toast = document.createElement('div');
+        toast.style.cssText = (colors[type] || colors.info) + ';border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:100%;animation:toastIn .25s ease';
+        toast.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '"></i><span></span>';
+        toast.querySelector('span').textContent = msg;
+        container.appendChild(toast);
+        setTimeout(function () {
+            toast.style.animation = 'toastOut .2s ease forwards';
+            setTimeout(function () { toast.remove(); }, 200);
+        }, duration);
+    };
+
+    window.showConfirm = function(opts) {
+        opts = opts || {};
+        if (window.confirm(opts.message || opts.title || 'Confirma?') && typeof opts.onConfirm === 'function') {
+            opts.onConfirm();
+        }
+    };
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

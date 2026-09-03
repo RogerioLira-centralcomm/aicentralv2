@@ -1,20 +1,31 @@
-{% extends "base_tailwind.html" %}
+{% extends "base_erp.html" %}
 
 {% block title %}Início - CentralX{% endblock %}
+{% block page_label %}Início{% endblock %}
+{% block page_subtitle %}Painel executivo 2026{% endblock %}
 
 {% block styles %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+    .erp-dashboard {
+        --dash-ink: #0f172a;
+        --dash-muted: #64748b;
+        --dash-border: #e2e8f0;
+        --dash-surface: #ffffff;
+        --dash-soft: #f8fafc;
+    }
     .dash-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        background: var(--dash-surface);
+        border: 1px solid var(--dash-border);
+        border-radius: 0.875rem;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
     .dash-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
     }
     .chart-container {
         position: relative;
-        height: 280px;
+        height: 260px;
     }
     .kpi-number {
         font-size: 1.25rem;
@@ -32,8 +43,40 @@
         align-items: center;
         justify-content: space-between;
         padding-bottom: 0.75rem;
-        border-bottom: 1px solid oklch(var(--b3));
+        border-bottom: 1px solid var(--dash-border);
         margin-bottom: 1rem;
+    }
+    .executive-strip {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    }
+    .executive-metric {
+        border: 1px solid var(--dash-border);
+        border-radius: 0.875rem;
+        background: #fff;
+        padding: 1rem;
+    }
+    .executive-metric-label {
+        color: var(--dash-muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .executive-metric-value {
+        margin-top: 0.375rem;
+        color: var(--dash-ink);
+        font-size: 1.375rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+    .executive-note {
+        border: 1px solid #cbd5e1;
+        border-left: 4px solid #1e4d4f;
+        border-radius: 0.875rem;
+        background: #f8fafc;
+        color: #334155;
     }
     .skeleton-pulse {
         animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -65,26 +108,28 @@
 {% endblock %}
 
 {% block content %}
-<div class="p-2 md:p-6 space-y-6">
+<div class="erp-dashboard p-2 md:p-6 space-y-5">
     <!-- Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-base-content flex items-center gap-3">
-                <i class="fas fa-home text-primary"></i>
-                Início
+            <h1 class="text-2xl font-bold text-slate-950 flex items-center gap-3">
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e4d4f] text-white">
+                    <i class="fas fa-home"></i>
+                </span>
+                Visão Executiva
             </h1>
-            <p class="text-base-content/60 text-sm mt-1">Painel gerencial - visão 360° do negócio</p>
+            <p class="text-slate-500 text-sm mt-1">Dados priorizados para 2026, com foco em leitura gerencial e menos ruído visual.</p>
         </div>
         <div class="flex items-center gap-3">
             <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">Período</label>
-                <select id="globalPeriodo" class="select select-bordered select-sm w-full min-w-[180px]">
+                <label class="text-xs text-slate-500 mb-1">Referência</label>
+                <select id="globalPeriodo" class="select select-bordered select-sm w-full min-w-[190px]">
+                    <option value="year-2026" selected>Ano 2026</option>
                     <option value="7">Últimos 7 dias</option>
                     <option value="30">Últimos 30 dias</option>
                     <option value="90">Últimos 90 dias</option>
                     <option value="180">Últimos 6 meses</option>
                     <option value="365">Último ano</option>
-                    <option value="9999" selected>Todo o período</option>
                 </select>
             </div>
             <div class="form-control">
@@ -93,6 +138,29 @@
                     <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div class="executive-note px-4 py-3 text-sm">
+        <strong>Leitura executiva:</strong> esta versão usa o backend atual e traduz o padrão para uma janela iniciada em 2026. Para fechamento contábil exato por ano, a próxima etapa deve criar filtro anual no backend.
+    </div>
+
+    <div class="executive-strip" aria-label="Resumo executivo">
+        <div class="executive-metric">
+            <div class="executive-metric-label">Clientes ativos</div>
+            <div class="executive-metric-value" id="exec-total-clientes">--</div>
+        </div>
+        <div class="executive-metric">
+            <div class="executive-metric-label">Cotações</div>
+            <div class="executive-metric-value" id="exec-total-cotacoes">--</div>
+        </div>
+        <div class="executive-metric">
+            <div class="executive-metric-label">Valor líquido PI</div>
+            <div class="executive-metric-value" id="exec-valor-pi">--</div>
+        </div>
+        <div class="executive-metric">
+            <div class="executive-metric-label">Leads</div>
+            <div class="executive-metric-value" id="exec-total-leads">--</div>
         </div>
     </div>
 
@@ -400,28 +468,32 @@
 {% block scripts %}
 <script>
 Chart.defaults.font.family = 'Inter, sans-serif';
-Chart.defaults.color = '#9CA3AF';
+Chart.defaults.color = '#64748B';
 
 const COLORS = {
     primary: '#1E4D4F',
-    secondary: '#F3B71B',
-    accent: '#9CCF31',
-    info: '#3ABFF8',
-    success: '#36D399',
-    warning: '#FBBD23',
-    error: '#F87272',
-    chart: ['#1E4D4F','#F3B71B','#9CCF31','#3ABFF8','#36D399','#FBBD23','#F87272','#8B5CF6','#EC4899','#06B6D4']
+    secondary: '#64748B',
+    accent: '#94A3B8',
+    info: '#0F766E',
+    success: '#166534',
+    warning: '#B45309',
+    error: '#B91C1C',
+    soft: '#CBD5E1',
+    chart: ['#1E4D4F', '#64748B', '#94A3B8', '#CBD5E1']
 };
 
 let charts = {};
-let currentDays = 9999;
+const DASHBOARD_REFERENCE_YEAR = 2026;
+let currentDays = getDashboardDaysForYear(DASHBOARD_REFERENCE_YEAR);
 
 document.addEventListener('DOMContentLoaded', function() {
     loadAllSections();
     loadActiveUsersMetrics();
 
     document.getElementById('globalPeriodo').addEventListener('change', function() {
-        currentDays = parseInt(this.value);
+        currentDays = this.value === 'year-2026'
+            ? getDashboardDaysForYear(DASHBOARD_REFERENCE_YEAR)
+            : parseInt(this.value, 10);
         loadAllSections();
     });
 
@@ -451,6 +523,19 @@ async function loadAllSections() {
 
     btn.classList.remove('loading');
     btn.querySelector('i')?.classList.remove('fa-spin');
+}
+
+function setExecutiveMetric(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function getDashboardDaysForYear(year) {
+    const now = new Date();
+    const start = new Date(year, 0, 1);
+    if (now < start) return 1;
+    const dayMs = 24 * 60 * 60 * 1000;
+    return Math.max(1, Math.ceil((now - start) / dayMs) + 1);
 }
 
 // ======================== SEÇÃO 1: Carteira de Clientes ========================
@@ -581,8 +666,8 @@ async function loadCarteira() {
         const r = d.resumo || {};
 
         const classificacoes = d.classificacoes || [];
-        const classColors = ['#22c55e', '#eab308', '#64748b', '#3b82f6', '#ef4444', '#8b5cf6'];
-        const classTextColors = ['text-success', 'text-warning', 'text-accent', 'text-info', 'text-error', 'text-secondary'];
+        const classColors = ['#1E4D4F', '#64748B', '#94A3B8', '#CBD5E1', '#475569', '#0F766E'];
+        const classTextColors = ['text-primary', 'text-slate-600', 'text-slate-500', 'text-slate-400', 'text-slate-700', 'text-teal-700'];
 
         let clientesFinais = 0;
         let agencias = 0;
@@ -601,6 +686,7 @@ async function loadCarteira() {
             perfilTotais: { clientesFinais, agencias }
         };
         syncCarteiraControls();
+        setExecutiveMetric('exec-total-clientes', formatNumber(r.total || 0));
     } catch (e) { console.error('Erro carteira:', e); }
 }
 
@@ -637,6 +723,7 @@ async function loadCotacoes() {
         });
 
         document.getElementById('sec2-badge').textContent = `${totalGeral} total`;
+        setExecutiveMetric('exec-total-cotacoes', formatNumber(totalGeral));
 
         destroyChart('chartCotacoes');
         const evolucao = d.evolucao || [];
@@ -810,6 +897,7 @@ async function loadPIs() {
         document.getElementById('sec4-valor').textContent = formatCurrencyShort(r.valor_total || 0);
         document.getElementById('sec4-bruto').textContent = formatCurrencyShort(r.valor_bruto || 0);
         document.getElementById('sec4-badge').textContent = `${r.total || 0} PIs`;
+        setExecutiveMetric('exec-valor-pi', formatCurrencyShort(r.valor_total || 0));
 
         lastPIsData = d.por_mes || [];
         toggleChartPIs('quant');
@@ -960,6 +1048,7 @@ async function loadLeads() {
         document.getElementById('sec8-notificados').textContent = formatNumber(r.notificados || 0);
         document.getElementById('sec8-pendentes').textContent = formatNumber(r.pendentes || 0);
         document.getElementById('sec8-badge').textContent = `${r.total || 0} leads`;
+        setExecutiveMetric('exec-total-leads', formatNumber(r.total || 0));
 
         destroyChart('chartLeads');
         const porExec = d.por_executivo || [];

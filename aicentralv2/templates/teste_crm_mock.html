@@ -1,9 +1,11 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
 
 {% block title %}Teste CRM — CentralX{% endblock %}
+{% block page_label %}CRM{% endblock %}
+{% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=37">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=38">
 {% endblock %}
 
 {% block content %}

@@ -68,10 +68,22 @@
               <input type="search" id="crm-v3-busca" class="crm-v3-search" placeholder="Buscar cliente..." autocomplete="off" />
             </div>
             <div class="crm-v3-pills" role="group" aria-label="Filtrar clientes">
-              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true">Todos <span class="crm-v3-pill-count">0</span></button>
-              <button type="button" class="crm-v3-pill" data-filter="atrasado" aria-pressed="false">Atrasados <span class="crm-v3-pill-count">0</span></button>
-              <button type="button" class="crm-v3-pill" data-filter="sem-atividade" aria-pressed="false">Sem atividade <span class="crm-v3-pill-count">0</span></button>
-              <button type="button" class="crm-v3-pill" data-filter="seguindo" aria-pressed="false">Seguindo <span class="crm-v3-pill-count">0</span></button>
+              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true" title="Todos os clientes">
+                <span class="crm-v3-pill-label">Todos</span>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
+              <button type="button" class="crm-v3-pill" data-filter="atrasado" aria-pressed="false" title="Atividades atrasadas" aria-label="Atrasados">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
+              <button type="button" class="crm-v3-pill" data-filter="sem-atividade" aria-pressed="false" title="Sem atividade cadastrada" aria-label="Sem atividade">
+                <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
+              <button type="button" class="crm-v3-pill" data-filter="seguindo" aria-pressed="false" title="Que você segue" aria-label="Seguindo">
+                <i class="fa-solid fa-star" aria-hidden="true"></i>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
             </div>
           </div>
 
@@ -143,8 +155,8 @@
                 <div class="crm-v3-section-header">
                   <h3 class="crm-v3-section-title" id="crm-ativ-title">Atividades</h3>
                   <div class="crm-v3-section-actions">
-                    <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-nova-atividade"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova atividade</button>
-                    <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-agendar"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Agendar</button>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" id="crm-v3-btn-nova-atividade" title="Foca o campo rápido de nova atividade"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova</button>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" id="crm-v3-btn-agendar" title="Abrir formulário completo"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Detalhes</button>
                   </div>
                 </div>
 
@@ -184,6 +196,18 @@
                     </select>
                   </div>
                 </div>
+
+                <form class="crm-v3-ativ-composer" id="crm-v3-ativ-composer" autocomplete="off">
+                  <button type="button" class="crm-v3-ativ-composer-type" id="crm-v3-composer-tipo" data-tipo="atividade" title="Alterar tipo (Ctrl+T)" aria-label="Tipo da atividade">
+                    <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+                  </button>
+                  <input type="text" class="crm-v3-ativ-composer-input" id="crm-v3-composer-titulo" placeholder="Adicionar atividade rápida... (Enter salva, Shift+Enter descrição)" aria-label="Título da atividade" />
+                  <input type="date" class="crm-v3-ativ-composer-date" id="crm-v3-composer-data" aria-label="Data" />
+                  <input type="time" class="crm-v3-ativ-composer-time" id="crm-v3-composer-hora" aria-label="Hora" />
+                  <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-composer-submit" aria-label="Adicionar atividade">
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </button>
+                </form>
 
                 <div class="crm-v3-ativ-list min-h-0" role="list" id="crm-v3-ativ-list">
                   <!-- renderizado via crm_v3.js -->

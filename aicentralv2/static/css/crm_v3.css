@@ -100,7 +100,7 @@ html:has(.crm-v3-page) body {
 
 .crm-v3-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 380px);
     height: 100%;
     max-height: 100%;
     overflow: hidden;
@@ -447,7 +447,7 @@ html:has(.crm-v3-page) body {
 
 .crm-v3-contato-main {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
     min-width: 0;
 }
@@ -460,25 +460,69 @@ html:has(.crm-v3-page) body {
 }
 
 .crm-v3-contato-info {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.crm-v3-contato-nome-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
 }
 
 .crm-v3-contato-nome {
-    font-size: var(--crm-font-md);
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
     font-weight: 600;
     color: var(--crm-text);
-    line-height: var(--crm-line-tight);
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .crm-v3-contato-cargo {
-    font-size: var(--crm-font-xs);
+    font-size: 11px;
     color: var(--crm-text-muted);
-    margin-top: 2px;
-    line-height: var(--crm-line-tight);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Badges compactas dentro do nome (star = principal, número = conversas) */
+.crm-v3-contato-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    background: var(--crm-border-light);
+    color: var(--crm-text-muted);
+}
+
+.crm-v3-contato-badge-principal {
+    background: var(--crm-primary);
+    color: var(--crm-primary-content);
+    padding: 0;
+    width: 18px;
+    font-size: 9px;
+}
+
+.crm-v3-contato-badge-count {
+    background: var(--crm-primary);
+    color: var(--crm-primary-content);
 }
 
 .crm-v3-contato-actions {
@@ -486,6 +530,25 @@ html:has(.crm-v3-page) body {
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
+    margin-left: auto;
+}
+
+.crm-v3-contato-row-icon {
+    color: var(--crm-text-muted);
+    font-size: 12px;
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.crm-v3-contato-row-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--crm-text);
+    font-size: 12px;
 }
 
 .crm-v3-contato-toggle,
@@ -529,17 +592,14 @@ html:has(.crm-v3-page) body {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: var(--crm-font-xs);
-    color: var(--crm-text-muted);
+    font-size: 12px;
+    color: var(--crm-text);
     margin-bottom: 6px;
+    min-width: 0;
 }
 
-.crm-v3-contato-email-row span {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.crm-v3-contato-email-row .crm-v3-contato-row-text {
+    color: var(--crm-text);
 }
 
 .crm-v3-contato-copy {
@@ -570,19 +630,23 @@ html:has(.crm-v3-page) body {
 .crm-v3-contato-phone-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 5px 8px;
+    gap: 8px;
+    padding: 6px 10px;
     margin-bottom: 4px;
     background: var(--crm-surface);
     border: 1px solid var(--crm-border-light);
     border-radius: var(--crm-radius-sm);
-    font-size: var(--crm-font-xs);
+    font-size: 12px;
     color: var(--crm-text);
     cursor: pointer;
     width: 100%;
     text-align: left;
     font-family: inherit;
+}
+
+.crm-v3-contato-phone-row i {
+    color: var(--crm-primary);
+    font-size: 13px;
 }
 
 .crm-v3-contato-phone-row:hover {
@@ -743,24 +807,29 @@ html:has(.crm-v3-page) body {
     height: 26px;
 }
 
-/* ===== PILLS ===== */
+/* ===== PILLS (filtros da lista de clientes) =========================
+ * Pipedrive-style: apenas Todos tem label; as demais são ícones + count.
+ * Layout com 1fr auto auto auto: Todos cresce, ícones ficam compactos.
+ * ==================================================================== */
 .crm-v3-pills {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 4px;
     margin-top: 8px;
+    width: 100%;
+    overflow: hidden;
 }
 
 .crm-v3-pill {
     min-width: 0;
     font-size: 12px;
     font-weight: 600;
-    min-height: 34px;
-    padding: 0 8px;
+    min-height: 32px;
+    padding: 0 10px;
     border-radius: 8px;
     border: 1px solid var(--crm-border);
     background: #fff;
-    color: var(--crm-text);
+    color: var(--crm-text-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -769,19 +838,35 @@ html:has(.crm-v3-page) body {
     white-space: nowrap;
     overflow: hidden;
     line-height: 1;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.crm-v3-pill i {
+    font-size: 12px;
+}
+
+.crm-v3-pill-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Pills 2 a 4: só ícone + count (mais compactas) */
+.crm-v3-pill:not(:first-child) {
+    padding: 0 8px;
+    min-width: 44px;
 }
 
 .crm-v3-pill-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 5px;
     border-radius: 999px;
     background: var(--crm-border-light);
     color: var(--crm-text-muted);
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
 }
 
@@ -791,7 +876,7 @@ html:has(.crm-v3-page) body {
 }
 
 .crm-v3-pill:hover {
-    background: var(--crm-accent-bg);
+    background: var(--crm-surface);
     border-color: var(--crm-primary);
     color: var(--crm-primary-dark);
 }
@@ -799,6 +884,11 @@ html:has(.crm-v3-page) body {
 .crm-v3-pill.is-active {
     background: var(--crm-primary);
     border-color: var(--crm-primary);
+    color: #fff;
+}
+
+.crm-v3-pill.is-active .crm-v3-pill-count {
+    background: rgba(255, 255, 255, 0.2);
     color: #fff;
 }
 
@@ -1027,6 +1117,66 @@ html:has(.crm-v3-page) body {
     align-items: flex-end;
     gap: 4px;
     flex-shrink: 0;
+}
+
+/* ===== SINALIZADOR DE SITUAÇÃO DO CLIENTE (Pipedrive-style) =========
+ * Ícone colorido + texto neutro compacto ("18d", "hoje", "amanhã").
+ * Sem fundo colorido — só o ícone comunica a criticidade.
+ * ==================================================================== */
+.crm-v3-sit {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--crm-text-muted);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.crm-v3-sit i {
+    font-size: 12px;
+}
+
+.crm-v3-sit-label {
+    font-variant-numeric: tabular-nums;
+}
+
+.crm-v3-sit--alert i {
+    color: #dc2626;
+}
+
+.crm-v3-sit--alert .crm-v3-sit-label {
+    color: #dc2626;
+}
+
+.crm-v3-sit--atrasado i {
+    color: #ea580c;
+}
+
+.crm-v3-sit--atrasado .crm-v3-sit-label {
+    color: #ea580c;
+}
+
+.crm-v3-sit--hoje i {
+    color: var(--crm-primary);
+}
+
+.crm-v3-sit--hoje .crm-v3-sit-label {
+    color: var(--crm-primary);
+}
+
+.crm-v3-sit--agenda i,
+.crm-v3-sit--agenda .crm-v3-sit-label {
+    color: var(--crm-text-muted);
+}
+
+.crm-v3-sit--neutro i,
+.crm-v3-sit--neutro .crm-v3-sit-label {
+    color: var(--crm-text-subtle);
 }
 
 .crm-v3-pin-icon {
@@ -1522,21 +1672,43 @@ html:has(.crm-v3-page) body {
     accent-color: var(--crm-primary);
 }
 
+/* Ícones de tipo de atividade
+ * Paleta única (variações da marca) para não parecer semáforo aleatório.
+ * O tipo é identificado pelo desenho do ícone (phone, users, file, note),
+ * não pela cor. */
 .crm-v3-ativ-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    display: flex;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: var(--crm-font-xs);
+    font-size: 12px;
+    background: var(--crm-surface);
+    color: var(--crm-text-muted);
+    border: 1px solid var(--crm-border-light);
 }
 
-.crm-v3-ativ-icon-phone { background: #dbeafe; color: #2563eb; }
-.crm-v3-ativ-icon-doc { background: #fce7f3; color: #db2777; }
-.crm-v3-ativ-icon-meeting { background: #ede9fe; color: #7c3aed; }
-.crm-v3-ativ-icon-note { background: var(--crm-border-light); color: var(--crm-text-muted); }
+.crm-v3-ativ-icon-phone,
+.crm-v3-ativ-icon-doc,
+.crm-v3-ativ-icon-meeting,
+.crm-v3-ativ-icon-note {
+    background: var(--crm-surface);
+    color: var(--crm-text-muted);
+    border-color: var(--crm-border-light);
+}
+
+/* Quando a atividade está concluída, ícone fica ainda mais neutro. */
+.crm-v3-ativ-concluida .crm-v3-ativ-icon {
+    opacity: 0.5;
+}
+
+/* Atividade em criação (otimista): reduz opacidade até o backend confirmar. */
+.crm-v3-ativ[data-pending="true"] {
+    opacity: 0.6;
+    pointer-events: none;
+}
 
 .crm-v3-ativ-content {
     flex: 1;
@@ -1547,11 +1719,152 @@ html:has(.crm-v3-page) body {
     font-size: var(--crm-font-sm);
     font-weight: 500;
     color: var(--crm-text);
+    cursor: text;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: -1px -4px;
+    outline: none;
+}
+
+.crm-v3-ativ-titulo:hover {
+    background: var(--crm-surface);
+}
+
+.crm-v3-ativ-titulo:focus,
+.crm-v3-ativ-titulo[contenteditable="true"]:focus {
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(30, 77, 79, 0.2);
 }
 
 .crm-v3-ativ-desc {
     font-size: var(--crm-font-xs);
     color: var(--crm-text-subtle);
+    cursor: text;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: -1px -4px;
+    outline: none;
+}
+
+.crm-v3-ativ-desc:hover {
+    background: var(--crm-surface);
+}
+
+.crm-v3-ativ-desc:focus {
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(30, 77, 79, 0.2);
+}
+
+/* ===== Composer inline de atividade =================================
+ * Barra fina no topo da lista para criar uma atividade sem sair da coluna.
+ * ==================================================================== */
+.crm-v3-ativ-composer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    margin: 0 0 8px;
+    background: #fff;
+    border: 1px solid var(--crm-border);
+    border-radius: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.crm-v3-ativ-composer:focus-within {
+    border-color: var(--crm-primary);
+    box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.1);
+}
+
+.crm-v3-ativ-composer-type {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--crm-border);
+    background: var(--crm-surface);
+    color: var(--crm-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.crm-v3-ativ-composer-type:hover {
+    background: #fff;
+    color: var(--crm-primary);
+    border-color: var(--crm-primary);
+}
+
+.crm-v3-ativ-composer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 28px;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--crm-text);
+    outline: none;
+}
+
+.crm-v3-ativ-composer-input::placeholder {
+    color: var(--crm-text-subtle);
+}
+
+.crm-v3-ativ-composer-date,
+.crm-v3-ativ-composer-time {
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid var(--crm-border-light);
+    border-radius: 6px;
+    background: var(--crm-surface);
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--crm-text-muted);
+    outline: none;
+    flex-shrink: 0;
+}
+
+.crm-v3-ativ-composer-date {
+    width: 120px;
+}
+
+.crm-v3-ativ-composer-time {
+    width: 80px;
+}
+
+.crm-v3-ativ-composer-date:focus,
+.crm-v3-ativ-composer-time:focus {
+    border-color: var(--crm-primary);
+    color: var(--crm-text);
+}
+
+.crm-v3-ativ-composer #crm-v3-composer-submit {
+    height: 28px;
+    padding: 0 10px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .crm-v3-ativ-composer-date { width: 100px; }
+    .crm-v3-ativ-composer-time { width: 70px; }
+}
+
+@media (max-width: 720px) {
+    .crm-v3-ativ-composer {
+        flex-wrap: wrap;
+    }
+    .crm-v3-ativ-composer-input {
+        flex-basis: 100%;
+        order: 1;
+    }
+    .crm-v3-ativ-composer-type { order: 0; }
+    .crm-v3-ativ-composer-date { order: 2; flex: 1 1 auto; }
+    .crm-v3-ativ-composer-time { order: 3; }
+    .crm-v3-ativ-composer #crm-v3-composer-submit { order: 4; }
 }
 
 .crm-v3-ativ-time {
@@ -1647,56 +1960,292 @@ html:has(.crm-v3-page) body {
     color: var(--crm-text);
 }
 
-/* ===== COTAÇÕES ===== */
+/* ===== COTAÇÕES ==============================================
+ * Coluna direita, dividida em "Em aberto" (cards ricos com objetivo
+ * + plataformas) e "Histórico" (linhas compactas sem cor de status).
+ * ============================================================== */
 .crm-v3-cotacao-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.crm-v3-cotacao-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--crm-text-subtle);
+    font-size: var(--crm-font-sm);
+}
+
+.crm-v3-cotacao-empty-inline {
+    padding: 8px 10px;
+    background: var(--crm-surface);
+    border: 1px dashed var(--crm-border);
+    border-radius: var(--crm-radius-sm);
+    font-size: var(--crm-font-xs);
+}
+
+.crm-v3-cotacao-grupo {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.crm-v3-cotacao-card {
-    padding: 6px 8px;
-    border: 1px solid var(--crm-border);
-    border-radius: var(--crm-radius-sm);
-    background: #fff;
-}
-
-.crm-v3-cotacao-card:hover {
-    background: var(--crm-surface);
-}
-
-.crm-v3-cotacao-titulo {
-    font-size: var(--crm-font-sm);
-    font-weight: 600;
-    color: var(--crm-text);
-    margin-bottom: 4px;
-}
-
-.crm-v3-cotacao-numero {
-    margin-bottom: 2px;
-    color: var(--crm-text-subtle);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0.04em;
-}
-
-.crm-v3-cotacao-valor {
-    font-size: var(--crm-font-sm);
-    font-weight: 500;
-    color: var(--crm-text);
-    margin-bottom: 6px;
-}
-
-.crm-v3-cotacao-meta {
+.crm-v3-cotacao-grupo-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--crm-text-subtle);
+    padding: 0 2px;
+}
+
+.crm-v3-cotacao-grupo-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--crm-border-light);
+    color: var(--crm-text-muted);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+/* ---- Cards em aberto ------------------------------------------- */
+.crm-v3-cotacao-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.crm-v3-cotacao-card:hover {
+    border-color: var(--crm-primary);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.crm-v3-cotacao-topline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.crm-v3-cotacao-numero {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: var(--crm-text-subtle);
+    background: var(--crm-surface);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.crm-v3-cotacao-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid var(--crm-border);
+    color: var(--crm-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.crm-v3-cotacao-status-chip i {
+    font-size: 11px;
+    color: var(--crm-text-subtle);
+}
+
+.crm-v3-cotacao-card .crm-v3-cotacao-detalhes {
+    margin-left: auto;
+}
+
+.crm-v3-cotacao-titulo {
+    display: block;
+    font-size: 14px;
+    font-weight: 650;
+    color: var(--crm-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    line-height: 1.25;
+}
+
+.crm-v3-cotacao-titulo:hover {
+    color: var(--crm-primary-dark);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.crm-v3-cotacao-objetivo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--crm-text-muted);
+    font-weight: 500;
+}
+
+.crm-v3-cotacao-objetivo i {
+    color: var(--crm-text-subtle);
+    font-size: 11px;
+}
+
+.crm-v3-cotacao-plataformas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.crm-v3-cotacao-plataforma {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--crm-surface);
+    color: var(--crm-text-muted);
+    border: 1px solid var(--crm-border);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+.crm-v3-cotacao-plataforma-more {
+    color: var(--crm-text-subtle);
+    background: transparent;
+}
+
+.crm-v3-cotacao-rodape {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
     gap: 8px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--crm-border-light);
+}
+
+.crm-v3-cotacao-valor {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--crm-text);
+    font-variant-numeric: tabular-nums;
 }
 
 .crm-v3-cotacao-data {
-    font-size: var(--crm-font-xs);
+    font-size: 11px;
     color: var(--crm-text-subtle);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Histórico (linhas monocromáticas) -------------------------- */
+.crm-v3-cotacao-historico-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-sm);
+    overflow: hidden;
+    background: #fff;
+}
+
+.crm-v3-cotacao-linha {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--crm-border-light);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+    font-size: 12px;
+    color: var(--crm-text-muted);
+}
+
+.crm-v3-cotacao-linha:last-child {
+    border-bottom: 0;
+}
+
+.crm-v3-cotacao-linha:hover {
+    background: var(--crm-surface);
+    color: var(--crm-text);
+}
+
+.crm-v3-cotacao-linha-icon {
+    color: var(--crm-text-subtle);
+    font-size: 12px;
+}
+
+.crm-v3-cotacao-linha-titulo {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+}
+
+.crm-v3-cotacao-linha-numero {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: var(--crm-text-subtle);
+    line-height: 1;
+}
+
+.crm-v3-cotacao-linha-nome {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--crm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-v3-cotacao-linha-status {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--crm-text-muted);
+    white-space: nowrap;
+}
+
+.crm-v3-cotacao-linha-valor {
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--crm-text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.crm-v3-cotacao-linha-data {
+    font-size: 11px;
+    color: var(--crm-text-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.crm-v3-cotacao-linha-chevron {
+    color: var(--crm-text-subtle);
+    font-size: 10px;
 }
 
 .crm-v3-cotacao-placeholder {
@@ -1720,62 +2269,50 @@ html:has(.crm-v3-page) body {
     box-shadow: -1px 0 0 var(--crm-border-light);
 }
 
+/* Sidebar tabs (4 abas): grid 2x2 evita truncar "Informações" em ~340px. */
 .crm-v3-tabs-sidebar {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
-    padding: 8px 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 10px 12px;
     flex-shrink: 0;
     width: 100%;
-    overflow: hidden;
     background: var(--crm-surface);
     border-bottom: 1px solid var(--crm-border-light);
 }
 
 .crm-v3-tabs-sidebar .crm-v3-tab {
     width: 100%;
-    padding: 6px 4px;
+    padding: 9px 10px;
     text-align: center;
     white-space: nowrap;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
-    min-height: 36px;
-    gap: 3px;
-    flex-direction: column;
-    line-height: 1.1;
-}
-
-.crm-v3-tabs-sidebar .crm-v3-tab i {
-    font-size: 14px;
-    opacity: 0.7;
-}
-
-.crm-v3-tabs-sidebar .crm-v3-tab.is-active i {
-    opacity: 1;
+    min-height: 38px;
+    gap: 6px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    line-height: 1.15;
+    overflow: visible;
 }
 
 .crm-v3-tabs-sidebar .crm-v3-tab > span:first-of-type {
-    display: block;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .crm-v3-tabs-sidebar .crm-v3-tab-count {
     min-width: 20px;
     height: 18px;
-    padding: 0 5px;
-    font-size: 10.5px;
+    padding: 0 6px;
+    font-size: 11px;
 }
 
-@media (max-width: 1280px) {
-    .crm-v3-tabs-sidebar .crm-v3-tab {
-        font-size: 12px;
-        padding: 9px 4px;
-        gap: 4px;
-    }
-    .crm-v3-tabs-sidebar .crm-v3-tab-count {
-        min-width: 18px;
-        height: 16px;
-        padding: 0 4px;
-        font-size: 10px;
+/* Em telas grandes (sidebar folgada), volta a exibir tudo em linha única. */
+@media (min-width: 1600px) {
+    .crm-v3-tabs-sidebar {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 

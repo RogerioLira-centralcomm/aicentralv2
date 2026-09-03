@@ -314,6 +314,8 @@ class CrmTestApiTest(unittest.TestCase):
                 "status": "Rascunho",
                 "periodo_inicio": "2027-01-01",
                 "periodo_fim": "2027-12-31",
+                "objetivo": "Institucional",
+                "plataformas": [" TV Aberta ", "OOH", "tv aberta", ""],
             },
         )
         self.assertEqual(created.status_code, 201)
@@ -326,12 +328,17 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(cotacao["status"], "rascunho")
         self.assertEqual(cotacao["status_canonico"], "Rascunho")
         self.assertEqual(cotacao["status_label"], "Rascunho")
+        self.assertEqual(cotacao["objetivo"], "Institucional")
+        # Plataformas: normalizadas (trim), sem vazias, sem duplicatas case-insensitive.
+        self.assertEqual(cotacao["plataformas"], ["TV Aberta", "OOH"])
         updated = self.client.patch(
             f"/crm-v3/api/cotacoes/{cotacao['id']}",
             json={
                 "status_canonico": "Em Acompanhamento",
                 "valor_total": 12500,
                 "periodo_fim": "2027-11-30",
+                "objetivo": "Performance",
+                "plataformas": "Google Ads, Meta Ads,Google Ads",
             },
         )
         self.assertEqual(updated.status_code, 200)
@@ -340,6 +347,9 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(item["status_canonico"], "Em Acompanhamento")
         self.assertEqual(item["status_label"], "Em Acompanhamento")
         self.assertEqual(item["valor_total"], 12500.0)
+        self.assertEqual(item["objetivo"], "Performance")
+        # Aceita string CSV, normaliza e deduplica.
+        self.assertEqual(item["plataformas"], ["Google Ads", "Meta Ads"])
         deleted = self.client.delete(f"/crm-v3/api/cotacoes/{cotacao['id']}")
         self.assertEqual(deleted.status_code, 200)
         self.assertEqual(

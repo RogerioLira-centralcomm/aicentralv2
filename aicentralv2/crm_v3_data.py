@@ -668,6 +668,8 @@ _INITIAL_COTACOES = {
             "periodo_inicio": "2024-07-01",
             "periodo_fim": "2024-09-30",
             "data": "15/05/2024",
+            "objetivo": "Institucional",
+            "plataformas": ["TV Aberta", "OOH", "Meta Ads"],
         },
         {
             "id": "cot2",
@@ -682,6 +684,8 @@ _INITIAL_COTACOES = {
             "periodo_inicio": "2024-06-01",
             "periodo_fim": "2024-06-30",
             "data": "02/05/2024",
+            "objetivo": "Awareness",
+            "plataformas": ["Rádio", "OOH"],
         },
         {
             "id": "cot3",
@@ -696,6 +700,8 @@ _INITIAL_COTACOES = {
             "periodo_inicio": "2024-04-01",
             "periodo_fim": "2024-06-30",
             "data": "20/04/2024",
+            "objetivo": "Performance",
+            "plataformas": ["Google Ads", "Meta Ads"],
         },
     ],
 }
@@ -727,6 +733,29 @@ def _require_text(data, field, label):
     if not value:
         raise ValueError(f"{label} é obrigatório")
     return value
+
+
+def _normalize_plataformas(value):
+    """Normaliza plataformas em lista de strings (aceita lista ou CSV)."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parts = [p.strip() for p in value.split(",")]
+    elif isinstance(value, (list, tuple)):
+        parts = [str(p or "").strip() for p in value]
+    else:
+        return []
+    seen = set()
+    out = []
+    for p in parts:
+        if not p:
+            continue
+        k = p.casefold()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(p)
+    return out
 
 
 def _cotacao_status(value):
@@ -1262,6 +1291,8 @@ class CrmTestStore:
             "periodo_inicio": periodo_inicio,
             "periodo_fim": periodo_fim,
             "data": str(data.get("data") or "").strip(),
+            "objetivo": str(data.get("objetivo") or "").strip(),
+            "plataformas": _normalize_plataformas(data.get("plataformas")),
         }
         self.cotacoes.setdefault(cliente_id, []).append(cotacao)
         return cotacao
@@ -1295,6 +1326,10 @@ class CrmTestStore:
                 for key in ("periodo_inicio", "periodo_fim"):
                     if key in data:
                         updated[key] = _validate_iso_date(data[key], key)
+                if "objetivo" in data:
+                    updated["objetivo"] = str(data.get("objetivo") or "").strip()
+                if "plataformas" in data:
+                    updated["plataformas"] = _normalize_plataformas(data.get("plataformas"))
                 if (
                     updated.get("periodo_inicio")
                     and updated.get("periodo_fim")

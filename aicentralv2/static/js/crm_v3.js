@@ -99,6 +99,61 @@
         return 'badge badge-sm ' + (map[(type || '').toLowerCase()] || 'badge-neutral');
     }
 
+    /**
+     * Converte o badge textual do cliente ("Sem atividade 18 dias",
+     * "Atrasado 2 dias", "Em 3 dias", "Hoje", "Amanhã", "Sem contato",
+     * "Novo") em um sinalizador compacto no estilo Pipedrive:
+     *   [ícone] [Nd | rótulo curto]
+     * O tipo é dado pela cor sutil do ícone; o texto principal fica neutro.
+     */
+    function situacaoHtml(c) {
+        var badge = c.badge || '';
+        var type = (c.badge_type || '').toLowerCase();
+        var m = badge.match(/(\d+)\s*dias?/i);
+        var dias = m ? m[1] + 'd' : '';
+        var icon, label, variante;
+
+        if (type === 'danger' || /sem atividade/i.test(badge)) {
+            icon = 'fa-solid fa-circle-question';
+            label = dias || 'sem ativ.';
+            variante = 'alert';
+        } else if (type === 'warning' || /atrasad/i.test(badge)) {
+            icon = 'fa-solid fa-triangle-exclamation';
+            label = dias || 'atrasado';
+            variante = 'atrasado';
+        } else if (/^hoje/i.test(badge)) {
+            icon = 'fa-regular fa-calendar-check';
+            label = 'hoje';
+            variante = 'hoje';
+        } else if (/^amanh/i.test(badge)) {
+            icon = 'fa-regular fa-calendar';
+            label = 'amanhã';
+            variante = 'agenda';
+        } else if (/^em\s+\d+/i.test(badge)) {
+            icon = 'fa-regular fa-calendar';
+            label = dias || 'agendado';
+            variante = 'agenda';
+        } else if (/sem contato/i.test(badge)) {
+            icon = 'fa-regular fa-circle';
+            label = 'sem contato';
+            variante = 'neutro';
+        } else if (/novo/i.test(badge)) {
+            icon = 'fa-solid fa-sparkles';
+            label = 'novo';
+            variante = 'agenda';
+        } else {
+            icon = 'fa-regular fa-circle';
+            label = badge || '—';
+            variante = 'neutro';
+        }
+        return (
+            '<span class="crm-v3-sit crm-v3-sit--' + variante + '" title="' + escapeHtml(badge) + '">' +
+            '<i class="' + icon + '" aria-hidden="true"></i>' +
+            '<span class="crm-v3-sit-label">' + escapeHtml(label) + '</span>' +
+            '</span>'
+        );
+    }
+
     function avatarTone(nome) {
         var s = (nome || '').trim();
         if (!s) return 'muted';
@@ -320,7 +375,7 @@
                 (chips.length ? '<div class="crm-v3-cliente-meta">' + chips.join('') + '</div>' : '') +
                 '</div>' +
                 '<div class="crm-v3-cliente-right shrink-0">' +
-                '<span class="' + badgeDaisy(c.badge_type) + '">' + escapeHtml(c.badge) + '</span>' +
+                situacaoHtml(c) +
                 '</div></div>'
             );
         }).join('');
@@ -666,28 +721,31 @@
 
         container.innerHTML = filtrados.map(function (c) {
             var ativo = c.id === state.contatoId;
+            var nomeExibido = (c.nome && String(c.nome).trim()) || (c.email ? String(c.email).split('@')[0] : 'Contato sem nome');
+            var subLinha = [c.cargo, c.setor].filter(Boolean).join(' · ');
             return (
                 '<div class="crm-v3-contato-card' + (ativo ? ' crm-v3-contato-card-active is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
                 '<div class="crm-v3-contato-main">' +
-                avatarHtml(c.nome, ativo ? 'w-8 h-8' : 'w-8 h-8') +
+                avatarHtml(nomeExibido, 'w-8 h-8') +
                 '<div class="crm-v3-contato-info min-w-0">' +
-                '<div class="crm-v3-contato-nome truncate text-sm font-medium">' + escapeHtml(c.nome) + '</div>' +
-                '<div class="crm-v3-contato-cargo text-xs text-base-content/60 truncate">' + escapeHtml(c.cargo) + '</div>' +
+                '<div class="crm-v3-contato-nome-row">' +
+                '<span class="crm-v3-contato-nome" title="' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</span>' +
+                (c.principal ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-principal" title="Contato principal"><i class="fa-solid fa-star" aria-hidden="true"></i></span>' : '') +
+                (c.conversas ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-count" title="' + c.conversas + ' conversa(s)">' + c.conversas + '</span>' : '') +
+                '</div>' +
+                (subLinha ? '<div class="crm-v3-contato-cargo">' + escapeHtml(subLinha) + '</div>' : '') +
                 '</div>' +
                 '<div class="crm-v3-contato-actions">' +
-                (c.principal ? '<span class="badge badge-sm badge-primary">Principal</span>' : '') +
-                (c.conversas ? '<span class="badge badge-sm badge-info">' + c.conversas + '</span>' : '') +
-                '<button type="button" class="crm-v3-contato-edit btn btn-ghost btn-xs btn-square" aria-label="Editar" data-contato-id="' + escapeHtml(c.id) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
-                '<button type="button" class="crm-v3-contato-toggle btn btn-ghost btn-xs btn-square" aria-expanded="' + (ativo ? 'true' : 'false') + '"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+                '<button type="button" class="crm-v3-contato-edit crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" aria-label="Editar contato" data-contato-id="' + escapeHtml(c.id) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
+                '<button type="button" class="crm-v3-contato-toggle crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" aria-expanded="' + (ativo ? 'true' : 'false') + '" aria-label="Expandir contato"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
                 '</div></div>' +
                 '<div class="crm-v3-contato-details">' +
                 (c.email ? (
-                    '<div class="crm-v3-contato-email-row flex items-center gap-1"><span class="truncate">' + escapeHtml(c.email) + '</span>' +
-                    '<button type="button" class="crm-v3-contato-copy btn btn-ghost btn-xs btn-square" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar"><i class="fa-regular fa-copy"></i></button></div>'
+                    '<div class="crm-v3-contato-email-row"><i class="fa-regular fa-envelope crm-v3-contato-row-icon" aria-hidden="true"></i><span class="crm-v3-contato-row-text" title="' + escapeHtml(c.email) + '">' + escapeHtml(c.email) + '</span>' +
+                    '<button type="button" class="crm-v3-contato-copy crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button></div>'
                 ) : '') +
-                '<div class="crm-v3-contato-phone-label text-xs text-base-content/50 mt-1">WhatsApp</div>' +
-                (c.telefone ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone) + '</span></button>' : '') +
-                (c.telefone_secundario ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone_secundario) + '</span></button>' : '') +
+                (c.telefone ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>' + escapeHtml(c.telefone) + '</span></button>' : '') +
+                (c.telefone_secundario ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>' + escapeHtml(c.telefone_secundario) + '</span></button>' : '') +
                 '</div></div>'
             );
         }).join('');
@@ -812,7 +870,7 @@
             groups[label].forEach(function (a) {
                 var concluida = a.status === 'concluida';
                 html += (
-                    '<div class="crm-v3-ativ flex items-center gap-1 px-2 py-1' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '">' +
+                    '<div class="crm-v3-ativ flex items-center gap-1 px-2 py-1' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '"' + (a._pending ? ' data-pending="true"' : '') + '>' +
                     '<input type="checkbox" class="checkbox checkbox-xs checkbox-primary crm-v3-ativ-check" ' + (concluida ? 'checked' : '') + ' aria-label="Concluir: ' + escapeHtml(a.titulo) + '" />' +
                     ativIconHtml(a.tipo) +
                     '<div class="crm-v3-ativ-content min-w-0 flex-1">' +
@@ -901,6 +959,9 @@
             });
         });
 
+        // Edição inline do título e da descrição — clicar edita, blur salva.
+        bindAtividadeInlineEdit(container);
+
         $$('.crm-v3-ativ-action', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -936,6 +997,149 @@
                         .catch(function (err) { showToast(err.message, true); });
                 }
             });
+        });
+    }
+
+    // Edição inline: transforma título/descrição em contenteditable ao clicar.
+    // Enter salva, Escape cancela, blur salva se houve alteração.
+    function bindAtividadeInlineEdit(container) {
+        ['titulo', 'desc'].forEach(function (campo) {
+            var sel = '.crm-v3-ativ-' + campo;
+            $$(sel, container).forEach(function (el) {
+                var originalText = el.textContent;
+                el.setAttribute('contenteditable', 'true');
+                el.setAttribute('spellcheck', 'false');
+                el.setAttribute('data-original', originalText);
+                el.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        el.blur();
+                    } else if (e.key === 'Escape') {
+                        el.textContent = el.getAttribute('data-original') || '';
+                        el.blur();
+                    }
+                });
+                el.addEventListener('blur', function () {
+                    var row = el.closest('.crm-v3-ativ');
+                    if (!row) return;
+                    var id = row.getAttribute('data-atividade-id');
+                    var novo = el.textContent.trim();
+                    var atual = (el.getAttribute('data-original') || '').trim();
+                    if (novo === atual) return;
+                    if (campo === 'titulo' && !novo) {
+                        el.textContent = atual;
+                        return;
+                    }
+                    var body = {};
+                    body[campo === 'titulo' ? 'titulo' : 'descricao'] = novo;
+                    api('/atividades/' + encodeURIComponent(id), { method: 'PATCH', body: body })
+                        .then(function () {
+                            el.setAttribute('data-original', novo);
+                            var a = state.atividades.find(function (x) { return x.id === id; });
+                            if (a) { a[campo === 'titulo' ? 'titulo' : 'descricao'] = novo; }
+                            showToast('Atividade atualizada');
+                        })
+                        .catch(function (err) {
+                            showToast(err.message, true);
+                            el.textContent = atual;
+                        });
+                });
+            });
+        });
+    }
+
+    // Composer inline: cria atividade rapidamente e insere no state sem refresh.
+    function bindComposerAtividade() {
+        var form = $('#crm-v3-ativ-composer');
+        if (!form) return;
+        var titulo = $('#crm-v3-composer-titulo');
+        var dataInput = $('#crm-v3-composer-data');
+        var horaInput = $('#crm-v3-composer-hora');
+        var tipoBtn = $('#crm-v3-composer-tipo');
+
+        // Ciclo de tipos de atividade
+        var tipos = [
+            { id: 'atividade', icon: 'fa-regular fa-circle-check', label: 'Atividade' },
+            { id: 'ligacao',   icon: 'fa-solid fa-phone',          label: 'Ligação' },
+            { id: 'reuniao',   icon: 'fa-solid fa-users',          label: 'Reunião' },
+            { id: 'doc',       icon: 'fa-regular fa-file-lines',   label: 'Documento' },
+            { id: 'planejamento', icon: 'fa-solid fa-diagram-project', label: 'Planejamento' }
+        ];
+        function setTipoIdx(idx) {
+            var t = tipos[idx % tipos.length];
+            tipoBtn.setAttribute('data-tipo', t.id);
+            tipoBtn.setAttribute('data-tipo-idx', String(idx % tipos.length));
+            tipoBtn.setAttribute('title', 'Tipo: ' + t.label + ' (clique para trocar)');
+            tipoBtn.setAttribute('aria-label', 'Tipo: ' + t.label);
+            tipoBtn.innerHTML = '<i class="' + t.icon + '" aria-hidden="true"></i>';
+        }
+        setTipoIdx(0);
+        tipoBtn.addEventListener('click', function () {
+            var next = (parseInt(tipoBtn.getAttribute('data-tipo-idx') || '0', 10) + 1) % tipos.length;
+            setTipoIdx(next);
+            titulo && titulo.focus();
+        });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!state.clienteId) { showToast('Selecione um cliente', true); return; }
+            var tituloVal = (titulo.value || '').trim();
+            if (!tituloVal) { titulo.focus(); return; }
+
+            var hoje = new Date().toISOString().slice(0, 10);
+            // Responsável default = executivo de vendas do cliente (iniciais).
+            // Cai para o usuário logado ou "LS" se não houver contexto.
+            var responsavelNome = (state.cliente && state.cliente.responsavel) || '';
+            var responsavelIniciais = avatarIniciais(responsavelNome) || 'LS';
+            var body = {
+                titulo: tituloVal,
+                descricao: '',
+                tipo: tipoBtn.getAttribute('data-tipo') || 'atividade',
+                prioridade: 'Média',
+                data: dataInput.value || hoje,
+                data_label: dataInput.value && dataInput.value !== hoje ? 'Agendada' : 'Hoje',
+                hora: horaInput.value || '',
+                responsavel: responsavelIniciais,
+                responsavel_nome: responsavelNome || undefined,
+                status: 'pendente'
+            };
+
+            // Otimista: cria placeholder e re-renderiza imediatamente
+            var tempId = 'tmp-' + Date.now();
+            var placeholder = Object.assign({ id: tempId, _pending: true }, body);
+            state.atividades.unshift(placeholder);
+            renderAtividades();
+            titulo.value = '';
+            titulo.focus();
+
+            api('/clientes/' + encodeURIComponent(state.clienteId) + '/atividades', {
+                method: 'POST', body: body
+            }).then(function (resp) {
+                var real = resp.atividade || resp.data || resp;
+                var idx = state.atividades.findIndex(function (a) { return a.id === tempId; });
+                if (idx !== -1 && real && real.id) {
+                    state.atividades[idx] = real;
+                } else {
+                    // fallback: recarrega
+                    return loadAtividades(state.clienteId);
+                }
+                renderAtividades();
+                showToast('Atividade adicionada');
+            }).catch(function (err) {
+                var idx = state.atividades.findIndex(function (a) { return a.id === tempId; });
+                if (idx !== -1) state.atividades.splice(idx, 1);
+                renderAtividades();
+                showToast(err.message || 'Falha ao criar atividade', true);
+            });
+        });
+
+        // Atalhos: Ctrl+T alterna tipo, Escape limpa
+        titulo.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { titulo.value = ''; titulo.blur(); }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+                e.preventDefault();
+                tipoBtn.click();
+            }
         });
     }
 
@@ -985,46 +1189,137 @@
         });
     }
 
+    // Status considerados "em aberto" (trabalho ativo do executivo).
+    // Restante entra no histórico.
+    var COT_STATUS_ABERTO = ['rascunho', 'enviada', 'em-acompanhamento', 'em_acompanhamento'];
+
+    function cotacaoEstaAberta(c) {
+        var s = String(c.status || '').toLowerCase();
+        return COT_STATUS_ABERTO.indexOf(s) !== -1;
+    }
+
+    /**
+     * Ícone monocromático por status (sem badge colorido).
+     * Segue orientação do usuário: histórico sem cores para status.
+     */
+    function cotacaoStatusIcon(status) {
+        switch (String(status || '').toLowerCase()) {
+            case 'aprovada': return 'fa-solid fa-circle-check';
+            case 'rejeitada': return 'fa-solid fa-circle-xmark';
+            case 'expirada': return 'fa-regular fa-clock';
+            case 'enviada': return 'fa-solid fa-paper-plane';
+            case 'em-acompanhamento':
+            case 'em_acompanhamento': return 'fa-solid fa-arrows-rotate';
+            case 'rascunho': return 'fa-regular fa-file-lines';
+            default: return 'fa-regular fa-circle';
+        }
+    }
+
+    function cotacaoCardAberta(c) {
+        var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
+        var numero = c.numero_cotacao || '';
+        var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
+        var plataformas = Array.isArray(c.plataformas) ? c.plataformas : [];
+        var objetivo = c.objetivo || '';
+        var statusLabel = c.status_label || c.status_canonico || c.status || '';
+        var plataformasHtml = plataformas.length
+            ? '<div class="crm-v3-cotacao-plataformas">' +
+                plataformas.slice(0, 4).map(function (p) {
+                    return '<span class="crm-v3-cotacao-plataforma">' + escapeHtml(p) + '</span>';
+                }).join('') +
+                (plataformas.length > 4 ? '<span class="crm-v3-cotacao-plataforma crm-v3-cotacao-plataforma-more">+' + (plataformas.length - 4) + '</span>' : '') +
+              '</div>'
+            : '';
+        return (
+            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta" data-cotacao-id="' + escapeHtml(c.id) + '">' +
+            '<div class="crm-v3-cotacao-topline">' +
+                (numero ? '<span class="crm-v3-cotacao-numero">' + escapeHtml(numero) + '</span>' : '') +
+                '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
+                    '<i class="' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
+                    escapeHtml(statusLabel) +
+                '</span>' +
+                '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" aria-label="Abrir detalhes da cotação" title="Abrir detalhes">' +
+                    '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>' +
+                '</button>' +
+            '</div>' +
+            '<button type="button" class="crm-v3-cotacao-titulo crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '">' +
+                escapeHtml(titulo) +
+            '</button>' +
+            (objetivo ? '<div class="crm-v3-cotacao-objetivo"><i class="fa-solid fa-bullseye" aria-hidden="true"></i>' + escapeHtml(objetivo) + '</div>' : '') +
+            plataformasHtml +
+            '<div class="crm-v3-cotacao-rodape">' +
+                '<span class="crm-v3-cotacao-valor">' + escapeHtml(c.valor) + '</span>' +
+                (periodo ? '<span class="crm-v3-cotacao-data">' + escapeHtml(periodo) + '</span>' : '') +
+            '</div>' +
+            '</article>'
+        );
+    }
+
+    function cotacaoLinhaHistorico(c) {
+        var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
+        var numero = c.numero_cotacao || '';
+        var statusLabel = c.status_label || c.status_canonico || c.status || '';
+        var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
+        return (
+            '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" title="Abrir detalhes">' +
+                '<i class="crm-v3-cotacao-linha-icon ' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
+                '<span class="crm-v3-cotacao-linha-titulo">' +
+                    (numero ? '<span class="crm-v3-cotacao-linha-numero">' + escapeHtml(numero) + '</span>' : '') +
+                    '<span class="crm-v3-cotacao-linha-nome">' + escapeHtml(titulo) + '</span>' +
+                '</span>' +
+                '<span class="crm-v3-cotacao-linha-status">' + escapeHtml(statusLabel) + '</span>' +
+                '<span class="crm-v3-cotacao-linha-valor">' + escapeHtml(c.valor || '') + '</span>' +
+                (periodo ? '<span class="crm-v3-cotacao-linha-data">' + escapeHtml(periodo) + '</span>' : '') +
+                '<i class="fa-solid fa-chevron-right crm-v3-cotacao-linha-chevron" aria-hidden="true"></i>' +
+            '</button>'
+        );
+    }
+
     function renderCotacoes() {
         var container = $('#crm-v3-cotacao-list');
         if (!container) return;
         updateTabCounts();
         if (!state.cotacoes.length) {
-            container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhuma cotação.</div>';
+            container.innerHTML = '<div class="crm-v3-cotacao-empty">Nenhuma cotação registrada.</div>';
             return;
         }
-        container.innerHTML = state.cotacoes.map(function (c) {
-            var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
-            var numero = c.numero_cotacao || '';
-            var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
-            return (
-                '<article class="crm-v3-cotacao-card p-2 border border-base-200 rounded-lg mb-2">' +
-                '<div class="flex items-start gap-1"><div class="min-w-0 flex-1">' +
-                (numero ? '<div class="crm-v3-cotacao-numero">' + escapeHtml(numero) + '</div>' : '') +
-                '<div class="crm-v3-cotacao-titulo text-sm font-medium">' + escapeHtml(titulo) + '</div></div>' +
-                '<div class="dropdown dropdown-end"><button type="button" class="btn btn-ghost btn-xs btn-square" tabindex="0" aria-label="Ações da cotação"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-                '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-32 border border-base-200 z-50 text-xs">' +
-                '<li><button type="button" class="crm-v3-cotacao-edit" data-cotacao-id="' + escapeHtml(c.id) + '">Editar</button></li>' +
-                '<li><button type="button" class="crm-v3-cotacao-delete text-error" data-cotacao-id="' + escapeHtml(c.id) + '">Excluir</button></li></ul></div></div>' +
-                '<div class="crm-v3-cotacao-valor text-sm font-semibold">' + escapeHtml(c.valor) + '</div>' +
-                '<div class="crm-v3-cotacao-meta flex items-center gap-2 mt-1">' +
-                '<span class="' + badgeDaisy(c.status) + '">' + escapeHtml(c.status_label || c.status) + '</span>' +
-                '<span class="crm-v3-cotacao-data text-xs text-base-content/60">' + escapeHtml(periodo || dataParaExibicao(c.data)) + '</span>' +
-                '</div></article>'
-            );
-        }).join('');
-        $$('.crm-v3-cotacao-edit', container).forEach(function (btn) {
-            btn.addEventListener('click', function () {
+
+        var abertas = state.cotacoes.filter(cotacaoEstaAberta);
+        var historico = state.cotacoes.filter(function (c) { return !cotacaoEstaAberta(c); });
+
+        var html = '';
+        html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-abertas">' +
+                '<div class="crm-v3-cotacao-grupo-title">' +
+                    '<span>Em aberto</span>' +
+                    '<span class="crm-v3-cotacao-grupo-count">' + abertas.length + '</span>' +
+                '</div>';
+        if (abertas.length) {
+            html += abertas.map(cotacaoCardAberta).join('');
+        } else {
+            html += '<div class="crm-v3-cotacao-empty crm-v3-cotacao-empty-inline">Sem cotações em aberto.</div>';
+        }
+        html += '</div>';
+
+        if (historico.length) {
+            html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-historico">' +
+                    '<div class="crm-v3-cotacao-grupo-title">' +
+                        '<span>Histórico</span>' +
+                        '<span class="crm-v3-cotacao-grupo-count">' + historico.length + '</span>' +
+                    '</div>' +
+                    '<div class="crm-v3-cotacao-historico-list">' +
+                        historico.map(cotacaoLinhaHistorico).join('') +
+                    '</div>' +
+                    '</div>';
+        }
+        container.innerHTML = html;
+
+        $$('.crm-v3-cotacao-detalhes', container).forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
                 var id = btn.getAttribute('data-cotacao-id');
-                openCotacaoModal(state.cotacoes.find(function (c) { return c.id === id; }));
-            });
-        });
-        $$('.crm-v3-cotacao-delete', container).forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = btn.getAttribute('data-cotacao-id');
-                api('/cotacoes/' + encodeURIComponent(id), { method: 'DELETE' })
-                    .then(function () { showToast('Cotação excluída'); return loadCotacoes(state.clienteId); })
-                    .catch(function (err) { showToast(err.message, true); });
+                if (!id) return;
+                var cot = state.cotacoes.find(function (c) { return c.id === id; });
+                if (cot) openCotacaoModal(cot);
             });
         });
     }
@@ -1164,28 +1459,40 @@
         });
     }
 
+    // Abre contato como drawer flutuante (design system vanilla cx-*).
+    // Se por algum motivo o drawer não estiver disponível, cai para o
+    // modal legado (dialog `crm-v3-modal-contato`) como fallback.
     function openContatoModal(contatoId) {
         if (!state.clienteId) {
             showToast('Selecione um cliente primeiro', true);
             return;
         }
+        var contato = contatoId
+            ? state.contatos.find(function (x) { return x.id === contatoId; })
+            : null;
+        if (contatoId && !contato) return;
+
+        if (typeof window.crmV3Drawer === 'object' && typeof window.crmV3Drawer.openContato === 'function') {
+            window.crmV3Drawer.openContato(contato, state.clienteId);
+            return;
+        }
+
+        // Fallback: modal legado.
         var form = $('#crm-v3-form-contato');
         var title = $('#crm-v3-modal-contato-title');
         if (!form) return;
         form.reset();
         $('#crm-v3-contato-id').value = contatoId || '';
-        if (contatoId) {
-            var c = state.contatos.find(function (x) { return x.id === contatoId; });
-            if (!c) return;
+        if (contato) {
             if (title) title.textContent = 'Editar contato';
-            $('#crm-v3-contato-nome').value = c.nome;
-            $('#crm-v3-contato-email').value = c.email;
-            $('#crm-v3-contato-cargo').value = c.cargo || '';
-            $('#crm-v3-contato-setor').value = c.setor || '';
-            $('#crm-v3-contato-status').value = c.status || 'Ativo';
-            $('#crm-v3-contato-telefone').value = c.telefone || '';
-            $('#crm-v3-contato-telefone2').value = c.telefone_secundario || '';
-            $('#crm-v3-contato-principal').checked = c.principal;
+            $('#crm-v3-contato-nome').value = contato.nome;
+            $('#crm-v3-contato-email').value = contato.email;
+            $('#crm-v3-contato-cargo').value = contato.cargo || '';
+            $('#crm-v3-contato-setor').value = contato.setor || '';
+            $('#crm-v3-contato-status').value = contato.status || 'Ativo';
+            $('#crm-v3-contato-telefone').value = contato.telefone || '';
+            $('#crm-v3-contato-telefone2').value = contato.telefone_secundario || '';
+            $('#crm-v3-contato-principal').checked = contato.principal;
         } else if (title) title.textContent = 'Novo contato';
         openModal('crm-v3-modal-contato');
     }
@@ -1374,10 +1681,17 @@
         var fim = $('#crm-v3-cotacao-fim');
         if (inicio) inicio.value = cotacao ? dataParaInput(cotacao.periodo_inicio || cotacao.data) : new Date().toISOString().slice(0, 10);
         if (fim) fim.value = cotacao ? dataParaInput(cotacao.periodo_fim) : '';
+        var objetivoInput = $('#crm-v3-cotacao-objetivo');
+        var plataformasInput = $('#crm-v3-cotacao-plataformas');
         if (cotacao) {
             $('#crm-v3-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
             $('#crm-v3-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
             $('#crm-v3-cotacao-status').value = cotacao.status || 'rascunho';
+            if (objetivoInput) objetivoInput.value = cotacao.objetivo || '';
+            if (plataformasInput) plataformasInput.value = Array.isArray(cotacao.plataformas) ? cotacao.plataformas.join(', ') : (cotacao.plataformas || '');
+        } else {
+            if (objetivoInput) objetivoInput.value = '';
+            if (plataformasInput) plataformasInput.value = '';
         }
         openModal('crm-v3-modal-cotacao');
     }
@@ -1583,6 +1897,12 @@
                 var titulo = $('#crm-v3-cotacao-titulo').value;
                 var valor = $('#crm-v3-cotacao-valor').value;
                 var inicio = $('#crm-v3-cotacao-inicio').value;
+                var objetivo = ($('#crm-v3-cotacao-objetivo') || {}).value || '';
+                var plataformasRaw = ($('#crm-v3-cotacao-plataformas') || {}).value || '';
+                var plataformas = plataformasRaw
+                    .split(',')
+                    .map(function (p) { return p.trim(); })
+                    .filter(function (p) { return p.length > 0; });
                 var body = {
                     titulo: titulo,
                     nome_campanha: titulo,
@@ -1599,7 +1919,9 @@
                     }[status],
                     data: inicio,
                     periodo_inicio: inicio,
-                    periodo_fim: $('#crm-v3-cotacao-fim').value
+                    periodo_fim: $('#crm-v3-cotacao-fim').value,
+                    objetivo: objetivo,
+                    plataformas: plataformas
                 };
                 setBtnLoading(btn, true);
                 var req = cotacaoId
@@ -1955,10 +2277,16 @@
         if (importBtn) importBtn.addEventListener('click', openImportModal);
 
         var novaAtiv = $('#crm-v3-btn-nova-atividade');
-        if (novaAtiv) novaAtiv.addEventListener('click', function () { openAtividadeModal(null); });
+        if (novaAtiv) novaAtiv.addEventListener('click', function () {
+            var comp = $('#crm-v3-composer-titulo');
+            if (comp) { comp.focus(); comp.select && comp.select(); }
+        });
 
         var agendar = $('#crm-v3-btn-agendar');
         if (agendar) agendar.addEventListener('click', function () { openAtividadeModal(null); });
+
+        // Composer inline de atividade (barra rápida no topo da lista)
+        bindComposerAtividade();
 
         var novoObjetivo = $('#crm-v3-btn-novo-objetivo');
         if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });

@@ -713,13 +713,36 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   }
 }
 
-/* Layout helpers para o conteúdo do drawer */
+/* ============================================================
+   Layout helpers para o conteúdo dos drawers
+   Aplicados a todos os `<form data-drawer-form>` renderizados dentro
+   do `.cx-drawer-body`. Componentes: section, grid, field, toggle,
+   input-wrap (com ícone), pill/hint e obrigatório (*).
+   ============================================================ */
+.cx-drawer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .cx-drawer-section {
-  padding: 12px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--cx-border);
+}
+.cx-drawer-section:first-child {
+  padding-top: 4px;
 }
 .cx-drawer-section:last-child {
   border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.cx-drawer-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 .cx-drawer-section-title {
   font-size: 11px;
@@ -727,8 +750,14 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   color: var(--cx-brand);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 8px;
 }
+.cx-drawer-section-hint {
+  font-size: 11px;
+  color: var(--cx-text-subtle);
+  font-weight: 500;
+  font-style: italic;
+}
+
 .cx-drawer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -739,29 +768,43 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
+
 .cx-drawer-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
+}
+.cx-drawer-field-full {
+  grid-column: 1 / -1;
 }
 .cx-drawer-field label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--cx-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 .cx-drawer-field input,
 .cx-drawer-field select,
 .cx-drawer-field textarea {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 11px;
   border: 1px solid var(--cx-border);
   border-radius: var(--cx-radius-sm);
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--cx-text);
   background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cx-drawer-field input::placeholder,
+.cx-drawer-field textarea::placeholder {
+  color: var(--cx-text-subtle);
+}
+.cx-drawer-field input:hover,
+.cx-drawer-field select:hover,
+.cx-drawer-field textarea:hover {
+  border-color: var(--cx-border-strong);
 }
 .cx-drawer-field input:focus,
 .cx-drawer-field select:focus,
@@ -769,6 +812,104 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   outline: none;
   border-color: var(--cx-brand);
   box-shadow: var(--cx-focus);
+}
+
+.cx-required {
+  color: var(--cx-danger);
+  font-weight: 700;
+}
+
+/* Input com ícone à esquerda */
+.cx-drawer-input-wrap {
+  position: relative;
+  display: block;
+}
+.cx-drawer-input-wrap .cx-drawer-input-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cx-text-subtle);
+  font-size: 13px;
+  pointer-events: none;
+}
+.cx-drawer-input-wrap input {
+  padding-left: 34px !important;
+}
+.cx-drawer-input-wrap input:focus + .cx-drawer-input-icon,
+.cx-drawer-input-wrap:focus-within .cx-drawer-input-icon {
+  color: var(--cx-brand);
+}
+
+/* Campo em toggle (checkbox estilizado como switch) */
+.cx-drawer-field-toggle {
+  grid-column: 1 / -1;
+}
+.cx-drawer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-md);
+  background: var(--cx-surface-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cx-drawer-toggle:hover {
+  border-color: var(--cx-border-strong);
+  background: #fff;
+}
+.cx-drawer-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.cx-drawer-toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--cx-border-strong);
+  transition: background 0.18s;
+}
+.cx-drawer-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+  transition: transform 0.18s;
+}
+.cx-drawer-toggle input:checked ~ .cx-drawer-toggle-switch {
+  background: var(--cx-brand);
+}
+.cx-drawer-toggle input:checked ~ .cx-drawer-toggle-switch::after {
+  transform: translateX(16px);
+}
+.cx-drawer-toggle input:focus-visible ~ .cx-drawer-toggle-switch {
+  box-shadow: var(--cx-focus);
+}
+.cx-drawer-toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.cx-drawer-toggle-label strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cx-text);
+}
+.cx-drawer-toggle-label em {
+  font-size: 11.5px;
+  font-style: normal;
+  color: var(--cx-text-muted);
 }
 
 /* Painel IA dentro do drawer de atividade */

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design system vanilla enterprise (prefixo cx-*).
+ * Importa o arquivo auto-contido em enterprise-system.css para que ele
+ * também entre no bundle gerado por `npm run build`.
+ * Nota: o `base_erp.html` também linka esse arquivo diretamente, então
+ * o CSS chega ao browser mesmo se o postcss-import não estiver ativo.
+ */
+@import "./enterprise-system.css";
+
 /* Utils extras do projeto podem entrar aqui */
 /* Exemplo: */
 /* .no-fouc { visibility: hidden; } */

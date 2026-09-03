@@ -1457,11 +1457,23 @@ html:has(.crm-v3-page) body {
  * Atividades e cotações não têm rolagem interna: as colunas fluem até o
  * final do painel. A rolagem, quando necessária, acontece na coluna pai
  * (`.crm-v3-center-content`). Ver decisão no plano CRM v3 UX Overhaul.
+ * `overflow-x: hidden` no wrapper impede que uma linha "gorda"
+ * (número + status + valor + data) crie scroll horizontal — ela cai em
+ * ellipsis dentro do próprio card/linha.
  */
 .crm-v3-section-atividades .crm-v3-ativ-list,
 .crm-v3-center-right .crm-v3-cotacao-list {
     min-height: 0;
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
+}
+
+/* Garantia extra: o histórico usa `overflow: hidden` para arredondar
+   as bordas — e isso já elimina qualquer possibilidade de scroll
+   horizontal na linha compacta. */
+.crm-v3-cotacao-historico-list {
+    overflow-x: clip;
+    max-width: 100%;
 }
 
 /* ===== SEÇÕES ===== */
@@ -2219,12 +2231,19 @@ html:has(.crm-v3-page) body {
     background: #fff;
 }
 
+/*
+ * Histórico de cotações: linha compacta com 3 zonas: ícone de status,
+ * corpo (duas linhas: nome+valor em cima, metadata cinza embaixo) e
+ * chevron. Layout usa grid com `minmax(0, 1fr)` no corpo para permitir
+ * text-overflow: ellipsis sem transbordar a coluna direita.
+ */
 .crm-v3-cotacao-linha {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     padding: 8px 10px;
+    width: 100%;
     background: transparent;
     border: 0;
     border-bottom: 1px solid var(--crm-border-light);
@@ -2233,6 +2252,7 @@ html:has(.crm-v3-page) body {
     transition: background 0.12s;
     font-size: 12px;
     color: var(--crm-text-muted);
+    min-width: 0;
 }
 
 .crm-v3-cotacao-linha:last-child {
@@ -2247,37 +2267,33 @@ html:has(.crm-v3-page) body {
 .crm-v3-cotacao-linha-icon {
     color: var(--crm-text-subtle);
     font-size: 12px;
+    flex-shrink: 0;
 }
 
-.crm-v3-cotacao-linha-titulo {
+.crm-v3-cotacao-linha-body {
     display: flex;
     flex-direction: column;
+    gap: 2px;
     min-width: 0;
-    gap: 1px;
 }
 
-.crm-v3-cotacao-linha-numero {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 10px;
-    letter-spacing: 0.02em;
-    color: var(--crm-text-subtle);
-    line-height: 1;
+.crm-v3-cotacao-linha-row1 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
 }
 
 .crm-v3-cotacao-linha-nome {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--crm-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.crm-v3-cotacao-linha-status {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--crm-text-muted);
-    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
 }
 
 .crm-v3-cotacao-linha-valor {
@@ -2286,18 +2302,23 @@ html:has(.crm-v3-page) body {
     color: var(--crm-text);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.crm-v3-cotacao-linha-data {
+.crm-v3-cotacao-linha-meta {
     font-size: 11px;
     color: var(--crm-text-subtle);
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.01em;
 }
 
 .crm-v3-cotacao-linha-chevron {
     color: var(--crm-text-subtle);
     font-size: 10px;
+    flex-shrink: 0;
 }
 
 .crm-v3-cotacao-placeholder {

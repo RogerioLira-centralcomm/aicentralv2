@@ -1407,16 +1407,21 @@
         var numero = c.numero_cotacao || '';
         var statusLabel = c.status_label || c.status_canonico || c.status || '';
         var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
+        var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
+        // Metadata compacta em uma linha só, separada por bullets. Cada item
+        // é opcional (o `filter(Boolean)` evita "· ·" quando algum campo vem
+        // vazio do backend).
+        var meta = [numero, statusLabel, periodo].filter(Boolean).join(' · ');
         return (
             '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" title="Abrir detalhes">' +
                 '<i class="crm-v3-cotacao-linha-icon ' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
-                '<span class="crm-v3-cotacao-linha-titulo">' +
-                    (numero ? '<span class="crm-v3-cotacao-linha-numero">' + escapeHtml(numero) + '</span>' : '') +
-                    '<span class="crm-v3-cotacao-linha-nome">' + escapeHtml(titulo) + '</span>' +
+                '<span class="crm-v3-cotacao-linha-body">' +
+                    '<span class="crm-v3-cotacao-linha-row1">' +
+                        '<span class="crm-v3-cotacao-linha-nome">' + escapeHtml(titulo) + '</span>' +
+                        (valor ? '<span class="crm-v3-cotacao-linha-valor">' + escapeHtml(valor) + '</span>' : '') +
+                    '</span>' +
+                    (meta ? '<span class="crm-v3-cotacao-linha-meta">' + escapeHtml(meta) + '</span>' : '') +
                 '</span>' +
-                '<span class="crm-v3-cotacao-linha-status">' + escapeHtml(statusLabel) + '</span>' +
-                '<span class="crm-v3-cotacao-linha-valor">' + escapeHtml(c.valor || '') + '</span>' +
-                (periodo ? '<span class="crm-v3-cotacao-linha-data">' + escapeHtml(periodo) + '</span>' : '') +
                 '<i class="fa-solid fa-chevron-right crm-v3-cotacao-linha-chevron" aria-hidden="true"></i>' +
             '</button>'
         );

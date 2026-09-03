@@ -294,13 +294,46 @@ class CrmV3Repository:
     # até que sejam plugadas em consultas específicas (Fase 3.2b).
 
     def _metrics_for(self, cliente_id: str) -> Dict[str, Any]:
+        """Métricas resumidas do cliente para o header do CRM v3.
+
+        Não é a fonte da verdade final — o frontend recomputa a partir das
+        listas carregadas (contatos, atividades, cotações). Este método é
+        um fallback para renderização inicial quando o UI ainda não puxou
+        os relacionamentos.
+        """
+        contatos = self.list_contatos(cliente_id) or []
+        try:
+            cotacoes = _db().obter_cotacoes_cliente(cliente_id) or []
+        except Exception:
+            cotacoes = []
+        abertas = [
+            c for c in cotacoes
+            if str(c.get("status") or "").casefold() in {"rascunho", "enviada", "em-acompanhamento", "em acompanhamento", "negociacao", "em negociação"}
+        ]
+        aprovadas = [c for c in cotacoes if str(c.get("status") or "").casefold() == "aprovada"]
+
+        def _sum(items):
+            total = 0.0
+            for c in items:
+                try:
+                    total += float(c.get("valor_total_proposta") or 0)
+                except (TypeError, ValueError):
+                    continue
+            return total
+
+        faturamento = _sum(aprovadas)
+        pipeline = _sum(abertas)
+
+        def _brl(v: float) -> str:
+            return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
         return {
-            "contatos": len(self.list_contatos(cliente_id) or []),
-            "oportunidades": 0,
-            "faturamento": "R$ 0,00",
-            "valor_pis": "R$ 0,00",
+            "contatos": len(contatos),
+            "oportunidades": len(abertas),
+            "faturamento": _brl(faturamento),
+            "valor_pis": _brl(pipeline),
             "tarefas_abertas": 0,
-            "cotacoes_abertas": 0,
+            "cotacoes_abertas": len(abertas),
             "ultimo_contato": "—",
         }
 
@@ -335,10 +368,22 @@ class CrmV3Repository:
         raise NotImplementedError("delete_objetivo real: pendente Fase 3.2b")
 
     def list_cotacoes(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Cotações reais do cliente (tabela `cadu_cotacoes`).
+
+        Consome `db.obter_cotacoes_cliente` (já cobre client_id + joins com
+        contato/vendedor/status). Mapeia os campos para o formato usado pelo
+        v3 UI, normalizando o status (aliases em `crm_v3_data`).
+        """
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
-        return []  # TODO Fase 3.2b: cadu_cotacoes
+        try:
+            rows = _db().obter_cotacoes_cliente(cliente_id) or []
+        except Exception:
+            # Se a tabela não existir ou a query falhar, degrada para lista
+            # vazia — o UI já lida com "Nenhuma cotação registrada".
+            return []
+        return [self._map_cotacao(r) for r in rows]
 
     def create_cotacao(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         raise NotImplementedError("create_cotacao real: pendente Fase 3.2b")
@@ -348,6 +393,52 @@ class CrmV3Repository:
 
     def delete_cotacao(self, cotacao_id: str) -> Tuple[bool, Optional[str]]:
         raise NotImplementedError("delete_cotacao real: pendente Fase 3.2b")
+
+    def _map_cotacao(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Converte um registro de `cadu_cotacoes` para o shape do v3 UI."""
+        from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
+
+        raw_status = str(row.get("status") or "").strip()
+        slug = (
+            COTACAO_STATUS_ALIASES.get(raw_status.casefold())
+            or raw_status.casefold().replace(" ", "-")
+        )
+        status_label = (
+            row.get("status_descricao")
+            or COTACAO_STATUS.get(slug)
+            or (raw_status or "—")
+        )
+        valor_total = row.get("valor_total_proposta") or 0
+        try:
+            valor_num = float(valor_total)
+        except (TypeError, ValueError):
+            valor_num = 0.0
+
+        # Plataformas: db armazena string única em `plataforma_campanha`.
+        plat_raw = row.get("plataforma_campanha") or ""
+        plataformas = [p.strip() for p in str(plat_raw).split(",") if p.strip()]
+
+        created = row.get("created_at")
+        data_display = created.strftime("%d/%m/%Y") if hasattr(created, "strftime") else ""
+
+        return {
+            "id": str(row.get("id")),
+            "numero_cotacao": row.get("numero_cotacao") or "",
+            "nome_campanha": row.get("nome_campanha") or "",
+            "titulo": row.get("nome_campanha") or "Cotação sem título",
+            "valor_total": valor_num,
+            "valor": f"R$ {valor_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            "status": slug,
+            "status_canonico": status_label,
+            "status_label": status_label,
+            "periodo_inicio": row.get("periodo_inicio").isoformat() if hasattr(row.get("periodo_inicio"), "isoformat") else (row.get("periodo_inicio") or ""),
+            "periodo_fim": row.get("periodo_fim").isoformat() if hasattr(row.get("periodo_fim"), "isoformat") else (row.get("periodo_fim") or ""),
+            "data": data_display,
+            "objetivo": row.get("objetivo_campanha") or "",
+            "plataformas": plataformas,
+            "vendedor_nome": row.get("vendedor_nome") or "",
+            "contato_nome": row.get("contato_nome") or "",
+        }
 
     def list_notas(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
         cliente = _db().obter_cliente_por_id(cliente_id)

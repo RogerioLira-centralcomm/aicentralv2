@@ -1489,6 +1489,15 @@ button:hover > .crm-v3-menu-hint {
     display: block;
 }
 
+/* Blindagem: quando o JS marca a imagem como `hidden` (Clearbit 404 ou
+   sem domínio), garantir que nem o ícone de broken-image do browser
+   renderize dentro do círculo. Sem isso, alguns browsers ainda deixam
+   um placeholder visível de 1-2px que atrapalha o alinhamento das
+   iniciais. */
+.crm-v3-detail-avatar img[hidden] {
+    display: none !important;
+}
+
 .crm-v3-detail-avatar-fallback {
     color: var(--crm-primary-content, #ffffff);
     font-size: 14px;

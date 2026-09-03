@@ -659,27 +659,43 @@
         var av = $('#crm-v3-detail-avatar');
         var img = $('#crm-v3-detail-avatar-img');
         var iniciais = cliente.avatar || avatarIniciais(cliente.nome);
-        if (av) av.textContent = iniciais;
+        if (av) {
+            av.textContent = iniciais;
+            av.hidden = false; // sempre visível por default; só some se logo carregar de fato
+        }
         if (img) {
             img.hidden = true;
             img.removeAttribute('src');
+            // Alt precisa ficar VAZIO: se o Clearbit devolver 404 e o
+            // browser exibir o alt como texto, ele vaza dentro do círculo
+            // (foi o que gerou o "ogo" — sobra do texto "Logo do cliente").
+            // Com alt="" o broken image não mostra texto nenhum e o
+            // fallback com iniciais fica limpo.
+            img.alt = '';
             var dominio = extrairDominioContato(cliente);
             if (dominio) {
                 var logoUrl = 'https://logo.clearbit.com/' + encodeURIComponent(dominio);
                 img.onload = function () {
+                    // Guard extra: se o servidor devolveu uma "imagem" de
+                    // 0px (raro, mas acontece com alguns fallbacks), ignora
+                    // e continua com iniciais.
+                    if (!img.naturalWidth || !img.naturalHeight) {
+                        img.hidden = true;
+                        if (av) av.hidden = false;
+                        return;
+                    }
                     img.hidden = false;
                     if (av) av.hidden = true;
                 };
                 img.onerror = function () {
-                    // Falhou → mantém iniciais visíveis (padrão)
+                    // 404 ou erro de rede → mantém iniciais visíveis
                     img.hidden = true;
                     if (av) av.hidden = false;
                 };
-                img.alt = 'Logo do cliente ' + (cliente.nome || '');
                 img.src = logoUrl;
-            } else {
-                if (av) av.hidden = false;
             }
+            // Sem domínio → simplesmente mantém a imagem escondida e as
+            // iniciais visíveis (default acima).
         }
 
         // Meta — todos os campos aqui vêm da base real (backend).

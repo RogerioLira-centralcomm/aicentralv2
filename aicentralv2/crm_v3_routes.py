@@ -51,7 +51,16 @@ def _err(message, status=400):
 @bp.route("/")
 @login_required
 def crm_v3():
-    return render_template("crm_v3.html")
+    # Executivos reais para o combo do topo. Ver docs/crm-v3-api.md.
+    # Falha em silêncio (lista vazia) se o Postgres não estiver acessível —
+    # o template ainda renderiza e o usuário só vê "Executivo: todos".
+    executivos = []
+    try:
+        from . import db as _db  # import lazy para permitir ambientes sem libpq
+        executivos = _db.obter_vendedores_centralcomm() or []
+    except Exception:  # noqa: BLE001 — best effort para não quebrar a página
+        executivos = []
+    return render_template("crm_v3.html", executivos=executivos)
 
 
 @bp.route("/api/clientes")

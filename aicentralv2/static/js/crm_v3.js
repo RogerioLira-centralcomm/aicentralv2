@@ -296,8 +296,16 @@
 
         var termo = state.buscaCliente.toLowerCase();
         var filtrados = state.clientes.filter(function (c) {
-            if (state.filtroPill === 'seguindo' && !c.seguindo) return false;
-            if (state.filtroPill !== 'todos' && state.filtroPill !== 'seguindo' && c.status !== state.filtroPill) return false;
+            var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
+            var isGeladeira = classif === 'geladeira';
+            // Pill "arquivo" mostra somente Geladeira.
+            if (state.filtroPill === 'arquivo') {
+                if (!isGeladeira) return false;
+            } else {
+                // Demais pills (todos/atrasado/sem-atividade) escondem Geladeira.
+                if (isGeladeira) return false;
+                if (state.filtroPill !== 'todos' && c.status !== state.filtroPill) return false;
+            }
             if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
             if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
             if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
@@ -410,11 +418,25 @@
     }
 
     function updatePillCounts() {
-        var counts = { todos: state.clientes.length, atrasado: 0, 'sem-atividade': 0, seguindo: 0 };
-        state.clientes.forEach(function (c) {
+        // Aplica os mesmos filtros de executivo/tipo/perfil da lista principal
+        // para que as contagens reflitam apenas o escopo atual do usuário.
+        // Geladeira sempre fica separada em "Arquivo".
+        var base = state.clientes.filter(function (c) {
+            if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
+            if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
+            if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
+            return true;
+        });
+        var counts = { todos: 0, atrasado: 0, 'sem-atividade': 0, arquivo: 0 };
+        base.forEach(function (c) {
+            var isGeladeira = String(c.classificacao_cliente || c.classificacao || '').toLowerCase() === 'geladeira';
+            if (isGeladeira) {
+                counts.arquivo++;
+                return; // Geladeira não conta nas outras pills
+            }
+            counts.todos++;
             if (c.status === 'atrasado') counts.atrasado++;
             if (c.status === 'sem-atividade') counts['sem-atividade']++;
-            if (c.seguindo) counts.seguindo++;
         });
         $$('.crm-v3-pill').forEach(function (pill) {
             var f = pill.getAttribute('data-filter');

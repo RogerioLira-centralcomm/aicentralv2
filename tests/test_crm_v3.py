@@ -15,7 +15,16 @@ from aicentralv2.crm_v3_routes import bp
 
 
 def _crm_v3_app():
-    app = Flask(__name__)
+    # Aponta o template_folder para o real do projeto para que a rota
+    # `/crm-v3/` (que renderiza `crm_v3.html`) funcione dentro dos testes.
+    import os
+    template_folder = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "aicentralv2", "templates")
+    )
+    static_folder = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "aicentralv2", "static")
+    )
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
     app.config.update(SECRET_KEY="test-crm-v3", TESTING=True)
     app.register_blueprint(bp)
     return app
@@ -74,6 +83,35 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(res.status_code, 401)
         data = json.loads(res.data)
         self.assertFalse(data["success"])
+
+    def test_pagina_crm_v3_injeta_executivos_no_contexto(self):
+        """Valida o contrato: a view passa `executivos` ao template.
+
+        Faz monkeypatch do `render_template` para capturar o contexto e
+        garante que a rota funciona sem banco (fallback = lista vazia).
+        A renderização completa do template (com Tailwind/url_for/nav) é
+        validada em smoke fora do unittest.
+        """
+        import aicentralv2.crm_v3_routes as routes
+        captured = {}
+
+        def fake_render(name, **ctx):
+            captured["name"] = name
+            captured["ctx"] = ctx
+            return "OK"
+
+        original = routes.render_template
+        routes.render_template = fake_render
+        try:
+            res = self.client.get("/crm-v3/")
+        finally:
+            routes.render_template = original
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(captured["name"], "crm_v3.html")
+        self.assertIn("executivos", captured["ctx"])
+        # Sem banco disponível no ambiente de teste, a rota captura a
+        # exceção e entrega lista vazia (fallback do template com mocks).
+        self.assertIsInstance(captured["ctx"]["executivos"], list)
 
     def test_agencia_clientes_finais(self):
         """Paridade com /crm/api/agencia/<id>/clientes."""

@@ -16,8 +16,15 @@
         <label class="sr-only" for="filtro-executivo">Filtrar por executivo</label>
         <select class="crm-v3-select" id="filtro-executivo" aria-label="Executivo">
           <option value="">Executivo: todos</option>
-          <option value="Luisa Santana">Luisa Santana</option>
-          <option value="João Paulo">João Paulo</option>
+          {% if executivos %}
+            {% for ex in executivos %}
+              <option value="{{ ex.nome_completo }}" data-executivo-id="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+            {% endfor %}
+          {% else %}
+            {# Fallback caso o banco não esteja acessível: mantém executivos do mock. #}
+            <option value="Luisa Santana">Luisa Santana</option>
+            <option value="João Paulo">João Paulo</option>
+          {% endif %}
         </select>
         <label class="sr-only" for="filtro-tipo">Filtrar por tipo</label>
         <select class="crm-v3-select" id="filtro-tipo" aria-label="Tipo">
@@ -68,7 +75,7 @@
               <input type="search" id="crm-v3-busca" class="crm-v3-search" placeholder="Buscar cliente..." autocomplete="off" />
             </div>
             <div class="crm-v3-pills" role="group" aria-label="Filtrar clientes">
-              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true" title="Todos os clientes">
+              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true" title="Ativos + Prospecção (Geladeira fica em Arquivo)">
                 <span class="crm-v3-pill-label">Todos</span>
                 <span class="crm-v3-pill-count">0</span>
               </button>
@@ -80,8 +87,8 @@
                 <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
                 <span class="crm-v3-pill-count">0</span>
               </button>
-              <button type="button" class="crm-v3-pill" data-filter="seguindo" aria-pressed="false" title="Que você segue" aria-label="Seguindo">
-                <i class="fa-solid fa-star" aria-hidden="true"></i>
+              <button type="button" class="crm-v3-pill" data-filter="arquivo" aria-pressed="false" title="Clientes em Geladeira (arquivo)" aria-label="Arquivo">
+                <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
                 <span class="crm-v3-pill-count">0</span>
               </button>
             </div>

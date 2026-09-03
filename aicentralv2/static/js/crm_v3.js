@@ -2521,29 +2521,14 @@
         });
     }
 
-    function exportarClientesCsv() {
-        if (!state.clientes.length) {
-            showToast('Não há clientes para exportar', true);
-            return;
-        }
-        var rows = [['Nome', 'Tipo', 'Categoria', 'Responsável', 'Contatos', 'Seguindo']];
-        state.clientes.forEach(function (c) {
-            rows.push([c.nome, c.tipo_label, c.categoria, c.responsavel, c.qtd_contatos, c.seguindo ? 'Sim' : 'Não']);
-        });
-        var csv = rows.map(function (row) {
-            return row.map(function (value) { return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"'; }).join(';');
-        }).join('\n');
-        var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var link = document.createElement('a');
-        link.href = url;
-        link.download = 'clientes-crm-v3.csv';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-        showToast('CSV exportado');
-    }
+    // `exportarClientesCsv` (set/2026): removida junto com o botão
+    // "Exportar" do header. Os exports do CRM v3 agora usam as rotas
+    // reais do backend do CRM legado:
+    //   • /crm/api/export/atividades  → Exportar atividades (CSV)
+    //   • /crm/api/export/objetivos   → Exportar objetivos (CSV)
+    // Se quiser reintroduzir "Exportar clientes", basta reviver a
+    // função a partir do git log e adicionar um item no dropdown
+    // "Visões" no template.
 
     function initButtons() {
         var novoCliente = $('#crm-v3-btn-novo-cliente-header');
@@ -2571,12 +2556,16 @@
             renderClientes();
         });
 
-        var exportar = $('#crm-v3-btn-exportar');
-        if (exportar) exportar.addEventListener('click', exportarClientesCsv);
-        var exportarHeader = $('.crm-v3-header-action-export');
-        if (exportarHeader) exportarHeader.addEventListener('click', exportarClientesCsv);
-        var editarHeader = $('.crm-v3-header-action-edit');
-        if (editarHeader) editarHeader.addEventListener('click', function () { openClienteModal(state.cliente); });
+        // Botão global "Exportar" foi removido do header (set/2026).
+        // Os exports CSV agora vivem no dropdown "Visões" (ao lado de
+        // "Novo cliente") e no menu 3-pontos do card, apontando para
+        // as rotas /crm/api/export/* do CRM legado.
+        //
+        // A ação `.crm-v3-header-action-edit` (Editar cliente) é
+        // interceptada por delegação em `crm_v3_drawers.js` — não
+        // precisamos de outro listener aqui. O fallback antigo
+        // (openClienteModal) permaneceu removido intencionalmente para
+        // evitar disparo duplo do drawer.
 
         var prev = $('#crm-v3-page-prev');
         var next = $('#crm-v3-page-next');

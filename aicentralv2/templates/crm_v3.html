@@ -57,9 +57,50 @@
           <button type="button" class="crm-v3-btn crm-v3-btn-primary" id="crm-v3-btn-novo-cliente-header">
             <i class="fa-solid fa-plus" aria-hidden="true"></i> Novo cliente
           </button>
-          <button type="button" class="crm-v3-btn crm-v3-btn-outline" id="crm-v3-btn-exportar">
-            <i class="fa-solid fa-download" aria-hidden="true"></i> Exportar
-          </button>
+          {# Atalhos secundários para as telas consolidadas do CRM legado.
+             O botão "Exportar" foi removido — os exports viraram links
+             dentro deste mesmo dropdown, com um separador visual. #}
+          <div class="dropdown dropdown-end">
+            <button type="button" tabindex="0" class="crm-v3-btn crm-v3-btn-outline" id="crm-v3-btn-atalhos" aria-label="Mais atalhos" aria-haspopup="menu">
+              <i class="fa-solid fa-table-list" aria-hidden="true"></i>
+              <span>Visões</span>
+              <i class="fa-solid fa-chevron-down crm-v3-btn-caret" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-72 border border-base-200 z-50 text-sm" role="menu">
+              <li class="menu-title">
+                <span><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Telas do CRM legado</span>
+              </li>
+              <li>
+                <a href="{{ url_for('crm.atividades_consolidadas') }}" target="_blank" rel="noopener">
+                  <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+                  <span>Todas as atividades</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url_for('crm.objetivos_consolidadas') }}" target="_blank" rel="noopener">
+                  <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+                  <span>Todos os objetivos</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
+                </a>
+              </li>
+              <li class="menu-title pt-2">
+                <span><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Exportações (CSV)</span>
+              </li>
+              <li>
+                <a href="{{ url_for('crm.api_export_atividades') }}" target="_blank" rel="noopener">
+                  <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                  <span>Exportar atividades</span>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url_for('crm.api_export_objetivos') }}" target="_blank" rel="noopener">
+                  <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                  <span>Exportar objetivos</span>
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
       </header>
 
@@ -145,9 +186,30 @@
                 <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" tabindex="0" aria-label="Mais opções" id="crm-v3-header-more">
                   <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
                 </button>
-                <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-200 z-50">
-                  <li><button type="button" class="crm-v3-header-action-edit">Editar cliente</button></li>
-                  <li><button type="button" class="crm-v3-header-action-export">Exportar dados</button></li>
+                <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 border border-base-200 z-50 text-sm" role="menu">
+                  <li>
+                    <button type="button" class="crm-v3-header-action-edit">
+                      <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                      <span>Editar cliente</span>
+                    </button>
+                  </li>
+                  <li class="menu-title pt-2">
+                    <span><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Ver no CRM legado</span>
+                  </li>
+                  <li>
+                    <a href="{{ url_for('crm.atividades_consolidadas') }}" target="_blank" rel="noopener">
+                      <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+                      <span>Todas as atividades</span>
+                      <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{{ url_for('crm.objetivos_consolidadas') }}" target="_blank" rel="noopener">
+                      <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+                      <span>Todos os objetivos</span>
+                      <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>

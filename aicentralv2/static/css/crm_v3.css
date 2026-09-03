@@ -285,6 +285,32 @@ html:has(.crm-v3-page) body {
     border-color: #9ca3af;
 }
 
+/* Caret discreto do botão "Visões" (dropdown de atalhos secundários). */
+.crm-v3-btn-caret {
+    font-size: 10px;
+    margin-left: 2px;
+    color: var(--crm-text-subtle);
+    transition: transform 120ms ease;
+}
+details[open] .crm-v3-btn-caret,
+.dropdown[open] .crm-v3-btn-caret {
+    transform: rotate(180deg);
+}
+
+/* Ícone "abre em nova aba" nos itens que direcionam para o CRM legado.
+   Discreto — só reforça semanticamente que o link muda de página. */
+.crm-v3-menu-hint {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--crm-text-subtle);
+    opacity: 0.7;
+}
+a:hover > .crm-v3-menu-hint,
+button:hover > .crm-v3-menu-hint {
+    opacity: 1;
+    color: var(--crm-primary);
+}
+
 .crm-v3-btn-ghost {
     background: transparent;
     color: var(--crm-text-muted);

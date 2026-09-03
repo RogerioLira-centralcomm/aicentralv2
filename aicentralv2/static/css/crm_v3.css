@@ -649,7 +649,7 @@ html:has(.crm-v3-page) body {
 /* ===== GRID PRINCIPAL ===== */
 .crm-v3-grid-main {
     display: grid;
-    grid-template-columns: 220px minmax(0, 1fr) 260px;
+    grid-template-columns: 275px minmax(0, 1fr) 260px;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -2253,7 +2253,7 @@ html:has(.crm-v3-page) body {
     }
 
     .crm-v3-grid-main {
-        grid-template-columns: 200px minmax(0, 1fr) 240px;
+        grid-template-columns: 250px minmax(0, 1fr) 240px;
     }
 }
 
@@ -2263,7 +2263,7 @@ html:has(.crm-v3-page) body {
     }
 
     .crm-v3-grid-main {
-        grid-template-columns: 190px minmax(0, 1fr) 220px;
+        grid-template-columns: 230px minmax(0, 1fr) 220px;
     }
 
     .crm-v3-center-content {

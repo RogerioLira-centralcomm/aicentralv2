@@ -2515,40 +2515,6 @@ html:has(.crm-v3-page) body {
     font-weight: 700;
 }
 
-/* Sinalizadores */
-.crm-v3-sinal-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 8px;
-}
-.crm-v3-sinal {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 10px 12px;
-    background: var(--crm-surface);
-    border-radius: 8px;
-    border: 1px solid var(--crm-border-light);
-}
-.crm-v3-sinal-num {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--crm-primary);
-    line-height: 1;
-}
-.crm-v3-sinal-label {
-    font-size: 11px;
-    color: var(--crm-text-muted);
-    font-weight: 600;
-    margin-top: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-.crm-v3-sinal.is-alert .crm-v3-sinal-num {
-    color: var(--crm-danger-text);
-}
-
 /* Form expandido de cliente */
 .crm-v3-form-cliente .crm-v3-form-fieldset {
     border: 1px solid var(--crm-border-light);

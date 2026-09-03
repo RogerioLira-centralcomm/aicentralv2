@@ -440,7 +440,6 @@
             var key = el.getAttribute('data-tab-count');
             if (key && counts[key] !== undefined) el.textContent = counts[key];
         });
-        if (state.cliente) updateSinalizadores(state.cliente);
     }
 
     function updatePillCounts() {
@@ -639,7 +638,6 @@
 
         updateStatusComercial(cliente);
         updateVinculos(cliente);
-        updateSinalizadores(cliente);
     }
 
     function updateStatusComercial(cliente) {
@@ -726,26 +724,6 @@
             list.innerHTML = '';
             if (badge) badge.textContent = '';
         }
-    }
-
-    function updateSinalizadores(cliente) {
-        var m = cliente.metrics || {};
-        var notas = (state.notas || []).length;
-        var objetivos = (state.objetivos || []).length;
-        var pend = (state.atividades || []).filter(function (a) { return a.status !== 'concluida'; }).length;
-        var cot = m.cotacoes_abertas != null ? m.cotacoes_abertas : (state.cotacoes || []).length;
-
-        var set = function (id, val, alert) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            el.textContent = String(val);
-            var parent = el.parentElement;
-            if (parent) parent.classList.toggle('is-alert', !!alert);
-        };
-        set('crm-v3-sinal-notas', notas);
-        set('crm-v3-sinal-objetivos', objetivos);
-        set('crm-v3-sinal-atividades', pend, pend > 0);
-        set('crm-v3-sinal-cotacoes', cot);
     }
 
     // updateFollowButton removido: botão Seguir/Deixar de seguir foi retirado da UI

@@ -1,0 +1,38 @@
+{% macro badge(status, label) %}
+{% set variant = {
+  'hoje': 'badge-success', 'success': 'badge-success',
+  'atrasado': 'badge-warning', 'warning': 'badge-warning',
+  'amanha': 'badge-warning', 'info': 'badge-info',
+  'seguindo': 'badge-info',
+  'sem-atividade': 'badge-ghost', 'sem_atividade': 'badge-ghost', 'muted': 'badge-ghost',
+  'danger': 'badge-error', 'error': 'badge-error',
+  'negociacao': 'badge-success', 'enviada': 'badge-info', 'perdida': 'badge-error',
+  'concluido': 'badge-success', 'concluida': 'badge-success',
+  'alta': 'badge-error', 'media': 'badge-warning', 'baixa': 'badge-ghost'
+} %}
+<span class="badge badge-sm {{ variant.get((status or '')|lower, 'badge-neutral') }}">{{ label or '—' }}</span>
+{% endmacro %}
+
+{% macro avatar(nome, size='w-8 h-8', tone=None) %}
+{% set nome_safe = (nome or '?')|string %}
+{% set parts = nome_safe.strip().split() %}
+{% if parts|length >= 2 %}
+  {% set iniciais = (parts[0][:1] + parts[1][:1])|upper %}
+{% else %}
+  {% set iniciais = nome_safe[:2]|upper if nome_safe else '?' %}
+{% endif %}
+{% set hash_sum = namespace(v=0) %}
+{% for ch in nome_safe %}
+  {% set hash_sum.v = hash_sum.v + ch|length %}
+{% endfor %}
+{% set resolved_tone = tone or ('primary' if hash_sum.v % 2 == 0 else 'muted') %}
+<div class="avatar placeholder">
+  <div class="rounded-full {{ size }} {{ 'bg-primary text-primary-content' if resolved_tone == 'primary' else 'bg-neutral text-neutral-content' }}">
+    <span class="text-xs font-semibold">{{ iniciais }}</span>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro titulo_truncado(texto, classe='truncate', max=None) %}
+<span class="{{ classe }}" title="{{ texto or '' }}">{{ texto or '—' }}</span>
+{% endmacro %}

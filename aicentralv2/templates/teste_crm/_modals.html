@@ -1,174 +1,222 @@
-<!-- Modais do protótipo Teste CRM -->
-<dialog id="crm-mock-modal-contato" class="crm-mock-modal">
-  <div class="crm-mock-modal-box crm-mock-modal-box-md">
-    <div class="crm-mock-modal-header">
-      <h3 class="crm-mock-modal-title" id="crm-mock-modal-contato-title">Novo contato</h3>
-      <button type="button" class="crm-mock-modal-close" data-close-modal="crm-mock-modal-contato" aria-label="Fechar">
+<!-- Modais do protótipo Teste CRM (DaisyUI dialog.modal) -->
+<dialog id="crm-mock-modal-contato" class="modal crm-mock-modal">
+  <div class="modal-box crm-mock-modal-box-md max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-contato-title">Novo contato</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-contato" aria-label="Fechar">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    <form id="crm-mock-form-contato" class="crm-mock-modal-body">
+    <form id="crm-mock-form-contato">
       <input type="hidden" id="crm-mock-contato-id" name="contato_id" value="">
-      <div class="crm-mock-field">
-        <label for="crm-mock-contato-nome">Nome completo *</label>
-        <input type="text" id="crm-mock-contato-nome" name="nome" required placeholder="Nome do contato" />
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-contato-nome"><span class="label-text text-xs">Nome completo *</span></label>
+        <input type="text" id="crm-mock-contato-nome" name="nome" required placeholder="Nome do contato" class="input input-bordered input-sm w-full" />
       </div>
-      <div class="crm-mock-field">
-        <label for="crm-mock-contato-email">E-mail *</label>
-        <input type="email" id="crm-mock-contato-email" name="email" required placeholder="email@empresa.com" />
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-contato-email"><span class="label-text text-xs">E-mail *</span></label>
+        <input type="email" id="crm-mock-contato-email" name="email" required placeholder="email@empresa.com" class="input input-bordered input-sm w-full" />
       </div>
-      <div class="crm-mock-field">
-        <label for="crm-mock-contato-cargo">Cargo</label>
-        <input type="text" id="crm-mock-contato-cargo" name="cargo" placeholder="Ex.: Gerente de Mídia" />
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-contato-cargo"><span class="label-text text-xs">Cargo</span></label>
+        <input type="text" id="crm-mock-contato-cargo" name="cargo" placeholder="Ex.: Gerente de Mídia" class="input input-bordered input-sm w-full" />
       </div>
-      <div class="crm-mock-field-row">
-        <div class="crm-mock-field">
-          <label for="crm-mock-contato-telefone">Telefone</label>
-          <input type="text" id="crm-mock-contato-telefone" name="telefone" placeholder="(11) 99999-9999" />
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-contato-telefone"><span class="label-text text-xs">Telefone</span></label>
+          <input type="text" id="crm-mock-contato-telefone" name="telefone" placeholder="(11) 99999-9999" class="input input-bordered input-sm w-full" />
         </div>
-        <div class="crm-mock-field">
-          <label for="crm-mock-contato-telefone2">Segundo telefone</label>
-          <input type="text" id="crm-mock-contato-telefone2" name="telefone_secundario" placeholder="Opcional" />
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-contato-telefone2"><span class="label-text text-xs">Segundo telefone</span></label>
+          <input type="text" id="crm-mock-contato-telefone2" name="telefone_secundario" placeholder="Opcional" class="input input-bordered input-sm w-full" />
         </div>
       </div>
-      <label class="crm-mock-check-label">
-        <input type="checkbox" id="crm-mock-contato-principal" name="principal" />
-        <span>Contato principal</span>
+      <label class="label cursor-pointer justify-start gap-2 mb-4">
+        <input type="checkbox" id="crm-mock-contato-principal" name="principal" class="checkbox checkbox-sm checkbox-primary" />
+        <span class="label-text text-xs">Contato principal</span>
       </label>
-      <div class="crm-mock-modal-footer">
-        <button type="button" class="crm-mock-btn crm-mock-btn-outline" data-close-modal="crm-mock-modal-contato">Cancelar</button>
-        <button type="submit" class="crm-mock-btn crm-mock-btn-primary" id="crm-mock-contato-submit">
+      <div class="modal-action mt-0">
+        <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-contato">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="crm-mock-contato-submit">
           <span class="crm-mock-btn-text">Salvar</span>
-          <span class="crm-mock-btn-loading" hidden><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+          <span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="crm-mock-modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-mock-modal-cliente" class="crm-mock-modal">
-  <div class="crm-mock-modal-box crm-mock-modal-box-md">
-    <div class="crm-mock-modal-header">
-      <h3 class="crm-mock-modal-title">Novo cliente</h3>
-      <button type="button" class="crm-mock-modal-close" data-close-modal="crm-mock-modal-cliente" aria-label="Fechar">
+<dialog id="crm-mock-modal-cliente" class="modal crm-mock-modal">
+  <div class="modal-box max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg">Novo cliente</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-cliente" aria-label="Fechar">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    <form id="crm-mock-form-cliente" class="crm-mock-modal-body">
-      <div class="crm-mock-field">
-        <label for="crm-mock-cliente-nome">Nome / Razão social *</label>
-        <input type="text" id="crm-mock-cliente-nome" name="nome" required placeholder="Nome do cliente" />
+    <form id="crm-mock-form-cliente">
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-cliente-nome"><span class="label-text text-xs">Nome / Razão social *</span></label>
+        <input type="text" id="crm-mock-cliente-nome" name="nome" required placeholder="Nome do cliente" class="input input-bordered input-sm w-full" />
       </div>
-      <div class="crm-mock-field-row">
-        <div class="crm-mock-field">
-          <label for="crm-mock-cliente-perfil">Perfil</label>
-          <select id="crm-mock-cliente-perfil" name="perfil">
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-cliente-perfil"><span class="label-text text-xs">Perfil</span></label>
+          <select id="crm-mock-cliente-perfil" name="perfil" class="select select-bordered select-sm w-full">
             <option value="direto">Cliente final</option>
             <option value="agencia">Agência</option>
           </select>
         </div>
-        <div class="crm-mock-field">
-          <label for="crm-mock-cliente-categoria">Categoria</label>
-          <select id="crm-mock-cliente-categoria" name="categoria">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-cliente-categoria"><span class="label-text text-xs">Categoria</span></label>
+          <select id="crm-mock-cliente-categoria" name="categoria" class="select select-bordered select-sm w-full">
             <option value="Privado">Privado</option>
             <option value="Governo">Governo</option>
           </select>
         </div>
       </div>
-      <div class="crm-mock-field-row">
-        <div class="crm-mock-field">
-          <label for="crm-mock-cliente-prioridade">Prioridade</label>
-          <select id="crm-mock-cliente-prioridade" name="prioridade">
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-cliente-prioridade"><span class="label-text text-xs">Prioridade</span></label>
+          <select id="crm-mock-cliente-prioridade" name="prioridade" class="select select-bordered select-sm w-full">
             <option value="Alta">Alta</option>
             <option value="Média" selected>Média</option>
             <option value="Baixa">Baixa</option>
           </select>
         </div>
-        <div class="crm-mock-field">
-          <label for="crm-mock-cliente-responsavel">Responsável</label>
-          <select id="crm-mock-cliente-responsavel" name="responsavel">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-cliente-responsavel"><span class="label-text text-xs">Responsável</span></label>
+          <select id="crm-mock-cliente-responsavel" name="responsavel" class="select select-bordered select-sm w-full">
             <option value="Luisa Santana">Luisa Santana</option>
             <option value="João Paulo">João Paulo</option>
           </select>
         </div>
       </div>
-      <div class="crm-mock-modal-footer">
-        <button type="button" class="crm-mock-btn crm-mock-btn-outline" data-close-modal="crm-mock-modal-cliente">Cancelar</button>
-        <button type="submit" class="crm-mock-btn crm-mock-btn-primary" id="crm-mock-cliente-submit">
+      <div class="modal-action mt-0">
+        <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-cliente">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="crm-mock-cliente-submit">
           <span class="crm-mock-btn-text">Criar cliente</span>
-          <span class="crm-mock-btn-loading" hidden><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+          <span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="crm-mock-modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-mock-modal-atividade" class="crm-mock-modal">
-  <div class="crm-mock-modal-box crm-mock-modal-box-md">
-    <div class="crm-mock-modal-header">
-      <h3 class="crm-mock-modal-title">Nova atividade</h3>
-      <button type="button" class="crm-mock-modal-close" data-close-modal="crm-mock-modal-atividade" aria-label="Fechar">
+<dialog id="crm-mock-modal-atividade" class="modal crm-mock-modal">
+  <div class="modal-box max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-atividade-title">Nova atividade</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-atividade" aria-label="Fechar">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    <form id="crm-mock-form-atividade" class="crm-mock-modal-body">
-      <div class="crm-mock-field">
-        <label for="crm-mock-atividade-titulo">Título *</label>
-        <input type="text" id="crm-mock-atividade-titulo" name="titulo" required placeholder="Ex.: Ligar para responsável" />
+    <form id="crm-mock-form-atividade">
+      <input type="hidden" id="crm-mock-atividade-id" value="">
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-atividade-titulo"><span class="label-text text-xs">Título *</span></label>
+        <input type="text" id="crm-mock-atividade-titulo" name="titulo" required placeholder="Ex.: Ligar para responsável" class="input input-bordered input-sm w-full" />
       </div>
-      <div class="crm-mock-field">
-        <label for="crm-mock-atividade-desc">Descrição</label>
-        <textarea id="crm-mock-atividade-desc" name="descricao" rows="3" placeholder="Detalhes da atividade"></textarea>
+      <div class="form-control w-full mb-3">
+        <label class="label py-0" for="crm-mock-atividade-desc"><span class="label-text text-xs">Descrição</span></label>
+        <textarea id="crm-mock-atividade-desc" name="descricao" rows="3" placeholder="Detalhes da atividade" class="textarea textarea-bordered textarea-sm w-full"></textarea>
       </div>
-      <div class="crm-mock-field-row">
-        <div class="crm-mock-field">
-          <label for="crm-mock-atividade-data">Data</label>
-          <input type="date" id="crm-mock-atividade-data" name="data" />
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-atividade-data"><span class="label-text text-xs">Data</span></label>
+          <input type="date" id="crm-mock-atividade-data" name="data" class="input input-bordered input-sm w-full" />
         </div>
-        <div class="crm-mock-field">
-          <label for="crm-mock-atividade-prioridade">Prioridade</label>
-          <select id="crm-mock-atividade-prioridade" name="prioridade">
-            <option value="Alta">Alta</option>
-            <option value="Média" selected>Média</option>
-            <option value="Baixa">Baixa</option>
-          </select>
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-atividade-hora"><span class="label-text text-xs">Hora</span></label>
+          <input type="time" id="crm-mock-atividade-hora" name="hora" class="input input-bordered input-sm w-full" />
         </div>
       </div>
-      <div class="crm-mock-modal-footer">
-        <button type="button" class="crm-mock-btn crm-mock-btn-outline" data-close-modal="crm-mock-modal-atividade">Cancelar</button>
-        <button type="submit" class="crm-mock-btn crm-mock-btn-primary" id="crm-mock-atividade-submit">
+      <div class="form-control w-full mb-4">
+        <label class="label py-0" for="crm-mock-atividade-prioridade"><span class="label-text text-xs">Prioridade</span></label>
+        <select id="crm-mock-atividade-prioridade" name="prioridade" class="select select-bordered select-sm w-full">
+          <option value="Alta">Alta</option>
+          <option value="Média" selected>Média</option>
+          <option value="Baixa">Baixa</option>
+        </select>
+      </div>
+      <div class="modal-action mt-0">
+        <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-atividade">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="crm-mock-atividade-submit">
           <span class="crm-mock-btn-text">Agendar</span>
-          <span class="crm-mock-btn-loading" hidden><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+          <span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="crm-mock-modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-mock-modal-import" class="crm-mock-modal">
-  <div class="crm-mock-modal-box crm-mock-modal-box-lg">
-    <div class="crm-mock-modal-header">
-      <h3 class="crm-mock-modal-title">Importar contatos</h3>
-      <button type="button" class="crm-mock-modal-close" data-close-modal="crm-mock-modal-import" aria-label="Fechar">
+<dialog id="crm-mock-modal-import" class="modal crm-mock-modal">
+  <div class="modal-box max-w-2xl">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-semibold text-lg">Importar contatos</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-import" aria-label="Fechar">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    <div class="crm-mock-modal-body">
-      <p class="crm-mock-modal-hint">Cole uma lista no formato <code>Nome;email;telefone</code> — uma linha por contato.</p>
-      <textarea id="crm-mock-import-texto" class="crm-mock-import-textarea" rows="8" placeholder="João Silva;joao@empresa.com;11999999999"></textarea>
-      <div class="crm-mock-modal-footer">
-        <button type="button" class="crm-mock-btn crm-mock-btn-outline" data-close-modal="crm-mock-modal-import">Cancelar</button>
-        <button type="button" class="crm-mock-btn crm-mock-btn-primary" id="crm-mock-import-submit">
-          <span class="crm-mock-btn-text">Importar</span>
-          <span class="crm-mock-btn-loading" hidden><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+    <div class="steps steps-horizontal w-full text-xs mb-4" id="crm-mock-import-steps">
+      <div class="step step-primary" data-step="1">Texto</div>
+      <div class="step" data-step="2">Revisão</div>
+      <div class="step" data-step="3">Confirmar</div>
+    </div>
+    <div id="crm-mock-import-step-1">
+      <p class="text-xs text-base-content/70 mb-2">Cole uma lista no formato <code>Nome;email;telefone;cargo</code> — uma linha por contato.</p>
+      <textarea id="crm-mock-import-texto" class="textarea textarea-bordered w-full text-sm" rows="8" placeholder="João Silva;joao@empresa.com;11999999999;Gerente"></textarea>
+      <div class="modal-action mt-4">
+        <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-import">Cancelar</button>
+        <button type="button" class="btn btn-sm btn-primary" id="crm-mock-import-processar">
+          <span class="crm-mock-btn-text">Processar</span>
+          <span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span>
         </button>
       </div>
     </div>
+    <div id="crm-mock-import-step-2" hidden>
+      <div class="overflow-x-auto max-h-64 border border-base-200 rounded-lg">
+        <table class="table table-xs table-zebra w-full" id="crm-mock-import-table">
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Cargo</th><th>Principal</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="text-xs text-base-content/60 mt-2" id="crm-mock-import-review-count"></p>
+      <div class="modal-action mt-2">
+        <button type="button" class="btn btn-sm btn-outline" id="crm-mock-import-back-1">Voltar</button>
+        <button type="button" class="btn btn-sm btn-primary" id="crm-mock-import-next-2">Continuar</button>
+      </div>
+    </div>
+    <div id="crm-mock-import-step-3" hidden>
+      <p class="text-sm mb-4" id="crm-mock-import-confirm-msg">Confirmar importação?</p>
+      <div class="modal-action mt-0">
+        <button type="button" class="btn btn-sm btn-outline" id="crm-mock-import-back-2">Voltar</button>
+        <button type="button" class="btn btn-sm btn-primary" id="crm-mock-import-submit">
+          <span class="crm-mock-btn-text">Importar</span>
+          <span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span>
+        </button>
+      </div>
+    </div>
+    <p class="text-error text-xs mt-2" id="crm-mock-import-error" hidden></p>
   </div>
-  <form method="dialog" class="crm-mock-modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<div id="crm-mock-toast" class="crm-mock-toast" role="status" aria-live="polite" hidden></div>
+<dialog id="crm-mock-modal-confirm-obj" class="modal crm-mock-modal">
+  <div class="modal-box max-w-sm">
+    <h3 class="font-semibold text-lg mb-2">Excluir objetivo</h3>
+    <p class="text-sm text-base-content/80 mb-4" id="crm-mock-confirm-obj-text">Tem certeza que deseja excluir este objetivo?</p>
+    <div class="modal-action mt-0">
+      <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-confirm-obj">Cancelar</button>
+      <button type="button" class="btn btn-sm btn-error" id="crm-mock-confirm-obj-btn">Excluir</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+</dialog>
+
+<div id="crm-mock-toast" class="crm-mock-toast toast toast-top toast-end z-[100]" role="status" aria-live="polite" hidden>
+  <div class="alert alert-success shadow-lg text-sm"><span id="crm-mock-toast-text"></span></div>
+</div>

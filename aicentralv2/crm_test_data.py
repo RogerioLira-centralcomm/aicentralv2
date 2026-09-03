@@ -3,6 +3,8 @@
 import copy
 import uuid
 
+from .crm_test_helpers import pluralizar_contatos
+
 _INITIAL_CLIENTES = [
     {
         "id": "auto-shopping",
@@ -284,29 +286,127 @@ _INITIAL_CONTATOS = {
 }
 
 
+_INITIAL_ATIVIDADES = {
+    "auto-shopping": [
+        {
+            "id": "a1",
+            "titulo": "Ligar para responsável financeiro",
+            "descricao": "Alinhar pendências e próximos passos",
+            "data_label": "Hoje — 26 de maio",
+            "hora": "10:30",
+            "prioridade": "Alta",
+            "status": "pendente",
+            "tipo": "ligacao",
+            "responsavel": "LS",
+        },
+        {
+            "id": "a2",
+            "titulo": "Enviar proposta comercial",
+            "descricao": "Proposta de campanha Q3",
+            "data_label": "Hoje — 26 de maio",
+            "hora": "14:00",
+            "prioridade": "Média",
+            "status": "pendente",
+            "tipo": "doc",
+            "responsavel": "JP",
+        },
+        {
+            "id": "a3",
+            "titulo": "Reunião de alinhamento",
+            "descricao": "Apresentar estratégias e cronograma",
+            "data_label": "Hoje — 26 de maio",
+            "hora": "16:00",
+            "prioridade": "Alta",
+            "status": "pendente",
+            "tipo": "reuniao",
+            "responsavel": "LS",
+        },
+        {
+            "id": "a4",
+            "titulo": "Acompanhar aprovação de mídia",
+            "descricao": "Verificar status com aprovação",
+            "data_label": "Amanhã — 27 de maio",
+            "hora": "10:30",
+            "prioridade": "Média",
+            "status": "pendente",
+            "tipo": "doc",
+            "responsavel": "CM",
+        },
+    ],
+}
+
+_INITIAL_OBJETIVOS = {
+    "auto-shopping": [
+        {"id": "o1", "texto": "Voltar a falar para 2º semestre", "prazo": "21/06", "concluido": False},
+        {"id": "o2", "texto": "Reunião com Serasa", "prazo": "21/06", "concluido": False},
+        {"id": "o3", "texto": "Acesso ao Cadu", "prazo": "21/06", "concluido": False},
+    ],
+}
+
+_INITIAL_COTACOES = {
+    "auto-shopping": [
+        {
+            "id": "cot1",
+            "titulo": "Proposta comercial Q3",
+            "valor": "R$ 45.000,00",
+            "status": "negociacao",
+            "status_label": "Em negociação",
+            "data": "15/05/2024",
+        },
+        {
+            "id": "cot2",
+            "titulo": "Campanha institucional",
+            "valor": "R$ 28.500,00",
+            "status": "enviada",
+            "status_label": "Enviada",
+            "data": "02/05/2024",
+        },
+        {
+            "id": "cot3",
+            "titulo": "Mídia digital Q2",
+            "valor": "R$ 12.000,00",
+            "status": "perdida",
+            "status_label": "Perdida",
+            "data": "20/04/2024",
+        },
+    ],
+}
+
+
 class CrmTestStore:
     def __init__(self):
         self.clientes = copy.deepcopy(_INITIAL_CLIENTES)
         self.contatos = copy.deepcopy(_INITIAL_CONTATOS)
+        self.atividades = copy.deepcopy(_INITIAL_ATIVIDADES)
+        self.objetivos = copy.deepcopy(_INITIAL_OBJETIVOS)
+        self.cotacoes = copy.deepcopy(_INITIAL_COTACOES)
+
+    def _enrich_cliente(self, c):
+        cliente_id = c["id"]
+        qtd = len(self.contatos.get(cliente_id, []))
+        ativs = self.atividades.get(cliente_id, [])
+        tarefas = sum(1 for a in ativs if a.get("status") != "concluida")
+        cotacoes = self.cotacoes.get(cliente_id, [])
+        item = dict(c)
+        item["qtd_contatos"] = qtd
+        item["sub"] = f"{c['tipo_label']} · {pluralizar_contatos(qtd)}"
+        item["metrics"] = {
+            "contatos": qtd,
+            "oportunidades": len(cotacoes),
+            "faturamento": c.get("faturamento") or "R$ 12.500,00",
+            "valor_pis": c.get("valor_pis") or "R$ 8.900,00",
+            "tarefas_abertas": tarefas,
+            "ultimo_contato": c.get("ultimo_contato") or "Hoje",
+        }
+        return item
 
     def list_clientes(self):
-        out = []
-        for c in self.clientes:
-            qtd = len(self.contatos.get(c["id"], []))
-            item = dict(c)
-            item["qtd_contatos"] = qtd
-            item["sub"] = f"{c['tipo_label']} · {qtd} contato{'s' if qtd != 1 else ''}"
-            out.append(item)
-        return out
+        return [self._enrich_cliente(c) for c in self.clientes]
 
     def get_cliente(self, cliente_id):
         for c in self.clientes:
             if c["id"] == cliente_id:
-                qtd = len(self.contatos.get(cliente_id, []))
-                item = dict(c)
-                item["qtd_contatos"] = qtd
-                item["sub"] = f"{c['tipo_label']} · {qtd} contato{'s' if qtd != 1 else ''}"
-                return item
+                return self._enrich_cliente(c)
         return None
 
     def create_cliente(self, data):
@@ -330,6 +430,9 @@ class CrmTestStore:
         }
         self.clientes.append(cliente)
         self.contatos[cliente_id] = []
+        self.atividades[cliente_id] = []
+        self.objetivos[cliente_id] = []
+        self.cotacoes[cliente_id] = []
         return self.get_cliente(cliente_id)
 
     def list_contatos(self, cliente_id):
@@ -382,6 +485,84 @@ class CrmTestStore:
                     contatos[i] = updated
                     return updated, cliente_id
         return None, None
+
+    def list_atividades(self, cliente_id):
+        if not self.get_cliente(cliente_id):
+            return None
+        return list(self.atividades.get(cliente_id, []))
+
+    def create_atividade(self, cliente_id, data):
+        if not self.get_cliente(cliente_id):
+            return None
+        titulo = (data.get("titulo") or "").strip()
+        if not titulo:
+            raise ValueError("Título é obrigatório")
+        ativ = {
+            "id": f"a-{uuid.uuid4().hex[:8]}",
+            "titulo": titulo,
+            "descricao": (data.get("descricao") or "").strip(),
+            "data_label": data.get("data_label") or "Agendada",
+            "hora": data.get("hora") or "",
+            "prioridade": data.get("prioridade") or "Média",
+            "status": "pendente",
+            "tipo": data.get("tipo") or "atividade",
+            "responsavel": data.get("responsavel") or "LS",
+        }
+        self.atividades.setdefault(cliente_id, []).append(ativ)
+        return ativ
+
+    def update_atividade(self, atividade_id, data):
+        for cliente_id, items in self.atividades.items():
+            for i, a in enumerate(items):
+                if a["id"] == atividade_id:
+                    updated = dict(a)
+                    for key in ("titulo", "descricao", "hora", "prioridade", "status", "data_label"):
+                        if key in data and data[key] is not None:
+                            updated[key] = str(data[key]).strip()
+                    items[i] = updated
+                    return updated, cliente_id
+        return None, None
+
+    def delete_atividade(self, atividade_id):
+        for cliente_id, items in self.atividades.items():
+            for i, a in enumerate(items):
+                if a["id"] == atividade_id:
+                    items.pop(i)
+                    return True, cliente_id
+        return False, None
+
+    def list_objetivos(self, cliente_id):
+        if not self.get_cliente(cliente_id):
+            return None
+        return list(self.objetivos.get(cliente_id, []))
+
+    def delete_objetivo(self, objetivo_id):
+        for cliente_id, items in self.objetivos.items():
+            for i, o in enumerate(items):
+                if o["id"] == objetivo_id:
+                    items.pop(i)
+                    return True, cliente_id
+        return False, None
+
+    def list_cotacoes(self, cliente_id):
+        if not self.get_cliente(cliente_id):
+            return None
+        return list(self.cotacoes.get(cliente_id, []))
+
+    def import_contatos(self, cliente_id, contatos_data):
+        if not self.get_cliente(cliente_id):
+            return None
+        created = []
+        backup = copy.deepcopy(self.contatos.get(cliente_id, []))
+        try:
+            for row in contatos_data:
+                c = self.create_contato(cliente_id, row)
+                if c:
+                    created.append(c)
+        except Exception:
+            self.contatos[cliente_id] = backup
+            raise
+        return created
 
 
 store = CrmTestStore()

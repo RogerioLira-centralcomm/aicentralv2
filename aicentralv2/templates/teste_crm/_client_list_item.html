@@ -1,0 +1,19 @@
+{% from 'macros/ui.html' import badge, avatar, titulo_truncado %}
+{# Referência de markup para lista de clientes — espelhado em crm_mock.js renderClientes() #}
+<div
+  class="crm-mock-cliente flex items-start gap-2 px-2 py-2 border-l-4 border-transparent cursor-pointer transition-colors hover:bg-base-200{% if ativo %} crm-mock-cliente-ativo border-primary bg-base-200{% endif %}"
+  role="listitem"
+  tabindex="0"
+  data-cliente-id="{{ cliente.id }}"
+  data-status="{{ cliente.status }}"
+  aria-current="{{ 'page' if ativo else 'false' }}"
+>
+  {{ avatar(cliente.nome, 'w-7 h-7') }}
+  <div class="crm-mock-cliente-info min-w-0 flex-1">
+  {{ titulo_truncado(cliente.nome, 'crm-mock-cliente-nome truncate text-sm font-medium text-base-content block') }}
+    <div class="crm-mock-cliente-sub text-xs text-base-content/60 truncate" title="{{ cliente.sub }}">{{ cliente.sub }}</div>
+  </div>
+  <div class="crm-mock-cliente-right shrink-0">
+    {{ badge(cliente.badge_type, cliente.badge) }}
+  </div>
+</div>

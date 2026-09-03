@@ -37,10 +37,10 @@
     --crm-text-subtle: #9ca3af;
     --crm-radius: 8px;
     --crm-radius-sm: 4px;
-    --crm-font-xs: 11px;
+    --crm-font-xs: 12px;
     --crm-font-sm: 12px;
     --crm-font-base: 12px;
-    --crm-font-md: 13px;
+    --crm-font-md: 14px;
     --crm-font-lg: 14px;
     --crm-font-xl: 15px;
     --crm-font-2xl: 16px;
@@ -57,8 +57,8 @@ html:has(.crm-mock-page) body {
 }
 
 .crm-mock-page {
-    height: calc(100vh - 56px);
-    max-height: calc(100vh - 56px);
+    height: calc(100vh - 64px);
+    max-height: calc(100vh - 64px);
     background: #fff;
     overflow: hidden !important;
     font-size: var(--crm-font-base);
@@ -2048,4 +2048,57 @@ html:has(.crm-mock-page) body {
         animation: none;
         transition: none;
     }
+}
+
+.crm-mock-col-clientes,
+.crm-mock-col-contatos,
+.crm-mock-col-center,
+.crm-mock-col-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.crm-mock-col-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.crm-mock-global-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.75);
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-muted);
+}
+
+.crm-mock-global-overlay[hidden] {
+    display: none !important;
+}
+
+.crm-mock-toast.toast {
+    position: fixed;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.crm-mock-toast.crm-mock-toast-visible {
+    opacity: 1;
+}
+
+.crm-mock-toast[hidden] {
+    display: flex !important;
+}
+
+.crm-mock-pill.btn-active {
+    border-color: oklch(var(--p));
+    background-color: oklch(var(--p) / 0.12);
 }

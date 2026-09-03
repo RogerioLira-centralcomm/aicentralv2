@@ -86,16 +86,26 @@ disponível. Caso contrário, respondem com um fallback determinístico e
 | Atividades                                 | sim    | sim       | Fluxo com drawer + painel IA integrado no v3.                              |
 | Objetivos                                  | sim    | sim       | Marcação de conquista via PATCH.                                           |
 | Cotações                                   | sim    | sim       | Filtros de status normalizados.                                            |
-| Notas / histórico                          | sim    | sim       | Notas persistem via `crm_v3_repository` quando `USE_CRM_V3_STORE=0`.       |
+| Notas / histórico                          | sim    | sim       | Notas persistem via `crm_v3_repository` (default: banco real).             |
 | Agência ↔ clientes finais                  | sim    | sim       | Ver `agencias_vinculadas` no cliente e chips visuais nos cards.            |
 | Endpoints IA (`/api/ia/*`)                 | sim    | sim       | Paridade completa via OpenRouter; fallback determinístico offline.         |
 | Consolidadas (`/atividades-consolidadas`)  | sim    | não       | Fora do escopo do overhaul. Pode ser reaproveitada do `/crm` até go-live.  |
 | Exports CSV (`/api/export/*`)              | sim    | não       | Idem. Frontend v3 gera CSV no navegador.                                   |
 | Comunicação/WhatsApp (Wasender)            | sim    | não       | Módulo separado; não faz parte da migração inicial.                        |
 
-### Como habilitar persistência real
+### Feature flag `USE_CRM_V3_STORE`
 
-- Em produção: `export USE_CRM_V3_STORE=0` (repositório Postgres).
-- Em dev/testes: mantém-se o default (`CrmV3Store` em memória) para
-  demonstração sem banco.
+O default agora é **banco real** (repositório Postgres via `db.py`).
+Se o processo não conseguir carregar `libpq` ou a primeira query
+falhar, `get_store()` degrada automaticamente para o store em memória
+e imprime uma linha no stderr (`[crm_v3] Repositório real
+indisponível ...`).
+
+- Produção: **não seta nada** — usa banco por default.
+- Dev sem banco / sandbox: automático via fallback.
+- Forçar mock para demo/teste: `export USE_CRM_V3_STORE=mock`
+  (aceita também `memory`, `in-memory`, `1`, `true`, `yes`).
+- Forçar banco (explícito): `export USE_CRM_V3_STORE=real`
+  (aceita também `db`, `0`, `false` ou qualquer valor não listado
+  acima).
 

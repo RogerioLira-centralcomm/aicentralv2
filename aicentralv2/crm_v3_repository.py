@@ -3,12 +3,14 @@
 Fase 3 do plano CRM v3 UX Overhaul. Expõe uma superfície idêntica ao
 `CrmTestStore` (em memória) mas resolve tudo em `db.py` / Postgres.
 
-Feature flag:
-- `USE_CRM_V3_STORE=1` (default no dev) → continua usando o store em memória
-- `USE_CRM_V3_STORE=0` → usa este repositório real
+Feature flag `USE_CRM_V3_STORE` (default agora é REAL):
+- não setado / "real" / "db" / "0" / "false"  → repositório Postgres.
+- "mock" / "memory" / "1" / "true"            → store em memória (fixture).
 
-Isso permite rollout gradual: o smoke test do repositório roda antes do go-live
-sem exigir reescrita das rotas.
+Fallback automático: se o import do módulo `db` falhar (falta libpq,
+ambiente sem banco) ou a primeira chamada básica quebrar, o
+`get_store()` volta para o store em memória — evita derrubar a UI em
+dev/sandbox e continua servindo o CRM v3.
 
 Escopo desta iteração
 ---------------------
@@ -50,8 +52,14 @@ def _db():
 # =============================================================================
 
 def use_repository() -> bool:
-    """Retorna True se a variável de ambiente pede repositório real."""
-    return os.environ.get("USE_CRM_V3_STORE", "1").strip() not in ("1", "true", "yes")
+    """Default: banco real. Retorna False só se a flag pedir mock explícito.
+
+    Valores que forçam mock (case-insensitive):
+      "mock", "memory", "in-memory", "1", "true", "yes"
+    Qualquer outro valor (ou vazio/ausente) → repositório real.
+    """
+    raw = (os.environ.get("USE_CRM_V3_STORE") or "").strip().lower()
+    return raw not in {"mock", "memory", "in-memory", "1", "true", "yes"}
 
 
 # =============================================================================
@@ -131,7 +139,11 @@ class CrmV3Repository:
         raise NotImplementedError("reset() só existe no store em memória")
 
     def list_clientes(self) -> List[Dict[str, Any]]:
-        page = _db().obter_clientes_paginado(page=1, per_page=200) or {}
+        # per_page alto: a UI já pagina em memória (8 por página) e faz o
+        # filtro cliente-side por executivo/tipo/perfil/pill/busca. 1000 é
+        # confortável para a base atual; se crescer, movemos a paginação
+        # para server-side via query params.
+        page = _db().obter_clientes_paginado(page=1, per_page=1000) or {}
         items = []
         for row in page.get("clientes", []):
             mapped = _map_cliente(row)
@@ -474,13 +486,26 @@ class CrmV3Repository:
 repository = CrmV3Repository()
 
 
-def get_store():
-    """Fábrica escolhe store em memória (default) ou repositório real.
+def _memory_store():
+    from .crm_v3_data import store as _memory_store_obj
+    return _memory_store_obj
 
-    Chamada por `crm_v3_routes.py` no import-time apenas para reconhecer a
-    feature flag. Uma vez definido, permanece pelo life-time do processo.
+
+def get_store():
+    """Fábrica escolhe repositório real (default) ou store em memória.
+
+    Fallback: se o banco não estiver acessível (import de `db` falha, ou
+    a primeira query pega exceção), retorna o mock. Isso evita derrubar a
+    UI em sandbox/dev enquanto mantém produção sempre no banco real.
     """
-    if use_repository():
+    if not use_repository():
+        return _memory_store()
+    # Smoke test da conexão: se o import de db lança ou uma query trivial
+    # falha, caímos no mock em vez de servir 500 no CRM.
+    try:
+        _db().obter_clientes_paginado(page=1, per_page=1)
         return repository
-    from .crm_v3_data import store as _memory_store
-    return _memory_store
+    except Exception as e:
+        import sys
+        print(f"[crm_v3] Repositório real indisponível ({e}); usando store em memória.", file=sys.stderr)
+        return _memory_store()

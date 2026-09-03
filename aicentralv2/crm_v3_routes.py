@@ -33,6 +33,12 @@ class _LazyStore:
             if not hasattr(g, "_crm_v3_store"):
                 g._crm_v3_store = get_store()
             return getattr(g._crm_v3_store, name)
+        except StoreUnavailable:
+            # Propaga direto para o @bp.errorhandler(StoreUnavailable) —
+            # antes o `except RuntimeError` abaixo capturava por acidente
+            # (StoreUnavailable herda de RuntimeError) e tentava resolver
+            # o store de novo, gerando confusão nos logs.
+            raise
         except RuntimeError:
             # `flask.g` só existe dentro de contexto de request.
             return getattr(get_store(), name)
@@ -78,6 +84,67 @@ def _handle_store_unavailable(exc):
         store_mode="unavailable",
         store_diag=diag,
     ), 503
+
+
+@bp.errorhandler(Exception)
+def _handle_any_exception(exc):
+    """Handler defensivo (set/2026): converte qualquer erro do CRM v3
+    em um 500 informativo E grava o traceback no log da aplicação.
+
+    Antes um 500 do repository podia sumir silenciosamente porque o
+    Flask, em produção, esconde tracebacks. Agora todo 500 do CRM v3:
+      - vira uma entrada `ERROR` completa em `logs/aicentral.log`
+      - retorna JSON com `error_type` (para clientes API)
+      - continua renderizando a página com banner de erro (para HTML)
+
+    HTTPExceptions (401, 403, 404) são deixadas passar para o handler
+    padrão do Flask — não queremos transformar auth-required em 500.
+    """
+    from werkzeug.exceptions import HTTPException
+    if isinstance(exc, HTTPException):
+        return exc
+    if isinstance(exc, StoreUnavailable):
+        return _handle_store_unavailable(exc)
+
+    import logging
+    import traceback as _tb
+    tb_str = _tb.format_exc()
+    logging.getLogger("aicentral.crm_v3").error(
+        "[crm_v3] 500 em %s %s: %s\n%s",
+        request.method, request.path, exc, tb_str,
+    )
+    # Também escreve no stderr — durante `python3 run.py` em dev o
+    # traceback aparece direto no terminal do Flask.
+    import sys as _sys
+    print(f"[crm_v3] 500 em {request.method} {request.path}: {exc}", file=_sys.stderr)
+    print(tb_str, file=_sys.stderr)
+
+    is_admin = session.get("user_type") in ("admin", "superadmin")
+    if request.path.startswith("/crm-v3/api/"):
+        payload = {
+            "success": False,
+            "error": "Erro interno no CRM v3. Verifique os logs.",
+            "error_type": type(exc).__name__,
+        }
+        if is_admin:
+            # Para admin, incluímos a mensagem exata e a última linha do
+            # traceback para diagnosticar sem abrir o log do gunicorn.
+            payload["error_message"] = str(exc)[:500]
+            payload["traceback_tail"] = "\n".join(tb_str.splitlines()[-8:])
+        return jsonify(payload), 500
+
+    # Página HTML: renderiza com banner de erro. Reaproveita o mesmo
+    # template usado quando o banco está indisponível.
+    diag = store_diagnostic()
+    diag = dict(diag)
+    diag["db_error"] = f"{type(exc).__name__}: {str(exc)[:240]}"
+    return render_template(
+        "crm_v3.html",
+        executivos=[],
+        usuario_atual=_executivo_from_session(),
+        store_mode="unavailable",
+        store_diag=diag,
+    ), 500
 
 
 def _executivo_from_session():

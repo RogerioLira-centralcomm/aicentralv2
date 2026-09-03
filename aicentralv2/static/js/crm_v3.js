@@ -846,25 +846,85 @@
         return '<span class="' + badgeDaisy(type) + '">' + escapeHtml(p) + '</span>';
     }
 
+    // Buckets de agrupamento por data. Os buckets seguem a ordem lógica:
+    // Atrasadas > Hoje > Amanhã > Esta semana > Próximas > Sem data > Concluídas.
+    var ATIV_BUCKETS = ['atrasada', 'hoje', 'amanha', 'semana', 'proxima', 'sem-data', 'concluida'];
+    var ATIV_BUCKET_LABEL = {
+        atrasada: 'Atrasadas',
+        hoje: 'Hoje',
+        amanha: 'Amanhã',
+        semana: 'Esta semana',
+        proxima: 'Próximas',
+        'sem-data': 'Sem data',
+        concluida: 'Concluídas'
+    };
+
+    /** Retorna a chave de bucket de uma atividade. Espera `a.data` em ISO. */
+    function bucketAtividade(a) {
+        if (a.status === 'concluida') return 'concluida';
+        if (!a.data) return 'sem-data';
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        var dt = new Date(a.data + 'T00:00:00');
+        if (isNaN(dt.getTime())) return 'sem-data';
+        dt.setHours(0, 0, 0, 0);
+        var diff = Math.round((dt - hoje) / 86400000);
+        if (diff < 0) return 'atrasada';
+        if (diff === 0) return 'hoje';
+        if (diff === 1) return 'amanha';
+        if (diff <= 7) return 'semana';
+        return 'proxima';
+    }
+
+    function formatarDataAtividade(a) {
+        if (!a.data) return '';
+        var dt = new Date(a.data + 'T00:00:00');
+        if (isNaN(dt.getTime())) return '';
+        var meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        return dt.getDate().toString().padStart(2, '0') + ' ' + meses[dt.getMonth()];
+    }
+
+    function renderAtividadeItem(a) {
+        var concluida = a.status === 'concluida';
+        var responsavel = a.responsavel || '';
+        var dataStr = formatarDataAtividade(a);
+        var horaStr = a.hora || '';
+        var quando = [dataStr, horaStr].filter(Boolean).join(' · ');
+        return (
+            '<div class="crm-v3-ativ' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '"' + (a._pending ? ' data-pending="true"' : '') + '>' +
+                '<button type="button" class="crm-v3-ativ-check" data-ativ-action="toggle" aria-label="' + (concluida ? 'Reabrir' : 'Marcar como feita') + ': ' + escapeHtml(a.titulo) + '" title="' + (concluida ? 'Reabrir' : 'Marcar como feita') + '">' +
+                    '<i class="' + (concluida ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle') + '" aria-hidden="true"></i>' +
+                '</button>' +
+                ativIconHtml(a.tipo) +
+                '<div class="crm-v3-ativ-content">' +
+                    '<div class="crm-v3-ativ-titulo" data-editable="titulo" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.titulo) + '</div>' +
+                    (a.descricao ? '<div class="crm-v3-ativ-desc" data-editable="descricao" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.descricao) + '</div>' : '') +
+                '</div>' +
+                (quando ? '<span class="crm-v3-ativ-when" title="' + escapeHtml(quando) + '">' + escapeHtml(quando) + '</span>' : '') +
+                (responsavel ? '<div class="crm-v3-avatar-mini crm-v3-ativ-owner" title="' + escapeHtml(responsavel) + '">' + escapeHtml(avatarIniciais(responsavel)) + '</div>' : '') +
+                '<div class="crm-v3-ativ-actions">' +
+                    '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" data-ativ-action="editar" aria-label="Editar" title="Editar"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
+                    '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost crm-v3-icon-btn-danger" data-ativ-action="excluir" aria-label="Excluir" title="Excluir"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
+                '</div>' +
+            '</div>'
+        );
+    }
+
     function renderAtividades() {
         var container = $('#crm-v3-ativ-list');
         if (!container) return;
 
-        var termo = state.buscaAtividade.toLowerCase().trim();
+        // Filtro apenas pela aba (Todas / Pendentes / Concluídas).
+        // Busca, responsável e tipo foram removidos por decisão de UX:
+        // a coluna mostra tudo agrupado por data.
         var filtrados = state.atividades.filter(function (a) {
             if (state.filtroAtivTab === 'pendentes' && a.status === 'concluida') return false;
             if (state.filtroAtivTab === 'concluidas' && a.status !== 'concluida') return false;
-            if (state.filtroAtivResponsavel && a.responsavel !== state.filtroAtivResponsavel) return false;
-            if (state.filtroAtivTipo && a.tipo !== state.filtroAtivTipo) return false;
-            if (termo) {
-                var blob = (a.titulo + ' ' + (a.descricao || '')).toLowerCase();
-                if (blob.indexOf(termo) === -1) return false;
-            }
             return true;
         });
 
         if (!state.clienteId) {
-            container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Selecione um cliente.</div>';
+            container.innerHTML = '<div class="crm-v3-ativ-empty">Selecione um cliente.</div>';
             renderSidebarAtividades();
             renderSugestao();
             updateTabCounts();
@@ -872,48 +932,39 @@
         }
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhuma atividade.</div>';
+            container.innerHTML = '<div class="crm-v3-ativ-empty">Nenhuma atividade nesta aba.</div>';
             renderSidebarAtividades();
             renderSugestao();
             updateTabCounts();
             return;
         }
 
+        // Agrupa por bucket e ordena: atrasadas/pendentes por data ascendente,
+        // concluídas por data descendente (mais recente primeiro).
         var groups = {};
         filtrados.forEach(function (a) {
-            var label = a.data_label || 'Agendadas';
-            if (!groups[label]) groups[label] = [];
-            groups[label].push(a);
+            var key = bucketAtividade(a);
+            (groups[key] = groups[key] || []).push(a);
+        });
+        Object.keys(groups).forEach(function (k) {
+            groups[k].sort(function (a, b) {
+                var da = a.data || '';
+                var db = b.data || '';
+                return k === 'concluida' ? (db.localeCompare(da)) : (da.localeCompare(db));
+            });
         });
 
         var html = '';
-        Object.keys(groups).forEach(function (label) {
-            html += '<div class="crm-v3-date-group"><div class="crm-v3-date-label text-xs font-semibold text-base-content/70 px-2 py-1">' + escapeHtml(label) + '</div>';
-            groups[label].forEach(function (a) {
-                var concluida = a.status === 'concluida';
-                html += (
-                    '<div class="crm-v3-ativ flex items-center gap-1 px-2 py-1' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '"' + (a._pending ? ' data-pending="true"' : '') + '>' +
-                    '<input type="checkbox" class="checkbox checkbox-xs checkbox-primary crm-v3-ativ-check" ' + (concluida ? 'checked' : '') + ' aria-label="Concluir: ' + escapeHtml(a.titulo) + '" />' +
-                    ativIconHtml(a.tipo) +
-                    '<div class="crm-v3-ativ-content min-w-0 flex-1">' +
-                    '<div class="crm-v3-ativ-titulo text-sm truncate">' + escapeHtml(a.titulo) + '</div>' +
-                    (a.descricao ? '<div class="crm-v3-ativ-desc text-xs text-base-content/60 truncate">' + escapeHtml(a.descricao) + '</div>' : '') +
-                    '</div>' +
-                    '<span class="crm-v3-ativ-time text-xs shrink-0">' + escapeHtml(a.hora || '') + '</span>' +
-                    prioridadeBadge(a.prioridade) +
-                    '<div class="crm-v3-avatar-mini shrink-0" title="' + escapeHtml(a.responsavel || '') + '">' + escapeHtml(a.responsavel || '') + '</div>' +
-                    '<div class="dropdown dropdown-end shrink-0">' +
-                    '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-ativ-menu-btn" tabindex="0" aria-label="Mais opções"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-                    '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-40 border border-base-200 z-50 text-xs">' +
-                    '<li><button type="button" class="crm-v3-ativ-action" data-action="concluir">Concluir</button></li>' +
-                    '<li><button type="button" class="crm-v3-ativ-action" data-action="editar">Editar</button></li>' +
-                    '<li><button type="button" class="crm-v3-ativ-action" data-action="reagendar">Reagendar</button></li>' +
-                    '<li><button type="button" class="crm-v3-ativ-action" data-action="duplicar">Duplicar</button></li>' +
-                    '<li><button type="button" class="crm-v3-ativ-action text-error" data-action="excluir">Excluir</button></li>' +
-                    '</ul></div></div>'
-                );
-            });
-            html += '</div>';
+        ATIV_BUCKETS.forEach(function (key) {
+            var items = groups[key];
+            if (!items || !items.length) return;
+            html += '<div class="crm-v3-date-group" data-bucket="' + key + '">' +
+                '<div class="crm-v3-date-label">' +
+                    '<span>' + escapeHtml(ATIV_BUCKET_LABEL[key]) + '</span>' +
+                    '<span class="crm-v3-date-count">' + items.length + '</span>' +
+                '</div>' +
+                items.map(renderAtividadeItem).join('') +
+            '</div>';
         });
 
         container.innerHTML = html;
@@ -964,61 +1015,38 @@
     }
 
     function bindAtividadeEvents(container) {
-        $$('.crm-v3-ativ-check', container).forEach(function (cb) {
-            cb.addEventListener('change', function () {
-                var row = cb.closest('.crm-v3-ativ');
-                var id = row.getAttribute('data-atividade-id');
-                var status = cb.checked ? 'concluida' : 'pendente';
-                api('/atividades/' + encodeURIComponent(id), { method: 'PATCH', body: { status: status } })
-                    .then(function () {
-                        row.classList.toggle('crm-v3-ativ-concluida', cb.checked);
-                        row.setAttribute('data-status', status);
-                        var a = state.atividades.find(function (x) { return x.id === id; });
-                        if (a) a.status = status;
-                        updateDetailPanel(state.cliente);
-                    })
-                    .catch(function (err) { showToast(err.message, true); cb.checked = !cb.checked; });
-            });
-        });
-
-        // Edição inline do título e da descrição — clicar edita, blur salva.
+        // Edição inline (título/descrição via contenteditable) — clicar edita.
         bindAtividadeInlineEdit(container);
 
-        $$('.crm-v3-ativ-action', container).forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                var row = btn.closest('.crm-v3-ativ');
-                var id = row.getAttribute('data-atividade-id');
-                var action = btn.getAttribute('data-action');
-                var a = state.atividades.find(function (x) { return x.id === id; });
-                if (!a) return;
-                if (action === 'concluir') {
-                    api('/atividades/' + encodeURIComponent(id), { method: 'PATCH', body: { status: 'concluida' } })
-                        .then(function () { loadAtividades(state.clienteId); showToast('Atividade concluída'); })
-                        .catch(function (err) { showToast(err.message, true); });
-                } else if (action === 'editar' || action === 'reagendar') {
-                    openAtividadeModal(a);
-                } else if (action === 'duplicar') {
-                    api('/clientes/' + encodeURIComponent(state.clienteId) + '/atividades', {
-                        method: 'POST',
-                        body: {
-                            titulo: a.titulo + ' (cópia)',
-                            descricao: a.descricao,
-                            prioridade: a.prioridade,
-                            hora: a.hora,
-                            data: a.data,
-                            data_label: a.data_label,
-                            tipo: a.tipo,
-                            responsavel: a.responsavel
-                        }
-                    }).then(function () { loadAtividades(state.clienteId); showToast('Atividade duplicada'); })
-                        .catch(function (err) { showToast(err.message, true); });
-                } else if (action === 'excluir') {
-                    api('/atividades/' + encodeURIComponent(id), { method: 'DELETE' })
-                        .then(function () { loadAtividades(state.clienteId); showToast('Atividade excluída'); })
-                        .catch(function (err) { showToast(err.message, true); });
-                }
-            });
+        // Uma delegação de eventos para toggle/editar/excluir cobre todas as
+        // ações; simplifica manutenção quando renderizamos por grupos de data.
+        container.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-ativ-action]');
+            if (!btn || !container.contains(btn)) return;
+            e.stopPropagation();
+            var row = btn.closest('.crm-v3-ativ');
+            if (!row) return;
+            var id = row.getAttribute('data-atividade-id');
+            var action = btn.getAttribute('data-ativ-action');
+            var a = state.atividades.find(function (x) { return x.id === id; });
+            if (!a) return;
+            if (action === 'toggle') {
+                var novoStatus = a.status === 'concluida' ? 'pendente' : 'concluida';
+                api('/atividades/' + encodeURIComponent(id), { method: 'PATCH', body: { status: novoStatus } })
+                    .then(function () {
+                        a.status = novoStatus;
+                        renderAtividades();
+                        showToast(novoStatus === 'concluida' ? 'Atividade concluída' : 'Atividade reaberta');
+                    })
+                    .catch(function (err) { showToast(err.message, true); });
+            } else if (action === 'editar') {
+                openAtividadeModal(a);
+            } else if (action === 'excluir') {
+                if (!window.confirm('Excluir esta atividade?')) return;
+                api('/atividades/' + encodeURIComponent(id), { method: 'DELETE' })
+                    .then(function () { loadAtividades(state.clienteId); showToast('Atividade excluída'); })
+                    .catch(function (err) { showToast(err.message, true); });
+            }
         });
     }
 
@@ -2187,13 +2215,8 @@
             });
         }
 
-        var buscaAtiv = $('#busca-atividade');
-        if (buscaAtiv) {
-            buscaAtiv.addEventListener('input', debounce(function () {
-                state.buscaAtividade = buscaAtiv.value;
-                renderAtividades();
-            }, 300));
-        }
+        // Filtros textuais/select da coluna de atividades foram removidos por
+        // decisão de UX: a coluna mostra tudo agrupado por data.
 
         var executivo = $('#filtro-executivo');
         var tipo = $('#filtro-tipo');
@@ -2212,16 +2235,6 @@
             state.filtroPerfil = perfil.value;
             state.paginaCliente = 1;
             renderClientes();
-        });
-        var respAtiv = $('#filtro-resp-ativ');
-        var tipoAtiv = $('#filtro-tipo-ativ');
-        if (respAtiv) respAtiv.addEventListener('change', function () {
-            state.filtroAtivResponsavel = respAtiv.value;
-            renderAtividades();
-        });
-        if (tipoAtiv) tipoAtiv.addEventListener('change', function () {
-            state.filtroAtivTipo = tipoAtiv.value;
-            renderAtividades();
         });
     }
 
@@ -2298,16 +2311,8 @@
         var importBtn = $('#crm-v3-btn-import-contatos');
         if (importBtn) importBtn.addEventListener('click', openImportModal);
 
-        var novaAtiv = $('#crm-v3-btn-nova-atividade');
-        if (novaAtiv) novaAtiv.addEventListener('click', function () {
-            var comp = $('#crm-v3-composer-titulo');
-            if (comp) { comp.focus(); comp.select && comp.select(); }
-        });
-
-        var agendar = $('#crm-v3-btn-agendar');
-        if (agendar) agendar.addEventListener('click', function () { openAtividadeModal(null); });
-
-        // Composer inline de atividade (barra rápida no topo da lista)
+        // Os botões "+ Nova" e "Detalhes" do header foram removidos.
+        // A criação acontece exclusivamente pelo composer inline abaixo.
         bindComposerAtividade();
 
         var novoObjetivo = $('#crm-v3-btn-novo-objetivo');

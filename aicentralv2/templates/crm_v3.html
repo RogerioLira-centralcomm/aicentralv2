@@ -154,10 +154,6 @@
               <section class="crm-v3-section crm-v3-section-atividades" aria-labelledby="crm-ativ-title">
                 <div class="crm-v3-section-header">
                   <h3 class="crm-v3-section-title" id="crm-ativ-title">Atividades</h3>
-                  <div class="crm-v3-section-actions">
-                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" id="crm-v3-btn-nova-atividade" title="Foca o campo rápido de nova atividade"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova</button>
-                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" id="crm-v3-btn-agendar" title="Abrir formulário completo"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Detalhes</button>
-                  </div>
                 </div>
 
                 <div class="crm-v3-ativ-tabs" role="tablist" aria-label="Filtrar atividades" data-tab-group="atividades">
@@ -175,28 +171,6 @@
                   </button>
                 </div>
 
-                <div class="crm-v3-ativ-filter-row">
-                  <div class="crm-v3-search-wrap crm-v3-search-sm">
-                    <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
-                    <label class="sr-only" for="busca-atividade">Buscar atividade</label>
-                    <input type="search" id="busca-atividade" class="crm-v3-search" placeholder="Buscar atividade..." />
-                  </div>
-                  <div class="crm-v3-tabs-filters">
-                    <label class="sr-only" for="filtro-resp-ativ">Responsável</label>
-                    <select class="crm-v3-select-sm" id="filtro-resp-ativ">
-                      <option value="">Responsável: todos</option>
-                    </select>
-                    <label class="sr-only" for="filtro-tipo-ativ">Tipo</label>
-                    <select class="crm-v3-select-sm" id="filtro-tipo-ativ">
-                      <option value="">Tipo: todos</option>
-                      <option value="ligacao">Ligação</option>
-                      <option value="reuniao">Reunião</option>
-                      <option value="doc">Documento</option>
-                      <option value="atividade">Atividade</option>
-                    </select>
-                  </div>
-                </div>
-
                 <form class="crm-v3-ativ-composer" id="crm-v3-ativ-composer" autocomplete="off">
                   <button type="button" class="crm-v3-ativ-composer-type" id="crm-v3-composer-tipo" data-tipo="atividade" title="Alterar tipo (Ctrl+T)" aria-label="Tipo da atividade">
                     <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
@@ -209,8 +183,8 @@
                   </button>
                 </form>
 
-                <div class="crm-v3-ativ-list min-h-0" role="list" id="crm-v3-ativ-list">
-                  <!-- renderizado via crm_v3.js -->
+                <div class="crm-v3-ativ-list" role="list" id="crm-v3-ativ-list">
+                  <!-- renderizado via crm_v3.js — agrupado por data -->
                 </div>
               </section>
 

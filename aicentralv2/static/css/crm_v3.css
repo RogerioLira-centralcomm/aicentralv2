@@ -1453,10 +1453,15 @@ html:has(.crm-v3-page) body {
     grid-row: 2;
 }
 
+/*
+ * Atividades e cotações não têm rolagem interna: as colunas fluem até o
+ * final do painel. A rolagem, quando necessária, acontece na coluna pai
+ * (`.crm-v3-center-content`). Ver decisão no plano CRM v3 UX Overhaul.
+ */
 .crm-v3-section-atividades .crm-v3-ativ-list,
 .crm-v3-center-right .crm-v3-cotacao-list {
     min-height: 0;
-    overflow-y: auto;
+    overflow: visible;
 }
 
 /* ===== SEÇÕES ===== */
@@ -1568,32 +1573,6 @@ html:has(.crm-v3-page) body {
     min-width: 0;
 }
 
-.crm-v3-ativ-filter-row {
-    display: grid;
-    grid-template-columns: minmax(120px, 1fr) auto;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 5px;
-}
-
-.crm-v3-ativ-filter-row .crm-v3-search-wrap {
-    margin: 0;
-}
-
-.crm-v3-select-sm {
-    font-size: var(--crm-font-xs);
-    height: 24px;
-    padding: 0 20px 0 6px;
-    border: 1px solid var(--crm-border);
-    border-radius: var(--crm-radius-sm);
-    background: #fff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 4px center/12px no-repeat;
-    color: var(--crm-text-muted);
-    -webkit-appearance: none;
-    appearance: none;
-    cursor: pointer;
-    max-width: 120px;
-}
-
 .crm-v3-tab-panel {
     display: none;
 }
@@ -1602,31 +1581,83 @@ html:has(.crm-v3-page) body {
     display: block;
 }
 
-/* ===== ATIVIDADES ===== */
+/* ===== ATIVIDADES ==============================================
+ * Lista sem rolagem interna; grupos por bucket de data (Atrasadas,
+ * Hoje, Amanhã, Esta semana, Próximas, Sem data, Concluídas).
+ * Cada linha tem check (botão-círculo) + ícone de tipo + título/desc
+ * (editáveis inline) + quando (data · hora) + iniciais do responsável
+ * + ações (editar/excluir) que aparecem no hover.
+ * ============================================================== */
 .crm-v3-ativ-list {
     overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.crm-v3-ativ-empty {
+    padding: 14px;
+    text-align: center;
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-subtle);
 }
 
 .crm-v3-date-group {
-    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.crm-v3-date-group[data-bucket="atrasada"] .crm-v3-date-label {
+    color: #dc2626;
+}
+
+.crm-v3-date-group[data-bucket="hoje"] .crm-v3-date-label {
+    color: var(--crm-primary);
 }
 
 .crm-v3-date-label {
-    font-size: var(--crm-font-xs);
-    font-weight: 600;
-    color: var(--crm-text-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 4px;
-    line-height: var(--crm-line-tight);
-}
-
-.crm-v3-ativ {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--crm-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    border-bottom: 1px solid var(--crm-border-light);
+    margin-bottom: 2px;
+}
+
+.crm-v3-date-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--crm-border-light);
+    color: var(--crm-text-muted);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.crm-v3-ativ {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px;
     border-radius: var(--crm-radius-sm);
+    border-bottom: 1px solid var(--crm-border-light);
+}
+
+.crm-v3-ativ:last-child {
+    border-bottom: 0;
 }
 
 .crm-v3-ativ:hover {
@@ -1640,6 +1671,41 @@ html:has(.crm-v3-page) body {
 .crm-v3-ativ-concluida .crm-v3-ativ-titulo {
     text-decoration: line-through;
     color: var(--crm-text-subtle);
+}
+
+.crm-v3-ativ-concluida .crm-v3-ativ-desc {
+    color: var(--crm-text-subtle);
+}
+
+/* Botão check-círculo (marca como feita / reabre) */
+.crm-v3-ativ-check {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--crm-text-subtle);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+    font-size: 16px;
+}
+
+.crm-v3-ativ-check:hover {
+    color: var(--crm-primary);
+    background: var(--crm-accent-bg, rgba(30, 77, 79, 0.08));
+}
+
+.crm-v3-ativ-check:focus-visible {
+    outline: 2px solid var(--crm-primary);
+    outline-offset: 1px;
+}
+
+.crm-v3-ativ-concluida .crm-v3-ativ-check {
+    color: var(--crm-primary);
 }
 
 .crm-v3-checkbox {
@@ -1853,28 +1919,34 @@ html:has(.crm-v3-page) body {
     flex-shrink: 0;
 }
 
-.crm-v3-ativ-actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--crm-radius-sm);
-    border: none;
-    background: transparent;
+.crm-v3-ativ-when {
+    font-size: 11.5px;
     color: var(--crm-text-subtle);
-    cursor: pointer;
-    font-size: var(--crm-font-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.crm-v3-ativ-owner {
+    flex-shrink: 0;
+    font-size: 10px;
+}
+
+.crm-v3-ativ-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     opacity: 0;
+    transition: opacity 0.15s;
 }
 
-.crm-v3-ativ:hover .crm-v3-ativ-actions {
+.crm-v3-ativ:hover .crm-v3-ativ-actions,
+.crm-v3-ativ:focus-within .crm-v3-ativ-actions {
     opacity: 1;
 }
 
-.crm-v3-ativ-actions:focus-visible {
-    opacity: 1;
-    outline: 2px solid var(--crm-primary);
+.crm-v3-icon-btn.crm-v3-icon-btn-danger:hover {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
 }
 
 /* ===== SUGESTÃO ===== */

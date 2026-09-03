@@ -214,22 +214,54 @@ class CrmV3Repository:
         # para server-side via query params.
         page = _db().obter_clientes_paginado(page=1, per_page=1000) or {}
         items = []
+        _metrics_default = {
+            "faturamento": 0.0, "pipeline": 0.0,
+            "cotacoes_abertas": 0, "cotacoes_aprovadas": 0,
+            "contatos_total": 0, "tarefas_abertas": 0,
+            "ultimo_contato": "—",
+        }
         for row in page.get("clientes", []):
             mapped = _map_cliente(row)
-            mapped["metrics"] = self._metrics_for(mapped["id"])
+            # Blindagem (set/2026): se _metrics_for ou o LEFT JOIN de
+            # agências vinculadas falharem para UM cliente específico
+            # (ex.: id órfão, executivo inexistente, cotação com valor
+            # NULL num row antigo), NÃO derrubamos toda a listagem — o
+            # card renderiza sem métricas e o log registra o erro para
+            # investigação depois. Antes qualquer erro aqui virava 500
+            # na página inteira.
+            try:
+                mapped["metrics"] = self._metrics_for(mapped["id"])
+            except Exception as e:  # noqa: BLE001
+                import logging
+                logging.getLogger("aicentral.crm_v3").warning(
+                    "_metrics_for falhou para cliente %s: %s", mapped.get("id"), e
+                )
+                mapped["metrics"] = dict(_metrics_default)
+                mapped["metrics_error"] = f"{type(e).__name__}: {str(e)[:120]}"
+
             # Preencher clientes finais/ agência nome para o card
             if mapped["is_agencia"]:
-                filhos = _db().listar_clientes_vinculados_agencia(mapped["id"]) or []
-                mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
-                mapped["clientes_finais_count"] = len(filhos)
-                mapped["clientes_finais"] = [
-                    {
-                        "id": str(x["id_cliente"]),
-                        "nome": x.get("nome_fantasia") or x.get("razao_social"),
-                        "classificacao_cliente": x.get("classificacao_cliente"),
-                    }
-                    for x in filhos
-                ]
+                try:
+                    filhos = _db().listar_clientes_vinculados_agencia(mapped["id"]) or []
+                    mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
+                    mapped["clientes_finais_count"] = len(filhos)
+                    mapped["clientes_finais"] = [
+                        {
+                            "id": str(x["id_cliente"]),
+                            "nome": x.get("nome_fantasia") or x.get("razao_social"),
+                            "classificacao_cliente": x.get("classificacao_cliente"),
+                        }
+                        for x in filhos
+                    ]
+                except Exception as e:  # noqa: BLE001
+                    import logging
+                    logging.getLogger("aicentral.crm_v3").warning(
+                        "listar_clientes_vinculados_agencia falhou para %s: %s",
+                        mapped.get("id"), e,
+                    )
+                    mapped["clientes_finais_ids"] = []
+                    mapped["clientes_finais_count"] = 0
+                    mapped["clientes_finais"] = []
             items.append(mapped)
         return items
 
@@ -557,8 +589,16 @@ class CrmV3Repository:
         listas carregadas (contatos, atividades, cotações) via
         `computeMetricas`. Este método é o fallback para renderização
         inicial e para casos em que a UI ainda não puxou relacionamentos.
+
+        Cada fonte é isolada em try/except: se contatos falhar, ainda
+        entregamos cotações; se cotações falhar, ainda entregamos
+        atividades. Antes uma exceção em qualquer uma delas quebrava
+        toda a listagem de clientes.
         """
-        contatos = self.list_contatos(cliente_id) or []
+        try:
+            contatos = self.list_contatos(cliente_id) or []
+        except Exception:
+            contatos = []
         try:
             cotacoes = _db().obter_cotacoes_cliente(cliente_id) or []
         except Exception:

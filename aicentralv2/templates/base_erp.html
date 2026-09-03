@@ -472,6 +472,34 @@
         ]}
     ] %}
 
+    {# Lista única de itens do menu "Parâmetros" — usada tanto na sidebar
+       (esquerda, mobile) quanto na navbar horizontal (topbar, desktop).
+       Restaurada em set/2026 após o usuário reportar que os links do
+       CRM legado tinham sumido no redesign ERP.
+
+       Cada item pode declarar:
+         - superadmin_only: True → só aparece para tipo=superadmin.
+         - admin_only:      True → só aparece para admin/superadmin (default deste bloco).
+       O bloco inteiro já está protegido por session.user_type in
+       ['admin', 'superadmin'], então "admin_only" é o default para
+       todos os itens deste grupo. #}
+    {% set parametros_items = [
+        {'label': 'Tipos de Cliente',        'endpoint': 'tipos_cliente',                     'url': url_for('tipos_cliente'),                     'icon': 'fa-gear'},
+        {'label': 'Setores',                 'endpoint': 'tbl_setor',                         'url': url_for('tbl_setor'),                         'icon': 'fa-sitemap'},
+        {'label': 'Cargos',                  'endpoint': 'tbl_cargo_contato',                 'url': url_for('tbl_cargo_contato'),                 'icon': 'fa-id-badge'},
+        {'label': 'Plataformas de Campanha', 'endpoint': 'plataformas_campanha',              'url': url_for('plataformas_campanha'),              'icon': 'fa-bullhorn'},
+        {'label': 'Incentivos',              'endpoint': 'incentivos_lista',                  'url': url_for('incentivos_lista'),                  'icon': 'fa-percent'},
+        {'label': 'Faixas cálculo PI',       'endpoint': 'faixas_calculo_pi_lista',           'url': url_for('faixas_calculo_pi_lista'),           'icon': 'fa-scale-balanced'},
+        {'label': 'Cotações (legado)',       'endpoint': 'cotacoes_list',                     'url': url_for('cotacoes_list'),                     'icon': 'fa-file-invoice'},
+        {'label': 'Comissões',               'endpoint': 'cadu_pi_com_vendas_lista',          'url': url_for('cadu_pi_com_vendas_lista'),          'icon': 'fa-hand-holding-dollar'},
+        {'label': 'Logs de Auditoria',       'endpoint': 'logs_auditoria',                    'url': url_for('logs_auditoria'),                    'icon': 'fa-clipboard-list'},
+        {'label': 'Assistente IA',           'endpoint': 'intelligence.index',                'url': url_for('intelligence.index'),                'icon': 'fa-robot'},
+        {'label': 'listaOLDKPI',             'endpoint': 'parametros.lista_old_kpi',          'url': url_for('parametros.lista_old_kpi'),          'icon': 'fa-chart-line'},
+        {'label': 'Testes DV360',            'endpoint': 'parametros.testes_dv',              'url': url_for('parametros.testes_dv'),              'icon': 'fa-vial'},
+        {'label': 'Teste Brevo',             'endpoint': 'brevo_test.formulario_teste_brevo', 'url': url_for('brevo_test.formulario_teste_brevo'), 'icon': 'fa-envelope-open-text'},
+        {'label': 'Migrations do banco',     'endpoint': 'admin_migrations.page',             'url': url_for('admin_migrations.page'),             'icon': 'fa-database', 'superadmin_only': true}
+    ] %}
+
     <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal">
         <div class="erp-sidebar-inner">
             <div class="erp-brand">
@@ -509,18 +537,14 @@
 
                 {% if session.get('user_type') in ['admin', 'superadmin'] %}
                     <div class="erp-nav-section">Parâmetros</div>
-                    <a href="{{ url_for('tipos_cliente') }}" class="erp-nav-link {% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                        <i class="fa-solid fa-gear" aria-hidden="true"></i><span>Tipos de Cliente</span>
-                    </a>
-                    <a href="{{ url_for('tbl_setor') }}" class="erp-nav-link {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                        <i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Setores</span>
-                    </a>
-                    {# Migrations do banco: só superadmin — operação de schema. #}
-                    {% if session.get('user_type') == 'superadmin' %}
-                        <a href="{{ url_for('admin_migrations.page') }}" class="erp-nav-link {% if request.endpoint and request.endpoint.startswith('admin_migrations.') %}active{% endif %}">
-                            <i class="fa-solid fa-database" aria-hidden="true"></i><span>Migrations do banco</span>
-                        </a>
-                    {% endif %}
+                    {% for item in parametros_items %}
+                        {% if not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin' %}
+                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                            <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
+                                <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i><span>{{ item['label'] }}</span>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
                 {% endif %}
             </nav>
             <div class="erp-user-panel">
@@ -586,18 +610,28 @@
                         {% endif %}
                     {% endfor %}
                     {% if session.get('user_type') in ['admin', 'superadmin'] %}
-                        {% set is_mig = request.endpoint and request.endpoint.startswith('admin_migrations.') %}
+                        {# Verifica se algum item de Parâmetros está ativo, para
+                           acender visualmente o trigger do dropdown. #}
+                        {% set param_active = namespace(value=false) %}
+                        {% for item in parametros_items %}
+                            {% if request.endpoint == item.get('endpoint') %}
+                                {% set param_active.value = true %}
+                            {% endif %}
+                        {% endfor %}
                         <div class="erp-nav-group">
-                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor'] or is_mig %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                            <button type="button" class="erp-nav-trigger {% if param_active.value %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
                                 Parâmetros
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
                             </button>
                             <div class="erp-nav-menu" role="menu">
-                                <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-gear" aria-hidden="true"></i>Tipos de Cliente</a>
-                                <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-sitemap" aria-hidden="true"></i>Setores</a>
-                                {% if session.get('user_type') == 'superadmin' %}
-                                    <a href="{{ url_for('admin_migrations.page') }}" class="{% if is_mig %}active{% endif %}" role="menuitem"><i class="fa-solid fa-database" aria-hidden="true"></i>Migrations do banco</a>
-                                {% endif %}
+                                {% for item in parametros_items %}
+                                    {% if not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin' %}
+                                        {% set is_active = (request.endpoint == item.get('endpoint')) %}
+                                        <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
+                                            <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i>{{ item['label'] }}
+                                        </a>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
                     {% endif %}

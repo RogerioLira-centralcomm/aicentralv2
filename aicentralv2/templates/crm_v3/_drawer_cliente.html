@@ -1,0 +1,147 @@
+{# Drawer XL — Cadastro completo de cliente (Fase 2). #}
+{# Ativado por cxDrawer.open({ size: 'xl', contentEl: cloneCrmV3Drawer('cliente') }) #}
+<template id="cx-drawer-cliente-tpl">
+  <form id="cx-drawer-cliente-form" class="crm-v3-form-cliente" data-drawer-form="cliente">
+    <input type="hidden" name="id" data-field="id" />
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Identificação</div>
+      <div class="cx-drawer-grid-4">
+        <div class="cx-drawer-field">
+          <label>Pessoa</label>
+          <select name="pessoa" data-field="pessoa">
+            <option value="J">Pessoa Jurídica</option>
+            <option value="F">Pessoa Física</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>CNPJ / CPF</label>
+          <input type="text" name="cnpj" data-field="cnpj" placeholder="00.000.000/0000-00" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Nome fantasia *</label>
+          <input type="text" name="nome" data-field="nome" required />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 4;">
+          <label>Razão social</label>
+          <input type="text" name="razao_social" data-field="razao_social" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Inscrição estadual</label>
+          <input type="text" name="inscricao_estadual" data-field="inscricao_estadual" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Inscrição municipal</label>
+          <input type="text" name="inscricao_municipal" data-field="inscricao_municipal" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Tipo</label>
+          <select name="id_tipo_cliente" data-field="id_tipo_cliente">
+            <option value="">—</option>
+            <option value="privado">Privado</option>
+            <option value="publico">Público</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Perfil</label>
+          <select name="perfil" data-field="perfil">
+            <option value="direto">Cliente final</option>
+            <option value="agencia">Agência</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Endereço</div>
+      <div class="cx-drawer-grid-4">
+        <div class="cx-drawer-field">
+          <label>CEP</label>
+          <input type="text" name="cep" data-field="endereco.cep" placeholder="00000-000" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>UF</label>
+          <input type="text" name="uf" data-field="endereco.uf" maxlength="2" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Cidade</label>
+          <input type="text" name="cidade" data-field="endereco.cidade" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Bairro</label>
+          <input type="text" name="bairro" data-field="endereco.bairro" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Logradouro</label>
+          <input type="text" name="logradouro" data-field="endereco.logradouro" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Número</label>
+          <input type="text" name="numero" data-field="endereco.numero" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 3;">
+          <label>Complemento</label>
+          <input type="text" name="complemento" data-field="endereco.complemento" />
+        </div>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Comercial</div>
+      <div class="cx-drawer-grid-4">
+        <div class="cx-drawer-field">
+          <label>Classificação</label>
+          <select name="classificacao_cliente" data-field="classificacao_cliente">
+            <option value="Prospecção">Prospecção</option>
+            <option value="Ativo">Ativo</option>
+            <option value="Geladeira">Geladeira</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Executivo</label>
+          <select name="responsavel" data-field="responsavel">
+            <option value="Luisa Santana">Luisa Santana</option>
+            <option value="João Paulo">João Paulo</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Prioridade</label>
+          <select name="prioridade" data-field="prioridade">
+            <option value="Alta">Alta</option>
+            <option value="Média">Média</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>BV %</label>
+          <input type="number" name="bv_percentual" data-field="bv_percentual" step="0.01" min="0" max="100" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Margem CC</label>
+          <input type="number" name="margem_cc" data-field="margem_cc" step="0.01" min="0" max="100" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 3;">
+          <label>Habilidades comerciais</label>
+          <div class="crm-v3-checkbox-row">
+            <label class="crm-v3-checkbox-inline"><input type="checkbox" name="opera_midia" data-field="opera_midia" class="checkbox checkbox-xs" /> <span>Opera mídia</span></label>
+            <label class="crm-v3-checkbox-inline"><input type="checkbox" name="demanda_dados" data-field="demanda_dados" class="checkbox checkbox-xs" /> <span>Demanda dados</span></label>
+            <label class="crm-v3-checkbox-inline"><input type="checkbox" name="demanda_programatica_canais" data-field="demanda_programatica_canais" class="checkbox checkbox-xs" /> <span>Programática</span></label>
+          </div>
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 4;">
+          <label>Observações comerciais</label>
+          <textarea rows="3" name="observacoes_comerciais_adicionais" data-field="observacoes_comerciais_adicionais"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Vínculos com agência</div>
+      <p class="text-xs text-base-content/60 mb-2">Selecione a(s) agência(s) que atende(m) este cliente. Marque uma como principal.</p>
+      <div id="cx-drawer-cliente-agencias" class="crm-v3-agencias-list"></div>
+      <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-xs mt-2" data-drawer-action="add-agencia">
+        <i class="fa-solid fa-plus mr-1" aria-hidden="true"></i>Adicionar agência
+      </button>
+    </div>
+  </form>
+</template>

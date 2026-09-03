@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/teste-crm/api';
+    var API_BASE = '/crm-v3/api';
 
     var state = {
         clientes: [],
@@ -161,8 +161,8 @@
     }
 
     function showToast(msg, isError) {
-        var wrap = $('#crm-mock-toast');
-        var text = $('#crm-mock-toast-text');
+        var wrap = $('#crm-v3-toast');
+        var text = $('#crm-v3-toast-text');
         var alert = wrap && wrap.querySelector('.alert');
         if (!wrap || !text) return;
         text.textContent = msg;
@@ -171,17 +171,17 @@
             alert.classList.toggle('alert-success', !isError);
         }
         wrap.hidden = false;
-        wrap.classList.add('crm-mock-toast-visible');
+        wrap.classList.add('crm-v3-toast-visible');
         clearTimeout(showToast._t);
         showToast._t = setTimeout(function () {
-            wrap.classList.remove('crm-mock-toast-visible');
+            wrap.classList.remove('crm-v3-toast-visible');
             setTimeout(function () { wrap.hidden = true; }, 250);
         }, 2800);
     }
 
     function showOverlay(msg) {
-        var el = $('#crm-mock-global-overlay');
-        var msgEl = $('#crm-mock-overlay-msg');
+        var el = $('#crm-v3-global-overlay');
+        var msgEl = $('#crm-v3-overlay-msg');
         if (!el) return;
         if (msgEl) msgEl.textContent = msg || 'Carregando…';
         el.hidden = false;
@@ -192,7 +192,7 @@
     }
 
     function hideOverlay() {
-        var el = $('#crm-mock-global-overlay');
+        var el = $('#crm-v3-global-overlay');
         clearTimeout(state.overlayTimer);
         if (el) el.hidden = true;
     }
@@ -200,17 +200,17 @@
     function openModal(id) {
         var dialog = document.getElementById(id);
         if (!dialog) return;
-        dialog.classList.remove('crm-mock-modal-visible');
+        dialog.classList.remove('crm-v3-modal-visible');
         dialog.showModal();
         requestAnimationFrame(function () {
-            dialog.classList.add('crm-mock-modal-visible');
+            dialog.classList.add('crm-v3-modal-visible');
         });
     }
 
     function closeModal(id) {
         var dialog = document.getElementById(id);
         if (!dialog) return;
-        dialog.classList.remove('crm-mock-modal-visible');
+        dialog.classList.remove('crm-v3-modal-visible');
         setTimeout(function () {
             if (dialog.open) dialog.close();
         }, 180);
@@ -220,15 +220,15 @@
         if (!btn) return;
         btn.classList.toggle('loading', loading);
         btn.disabled = loading;
-        var spin = btn.querySelector('.crm-mock-btn-loading');
+        var spin = btn.querySelector('.crm-v3-btn-loading');
         if (spin) spin.hidden = !loading;
     }
 
     function showClientesSkeleton() {
-        var container = $('#crm-mock-lista-clientes');
+        var container = $('#crm-v3-lista-clientes');
         if (!container) return;
         container.innerHTML =
-            '<div class="crm-mock-skeleton-list p-2">' +
+            '<div class="crm-v3-skeleton-list p-2">' +
             '<div class="skeleton h-10 w-full mb-2"></div>' +
             '<div class="skeleton h-10 w-full mb-2"></div>' +
             '<div class="skeleton h-10 w-full mb-2"></div>' +
@@ -236,7 +236,7 @@
     }
 
     function renderClientes() {
-        var container = $('#crm-mock-lista-clientes');
+        var container = $('#crm-v3-lista-clientes');
         if (!container) return;
 
         var termo = state.buscaCliente.toLowerCase();
@@ -250,15 +250,18 @@
             return true;
         });
 
-        var countEl = $('.crm-mock-col-clientes .crm-mock-count');
-        if (countEl) countEl.textContent = filtrados.length;
+        var countEl = $('.crm-v3-col-clientes .crm-v3-count');
+        if (countEl) {
+            var total = state.clientes.length;
+            countEl.textContent = filtrados.length === total ? String(total) : filtrados.length + ' de ' + total;
+        }
 
         updatePillCounts();
-        var semContato = $('#crm-mock-sem-contato-count');
+        var semContato = $('#crm-v3-sem-contato-count');
         if (semContato) semContato.textContent = state.clientes.filter(function (c) { return !c.qtd_contatos; }).length;
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-mock-contatos-empty p-3 text-sm text-base-content/60">Nenhum cliente encontrado.</div>';
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-base-content/60">Nenhum cliente encontrado.</div>';
             updatePagination(0);
             return;
         }
@@ -271,23 +274,58 @@
 
         container.innerHTML = pagina.map(function (c) {
             var ativo = c.id === state.clienteId;
+            var classificacao = c.classificacao_cliente || c.classificacao || '';
+            var classifSlug = classificacao.replace(/ç/g, 'c').replace(/ã/g, 'a');
+            var isAgencia = !!c.is_agencia;
+            var clientesFinaisCount = Number(c.clientes_finais_count || 0);
+            var agenciaNome = c.agencia_nome || '';
+
+            var chips = [];
+            if (classificacao) {
+                chips.push(
+                    '<span class="crm-v3-chip crm-v3-chip-classificacao--' + escapeHtml(classifSlug) + '" title="Classificação">' +
+                    escapeHtml(classificacao) +
+                    '</span>'
+                );
+            }
+            if (isAgencia && clientesFinaisCount > 0) {
+                chips.push(
+                    '<span class="crm-v3-chip crm-v3-chip-agencia" title="Agência com ' + clientesFinaisCount + ' cliente(s) final(is)">' +
+                    '<i class="fa-solid fa-sitemap" aria-hidden="true"></i>' +
+                    clientesFinaisCount +
+                    '</span>'
+                );
+            } else if (agenciaNome) {
+                chips.push(
+                    '<span class="crm-v3-chip crm-v3-chip-filho" title="Vinculado à agência ' + escapeHtml(agenciaNome) + '">' +
+                    '<i class="fa-solid fa-code-branch" aria-hidden="true"></i>' +
+                    escapeHtml(agenciaNome) +
+                    '</span>'
+                );
+            }
+
             return (
-                '<div class="crm-mock-cliente flex items-start gap-2 px-2 py-2 cursor-pointer transition-colors' +
-                (ativo ? ' crm-mock-cliente-ativo' : '') + '"' +
-                ' role="listitem" tabindex="0" data-cliente-id="' + escapeHtml(c.id) + '" data-status="' + escapeHtml(c.status) + '"' +
+                '<div class="crm-v3-cliente' + (ativo ? ' crm-v3-cliente-ativo' : '') + '"' +
+                ' role="listitem" tabindex="0"' +
+                ' data-cliente-id="' + escapeHtml(c.id) + '"' +
+                ' data-status="' + escapeHtml(c.status) + '"' +
+                ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
                 avatarHtml(c.nome, 'w-7 h-7') +
-                '<div class="crm-mock-cliente-info min-w-0 flex-1">' +
-                '<div class="crm-mock-cliente-nome truncate text-sm font-medium text-base-content" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
-                '<div class="crm-mock-cliente-sub text-xs text-base-content/60 truncate" title="' + escapeHtml(c.sub) + '">' + escapeHtml(c.sub) + '</div>' +
+                '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
+                '<div class="crm-v3-cliente-headline">' +
+                '<div class="crm-v3-cliente-nome" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
                 '</div>' +
-                '<div class="crm-mock-cliente-right shrink-0">' +
+                '<div class="crm-v3-cliente-sub" title="' + escapeHtml(c.sub) + '">' + escapeHtml(c.sub) + '</div>' +
+                (chips.length ? '<div class="crm-v3-cliente-meta">' + chips.join('') + '</div>' : '') +
+                '</div>' +
+                '<div class="crm-v3-cliente-right shrink-0">' +
                 '<span class="' + badgeDaisy(c.badge_type) + '">' + escapeHtml(c.badge) + '</span>' +
                 '</div></div>'
             );
         }).join('');
 
-        $$('.crm-mock-cliente', container).forEach(function (card) {
+        $$('.crm-v3-cliente', container).forEach(function (card) {
             card.addEventListener('click', function () {
                 selectCliente(card.getAttribute('data-cliente-id'));
             });
@@ -300,6 +338,22 @@
         });
     }
 
+    function updateTabCounts() {
+        var counts = {
+            notas: (state.notas || []).length,
+            objetivos: (state.objetivos || []).length,
+            atividades: (state.atividades || []).length,
+            'ativ-todas': (state.atividades || []).length,
+            'ativ-pendentes': (state.atividades || []).filter(function (a) { return a.status !== 'concluida'; }).length,
+            'ativ-concluidas': (state.atividades || []).filter(function (a) { return a.status === 'concluida'; }).length,
+        };
+        $$('.crm-v3-tab-count').forEach(function (el) {
+            var key = el.getAttribute('data-tab-count');
+            if (key && counts[key] !== undefined) el.textContent = counts[key];
+        });
+        if (state.cliente) updateSinalizadores(state.cliente);
+    }
+
     function updatePillCounts() {
         var counts = { todos: state.clientes.length, atrasado: 0, 'sem-atividade': 0, seguindo: 0 };
         state.clientes.forEach(function (c) {
@@ -307,17 +361,17 @@
             if (c.status === 'sem-atividade') counts['sem-atividade']++;
             if (c.seguindo) counts.seguindo++;
         });
-        $$('.crm-mock-pill').forEach(function (pill) {
+        $$('.crm-v3-pill').forEach(function (pill) {
             var f = pill.getAttribute('data-filter');
-            var span = pill.querySelector('.crm-mock-pill-count');
+            var span = pill.querySelector('.crm-v3-pill-count');
             if (span && counts[f] !== undefined) span.textContent = counts[f];
         });
     }
 
     function updatePagination(totalPaginas) {
-        var label = $('#crm-mock-page-label');
-        var prev = $('#crm-mock-page-prev');
-        var next = $('#crm-mock-page-next');
+        var label = $('#crm-v3-page-label');
+        var prev = $('#crm-v3-page-prev');
+        var next = $('#crm-v3-page-next');
         totalPaginas = totalPaginas || 1;
         if (label) label.textContent = state.paginaCliente + '/' + totalPaginas;
         if (prev) prev.disabled = state.paginaCliente <= 1;
@@ -326,42 +380,42 @@
 
     function updateDetailPanel(cliente) {
         if (!cliente) return;
-        var title = $('.crm-mock-detail-title');
+        var title = $('.crm-v3-detail-title');
         if (title) {
             title.textContent = cliente.nome;
             title.title = cliente.nome;
         }
 
-        var av = $('#crm-mock-detail-avatar');
+        var av = $('#crm-v3-detail-avatar');
         if (av) av.textContent = cliente.avatar || avatarIniciais(cliente.nome);
-        var star = $('.crm-mock-star');
+        var star = $('.crm-v3-star');
         if (star) {
             star.classList.toggle('active', !!cliente.favorito);
             star.setAttribute('aria-pressed', cliente.favorito ? 'true' : 'false');
             star.setAttribute('aria-label', cliente.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
         }
 
-        var metaResp = $('#crm-mock-meta-responsavel');
+        var metaResp = $('#crm-v3-meta-responsavel');
         if (metaResp) metaResp.textContent = cliente.responsavel || '—';
 
-        var metaCat = $('#crm-mock-meta-categoria');
+        var metaCat = $('#crm-v3-meta-categoria');
         if (metaCat) metaCat.textContent = cliente.tipo || cliente.categoria || '—';
 
-        var metaPri = $('#crm-mock-meta-prioridade');
+        var metaPri = $('#crm-v3-meta-prioridade');
         if (metaPri) {
             metaPri.textContent = 'Prioridade: ' + (cliente.prioridade || '—');
             metaPri.className = 'badge badge-sm ' + (cliente.prioridade === 'Alta' ? 'badge-error' : cliente.prioridade === 'Média' ? 'badge-warning' : 'badge-ghost');
         }
 
-        var infoCategoria = $('#crm-mock-info-categoria');
-        var infoClassificacao = $('#crm-mock-info-classificacao');
-        var infoTipo = $('#crm-mock-info-tipo');
-        var infoPrioridade = $('#crm-mock-info-prioridade');
-        var infoCnpj = $('#crm-mock-info-cnpj');
-        var infoFonte = $('#crm-mock-info-fonte');
-        var infoCriado = $('#crm-mock-info-criado');
-        var infoSegmento = $('#crm-mock-info-segmento');
-        var infoCidade = $('#crm-mock-info-cidade');
+        var infoCategoria = $('#crm-v3-info-categoria');
+        var infoClassificacao = $('#crm-v3-info-classificacao');
+        var infoTipo = $('#crm-v3-info-tipo');
+        var infoPrioridade = $('#crm-v3-info-prioridade');
+        var infoCnpj = $('#crm-v3-info-cnpj');
+        var infoFonte = $('#crm-v3-info-fonte');
+        var infoCriado = $('#crm-v3-info-criado');
+        var infoSegmento = $('#crm-v3-info-segmento');
+        var infoCidade = $('#crm-v3-info-cidade');
         if (infoCategoria) infoCategoria.textContent = cliente.tipo_label || '—';
         if (infoClassificacao) infoClassificacao.textContent = cliente.classificacao_cliente || cliente.classificacao || '—';
         if (infoTipo) infoTipo.textContent = cliente.tipo || cliente.categoria || '—';
@@ -374,9 +428,9 @@
             infoPrioridade.textContent = cliente.prioridade || '—';
             infoPrioridade.classList.toggle('text-error', cliente.prioridade === 'Alta');
         }
-        var responsavelNome = $('#crm-mock-responsavel-nome');
-        var responsavelAvatar = $('#crm-mock-responsavel-avatar');
-        var responsavelEmail = $('#crm-mock-responsavel-email');
+        var responsavelNome = $('#crm-v3-responsavel-nome');
+        var responsavelAvatar = $('#crm-v3-responsavel-avatar');
+        var responsavelEmail = $('#crm-v3-responsavel-email');
         if (responsavelNome) responsavelNome.textContent = cliente.responsavel || '—';
         if (responsavelAvatar) responsavelAvatar.textContent = avatarIniciais(cliente.responsavel);
         if (responsavelEmail) {
@@ -394,30 +448,136 @@
         el = $('#crm-metric-pis'); if (el) el.textContent = m.valor_pis || '—';
         el = $('#crm-metric-tarefas'); if (el) el.textContent = m.tarefas_abertas != null ? m.tarefas_abertas : 0;
         el = $('#crm-metric-ultimo'); if (el) el.textContent = m.ultimo_contato || '—';
+
+        updateStatusComercial(cliente);
+        updateVinculos(cliente);
+        updateSinalizadores(cliente);
     }
 
-    function updateFollowButton(cliente) {
-        var btn = $('#crm-mock-seguir-toggle');
-        if (!btn || !cliente) return;
-        btn.textContent = cliente.seguindo ? 'Deixar de seguir' : 'Seguir cliente';
-        btn.setAttribute('aria-pressed', cliente.seguindo ? 'true' : 'false');
-        btn.classList.toggle('btn-error', !!cliente.seguindo);
-        btn.classList.toggle('btn-primary', !cliente.seguindo);
+    function updateStatusComercial(cliente) {
+        var badge = $('#crm-v3-status-badge');
+        var hint = $('#crm-v3-status-hint');
+        var classificacao = cliente.classificacao_cliente || cliente.classificacao || '';
+        if (badge) {
+            badge.textContent = classificacao || '—';
+            badge.setAttribute('data-classificacao', classificacao || '');
+        }
+        if (hint) {
+            var mapaHint = {
+                'Prospecção': 'Foco em qualificação e cadência de touchpoints.',
+                'Prospeccao': 'Foco em qualificação e cadência de touchpoints.',
+                'Ativo': 'Manter relacionamento e detectar novas oportunidades.',
+                'Geladeira': 'Cliente em pausa; retomar quando fizer sentido comercial.'
+            };
+            hint.textContent = mapaHint[classificacao] || '';
+        }
     }
+
+    function updateVinculos(cliente) {
+        var section = $('#crm-v3-sidebar-vinculos');
+        var titulo = $('#crm-v3-vinculos-titulo');
+        var badge = $('#crm-v3-vinculos-count');
+        var list = $('#crm-v3-vinculos-list');
+        if (!section || !list) return;
+
+        var filhos = Array.isArray(cliente.clientes_finais) ? cliente.clientes_finais : [];
+        var filhosIds = Array.isArray(cliente.clientes_finais_ids) ? cliente.clientes_finais_ids : [];
+        // Se veio só array de ids, resolver pelo state.clientes
+        if (!filhos.length && filhosIds.length && Array.isArray(state.clientes)) {
+            filhos = filhosIds.map(function (id) {
+                return state.clientes.find(function (c) { return c.id === id; });
+            }).filter(Boolean);
+        }
+
+        var isAgencia = !!cliente.is_agencia;
+        var agenciaId = cliente.agencia_id;
+        var agenciaNome = cliente.agencia_nome;
+        // Resolver por id se não veio nome
+        if (agenciaId && !agenciaNome && Array.isArray(state.clientes)) {
+            var pai = state.clientes.find(function (c) { return c.id === agenciaId; });
+            if (pai) agenciaNome = pai.nome;
+        }
+
+        if (isAgencia && filhos.length) {
+            section.hidden = false;
+            if (titulo) titulo.textContent = 'Clientes vinculados';
+            if (badge) badge.textContent = String(filhos.length);
+            list.innerHTML = filhos.map(function (f) {
+                return (
+                    '<button type="button" class="crm-v3-vinculo-item" data-cliente-id="' + escapeHtml(f.id) + '">' +
+                    '<i class="fa-solid fa-code-branch" aria-hidden="true"></i>' +
+                    '<span class="crm-v3-vinculo-item-nome" title="' + escapeHtml(f.nome) + '">' + escapeHtml(f.nome) + '</span>' +
+                    (f.classificacao_cliente ? '<span class="crm-v3-vinculo-item-classif">' + escapeHtml(f.classificacao_cliente) + '</span>' : '') +
+                    '</button>'
+                );
+            }).join('');
+            $$('.crm-v3-vinculo-item', list).forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    selectCliente(btn.getAttribute('data-cliente-id'));
+                });
+            });
+        } else if (!isAgencia && agenciaNome) {
+            section.hidden = false;
+            if (titulo) titulo.textContent = 'Agência principal';
+            if (badge) badge.textContent = '';
+            list.innerHTML = (
+                '<button type="button" class="crm-v3-vinculo-item"' +
+                (agenciaId ? ' data-cliente-id="' + escapeHtml(agenciaId) + '"' : '') + '>' +
+                '<i class="fa-solid fa-sitemap" aria-hidden="true"></i>' +
+                '<span class="crm-v3-vinculo-item-nome" title="' + escapeHtml(agenciaNome) + '">' + escapeHtml(agenciaNome) + '</span>' +
+                '</button>'
+            );
+            var btn = list.querySelector('.crm-v3-vinculo-item');
+            if (btn && agenciaId) {
+                btn.addEventListener('click', function () {
+                    selectCliente(agenciaId);
+                });
+            }
+        } else {
+            section.hidden = true;
+            list.innerHTML = '';
+            if (badge) badge.textContent = '';
+        }
+    }
+
+    function updateSinalizadores(cliente) {
+        var m = cliente.metrics || {};
+        var notas = (state.notas || []).length;
+        var objetivos = (state.objetivos || []).length;
+        var pend = (state.atividades || []).filter(function (a) { return a.status !== 'concluida'; }).length;
+        var cot = m.cotacoes_abertas != null ? m.cotacoes_abertas : (state.cotacoes || []).length;
+
+        var set = function (id, val, alert) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = String(val);
+            var parent = el.parentElement;
+            if (parent) parent.classList.toggle('is-alert', !!alert);
+        };
+        set('crm-v3-sinal-notas', notas);
+        set('crm-v3-sinal-objetivos', objetivos);
+        set('crm-v3-sinal-atividades', pend, pend > 0);
+        set('crm-v3-sinal-cotacoes', cot);
+    }
+
+    // updateFollowButton removido: botão Seguir/Deixar de seguir foi retirado da UI
+    // do CRM v3. O campo `seguindo` continua no modelo para preservar filtros
+    // existentes (pill "Seguindo") e paridade com o CRM legado.
+    function updateFollowButton() { /* noop */ }
 
     function updateSidebarContato(contato) {
-        var nomeEl = $('#crm-mock-sidebar-contato-nome');
-        var cargoEl = $('#crm-mock-sidebar-contato-cargo');
-        var setorEl = $('#crm-mock-sidebar-contato-setor');
-        var emailEl = $('#crm-mock-sidebar-contato-email');
-        var telEl = $('#crm-mock-sidebar-contato-telefone');
-        var avatarEl = $('#crm-mock-sidebar-contato-avatar');
-        var badgeEl = $('#crm-mock-sidebar-contato-badge');
-        var hintEl = $('#crm-mock-contato-principal-hint');
-        var detalhesEl = $('#crm-mock-sidebar-contato-detalhes');
-        var mailto = $('#crm-mock-mailto-link');
-        var whats = $('#crm-mock-whatsapp-link');
-        var copyBtn = $('#crm-mock-copy-email');
+        var nomeEl = $('#crm-v3-sidebar-contato-nome');
+        var cargoEl = $('#crm-v3-sidebar-contato-cargo');
+        var setorEl = $('#crm-v3-sidebar-contato-setor');
+        var emailEl = $('#crm-v3-sidebar-contato-email');
+        var telEl = $('#crm-v3-sidebar-contato-telefone');
+        var avatarEl = $('#crm-v3-sidebar-contato-avatar');
+        var badgeEl = $('#crm-v3-sidebar-contato-badge');
+        var hintEl = $('#crm-v3-contato-principal-hint');
+        var detalhesEl = $('#crm-v3-sidebar-contato-detalhes');
+        var mailto = $('#crm-v3-mailto-link');
+        var whats = $('#crm-v3-whatsapp-link');
+        var copyBtn = $('#crm-v3-copy-email');
 
         if (!contato) {
             if (nomeEl) nomeEl.textContent = '—';
@@ -468,8 +628,8 @@
     }
 
     function renderContatos() {
-        var container = $('#crm-mock-lista-contatos');
-        var countEl = $('#crm-mock-contatos-count');
+        var container = $('#crm-v3-lista-contatos');
+        var countEl = $('#crm-v3-contatos-count');
         if (!container) return;
 
         var termo = state.buscaContato.toLowerCase().trim();
@@ -482,52 +642,52 @@
         if (countEl) countEl.textContent = filtrados.length;
 
         if (!state.clienteId) {
-            container.innerHTML = '<div class="crm-mock-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
             updateSidebarContato(null);
             return;
         }
 
         if (!state.contatos.length) {
             container.innerHTML =
-                '<div class="crm-mock-contatos-empty p-3 text-sm text-center">' +
+                '<div class="crm-v3-contatos-empty p-3 text-sm text-center">' +
                 'Nenhum contato cadastrado.<br>' +
-                '<button type="button" class="btn btn-sm btn-primary mt-2" id="crm-mock-empty-add-contato">+ Adicionar contato</button>' +
+                '<button type="button" class="btn btn-sm btn-primary mt-2" id="crm-v3-empty-add-contato">+ Adicionar contato</button>' +
                 '</div>';
-            var emptyBtn = $('#crm-mock-empty-add-contato');
+            var emptyBtn = $('#crm-v3-empty-add-contato');
             if (emptyBtn) emptyBtn.addEventListener('click', openContatoModal);
             updateSidebarContato(null);
             return;
         }
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-mock-contatos-empty p-3 text-sm">Nenhum contato encontrado.</div>';
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Nenhum contato encontrado.</div>';
             return;
         }
 
         container.innerHTML = filtrados.map(function (c) {
             var ativo = c.id === state.contatoId;
             return (
-                '<div class="crm-mock-contato-card' + (ativo ? ' crm-mock-contato-card-active is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
-                '<div class="crm-mock-contato-main">' +
+                '<div class="crm-v3-contato-card' + (ativo ? ' crm-v3-contato-card-active is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
+                '<div class="crm-v3-contato-main">' +
                 avatarHtml(c.nome, ativo ? 'w-8 h-8' : 'w-8 h-8') +
-                '<div class="crm-mock-contato-info min-w-0">' +
-                '<div class="crm-mock-contato-nome truncate text-sm font-medium">' + escapeHtml(c.nome) + '</div>' +
-                '<div class="crm-mock-contato-cargo text-xs text-base-content/60 truncate">' + escapeHtml(c.cargo) + '</div>' +
+                '<div class="crm-v3-contato-info min-w-0">' +
+                '<div class="crm-v3-contato-nome truncate text-sm font-medium">' + escapeHtml(c.nome) + '</div>' +
+                '<div class="crm-v3-contato-cargo text-xs text-base-content/60 truncate">' + escapeHtml(c.cargo) + '</div>' +
                 '</div>' +
-                '<div class="crm-mock-contato-actions">' +
+                '<div class="crm-v3-contato-actions">' +
                 (c.principal ? '<span class="badge badge-sm badge-primary">Principal</span>' : '') +
                 (c.conversas ? '<span class="badge badge-sm badge-info">' + c.conversas + '</span>' : '') +
-                '<button type="button" class="crm-mock-contato-edit btn btn-ghost btn-xs btn-square" aria-label="Editar" data-contato-id="' + escapeHtml(c.id) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
-                '<button type="button" class="crm-mock-contato-toggle btn btn-ghost btn-xs btn-square" aria-expanded="' + (ativo ? 'true' : 'false') + '"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+                '<button type="button" class="crm-v3-contato-edit btn btn-ghost btn-xs btn-square" aria-label="Editar" data-contato-id="' + escapeHtml(c.id) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
+                '<button type="button" class="crm-v3-contato-toggle btn btn-ghost btn-xs btn-square" aria-expanded="' + (ativo ? 'true' : 'false') + '"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
                 '</div></div>' +
-                '<div class="crm-mock-contato-details">' +
+                '<div class="crm-v3-contato-details">' +
                 (c.email ? (
-                    '<div class="crm-mock-contato-email-row flex items-center gap-1"><span class="truncate">' + escapeHtml(c.email) + '</span>' +
-                    '<button type="button" class="crm-mock-contato-copy btn btn-ghost btn-xs btn-square" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar"><i class="fa-regular fa-copy"></i></button></div>'
+                    '<div class="crm-v3-contato-email-row flex items-center gap-1"><span class="truncate">' + escapeHtml(c.email) + '</span>' +
+                    '<button type="button" class="crm-v3-contato-copy btn btn-ghost btn-xs btn-square" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar"><i class="fa-regular fa-copy"></i></button></div>'
                 ) : '') +
-                '<div class="crm-mock-contato-phone-label text-xs text-base-content/50 mt-1">WhatsApp</div>' +
-                (c.telefone ? '<button type="button" class="crm-mock-contato-phone-row crm-mock-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone) + '</span></button>' : '') +
-                (c.telefone_secundario ? '<button type="button" class="crm-mock-contato-phone-row crm-mock-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone_secundario) + '</span></button>' : '') +
+                '<div class="crm-v3-contato-phone-label text-xs text-base-content/50 mt-1">WhatsApp</div>' +
+                (c.telefone ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone) + '</span></button>' : '') +
+                (c.telefone_secundario ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row w-full text-left"><span>' + escapeHtml(c.telefone_secundario) + '</span></button>' : '') +
                 '</div></div>'
             );
         }).join('');
@@ -538,30 +698,30 @@
     }
 
     function bindContatoEvents(container) {
-        $$('.crm-mock-contato-card', container).forEach(function (card) {
+        $$('.crm-v3-contato-card', container).forEach(function (card) {
             card.addEventListener('click', function (e) {
-                if (e.target.closest('.crm-mock-contato-toggle, .crm-mock-contato-edit, .crm-mock-contato-copy, .crm-mock-contato-phone-row, .crm-mock-contato-whats-row')) return;
+                if (e.target.closest('.crm-v3-contato-toggle, .crm-v3-contato-edit, .crm-v3-contato-copy, .crm-v3-contato-phone-row, .crm-v3-contato-whats-row')) return;
                 selectContato(card.getAttribute('data-contato-id'));
             });
         });
 
-        $$('.crm-mock-contato-toggle', container).forEach(function (btn) {
+        $$('.crm-v3-contato-toggle', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                var card = btn.closest('.crm-mock-contato-card');
+                var card = btn.closest('.crm-v3-contato-card');
                 var expanded = card.classList.toggle('is-expanded');
                 btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
             });
         });
 
-        $$('.crm-mock-contato-edit', container).forEach(function (btn) {
+        $$('.crm-v3-contato-edit', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 openContatoModal(btn.getAttribute('data-contato-id'));
             });
         });
 
-        $$('.crm-mock-contato-copy', container).forEach(function (btn) {
+        $$('.crm-v3-contato-copy', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var text = btn.getAttribute('data-copy');
@@ -572,7 +732,7 @@
             });
         });
 
-        $$('.crm-mock-contato-whats-row', container).forEach(function (btn) {
+        $$('.crm-v3-contato-whats-row', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var tel = btn.querySelector('span').textContent;
@@ -583,10 +743,10 @@
     }
 
     function ativIconClass(tipo) {
-        if (tipo === 'ligacao' || tipo === 'phone') return 'crm-mock-ativ-icon-phone';
-        if (tipo === 'reuniao' || tipo === 'meeting') return 'crm-mock-ativ-icon-meeting';
-        if (tipo === 'doc') return 'crm-mock-ativ-icon-doc';
-        return 'crm-mock-ativ-icon-note';
+        if (tipo === 'ligacao' || tipo === 'phone') return 'crm-v3-ativ-icon-phone';
+        if (tipo === 'reuniao' || tipo === 'meeting') return 'crm-v3-ativ-icon-meeting';
+        if (tipo === 'doc') return 'crm-v3-ativ-icon-doc';
+        return 'crm-v3-ativ-icon-note';
     }
 
     function ativIconHtml(tipo) {
@@ -597,7 +757,7 @@
         };
         var ic = icons[tipo] || 'fa-circle';
         var solid = ic === 'fa-file-lines' ? 'fa-regular' : 'fa-solid';
-        return '<span class="crm-mock-ativ-icon ' + ativIconClass(tipo) + '" aria-hidden="true"><i class="' + solid + ' ' + ic + '"></i></span>';
+        return '<span class="crm-v3-ativ-icon ' + ativIconClass(tipo) + '" aria-hidden="true"><i class="' + solid + ' ' + ic + '"></i></span>';
     }
 
     function prioridadeBadge(p) {
@@ -607,7 +767,7 @@
     }
 
     function renderAtividades() {
-        var container = $('#crm-mock-ativ-list');
+        var container = $('#crm-v3-ativ-list');
         if (!container) return;
 
         var termo = state.buscaAtividade.toLowerCase().trim();
@@ -627,6 +787,7 @@
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Selecione um cliente.</div>';
             renderSidebarAtividades();
             renderSugestao();
+            updateTabCounts();
             return;
         }
 
@@ -634,6 +795,7 @@
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhuma atividade.</div>';
             renderSidebarAtividades();
             renderSugestao();
+            updateTabCounts();
             return;
         }
 
@@ -646,28 +808,28 @@
 
         var html = '';
         Object.keys(groups).forEach(function (label) {
-            html += '<div class="crm-mock-date-group"><div class="crm-mock-date-label text-xs font-semibold text-base-content/70 px-2 py-1">' + escapeHtml(label) + '</div>';
+            html += '<div class="crm-v3-date-group"><div class="crm-v3-date-label text-xs font-semibold text-base-content/70 px-2 py-1">' + escapeHtml(label) + '</div>';
             groups[label].forEach(function (a) {
                 var concluida = a.status === 'concluida';
                 html += (
-                    '<div class="crm-mock-ativ flex items-center gap-1 px-2 py-1' + (concluida ? ' crm-mock-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '">' +
-                    '<input type="checkbox" class="checkbox checkbox-xs checkbox-primary crm-mock-ativ-check" ' + (concluida ? 'checked' : '') + ' aria-label="Concluir: ' + escapeHtml(a.titulo) + '" />' +
+                    '<div class="crm-v3-ativ flex items-center gap-1 px-2 py-1' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '">' +
+                    '<input type="checkbox" class="checkbox checkbox-xs checkbox-primary crm-v3-ativ-check" ' + (concluida ? 'checked' : '') + ' aria-label="Concluir: ' + escapeHtml(a.titulo) + '" />' +
                     ativIconHtml(a.tipo) +
-                    '<div class="crm-mock-ativ-content min-w-0 flex-1">' +
-                    '<div class="crm-mock-ativ-titulo text-sm truncate">' + escapeHtml(a.titulo) + '</div>' +
-                    (a.descricao ? '<div class="crm-mock-ativ-desc text-xs text-base-content/60 truncate">' + escapeHtml(a.descricao) + '</div>' : '') +
+                    '<div class="crm-v3-ativ-content min-w-0 flex-1">' +
+                    '<div class="crm-v3-ativ-titulo text-sm truncate">' + escapeHtml(a.titulo) + '</div>' +
+                    (a.descricao ? '<div class="crm-v3-ativ-desc text-xs text-base-content/60 truncate">' + escapeHtml(a.descricao) + '</div>' : '') +
                     '</div>' +
-                    '<span class="crm-mock-ativ-time text-xs shrink-0">' + escapeHtml(a.hora || '') + '</span>' +
+                    '<span class="crm-v3-ativ-time text-xs shrink-0">' + escapeHtml(a.hora || '') + '</span>' +
                     prioridadeBadge(a.prioridade) +
-                    '<div class="crm-mock-avatar-mini shrink-0" title="' + escapeHtml(a.responsavel || '') + '">' + escapeHtml(a.responsavel || '') + '</div>' +
+                    '<div class="crm-v3-avatar-mini shrink-0" title="' + escapeHtml(a.responsavel || '') + '">' + escapeHtml(a.responsavel || '') + '</div>' +
                     '<div class="dropdown dropdown-end shrink-0">' +
-                    '<button type="button" class="btn btn-ghost btn-xs btn-square crm-mock-ativ-menu-btn" tabindex="0" aria-label="Mais opções"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                    '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-ativ-menu-btn" tabindex="0" aria-label="Mais opções"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                     '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-40 border border-base-200 z-50 text-xs">' +
-                    '<li><button type="button" class="crm-mock-ativ-action" data-action="concluir">Concluir</button></li>' +
-                    '<li><button type="button" class="crm-mock-ativ-action" data-action="editar">Editar</button></li>' +
-                    '<li><button type="button" class="crm-mock-ativ-action" data-action="reagendar">Reagendar</button></li>' +
-                    '<li><button type="button" class="crm-mock-ativ-action" data-action="duplicar">Duplicar</button></li>' +
-                    '<li><button type="button" class="crm-mock-ativ-action text-error" data-action="excluir">Excluir</button></li>' +
+                    '<li><button type="button" class="crm-v3-ativ-action" data-action="concluir">Concluir</button></li>' +
+                    '<li><button type="button" class="crm-v3-ativ-action" data-action="editar">Editar</button></li>' +
+                    '<li><button type="button" class="crm-v3-ativ-action" data-action="reagendar">Reagendar</button></li>' +
+                    '<li><button type="button" class="crm-v3-ativ-action" data-action="duplicar">Duplicar</button></li>' +
+                    '<li><button type="button" class="crm-v3-ativ-action text-error" data-action="excluir">Excluir</button></li>' +
                     '</ul></div></div>'
                 );
             });
@@ -678,6 +840,7 @@
         bindAtividadeEvents(container);
         renderSidebarAtividades();
         renderSugestao();
+        updateTabCounts();
     }
 
     function populateAtividadeResponsaveis() {
@@ -695,7 +858,7 @@
     }
 
     function renderSidebarAtividades() {
-        var container = $('#crm-mock-sidebar-atividades-list');
+        var container = $('#crm-v3-sidebar-atividades-list');
         if (!container) return;
         var items = state.atividades.slice(0, 6);
         if (!items.length) {
@@ -703,16 +866,16 @@
             return;
         }
         container.innerHTML = items.map(function (a) {
-            return '<div class="crm-mock-mini-ativ">' +
+            return '<div class="crm-v3-mini-ativ">' +
                 ativIconHtml(a.tipo) +
-                '<div class="crm-mock-mini-ativ-text">' + escapeHtml(a.titulo) + '</div>' +
-                '<span class="crm-mock-mini-ativ-time">' + escapeHtml((a.data_label || '') + (a.hora ? ' · ' + a.hora : '')) + '</span>' +
+                '<div class="crm-v3-mini-ativ-text">' + escapeHtml(a.titulo) + '</div>' +
+                '<span class="crm-v3-mini-ativ-time">' + escapeHtml((a.data_label || '') + (a.hora ? ' · ' + a.hora : '')) + '</span>' +
                 '</div>';
         }).join('');
     }
 
     function renderSugestao() {
-        var el = $('#crm-mock-sugestao-texto');
+        var el = $('#crm-v3-sugestao-texto');
         if (!el) return;
         var pendentes = state.atividades.filter(function (a) { return a.status !== 'concluida'; });
         el.textContent = pendentes.length
@@ -721,14 +884,14 @@
     }
 
     function bindAtividadeEvents(container) {
-        $$('.crm-mock-ativ-check', container).forEach(function (cb) {
+        $$('.crm-v3-ativ-check', container).forEach(function (cb) {
             cb.addEventListener('change', function () {
-                var row = cb.closest('.crm-mock-ativ');
+                var row = cb.closest('.crm-v3-ativ');
                 var id = row.getAttribute('data-atividade-id');
                 var status = cb.checked ? 'concluida' : 'pendente';
                 api('/atividades/' + encodeURIComponent(id), { method: 'PATCH', body: { status: status } })
                     .then(function () {
-                        row.classList.toggle('crm-mock-ativ-concluida', cb.checked);
+                        row.classList.toggle('crm-v3-ativ-concluida', cb.checked);
                         row.setAttribute('data-status', status);
                         var a = state.atividades.find(function (x) { return x.id === id; });
                         if (a) a.status = status;
@@ -738,10 +901,10 @@
             });
         });
 
-        $$('.crm-mock-ativ-action', container).forEach(function (btn) {
+        $$('.crm-v3-ativ-action', container).forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                var row = btn.closest('.crm-mock-ativ');
+                var row = btn.closest('.crm-v3-ativ');
                 var id = row.getAttribute('data-atividade-id');
                 var action = btn.getAttribute('data-action');
                 var a = state.atividades.find(function (x) { return x.id === id; });
@@ -777,26 +940,27 @@
     }
 
     function renderObjetivos() {
-        var container = $('#crm-mock-sidebar-objetivos-list');
+        var container = $('#crm-v3-sidebar-objetivos-list');
         if (!container) return;
+        updateTabCounts();
         if (!state.objetivos.length) {
             container.innerHTML = '<div class="text-sm text-base-content/60">Nenhum objetivo registrado.</div>';
             return;
         }
         container.innerHTML = state.objetivos.map(function (o) {
             return (
-                '<div class="crm-mock-objetivo flex items-center gap-2 py-2" data-objetivo-id="' + escapeHtml(o.id) + '">' +
-                '<input type="checkbox" class="checkbox checkbox-xs crm-mock-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
-                '<span class="crm-mock-obj-text text-sm flex-1" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
-                '<span class="crm-mock-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
-                '<div class="crm-mock-obj-actions flex gap-0">' +
-                '<button type="button" class="crm-mock-obj-edit btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
-                '<button type="button" class="crm-mock-obj-delete btn btn-ghost btn-xs btn-square text-error" aria-label="Excluir objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-trash"></i></button>' +
+                '<div class="crm-v3-objetivo flex items-center gap-2 py-2" data-objetivo-id="' + escapeHtml(o.id) + '">' +
+                '<input type="checkbox" class="checkbox checkbox-xs crm-v3-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
+                '<span class="crm-v3-obj-text text-sm flex-1" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
+                '<span class="crm-v3-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
+                '<div class="crm-v3-obj-actions flex gap-0">' +
+                '<button type="button" class="crm-v3-obj-edit btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="crm-v3-obj-delete btn btn-ghost btn-xs btn-square text-error" aria-label="Excluir objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-trash"></i></button>' +
                 '</div></div>'
             );
         }).join('');
 
-        $$('.crm-mock-obj-toggle', container).forEach(function (cb) {
+        $$('.crm-v3-obj-toggle', container).forEach(function (cb) {
             cb.addEventListener('change', function () {
                 var id = cb.closest('[data-objetivo-id]').getAttribute('data-objetivo-id');
                 api('/objetivos/' + encodeURIComponent(id), { method: 'PATCH', body: { concluido: cb.checked } })
@@ -804,26 +968,27 @@
                     .catch(function (err) { cb.checked = !cb.checked; showToast(err.message, true); });
             });
         });
-        $$('.crm-mock-obj-edit', container).forEach(function (btn) {
+        $$('.crm-v3-obj-edit', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var id = btn.getAttribute('data-objetivo-id');
                 openObjetivoModal(state.objetivos.find(function (o) { return o.id === id; }));
             });
         });
-        $$('.crm-mock-obj-delete', container).forEach(function (btn) {
+        $$('.crm-v3-obj-delete', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 state.pendingObjetivoId = btn.getAttribute('data-objetivo-id');
                 var o = state.objetivos.find(function (x) { return x.id === state.pendingObjetivoId; });
-                var txt = $('#crm-mock-confirm-obj-text');
+                var txt = $('#crm-v3-confirm-obj-text');
                 if (txt && o) txt.textContent = 'Excluir objetivo “' + o.texto + '”?';
-                openModal('crm-mock-modal-confirm-obj');
+                openModal('crm-v3-modal-confirm-obj');
             });
         });
     }
 
     function renderCotacoes() {
-        var container = $('#crm-mock-cotacao-list');
+        var container = $('#crm-v3-cotacao-list');
         if (!container) return;
+        updateTabCounts();
         if (!state.cotacoes.length) {
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhuma cotação.</div>';
             return;
@@ -833,28 +998,28 @@
             var numero = c.numero_cotacao || '';
             var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
             return (
-                '<article class="crm-mock-cotacao-card p-2 border border-base-200 rounded-lg mb-2">' +
+                '<article class="crm-v3-cotacao-card p-2 border border-base-200 rounded-lg mb-2">' +
                 '<div class="flex items-start gap-1"><div class="min-w-0 flex-1">' +
-                (numero ? '<div class="crm-mock-cotacao-numero">' + escapeHtml(numero) + '</div>' : '') +
-                '<div class="crm-mock-cotacao-titulo text-sm font-medium">' + escapeHtml(titulo) + '</div></div>' +
+                (numero ? '<div class="crm-v3-cotacao-numero">' + escapeHtml(numero) + '</div>' : '') +
+                '<div class="crm-v3-cotacao-titulo text-sm font-medium">' + escapeHtml(titulo) + '</div></div>' +
                 '<div class="dropdown dropdown-end"><button type="button" class="btn btn-ghost btn-xs btn-square" tabindex="0" aria-label="Ações da cotação"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                 '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-32 border border-base-200 z-50 text-xs">' +
-                '<li><button type="button" class="crm-mock-cotacao-edit" data-cotacao-id="' + escapeHtml(c.id) + '">Editar</button></li>' +
-                '<li><button type="button" class="crm-mock-cotacao-delete text-error" data-cotacao-id="' + escapeHtml(c.id) + '">Excluir</button></li></ul></div></div>' +
-                '<div class="crm-mock-cotacao-valor text-sm font-semibold">' + escapeHtml(c.valor) + '</div>' +
-                '<div class="crm-mock-cotacao-meta flex items-center gap-2 mt-1">' +
+                '<li><button type="button" class="crm-v3-cotacao-edit" data-cotacao-id="' + escapeHtml(c.id) + '">Editar</button></li>' +
+                '<li><button type="button" class="crm-v3-cotacao-delete text-error" data-cotacao-id="' + escapeHtml(c.id) + '">Excluir</button></li></ul></div></div>' +
+                '<div class="crm-v3-cotacao-valor text-sm font-semibold">' + escapeHtml(c.valor) + '</div>' +
+                '<div class="crm-v3-cotacao-meta flex items-center gap-2 mt-1">' +
                 '<span class="' + badgeDaisy(c.status) + '">' + escapeHtml(c.status_label || c.status) + '</span>' +
-                '<span class="crm-mock-cotacao-data text-xs text-base-content/60">' + escapeHtml(periodo || dataParaExibicao(c.data)) + '</span>' +
+                '<span class="crm-v3-cotacao-data text-xs text-base-content/60">' + escapeHtml(periodo || dataParaExibicao(c.data)) + '</span>' +
                 '</div></article>'
             );
         }).join('');
-        $$('.crm-mock-cotacao-edit', container).forEach(function (btn) {
+        $$('.crm-v3-cotacao-edit', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var id = btn.getAttribute('data-cotacao-id');
                 openCotacaoModal(state.cotacoes.find(function (c) { return c.id === id; }));
             });
         });
-        $$('.crm-mock-cotacao-delete', container).forEach(function (btn) {
+        $$('.crm-v3-cotacao-delete', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var id = btn.getAttribute('data-cotacao-id');
                 api('/cotacoes/' + encodeURIComponent(id), { method: 'DELETE' })
@@ -865,8 +1030,9 @@
     }
 
     function renderNotas() {
-        var container = $('#crm-mock-notas-list');
+        var container = $('#crm-v3-notas-list');
         if (!container) return;
+        updateTabCounts();
         if (!state.notas.length) {
             container.innerHTML = '<p class="text-sm text-base-content/60">Nenhuma nota registrada para este cliente.</p>';
             return;
@@ -876,16 +1042,16 @@
                 '<p class="text-sm whitespace-pre-wrap">' + escapeHtml(nota.texto) + '</p>' +
                 '<div class="flex justify-between items-center mt-1"><span class="text-xs text-base-content/50">' +
                 escapeHtml(dataParaExibicao(nota.data) || 'Agora') + '</span>' +
-                '<span><button type="button" class="btn btn-ghost btn-xs crm-mock-nota-edit" aria-label="Editar nota"><i class="fa-solid fa-pen"></i></button>' +
-                '<button type="button" class="btn btn-ghost btn-xs text-error crm-mock-nota-delete" aria-label="Excluir nota"><i class="fa-solid fa-trash"></i></button></span></div></article>';
+                '<span><button type="button" class="btn btn-ghost btn-xs crm-v3-nota-edit" aria-label="Editar nota"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="btn btn-ghost btn-xs text-error crm-v3-nota-delete" aria-label="Excluir nota"><i class="fa-solid fa-trash"></i></button></span></div></article>';
         }).join('');
-        $$('.crm-mock-nota-edit', container).forEach(function (btn) {
+        $$('.crm-v3-nota-edit', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
                 openNotaModal(state.notas.find(function (n) { return n.id === id; }));
             });
         });
-        $$('.crm-mock-nota-delete', container).forEach(function (btn) {
+        $$('.crm-v3-nota-delete', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
                 api('/notas/' + encodeURIComponent(id), { method: 'DELETE' })
@@ -901,7 +1067,7 @@
     }
 
     function loadContatos(clienteId) {
-        var container = $('#crm-mock-lista-contatos');
+        var container = $('#crm-v3-lista-contatos');
         if (container) {
             container.innerHTML = '<div class="p-3"><div class="skeleton h-12 w-full mb-2"></div><div class="skeleton h-12 w-full"></div></div>';
         }
@@ -911,7 +1077,7 @@
             state.contatoId = state.contatos.length ? state.contatos[0].id : null;
             renderContatos();
         }).catch(function (err) {
-            if (container) container.innerHTML = '<div class="crm-mock-contatos-empty p-3">Erro ao carregar contatos.</div>';
+            if (container) container.innerHTML = '<div class="crm-v3-contatos-empty p-3">Erro ao carregar contatos.</div>';
             showToast(err.message, true);
         });
     }
@@ -992,8 +1158,8 @@
                 selectCliente(first.id);
             }
         }).catch(function (err) {
-            var container = $('#crm-mock-lista-clientes');
-            if (container) container.innerHTML = '<div class="crm-mock-contatos-empty p-3">Erro ao carregar clientes.</div>';
+            var container = $('#crm-v3-lista-clientes');
+            if (container) container.innerHTML = '<div class="crm-v3-contatos-empty p-3">Erro ao carregar clientes.</div>';
             showToast(err.message, true);
         });
     }
@@ -1003,125 +1169,249 @@
             showToast('Selecione um cliente primeiro', true);
             return;
         }
-        var form = $('#crm-mock-form-contato');
-        var title = $('#crm-mock-modal-contato-title');
+        var form = $('#crm-v3-form-contato');
+        var title = $('#crm-v3-modal-contato-title');
         if (!form) return;
         form.reset();
-        $('#crm-mock-contato-id').value = contatoId || '';
+        $('#crm-v3-contato-id').value = contatoId || '';
         if (contatoId) {
             var c = state.contatos.find(function (x) { return x.id === contatoId; });
             if (!c) return;
             if (title) title.textContent = 'Editar contato';
-            $('#crm-mock-contato-nome').value = c.nome;
-            $('#crm-mock-contato-email').value = c.email;
-            $('#crm-mock-contato-cargo').value = c.cargo || '';
-            $('#crm-mock-contato-setor').value = c.setor || '';
-            $('#crm-mock-contato-status').value = c.status || 'Ativo';
-            $('#crm-mock-contato-telefone').value = c.telefone || '';
-            $('#crm-mock-contato-telefone2').value = c.telefone_secundario || '';
-            $('#crm-mock-contato-principal').checked = c.principal;
+            $('#crm-v3-contato-nome').value = c.nome;
+            $('#crm-v3-contato-email').value = c.email;
+            $('#crm-v3-contato-cargo').value = c.cargo || '';
+            $('#crm-v3-contato-setor').value = c.setor || '';
+            $('#crm-v3-contato-status').value = c.status || 'Ativo';
+            $('#crm-v3-contato-telefone').value = c.telefone || '';
+            $('#crm-v3-contato-telefone2').value = c.telefone_secundario || '';
+            $('#crm-v3-contato-principal').checked = c.principal;
         } else if (title) title.textContent = 'Novo contato';
-        openModal('crm-mock-modal-contato');
+        openModal('crm-v3-modal-contato');
     }
 
     function openClienteModal(cliente) {
-        var form = $('#crm-mock-form-cliente');
+        var form = $('#crm-v3-form-cliente');
         if (form) form.reset();
-        var id = $('#crm-mock-cliente-id');
-        var title = $('#crm-mock-modal-cliente-title');
-        var submitText = $('#crm-mock-cliente-submit .crm-mock-btn-text');
+        var id = $('#crm-v3-cliente-id');
+        var title = $('#crm-v3-modal-cliente-title');
+        var submitText = $('#crm-v3-cliente-submit .crm-v3-btn-text');
         if (id) id.value = cliente ? cliente.id : '';
         if (title) title.textContent = cliente ? 'Editar cliente' : 'Novo cliente';
         if (submitText) submitText.textContent = cliente ? 'Salvar alterações' : 'Criar cliente';
+
+        var setVal = function (sel, val) {
+            var el = $(sel);
+            if (el) el.value = val == null ? '' : val;
+        };
+        var setChk = function (sel, val) {
+            var el = $(sel);
+            if (el) el.checked = !!val;
+        };
+
         if (cliente) {
-            $('#crm-mock-cliente-nome').value = cliente.nome || '';
-            $('#crm-mock-cliente-perfil').value = cliente.perfil || 'direto';
-            $('#crm-mock-cliente-categoria').value = cliente.tipo || cliente.categoria || 'Privado';
-            $('#crm-mock-cliente-prioridade').value = cliente.prioridade || 'Média';
-            $('#crm-mock-cliente-responsavel').value = cliente.responsavel || 'Luisa Santana';
+            var endereco = cliente.endereco || {};
+            setVal('#crm-v3-cliente-pessoa', cliente.pessoa || 'J');
+            setVal('#crm-v3-cliente-cnpj', cliente.cnpj || cliente.cpf || '');
+            setVal('#crm-v3-cliente-nome', cliente.nome || cliente.nome_fantasia || '');
+            setVal('#crm-v3-cliente-razao', cliente.razao_social || '');
+            setVal('#crm-v3-cliente-ie', cliente.inscricao_estadual || '');
+            setVal('#crm-v3-cliente-im', cliente.inscricao_municipal || '');
+            var tipoLower = (cliente.tipo || cliente.categoria || '').toLowerCase();
+            setVal('#crm-v3-cliente-tipo', tipoLower === 'público' ? 'publico' : (tipoLower === 'privado' ? 'privado' : (cliente.id_tipo_cliente || '')));
+            setVal('#crm-v3-cliente-perfil', cliente.perfil || (cliente.is_agencia ? 'agencia' : 'direto'));
+
+            setVal('#crm-v3-cliente-cep', endereco.cep || cliente.cep || '');
+            setVal('#crm-v3-cliente-uf', endereco.uf || cliente.uf || '');
+            setVal('#crm-v3-cliente-cidade', endereco.cidade || cliente.cidade || '');
+            setVal('#crm-v3-cliente-bairro', endereco.bairro || cliente.bairro || '');
+            setVal('#crm-v3-cliente-logradouro', endereco.logradouro || cliente.logradouro || '');
+            setVal('#crm-v3-cliente-numero', endereco.numero || cliente.numero || '');
+            setVal('#crm-v3-cliente-complemento', endereco.complemento || cliente.complemento || '');
+
+            setVal('#crm-v3-cliente-classificacao', cliente.classificacao_cliente || cliente.classificacao || 'Prospecção');
+            setVal('#crm-v3-cliente-responsavel', cliente.responsavel || 'Luisa Santana');
+            setVal('#crm-v3-cliente-prioridade', cliente.prioridade || 'Média');
+            setVal('#crm-v3-cliente-bv', cliente.bv_percentual != null ? cliente.bv_percentual : '');
+            setVal('#crm-v3-cliente-margem', cliente.margem_cc != null ? cliente.margem_cc : '');
+            setChk('#crm-v3-cliente-opera-midia', cliente.opera_midia);
+            setChk('#crm-v3-cliente-demanda-dados', cliente.demanda_dados);
+            setChk('#crm-v3-cliente-programatica', cliente.demanda_programatica_canais);
+            setVal('#crm-v3-cliente-obs', cliente.observacoes_comerciais_adicionais || cliente.observacoes || '');
+
+            renderAgenciasVinculadas(cliente);
+        } else {
+            renderAgenciasVinculadas(null);
         }
-        openModal('crm-mock-modal-cliente');
+        openModal('crm-v3-modal-cliente');
+    }
+
+    function renderAgenciasVinculadas(cliente) {
+        var list = $('#crm-v3-cliente-agencias-list');
+        if (!list) return;
+        var agencias = (state.clientes || []).filter(function (c) { return c.is_agencia; });
+        var vinculos = [];
+        if (cliente) {
+            if (Array.isArray(cliente.agencias_vinculadas) && cliente.agencias_vinculadas.length) {
+                vinculos = cliente.agencias_vinculadas.slice();
+            } else if (cliente.agencia_id) {
+                vinculos.push({ agencia_id: cliente.agencia_id, is_principal: true });
+            }
+        }
+        if (!vinculos.length) vinculos.push({ agencia_id: '', is_principal: true });
+
+        list.innerHTML = vinculos.map(function (v, idx) {
+            var opts = ['<option value="">— Selecionar agência —</option>'].concat(
+                agencias.map(function (a) {
+                    var sel = a.id === v.agencia_id ? ' selected' : '';
+                    return '<option value="' + escapeHtml(a.id) + '"' + sel + '>' + escapeHtml(a.nome) + '</option>';
+                })
+            ).join('');
+            return (
+                '<div class="crm-v3-agencia-row" data-idx="' + idx + '">' +
+                '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts + '</select>' +
+                '<label class="crm-v3-agencia-principal">' +
+                '<input type="radio" name="crm-v3-agencia-principal" class="radio radio-xs" ' + (v.is_principal ? 'checked' : '') + ' />' +
+                '<span>Principal</span></label>' +
+                '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>' +
+                '</div>'
+            );
+        }).join('');
+
+        $$('.crm-v3-agencia-remove', list).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var row = btn.closest('.crm-v3-agencia-row');
+                if (row) row.remove();
+                // Garantir que sempre haja um marcado como principal
+                var radios = $$('input[name="crm-v3-agencia-principal"]', list);
+                if (radios.length && !radios.some(function (r) { return r.checked; })) {
+                    radios[0].checked = true;
+                }
+            });
+        });
+
+        var addBtn = $('#crm-v3-cliente-agencia-add');
+        if (addBtn && !addBtn.__bound) {
+            addBtn.__bound = true;
+            addBtn.addEventListener('click', function () {
+                var idx = list.children.length;
+                var opts = ['<option value="">— Selecionar agência —</option>'].concat(
+                    (state.clientes || []).filter(function (c) { return c.is_agencia; })
+                        .map(function (a) { return '<option value="' + escapeHtml(a.id) + '">' + escapeHtml(a.nome) + '</option>'; })
+                ).join('');
+                var wrap = document.createElement('div');
+                wrap.className = 'crm-v3-agencia-row';
+                wrap.setAttribute('data-idx', String(idx));
+                wrap.innerHTML = (
+                    '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts + '</select>' +
+                    '<label class="crm-v3-agencia-principal">' +
+                    '<input type="radio" name="crm-v3-agencia-principal" class="radio radio-xs" />' +
+                    '<span>Principal</span></label>' +
+                    '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>'
+                );
+                list.appendChild(wrap);
+                wrap.querySelector('.crm-v3-agencia-remove').addEventListener('click', function () {
+                    wrap.remove();
+                });
+            });
+        }
+    }
+
+    function coletarAgenciasVinculadas() {
+        var list = $('#crm-v3-cliente-agencias-list');
+        if (!list) return [];
+        var rows = $$('.crm-v3-agencia-row', list);
+        var vinculos = [];
+        rows.forEach(function (row) {
+            var sel = row.querySelector('.crm-v3-agencia-select');
+            var principal = row.querySelector('input[name="crm-v3-agencia-principal"]');
+            var val = sel ? sel.value : '';
+            if (val) {
+                vinculos.push({ agencia_id: val, is_principal: !!(principal && principal.checked) });
+            }
+        });
+        return vinculos;
     }
 
     function openAtividadeModal(ativ) {
-        var form = $('#crm-mock-form-atividade');
-        var title = $('#crm-mock-modal-atividade-title');
+        var form = $('#crm-v3-form-atividade');
+        var title = $('#crm-v3-modal-atividade-title');
         if (!form) return;
         form.reset();
-        $('#crm-mock-atividade-id').value = ativ ? ativ.id : '';
+        $('#crm-v3-atividade-id').value = ativ ? ativ.id : '';
         if (title) title.textContent = ativ ? 'Editar atividade' : 'Nova atividade';
         if (ativ) {
-            $('#crm-mock-atividade-titulo').value = ativ.titulo || '';
-            $('#crm-mock-atividade-desc').value = ativ.descricao || '';
-            $('#crm-mock-atividade-prioridade').value = ativ.prioridade || 'Média';
-            $('#crm-mock-atividade-hora').value = ativ.hora || '';
-            $('#crm-mock-atividade-data').value = ativ.data || '';
-            $('#crm-mock-atividade-tipo').value = ativ.tipo || 'atividade';
-            $('#crm-mock-atividade-responsavel').value = ativ.responsavel || 'LS';
+            $('#crm-v3-atividade-titulo').value = ativ.titulo || '';
+            $('#crm-v3-atividade-desc').value = ativ.descricao || '';
+            $('#crm-v3-atividade-prioridade').value = ativ.prioridade || 'Média';
+            $('#crm-v3-atividade-hora').value = ativ.hora || '';
+            $('#crm-v3-atividade-data').value = ativ.data || '';
+            $('#crm-v3-atividade-tipo').value = ativ.tipo || 'atividade';
+            $('#crm-v3-atividade-responsavel').value = ativ.responsavel || 'LS';
         }
-        openModal('crm-mock-modal-atividade');
+        openModal('crm-v3-modal-atividade');
     }
 
     function openObjetivoModal(objetivo) {
-        var form = $('#crm-mock-form-objetivo');
+        var form = $('#crm-v3-form-objetivo');
         if (!form) return;
         form.reset();
-        $('#crm-mock-objetivo-id').value = objetivo ? objetivo.id : '';
-        $('#crm-mock-modal-objetivo-title').textContent = objetivo ? 'Editar objetivo' : 'Novo objetivo';
+        $('#crm-v3-objetivo-id').value = objetivo ? objetivo.id : '';
+        $('#crm-v3-modal-objetivo-title').textContent = objetivo ? 'Editar objetivo' : 'Novo objetivo';
         if (objetivo) {
-            $('#crm-mock-objetivo-texto').value = objetivo.texto || '';
-            $('#crm-mock-objetivo-prazo').value = dataParaInput(objetivo.prazo);
+            $('#crm-v3-objetivo-texto').value = objetivo.texto || '';
+            $('#crm-v3-objetivo-prazo').value = dataParaInput(objetivo.prazo);
         }
-        openModal('crm-mock-modal-objetivo');
+        openModal('crm-v3-modal-objetivo');
     }
 
     function openCotacaoModal(cotacao) {
-        var form = $('#crm-mock-form-cotacao');
+        var form = $('#crm-v3-form-cotacao');
         if (form) form.reset();
-        $('#crm-mock-cotacao-id').value = cotacao ? cotacao.id : '';
-        $('#crm-mock-modal-cotacao-title').textContent = cotacao ? 'Editar cotação' : 'Nova cotação';
-        var inicio = $('#crm-mock-cotacao-inicio');
-        var fim = $('#crm-mock-cotacao-fim');
+        $('#crm-v3-cotacao-id').value = cotacao ? cotacao.id : '';
+        $('#crm-v3-modal-cotacao-title').textContent = cotacao ? 'Editar cotação' : 'Nova cotação';
+        var inicio = $('#crm-v3-cotacao-inicio');
+        var fim = $('#crm-v3-cotacao-fim');
         if (inicio) inicio.value = cotacao ? dataParaInput(cotacao.periodo_inicio || cotacao.data) : new Date().toISOString().slice(0, 10);
         if (fim) fim.value = cotacao ? dataParaInput(cotacao.periodo_fim) : '';
         if (cotacao) {
-            $('#crm-mock-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
-            $('#crm-mock-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
-            $('#crm-mock-cotacao-status').value = cotacao.status || 'rascunho';
+            $('#crm-v3-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
+            $('#crm-v3-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
+            $('#crm-v3-cotacao-status').value = cotacao.status || 'rascunho';
         }
-        openModal('crm-mock-modal-cotacao');
+        openModal('crm-v3-modal-cotacao');
     }
 
     function openNotaModal(nota) {
-        var form = $('#crm-mock-form-nota');
+        var form = $('#crm-v3-form-nota');
         if (!form) return;
         form.reset();
-        $('#crm-mock-nota-id').value = nota ? nota.id : '';
-        $('#crm-mock-modal-nota-title').textContent = nota ? 'Editar nota' : 'Nova nota';
-        $('#crm-mock-nota-texto').value = nota ? nota.texto : '';
-        openModal('crm-mock-modal-nota');
+        $('#crm-v3-nota-id').value = nota ? nota.id : '';
+        $('#crm-v3-modal-nota-title').textContent = nota ? 'Editar nota' : 'Nova nota';
+        $('#crm-v3-nota-texto').value = nota ? nota.texto : '';
+        openModal('crm-v3-modal-nota');
     }
 
     function setImportStep(step) {
-        var steps = $('#crm-mock-import-steps');
+        var steps = $('#crm-v3-import-steps');
         if (steps) {
             $$('.step', steps).forEach(function (s) {
                 var n = parseInt(s.getAttribute('data-step'), 10);
                 s.classList.toggle('step-primary', n <= step);
             });
         }
-        $('#crm-mock-import-step-1').hidden = step !== 1;
-        $('#crm-mock-import-step-2').hidden = step !== 2;
-        $('#crm-mock-import-step-3').hidden = step !== 3;
-        var err = $('#crm-mock-import-error');
+        $('#crm-v3-import-step-1').hidden = step !== 1;
+        $('#crm-v3-import-step-2').hidden = step !== 2;
+        $('#crm-v3-import-step-3').hidden = step !== 3;
+        var err = $('#crm-v3-import-error');
         if (err) err.hidden = true;
     }
 
     function openImportModal() {
         state.importRows = [];
-        $('#crm-mock-import-texto').value = '';
+        $('#crm-v3-import-texto').value = '';
         setImportStep(1);
-        openModal('crm-mock-modal-import');
+        openModal('crm-v3-modal-import');
     }
 
     function initModals() {
@@ -1131,34 +1421,34 @@
             });
         });
 
-        $$('.crm-mock-modal').forEach(function (dialog) {
+        $$('.crm-v3-modal').forEach(function (dialog) {
             dialog.addEventListener('click', function (e) {
                 if (e.target === dialog) closeModal(dialog.id);
             });
         });
 
-        var formContato = $('#crm-mock-form-contato');
+        var formContato = $('#crm-v3-form-contato');
         if (formContato) {
             formContato.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var btn = $('#crm-mock-contato-submit');
-                var contatoId = $('#crm-mock-contato-id').value;
+                var btn = $('#crm-v3-contato-submit');
+                var contatoId = $('#crm-v3-contato-id').value;
                 var body = {
-                    nome: $('#crm-mock-contato-nome').value,
-                    email: $('#crm-mock-contato-email').value,
-                    cargo: $('#crm-mock-contato-cargo').value,
-                    setor: $('#crm-mock-contato-setor').value,
-                    status: $('#crm-mock-contato-status').value,
-                    telefone: $('#crm-mock-contato-telefone').value,
-                    telefone_secundario: $('#crm-mock-contato-telefone2').value,
-                    principal: $('#crm-mock-contato-principal').checked
+                    nome: $('#crm-v3-contato-nome').value,
+                    email: $('#crm-v3-contato-email').value,
+                    cargo: $('#crm-v3-contato-cargo').value,
+                    setor: $('#crm-v3-contato-setor').value,
+                    status: $('#crm-v3-contato-status').value,
+                    telefone: $('#crm-v3-contato-telefone').value,
+                    telefone_secundario: $('#crm-v3-contato-telefone2').value,
+                    principal: $('#crm-v3-contato-principal').checked
                 };
                 setBtnLoading(btn, true);
                 var req = contatoId
                     ? api('/contatos/' + encodeURIComponent(contatoId), { method: 'PATCH', body: body })
                     : api('/clientes/' + encodeURIComponent(state.clienteId) + '/contatos', { method: 'POST', body: body });
                 req.then(function (data) {
-                    closeModal('crm-mock-modal-contato');
+                    closeModal('crm-v3-modal-contato');
                     showToast(contatoId ? 'Contato atualizado' : 'Contato criado');
                     if (data.cliente_id) state.clienteId = data.cliente_id;
                     return loadClientes();
@@ -1167,29 +1457,58 @@
             });
         }
 
-        var formCliente = $('#crm-mock-form-cliente');
+        var formCliente = $('#crm-v3-form-cliente');
         if (formCliente) {
             formCliente.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var btn = $('#crm-mock-cliente-submit');
-                var clienteId = $('#crm-mock-cliente-id').value;
-                var perfil = $('#crm-mock-cliente-perfil').value;
-                var tipoCliente = $('#crm-mock-cliente-categoria').value;
+                var btn = $('#crm-v3-cliente-submit');
+                var clienteId = $('#crm-v3-cliente-id').value;
+                var perfil = $('#crm-v3-cliente-perfil').value;
+                var tipoValue = $('#crm-v3-cliente-tipo').value;
+                var tipoLabel = tipoValue === 'publico' ? 'Público' : (tipoValue === 'privado' ? 'Privado' : '');
                 var body = {
-                    nome: $('#crm-mock-cliente-nome').value,
+                    // Identificação
+                    pessoa: $('#crm-v3-cliente-pessoa').value,
+                    cnpj: $('#crm-v3-cliente-cnpj').value,
+                    nome: $('#crm-v3-cliente-nome').value,
+                    razao_social: $('#crm-v3-cliente-razao').value,
+                    inscricao_estadual: $('#crm-v3-cliente-ie').value,
+                    inscricao_municipal: $('#crm-v3-cliente-im').value,
+                    id_tipo_cliente: tipoValue,
                     perfil: perfil,
+                    is_agencia: perfil === 'agencia',
                     tipo_label: perfil === 'agencia' ? 'Agência' : 'Cliente final',
-                    categoria: tipoCliente,
-                    tipo: tipoCliente,
-                    prioridade: $('#crm-mock-cliente-prioridade').value,
-                    responsavel: $('#crm-mock-cliente-responsavel').value
+                    tipo: tipoLabel,
+                    categoria: tipoLabel,
+                    // Endereço
+                    endereco: {
+                        cep: $('#crm-v3-cliente-cep').value,
+                        uf: $('#crm-v3-cliente-uf').value,
+                        cidade: $('#crm-v3-cliente-cidade').value,
+                        bairro: $('#crm-v3-cliente-bairro').value,
+                        logradouro: $('#crm-v3-cliente-logradouro').value,
+                        numero: $('#crm-v3-cliente-numero').value,
+                        complemento: $('#crm-v3-cliente-complemento').value
+                    },
+                    // Comercial
+                    classificacao_cliente: $('#crm-v3-cliente-classificacao').value,
+                    responsavel: $('#crm-v3-cliente-responsavel').value,
+                    prioridade: $('#crm-v3-cliente-prioridade').value,
+                    bv_percentual: parseFloat($('#crm-v3-cliente-bv').value) || 0,
+                    margem_cc: parseFloat($('#crm-v3-cliente-margem').value) || 0,
+                    opera_midia: $('#crm-v3-cliente-opera-midia').checked,
+                    demanda_dados: $('#crm-v3-cliente-demanda-dados').checked,
+                    demanda_programatica_canais: $('#crm-v3-cliente-programatica').checked,
+                    observacoes_comerciais_adicionais: $('#crm-v3-cliente-obs').value,
+                    // Vínculos
+                    agencias_vinculadas: coletarAgenciasVinculadas()
                 };
                 setBtnLoading(btn, true);
                 var req = clienteId
                     ? api('/clientes/' + encodeURIComponent(clienteId), { method: 'PATCH', body: body })
                     : api('/clientes', { method: 'POST', body: body });
                 req.then(function (data) {
-                    closeModal('crm-mock-modal-cliente');
+                    closeModal('crm-v3-modal-cliente');
                     showToast(clienteId ? 'Cliente atualizado' : 'Cliente criado');
                     state.clienteId = (data.cliente && data.cliente.id) || clienteId;
                     return loadClientes();
@@ -1198,7 +1517,7 @@
             });
         }
 
-        var formAtiv = $('#crm-mock-form-atividade');
+        var formAtiv = $('#crm-v3-form-atividade');
         if (formAtiv) {
             formAtiv.addEventListener('submit', function (e) {
                 e.preventDefault();
@@ -1206,24 +1525,24 @@
                     showToast('Selecione um cliente', true);
                     return;
                 }
-                var btn = $('#crm-mock-atividade-submit');
-                var ativId = $('#crm-mock-atividade-id').value;
+                var btn = $('#crm-v3-atividade-submit');
+                var ativId = $('#crm-v3-atividade-id').value;
                 var body = {
-                    titulo: $('#crm-mock-atividade-titulo').value,
-                    descricao: $('#crm-mock-atividade-desc').value,
-                    prioridade: $('#crm-mock-atividade-prioridade').value,
-                    hora: $('#crm-mock-atividade-hora').value,
-                    data: $('#crm-mock-atividade-data').value,
-                    data_label: $('#crm-mock-atividade-data').value ? 'Agendada' : 'Hoje',
-                    tipo: $('#crm-mock-atividade-tipo').value,
-                    responsavel: $('#crm-mock-atividade-responsavel').value
+                    titulo: $('#crm-v3-atividade-titulo').value,
+                    descricao: $('#crm-v3-atividade-desc').value,
+                    prioridade: $('#crm-v3-atividade-prioridade').value,
+                    hora: $('#crm-v3-atividade-hora').value,
+                    data: $('#crm-v3-atividade-data').value,
+                    data_label: $('#crm-v3-atividade-data').value ? 'Agendada' : 'Hoje',
+                    tipo: $('#crm-v3-atividade-tipo').value,
+                    responsavel: $('#crm-v3-atividade-responsavel').value
                 };
                 setBtnLoading(btn, true);
                 var req = ativId
                     ? api('/atividades/' + encodeURIComponent(ativId), { method: 'PATCH', body: body })
                     : api('/clientes/' + encodeURIComponent(state.clienteId) + '/atividades', { method: 'POST', body: body });
                 req.then(function () {
-                    closeModal('crm-mock-modal-atividade');
+                    closeModal('crm-v3-modal-atividade');
                     showToast(ativId ? 'Atividade atualizada' : 'Atividade criada');
                     return loadAtividades(state.clienteId);
                 }).catch(function (err) { showToast(err.message, true); })
@@ -1231,22 +1550,22 @@
             });
         }
 
-        var formObjetivo = $('#crm-mock-form-objetivo');
+        var formObjetivo = $('#crm-v3-form-objetivo');
         if (formObjetivo) {
             formObjetivo.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var btn = $('#crm-mock-objetivo-submit');
-                var objetivoId = $('#crm-mock-objetivo-id').value;
+                var btn = $('#crm-v3-objetivo-submit');
+                var objetivoId = $('#crm-v3-objetivo-id').value;
                 var body = {
-                    texto: $('#crm-mock-objetivo-texto').value,
-                    prazo: $('#crm-mock-objetivo-prazo').value
+                    texto: $('#crm-v3-objetivo-texto').value,
+                    prazo: $('#crm-v3-objetivo-prazo').value
                 };
                 setBtnLoading(btn, true);
                 var req = objetivoId
                     ? api('/objetivos/' + encodeURIComponent(objetivoId), { method: 'PATCH', body: body })
                     : api('/clientes/' + encodeURIComponent(state.clienteId) + '/objetivos', { method: 'POST', body: body });
                 req.then(function () {
-                    closeModal('crm-mock-modal-objetivo');
+                    closeModal('crm-v3-modal-objetivo');
                     showToast(objetivoId ? 'Objetivo atualizado' : 'Objetivo criado');
                     return loadObjetivos(state.clienteId);
                 }).catch(function (err) { showToast(err.message, true); })
@@ -1254,16 +1573,16 @@
             });
         }
 
-        var formCotacao = $('#crm-mock-form-cotacao');
+        var formCotacao = $('#crm-v3-form-cotacao');
         if (formCotacao) {
             formCotacao.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var btn = $('#crm-mock-cotacao-submit');
-                var cotacaoId = $('#crm-mock-cotacao-id').value;
-                var status = $('#crm-mock-cotacao-status').value;
-                var titulo = $('#crm-mock-cotacao-titulo').value;
-                var valor = $('#crm-mock-cotacao-valor').value;
-                var inicio = $('#crm-mock-cotacao-inicio').value;
+                var btn = $('#crm-v3-cotacao-submit');
+                var cotacaoId = $('#crm-v3-cotacao-id').value;
+                var status = $('#crm-v3-cotacao-status').value;
+                var titulo = $('#crm-v3-cotacao-titulo').value;
+                var valor = $('#crm-v3-cotacao-valor').value;
+                var inicio = $('#crm-v3-cotacao-inicio').value;
                 var body = {
                     titulo: titulo,
                     nome_campanha: titulo,
@@ -1280,7 +1599,7 @@
                     }[status],
                     data: inicio,
                     periodo_inicio: inicio,
-                    periodo_fim: $('#crm-mock-cotacao-fim').value
+                    periodo_fim: $('#crm-v3-cotacao-fim').value
                 };
                 setBtnLoading(btn, true);
                 var req = cotacaoId
@@ -1288,7 +1607,7 @@
                     : api('/clientes/' + encodeURIComponent(state.clienteId) + '/cotacoes', { method: 'POST', body: body });
                 req
                     .then(function () {
-                        closeModal('crm-mock-modal-cotacao');
+                        closeModal('crm-v3-modal-cotacao');
                         showToast(cotacaoId ? 'Cotação atualizada' : 'Cotação criada');
                         return loadCotacoes(state.clienteId);
                     }).catch(function (err) { showToast(err.message, true); })
@@ -1296,18 +1615,18 @@
             });
         }
 
-        var formNota = $('#crm-mock-form-nota');
+        var formNota = $('#crm-v3-form-nota');
         if (formNota) {
             formNota.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var btn = $('#crm-mock-nota-submit');
-                var notaId = $('#crm-mock-nota-id').value;
+                var btn = $('#crm-v3-nota-submit');
+                var notaId = $('#crm-v3-nota-id').value;
                 setBtnLoading(btn, true);
                 var req = notaId
-                    ? api('/notas/' + encodeURIComponent(notaId), { method: 'PATCH', body: { texto: $('#crm-mock-nota-texto').value } })
-                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/notas', { method: 'POST', body: { texto: $('#crm-mock-nota-texto').value } });
+                    ? api('/notas/' + encodeURIComponent(notaId), { method: 'PATCH', body: { texto: $('#crm-v3-nota-texto').value } })
+                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/notas', { method: 'POST', body: { texto: $('#crm-v3-nota-texto').value } });
                 req.then(function () {
-                    closeModal('crm-mock-modal-nota');
+                    closeModal('crm-v3-modal-nota');
                     showToast(notaId ? 'Nota atualizada' : 'Nota adicionada');
                     formNota.reset();
                     return loadNotas(state.clienteId);
@@ -1316,10 +1635,10 @@
             });
         }
 
-        var processarBtn = $('#crm-mock-import-processar');
+        var processarBtn = $('#crm-v3-import-processar');
         if (processarBtn) {
             processarBtn.addEventListener('click', function () {
-                var texto = ($('#crm-mock-import-texto').value || '').trim();
+                var texto = ($('#crm-v3-import-texto').value || '').trim();
                 if (!texto) {
                     showToast('Cole a lista de contatos', true);
                     return;
@@ -1329,7 +1648,7 @@
                     .then(function (data) {
                         state.importRows = data.contatos || [];
                         if (!state.importRows.length) {
-                            var err = $('#crm-mock-import-error');
+                            var err = $('#crm-v3-import-error');
                             if (err) { err.textContent = 'Nenhum contato reconhecido.'; err.hidden = false; }
                             return;
                         }
@@ -1337,29 +1656,29 @@
                         setImportStep(2);
                     })
                     .catch(function (err) {
-                        var el = $('#crm-mock-import-error');
+                        var el = $('#crm-v3-import-error');
                         if (el) { el.textContent = err.message; el.hidden = false; }
                     })
                     .finally(function () { setBtnLoading(processarBtn, false); });
             });
         }
 
-        var next2 = $('#crm-mock-import-next-2');
+        var next2 = $('#crm-v3-import-next-2');
         if (next2) next2.addEventListener('click', function () {
             collectImportRowsFromTable();
             if (!validarImportRows()) return;
-            var msg = $('#crm-mock-import-confirm-msg');
+            var msg = $('#crm-v3-import-confirm-msg');
             if (msg) msg.textContent = 'Confirmar importação de ' + state.importRows.length + ' contato(s)?';
             setImportStep(3);
         });
 
-        var back1 = $('#crm-mock-import-back-1');
+        var back1 = $('#crm-v3-import-back-1');
         if (back1) back1.addEventListener('click', function () { setImportStep(1); });
 
-        var back2 = $('#crm-mock-import-back-2');
+        var back2 = $('#crm-v3-import-back-2');
         if (back2) back2.addEventListener('click', function () { setImportStep(2); });
 
-        var importSubmit = $('#crm-mock-import-submit');
+        var importSubmit = $('#crm-v3-import-submit');
         if (importSubmit) {
             importSubmit.addEventListener('click', function () {
                 if (!state.clienteId) {
@@ -1373,7 +1692,7 @@
                     method: 'POST',
                     body: { contatos: state.importRows }
                 }).then(function (data) {
-                    closeModal('crm-mock-modal-import');
+                    closeModal('crm-v3-modal-import');
                     showToast((data.importados || state.importRows.length) + ' contato(s) importado(s)');
                     return loadClientes();
                 }).catch(function (err) { showToast(err.message, true); })
@@ -1381,13 +1700,13 @@
             });
         }
 
-        var confirmObj = $('#crm-mock-confirm-obj-btn');
+        var confirmObj = $('#crm-v3-confirm-obj-btn');
         if (confirmObj) {
             confirmObj.addEventListener('click', function () {
                 if (!state.pendingObjetivoId) return;
                 api('/objetivos/' + encodeURIComponent(state.pendingObjetivoId), { method: 'DELETE' })
                     .then(function () {
-                        closeModal('crm-mock-modal-confirm-obj');
+                        closeModal('crm-v3-modal-confirm-obj');
                         showToast('Objetivo excluído');
                         return loadObjetivos(state.clienteId);
                     })
@@ -1397,8 +1716,8 @@
     }
 
     function renderImportTable() {
-        var tbody = $('#crm-mock-import-table tbody');
-        var count = $('#crm-mock-import-review-count');
+        var tbody = $('#crm-v3-import-table tbody');
+        var count = $('#crm-v3-import-review-count');
         if (!tbody) return;
         tbody.innerHTML = state.importRows.map(function (r, i) {
             return (
@@ -1415,7 +1734,7 @@
     }
 
     function collectImportRowsFromTable() {
-        var rows = $$('#crm-mock-import-table tbody tr');
+        var rows = $$('#crm-v3-import-table tbody tr');
         state.importRows = rows.map(function (tr) {
             return {
                 nome: (tr.querySelector('.crm-import-nome').value || '').trim(),
@@ -1428,7 +1747,7 @@
     }
 
     function validarImportRows() {
-        var erro = $('#crm-mock-import-error');
+        var erro = $('#crm-v3-import-error');
         if (!state.importRows.length) {
             if (erro) {
                 erro.textContent = 'Nenhum contato válido para importar.';
@@ -1452,7 +1771,7 @@
     function initTabs(groupName) {
         var tabContainer = document.querySelector('[data-tab-group="' + groupName + '"]');
         if (!tabContainer) return;
-        var tabs = tabContainer.querySelectorAll('.crm-mock-tab, .tab');
+        var tabs = tabContainer.querySelectorAll('.crm-v3-tab, .tab');
 
         function activateTab(tab) {
             var target = tab.getAttribute('data-tab');
@@ -1466,7 +1785,7 @@
             tab.setAttribute('tabindex', '0');
             document.querySelectorAll('[data-panel-group="' + groupName + '"]').forEach(function (panel) {
                 var isTarget = panel.getAttribute('data-panel') === target;
-                panel.classList.toggle('crm-mock-tab-panel-active', isTarget);
+                panel.classList.toggle('crm-v3-tab-panel-active', isTarget);
                 if (panel.hasAttribute('hidden')) panel.hidden = !isTarget;
             });
             if (groupName === 'atividades') {
@@ -1493,9 +1812,9 @@
     }
 
     function initFilters() {
-        $$('.crm-mock-pill').forEach(function (pill) {
+        $$('.crm-v3-pill').forEach(function (pill) {
             pill.addEventListener('click', function () {
-                $$('.crm-mock-pill').forEach(function (p) {
+                $$('.crm-v3-pill').forEach(function (p) {
                     p.classList.remove('is-active');
                     p.setAttribute('aria-pressed', 'false');
                 });
@@ -1507,7 +1826,7 @@
             });
         });
 
-        var buscaCliente = $('#crm-mock-busca');
+        var buscaCliente = $('#crm-v3-busca');
         if (buscaCliente) {
             buscaCliente.addEventListener('input', function () {
                 state.buscaCliente = buscaCliente.value;
@@ -1516,7 +1835,7 @@
             });
         }
 
-        var buscaContato = $('#crm-mock-busca-contato');
+        var buscaContato = $('#crm-v3-busca-contato');
         if (buscaContato) {
             buscaContato.addEventListener('input', function () {
                 state.buscaContato = buscaContato.value;
@@ -1578,7 +1897,7 @@
         var url = URL.createObjectURL(blob);
         var link = document.createElement('a');
         link.href = url;
-        link.download = 'clientes-crm-mock.csv';
+        link.download = 'clientes-crm-v3.csv';
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -1587,12 +1906,12 @@
     }
 
     function initButtons() {
-        var novoCliente = $('#crm-mock-btn-novo-cliente-header');
+        var novoCliente = $('#crm-v3-btn-novo-cliente-header');
         if (novoCliente) novoCliente.addEventListener('click', function () { openClienteModal(null); });
-        var novoClienteLista = $('#crm-mock-btn-novo-cliente-lista');
+        var novoClienteLista = $('#crm-v3-btn-novo-cliente-lista');
         if (novoClienteLista) novoClienteLista.addEventListener('click', function () { openClienteModal(null); });
 
-        var limpar = $('#crm-mock-btn-limpar-filtros');
+        var limpar = $('#crm-v3-btn-limpar-filtros');
         if (limpar) limpar.addEventListener('click', function () {
             state.filtroPill = 'todos';
             state.filtroExecutivo = '';
@@ -1600,11 +1919,11 @@
             state.filtroPerfil = '';
             state.buscaCliente = '';
             state.paginaCliente = 1;
-            $('#crm-mock-busca').value = '';
+            $('#crm-v3-busca').value = '';
             $('#filtro-executivo').value = '';
             $('#filtro-tipo').value = '';
             $('#filtro-perfil').value = '';
-            $$('.crm-mock-pill').forEach(function (pill) {
+            $$('.crm-v3-pill').forEach(function (pill) {
                 var active = pill.getAttribute('data-filter') === 'todos';
                 pill.classList.toggle('is-active', active);
                 pill.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1612,15 +1931,15 @@
             renderClientes();
         });
 
-        var exportar = $('#crm-mock-btn-exportar');
+        var exportar = $('#crm-v3-btn-exportar');
         if (exportar) exportar.addEventListener('click', exportarClientesCsv);
-        var exportarHeader = $('.crm-mock-header-action-export');
+        var exportarHeader = $('.crm-v3-header-action-export');
         if (exportarHeader) exportarHeader.addEventListener('click', exportarClientesCsv);
-        var editarHeader = $('.crm-mock-header-action-edit');
+        var editarHeader = $('.crm-v3-header-action-edit');
         if (editarHeader) editarHeader.addEventListener('click', function () { openClienteModal(state.cliente); });
 
-        var prev = $('#crm-mock-page-prev');
-        var next = $('#crm-mock-page-next');
+        var prev = $('#crm-v3-page-prev');
+        var next = $('#crm-v3-page-next');
         if (prev) prev.addEventListener('click', function () {
             if (state.paginaCliente > 1) { state.paginaCliente--; renderClientes(); }
         });
@@ -1629,62 +1948,47 @@
             renderClientes();
         });
 
-        var novoContato = $('#crm-mock-btn-novo-contato');
+        var novoContato = $('#crm-v3-btn-novo-contato');
         if (novoContato) novoContato.addEventListener('click', function () { openContatoModal(); });
 
-        var importBtn = $('#crm-mock-btn-import-contatos');
+        var importBtn = $('#crm-v3-btn-import-contatos');
         if (importBtn) importBtn.addEventListener('click', openImportModal);
 
-        var novaAtiv = $('#crm-mock-btn-nova-atividade');
+        var novaAtiv = $('#crm-v3-btn-nova-atividade');
         if (novaAtiv) novaAtiv.addEventListener('click', function () { openAtividadeModal(null); });
 
-        var agendar = $('#crm-mock-btn-agendar');
+        var agendar = $('#crm-v3-btn-agendar');
         if (agendar) agendar.addEventListener('click', function () { openAtividadeModal(null); });
 
-        var novoObjetivo = $('#crm-mock-btn-novo-objetivo');
+        var novoObjetivo = $('#crm-v3-btn-novo-objetivo');
         if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });
-        var novaCotacao = $('#crm-mock-btn-nova-cotacao');
+        var novaCotacao = $('#crm-v3-btn-nova-cotacao');
         if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
-        var novaNota = $('#crm-mock-btn-nova-nota');
+        var novaNota = $('#crm-v3-btn-nova-nota');
         if (novaNota) novaNota.addEventListener('click', function () { openNotaModal(null); });
-        var expandir = $('#crm-mock-btn-expandir-cotacoes');
+        var expandir = $('#crm-v3-btn-expandir-cotacoes');
         if (expandir) expandir.addEventListener('click', function () {
-            var painel = $('.crm-mock-center-right');
+            var painel = $('.crm-v3-center-right');
             var expanded = painel.classList.toggle('is-expanded');
             expandir.setAttribute('aria-pressed', expanded ? 'true' : 'false');
             expandir.querySelector('i').className = expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
         });
 
-        var seguir = $('#crm-mock-seguir-toggle');
-        if (seguir) seguir.addEventListener('click', function () {
-            if (!state.cliente) return;
-            seguir.disabled = true;
-            api('/clientes/' + encodeURIComponent(state.cliente.id), {
-                method: 'PATCH',
-                body: { seguindo: !state.cliente.seguindo }
-            }).then(function (data) {
-                state.cliente = data.cliente;
-                var idx = state.clientes.findIndex(function (c) { return c.id === state.cliente.id; });
-                if (idx !== -1) state.clientes[idx] = data.cliente;
-                updateDetailPanel(state.cliente);
-                renderClientes();
-                showToast(state.cliente.seguindo ? 'Cliente seguido' : 'Você deixou de seguir o cliente');
-            }).catch(function (err) { showToast(err.message, true); })
-                .finally(function () { seguir.disabled = false; });
-        });
+        // O toggle Seguir/Deixar de seguir foi removido da UI. Filtro por
+        // "Seguindo" continua funcional via pill de status no header.
 
-        var verTodos = $('#crm-mock-ver-todos-contatos');
+        var verTodos = $('#crm-v3-ver-todos-contatos');
         if (verTodos) {
             verTodos.addEventListener('click', function () {
-                var col = $('.crm-mock-col-contatos');
+                var col = $('.crm-v3-col-contatos');
                 if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             });
         }
 
-        var verTodasAtividades = $('#crm-mock-ver-todas-atividades');
+        var verTodasAtividades = $('#crm-v3-ver-todas-atividades');
         if (verTodasAtividades) {
             verTodasAtividades.addEventListener('click', function () {
-                var painel = $('.crm-mock-section-atividades');
+                var painel = $('.crm-v3-section-atividades');
                 var tabTodas = $('#tab-atividades-todas');
                 if (tabTodas) tabTodas.click();
                 if (painel) {
@@ -1694,7 +1998,7 @@
             });
         }
 
-        $$('.crm-mock-star').forEach(function (star) {
+        $$('.crm-v3-star').forEach(function (star) {
             star.addEventListener('click', function () {
                 if (!state.cliente) return;
                 var active = !state.cliente.favorito;
@@ -1716,4 +2020,22 @@
     initButtons();
     showOverlay('Carregando CRM…');
     loadClientes().finally(hideOverlay);
+
+    // Exporta uma superfície mínima para módulos externos (crm_v3_drawers.js, atalhos)
+    window.crmV3 = {
+        state: state,
+        reloadClientes: function (clienteIdParaSelecionar) {
+            if (clienteIdParaSelecionar) state.clienteId = clienteIdParaSelecionar;
+            return loadClientes();
+        },
+        reloadAtividades: function () {
+            if (!state.clienteId) return Promise.resolve();
+            return loadAtividades(state.clienteId);
+        },
+        reloadCotacoes: function () {
+            if (!state.clienteId) return Promise.resolve();
+            return loadCotacoes(state.clienteId);
+        },
+        selectCliente: selectCliente,
+    };
 })();

@@ -223,6 +223,49 @@
     <section class="cx-section">
       <div class="cx-section-header">
         <div>
+          <h2 class="cx-section-title">Drawer Flutuante (cx-drawer)</h2>
+          <p class="cx-section-description">Painel off-canvas para formulários longos, IA e edição sem perder contexto. Substitui modais grandes em operações que se beneficiam de manter a lista visível.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-3">
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-info">SM · 480px</span>
+            <p class="cx-kpi-meta">Confirmações rápidas, filtros avançados, mensagens curtas.</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="sm">Abrir drawer SM</button>
+          </div>
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-info">MD · 640px</span>
+            <p class="cx-kpi-meta">Cadastros médios como contatos e cotações simples.</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="md">Abrir drawer MD</button>
+          </div>
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-info">LG · 900px</span>
+            <p class="cx-kpi-meta">Formulários com múltiplas seções e assistente IA.</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="lg">Abrir drawer LG</button>
+          </div>
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-info">XL · 75%</span>
+            <p class="cx-kpi-meta">Cadastro completo de cliente com endereço, comercial e vínculos.</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="xl">Abrir drawer XL</button>
+          </div>
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-warning">Split mode</span>
+            <p class="cx-kpi-meta">Mantém a lista visível ao lado do drawer para gerir 100 clientes.</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="split">Split drawer</button>
+          </div>
+          <div class="cx-card">
+            <span class="cx-badge cx-badge-info">Nested</span>
+            <p class="cx-kpi-meta">Drawer aninhado (ex.: e-mail gerado a partir de atividade).</p>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm mt-2" data-open-drawer="nested">Drawer aninhado</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
           <h2 class="cx-section-title">Modais E Toasts</h2>
           <p class="cx-section-description">Confirmações curtas, formulários com rodapé fixo e feedback discreto.</p>
         </div>
@@ -271,6 +314,54 @@ document.addEventListener('click', function (event) {
   if (event.target.closest('[data-close-modal]')) {
     const modal = event.target.closest('dialog');
     if (modal) modal.close();
+  }
+
+  const drawerBtn = event.target.closest('[data-open-drawer]');
+  if (drawerBtn && window.cxDrawer) {
+    const mode = drawerBtn.dataset.openDrawer;
+    if (mode === 'nested') {
+      window.cxDrawer.open({
+        title: 'Drawer principal',
+        breadcrumb: 'Design System · Nested demo',
+        size: 'md',
+        content: '<div class="cx-drawer-section"><div class="cx-drawer-section-title">Passo 1</div><p>Este drawer abre um segundo drawer em cima.</p></div>',
+        actions: [
+          { label: 'Fechar', variant: 'ghost', close: true },
+          {
+            label: 'Abrir drawer aninhado',
+            variant: 'primary',
+            onClick: function () {
+              window.cxDrawer.open({
+                title: 'Drawer aninhado',
+                breadcrumb: 'Passo 2',
+                size: 'sm',
+                nested: true,
+                content: '<div class="cx-drawer-section"><p>Drawer aninhado sobre o anterior.</p></div>',
+                actions: [{ label: 'Fechar', variant: 'primary', close: true }]
+              });
+            }
+          }
+        ]
+      });
+      return;
+    }
+    const sizeMap = { sm: 'sm', md: 'md', lg: 'lg', xl: 'xl', split: 'lg' };
+    window.cxDrawer.open({
+      title: 'Drawer ' + mode.toUpperCase(),
+      breadcrumb: 'Design System · Enterprise',
+      size: sizeMap[mode] || 'md',
+      split: mode === 'split',
+      content: '<div class="cx-drawer-section"><div class="cx-drawer-section-title">Descrição</div><p>Demonstração do drawer no tamanho <strong>' + mode + '</strong>. Use Esc ou clique no backdrop para fechar.</p></div>' +
+               '<div class="cx-drawer-section"><div class="cx-drawer-section-title">Formulário</div>' +
+               '<div class="cx-drawer-grid">' +
+               '<div class="cx-drawer-field"><label>Nome</label><input type="text" /></div>' +
+               '<div class="cx-drawer-field"><label>E-mail</label><input type="email" /></div>' +
+               '</div></div>',
+      actions: [
+        { label: 'Cancelar', variant: 'ghost', close: true },
+        { label: 'Salvar', variant: 'primary', close: true }
+      ]
+    });
   }
 });
 </script>

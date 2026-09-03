@@ -8470,6 +8470,24 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             current_app.logger.error(f"Erro dashboard cotacoes: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/dashboard/comercial-anual', methods=['GET'])
+    @login_required
+    def api_dashboard_comercial_anual():
+        try:
+            year = request.args.get('year', 2026, type=int)
+            if year < 2020 or year > 2100:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ano de referência inválido',
+                }), 400
+            return jsonify({
+                'success': True,
+                'data': db.get_dashboard_comercial_ano(year),
+            })
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard comercial anual: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/api/dashboard/active-users-metrics', methods=['GET'])
     @login_required
     def api_dashboard_active_users_metrics():

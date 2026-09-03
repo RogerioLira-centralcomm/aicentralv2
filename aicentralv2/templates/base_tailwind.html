@@ -492,7 +492,10 @@
                         </div>
                         <ul class="dropdown-content nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-max min-w-[180px] max-w-[220px] border border-base-200 z-[60]">
                             {% if is_centralcomm_user %}
-                            <li><a href="{{ url_for('crm.index') }}" class="{% if request.endpoint == 'crm.index' %}active{% endif %}">CRM</a></li>
+                            <li><a href="{{ url_for('crm_v3.crm_v3') }}" class="{% if request.endpoint == 'crm_v3.crm_v3' %}active{% endif %}">CRM</a></li>
+                            {% if session.user_type in ['admin', 'superadmin'] %}
+                            <li><a href="{{ url_for('crm.index') }}" class="{% if request.endpoint == 'crm.index' %}active{% endif %}"><i class="fa-solid fa-clock-rotate-left mr-1"></i>CRM (legado)</a></li>
+                            {% endif %}
                             <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
                             {% endif %}
                             <li><a href="{{ url_for('leads_list') }}" class="{% if request.endpoint == 'leads_list' %}active{% endif %}">Leads</a></li>
@@ -584,7 +587,6 @@
                             <li><a href="{{ url_for('parametros.lista_old_kpi') }}" class="{% if request.endpoint == 'parametros.lista_old_kpi' %}active{% endif %}">listaOLDKPI</a></li>
                             <li><a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">Testes DV360</a></li>
                             <li><a href="{{ url_for('brevo_test.formulario_teste_brevo') }}" class="{% if request.endpoint == 'brevo_test.formulario_teste_brevo' %}active{% endif %}">Teste Brevo</a></li>
-                            <li><a href="{{ url_for('crm_test.teste_crm_mock') }}" class="{% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}">Teste CRM</a></li>
                         </ul>
                     </div>
                     {% endif %}
@@ -654,7 +656,7 @@
             </nav>
 
             <!-- ===== MAIN CONTENT ===== -->
-            <main class="flex-1 w-full {% if request.endpoint == 'crm_test.teste_crm_mock' %}p-0 overflow-hidden min-h-0{% else %}p-4 overflow-y-auto{% endif %}">
+            <main class="flex-1 w-full {% if request.endpoint == 'crm_v3.crm_v3' %}p-0 overflow-hidden min-h-0{% else %}p-4 overflow-y-auto{% endif %}">
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -686,15 +688,22 @@
 
                         <!-- Comercial -->
                         <li class="mt-2">
-                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index', 'whatsapp.index'] or (request.endpoint and request.endpoint.startswith('cotacoes.')) %}open{% endif %}>
+                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index', 'crm_v3.crm_v3', 'whatsapp.index'] or (request.endpoint and request.endpoint.startswith('cotacoes.')) %}open{% endif %}>
                                 <summary>Comercial</summary>
                                 <ul>
                                     {% if is_centralcomm_user %}
                                     <li>
-                                        <a href="{{ url_for('crm.index') }}" class="{% if request.endpoint == 'crm.index' %}active{% endif %}">
+                                        <a href="{{ url_for('crm_v3.crm_v3') }}" class="{% if request.endpoint == 'crm_v3.crm_v3' %}active{% endif %}">
                                             CRM
                                         </a>
                                     </li>
+                                    {% if session.user_type in ['admin', 'superadmin'] %}
+                                    <li>
+                                        <a href="{{ url_for('crm.index') }}" class="{% if request.endpoint == 'crm.index' %}active{% endif %}">
+                                            <i class="fa-solid fa-clock-rotate-left mr-1"></i>CRM (legado)
+                                        </a>
+                                    </li>
+                                    {% endif %}
                                     <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
                                     {% endif %}
                                     <li>
@@ -932,11 +941,6 @@
                                     <li>
                                         <a href="{{ url_for('brevo_test.formulario_teste_brevo') }}" class="{% if request.endpoint == 'brevo_test.formulario_teste_brevo' %}active{% endif %}">
                                             Teste Brevo
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('crm_test.teste_crm_mock') }}" class="{% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}">
-                                            Teste CRM
                                         </a>
                                     </li>
                                 </ul>

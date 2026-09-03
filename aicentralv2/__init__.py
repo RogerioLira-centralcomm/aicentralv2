@@ -167,9 +167,24 @@ def create_app(config_class=Config):
         from .brevo_test_routes import bp as brevo_test_bp
         app.register_blueprint(brevo_test_bp)
 
-        from .crm_test_routes import bp as crm_test_bp
-        app.register_blueprint(crm_test_bp)
-        
+        from .crm_v3_routes import bp as crm_v3_bp
+        app.register_blueprint(crm_v3_bp)
+
+        # Redirect da rota legada /teste-crm para /crm-v3 (mantido 1-2 sprints)
+        from flask import redirect as _redirect, url_for as _url_for
+
+        @app.route('/teste-crm')
+        @app.route('/teste-crm/')
+        def _legacy_teste_crm_redirect():
+            return _redirect(_url_for('crm_v3.crm_v3'), code=302)
+
+        # Alias /crm-legacy → CRM antigo (documenta que /crm agora é considerado legado).
+        # O menu principal aponta para /crm-v3; o CRM legado só é linkado para admins/superadmins.
+        @app.route('/crm-legacy')
+        @app.route('/crm-legacy/')
+        def _crm_legacy_alias():
+            return _redirect(_url_for('crm.index'), code=302)
+
         app.logger.info("OK Rotas registradas")
     except Exception as e:
         app.logger.error(f"FALHA Erro ao registrar rotas: {e}")

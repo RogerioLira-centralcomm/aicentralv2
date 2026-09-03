@@ -93,6 +93,37 @@
             overflow-y: auto;
             padding: 0.75rem;
         }
+        .erp-mobile-search {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.75rem;
+        }
+        .erp-mobile-search-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .erp-mobile-search input {
+            min-width: 0;
+            flex: 1;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 0.625rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.625rem;
+            outline: none;
+        }
+        .erp-mobile-search input::placeholder {
+            color: rgba(255, 255, 255, 0.58);
+        }
+        .erp-mobile-search button {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 0.625rem;
+            background: #fff;
+            color: var(--erp-primary);
+            font-size: 0.8125rem;
+            font-weight: 800;
+            padding: 0.5rem 0.75rem;
+        }
         .erp-nav-section {
             margin: 0.875rem 0 0.375rem;
             padding: 0 0.625rem;
@@ -138,7 +169,7 @@
         .erp-topbar {
             position: sticky;
             top: 0;
-            z-index: 30;
+            z-index: 70;
             display: flex;
             min-height: var(--erp-topbar-h);
             align-items: center;
@@ -165,17 +196,21 @@
             gap: 0.125rem;
             min-width: 0;
             flex: 1 1 auto;
-            overflow-x: auto;
-            scrollbar-width: none;
+            overflow: visible;
         }
-        .erp-horizontal-nav::-webkit-scrollbar { display: none; }
         .erp-nav-group {
             position: relative;
+            flex: 0 0 auto;
+        }
+        .erp-nav-group:hover,
+        .erp-nav-group.is-open {
+            z-index: 90;
         }
         .erp-nav-trigger {
             display: inline-flex;
             align-items: center;
             gap: 0.375rem;
+            white-space: nowrap;
             border-radius: 0.625rem;
             padding: 0.5rem 0.625rem;
             color: #475569;
@@ -197,6 +232,7 @@
             position: absolute;
             top: calc(100% + 0.5rem);
             left: 0;
+            z-index: 90;
             display: none;
             min-width: 14rem;
             border: 1px solid var(--erp-border);
@@ -208,6 +244,10 @@
         .erp-nav-group.is-open > .erp-nav-menu,
         .erp-nav-group:hover > .erp-nav-menu {
             display: block;
+        }
+        .erp-horizontal-nav .erp-nav-group:nth-last-child(-n+2) .erp-nav-menu {
+            right: 0;
+            left: auto;
         }
         .erp-nav-menu::before {
             content: '';
@@ -319,8 +359,9 @@
         }
         .erp-user-menu {
             position: absolute;
-            right: 1rem;
-            top: calc(var(--erp-topbar-h) - 0.25rem);
+            right: 0;
+            top: calc(100% + 0.5rem);
+            z-index: 95;
             display: none;
             min-width: 13rem;
             border: 1px solid var(--erp-border);
@@ -365,14 +406,17 @@
             gap: 0.5rem;
             pointer-events: none;
         }
-        @media (min-width: 1024px) {
+        @media (min-width: 900px) {
             .erp-sidebar { display: none; }
             .erp-main { margin-left: 0; }
             .erp-menu-toggle { display: none; }
             .erp-horizontal-nav { display: flex; }
+            .erp-page-context { display: none; }
+        }
+        @media (min-width: 1180px) {
             .erp-search { display: flex; }
         }
-        .cx-erp-shell .crm-mock-page {
+        .cx-erp-shell .crm-v3-page {
             height: calc(100vh - var(--erp-topbar-h));
             max-height: calc(100vh - var(--erp-topbar-h));
         }
@@ -388,7 +432,8 @@
             {'label': 'Início', 'endpoint': 'index', 'url': url_for('index'), 'icon': 'fa-house'}
         ]},
         {'section': 'Comercial', 'items': [
-            {'label': 'CRM', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-address-book', 'central_only': true},
+            {'label': 'CRM', 'endpoint': 'crm_v3.crm_v3', 'url': url_for('crm_v3.crm_v3'), 'icon': 'fa-address-book', 'central_only': true},
+            {'label': 'CRM (legado)', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-clock-rotate-left', 'central_only': true, 'admin_only': true},
             {'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
             {'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
             {'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
@@ -429,6 +474,13 @@
                     <div class="text-xs text-white/55">ERP interno</div>
                 </div>
             </div>
+            <div class="erp-mobile-search">
+                <label class="sr-only" for="nav-busca-pi-input-mobile">Buscar PI por código ou título</label>
+                <div class="erp-mobile-search-row">
+                    <input type="text" id="nav-busca-pi-input-mobile" maxlength="200" placeholder="Buscar PI por código ou título" autocomplete="off">
+                    <button type="button" id="nav-busca-pi-btn-mobile">Buscar</button>
+                </div>
+            </div>
             <nav class="erp-nav">
                 {% for group in erp_nav %}
                     <div class="erp-nav-section">{{ group['section'] }}</div>
@@ -450,9 +502,6 @@
                     </a>
                     <a href="{{ url_for('tbl_setor') }}" class="erp-nav-link {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
                         <i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Setores</span>
-                    </a>
-                    <a href="{{ url_for('crm_test.teste_crm_mock') }}" class="erp-nav-link {% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}">
-                        <i class="fa-solid fa-flask" aria-hidden="true"></i><span>Teste CRM</span>
                     </a>
                 {% endif %}
             </nav>
@@ -477,7 +526,7 @@
     <div class="erp-shell">
         <div class="erp-main">
             <header class="erp-topbar">
-                <button type="button" class="erp-menu-toggle" id="erp-menu-toggle" aria-label="Abrir menu">
+                <button type="button" class="erp-menu-toggle" id="erp-menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="erp-sidebar">
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
                 <a href="{{ url_for('index') }}" class="erp-topbar-brand">
@@ -515,19 +564,18 @@
                     {% endfor %}
                     {% if session.get('user_type') in ['admin', 'superadmin'] %}
                         <div class="erp-nav-group">
-                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor', 'crm_test.teste_crm_mock'] %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor'] %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
                                 Parâmetros
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
                             </button>
                             <div class="erp-nav-menu" role="menu">
                                 <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-gear" aria-hidden="true"></i>Tipos de Cliente</a>
                                 <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-sitemap" aria-hidden="true"></i>Setores</a>
-                                <a href="{{ url_for('crm_test.teste_crm_mock') }}" class="{% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-flask" aria-hidden="true"></i>Teste CRM</a>
                             </div>
                         </div>
                     {% endif %}
                 </nav>
-                <div class="ml-auto min-w-0 lg:hidden">
+                <div class="erp-page-context ml-auto min-w-0 lg:hidden">
                     <div class="text-sm font-semibold text-slate-900">{% block page_label %}CentralX{% endblock %}</div>
                     <div class="hidden text-xs text-slate-500 sm:block">{% block page_subtitle %}Gestão interna{% endblock %}</div>
                 </div>
@@ -537,9 +585,6 @@
                     <input type="text" id="nav-busca-pi-input" maxlength="200" placeholder="Buscar PI por código ou título" autocomplete="off">
                     <button type="button" id="nav-busca-pi-btn" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Buscar</button>
                 </div>
-                <button type="button" class="erp-icon-button" id="erp-refresh-page" aria-label="Atualizar página">
-                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                </button>
                 <div class="relative">
                     <button type="button" class="erp-user-trigger" id="erp-user-trigger" aria-haspopup="menu" aria-expanded="false">
                         <span class="erp-avatar">
@@ -560,7 +605,7 @@
                 </div>
             </header>
 
-            <main class="erp-main-content {% if request.endpoint == 'crm_test.teste_crm_mock' %}is-crm{% endif %}">
+            <main class="erp-main-content cx-drawer-split-anchor {% if request.endpoint == 'crm_v3.crm_v3' %}is-crm{% endif %}">
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -610,7 +655,6 @@
         var userTrigger = document.getElementById('erp-user-trigger');
         var userMenu = document.getElementById('erp-user-menu');
         var profileButton = document.getElementById('erp-profile-button');
-        var refreshButton = document.getElementById('erp-refresh-page');
         var navGroups = Array.prototype.slice.call(document.querySelectorAll('.erp-nav-group'));
 
         body.classList.add('fouc-ready');
@@ -618,6 +662,12 @@
         function closeSidebar() {
             if (sidebar) sidebar.classList.remove('is-open');
             if (backdrop) backdrop.classList.remove('is-open');
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        }
+        function openSidebar() {
+            if (sidebar) sidebar.classList.add('is-open');
+            if (backdrop) backdrop.classList.add('is-open');
+            if (toggle) toggle.setAttribute('aria-expanded', 'true');
         }
         function toggleUserMenu(force) {
             if (!userMenu || !userTrigger) return;
@@ -634,8 +684,8 @@
         }
         if (toggle && sidebar) {
             toggle.addEventListener('click', function () {
-                sidebar.classList.add('is-open');
-                if (backdrop) backdrop.classList.add('is-open');
+                if (sidebar.classList.contains('is-open')) closeSidebar();
+                else openSidebar();
             });
         }
         if (backdrop) backdrop.addEventListener('click', closeSidebar);
@@ -680,29 +730,38 @@
                 if (modal && typeof modal.showModal === 'function') modal.showModal();
             });
         }
-        if (refreshButton) {
-            refreshButton.addEventListener('click', function () {
-                window.location.reload();
-            });
-        }
-
         (function initNavBuscaPi() {
             var input = document.getElementById('nav-busca-pi-input');
             var btn = document.getElementById('nav-busca-pi-btn');
+            var inputMobile = document.getElementById('nav-busca-pi-input-mobile');
+            var btnMobile = document.getElementById('nav-busca-pi-btn-mobile');
+            function query() {
+                var desktop = (input && input.value || '').trim();
+                var mobile = (inputMobile && inputMobile.value || '').trim();
+                return desktop || mobile;
+            }
             function run() {
-                var q = (input && input.value || '').trim();
+                var q = query();
                 if (!q) {
                     if (typeof showToast === 'function') showToast('Informe o código ou o título do PI.', 'warning');
                     return;
                 }
                 fetch('/api/cadu_pi/localizar?' + new URLSearchParams({ q: q }), { credentials: 'same-origin' })
-                    .then(function (r) { return r.json(); })
+                    .then(function (r) {
+                        var ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) throw new Error('not-json');
+                        return r.json();
+                    })
                     .then(function (data) {
                         if (!data.found) {
                             if (typeof showToast === 'function') showToast(data.message || 'Nenhum PI encontrado com este termo.', 'error', 5000);
                             return;
                         }
-                        if (data.lista_url && data.lista_url.indexOf('/') === 0) window.location.assign(data.lista_url);
+                        if (data.lista_url && data.lista_url.indexOf('/') === 0) {
+                            window.location.assign(data.lista_url);
+                            return;
+                        }
+                        if (typeof showToast === 'function') showToast('Resposta inválida da busca.', 'error');
                     })
                     .catch(function () {
                         if (typeof showToast === 'function') showToast('Erro ao buscar PI. Faça login se necessário.', 'error');
@@ -710,6 +769,13 @@
             }
             if (btn) btn.addEventListener('click', run);
             if (input) input.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    run();
+                }
+            });
+            if (btnMobile) btnMobile.addEventListener('click', run);
+            if (inputMobile) inputMobile.addEventListener('keydown', function (ev) {
                 if (ev.key === 'Enter') {
                     ev.preventDefault();
                     run();
@@ -753,6 +819,9 @@
         }
     };
     </script>
+
+    <!-- cxDrawer: componente global do design system enterprise -->
+    <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=1"></script>
 
     {% block scripts %}{% endblock %}
 </body>

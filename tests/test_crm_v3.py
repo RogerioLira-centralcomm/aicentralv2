@@ -1,23 +1,33 @@
-"""Testes do protótipo /teste-crm (helpers + API mock)."""
+"""Testes do protótipo /crm-v3 (helpers + API mock)."""
 
 import json
 import unittest
 
 from flask import Flask
 
-from aicentralv2.crm_test_helpers import (
+from aicentralv2.crm_v3_helpers import (
     normalizar_telefone,
     parse_texto_contatos,
     pluralizar_contatos,
 )
-from aicentralv2.crm_test_data import store
-from aicentralv2.crm_test_routes import bp
+from aicentralv2.crm_v3_data import store
+from aicentralv2.crm_v3_routes import bp
 
 
-def _crm_test_app():
+def _crm_v3_app():
     app = Flask(__name__)
+    app.config.update(SECRET_KEY="test-crm-v3", TESTING=True)
     app.register_blueprint(bp)
     return app
+
+
+def _login(client, user_id=1, user_name="Executivo Teste"):
+    """Injeta sessão para simular usuário logado (auth Fase 3)."""
+    with client.session_transaction() as sess:
+        sess["user_id"] = user_id
+        sess["user_name"] = user_name
+        sess["user_email"] = "teste@centralx.com"
+        sess["user_type"] = "admin"
 
 
 class CrmTestHelpersTest(unittest.TestCase):
@@ -54,11 +64,44 @@ class CrmTestHelpersTest(unittest.TestCase):
 class CrmTestApiTest(unittest.TestCase):
     def setUp(self):
         store.reset()
-        self.app = _crm_test_app()
+        self.app = _crm_v3_app()
         self.client = self.app.test_client()
+        _login(self.client)
+
+    def test_api_bloqueia_sem_login(self):
+        anon = self.app.test_client()  # sem chamar _login
+        res = anon.get("/crm-v3/api/clientes")
+        self.assertEqual(res.status_code, 401)
+        data = json.loads(res.data)
+        self.assertFalse(data["success"])
+
+    def test_agencia_clientes_finais(self):
+        """Paridade com /crm/api/agencia/<id>/clientes."""
+        lista = json.loads(self.client.get("/crm-v3/api/clientes").data)["clientes"]
+        agencia = next((c for c in lista if c.get("is_agencia")), None)
+        self.assertIsNotNone(agencia, "seed deve conter pelo menos uma agência")
+        res = self.client.get(f"/crm-v3/api/agencia/{agencia['id']}/clientes")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data["success"])
+        self.assertGreater(data["total"], 0)
+        for cli_final in data["clientes"]:
+            self.assertFalse(cli_final["is_agencia"])
+            self.assertEqual(cli_final["agencia_id"], agencia["id"])
+
+    def test_agencia_clientes_finais_404(self):
+        res = self.client.get("/crm-v3/api/agencia/inexistente/clientes")
+        self.assertEqual(res.status_code, 404)
+
+    def test_agencia_clientes_400_quando_nao_e_agencia(self):
+        lista = json.loads(self.client.get("/crm-v3/api/clientes").data)["clientes"]
+        nao_agencia = next((c for c in lista if not c.get("is_agencia")), None)
+        self.assertIsNotNone(nao_agencia)
+        res = self.client.get(f"/crm-v3/api/agencia/{nao_agencia['id']}/clientes")
+        self.assertEqual(res.status_code, 400)
 
     def test_get_clientes(self):
-        res = self.client.get("/teste-crm/api/clientes")
+        res = self.client.get("/crm-v3/api/clientes")
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.data)
         self.assertTrue(data["success"])
@@ -78,7 +121,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_post_contato_valido(self):
         res = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/contatos",
+            "/crm-v3/api/clientes/auto-shopping/contatos",
             data=json.dumps({
                 "nome": "Teste API",
                 "email": "teste.api@example.com",
@@ -96,7 +139,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(data["contato"]["status"], "Ativo")
 
         updated = self.client.patch(
-            f"/teste-crm/api/contatos/{data['contato']['id']}",
+            f"/crm-v3/api/contatos/{data['contato']['id']}",
             json={"setor": "Marketing", "status": "Inativo"},
         )
         self.assertEqual(updated.status_code, 200)
@@ -105,7 +148,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_post_contato_sem_email(self):
         res = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/contatos",
+            "/crm-v3/api/clientes/auto-shopping/contatos",
             data=json.dumps({"nome": "Sem Email"}),
             content_type="application/json",
         )
@@ -115,7 +158,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_parse_texto_api(self):
         res = self.client.post(
-            "/teste-crm/api/contatos/parse-texto",
+            "/crm-v3/api/contatos/parse-texto",
             data=json.dumps({"texto": "Ana;ana@test.com;11999998888"}),
             content_type="application/json",
         )
@@ -125,7 +168,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(len(data["contatos"]), 1)
 
     def test_get_atividades(self):
-        res = self.client.get("/teste-crm/api/clientes/auto-shopping/atividades")
+        res = self.client.get("/crm-v3/api/clientes/auto-shopping/atividades")
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.data)
         self.assertTrue(data["success"])
@@ -134,7 +177,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_patch_cliente_campos_seguindo_e_favorito(self):
         res = self.client.patch(
-            "/teste-crm/api/clientes/auto-shopping",
+            "/crm-v3/api/clientes/auto-shopping",
             json={
                 "nome": "Auto Shopping Atualizado",
                 "responsavel": "Maria",
@@ -153,19 +196,19 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_patch_cliente_valida_booleano_e_404(self):
         invalid = self.client.patch(
-            "/teste-crm/api/clientes/auto-shopping", json={"seguindo": "sim"}
+            "/crm-v3/api/clientes/auto-shopping", json={"seguindo": "sim"}
         )
         self.assertEqual(invalid.status_code, 400)
         self.assertFalse(invalid.get_json()["success"])
         missing = self.client.patch(
-            "/teste-crm/api/clientes/inexistente", json={"favorito": True}
+            "/crm-v3/api/clientes/inexistente", json={"favorito": True}
         )
         self.assertEqual(missing.status_code, 404)
         self.assertFalse(missing.get_json()["success"])
 
     def test_cria_cliente_com_status_de_prazo_separado_de_seguindo(self):
         res = self.client.post(
-            "/teste-crm/api/clientes",
+            "/crm-v3/api/clientes",
             json={
                 "nome": "Novo Cliente",
                 "cnpj": "12.345.678/0001-90",
@@ -199,7 +242,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_patch_cliente_atualiza_campos_realistas(self):
         res = self.client.patch(
-            "/teste-crm/api/clientes/auto-shopping",
+            "/crm-v3/api/clientes/auto-shopping",
             json={
                 "classificacao_cliente": "Geladeira",
                 "tipo": "Público",
@@ -220,49 +263,49 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_cliente_valida_classificacao_e_data_cadastro(self):
         classificacao = self.client.post(
-            "/teste-crm/api/clientes",
+            "/crm-v3/api/clientes",
             json={"nome": "Inválido", "classificacao_cliente": "Lead"},
         )
         self.assertEqual(classificacao.status_code, 400)
         data = self.client.patch(
-            "/teste-crm/api/clientes/auto-shopping",
+            "/crm-v3/api/clientes/auto-shopping",
             json={"data_cadastro": "03/09/2026"},
         )
         self.assertEqual(data.status_code, 400)
 
     def test_crud_objetivo(self):
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/objetivos",
+            "/crm-v3/api/clientes/auto-shopping/objetivos",
             json={"texto": "Fechar contrato", "prazo": "30/06"},
         )
         self.assertEqual(created.status_code, 201)
         objetivo = created.get_json()["objetivo"]
         updated = self.client.patch(
-            f"/teste-crm/api/objetivos/{objetivo['id']}",
+            f"/crm-v3/api/objetivos/{objetivo['id']}",
             json={"texto": "Fechar contrato anual", "concluido": True},
         )
         self.assertEqual(updated.status_code, 200)
         self.assertTrue(updated.get_json()["objetivo"]["concluido"])
-        deleted = self.client.delete(f"/teste-crm/api/objetivos/{objetivo['id']}")
+        deleted = self.client.delete(f"/crm-v3/api/objetivos/{objetivo['id']}")
         self.assertEqual(deleted.status_code, 200)
         self.assertTrue(deleted.get_json()["success"])
         self.assertEqual(
             self.client.patch(
-                "/teste-crm/api/objetivos/inexistente", json={"texto": "x"}
+                "/crm-v3/api/objetivos/inexistente", json={"texto": "x"}
             ).status_code,
             404,
         )
 
     def test_objetivo_exige_texto(self):
         res = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/objetivos", json={"prazo": "30/06"}
+            "/crm-v3/api/clientes/auto-shopping/objetivos", json={"prazo": "30/06"}
         )
         self.assertEqual(res.status_code, 400)
         self.assertFalse(res.get_json()["success"])
 
     def test_crud_cotacao(self):
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            "/crm-v3/api/clientes/auto-shopping/cotacoes",
             json={
                 "nome_campanha": "Plano anual 2027",
                 "titulo": "Plano anual",
@@ -284,7 +327,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(cotacao["status_canonico"], "Rascunho")
         self.assertEqual(cotacao["status_label"], "Rascunho")
         updated = self.client.patch(
-            f"/teste-crm/api/cotacoes/{cotacao['id']}",
+            f"/crm-v3/api/cotacoes/{cotacao['id']}",
             json={
                 "status_canonico": "Em Acompanhamento",
                 "valor_total": 12500,
@@ -297,16 +340,16 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(item["status_canonico"], "Em Acompanhamento")
         self.assertEqual(item["status_label"], "Em Acompanhamento")
         self.assertEqual(item["valor_total"], 12500.0)
-        deleted = self.client.delete(f"/teste-crm/api/cotacoes/{cotacao['id']}")
+        deleted = self.client.delete(f"/crm-v3/api/cotacoes/{cotacao['id']}")
         self.assertEqual(deleted.status_code, 200)
         self.assertEqual(
-            self.client.delete("/teste-crm/api/cotacoes/inexistente").status_code,
+            self.client.delete("/crm-v3/api/cotacoes/inexistente").status_code,
             404,
         )
 
     def test_cotacao_aceita_apenas_statuses_canonicos_e_aliases(self):
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            "/crm-v3/api/clientes/auto-shopping/cotacoes",
             json={
                 "titulo": "Campanha",
                 "status": "enviada",
@@ -328,7 +371,7 @@ class CrmTestApiTest(unittest.TestCase):
         for canonico, slug in expected.items():
             with self.subTest(status=canonico):
                 res = self.client.patch(
-                    f"/teste-crm/api/cotacoes/{cotacao_id}",
+                    f"/crm-v3/api/cotacoes/{cotacao_id}",
                     json={"status": canonico},
                 )
                 self.assertEqual(res.status_code, 200)
@@ -337,12 +380,12 @@ class CrmTestApiTest(unittest.TestCase):
                 self.assertEqual(item["status_canonico"], canonico)
 
         invalid = self.client.patch(
-            f"/teste-crm/api/cotacoes/{cotacao_id}",
+            f"/crm-v3/api/cotacoes/{cotacao_id}",
             json={"status": "Cancelada"},
         )
         self.assertEqual(invalid.status_code, 400)
         legado = self.client.patch(
-            f"/teste-crm/api/cotacoes/{cotacao_id}",
+            f"/crm-v3/api/cotacoes/{cotacao_id}",
             json={"status": "negociacao"},
         )
         self.assertEqual(legado.status_code, 200)
@@ -352,7 +395,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_cotacao_valida_periodo_e_valor_total(self):
         periodo = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            "/crm-v3/api/clientes/auto-shopping/cotacoes",
             json={
                 "titulo": "Período inválido",
                 "periodo_inicio": "2027-12-31",
@@ -361,42 +404,42 @@ class CrmTestApiTest(unittest.TestCase):
         )
         self.assertEqual(periodo.status_code, 400)
         valor = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/cotacoes",
+            "/crm-v3/api/clientes/auto-shopping/cotacoes",
             json={"titulo": "Valor inválido", "valor_total": "dez mil"},
         )
         self.assertEqual(valor.status_code, 400)
 
     def test_crud_notas(self):
-        listed = self.client.get("/teste-crm/api/clientes/auto-shopping/notas")
+        listed = self.client.get("/crm-v3/api/clientes/auto-shopping/notas")
         self.assertEqual(listed.status_code, 200)
         self.assertGreaterEqual(len(listed.get_json()["notas"]), 1)
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/notas",
+            "/crm-v3/api/clientes/auto-shopping/notas",
             json={"texto": "Retornar na sexta", "autor": "Ana", "data": "2026-09-04"},
         )
         self.assertEqual(created.status_code, 201)
         nota = created.get_json()["nota"]
         updated = self.client.patch(
-            f"/teste-crm/api/notas/{nota['id']}",
+            f"/crm-v3/api/notas/{nota['id']}",
             json={"texto": "Retornar na segunda"},
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.get_json()["nota"]["texto"], "Retornar na segunda")
         self.assertEqual(
-            self.client.delete(f"/teste-crm/api/notas/{nota['id']}").status_code, 200
+            self.client.delete(f"/crm-v3/api/notas/{nota['id']}").status_code, 200
         )
         self.assertEqual(
-            self.client.get("/teste-crm/api/clientes/inexistente/notas").status_code,
+            self.client.get("/crm-v3/api/clientes/inexistente/notas").status_code,
             404,
         )
 
     def test_notas_validam_texto_e_data_iso(self):
         missing_text = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/notas", json={}
+            "/crm-v3/api/clientes/auto-shopping/notas", json={}
         )
         self.assertEqual(missing_text.status_code, 400)
         invalid_date = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/notas",
+            "/crm-v3/api/clientes/auto-shopping/notas",
             json={"texto": "Nota", "data": "04/09/2026"},
         )
         self.assertEqual(invalid_date.status_code, 400)
@@ -404,7 +447,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_atividade_preserva_e_edita_campos_de_contrato(self):
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/atividades",
+            "/crm-v3/api/clientes/auto-shopping/atividades",
             json={
                 "titulo": "Reunião",
                 "data": "2026-09-04",
@@ -418,7 +461,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(atividade["data"], "2026-09-04")
         self.assertEqual(atividade["data_label"], "Amanhã — 4 de setembro")
         updated = self.client.patch(
-            f"/teste-crm/api/atividades/{atividade['id']}",
+            f"/crm-v3/api/atividades/{atividade['id']}",
             json={
                 "data": "2026-09-05",
                 "data_label": "Sábado — 5 de setembro",
@@ -435,7 +478,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_atividade_rejeita_data_nao_iso(self):
         created = self.client.post(
-            "/teste-crm/api/clientes/auto-shopping/atividades",
+            "/crm-v3/api/clientes/auto-shopping/atividades",
             json={"titulo": "Reunião", "data": "05/09/2026"},
         )
         self.assertEqual(created.status_code, 400)
@@ -443,7 +486,7 @@ class CrmTestApiTest(unittest.TestCase):
 
     def test_store_reinicia_em_memoria(self):
         self.client.post(
-            "/teste-crm/api/clientes", json={"nome": "Cliente temporário"}
+            "/crm-v3/api/clientes", json={"nome": "Cliente temporário"}
         )
         self.assertIsNotNone(
             next(

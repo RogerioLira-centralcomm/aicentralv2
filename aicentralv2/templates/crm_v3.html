@@ -1,132 +1,135 @@
 {% extends 'base_erp.html' %}
 
-{% block title %}Teste CRM — CentralX{% endblock %}
+{% block title %}CRM v3 — CentralX{% endblock %}
 {% block page_label %}CRM{% endblock %}
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_mock.css') }}?v=39">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=39">
 {% endblock %}
 
 {% block content %}
-<div class="crm-mock-page">
-  <div class="crm-mock-layout">
-    <div class="crm-mock-main">
-      <header class="crm-mock-header">
+<div class="crm-v3-page">
+  <div class="crm-v3-layout">
+    <div class="crm-v3-main">
+      <header class="crm-v3-header">
         <label class="sr-only" for="filtro-executivo">Filtrar por executivo</label>
-        <select class="crm-mock-select" id="filtro-executivo" aria-label="Executivo">
+        <select class="crm-v3-select" id="filtro-executivo" aria-label="Executivo">
           <option value="">Executivo: todos</option>
           <option value="Luisa Santana">Luisa Santana</option>
           <option value="João Paulo">João Paulo</option>
         </select>
         <label class="sr-only" for="filtro-tipo">Filtrar por tipo</label>
-        <select class="crm-mock-select" id="filtro-tipo" aria-label="Tipo">
+        <select class="crm-v3-select" id="filtro-tipo" aria-label="Tipo">
           <option value="">Tipo: todos</option>
           <option value="público">Público</option>
           <option value="privado">Privado</option>
         </select>
         <label class="sr-only" for="filtro-perfil">Filtrar por perfil</label>
-        <select class="crm-mock-select" id="filtro-perfil" aria-label="Perfil">
+        <select class="crm-v3-select" id="filtro-perfil" aria-label="Perfil">
           <option value="">Perfil: todos</option>
           <option value="direto">Cliente final</option>
           <option value="agencia">Agência</option>
         </select>
-        <div class="crm-mock-header-actions">
-          <button type="button" class="crm-mock-btn crm-mock-btn-primary" id="crm-mock-btn-novo-cliente-header">
+        <div class="crm-v3-header-actions">
+          <button type="button" class="crm-v3-btn crm-v3-btn-primary" id="crm-v3-btn-novo-cliente-header">
             <i class="fa-solid fa-plus" aria-hidden="true"></i> Novo cliente
           </button>
-          <button type="button" class="crm-mock-btn crm-mock-btn-outline" id="crm-mock-btn-exportar">
+          <button type="button" class="crm-v3-btn crm-v3-btn-outline" id="crm-v3-btn-exportar">
             <i class="fa-solid fa-download" aria-hidden="true"></i> Exportar
           </button>
         </div>
       </header>
 
-      <div class="crm-mock-grid-main">
+      <div class="crm-v3-grid-main">
 
-        <aside class="crm-mock-col crm-mock-col-clientes" aria-label="Lista de clientes">
-          <div class="crm-mock-col-header">
-            <div class="crm-mock-col-header-row">
+        <aside class="crm-v3-col crm-v3-col-clientes" aria-label="Lista de clientes">
+          <div class="crm-v3-col-header">
+            <div class="crm-v3-col-header-row">
               <div class="flex items-center gap-1">
-                <h2 class="crm-mock-col-title">Clientes</h2>
-                <span class="crm-mock-count" aria-live="polite">0</span>
+                <h2 class="crm-v3-col-title">Clientes</h2>
+                <span class="crm-v3-count" aria-live="polite">0</span>
               </div>
-              <div class="crm-mock-col-header-actions">
-                <button type="button" class="crm-mock-icon-btn" id="crm-mock-btn-novo-cliente-lista" aria-label="Adicionar cliente">
+              <div class="crm-v3-col-header-actions">
+                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-novo-cliente-lista" aria-label="Adicionar cliente">
                   <i class="fa-solid fa-plus" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="crm-mock-icon-btn" id="crm-mock-btn-limpar-filtros" aria-label="Limpar filtros" title="Limpar filtros">
+                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-densidade" aria-label="Alternar densidade" title="Alternar entre confortável e compacto (atalho: d)">
+                  <i class="fa-solid fa-grip-lines" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-limpar-filtros" aria-label="Limpar filtros" title="Limpar filtros">
                   <i class="fa-solid fa-sliders" aria-hidden="true"></i>
                 </button>
               </div>
             </div>
-            <div class="crm-mock-search-wrap">
-              <i class="fa-solid fa-search crm-mock-search-icon" aria-hidden="true"></i>
-              <label class="sr-only" for="crm-mock-busca">Buscar cliente</label>
-              <input type="search" id="crm-mock-busca" class="crm-mock-search" placeholder="Buscar cliente..." autocomplete="off" />
+            <div class="crm-v3-search-wrap">
+              <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
+              <label class="sr-only" for="crm-v3-busca">Buscar cliente</label>
+              <input type="search" id="crm-v3-busca" class="crm-v3-search" placeholder="Buscar cliente..." autocomplete="off" />
             </div>
-            <div class="crm-mock-pills" role="group" aria-label="Filtrar clientes">
-              <button type="button" class="crm-mock-pill is-active" data-filter="todos" aria-pressed="true">Todos <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="crm-mock-pill" data-filter="atrasado" aria-pressed="false">Atrasados <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="crm-mock-pill" data-filter="sem-atividade" aria-pressed="false">Sem atividade <span class="crm-mock-pill-count">0</span></button>
-              <button type="button" class="crm-mock-pill" data-filter="seguindo" aria-pressed="false">Seguindo <span class="crm-mock-pill-count">0</span></button>
-            </div>
-          </div>
-
-          <div class="crm-mock-col-body scroll-suave min-h-0 overflow-y-auto" id="crm-mock-lista-clientes" role="list">
-            <div class="crm-mock-skeleton-list p-2" id="crm-mock-clientes-loading" hidden>
-              <div class="skeleton h-10 w-full mb-2"></div>
-              <div class="skeleton h-10 w-full mb-2"></div>
-              <div class="skeleton h-10 w-full mb-2"></div>
+            <div class="crm-v3-pills" role="group" aria-label="Filtrar clientes">
+              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true">Todos <span class="crm-v3-pill-count">0</span></button>
+              <button type="button" class="crm-v3-pill" data-filter="atrasado" aria-pressed="false">Atrasados <span class="crm-v3-pill-count">0</span></button>
+              <button type="button" class="crm-v3-pill" data-filter="sem-atividade" aria-pressed="false">Sem atividade <span class="crm-v3-pill-count">0</span></button>
+              <button type="button" class="crm-v3-pill" data-filter="seguindo" aria-pressed="false">Seguindo <span class="crm-v3-pill-count">0</span></button>
             </div>
           </div>
 
-          <div class="crm-mock-col-footer sticky bottom-0 bg-base-100 z-10">
-            <span class="crm-mock-footer-label truncate" title="+ ATIVO (SEM CONTATO)">+ ATIVO (SEM CONTATO)</span>
-            <span class="crm-mock-footer-count" id="crm-mock-sem-contato-count">0</span>
-            <div class="crm-mock-pagination">
-              <span class="crm-mock-page-label" id="crm-mock-page-label">1/1</span>
-              <button type="button" class="crm-mock-page-btn" id="crm-mock-page-prev" aria-label="Página anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-              <button type="button" class="crm-mock-page-btn" id="crm-mock-page-next" aria-label="Próxima página"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          <div class="crm-v3-col-body scroll-suave min-h-0 overflow-y-auto" id="crm-v3-lista-clientes" role="list">
+            <div class="crm-v3-skeleton-list p-2" id="crm-v3-clientes-loading" hidden>
+              <div class="skeleton h-10 w-full mb-2"></div>
+              <div class="skeleton h-10 w-full mb-2"></div>
+              <div class="skeleton h-10 w-full mb-2"></div>
+            </div>
+          </div>
+
+          <div class="crm-v3-col-footer sticky bottom-0 bg-base-100 z-10">
+            <span class="crm-v3-footer-label truncate" title="+ ATIVO (SEM CONTATO)">+ ATIVO (SEM CONTATO)</span>
+            <span class="crm-v3-footer-count" id="crm-v3-sem-contato-count">0</span>
+            <div class="crm-v3-pagination">
+              <span class="crm-v3-page-label" id="crm-v3-page-label">1/1</span>
+              <button type="button" class="crm-v3-page-btn" id="crm-v3-page-prev" aria-label="Página anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+              <button type="button" class="crm-v3-page-btn" id="crm-v3-page-next" aria-label="Próxima página"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
             </div>
           </div>
         </aside>
 
-        <section class="crm-mock-col crm-mock-col-center min-h-0" aria-label="Detalhes do cliente">
-          <div class="crm-mock-detail-header p-3">
-            <div class="crm-mock-detail-row flex flex-wrap items-center gap-2">
-              <div class="avatar placeholder" id="crm-mock-detail-avatar-wrap">
+        <section class="crm-v3-col crm-v3-col-center min-h-0" aria-label="Detalhes do cliente">
+          <div class="crm-v3-detail-header p-3">
+            <div class="crm-v3-detail-row flex flex-wrap items-center gap-2">
+              <div class="avatar placeholder" id="crm-v3-detail-avatar-wrap">
                 <div class="bg-primary text-primary-content rounded-full w-10 h-10">
-                  <span class="text-sm font-semibold" id="crm-mock-detail-avatar">A</span>
+                  <span class="text-sm font-semibold" id="crm-v3-detail-avatar">A</span>
                 </div>
               </div>
-              <h1 class="crm-mock-detail-title text-base font-semibold truncate flex-1 min-w-0" title="">ASSOCIAÇÃO DOS LOJISTAS DO PORTAL AUTO SHOPPING</h1>
-              <button type="button" class="btn btn-ghost btn-circle btn-sm crm-mock-star active" aria-label="Remover dos favoritos" aria-pressed="true"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
+              <h1 class="crm-v3-detail-title text-base font-semibold truncate flex-1 min-w-0" title="">ASSOCIAÇÃO DOS LOJISTAS DO PORTAL AUTO SHOPPING</h1>
+              <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost crm-v3-star active" aria-label="Remover dos favoritos" aria-pressed="true"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
               <div class="dropdown dropdown-end">
-                <button type="button" class="btn btn-ghost btn-circle btn-sm" tabindex="0" aria-label="Mais opções" id="crm-mock-header-more">
+                <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" tabindex="0" aria-label="Mais opções" id="crm-v3-header-more">
                   <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
                 </button>
                 <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-200 z-50">
-                  <li><button type="button" class="crm-mock-header-action-edit">Editar cliente</button></li>
-                  <li><button type="button" class="crm-mock-header-action-export">Exportar dados</button></li>
+                  <li><button type="button" class="crm-v3-header-action-edit">Editar cliente</button></li>
+                  <li><button type="button" class="crm-v3-header-action-export">Exportar dados</button></li>
                 </ul>
               </div>
-              <div class="crm-mock-header-right flex items-center gap-2 shrink-0">
-                <div class="crm-mock-avatars-stack" aria-label="Pessoas que acompanham este cliente">
-                  <div class="crm-mock-avatar-mini">LS</div>
-                  <div class="crm-mock-avatar-mini crm-mock-avatar-mini-muted">JP</div>
-                  <div class="crm-mock-avatar-mini crm-mock-avatar-mini-muted">+1</div>
+              <div class="crm-v3-header-right flex items-center gap-2 shrink-0">
+                <div class="crm-v3-avatars-stack" aria-label="Pessoas que acompanham este cliente">
+                  <div class="crm-v3-avatar-mini">LS</div>
+                  <div class="crm-v3-avatar-mini crm-v3-avatar-mini-muted">JP</div>
+                  <div class="crm-v3-avatar-mini crm-v3-avatar-mini-muted">+1</div>
                 </div>
               </div>
             </div>
-            <div class="crm-mock-detail-meta flex flex-wrap gap-2 mt-2 text-xs">
-              <span class="crm-mock-meta-item">Responsável: <strong id="crm-mock-meta-responsavel">Luisa Santana</strong></span>
-              <span class="crm-mock-meta-item">Tipo: <span class="badge badge-sm badge-ghost" id="crm-mock-meta-categoria">Privado</span></span>
-              <span class="crm-mock-meta-item" id="crm-mock-meta-prioridade-wrap"><span class="badge badge-sm badge-error" id="crm-mock-meta-prioridade">Prioridade: Alta</span></span>
-              <span class="crm-mock-meta-date text-base-content/60">Última atualização: Hoje, 16:09</span>
+            <div class="crm-v3-detail-meta flex flex-wrap gap-2 mt-2 text-xs">
+              <span class="crm-v3-meta-item">Responsável: <strong id="crm-v3-meta-responsavel">Luisa Santana</strong></span>
+              <span class="crm-v3-meta-item">Tipo: <span class="badge badge-sm badge-ghost" id="crm-v3-meta-categoria">Privado</span></span>
+              <span class="crm-v3-meta-item" id="crm-v3-meta-prioridade-wrap"><span class="badge badge-sm badge-error" id="crm-v3-meta-prioridade">Prioridade: Alta</span></span>
+              <span class="crm-v3-meta-date text-base-content/60">Última atualização: Hoje, 16:09</span>
             </div>
           </div>
 
-          <div class="stats stats-horizontal shadow-sm mx-2 mb-2" role="group" aria-label="Indicadores do cliente" id="crm-mock-metrics">
+          <div class="stats stats-horizontal shadow-sm mx-2 mb-2" role="group" aria-label="Indicadores do cliente" id="crm-v3-metrics">
             <div class="stat py-2 px-3"><div class="stat-value text-lg" id="crm-metric-contatos">1</div><div class="stat-title text-xs">Contato</div></div>
             <div class="stat py-2 px-3"><div class="stat-value text-lg" id="crm-metric-oportunidades">0</div><div class="stat-title text-xs">Oportunidades</div></div>
             <div class="stat py-2 px-3"><div class="stat-value text-sm" id="crm-metric-faturamento">R$ 12.500,00</div><div class="stat-title text-xs">Faturamento vs mês ant.</div></div>
@@ -135,35 +138,44 @@
             <div class="stat py-2 px-3"><div class="stat-value text-lg" id="crm-metric-ultimo">Hoje</div><div class="stat-title text-xs">Último contato</div></div>
           </div>
 
-          <div class="crm-mock-center-content">
-              <section class="crm-mock-section crm-mock-section-atividades" aria-labelledby="crm-ativ-title">
-                <div class="crm-mock-section-header">
-                  <h3 class="crm-mock-section-title" id="crm-ativ-title">Atividades</h3>
-                  <div class="crm-mock-section-actions flex gap-1">
-                    <button type="button" class="btn btn-sm btn-primary" id="crm-mock-btn-nova-atividade">+ Nova atividade</button>
-                    <button type="button" class="btn btn-sm btn-outline" id="crm-mock-btn-agendar"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Agendar</button>
+          <div class="crm-v3-center-content">
+              <section class="crm-v3-section crm-v3-section-atividades" aria-labelledby="crm-ativ-title">
+                <div class="crm-v3-section-header">
+                  <h3 class="crm-v3-section-title" id="crm-ativ-title">Atividades</h3>
+                  <div class="crm-v3-section-actions">
+                    <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-nova-atividade"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova atividade</button>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-agendar"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Agendar</button>
                   </div>
                 </div>
 
-                <div class="crm-mock-ativ-tabs" role="tablist" aria-label="Filtrar atividades" data-tab-group="atividades">
-                  <button type="button" role="tab" class="crm-mock-tab is-active" data-tab="todas" aria-selected="true" id="tab-atividades-todas">Todas</button>
-                  <button type="button" role="tab" class="crm-mock-tab" data-tab="pendentes" aria-selected="false" id="tab-atividades-pendentes">Pendentes</button>
-                  <button type="button" role="tab" class="crm-mock-tab" data-tab="concluidas" aria-selected="false" id="tab-atividades-concluidas">Concluídas</button>
+                <div class="crm-v3-ativ-tabs" role="tablist" aria-label="Filtrar atividades" data-tab-group="atividades">
+                  <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="todas" aria-selected="true" id="tab-atividades-todas">
+                    <span>Todas</span>
+                    <span class="crm-v3-tab-count" data-tab-count="ativ-todas">0</span>
+                  </button>
+                  <button type="button" role="tab" class="crm-v3-tab" data-tab="pendentes" aria-selected="false" id="tab-atividades-pendentes">
+                    <span>Pendentes</span>
+                    <span class="crm-v3-tab-count" data-tab-count="ativ-pendentes">0</span>
+                  </button>
+                  <button type="button" role="tab" class="crm-v3-tab" data-tab="concluidas" aria-selected="false" id="tab-atividades-concluidas">
+                    <span>Concluídas</span>
+                    <span class="crm-v3-tab-count" data-tab-count="ativ-concluidas">0</span>
+                  </button>
                 </div>
 
-                <div class="crm-mock-ativ-filter-row">
-                  <div class="crm-mock-search-wrap crm-mock-search-sm">
-                    <i class="fa-solid fa-search crm-mock-search-icon" aria-hidden="true"></i>
+                <div class="crm-v3-ativ-filter-row">
+                  <div class="crm-v3-search-wrap crm-v3-search-sm">
+                    <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
                     <label class="sr-only" for="busca-atividade">Buscar atividade</label>
-                    <input type="search" id="busca-atividade" class="crm-mock-search" placeholder="Buscar atividade..." />
+                    <input type="search" id="busca-atividade" class="crm-v3-search" placeholder="Buscar atividade..." />
                   </div>
-                  <div class="crm-mock-tabs-filters">
+                  <div class="crm-v3-tabs-filters">
                     <label class="sr-only" for="filtro-resp-ativ">Responsável</label>
-                    <select class="crm-mock-select-sm" id="filtro-resp-ativ">
+                    <select class="crm-v3-select-sm" id="filtro-resp-ativ">
                       <option value="">Responsável: todos</option>
                     </select>
                     <label class="sr-only" for="filtro-tipo-ativ">Tipo</label>
-                    <select class="crm-mock-select-sm" id="filtro-tipo-ativ">
+                    <select class="crm-v3-select-sm" id="filtro-tipo-ativ">
                       <option value="">Tipo: todos</option>
                       <option value="ligacao">Ligação</option>
                       <option value="reuniao">Reunião</option>
@@ -173,204 +185,256 @@
                   </div>
                 </div>
 
-                <div class="crm-mock-ativ-list min-h-0" role="list" id="crm-mock-ativ-list">
-                  <!-- renderizado via crm_mock.js -->
+                <div class="crm-v3-ativ-list min-h-0" role="list" id="crm-v3-ativ-list">
+                  <!-- renderizado via crm_v3.js -->
                 </div>
               </section>
 
-            <aside class="crm-mock-center-right" aria-label="Cotações">
-              <section class="crm-mock-section h-full">
-                <div class="crm-mock-section-header">
-                  <h3 class="crm-mock-section-title">Cotações recentes</h3>
-                  <div class="flex gap-1">
-                    <button type="button" class="btn btn-sm btn-outline" id="crm-mock-btn-expandir-cotacoes" aria-label="Expandir cotações"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
-                    <button type="button" class="btn btn-sm btn-primary" id="crm-mock-btn-nova-cotacao">+ Nova</button>
+            <aside class="crm-v3-center-right" aria-label="Cotações">
+              <section class="crm-v3-section h-full">
+                <div class="crm-v3-section-header">
+                  <h3 class="crm-v3-section-title">Cotações recentes</h3>
+                  <div class="crm-v3-section-actions">
+                    <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm" id="crm-v3-btn-expandir-cotacoes" aria-label="Expandir cotações"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-nova-cotacao"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova</button>
                   </div>
                 </div>
-                <div class="crm-mock-cotacao-list" id="crm-mock-cotacao-list">
-                  <!-- renderizado via crm_mock.js -->
+                <div class="crm-v3-cotacao-list" id="crm-v3-cotacao-list">
+                  <!-- renderizado via crm_v3.js -->
                 </div>
               </section>
             </aside>
 
-              <section class="crm-mock-section crm-mock-section-sugestao" aria-labelledby="crm-sugestao-title">
-                <h3 class="crm-mock-section-title" id="crm-sugestao-title">Próximos passos sugeridos</h3>
-                <div class="crm-mock-sugestao" id="crm-mock-sugestao" role="status">
+              <section class="crm-v3-section crm-v3-section-sugestao" aria-labelledby="crm-sugestao-title">
+                <h3 class="crm-v3-section-title" id="crm-sugestao-title">Próximos passos sugeridos</h3>
+                <div class="crm-v3-sugestao" id="crm-v3-sugestao" role="status">
                   <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
-                  <span id="crm-mock-sugestao-texto">Carregando sugestão…</span>
+                  <span id="crm-v3-sugestao-texto">Carregando sugestão…</span>
                 </div>
               </section>
 
           </div>
         </section>
 
-        <aside class="crm-mock-col crm-mock-col-contatos" aria-label="Contatos do cliente">
-          <div class="crm-mock-col-header">
-            <div class="crm-mock-col-header-row">
+        <aside class="crm-v3-col crm-v3-col-contatos" aria-label="Contatos do cliente">
+          <div class="crm-v3-col-header">
+            <div class="crm-v3-col-header-row">
               <div class="flex items-center gap-1 min-w-0">
-                <h2 class="crm-mock-col-title">Contatos</h2>
-                <span class="crm-mock-count" id="crm-mock-contatos-count" aria-live="polite">1</span>
+                <h2 class="crm-v3-col-title">Contatos</h2>
+                <span class="crm-v3-count" id="crm-v3-contatos-count" aria-live="polite">1</span>
               </div>
-              <div class="crm-mock-col-header-actions">
-                <button type="button" class="crm-mock-btn-header crm-mock-btn-header-outline" id="crm-mock-btn-import-contatos" title="Importar contatos">
-                  Importar
+              <div class="crm-v3-col-header-actions">
+                <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-import-contatos" title="Importar contatos">
+                  <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Importar
                 </button>
-                <button type="button" class="crm-mock-btn-header crm-mock-btn-header-primary" id="crm-mock-btn-novo-contato" title="Adicionar contato">
-                  + Contato
+                <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-novo-contato" title="Adicionar contato">
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i> Contato
                 </button>
               </div>
             </div>
-            <div class="crm-mock-search-wrap">
-              <i class="fa-solid fa-search crm-mock-search-icon" aria-hidden="true"></i>
-              <label class="sr-only" for="crm-mock-busca-contato">Buscar contato</label>
-              <input type="search" id="crm-mock-busca-contato" class="crm-mock-search" placeholder="Buscar contato..." autocomplete="off" />
+            <div class="crm-v3-search-wrap">
+              <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
+              <label class="sr-only" for="crm-v3-busca-contato">Buscar contato</label>
+              <input type="search" id="crm-v3-busca-contato" class="crm-v3-search" placeholder="Buscar contato..." autocomplete="off" />
             </div>
           </div>
 
-          <div class="crm-mock-col-body scroll-suave" id="crm-mock-lista-contatos" role="list">
-            <!-- renderizado via crm_mock.js -->
+          <div class="crm-v3-col-body scroll-suave" id="crm-v3-lista-contatos" role="list">
+            <!-- renderizado via crm_v3.js -->
           </div>
 
-          <div class="crm-mock-col-footer crm-mock-contatos-footer">
-            <span class="crm-mock-footer-label">Contato principal</span>
-            <span class="crm-mock-footer-hint" id="crm-mock-contato-principal-hint">marketing</span>
+          <div class="crm-v3-col-footer crm-v3-contatos-footer">
+            <span class="crm-v3-footer-label">Contato principal</span>
+            <span class="crm-v3-footer-hint" id="crm-v3-contato-principal-hint">marketing</span>
           </div>
         </aside>
 
       </div>
     </div>
 
-    <aside class="crm-mock-col crm-mock-col-sidebar min-h-0" id="crm-mock-sidebar" aria-label="Detalhes do cliente">
-      <div class="crm-mock-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
-        <button type="button" role="tab" class="crm-mock-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info">Informações</button>
-        <button type="button" role="tab" class="crm-mock-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas">Notas</button>
-        <button type="button" role="tab" class="crm-mock-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj">Objetivos</button>
-        <button type="button" role="tab" class="crm-mock-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ">Atividades</button>
+    <aside class="crm-v3-col crm-v3-col-sidebar min-h-0" id="crm-v3-sidebar" aria-label="Detalhes do cliente">
+      <div class="crm-v3-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
+        <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info">Informações</button>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas">
+          <span>Notas</span>
+          <span class="crm-v3-tab-count" data-tab-count="notas">0</span>
+        </button>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj">
+          <span>Objetivos</span>
+          <span class="crm-v3-tab-count" data-tab-count="objetivos">0</span>
+        </button>
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="atividades" aria-selected="false" id="tab-sidebar-ativ">
+          <span>Atividades</span>
+          <span class="crm-v3-tab-count" data-tab-count="atividades">0</span>
+        </button>
       </div>
 
-      <div class="crm-mock-sidebar-panel-wrap">
-        <div class="crm-mock-tab-panel crm-mock-tab-panel-active" role="tabpanel" data-panel-group="sidebar" data-panel="informacoes" aria-labelledby="tab-sidebar-info">
-          <div class="crm-mock-sidebar-section">
-            <div class="crm-mock-sidebar-section-title">Informações básicas</div>
-            <div class="crm-mock-info-grid">
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Perfil</span><span class="crm-mock-info-value" id="crm-mock-info-categoria">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Classificação</span><span class="crm-mock-info-value" id="crm-mock-info-classificacao">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Tipo de cliente</span><span class="crm-mock-info-value" id="crm-mock-info-tipo">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Prioridade</span><span class="crm-mock-info-value" id="crm-mock-info-prioridade">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">CNPJ</span><span class="crm-mock-info-value" id="crm-mock-info-cnpj">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Fonte</span><span class="crm-mock-info-value" id="crm-mock-info-fonte">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Criado em</span><span class="crm-mock-info-value" id="crm-mock-info-criado">—</span></div>
+      <div class="crm-v3-sidebar-panel-wrap">
+        <div class="crm-v3-tab-panel crm-v3-tab-panel-active" role="tabpanel" data-panel-group="sidebar" data-panel="informacoes" aria-labelledby="tab-sidebar-info">
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Status comercial</div>
+            <div class="crm-v3-status-row">
+              <span class="crm-v3-status-badge" id="crm-v3-status-badge" data-classificacao="">—</span>
+              <span class="crm-v3-status-hint" id="crm-v3-status-hint"></span>
             </div>
           </div>
 
-          <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-contato-resumo">
-            <div class="crm-mock-sidebar-section-header">
-              <div class="crm-mock-sidebar-section-title">Contato selecionado</div>
-              <button type="button" class="crm-mock-link crm-mock-link-btn" id="crm-mock-ver-todos-contatos" title="Ver coluna de contatos">Ver todos</button>
+          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-vinculos" hidden>
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title" id="crm-v3-vinculos-titulo">Vínculos</div>
+              <span class="crm-v3-vinculos-badge" id="crm-v3-vinculos-count"></span>
             </div>
-            <div class="crm-mock-contact-card crm-mock-contact-card-sidebar" id="crm-mock-sidebar-contato-card">
-              <div class="crm-mock-avatar crm-mock-avatar-muted" id="crm-mock-sidebar-contato-avatar" aria-hidden="true">M</div>
-              <div class="crm-mock-contact-info min-w-0">
-                <div class="crm-mock-contact-name" id="crm-mock-sidebar-contato-nome">marketing</div>
-                <div class="crm-mock-contact-role" id="crm-mock-sidebar-contato-cargo">Analista de Mídias</div>
-                <div class="crm-mock-contact-role" id="crm-mock-sidebar-contato-setor">Marketing</div>
+            <div class="crm-v3-vinculos-list" id="crm-v3-vinculos-list"></div>
+          </div>
+
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Sinalizadores</div>
+            <div class="crm-v3-sinal-grid">
+              <div class="crm-v3-sinal">
+                <span class="crm-v3-sinal-num" id="crm-v3-sinal-notas">0</span>
+                <span class="crm-v3-sinal-label">Notas</span>
               </div>
-              <span class="badge badge-sm badge-primary" id="crm-mock-sidebar-contato-badge">Principal</span>
-            </div>
-            <div class="crm-mock-contact-details mt-2" id="crm-mock-sidebar-contato-detalhes">
-              <div class="crm-mock-contact-row flex items-center gap-2 text-sm">
-                <i class="fa-regular fa-envelope" aria-hidden="true"></i>
-                <span class="truncate flex-1" id="crm-mock-sidebar-contato-email" title="">marketing@portalautoshopping.com.br</span>
-                <button type="button" class="btn btn-ghost btn-xs btn-square" id="crm-mock-copy-email" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button>
-                <a class="btn btn-ghost btn-xs btn-square" id="crm-mock-mailto-link" href="#" aria-label="Enviar e-mail"><i class="fa-regular fa-envelope"></i></a>
+              <div class="crm-v3-sinal">
+                <span class="crm-v3-sinal-num" id="crm-v3-sinal-objetivos">0</span>
+                <span class="crm-v3-sinal-label">Objetivos</span>
               </div>
-              <div class="crm-mock-contact-row flex items-center gap-2 text-sm mt-1">
-                <i class="fa-brands fa-whatsapp text-success" aria-hidden="true"></i>
-                <span class="truncate flex-1" id="crm-mock-sidebar-contato-telefone" title="">(31) 99399-9939</span>
-                <a class="btn btn-ghost btn-xs" id="crm-mock-whatsapp-link" href="#" target="_blank" rel="noopener">WhatsApp</a>
+              <div class="crm-v3-sinal">
+                <span class="crm-v3-sinal-num" id="crm-v3-sinal-atividades">0</span>
+                <span class="crm-v3-sinal-label">Ativ. pendentes</span>
+              </div>
+              <div class="crm-v3-sinal">
+                <span class="crm-v3-sinal-num" id="crm-v3-sinal-cotacoes">0</span>
+                <span class="crm-v3-sinal-label">Cotações</span>
               </div>
             </div>
           </div>
 
-          <div class="crm-mock-sidebar-section">
-            <div class="crm-mock-sidebar-section-title">Responsável interno</div>
-            <div class="crm-mock-responsavel-card">
-              <div class="crm-mock-avatar crm-mock-avatar-muted" id="crm-mock-responsavel-avatar" aria-hidden="true">—</div>
-              <div class="crm-mock-responsavel-info">
-                <div class="crm-mock-responsavel-name" id="crm-mock-responsavel-nome">—</div>
-                <div class="crm-mock-responsavel-email" id="crm-mock-responsavel-email">—</div>
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Informações básicas</div>
+            <div class="crm-v3-info-grid">
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Perfil</span><span class="crm-v3-info-value" id="crm-v3-info-categoria">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Classificação</span><span class="crm-v3-info-value" id="crm-v3-info-classificacao">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Tipo de cliente</span><span class="crm-v3-info-value" id="crm-v3-info-tipo">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Prioridade</span><span class="crm-v3-info-value" id="crm-v3-info-prioridade">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">CNPJ</span><span class="crm-v3-info-value" id="crm-v3-info-cnpj">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Fonte</span><span class="crm-v3-info-value" id="crm-v3-info-fonte">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Criado em</span><span class="crm-v3-info-value" id="crm-v3-info-criado">—</span></div>
+            </div>
+          </div>
+
+          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-contato-resumo">
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title">Contato selecionado</div>
+              <button type="button" class="crm-v3-link crm-v3-link-btn" id="crm-v3-ver-todos-contatos" title="Ver coluna de contatos">Ver todos</button>
+            </div>
+            <div class="crm-v3-contact-card crm-v3-contact-card-sidebar" id="crm-v3-sidebar-contato-card">
+              <div class="crm-v3-avatar crm-v3-avatar-muted" id="crm-v3-sidebar-contato-avatar" aria-hidden="true">M</div>
+              <div class="crm-v3-contact-info min-w-0">
+                <div class="crm-v3-contact-name" id="crm-v3-sidebar-contato-nome">marketing</div>
+                <div class="crm-v3-contact-role" id="crm-v3-sidebar-contato-cargo">Analista de Mídias</div>
+                <div class="crm-v3-contact-role" id="crm-v3-sidebar-contato-setor">Marketing</div>
+              </div>
+              <span class="badge badge-sm badge-primary" id="crm-v3-sidebar-contato-badge">Principal</span>
+            </div>
+            <div class="crm-v3-contact-details mt-2" id="crm-v3-sidebar-contato-detalhes">
+              <div class="crm-v3-contact-row">
+                <i class="fa-regular fa-envelope crm-v3-contact-row-icon" aria-hidden="true"></i>
+                <span class="crm-v3-contact-row-text" id="crm-v3-sidebar-contato-email" title="">marketing@portalautoshopping.com.br</span>
+                <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" id="crm-v3-copy-email" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button>
+                <a class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" id="crm-v3-mailto-link" href="#" aria-label="Enviar e-mail"><i class="fa-regular fa-envelope"></i></a>
+              </div>
+              <div class="crm-v3-contact-row">
+                <i class="fa-brands fa-whatsapp crm-v3-contact-row-icon" style="color: var(--crm-primary);" aria-hidden="true"></i>
+                <span class="crm-v3-contact-row-text" id="crm-v3-sidebar-contato-telefone" title="">(31) 99399-9939</span>
+                <a class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-xs" id="crm-v3-whatsapp-link" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</a>
               </div>
             </div>
           </div>
 
-          <div class="crm-mock-sidebar-section">
-            <div class="crm-mock-info-grid">
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Origem</span><span class="crm-mock-info-value">CRM</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Segmento</span><span class="crm-mock-info-value" id="crm-mock-info-segmento">—</span></div>
-              <div class="crm-mock-info-row"><span class="crm-mock-info-label">Cidade</span><span class="crm-mock-info-value" id="crm-mock-info-cidade">—</span></div>
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Responsável interno</div>
+            <div class="crm-v3-responsavel-card">
+              <div class="crm-v3-avatar crm-v3-avatar-muted" id="crm-v3-responsavel-avatar" aria-hidden="true">—</div>
+              <div class="crm-v3-responsavel-info">
+                <div class="crm-v3-responsavel-name" id="crm-v3-responsavel-nome">—</div>
+                <div class="crm-v3-responsavel-email" id="crm-v3-responsavel-email">—</div>
+              </div>
             </div>
           </div>
 
-          <div class="crm-mock-sidebar-section">
-            <div class="crm-mock-sidebar-section-header">
-              <div class="crm-mock-sidebar-section-title">Acompanham este cliente</div>
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-info-grid">
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Origem</span><span class="crm-v3-info-value">CRM</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Segmento</span><span class="crm-v3-info-value" id="crm-v3-info-segmento">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Cidade</span><span class="crm-v3-info-value" id="crm-v3-info-cidade">—</span></div>
             </div>
-            <div class="crm-mock-followers-row" aria-label="Seguidores">
-              <div class="crm-mock-avatar-mini">LS</div>
-              <div class="crm-mock-avatar-mini crm-mock-avatar-mini-muted">JP</div>
-              <div class="crm-mock-avatar-mini">CM</div>
-              <div class="crm-mock-avatar-mini crm-mock-avatar-mini-muted">AP</div>
-              <div class="crm-mock-avatar-mini crm-mock-avatar-mini-muted">+4</div>
+          </div>
+
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title">Acompanham este cliente</div>
+            </div>
+            <div class="crm-v3-followers-row" aria-label="Seguidores">
+              <div class="crm-v3-avatar-mini">LS</div>
+              <div class="crm-v3-avatar-mini crm-v3-avatar-mini-muted">JP</div>
+              <div class="crm-v3-avatar-mini">CM</div>
+              <div class="crm-v3-avatar-mini crm-v3-avatar-mini-muted">AP</div>
+              <div class="crm-v3-avatar-mini crm-v3-avatar-mini-muted">+4</div>
             </div>
           </div>
         </div>
 
-        <div class="crm-mock-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="notas" aria-labelledby="tab-sidebar-notas" hidden>
-          <div class="crm-mock-sidebar-section">
-            <div id="crm-mock-notas-list" class="space-y-2"></div>
-            <button type="button" class="btn btn-sm btn-outline mt-3" id="crm-mock-btn-nova-nota">+ Nova nota</button>
+        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="notas" aria-labelledby="tab-sidebar-notas" hidden>
+          <div class="crm-v3-sidebar-section">
+            <div id="crm-v3-notas-list" class="space-y-2"></div>
+            <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm mt-3" id="crm-v3-btn-nova-nota"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova nota</button>
           </div>
         </div>
 
-        <div class="crm-mock-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="objetivos" aria-labelledby="tab-sidebar-obj" hidden>
-          <div class="crm-mock-sidebar-panel-heading">
+        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="objetivos" aria-labelledby="tab-sidebar-obj" hidden>
+          <div class="crm-v3-sidebar-panel-heading">
             <div>
               <h2>Objetivos</h2>
               <p>Metas comerciais deste cliente</p>
             </div>
-            <button type="button" class="crm-mock-btn crm-mock-btn-primary crm-mock-btn-sm" id="crm-mock-btn-novo-objetivo">+ Novo</button>
+            <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-novo-objetivo"><i class="fa-solid fa-plus" aria-hidden="true"></i> Novo</button>
           </div>
-          <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-objetivos-list"></div>
+          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-objetivos-list"></div>
         </div>
 
-        <div class="crm-mock-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="atividades" aria-labelledby="tab-sidebar-ativ" hidden>
-          <div class="crm-mock-sidebar-panel-heading">
+        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="atividades" aria-labelledby="tab-sidebar-ativ" hidden>
+          <div class="crm-v3-sidebar-panel-heading">
             <div>
               <h2>Atividades recentes</h2>
               <p>Resumo do histórico comercial</p>
             </div>
-            <button type="button" class="crm-mock-link crm-mock-link-btn" id="crm-mock-ver-todas-atividades">Ver todas</button>
+            <button type="button" class="crm-v3-link crm-v3-link-btn" id="crm-v3-ver-todas-atividades">Ver todas</button>
           </div>
-          <div class="crm-mock-sidebar-section" id="crm-mock-sidebar-atividades-list"></div>
+          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-atividades-list"></div>
         </div>
       </div>
 
-      <div class="crm-mock-sidebar-footer">
-        <button type="button" class="btn btn-sm btn-outline w-full" id="crm-mock-seguir-toggle" aria-pressed="false">Seguir cliente</button>
-      </div>
     </aside>
 
   </div>
 
-  <div id="crm-mock-global-overlay" class="crm-mock-global-overlay" hidden aria-live="polite">
+  <div id="crm-v3-global-overlay" class="crm-v3-global-overlay" hidden aria-live="polite">
     <span class="loading loading-spinner loading-md text-primary"></span>
-    <span id="crm-mock-overlay-msg">Carregando…</span>
+    <span id="crm-v3-overlay-msg">Carregando…</span>
   </div>
 
-  {% include 'teste_crm/_modals.html' %}
+  {% include 'crm_v3/_modals.html' %}
+
+  {# Drawers (Fase 2) — templates HTML clonados via cxDrawer #}
+  {% include 'crm_v3/_drawer_cliente.html' %}
+  {% include 'crm_v3/_drawer_atividade.html' %}
+  {% include 'crm_v3/_drawer_cotacao.html' %}
+  {% include 'crm_v3/_drawer_contato.html' %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_mock.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

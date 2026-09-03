@@ -1,4 +1,4 @@
-"""Helpers para o protótipo /teste-crm (sem dependência do CRM real)."""
+"""Helpers para o protótipo /crm-v3 (sem dependência do CRM real)."""
 
 import re
 from typing import Any, Dict, List, Optional

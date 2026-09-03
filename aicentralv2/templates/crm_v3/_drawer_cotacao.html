@@ -1,0 +1,59 @@
+{# Drawer LG — Cotação (Fase 2). Modelo simples com meta + linhas + anexos. #}
+<template id="cx-drawer-cotacao-tpl">
+  <form id="cx-drawer-cotacao-form" data-drawer-form="cotacao">
+    <input type="hidden" name="id" data-field="id" />
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Cabeçalho</div>
+      <div class="cx-drawer-grid">
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Nome da campanha *</label>
+          <input type="text" name="nome_campanha" data-field="nome_campanha" required />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Número</label>
+          <input type="text" name="numero_cotacao" data-field="numero_cotacao" placeholder="COT-2026-001" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Status</label>
+          <select name="status" data-field="status">
+            <option value="rascunho">Rascunho</option>
+            <option value="enviada">Enviada</option>
+            <option value="em-acompanhamento">Em acompanhamento</option>
+            <option value="aprovada">Aprovada</option>
+            <option value="rejeitada">Rejeitada</option>
+            <option value="expirada">Expirada</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Período — início</label>
+          <input type="date" name="periodo_inicio" data-field="periodo_inicio" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Período — fim</label>
+          <input type="date" name="periodo_fim" data-field="periodo_fim" />
+        </div>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Linhas</div>
+      <div class="text-xs text-base-content/60 mb-2">Cada linha representa uma inserção/produto. O total é somado automaticamente.</div>
+      <div id="cx-drawer-cotacao-linhas" class="flex flex-col gap-2"></div>
+      <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-xs mt-2" data-drawer-action="add-linha">
+        <i class="fa-solid fa-plus mr-1" aria-hidden="true"></i>Adicionar linha
+      </button>
+      <div class="flex justify-end mt-3 text-sm">
+        <strong>Total:&nbsp;</strong>
+        <span data-drawer-total>R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Observações</div>
+      <div class="cx-drawer-field">
+        <textarea rows="3" name="observacoes" data-field="observacoes"></textarea>
+      </div>
+    </div>
+  </form>
+</template>

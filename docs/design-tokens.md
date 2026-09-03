@@ -50,5 +50,5 @@ Badges DaisyUI usam `*-content` do tema para texto sobre fundo semântico.
 ## Regras
 
 - Preferir classes semânticas DaisyUI: `badge-error`, `btn-primary`, `bg-base-200`.
-- Evitar hex soltos e `bg-red-500` etc. nos templates `/teste-crm`.
+- Evitar hex soltos e `bg-red-500` etc. nos templates `/crm-v3`.
 - Avatares: `primary` ou `muted` (`#94a3b8`) — duas tons apenas.

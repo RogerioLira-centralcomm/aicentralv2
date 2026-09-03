@@ -1,0 +1,77 @@
+{# Drawer LG — Nova/Editar atividade + painel de IA (Fase 2). #}
+<template id="cx-drawer-atividade-tpl">
+  <form id="cx-drawer-atividade-form" data-drawer-form="atividade">
+    <input type="hidden" name="id" data-field="id" />
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-section-title">Atividade</div>
+      <div class="cx-drawer-grid">
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Título *</label>
+          <input type="text" name="titulo" data-field="titulo" required placeholder="Ex.: Ligar para o responsável" />
+        </div>
+        <div class="cx-drawer-field" style="grid-column: span 2;">
+          <label>Descrição / roteiro</label>
+          <textarea rows="5" name="descricao" data-field="descricao" placeholder="Contexto, próximos passos, links..."></textarea>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Tipo</label>
+          <select name="tipo" data-field="tipo">
+            <option value="ligacao">Ligação</option>
+            <option value="email">E-mail</option>
+            <option value="reuniao">Reunião</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="tarefa">Tarefa</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Prioridade</label>
+          <select name="prioridade" data-field="prioridade">
+            <option value="Alta">Alta</option>
+            <option value="Média" selected>Média</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+        <div class="cx-drawer-field">
+          <label>Data *</label>
+          <input type="date" name="data" data-field="data" required />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Hora</label>
+          <input type="time" name="hora" data-field="hora" />
+        </div>
+        <div class="cx-drawer-field">
+          <label>Responsável</label>
+          <select name="responsavel" data-field="responsavel">
+            <option value="Luisa Santana">Luisa Santana</option>
+            <option value="João Paulo">João Paulo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="cx-drawer-section">
+      <div class="cx-drawer-ia-panel" role="region" aria-label="Assistente IA para atividade">
+        <div class="cx-drawer-ia-title">
+          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+          Assistente IA
+        </div>
+        <div class="cx-drawer-ia-actions">
+          <button type="button" class="cx-drawer-ia-action" data-ia-action="melhorar-texto">
+            <i class="fa-solid fa-feather" aria-hidden="true"></i> Melhorar texto
+          </button>
+          <button type="button" class="cx-drawer-ia-action" data-ia-action="sugerir-atividade">
+            <i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Sugerir próxima atividade
+          </button>
+          <button type="button" class="cx-drawer-ia-action" data-ia-action="touchpoints">
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Sequência de touchpoints
+          </button>
+          <button type="button" class="cx-drawer-ia-action" data-ia-action="gerar-comunicacao">
+            <i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i> Gerar e-mail p/ contato principal
+          </button>
+        </div>
+        <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
+      </div>
+    </div>
+  </form>
+</template>

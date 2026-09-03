@@ -4,6 +4,15 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=4">
 
+<div style="background:#fef3c7;border:1px solid #f59e0b;color:#78350f;padding:.5rem .75rem;border-radius:6px;font-size:.75rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;justify-content:space-between;">
+    <div>
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <strong>CRM legado.</strong> A versão atual do CRM agora é
+        <a href="{{ url_for('crm_v3.crm_v3') }}" style="text-decoration:underline;color:#78350f;font-weight:700;">CRM v3</a>. Esta tela permanece disponível somente para consulta enquanto o time migra os fluxos.
+    </div>
+    <a href="{{ url_for('crm_v3.crm_v3') }}" class="btn btn-xs btn-warning" style="white-space:nowrap;">Ir para CRM v3</a>
+</div>
+
 <div class="crm-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
     <h1 class="text-sm font-bold whitespace-nowrap mr-1">CRM</h1>
 

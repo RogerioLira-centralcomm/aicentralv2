@@ -5,15 +5,39 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 `@login_required_api` (retornam 401 JSON) para permitir chamadas fetch.
 """
 
-from flask import Blueprint, jsonify, render_template, request, session, url_for
+from flask import Blueprint, g, jsonify, render_template, request, session, url_for
 
-from .auth import login_required, login_required_api
+from .auth import admin_required_api, login_required, login_required_api
 from .crm_v3_helpers import parse_texto_contatos
-from .crm_v3_repository import get_store
+from .crm_v3_repository import get_store, store_diagnostic
 
-# Store pode ser o CrmTestStore em memória (default) ou o CrmV3Repository real,
-# selecionado por variável de ambiente USE_CRM_V3_STORE. Ver crm_v3_repository.get_store.
-store = get_store()
+
+class _LazyStore:
+    """Proxy que resolve o store por request (via Flask `g`).
+
+    Motivos para não segurar `store = get_store()` no import:
+    - Se o smoke test falhar durante o boot do worker (banco ainda
+      subindo, alguma coluna faltando), o processo travaria em mock
+      até restart. Com o proxy, cada request reavalia — a recuperação
+      é automática assim que o banco volta.
+    - Debug fica mais transparente: o diagnostic é preenchido no request
+      atual e reflete o que o usuário está vendo agora.
+
+    Fora de request (ex.: scripts CLI que importem o módulo), resolve
+    direto sem cache — comportamento inalterado.
+    """
+
+    def __getattr__(self, name):
+        try:
+            if not hasattr(g, "_crm_v3_store"):
+                g._crm_v3_store = get_store()
+            return getattr(g._crm_v3_store, name)
+        except RuntimeError:
+            # `flask.g` só existe dentro de contexto de request.
+            return getattr(get_store(), name)
+
+
+store = _LazyStore()
 
 bp = Blueprint("crm_v3", __name__, url_prefix="/crm-v3")
 
@@ -64,11 +88,50 @@ def crm_v3():
     # para pré-selecionar a base de clientes dele quando não há preferência
     # anterior no localStorage.
     usuario_atual = _executivo_from_session()
+    # Força o proxy a resolver o store agora, para preencher o
+    # diagnostic (mode/reason) já disponível no primeiro render.
+    try:
+        store.list_clientes  # noqa: B018 — acessa lazy pra disparar smoke test
+    except Exception:  # noqa: BLE001
+        pass
+    diag = store_diagnostic()
     return render_template(
         "crm_v3.html",
         executivos=executivos,
         usuario_atual=usuario_atual,
+        store_mode=diag.get("mode") or "unknown",
+        store_diag=diag,
     )
+
+
+@bp.route("/api/_debug/store")
+@admin_required_api
+def api_debug_store():
+    """Retorna o diagnóstico atual do store do CRM v3.
+
+    Uso: abrir /crm-v3/api/_debug/store logado como admin para saber se
+    o CRM está servindo dados do banco real ou do mock, e por quê.
+    A intenção é dar ao time comercial/operações uma resposta imediata
+    quando aparecem "clientes fictícios" na tela em vez de investigar
+    logs do gunicorn.
+    """
+    # Força uma resolução fresca (não pega o cache do request atual).
+    fresh = get_store()
+    diag = store_diagnostic()
+    sample = []
+    try:
+        clientes = fresh.list_clientes() or []
+        sample = [
+            {
+                "id": c.get("id"),
+                "nome": c.get("nome"),
+                "responsavel": c.get("responsavel"),
+            }
+            for c in clientes[:3]
+        ]
+    except Exception as e:  # noqa: BLE001
+        diag["list_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+    return _ok(diag, sample=sample, total_sample=len(sample))
 
 
 @bp.route("/api/clientes")

@@ -57,15 +57,46 @@ def _db():
 # Feature flag
 # =============================================================================
 
-def use_repository() -> bool:
-    """Default: banco real. Retorna False só se a flag pedir mock explícito.
+# Valores explícitos que forçam MOCK. Note: `1`/`true`/`yes` foram
+# removidos propositalmente em set/2026 porque a semântica anterior era
+# "ativa o store novo (=mock)" — muita gente ainda tem essas variáveis
+# setadas na produção esperando "ligar o banco real". Agora só valores
+# obviamente ligados a memória contam.
+_MOCK_TOKENS = frozenset({"mock", "memory", "in-memory", "fake", "fixture"})
+_REAL_TOKENS = frozenset({"real", "db", "postgres", "postgresql", "prod"})
 
-    Valores que forçam mock (case-insensitive):
-      "mock", "memory", "in-memory", "1", "true", "yes"
-    Qualquer outro valor (ou vazio/ausente) → repositório real.
-    """
-    raw = (os.environ.get("USE_CRM_V3_STORE") or "").strip().lower()
-    return raw not in {"mock", "memory", "in-memory", "1", "true", "yes"}
+
+def _flag_raw() -> str:
+    return (
+        os.environ.get("USE_CRM_V3_STORE")
+        or os.environ.get("CRM_V3_STORE")  # alias mais claro (set/2026)
+        or ""
+    ).strip().lower()
+
+
+def use_repository() -> bool:
+    """Retorna True se o CRM v3 deve usar o banco real (default)."""
+    raw = _flag_raw()
+    if raw in _MOCK_TOKENS:
+        return False
+    return True  # default + qualquer valor não reconhecido → real
+
+
+# Diagnóstico do último `get_store()` — usado por /api/_debug/store para
+# expor no painel qual modo o processo está servindo e por quê.
+_LAST_DIAGNOSTIC: Dict[str, Any] = {
+    "mode": "unknown",  # "real" | "mock"
+    "reason": "not-initialized",
+    "flag_env": "",
+    "flag_recognized": None,
+    "db_error": None,
+    "at": None,
+}
+
+
+def store_diagnostic() -> Dict[str, Any]:
+    """Retorna dict do último diagnóstico decidido pelo get_store()."""
+    return dict(_LAST_DIAGNOSTIC)
 
 
 # =============================================================================
@@ -1040,15 +1071,48 @@ def get_store():
     Fallback: se o banco não estiver acessível (import de `db` falha, ou
     a primeira query pega exceção), retorna o mock. Isso evita derrubar a
     UI em sandbox/dev enquanto mantém produção sempre no banco real.
+
+    Cada chamada atualiza `_LAST_DIAGNOSTIC` para debug via
+    /crm-v3/api/_debug/store e badge visual no header.
     """
+    flag = _flag_raw()
+    diag: Dict[str, Any] = {
+        "flag_env": flag,
+        "flag_recognized": (
+            "mock" if flag in _MOCK_TOKENS
+            else "real" if flag in _REAL_TOKENS
+            else ("unknown-defaulted-to-real" if flag else "empty-defaulted-to-real")
+        ),
+        "at": _datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "db_error": None,
+    }
+
     if not use_repository():
+        diag.update({
+            "mode": "mock",
+            "reason": f"flag USE_CRM_V3_STORE='{flag}' explicitamente pede mock",
+        })
+        _LAST_DIAGNOSTIC.update(diag)
         return _memory_store()
-    # Smoke test da conexão: se o import de db lança ou uma query trivial
-    # falha, caímos no mock em vez de servir 500 no CRM.
+
+    # Smoke test: se o banco não responder a uma query trivial, caímos
+    # no mock em vez de servir 500 no CRM. Guardamos o erro no diag.
     try:
         _db().obter_clientes_paginado(page=1, per_page=1)
+        diag.update({"mode": "real", "reason": "smoke test OK"})
+        _LAST_DIAGNOSTIC.update(diag)
         return repository
     except Exception as e:
-        import sys
-        print(f"[crm_v3] Repositório real indisponível ({e}); usando store em memória.", file=sys.stderr)
+        import sys, traceback
+        # Guarda uma versão curta do erro para o painel de debug.
+        err_short = f"{type(e).__name__}: {str(e).splitlines()[0][:240]}"
+        diag.update({
+            "mode": "mock",
+            "reason": "smoke test falhou — banco inacessível ou schema divergente",
+            "db_error": err_short,
+        })
+        _LAST_DIAGNOSTIC.update(diag)
+        print(f"[crm_v3] Repositório real indisponível ({err_short}); usando store em memória.", file=sys.stderr)
+        print("[crm_v3] traceback do smoke test:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return _memory_store()

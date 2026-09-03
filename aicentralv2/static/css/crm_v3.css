@@ -1647,6 +1647,206 @@ button:hover > .crm-v3-menu-hint {
     background: var(--crm-primary-soft, rgba(79, 70, 229, 0.08));
 }
 
+/* ===== SEÇÃO "NOTAS" (sidebar Info) =====
+   Composer no topo + card da última nota em destaque + histórico
+   colapsável. Consolidação de set/2026: substitui a antiga aba Notas
+   e o campo "Nota do executivo". */
+.crm-v3-notas-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.crm-v3-notas-count {
+    display: inline-block;
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--crm-primary-soft, rgba(79, 70, 229, 0.12));
+    color: var(--crm-primary, #4f46e5);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    margin-left: 6px;
+    line-height: 1.4;
+}
+
+/* Composer inline */
+.crm-v3-nota-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--crm-border, #e5e7eb);
+    border-radius: 10px;
+    background: #ffffff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.crm-v3-nota-composer:focus-within {
+    border-color: var(--crm-primary, #4f46e5);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+.crm-v3-nota-composer-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    resize: vertical;
+    min-height: 44px;
+    max-height: 200px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--crm-text, #111827);
+    font-family: inherit;
+    padding: 2px 4px;
+}
+.crm-v3-nota-composer-input:focus {
+    outline: none;
+}
+.crm-v3-nota-composer-input::placeholder {
+    color: var(--crm-text-subtle, #9ca3af);
+}
+.crm-v3-nota-composer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.crm-v3-nota-composer-hint {
+    font-size: 11px;
+    color: var(--crm-text-subtle, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.crm-v3-nota-composer-hint i {
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* Última nota em destaque */
+.crm-v3-nota-destaque {
+    padding: 12px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fde68a;
+    color: #78350f;
+    box-shadow: 0 1px 2px rgba(146, 64, 14, 0.05);
+}
+.crm-v3-nota-destaque-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #92400e;
+    margin-bottom: 6px;
+}
+.crm-v3-nota-destaque-pin {
+    font-size: 11px;
+    color: #b45309;
+}
+.crm-v3-nota-destaque-label {
+    flex-shrink: 0;
+}
+.crm-v3-nota-destaque-meta {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #92400e;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.crm-v3-nota-destaque-texto {
+    font-size: 13px;
+    line-height: 1.55;
+    color: #451a03;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Toggle "Ver anteriores" */
+.crm-v3-nota-anteriores-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--crm-primary, #4f46e5);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    align-self: flex-start;
+    border-radius: 4px;
+}
+.crm-v3-nota-anteriores-toggle:hover {
+    text-decoration: underline;
+}
+.crm-v3-nota-anteriores-caret {
+    transition: transform 0.15s ease;
+    font-size: 10px;
+}
+.crm-v3-nota-anteriores-toggle[aria-expanded="true"] .crm-v3-nota-anteriores-caret {
+    transform: rotate(180deg);
+}
+.crm-v3-nota-anteriores-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+}
+.crm-v3-nota-anterior {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--crm-surface, #f9fafb);
+    border: 1px solid var(--crm-border-soft, #f3f4f6);
+}
+.crm-v3-nota-anterior-meta {
+    font-size: 11px;
+    color: var(--crm-text-subtle, #6b7280);
+    margin-bottom: 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.crm-v3-nota-anterior-texto {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--crm-text, #374151);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Estado vazio */
+.crm-v3-nota-empty {
+    font-size: 12px;
+    color: var(--crm-text-subtle, #6b7280);
+    padding: 12px;
+    text-align: center;
+    background: var(--crm-surface, #f9fafb);
+    border: 1px dashed var(--crm-border, #e5e7eb);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+}
+.crm-v3-nota-empty i {
+    opacity: 0.6;
+}
+
 /* Chip de Classificação (Ativo / Prospecção / Geladeira) —
    substitui o antigo badge "Prioridade" que era mock. Cores
    monocromáticas por status para leitura rápida sem poluição. */

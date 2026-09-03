@@ -565,11 +565,12 @@
     }
 
     function updateTabCounts() {
-        // Contadores da sidebar principal. A aba "Atividades" foi
-        // removida em set/2026 (redundante com a coluna central), então
-        // não precisamos mais atualizar o contador dela aqui.
+        // Contadores da sidebar principal. Em set/2026 foram consolidadas
+        // as abas "Atividades" (redundante com a coluna central) e
+        // "Notas" (agora vive dentro da aba Info). Só sobrou "Objetivos".
+        // Contador de notas continua sendo atualizado num badge inline
+        // no título da seção "Notas" (crm-v3-notas-count-inline).
         var counts = {
-            notas: (state.notas || []).length,
             objetivos: (state.objetivos || []).length,
         };
         $$('.crm-v3-tab-count').forEach(function (el) {
@@ -817,7 +818,10 @@
         setEditableDisplay('#crm-v3-info-logradouro', cliente.logradouro || (cliente.endereco && cliente.endereco.logradouro));
         setEditableDisplay('#crm-v3-info-numero', cliente.numero || (cliente.endereco && cliente.endereco.numero));
         setEditableDisplay('#crm-v3-info-complemento', cliente.complemento || (cliente.endereco && cliente.endereco.complemento));
-        setEditableDisplay('#crm-v3-info-nota-executivo', cliente.nota_executivo);
+        // Campo "Nota do executivo" (tbl_cliente.nota_executivo_vendas)
+        // removido da UI em set/2026 — o histórico de notas
+        // (sales_historico_cliente) é a fonte única. A coluna continua
+        // no banco por retrocompat, mas ninguém edita mais por aqui.
 
         var responsavelNome = $('#crm-v3-responsavel-nome');
         var responsavelAvatar = $('#crm-v3-responsavel-avatar');
@@ -1862,28 +1866,183 @@
     }
 
     function renderNotas() {
-        // Histórico do cliente é APPEND-ONLY (paridade com /crm/api/cliente/
-        // <id>/historico). Só listamos + permitimos criar novas notas; não
-        // há edição/exclusão porque a base `sales_historico_cliente` não
-        // suporta esses verbos no CRM legado.
-        var container = $('#crm-v3-notas-list');
-        if (!container) return;
+        // Nova estrutura (set/2026): "Notas" vive na sidebar Info como
+        // uma única seção com composer + última nota em destaque +
+        // histórico expansível. A aba "Notas" separada foi removida.
+        // O histórico é append-only (paridade com sales_historico_cliente
+        // do CRM legado) — sem edição/exclusão.
+        var destaque = $('#crm-v3-nota-destaque');
+        var destaqueTexto = $('#crm-v3-nota-destaque-texto');
+        var destaqueMeta = $('#crm-v3-nota-destaque-meta');
+        var toggle = $('#crm-v3-nota-anteriores-toggle');
+        var toggleLabel = $('#crm-v3-nota-anteriores-label');
+        var anterioresList = $('#crm-v3-nota-anteriores-list');
+        var empty = $('#crm-v3-nota-empty');
+        var countInline = $('#crm-v3-notas-count-inline');
+
         updateTabCounts();
-        if (!state.notas.length) {
-            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhuma nota registrada para este cliente.</p>';
+
+        var notas = state.notas || [];
+
+        // Ordena mais recentes primeiro (defensivo — backend já entrega
+        // ordenado, mas alguns mocks podem não fazer isso).
+        var ordenadas = notas.slice().sort(function (a, b) {
+            var da = a.data || '';
+            var db = b.data || '';
+            if (db < da) return -1;
+            if (db > da) return 1;
+            return 0;
+        });
+
+        // Contador ao lado do título ("Notas 3").
+        if (countInline) {
+            if (ordenadas.length > 0) {
+                countInline.textContent = String(ordenadas.length);
+                countInline.hidden = false;
+            } else {
+                countInline.hidden = true;
+            }
+        }
+
+        if (!ordenadas.length) {
+            if (destaque) destaque.hidden = true;
+            if (toggle) toggle.hidden = true;
+            if (anterioresList) { anterioresList.hidden = true; anterioresList.innerHTML = ''; }
+            if (empty) empty.hidden = false;
             return;
         }
-        container.innerHTML = state.notas.map(function (nota) {
-            var autor = (nota.autor || '').trim();
-            var dataStr = dataParaExibicao(nota.data) || '';
-            var meta = [autor, dataStr].filter(Boolean).join(' · ');
-            return (
-                '<article class="crm-v3-nota-item" data-nota-id="' + escapeHtml(nota.id) + '">' +
-                '<p class="crm-v3-nota-texto">' + escapeHtml(nota.texto) + '</p>' +
-                (meta ? '<div class="crm-v3-nota-meta">' + escapeHtml(meta) + '</div>' : '') +
-                '</article>'
-            );
-        }).join('');
+
+        if (empty) empty.hidden = true;
+
+        // ---- Última nota (destaque) ----
+        var ultima = ordenadas[0];
+        if (destaque) destaque.hidden = false;
+        if (destaqueTexto) destaqueTexto.textContent = ultima.texto || '';
+        if (destaqueMeta) {
+            var autor = (ultima.autor || '').trim();
+            var dataStr = dataParaExibicao(ultima.data) || '';
+            destaqueMeta.textContent = [autor, dataStr].filter(Boolean).join(' · ');
+        }
+
+        // ---- Anteriores (colapsadas) ----
+        var anteriores = ordenadas.slice(1);
+        if (toggle) {
+            if (!anteriores.length) {
+                toggle.hidden = true;
+                if (anterioresList) { anterioresList.hidden = true; anterioresList.innerHTML = ''; }
+            } else {
+                toggle.hidden = false;
+                if (toggleLabel) {
+                    toggleLabel.textContent =
+                        (toggle.getAttribute('aria-expanded') === 'true' ? 'Ocultar' : 'Ver') +
+                        ' anteriores (' + anteriores.length + ')';
+                }
+            }
+        }
+        if (anterioresList) {
+            anterioresList.innerHTML = anteriores.map(function (nota) {
+                var autor = (nota.autor || '').trim();
+                var dataStr = dataParaExibicao(nota.data) || '';
+                var meta = [autor, dataStr].filter(Boolean).join(' · ');
+                return (
+                    '<article class="crm-v3-nota-anterior" data-nota-id="' + escapeHtml(nota.id) + '">' +
+                    (meta
+                        ? '<div class="crm-v3-nota-anterior-meta"><i class="fa-regular fa-user" aria-hidden="true"></i>' + escapeHtml(meta) + '</div>'
+                        : '') +
+                    '<p class="crm-v3-nota-anterior-texto">' + escapeHtml(nota.texto || '') + '</p>' +
+                    '</article>'
+                );
+            }).join('');
+        }
+    }
+
+    /**
+     * Bind único (no boot) do composer inline de notas + toggle
+     * "Ver anteriores". Toda interação usa `state.clienteId` atual.
+     *
+     * Fluxo do submit:
+     *   1) Validação simples (texto não vazio).
+     *   2) POST /clientes/<id>/notas.
+     *   3) Recarrega state.notas e re-renderiza a seção.
+     *   4) Limpa o textarea; foco fica no campo para próxima nota.
+     */
+    function bindNotasComposer() {
+        var form = $('#crm-v3-nota-composer');
+        var input = $('#crm-v3-nota-composer-input');
+        var submit = $('#crm-v3-nota-composer-submit');
+        var toggle = $('#crm-v3-nota-anteriores-toggle');
+        var anterioresList = $('#crm-v3-nota-anteriores-list');
+        var toggleLabel = $('#crm-v3-nota-anteriores-label');
+
+        if (form && input && submit) {
+            var updateSubmitState = function () {
+                submit.disabled = !input.value.trim() || !state.clienteId;
+            };
+            input.addEventListener('input', updateSubmitState);
+            // Cmd/Ctrl + Enter envia rapidamente.
+            input.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+                    ev.preventDefault();
+                    if (!submit.disabled) form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+                if (ev.key === 'Escape') {
+                    input.value = '';
+                    updateSubmitState();
+                }
+            });
+
+            form.addEventListener('submit', function (ev) {
+                ev.preventDefault();
+                if (!state.clienteId) {
+                    showToast('Selecione um cliente antes de adicionar uma nota.', true);
+                    return;
+                }
+                var texto = (input.value || '').trim();
+                if (!texto) return;
+                var prev = submit.innerHTML;
+                submit.disabled = true;
+                submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
+                api('/clientes/' + encodeURIComponent(state.clienteId) + '/notas', {
+                    method: 'POST',
+                    body: { texto: texto }
+                }).then(function () {
+                    input.value = '';
+                    updateSubmitState();
+                    // Recarrega o histórico completo para incluir a nova
+                    // nota em destaque + refletir metadados do backend
+                    // (autor real, timestamp exato). Autoclose do
+                    // "anteriores" para o usuário ver a última no topo.
+                    if (toggle && toggle.getAttribute('aria-expanded') === 'true') {
+                        toggle.setAttribute('aria-expanded', 'false');
+                        if (anterioresList) anterioresList.hidden = true;
+                    }
+                    return loadNotas(state.clienteId);
+                }).then(function () {
+                    showToast('Nota adicionada.');
+                    input.focus();
+                }).catch(function (err) {
+                    showToast(err.message || 'Falha ao adicionar nota.', true);
+                }).finally(function () {
+                    submit.innerHTML = prev;
+                    updateSubmitState();
+                });
+            });
+        }
+
+        if (toggle && anterioresList) {
+            toggle.addEventListener('click', function () {
+                var expanded = toggle.getAttribute('aria-expanded') === 'true';
+                var novoEstado = !expanded;
+                toggle.setAttribute('aria-expanded', String(novoEstado));
+                anterioresList.hidden = !novoEstado;
+                if (toggleLabel) {
+                    var total = anterioresList.querySelectorAll('.crm-v3-nota-anterior').length;
+                    toggleLabel.textContent =
+                        (novoEstado ? 'Ocultar' : 'Ver') +
+                        ' anteriores (' + total + ')';
+                }
+            });
+        }
     }
 
     function selectContato(id) {
@@ -2874,12 +3033,15 @@
         // opera sobre state.clienteId em cada interação.
         bindSiteEditor();
 
+        // Composer inline de notas + toggle "Ver anteriores".
+        bindNotasComposer();
+
         var novoObjetivo = $('#crm-v3-btn-novo-objetivo');
         if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });
         var novaCotacao = $('#crm-v3-btn-nova-cotacao');
         if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
-        var novaNota = $('#crm-v3-btn-nova-nota');
-        if (novaNota) novaNota.addEventListener('click', function () { openNotaModal(null); });
+        // Handler do botão "Nova nota" removido em set/2026: a criação
+        // acontece pelo composer inline dentro da seção Notas (Info).
         var expandir = $('#crm-v3-btn-expandir-cotacoes');
         if (expandir) expandir.addEventListener('click', function () {
             var painel = $('.crm-v3-center-right');

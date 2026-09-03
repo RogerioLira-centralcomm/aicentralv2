@@ -384,11 +384,11 @@
           <i class="fas fa-info-circle" aria-hidden="true"></i>
           <span>Info</span>
         </button>
-        <button type="button" role="tab" class="crm-v3-tab" data-tab="notas" aria-selected="false" id="tab-sidebar-notas" title="Notas">
-          <i class="fas fa-sticky-note" aria-hidden="true"></i>
-          <span>Notas</span>
-          <span class="crm-v3-tab-count" data-tab-count="notas">0</span>
-        </button>
+        {# Aba "Notas" removida em set/2026 — consolidada na aba
+           Info como seção "Notas" (composer inline + última em
+           destaque + expandir anteriores). Motivo: o histórico de
+           notas é essencial para contexto rápido e não faz sentido
+           esconder num tab separado. #}
         <button type="button" role="tab" class="crm-v3-tab" data-tab="objetivos" aria-selected="false" id="tab-sidebar-obj" title="Objetivos">
           <i class="fas fa-bullseye" aria-hidden="true"></i>
           <span>Obj.</span>
@@ -573,13 +573,68 @@
             </div>
           </div>
 
-          <div class="crm-v3-sidebar-section">
-            <div class="crm-v3-sidebar-section-title">Nota do executivo</div>
-            <div class="crm-v3-editable-row crm-v3-editable-row-block"
-                 data-field="nota_executivo_vendas" data-type="textarea"
-                 data-placeholder="Escrever uma nota rápida sobre este cliente…">
-              <p class="crm-v3-info-obs-text" data-editable-display id="crm-v3-info-nota-executivo">—</p>
+          {# Seção "Notas" — consolidada em set/2026.
+             Substitui:
+             - A antiga aba "Notas" (que forçava clique extra).
+             - O campo "Nota do executivo" (single-line em
+               tbl_cliente.nota_executivo_vendas, não persistia várias
+               notas).
+             Agora o histórico completo (`sales_historico_cliente`) vive
+             aqui: composer no topo, última nota destacada, anteriores
+             recolhidas — a mais recente é sempre a mais importante. #}
+          <div class="crm-v3-sidebar-section crm-v3-notas-section" id="crm-v3-notas-section">
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title">
+                Notas
+                <span class="crm-v3-notas-count" id="crm-v3-notas-count-inline" hidden>0</span>
+              </div>
             </div>
+
+            {# Composer inline — Enter (ou Cmd/Ctrl+Enter) adiciona,
+               Esc limpa. Envio é otimista + feedback via toast. #}
+            <form class="crm-v3-nota-composer" id="crm-v3-nota-composer" autocomplete="off">
+              <textarea class="crm-v3-nota-composer-input" id="crm-v3-nota-composer-input"
+                        rows="2" placeholder="Adicionar uma nota rápida... (Cmd/Ctrl+Enter salva)"
+                        aria-label="Nova nota"></textarea>
+              <div class="crm-v3-nota-composer-actions">
+                <span class="crm-v3-nota-composer-hint">
+                  <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+                  Notas são append-only — a mais recente fica em destaque.
+                </span>
+                <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm"
+                        id="crm-v3-nota-composer-submit" disabled>
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                  Adicionar
+                </button>
+              </div>
+            </form>
+
+            {# Última nota destacada — aberta por default, ocupa
+               destaque visual. Fica hidden quando não há notas. #}
+            <div class="crm-v3-nota-destaque" id="crm-v3-nota-destaque" hidden>
+              <div class="crm-v3-nota-destaque-header">
+                <i class="fa-solid fa-thumbtack crm-v3-nota-destaque-pin" aria-hidden="true"></i>
+                <span class="crm-v3-nota-destaque-label">Última nota</span>
+                <span class="crm-v3-nota-destaque-meta" id="crm-v3-nota-destaque-meta"></span>
+              </div>
+              <p class="crm-v3-nota-destaque-texto" id="crm-v3-nota-destaque-texto">—</p>
+            </div>
+
+            {# Botão para expandir anteriores + lista colapsável. #}
+            <button type="button" class="crm-v3-nota-anteriores-toggle"
+                    id="crm-v3-nota-anteriores-toggle" hidden aria-expanded="false"
+                    aria-controls="crm-v3-nota-anteriores-list">
+              <i class="fa-solid fa-chevron-down crm-v3-nota-anteriores-caret" aria-hidden="true"></i>
+              <span id="crm-v3-nota-anteriores-label">Ver anteriores</span>
+            </button>
+            <div class="crm-v3-nota-anteriores-list" id="crm-v3-nota-anteriores-list" hidden></div>
+
+            {# Estado vazio (nenhuma nota). #}
+            <p class="crm-v3-nota-empty" id="crm-v3-nota-empty" hidden>
+              <i class="fa-regular fa-note-sticky" aria-hidden="true"></i>
+              Este cliente ainda não tem notas.
+              Use o campo acima para registrar a primeira.
+            </p>
           </div>
 
           <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-contato-resumo">
@@ -624,12 +679,9 @@
 
         </div>
 
-        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="notas" aria-labelledby="tab-sidebar-notas" hidden>
-          <div class="crm-v3-sidebar-section">
-            <div id="crm-v3-notas-list" class="space-y-2"></div>
-            <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm mt-3" id="crm-v3-btn-nova-nota"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova nota</button>
-          </div>
-        </div>
+        {# Painel "Notas" removido em set/2026 — a listagem completa
+           agora vive na seção "Notas" da aba Info (composer + última
+           destacada + histórico expansível). #}
 
         <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="objetivos" aria-labelledby="tab-sidebar-obj" hidden>
           <div class="crm-v3-sidebar-panel-heading">

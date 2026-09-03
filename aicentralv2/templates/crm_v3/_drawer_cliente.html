@@ -104,14 +104,10 @@
             <option value="João Paulo">João Paulo</option>
           </select>
         </div>
-        <div class="cx-drawer-field">
-          <label>Prioridade</label>
-          <select name="prioridade" data-field="prioridade">
-            <option value="Alta">Alta</option>
-            <option value="Média">Média</option>
-            <option value="Baixa">Baixa</option>
-          </select>
-        </div>
+        {# Removido em set/2026: `tbl_cliente` não possui coluna
+           `prioridade` — o campo era mock e confundia os usuários. A
+           classificação (Prospecção/Ativo/Geladeira) é o dado real e
+           permanece disponível no chip do header e na aba "Info". #}
         <div class="cx-drawer-field">
           <label>BV %</label>
           <input type="number" name="bv_percentual" data-field="bv_percentual" step="0.01" min="0" max="100" />

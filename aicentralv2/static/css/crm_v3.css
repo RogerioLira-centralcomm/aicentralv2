@@ -1350,7 +1350,6 @@ html:has(.crm-v3-page) body {
     white-space: nowrap;
 }
 
-.crm-v3-star,
 .crm-v3-more {
     background: none;
     border: none;
@@ -1358,20 +1357,80 @@ html:has(.crm-v3-page) body {
     padding: 2px;
     border-radius: var(--crm-radius-sm);
     font-size: var(--crm-font-md);
-}
-
-.crm-v3-star {
-    color: #fbbf24;
-}
-
-.crm-v3-more {
     color: var(--crm-text-subtle);
 }
 
-.crm-v3-star:focus-visible,
 .crm-v3-more:focus-visible {
     outline: 2px solid var(--crm-primary);
     outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------
+   Avatar do cliente
+   ------------------------------------------------------------------
+   Aceita logo real (via Clearbit) OU iniciais como fallback.
+   Um único container 40x40 evita que a troca <img>↔<span> "pule" no
+   layout. object-fit: contain mantém logos com proporções variadas
+   (quadradas, largas, altas) inteligíveis dentro do círculo.
+*/
+.crm-v3-detail-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--crm-primary, #4f46e5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.crm-v3-detail-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+    display: block;
+}
+
+.crm-v3-detail-avatar-fallback {
+    color: var(--crm-primary-content, #ffffff);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}
+
+/* Chip de Classificação (Ativo / Prospecção / Geladeira) —
+   substitui o antigo badge "Prioridade" que era mock. Cores
+   monocromáticas por status para leitura rápida sem poluição. */
+.crm-v3-classif-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--crm-font-xs);
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+.crm-v3-classif-chip[data-classif="Ativo"] {
+    background: #dcfce7;
+    color: #14532d;
+    border-color: #bbf7d0;
+}
+.crm-v3-classif-chip[data-classif="Prospecção"] {
+    background: #dbeafe;
+    color: #1e3a8a;
+    border-color: #bfdbfe;
+}
+.crm-v3-classif-chip[data-classif="Geladeira"] {
+    background: #e5e7eb;
+    color: #374151;
+    border-color: #d1d5db;
 }
 
 .crm-v3-detail-meta {

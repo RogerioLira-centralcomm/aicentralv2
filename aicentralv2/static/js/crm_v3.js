@@ -224,6 +224,60 @@
         return iso ? iso[3] + '/' + iso[2] + '/' + iso[1] : valor;
     }
 
+    /**
+     * Formata uma data ISO 8601 (com ou sem hora) em rótulo humano.
+     * - Hoje / Ontem / Nd atrás (até 7 dias) / dd/MM/yyyy.
+     * Usada no header do CRM v3 para "Última atualização".
+     */
+    function formatarDataRelativa(valor) {
+        if (!valor) return '';
+        var s = String(valor);
+        // Aceita 'YYYY-MM-DD' ou ISO com T; extrai a data.
+        var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!iso) return dataParaExibicao(s);
+        var d = new Date(iso[1] + '-' + iso[2] + '-' + iso[3] + 'T00:00:00');
+        if (isNaN(d.getTime())) return dataParaExibicao(s);
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        var diff = Math.round((hoje.getTime() - d.getTime()) / 86400000);
+        if (diff === 0) return 'Hoje';
+        if (diff === 1) return 'Ontem';
+        if (diff > 1 && diff <= 7) return diff + ' dias atrás';
+        return iso[3] + '/' + iso[2] + '/' + iso[1];
+    }
+
+    /**
+     * Deriva o domínio de e-mail do contato principal (ou primeiro
+     * contato com e-mail) do cliente selecionado. Usado como chave para
+     * a Clearbit Logo API — retorna string vazia quando não há e-mail
+     * disponível. Ignora domínios de webmail comuns porque geram
+     * logos de gmail.com / hotmail.com em vez do cliente.
+     */
+    var _AVATAR_DOMINIOS_IGNORADOS = new Set([
+        'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com',
+        'yahoo.com.br', 'live.com', 'icloud.com', 'me.com',
+        'terra.com.br', 'uol.com.br', 'bol.com.br', 'msn.com'
+    ]);
+    function extrairDominioContato(cliente) {
+        var lista = Array.isArray(state.contatos) ? state.contatos : [];
+        if (!lista.length) return '';
+        // Ordena: principal primeiro; depois só quem tem e-mail.
+        var ordenados = lista.slice().sort(function (a, b) {
+            var pa = a && a.principal ? -1 : 0;
+            var pb = b && b.principal ? -1 : 0;
+            return pa - pb;
+        });
+        for (var i = 0; i < ordenados.length; i++) {
+            var email = (ordenados[i] && ordenados[i].email || '').trim().toLowerCase();
+            var at = email.indexOf('@');
+            if (at <= 0 || at === email.length - 1) continue;
+            var dominio = email.slice(at + 1).replace(/[\s>]+$/, '');
+            if (!dominio || _AVATAR_DOMINIOS_IGNORADOS.has(dominio)) continue;
+            return dominio;
+        }
+        return '';
+    }
+
     function copiarTexto(texto) {
         if (navigator.clipboard && window.isSecureContext) {
             return navigator.clipboard.writeText(texto);
@@ -563,25 +617,64 @@
             title.title = cliente.nome;
         }
 
+        // ------------------------------------------------------------
+        // Avatar do cliente
+        // ------------------------------------------------------------
+        // 1) Se há e-mail em algum contato (preferindo o principal),
+        //    inferimos o domínio e tentamos carregar o logo via
+        //    Clearbit Logo API (gratuita, não requer key).
+        // 2) Se o Clearbit devolver 404 ou o cliente não tiver contato
+        //    com e-mail, mantemos o fallback de iniciais (existente).
         var av = $('#crm-v3-detail-avatar');
-        if (av) av.textContent = cliente.avatar || avatarIniciais(cliente.nome);
-        var star = $('.crm-v3-star');
-        if (star) {
-            star.classList.toggle('active', !!cliente.favorito);
-            star.setAttribute('aria-pressed', cliente.favorito ? 'true' : 'false');
-            star.setAttribute('aria-label', cliente.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+        var img = $('#crm-v3-detail-avatar-img');
+        var iniciais = cliente.avatar || avatarIniciais(cliente.nome);
+        if (av) av.textContent = iniciais;
+        if (img) {
+            img.hidden = true;
+            img.removeAttribute('src');
+            var dominio = extrairDominioContato(cliente);
+            if (dominio) {
+                var logoUrl = 'https://logo.clearbit.com/' + encodeURIComponent(dominio);
+                img.onload = function () {
+                    img.hidden = false;
+                    if (av) av.hidden = true;
+                };
+                img.onerror = function () {
+                    // Falhou → mantém iniciais visíveis (padrão)
+                    img.hidden = true;
+                    if (av) av.hidden = false;
+                };
+                img.alt = 'Logo do cliente ' + (cliente.nome || '');
+                img.src = logoUrl;
+            } else {
+                if (av) av.hidden = false;
+            }
         }
 
+        // Meta — todos os campos aqui vêm da base real (backend).
         var metaResp = $('#crm-v3-meta-responsavel');
         if (metaResp) metaResp.textContent = cliente.responsavel || '—';
 
         var metaCat = $('#crm-v3-meta-categoria');
         if (metaCat) metaCat.textContent = cliente.tipo || cliente.categoria || '—';
 
-        var metaPri = $('#crm-v3-meta-prioridade');
-        if (metaPri) {
-            metaPri.textContent = 'Prioridade: ' + (cliente.prioridade || '—');
-            metaPri.className = 'badge badge-sm ' + (cliente.prioridade === 'Alta' ? 'badge-error' : cliente.prioridade === 'Média' ? 'badge-warning' : 'badge-ghost');
+        // Substitui a "Prioridade" (mock) por Classificação (real).
+        var classifWrap = $('#crm-v3-meta-classif-wrap');
+        var classifChip = $('#crm-v3-meta-classif');
+        var classif = cliente.classificacao_cliente || cliente.classificacao || '';
+        if (classifWrap) classifWrap.hidden = !classif;
+        if (classifChip) {
+            classifChip.textContent = classif || '—';
+            classifChip.setAttribute('data-classif', classif);
+        }
+
+        // Última atualização — vem de tbl_cliente.data_modificacao
+        // (ISO 8601 no backend). Rótulo relativo Hoje/Ontem/Ndias/data.
+        var metaDate = $('#crm-v3-meta-date');
+        if (metaDate) {
+            var rel = formatarDataRelativa(cliente.data_modificacao);
+            metaDate.textContent = rel ? ('Última atualização: ' + rel) : '';
+            metaDate.hidden = !rel;
         }
 
         // Aba Info — populada pelo backend (`_map_cliente` do repositório
@@ -1710,7 +1803,9 @@
 
             setVal('#crm-v3-cliente-classificacao', cliente.classificacao_cliente || cliente.classificacao || 'Prospecção');
             setVal('#crm-v3-cliente-responsavel', cliente.responsavel || 'Luisa Santana');
-            setVal('#crm-v3-cliente-prioridade', cliente.prioridade || 'Média');
+            // Prioridade removida do modelo do cliente em set/2026 —
+            // não existe na base (`tbl_cliente`). Mantido setChk/setVal
+            // para os campos que realmente existem.
             setVal('#crm-v3-cliente-bv', cliente.bv_percentual != null ? cliente.bv_percentual : '');
             setVal('#crm-v3-cliente-margem', cliente.margem_cc != null ? cliente.margem_cc : '');
             setChk('#crm-v3-cliente-opera-midia', cliente.opera_midia);
@@ -2526,19 +2621,10 @@
             });
         }
 
-        $$('.crm-v3-star').forEach(function (star) {
-            star.addEventListener('click', function () {
-                if (!state.cliente) return;
-                var active = !state.cliente.favorito;
-                api('/clientes/' + encodeURIComponent(state.cliente.id), { method: 'PATCH', body: { favorito: active } })
-                    .then(function (data) {
-                        state.cliente = data.cliente;
-                        star.classList.toggle('active', !!data.cliente.favorito);
-                        star.setAttribute('aria-pressed', data.cliente.favorito ? 'true' : 'false');
-                        star.setAttribute('aria-label', data.cliente.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
-                    }).catch(function (err) { showToast(err.message, true); });
-            });
-        });
+        // O botão "estrela / favorito" foi removido da UI (setembro/2026)
+        // porque `tbl_cliente` não possui coluna `favorito`. Preferimos
+        // não persistir estado sintético no CRM v3 até que exista uma
+        // pin/estrela por usuário no schema real.
     }
 
     /* ==================================================================

@@ -9,7 +9,7 @@ from flask import Blueprint, g, jsonify, render_template, request, session, url_
 
 from .auth import admin_required_api, login_required, login_required_api
 from .crm_v3_helpers import parse_texto_contatos
-from .crm_v3_repository import get_store, store_diagnostic
+from .crm_v3_repository import StoreUnavailable, get_store, store_diagnostic
 
 
 class _LazyStore:
@@ -17,14 +17,15 @@ class _LazyStore:
 
     Motivos para não segurar `store = get_store()` no import:
     - Se o smoke test falhar durante o boot do worker (banco ainda
-      subindo, alguma coluna faltando), o processo travaria em mock
+      subindo, alguma coluna faltando), o processo travaria em erro
       até restart. Com o proxy, cada request reavalia — a recuperação
       é automática assim que o banco volta.
     - Debug fica mais transparente: o diagnostic é preenchido no request
       atual e reflete o que o usuário está vendo agora.
 
-    Fora de request (ex.: scripts CLI que importem o módulo), resolve
-    direto sem cache — comportamento inalterado.
+    Se `get_store()` lançar `StoreUnavailable`, o proxy propaga a
+    exceção para o handler que traduz em 503 (nunca mais mascara com
+    mock em produção).
     """
 
     def __getattr__(self, name):
@@ -39,7 +40,44 @@ class _LazyStore:
 
 store = _LazyStore()
 
+
+def _store_unavailable_response(exc: StoreUnavailable):
+    """Traduz `StoreUnavailable` em 503 JSON com o motivo.
+
+    Formato compatível com `_err(...)` mas HTTP 503 (Service Unavailable):
+    o frontend detecta e mostra banner "Banco indisponível" em vez de
+    renderizar clientes fictícios.
+    """
+    diag = store_diagnostic()
+    return jsonify({
+        "success": False,
+        "error": "Banco indisponível. O CRM v3 e o CRM legado usam a mesma base — verifique o Postgres.",
+        "reason": diag.get("reason"),
+        "db_error": diag.get("db_error") or str(exc),
+        "store_unavailable": True,
+    }), 503
+
 bp = Blueprint("crm_v3", __name__, url_prefix="/crm-v3")
+
+
+@bp.errorhandler(StoreUnavailable)
+def _handle_store_unavailable(exc):
+    """Handler central: qualquer rota do CRM v3 que falhar ao acessar
+    o banco cai aqui. Para APIs devolvemos 503 JSON; para a página
+    HTML renderizamos o `crm_v3.html` com o banner de erro visível
+    (o template já trata `store_mode='unavailable'`).
+    """
+    if request.path.startswith("/crm-v3/api/"):
+        return _store_unavailable_response(exc)
+    # Página HTML: render sem executivos e com banner de erro.
+    diag = store_diagnostic()
+    return render_template(
+        "crm_v3.html",
+        executivos=[],
+        usuario_atual=_executivo_from_session(),
+        store_mode="unavailable",
+        store_diag=diag,
+    ), 503
 
 
 def _executivo_from_session():

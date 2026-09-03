@@ -22,25 +22,38 @@
     storeDiag: {{ (store_diag or {})|tojson }}
   };
 </script>
-{# Badge de MODO DEMO — só aparece quando o backend caiu no store em memória.
-   Motivo mais comum em produção: smoke test do Postgres falhou no boot do
-   worker (o painel /crm-v3/api/_debug/store mostra o erro exato). Também
-   pode acontecer se `USE_CRM_V3_STORE=mock` estiver no ambiente. #}
-{% if store_mode and store_mode != 'real' %}
-  <div class="crm-v3-demo-banner" role="alert" aria-live="polite">
-    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-    <div class="crm-v3-demo-banner-body">
-      <strong>Modo demo (dados fictícios)</strong>
-      <span>Este CRM está exibindo dados de exemplo em memória, não o Postgres.
-        Motivo: <em>{{ (store_diag or {}).get('reason') or 'desconhecido' }}</em>.
+{# Banner de status do banco.
+   - `unavailable` (vermelho): produção falhou — Postgres indisponível
+     ou schema divergente. Nunca cai em mock em produção.
+   - `mock` (amarelo): apenas dev, quando o operador setou
+     USE_CRM_V3_STORE=mock explicitamente. Deixa claro que não é real. #}
+{% if store_mode == 'unavailable' %}
+  <div class="crm-v3-status-banner crm-v3-status-banner-error" role="alert" aria-live="assertive">
+    <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+    <div class="crm-v3-status-banner-body">
+      <strong>Banco indisponível</strong>
+      <span>Não foi possível carregar clientes, atividades ou cotações. O CRM legado usa a mesma base — verifique o Postgres.
         {% if (store_diag or {}).get('db_error') %}
-          <br><small>Erro do banco: <code>{{ store_diag.db_error }}</code></small>
+          <br><small>Erro: <code>{{ store_diag.db_error }}</code></small>
         {% endif %}
       </span>
     </div>
     {% if session.get('user_type') in ('admin', 'superadmin') %}
-      <a class="crm-v3-demo-banner-link" href="{{ url_for('crm_v3.api_debug_store') }}" target="_blank" rel="noopener">
-        Ver diagnóstico completo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+      <a class="crm-v3-status-banner-link" href="{{ url_for('crm_v3.api_debug_store') }}" target="_blank" rel="noopener">
+        Diagnóstico <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+      </a>
+    {% endif %}
+  </div>
+{% elif store_mode == 'mock' %}
+  <div class="crm-v3-status-banner crm-v3-status-banner-warn" role="alert" aria-live="polite">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    <div class="crm-v3-status-banner-body">
+      <strong>Modo dev (dados fictícios)</strong>
+      <span>Store em memória ativo por <code>USE_CRM_V3_STORE=mock</code>. Não usar em produção.</span>
+    </div>
+    {% if session.get('user_type') in ('admin', 'superadmin') %}
+      <a class="crm-v3-status-banner-link" href="{{ url_for('crm_v3.api_debug_store') }}" target="_blank" rel="noopener">
+        Diagnóstico <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
       </a>
     {% endif %}
   </div>

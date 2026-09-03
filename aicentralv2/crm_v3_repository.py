@@ -1065,15 +1065,31 @@ def _memory_store():
     return _memory_store_obj
 
 
+class StoreUnavailable(RuntimeError):
+    """Sinaliza que o banco real do CRM v3 está indisponível.
+
+    A partir de set/2026 o CRM v3 **não faz mais fallback silencioso**
+    para o store em memória em produção. Se o Postgres estiver fora do
+    ar ou o schema estiver divergente, a UI mostra um erro claro e não
+    inventa dados fictícios. O CRM antigo já usa as mesmas funções em
+    `db.py` (`obter_clientes_paginado`, `obter_cliente_por_id`, etc.),
+    então quando o v3 falha o legado tende a falhar do mesmo jeito —
+    a solução é resolver o banco, não mascarar com mock.
+    """
+
+
 def get_store():
     """Fábrica escolhe repositório real (default) ou store em memória.
 
-    Fallback: se o banco não estiver acessível (import de `db` falha, ou
-    a primeira query pega exceção), retorna o mock. Isso evita derrubar a
-    UI em sandbox/dev enquanto mantém produção sempre no banco real.
+    Regras (set/2026):
+    - Default (sem env var) e qualquer valor não reconhecido → repositório
+      real. Se o smoke test do banco falhar, **lança `StoreUnavailable`**
+      em vez de retornar o mock. O caller (rotas) traduz para 503.
+    - `USE_CRM_V3_STORE=mock|memory|in-memory|fake|fixture` → mock em
+      memória (apenas dev). Nunca use em produção.
 
     Cada chamada atualiza `_LAST_DIAGNOSTIC` para debug via
-    /crm-v3/api/_debug/store e badge visual no header.
+    /crm-v3/api/_debug/store e para o banner de erro do template.
     """
     flag = _flag_raw()
     diag: Dict[str, Any] = {
@@ -1090,13 +1106,13 @@ def get_store():
     if not use_repository():
         diag.update({
             "mode": "mock",
-            "reason": f"flag USE_CRM_V3_STORE='{flag}' explicitamente pede mock",
+            "reason": f"flag USE_CRM_V3_STORE='{flag}' explicitamente pede mock (dev only)",
         })
         _LAST_DIAGNOSTIC.update(diag)
         return _memory_store()
 
-    # Smoke test: se o banco não responder a uma query trivial, caímos
-    # no mock em vez de servir 500 no CRM. Guardamos o erro no diag.
+    # Smoke test: se o banco não responder, propagamos o erro. A rota
+    # captura e devolve 503 com mensagem clara. Nunca mascaramos com mock.
     try:
         _db().obter_clientes_paginado(page=1, per_page=1)
         diag.update({"mode": "real", "reason": "smoke test OK"})
@@ -1104,15 +1120,14 @@ def get_store():
         return repository
     except Exception as e:
         import sys, traceback
-        # Guarda uma versão curta do erro para o painel de debug.
         err_short = f"{type(e).__name__}: {str(e).splitlines()[0][:240]}"
         diag.update({
-            "mode": "mock",
-            "reason": "smoke test falhou — banco inacessível ou schema divergente",
+            "mode": "unavailable",
+            "reason": "banco indisponível ou schema divergente — o CRM v3 usa exatamente as mesmas funções do CRM legado, então verifique o Postgres/schema",
             "db_error": err_short,
         })
         _LAST_DIAGNOSTIC.update(diag)
-        print(f"[crm_v3] Repositório real indisponível ({err_short}); usando store em memória.", file=sys.stderr)
+        print(f"[crm_v3] Banco real indisponível: {err_short}", file=sys.stderr)
         print("[crm_v3] traceback do smoke test:", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        return _memory_store()
+        raise StoreUnavailable(err_short) from e

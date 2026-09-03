@@ -71,6 +71,11 @@
             .replace(/"/g, '&quot;');
     }
 
+    // Flag global: uma vez que o backend retornar HTTP 503 com
+    // `store_unavailable: true`, para de bombardear o usuário com
+    // toasts a cada chamada seguinte e dá uma mensagem única e clara.
+    var _storeUnavailableNotified = false;
+
     function api(path, opts) {
         opts = opts || {};
         return fetch(API_BASE + path, {
@@ -88,6 +93,18 @@
                 } catch (e) {
                     throw new Error('Resposta inválida do servidor (HTTP ' + res.status + ')');
                 }
+                // 503 + store_unavailable: banco fora do ar em produção.
+                // Não faz sentido tentar outras APIs — o CRM v3 não vai
+                // funcionar até o Postgres voltar. Lançamos um erro
+                // "silencioso" (marcado) para o caller decidir se mostra
+                // ou não. O banner do template já explica a situação.
+                if (res.status === 503 && data && data.store_unavailable) {
+                    var err = new Error(data.error || 'Banco indisponível.');
+                    err.storeUnavailable = true;
+                    err.reason = data.reason;
+                    err.dbError = data.db_error;
+                    throw err;
+                }
                 if (!res.ok || data.success === false) {
                     throw new Error(data.error || 'Erro na requisição');
                 }
@@ -95,10 +112,25 @@
             });
         }).catch(function (err) {
             if (err instanceof TypeError) {
-                throw new Error('Não foi possível conectar ao serviço mock.');
+                throw new Error('Não foi possível conectar ao serviço.');
             }
             throw err;
         });
+    }
+
+    // Handler global para erros de "banco indisponível" — só mostra
+    // toast uma vez por sessão. Chamado em pontos de entrada (carregar
+    // clientes, atividades, cotações) que já detectam o err.storeUnavailable.
+    function _handleStoreUnavailable(err) {
+        if (!err || !err.storeUnavailable) return false;
+        if (_storeUnavailableNotified) return true;
+        _storeUnavailableNotified = true;
+        var msg = 'Banco indisponível — CRM v3 não pode carregar dados. ' +
+                  (err.dbError ? '(' + err.dbError + ')' : '');
+        try {
+            if (typeof showToast === 'function') showToast(msg, true);
+        } catch (_) { /* noop */ }
+        return true;
     }
 
     function debounce(fn, ms) {
@@ -1732,6 +1764,17 @@
             }
         }).catch(function (err) {
             var container = $('#crm-v3-lista-clientes');
+            if (err && err.storeUnavailable) {
+                if (container) {
+                    container.innerHTML =
+                        '<div class="crm-v3-contatos-empty p-3">' +
+                        '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ' +
+                        'Banco indisponível. Nada carregado — verifique o Postgres.' +
+                        '</div>';
+                }
+                _handleStoreUnavailable(err);
+                return;
+            }
             if (container) container.innerHTML = '<div class="crm-v3-contatos-empty p-3">Erro ao carregar clientes.</div>';
             showToast(err.message, true);
         });

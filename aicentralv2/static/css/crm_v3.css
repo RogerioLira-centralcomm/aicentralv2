@@ -169,60 +169,73 @@ html:has(.crm-v3-page) body {
     min-width: 0;
 }
 
-/* ===== BANNER "MODO DEMO" =====
-   Aparece quando o backend cai no store em memória (mock). Objetivo:
-   evitar que o usuário confunda dados fictícios com o banco real e
-   dar um caminho rápido para o diagnóstico técnico. */
-.crm-v3-demo-banner {
+/* ===== BANNERS DE STATUS DO BANCO =====
+   Dois tons:
+   - crm-v3-status-banner-error (vermelho): banco indisponível em
+     produção. Nada de dados fictícios — só mensagem e diagnóstico.
+   - crm-v3-status-banner-warn  (amarelo):  modo dev (mock explícito). */
+.crm-v3-status-banner {
     display: flex;
     align-items: flex-start;
     gap: 12px;
     padding: 10px 16px;
-    background: #fff4e5;
-    border-bottom: 1px solid #f2c98a;
-    color: #7a4a00;
+    border-bottom: 1px solid transparent;
     font-size: 13px;
     line-height: 1.4;
 }
-.crm-v3-demo-banner > i:first-child {
-    color: #b6690b;
+.crm-v3-status-banner > i:first-child {
     font-size: 16px;
     margin-top: 2px;
     flex-shrink: 0;
 }
-.crm-v3-demo-banner-body {
+.crm-v3-status-banner-body {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.crm-v3-demo-banner-body strong {
+.crm-v3-status-banner-body strong {
     font-weight: 600;
-    color: #6a3d00;
 }
-.crm-v3-demo-banner-body em {
+.crm-v3-status-banner-body em {
     font-style: normal;
     font-weight: 500;
 }
-.crm-v3-demo-banner-body code {
+.crm-v3-status-banner-body code {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px;
     background: rgba(0, 0, 0, 0.06);
     padding: 1px 4px;
     border-radius: 3px;
 }
-.crm-v3-demo-banner-link {
+.crm-v3-status-banner-link {
     flex-shrink: 0;
-    color: #7a4a00;
     font-weight: 600;
     text-decoration: underline;
     white-space: nowrap;
     align-self: center;
 }
-.crm-v3-demo-banner-link:hover {
-    color: #4d2e00;
+/* Tom crítico — banco fora do ar em produção. */
+.crm-v3-status-banner-error {
+    background: #fef2f2;
+    border-bottom-color: #fecaca;
+    color: #991b1b;
 }
+.crm-v3-status-banner-error > i:first-child { color: #dc2626; }
+.crm-v3-status-banner-error .crm-v3-status-banner-body strong { color: #7f1d1d; }
+.crm-v3-status-banner-error .crm-v3-status-banner-link { color: #991b1b; }
+.crm-v3-status-banner-error .crm-v3-status-banner-link:hover { color: #7f1d1d; }
+/* Tom aviso — dev com mock explícito. */
+.crm-v3-status-banner-warn {
+    background: #fff4e5;
+    border-bottom-color: #f2c98a;
+    color: #7a4a00;
+}
+.crm-v3-status-banner-warn > i:first-child { color: #b6690b; }
+.crm-v3-status-banner-warn .crm-v3-status-banner-body strong { color: #6a3d00; }
+.crm-v3-status-banner-warn .crm-v3-status-banner-link { color: #7a4a00; }
+.crm-v3-status-banner-warn .crm-v3-status-banner-link:hover { color: #4d2e00; }
 
 /* ===== HEADER CRM ===== */
 .crm-v3-header {

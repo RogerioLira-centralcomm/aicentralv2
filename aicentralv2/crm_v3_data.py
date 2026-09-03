@@ -993,6 +993,9 @@ class CrmTestStore:
                 "nome_fantasia", "tipo", "cidade", "uf", "segmento", "fonte",
                 "pessoa", "inscricao_estadual", "inscricao_municipal",
                 "observacoes_comerciais_adicionais",
+                # `site_url`: usado pelo CRM v3 para derivar o logo do cliente
+                # via Clearbit. No mock ficamos com a URL como string simples.
+                "site_url",
             )
             for key in text_fields:
                 if key in data:

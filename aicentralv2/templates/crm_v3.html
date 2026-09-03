@@ -527,6 +527,52 @@
             </div>
           </div>
 
+          {# Site do cliente — logo após Endereço.
+             Fluxo (set/2026):
+             1. Se `cliente.site_url` estiver salvo, usa esse domínio
+                para o logo (Clearbit) — no header, cards e sidebar.
+             2. Se estiver vazio, o JS tenta descobrir o domínio a
+                partir do e-mail do contato principal (`extrairDominioContato`).
+             3. Digitar/colar aqui + clicar "Confirmar" salva no cliente
+                e força a atualização visual em todos os pontos. #}
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Site & logo</div>
+            <div class="crm-v3-site-editor" id="crm-v3-site-editor">
+              <div class="crm-v3-site-preview" id="crm-v3-site-preview" aria-live="polite">
+                <img id="crm-v3-site-logo-img" alt="" hidden />
+                <span class="crm-v3-site-logo-fallback" id="crm-v3-site-logo-fallback" aria-hidden="true">A</span>
+              </div>
+              <div class="crm-v3-site-fields">
+                <label class="crm-v3-site-label" for="crm-v3-site-input">Site do cliente</label>
+                <div class="crm-v3-site-input-wrap">
+                  <i class="fa-solid fa-globe crm-v3-site-input-icon" aria-hidden="true"></i>
+                  <input type="url" id="crm-v3-site-input" class="crm-v3-site-input"
+                         placeholder="ex.: cliente.com.br" autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="crm-v3-site-hint" id="crm-v3-site-hint">
+                  <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+                  Domínio detectado do contato principal aparece automaticamente.
+                </div>
+                <div class="crm-v3-site-actions">
+                  <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm"
+                          id="crm-v3-site-confirmar" disabled>
+                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                    Confirmar
+                  </button>
+                  <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm"
+                          id="crm-v3-site-limpar" hidden>
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    Remover
+                  </button>
+                  <a class="crm-v3-site-open" id="crm-v3-site-open" href="#" target="_blank" rel="noopener" hidden>
+                    <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                    Abrir
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="crm-v3-sidebar-section">
             <div class="crm-v3-sidebar-section-title">Nota do executivo</div>
             <div class="crm-v3-editable-row crm-v3-editable-row-block"

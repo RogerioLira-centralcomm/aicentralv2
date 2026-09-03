@@ -171,6 +171,10 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         # Nota livre do executivo (tbl_cliente.nota_executivo_vendas) — pode
         # ser NULL em bases sem a coluna (SELECT já degrada para NULL).
         "nota_executivo": row.get("nota_executivo_vendas") or "",
+        # Site do cliente (tbl_cliente.site_url) — usado no CRM v3 para
+        # derivar o logo automaticamente via Clearbit. Ausente em bases
+        # que ainda não rodaram `add_site_url_to_tbl_cliente.sql`.
+        "site_url": row.get("site_url") or "",
         "responsavel": row.get("executivo_nome") or "",
         "responsavel_email": row.get("executivo_email") or "",
         # ID do executivo (vendas_central_comm) — usado por filtros

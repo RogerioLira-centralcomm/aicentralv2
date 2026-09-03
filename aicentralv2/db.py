@@ -1418,7 +1418,9 @@ def obter_cliente_por_id(id_cliente):
     conn = get_db()
     with conn.cursor() as cursor:
         tem_nota_executivo = _has_column(cursor, 'tbl_cliente', 'nota_executivo_vendas')
+        tem_site_url = _has_column(cursor, 'tbl_cliente', 'site_url')
         col_nota = "c.nota_executivo_vendas" if tem_nota_executivo else "NULL::text AS nota_executivo_vendas"
+        col_site = "c.site_url" if tem_site_url else "NULL::text AS site_url"
         cursor.execute(f'''
             SELECT 
                 c.id_cliente,
@@ -1460,7 +1462,8 @@ def obter_cliente_por_id(id_cliente):
                 est.sigla   as estado_sigla,
                 vend.nome_completo as executivo_nome,
                 vend.email as executivo_email,
-                {col_nota}
+                {col_nota},
+                {col_site}
             FROM tbl_cliente c
             LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
@@ -1768,6 +1771,13 @@ _CLIENTE_INLINE_EDITABLE = {
     # Nota livre do executivo (uma linha em tbl_cliente, não em histórico)
     "nota_executivo_vendas": "nota_executivo_vendas",
     "nota_executivo": "nota_executivo_vendas",
+    # Site do cliente (usado para derivar logo via Clearbit no CRM v3).
+    # A coluna é opcional (retrocompat via _has_column) — bases antigas
+    # que não rodaram a migration `add_site_url_to_tbl_cliente.sql`
+    # ignoram este patch silenciosamente.
+    "site_url": "site_url",
+    "site": "site_url",
+    "website": "site_url",
 }
 
 # Colunas que sempre devem ser tratadas como boolean.
@@ -1803,15 +1813,20 @@ def atualizar_campos_cliente(id_cliente, patches):
         return None
     conn = get_db()
     with conn.cursor() as cur:
-        # Descobre colunas nulificáveis condicionalmente (só nota executivo
-        # é condicional na estrutura atual; as demais são estáveis).
+        # Descobre colunas condicionais: `nota_executivo_vendas` e
+        # `site_url` foram adicionadas em migrations posteriores e podem
+        # não existir em bases antigas — o UPDATE ignora silenciosamente
+        # nesses casos em vez de quebrar.
         tem_nota_executivo = _has_column(cur, "tbl_cliente", "nota_executivo_vendas")
+        tem_site_url = _has_column(cur, "tbl_cliente", "site_url")
         sets, vals = [], []
         for k, raw in patches.items():
             col = _CLIENTE_INLINE_EDITABLE.get(k)
             if not col:
                 continue
             if col == "nota_executivo_vendas" and not tem_nota_executivo:
+                continue
+            if col == "site_url" and not tem_site_url:
                 continue
             # Normalização por tipo
             if col in _CLIENTE_INLINE_BOOL_COLS:

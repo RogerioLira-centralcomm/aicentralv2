@@ -225,12 +225,31 @@
         return (nome || '?').slice(0, 2).toUpperCase();
     }
 
-    function avatarHtml(nome, sizeClass) {
+    function avatarHtml(nome, sizeClass, dominio) {
         sizeClass = sizeClass || 'w-7 h-7';
         var tone = avatarTone(nome);
         var ini = avatarIniciais(nome);
         var bg = tone === 'primary' ? 'bg-primary text-primary-content' : 'bg-neutral text-neutral-content';
-        return '<div class="avatar placeholder"><div class="rounded-full ' + sizeClass + ' ' + bg + '"><span class="text-xs font-semibold">' + escapeHtml(ini) + '</span></div></div>';
+        // Se recebermos um domínio, emitimos um <img> que fica hidden
+        // por default e só aparece se o Clearbit carregar de fato
+        // (onload). Se der 404 (onerror), some e as iniciais permanecem.
+        // Alt vazio para não vazar texto dentro do círculo.
+        var dominioClean = normalizarDominio(dominio);
+        var imgHtml = '';
+        if (dominioClean) {
+            imgHtml =
+                '<img class="crm-v3-card-logo" alt="" hidden ' +
+                'src="https://logo.clearbit.com/' + escapeHtml(dominioClean) + '" ' +
+                'onload="if(this.naturalWidth){this.hidden=false;this.previousElementSibling&&(this.previousElementSibling.style.display=\'none\')}" ' +
+                'onerror="this.hidden=true" />';
+        }
+        return (
+            '<div class="avatar placeholder crm-v3-card-avatar">' +
+            '<div class="rounded-full ' + sizeClass + ' ' + bg + ' crm-v3-card-avatar-inner">' +
+            '<span class="text-xs font-semibold">' + escapeHtml(ini) + '</span>' +
+            imgHtml +
+            '</div></div>'
+        );
     }
 
     function normalizarTelefone(telefone, ddi) {
@@ -308,6 +327,36 @@
             return dominio;
         }
         return '';
+    }
+
+    // Normaliza qualquer input do usuário ("https://Cliente.com.br/#a")
+    // para um domínio limpo pronto para o Clearbit.
+    function normalizarDominio(raw) {
+        if (!raw) return '';
+        var s = String(raw).trim().toLowerCase();
+        if (!s) return '';
+        // Remove protocolo, "www." e paths/queries/hashes.
+        s = s.replace(/^[a-z]+:\/\//, '');
+        s = s.replace(/^www\./, '');
+        s = s.split('/')[0].split('?')[0].split('#')[0];
+        // Valida shape mínimo: precisa ter pelo menos um ponto e nenhum espaço.
+        if (!s || s.indexOf('.') === -1 || /\s/.test(s)) return '';
+        return s;
+    }
+
+    /**
+     * Retorna o domínio a ser usado como fonte do logo do cliente,
+     * na seguinte ordem de prioridade (set/2026):
+     *   1. `cliente.site_url` salvo em tbl_cliente (confirmado pelo usuário).
+     *   2. Domínio inferido do e-mail do contato principal (fallback
+     *      automático).
+     * Retorna string vazia se nenhuma fonte válida existir — nesse caso
+     * o avatar mostra iniciais.
+     */
+    function dominioParaLogo(cliente) {
+        var salvo = normalizarDominio(cliente && cliente.site_url);
+        if (salvo) return salvo;
+        return extrairDominioContato(cliente);
     }
 
     function copiarTexto(texto) {
@@ -485,7 +534,10 @@
                 ' data-status="' + escapeHtml(c.status) + '"' +
                 ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
-                avatarHtml(c.nome, 'w-7 h-7') +
+                // Passa o site_url salvo — se estiver vazio, o helper
+                // pula o <img> e mantém iniciais (não faz lookup de
+                // contato principal aqui para evitar N+1 no boot).
+                avatarHtml(c.nome, 'w-7 h-7', c.site_url) +
                 '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
                 '<div class="crm-v3-cliente-headline">' +
                 '<div class="crm-v3-cliente-nome" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
@@ -672,7 +724,8 @@
             // Com alt="" o broken image não mostra texto nenhum e o
             // fallback com iniciais fica limpo.
             img.alt = '';
-            var dominio = extrairDominioContato(cliente);
+            // Prioriza site_url salvo; fallback = e-mail do contato principal.
+            var dominio = dominioParaLogo(cliente);
             if (dominio) {
                 var logoUrl = 'https://logo.clearbit.com/' + encodeURIComponent(dominio);
                 img.onload = function () {
@@ -809,6 +862,194 @@
 
         updateStatusComercial(cliente);
         updateVinculos(cliente);
+        // Editor de "Site & logo" na sidebar — hidrata com valor salvo
+        // ou domínio inferido do contato e prepara o preview do logo.
+        renderSiteEditor(cliente);
+    }
+
+    /**
+     * Hidrata o editor de "Site & logo" (sidebar Info) para o cliente
+     * atual. Mostra o valor salvo em `cliente.site_url`; se estiver
+     * vazio, sugere o domínio inferido do contato principal como
+     * placeholder editável. O preview do logo usa o mesmo Clearbit do
+     * header e cai em iniciais quando falha.
+     */
+    function renderSiteEditor(cliente) {
+        var input = $('#crm-v3-site-input');
+        var hint = $('#crm-v3-site-hint');
+        var confirmar = $('#crm-v3-site-confirmar');
+        var limpar = $('#crm-v3-site-limpar');
+        var openA = $('#crm-v3-site-open');
+        var img = $('#crm-v3-site-logo-img');
+        var fallback = $('#crm-v3-site-logo-fallback');
+        if (!input || !confirmar) return;
+
+        var salvo = normalizarDominio(cliente && cliente.site_url);
+        var inferido = extrairDominioContato(cliente);
+        input.value = salvo || '';
+        input.placeholder = inferido
+            ? ('ex.: ' + inferido)
+            : 'ex.: cliente.com.br';
+
+        // Estado de hint inicial.
+        if (hint) {
+            if (salvo) {
+                hint.className = 'crm-v3-site-hint crm-v3-site-hint-ok';
+                hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Salvo — logo aplicado nos cards e no header.';
+            } else if (inferido) {
+                hint.className = 'crm-v3-site-hint';
+                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato principal: <strong>' + escapeHtml(inferido) + '</strong>. Digite para editar ou clique em Confirmar.';
+                // Pré-carrega o preview com a sugestão sem digitar.
+                _atualizarPreviewSite(inferido, img, fallback, cliente);
+            } else {
+                hint.className = 'crm-v3-site-hint';
+                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Informe o site do cliente para buscar o logo automaticamente.';
+            }
+        }
+
+        // Preview inicial com o valor salvo (se houver).
+        if (salvo) _atualizarPreviewSite(salvo, img, fallback, cliente);
+        else if (!inferido) _mostrarSiteFallback(img, fallback, cliente);
+
+        // Botões: habilitados de acordo com o estado.
+        confirmar.disabled = !salvo && !inferido;
+        confirmar.dataset.mode = salvo ? 'update' : 'create';
+        if (limpar) limpar.hidden = !salvo;
+        if (openA) {
+            if (salvo) {
+                openA.hidden = false;
+                openA.href = 'https://' + salvo;
+            } else {
+                openA.hidden = true;
+                openA.href = '#';
+            }
+        }
+    }
+
+    function _mostrarSiteFallback(img, fallback, cliente) {
+        if (img) {
+            img.hidden = true;
+            img.removeAttribute('src');
+            img.alt = '';
+        }
+        if (fallback) {
+            fallback.hidden = false;
+            fallback.textContent = (cliente && cliente.avatar) || avatarIniciais(cliente && cliente.nome || '');
+        }
+    }
+
+    function _atualizarPreviewSite(dominio, img, fallback, cliente) {
+        var d = normalizarDominio(dominio);
+        if (!d) { _mostrarSiteFallback(img, fallback, cliente); return; }
+        if (!img || !fallback) return;
+        fallback.textContent = (cliente && cliente.avatar) || avatarIniciais(cliente && cliente.nome || '');
+        img.alt = '';
+        img.hidden = true;
+        img.onload = function () {
+            if (!img.naturalWidth || !img.naturalHeight) {
+                img.hidden = true;
+                fallback.hidden = false;
+                return;
+            }
+            img.hidden = false;
+            fallback.hidden = true;
+        };
+        img.onerror = function () {
+            img.hidden = true;
+            fallback.hidden = false;
+        };
+        img.src = 'https://logo.clearbit.com/' + encodeURIComponent(d);
+    }
+
+    // Bind único (event delegation) do editor de site. Chamado uma vez
+    // no boot; opera sobre o cliente atual em `state.clienteId`.
+    function bindSiteEditor() {
+        var input = $('#crm-v3-site-input');
+        var confirmar = $('#crm-v3-site-confirmar');
+        var limpar = $('#crm-v3-site-limpar');
+        var hint = $('#crm-v3-site-hint');
+        var img = $('#crm-v3-site-logo-img');
+        var fallback = $('#crm-v3-site-logo-fallback');
+        if (!input || !confirmar) return;
+
+        // Preview em tempo real enquanto o usuário digita (debounced).
+        var previewDebounced = debounce(function () {
+            var cliente = state.clientes.find(function (c) { return c.id === state.clienteId; });
+            var d = normalizarDominio(input.value);
+            if (d) _atualizarPreviewSite(d, img, fallback, cliente);
+            else _mostrarSiteFallback(img, fallback, cliente);
+            confirmar.disabled = !d;
+        }, 250);
+        input.addEventListener('input', previewDebounced);
+
+        // Enter no campo → dispara confirmação.
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                confirmar.click();
+            }
+        });
+
+        confirmar.addEventListener('click', function () {
+            if (!state.clienteId) return;
+            var dominio = normalizarDominio(input.value);
+            if (!dominio) {
+                showToast('Informe um site válido (ex.: cliente.com.br).', true);
+                return;
+            }
+            confirmar.disabled = true;
+            var prev = confirmar.innerHTML;
+            confirmar.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
+            api('/clientes/' + encodeURIComponent(state.clienteId), {
+                method: 'PATCH',
+                body: { site_url: dominio }
+            }).then(function () {
+                // Atualiza o estado local + propaga em todos os pontos
+                // da página (header, cards, sidebar Info).
+                var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
+                if (idx >= 0) state.clientes[idx].site_url = dominio;
+                if (hint) {
+                    hint.className = 'crm-v3-site-hint crm-v3-site-hint-ok';
+                    hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Site salvo — logo aplicado no header e nos cards.';
+                }
+                if (limpar) limpar.hidden = false;
+                // Reaproveita a rotina padrão do detail panel para
+                // atualizar o avatar do header (mesma fonte de verdade).
+                var cliente = state.clientes[idx];
+                if (cliente) updateDetailPanel(cliente);
+                // Re-render dos cards da coluna 1 para o logo aparecer lá.
+                renderClientes();
+                showToast('Site do cliente atualizado.');
+            }).catch(function (err) {
+                showToast(err.message || 'Falha ao salvar site.', true);
+            }).finally(function () {
+                confirmar.disabled = false;
+                confirmar.innerHTML = prev;
+            });
+        });
+
+        if (limpar) {
+            limpar.addEventListener('click', function () {
+                if (!state.clienteId) return;
+                if (!confirm('Remover o site salvo? O logo volta a ser inferido do contato principal.')) return;
+                limpar.disabled = true;
+                api('/clientes/' + encodeURIComponent(state.clienteId), {
+                    method: 'PATCH',
+                    body: { site_url: '' }
+                }).then(function () {
+                    var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
+                    if (idx >= 0) state.clientes[idx].site_url = '';
+                    var cliente = state.clientes[idx];
+                    if (cliente) updateDetailPanel(cliente);
+                    renderClientes();
+                    showToast('Site removido.');
+                }).catch(function (err) {
+                    showToast(err.message || 'Falha ao remover site.', true);
+                }).finally(function () {
+                    limpar.disabled = false;
+                });
+            });
+        }
     }
 
     function updateStatusComercial(cliente) {
@@ -2628,6 +2869,10 @@
         // Os botões "+ Nova" e "Detalhes" do header foram removidos.
         // A criação acontece exclusivamente pelo composer inline abaixo.
         bindComposerAtividade();
+
+        // Editor de "Site & logo" da sidebar Info — binda uma vez;
+        // opera sobre state.clienteId em cada interação.
+        bindSiteEditor();
 
         var novoObjetivo = $('#crm-v3-btn-novo-objetivo');
         if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });

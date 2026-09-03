@@ -14088,6 +14088,393 @@ def get_dashboard_cotacoes_status(days=90):
         return {'por_status': [], 'evolucao': [], 'total': 0}
 
 
+def get_dashboard_comercial_ano(year=2026):
+    """Visão comercial mensal por executivo, limitada aos três maiores da carteira."""
+    conn = get_db()
+    months = [f"{year}-{month:02d}" for month in range(1, 13)]
+    empty_summary = {
+        'clientes_novos': 0,
+        'cotacoes': 0,
+        'pis': 0,
+        'valor_pi': 0.0,
+        'campanhas': 0,
+    }
+    empty_result = {
+        'ano': year,
+        'meses': months,
+        'executivos': [],
+        'geral_mensal': [],
+        'cotacoes_semanais': [],
+        'cotacoes_trimestres': [
+            {'trimestre': quarter, 'total': 0, 'valor_total': 0.0, 'status': {}}
+            for quarter in range(1, 5)
+        ],
+        'cotacoes_status': [],
+        'campanhas_mensal': [],
+        'plataformas': [],
+        'resumo_atual': dict(empty_summary),
+        'resumo_anterior': dict(empty_summary),
+    }
+    agencia_sql = (
+        "(COALESCE((ag.key IS TRUE), false) OR "
+        "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
+    )
+
+    def _month_key(value):
+        return value.strftime('%Y-%m') if hasattr(value, 'strftime') else str(value or '')[:7]
+
+    def _classification_key(value):
+        normalized = str(value or '').strip().casefold()
+        if normalized == 'ativo':
+            return 'ativo'
+        if normalized.startswith('prospec'):
+            return 'prospeccao'
+        return None
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                SELECT
+                    vend.id_contato_cliente AS executivo_id,
+                    COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
+                    COUNT(cli.id_cliente) AS total_clientes
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_contato_cliente vend
+                    ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE cli.status = true
+                  AND COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
+                  AND LOWER(COALESCE(cli.classificacao_cliente, 'Prospecção'))
+                      IN ('ativo', 'prospecção', 'prospeccao')
+                GROUP BY vend.id_contato_cliente, COALESCE(vend.nome_completo, 'Sem Executivo')
+                ORDER BY total_clientes DESC, executivo
+                LIMIT 3
+            ''')
+            top_rows = [dict(row) for row in (cursor.fetchall() or [])]
+            executive_ids = [
+                row['executivo_id'] for row in top_rows if row.get('executivo_id') is not None
+            ]
+            if not executive_ids:
+                return empty_result
+
+            cursor.execute(f'''
+                SELECT
+                    cli.vendas_central_comm AS executivo_id,
+                    CASE WHEN {agencia_sql} THEN 'agencias' ELSE 'clientes_finais' END AS perfil,
+                    COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao,
+                    COUNT(cli.id_cliente) AS total
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+                WHERE cli.status = true
+                  AND cli.vendas_central_comm = ANY(%s)
+                GROUP BY cli.vendas_central_comm, perfil, classificacao
+            ''', (executive_ids,))
+            carteira_rows = [dict(row) for row in (cursor.fetchall() or [])]
+
+            cursor.execute(f'''
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', cli.data_cadastro), 'YYYY-MM') AS mes,
+                    cli.vendas_central_comm AS executivo_id,
+                    CASE WHEN {agencia_sql} THEN 'agencias' ELSE 'clientes_finais' END AS perfil,
+                    COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao,
+                    COUNT(cli.id_cliente) AS total
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+                WHERE cli.status = true
+                  AND cli.vendas_central_comm = ANY(%s)
+                  AND EXTRACT(YEAR FROM cli.data_cadastro) = %s
+                GROUP BY mes, cli.vendas_central_comm, perfil, classificacao
+                ORDER BY mes
+            ''', (executive_ids, year))
+            clientes_mensais = [dict(row) for row in (cursor.fetchall() or [])]
+
+            cursor.execute('''
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', c.created_at), 'YYYY-MM') AS mes,
+                    c.vendas_central_comm AS executivo_id,
+                    COALESCE(
+                        NULLIF(TRIM(st.descricao), ''),
+                        NULLIF(TRIM(c.status::text), ''),
+                        'Sem status'
+                    ) AS status_nome,
+                    COUNT(*) AS total,
+                    COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
+                FROM cadu_cotacoes c
+                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+                WHERE c.deleted_at IS NULL
+                  AND c.vendas_central_comm = ANY(%s)
+                  AND EXTRACT(YEAR FROM c.created_at) = %s
+                GROUP BY mes, c.vendas_central_comm, status_nome
+                ORDER BY mes
+            ''', (executive_ids, year))
+            cotacoes_mensais = [dict(row) for row in (cursor.fetchall() or [])]
+
+            cursor.execute('''
+                SELECT
+                    DATE_TRUNC('week', c.created_at)::date AS semana,
+                    COALESCE(
+                        NULLIF(TRIM(st.descricao), ''),
+                        NULLIF(TRIM(c.status::text), ''),
+                        'Sem status'
+                    ) AS status_nome,
+                    COUNT(*) AS total,
+                    COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
+                FROM cadu_cotacoes c
+                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+                WHERE c.deleted_at IS NULL
+                  AND c.vendas_central_comm = ANY(%s)
+                  AND c.created_at >= MAKE_DATE(%s, 1, 1)
+                  AND c.created_at < MAKE_DATE(%s + 1, 1, 1)
+                GROUP BY DATE_TRUNC('week', c.created_at), status_nome
+                ORDER BY semana, status_nome
+            ''', (executive_ids, year, year))
+            cotacoes_semanais_raw = [dict(row) for row in (cursor.fetchall() or [])]
+
+            liquido_expr = _parse_varchar_to_numeric('p.vr_liquido_pi')
+            pi_month_expr = '''
+                CASE
+                    WHEN TRIM(COALESCE(p.mes_ref_comp, '')) ~ '^(0?[1-9]|1[0-2])/[0-9]{2}$'
+                        THEN TO_DATE(TRIM(p.mes_ref_comp), 'MM/YY')
+                    WHEN TRIM(COALESCE(p.mes_ref_comp, '')) ~ '^(0?[1-9]|1[0-2])/[0-9]{4}$'
+                        THEN TO_DATE(TRIM(p.mes_ref_comp), 'MM/YYYY')
+                    ELSE DATE_TRUNC('month', p.created_at)::date
+                END
+            '''
+            cursor.execute(f'''
+                SELECT
+                    TO_CHAR(({pi_month_expr}), 'YYYY-MM') AS mes,
+                    COALESCE(NULLIF(p.id_resp_comercial, 0), cli.vendas_central_comm) AS executivo_id,
+                    COUNT(*) AS total,
+                    COALESCE(SUM({liquido_expr}), 0) AS valor_liquido
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                WHERE COALESCE(NULLIF(p.id_resp_comercial, 0), cli.vendas_central_comm) = ANY(%s)
+                  AND EXTRACT(YEAR FROM ({pi_month_expr})) = %s
+                GROUP BY mes, executivo_id
+                ORDER BY mes
+            ''', (executive_ids, year))
+            pis_mensais = [dict(row) for row in (cursor.fetchall() or [])]
+
+            cursor.execute('''
+                SELECT
+                    TO_CHAR(
+                        DATE_TRUNC('month', COALESCE(c.periodo_inicio, c.created_at)),
+                        'YYYY-MM'
+                    ) AS mes,
+                    COALESCE(NULLIF(TRIM(plt.descricao), ''), 'Sem plataforma') AS plataforma,
+                    COUNT(*) AS total
+                FROM cadu_pi_campanha c
+                LEFT JOIN cadu_pi_camp_plataforma plt
+                    ON c.id_plataforma = plt.id_plataforma
+                WHERE EXTRACT(YEAR FROM COALESCE(c.periodo_inicio, c.created_at)) = %s
+                GROUP BY mes, plataforma
+                ORDER BY mes, total DESC
+            ''', (year,))
+            campanhas_mensais = [dict(row) for row in (cursor.fetchall() or [])]
+
+        executives = []
+        for top in top_rows:
+            executive_id = top['executivo_id']
+            portfolio = {
+                'clientes_finais': {'ativo': 0, 'prospeccao': 0},
+                'agencias': {'ativo': 0, 'prospeccao': 0},
+            }
+            monthly = {
+                month: {
+                    'clientes_finais_ativo': 0,
+                    'clientes_finais_prospeccao': 0,
+                    'agencias_ativo': 0,
+                    'agencias_prospeccao': 0,
+                    'cotacoes': 0,
+                    'valor_cotacoes': 0.0,
+                    'pis': 0,
+                    'valor_pi': 0.0,
+                }
+                for month in months
+            }
+            for row in carteira_rows:
+                if row.get('executivo_id') != executive_id:
+                    continue
+                classification = _classification_key(row.get('classificacao'))
+                profile = row.get('perfil')
+                if classification and profile in portfolio:
+                    portfolio[profile][classification] += int(row.get('total') or 0)
+            for row in clientes_mensais:
+                if row.get('executivo_id') != executive_id:
+                    continue
+                month = _month_key(row.get('mes'))
+                classification = _classification_key(row.get('classificacao'))
+                profile = row.get('perfil')
+                key = f'{profile}_{classification}' if classification else None
+                if month in monthly and key in monthly[month]:
+                    monthly[month][key] += int(row.get('total') or 0)
+            for row in cotacoes_mensais:
+                month = _month_key(row.get('mes'))
+                if row.get('executivo_id') == executive_id and month in monthly:
+                    monthly[month]['cotacoes'] += int(row.get('total') or 0)
+                    monthly[month]['valor_cotacoes'] += float(row.get('valor_total') or 0)
+            for row in pis_mensais:
+                month = _month_key(row.get('mes'))
+                if row.get('executivo_id') == executive_id and month in monthly:
+                    monthly[month]['pis'] += int(row.get('total') or 0)
+                    monthly[month]['valor_pi'] += float(row.get('valor_liquido') or 0)
+            executives.append({
+                'id': executive_id,
+                'nome': top.get('executivo') or 'Sem Executivo',
+                'total_clientes': int(top.get('total_clientes') or 0),
+                'carteira': portfolio,
+                'mensal': [
+                    {'mes': month, **monthly[month]} for month in months
+                ],
+            })
+
+        general = []
+        for month in months:
+            rows = [item['mensal'][months.index(month)] for item in executives]
+            general.append({
+                'mes': month,
+                'clientes_finais': sum(
+                    row['clientes_finais_ativo'] + row['clientes_finais_prospeccao']
+                    for row in rows
+                ),
+                'agencias': sum(
+                    row['agencias_ativo'] + row['agencias_prospeccao']
+                    for row in rows
+                ),
+                'cotacoes': sum(row['cotacoes'] for row in rows),
+                'pis': sum(row['pis'] for row in rows),
+                'valor_pi': sum(row['valor_pi'] for row in rows),
+            })
+
+        quote_statuses = sorted(
+            {
+                row.get('status_nome') or 'Sem status'
+                for row in cotacoes_semanais_raw
+            },
+            key=lambda status: -sum(
+                int(row.get('total') or 0)
+                for row in cotacoes_semanais_raw
+                if (row.get('status_nome') or 'Sem status') == status
+            ),
+        )
+        first_day = date(year, 1, 1)
+        week_start = first_day - timedelta(days=first_day.weekday())
+        year_end = date(year + 1, 1, 1)
+        quote_weeks = []
+        while week_start < year_end:
+            status_values = {}
+            for status in quote_statuses:
+                matching = [
+                    row for row in cotacoes_semanais_raw
+                    if row.get('semana') == week_start
+                    and (row.get('status_nome') or 'Sem status') == status
+                ]
+                status_values[status] = {
+                    'quantidade': sum(int(row.get('total') or 0) for row in matching),
+                    'valor_total': sum(float(row.get('valor_total') or 0) for row in matching),
+                }
+            quote_weeks.append({
+                'inicio': week_start.isoformat(),
+                'rotulo': week_start.strftime('%d/%m'),
+                'total': sum(value['quantidade'] for value in status_values.values()),
+                'valor_total': sum(value['valor_total'] for value in status_values.values()),
+                'status': status_values,
+            })
+            week_start += timedelta(days=7)
+
+        quote_quarters = []
+        for quarter in range(1, 5):
+            quarter_rows = [
+                row for row in cotacoes_mensais
+                if ((int(str(row.get('mes'))[5:7]) - 1) // 3) + 1 == quarter
+            ]
+            status_values = {}
+            for status in quote_statuses:
+                status_rows = [
+                    row for row in quarter_rows
+                    if (row.get('status_nome') or 'Sem status') == status
+                ]
+                status_values[status] = {
+                    'quantidade': sum(int(row.get('total') or 0) for row in status_rows),
+                    'valor_total': sum(float(row.get('valor_total') or 0) for row in status_rows),
+                }
+            quote_quarters.append({
+                'trimestre': quarter,
+                'total': sum(int(row.get('total') or 0) for row in quarter_rows),
+                'valor_total': sum(float(row.get('valor_total') or 0) for row in quarter_rows),
+                'status': status_values,
+            })
+
+        platforms = sorted({
+            row.get('plataforma') or 'Sem plataforma' for row in campanhas_mensais
+        })
+        campaign_monthly = []
+        for month in months:
+            values = {
+                platform: sum(
+                    int(row.get('total') or 0)
+                    for row in campanhas_mensais
+                    if _month_key(row.get('mes')) == month
+                    and (row.get('plataforma') or 'Sem plataforma') == platform
+                )
+                for platform in platforms
+            }
+            campaign_monthly.append({
+                'mes': month,
+                'total': sum(values.values()),
+                'plataformas': values,
+            })
+
+        current_month = date.today().month if date.today().year == year else 12
+        current_index = max(0, min(11, current_month - 1))
+        previous_index = max(0, current_index - 1)
+
+        def _summary(index):
+            row = general[index] if general else {}
+            campaign = campaign_monthly[index] if campaign_monthly else {}
+            return {
+                'clientes_novos': int(
+                    (row.get('clientes_finais') or 0) + (row.get('agencias') or 0)
+                ),
+                'cotacoes': int(row.get('cotacoes') or 0),
+                'pis': int(row.get('pis') or 0),
+                'valor_pi': float(row.get('valor_pi') or 0),
+                'campanhas': int(campaign.get('total') or 0),
+            }
+
+        # Importar formatadores ApexCharts
+        from aicentralv2.apex_formatters import (
+            format_overview_chart,
+            format_quotes_chart,
+            format_campaigns_chart,
+            format_executives_apex,
+        )
+
+        return {
+            'ano': year,
+            'meses': months,
+            'executivos': executives,
+            'geral_mensal': general,
+            'cotacoes_semanais': quote_weeks,
+            'cotacoes_trimestres': quote_quarters,
+            'cotacoes_status': quote_statuses,
+            'campanhas_mensal': campaign_monthly,
+            'plataformas': platforms,
+            'mes_referencia': months[current_index],
+            'resumo_atual': _summary(current_index),
+            'resumo_anterior': _summary(previous_index),
+            'apex': {
+                'overview': format_overview_chart(general),
+                'quotes': format_quotes_chart(quote_weeks, quote_statuses),
+                'campaigns': format_campaigns_chart(campaign_monthly, platforms),
+                'executivos': format_executives_apex(executives),
+            },
+        }
+    except Exception as e:
+        conn.rollback()
+        current_app.logger.error(f"Erro dashboard comercial anual: {e}")
+        return empty_result
+
+
 def get_dashboard_acessos_cadu(days=90):
     conn = get_db()
     try:

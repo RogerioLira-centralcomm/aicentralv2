@@ -22,7 +22,6 @@
         buscaCliente: '',
         buscaContato: '',
         buscaAtividade: '',
-        filtroAtivTab: 'todas',
         paginaCliente: 1,
         clientesPorPagina: 8,
         importRows: [],
@@ -428,13 +427,13 @@
     }
 
     function updateTabCounts() {
+        // Somente contadores da sidebar (Contatos / Notas / Objetivos /
+        // Atividades). Abas Todas/Pendentes/Concluídas de atividades foram
+        // removidas em favor do agrupamento por data.
         var counts = {
             notas: (state.notas || []).length,
             objetivos: (state.objetivos || []).length,
             atividades: (state.atividades || []).length,
-            'ativ-todas': (state.atividades || []).length,
-            'ativ-pendentes': (state.atividades || []).filter(function (a) { return a.status !== 'concluida'; }).length,
-            'ativ-concluidas': (state.atividades || []).filter(function (a) { return a.status === 'concluida'; }).length,
         };
         $$('.crm-v3-tab-count').forEach(function (el) {
             var key = el.getAttribute('data-tab-count');
@@ -1003,14 +1002,12 @@
         var container = $('#crm-v3-ativ-list');
         if (!container) return;
 
-        // Filtro apenas pela aba (Todas / Pendentes / Concluídas).
-        // Busca, responsável e tipo foram removidos por decisão de UX:
-        // a coluna mostra tudo agrupado por data.
-        var filtrados = state.atividades.filter(function (a) {
-            if (state.filtroAtivTab === 'pendentes' && a.status === 'concluida') return false;
-            if (state.filtroAtivTab === 'concluidas' && a.status !== 'concluida') return false;
-            return true;
-        });
+        // Sem filtro por aba: a coluna mostra tudo agrupado por data
+        // (Atrasadas, Hoje, Amanhã, Esta semana, Próximas, Sem data,
+        // Concluídas). Abas de filtro (Todas / Pendentes / Concluídas)
+        // foram removidas por decisão de UX — o agrupamento por data já
+        // segrega pendentes e concluídas visualmente.
+        var filtrados = state.atividades.slice();
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-ativ-empty">Selecione um cliente.</div>';
@@ -1021,7 +1018,7 @@
         }
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-v3-ativ-empty">Nenhuma atividade nesta aba.</div>';
+            container.innerHTML = '<div class="crm-v3-ativ-empty">Nenhuma atividade registrada.</div>';
             renderSidebarAtividades();
             renderSugestao();
             updateTabCounts();
@@ -2243,11 +2240,8 @@
                 panel.classList.toggle('crm-v3-tab-panel-active', isTarget);
                 if (panel.hasAttribute('hidden')) panel.hidden = !isTarget;
             });
-            if (groupName === 'atividades') {
-                state.filtroAtivTab = target;
-                renderAtividades();
-                saveSession({ filtroAtivTab: target });
-            }
+            // Grupo "atividades" foi removido do UI — a coluna agrupa
+            // por data e não usa mais aba Todas/Pendentes/Concluídas.
         }
 
         tabs.forEach(function (tab, index) {
@@ -2278,7 +2272,6 @@
         if (sess.filtroExecutivo != null) state.filtroExecutivo = sess.filtroExecutivo;
         if (sess.filtroTipo != null) state.filtroTipo = sess.filtroTipo;
         if (sess.filtroPerfil != null) state.filtroPerfil = sess.filtroPerfil;
-        if (sess.filtroAtivTab) state.filtroAtivTab = sess.filtroAtivTab;
     }
 
     /**
@@ -2298,13 +2291,6 @@
             var active = p.getAttribute('data-filter') === state.filtroPill;
             p.classList.toggle('is-active', active);
             p.setAttribute('aria-pressed', active ? 'true' : 'false');
-        });
-        // Sincroniza aba ativa de atividades (todas/pendentes/concluidas)
-        $$('[data-tab-group="atividades"] .crm-v3-tab').forEach(function (tab) {
-            var active = tab.getAttribute('data-tab') === state.filtroAtivTab;
-            tab.classList.toggle('is-active', active);
-            tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            tab.setAttribute('tabindex', active ? '0' : '-1');
         });
     }
 
@@ -2473,8 +2459,6 @@
         if (verTodasAtividades) {
             verTodasAtividades.addEventListener('click', function () {
                 var painel = $('.crm-v3-section-atividades');
-                var tabTodas = $('#tab-atividades-todas');
-                if (tabTodas) tabTodas.click();
                 if (painel) {
                     painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     painel.focus({ preventScroll: true });
@@ -2498,7 +2482,6 @@
     }
 
     initModals();
-    initTabs('atividades');
     initTabs('sidebar');
     // Restaura filtros do localStorage antes de bindar handlers para não
     // disparar renders extras — o `syncFiltrosParaDom` só ajusta valores

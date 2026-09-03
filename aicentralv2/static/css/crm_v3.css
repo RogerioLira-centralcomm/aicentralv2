@@ -1511,18 +1511,11 @@ html:has(.crm-v3-page) body {
     gap: 6px;
 }
 
-/* ===== TABS UNIFICADAS (cx-tabs style) ===== */
-.crm-v3-ativ-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px;
-    width: min(100%, 380px);
-    padding: 4px;
-    border-radius: 10px;
-    background: var(--crm-surface);
-    margin-bottom: 8px;
-}
-
+/* ===== TABS UNIFICADAS (cx-tabs style) =====
+ * `.crm-v3-ativ-tabs` foi removido: a coluna de atividades agrupa
+ * automaticamente por data (Atrasadas / Hoje / Amanhã / …). Apenas a
+ * sidebar (`.crm-v3-tabs-sidebar`) usa este componente.
+ */
 .crm-v3-tab {
     min-width: 0;
     min-height: 40px;

@@ -109,9 +109,11 @@
         cxDrawer.open({
             title: cliente ? 'Editar cliente' : 'Novo cliente',
             breadcrumb: 'CRM v3 · Cadastro',
-            size: 'xl',
+            size: 'lg',
             contentEl: wrapper,
-            split: true,
+            // Drawer sobreposto ao layout (não empurra o CRM). O backdrop
+            // dá o contraste visual sem mover as colunas.
+            split: false,
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
                 {
@@ -229,9 +231,10 @@
         cxDrawer.open({
             title: atividade ? 'Editar atividade' : 'Nova atividade',
             breadcrumb: 'CRM v3 · Atividade',
-            size: 'lg',
+            size: 'md',
             contentEl: wrapper,
-            split: true,
+            // Sobreposto — não empurra as colunas do CRM.
+            split: false,
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
                 {

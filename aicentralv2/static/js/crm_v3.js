@@ -30,6 +30,32 @@
         overlayTimer: null
     };
 
+    /* ------------------------------------------------------------------
+     * Persistência de sessão (last-client + filtros) via localStorage.
+     * Objetivo: ao abrir o CRM, restaurar a experiência anterior do
+     * usuário sem forçar re-render caro. Somente atalhos leves;
+     * dados sempre vêm da API.
+     * ------------------------------------------------------------------ */
+    var LS_KEY = 'crm-v3.session.v1';
+
+    function loadSession() {
+        try {
+            var raw = window.localStorage && window.localStorage.getItem(LS_KEY);
+            if (!raw) return {};
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) { return {}; }
+    }
+
+    function saveSession(patch) {
+        try {
+            if (!window.localStorage) return;
+            var current = loadSession();
+            var next = Object.assign({}, current, patch || {});
+            window.localStorage.setItem(LS_KEY, JSON.stringify(next));
+        } catch (e) { /* no-op: quota / privacy mode */ }
+    }
+
     function $(sel, root) {
         return (root || document).querySelector(sel);
     }
@@ -455,6 +481,82 @@
         if (next) next.disabled = state.paginaCliente >= totalPaginas;
     }
 
+    /* ------------------------------------------------------------------
+     * Métricas do cliente (derivadas do estado + fallback do backend).
+     * - contatos: state.contatos (o que aparece na coluna)
+     * - oportunidades: cotações em aberto (rascunho/enviada/em acomp.)
+     * - faturamento: soma de valor_total das cotações aprovadas
+     * - valor_pis: soma de valor_total das cotações em aberto (pipeline)
+     * - tarefas_abertas: atividades com status != concluida
+     * - ultimo_contato: max(data das atividades concluídas) ou fallback
+     * ------------------------------------------------------------------ */
+    function _cotValor(c) {
+        var v = c.valor_total;
+        if (v == null || v === '') {
+            // Parse do "R$ 12.500,00" quando valor_total não vier do backend.
+            var raw = String(c.valor || '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+            v = parseFloat(raw);
+        }
+        return isFinite(v) ? Number(v) : 0;
+    }
+
+    function formatBRL(v) {
+        if (!isFinite(v)) v = 0;
+        try {
+            return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        } catch (e) {
+            return 'R$ ' + v.toFixed(2).replace('.', ',');
+        }
+    }
+
+    function computeMetricas(cliente) {
+        var fallback = (cliente && cliente.metrics) || {};
+        var contatos = state.contatos && state.contatos.length
+            ? state.contatos.length
+            : (fallback.contatos != null ? fallback.contatos : (cliente && cliente.qtd_contatos) || 0);
+
+        var cotAbertas = (state.cotacoes || []).filter(cotacaoEstaAberta);
+        var cotAprovadas = (state.cotacoes || []).filter(function (c) {
+            return String(c.status || '').toLowerCase() === 'aprovada';
+        });
+        var oportunidades = cotAbertas.length || (fallback.oportunidades != null ? fallback.oportunidades : 0);
+        var faturamento = cotAprovadas.reduce(function (s, c) { return s + _cotValor(c); }, 0);
+        var pipeline = cotAbertas.reduce(function (s, c) { return s + _cotValor(c); }, 0);
+        var tarefas = (state.atividades || []).filter(function (a) {
+            return a.status !== 'concluida';
+        }).length;
+        if (!state.atividades || !state.atividades.length) {
+            tarefas = fallback.tarefas_abertas != null ? fallback.tarefas_abertas : tarefas;
+        }
+
+        // Último contato = max data entre atividades concluídas.
+        var ultimo = fallback.ultimo_contato || '—';
+        var maxData = (state.atividades || [])
+            .filter(function (a) { return a.status === 'concluida' && a.data; })
+            .map(function (a) { return a.data; })
+            .sort()
+            .pop();
+        if (maxData) {
+            var d = new Date(maxData + 'T00:00:00');
+            if (!isNaN(d)) {
+                var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+                var diff = Math.round((hoje - d) / 86400000);
+                ultimo = diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : diff + 'd atrás';
+            }
+        }
+
+        return {
+            contatos: contatos,
+            oportunidades: oportunidades,
+            faturamento: faturamento,
+            faturamento_label: faturamento > 0 ? formatBRL(faturamento) : (fallback.faturamento || 'R$ 0,00'),
+            valor_pis: pipeline,
+            valor_pis_label: pipeline > 0 ? formatBRL(pipeline) : (fallback.valor_pis || 'R$ 0,00'),
+            tarefas_abertas: tarefas,
+            ultimo_contato: ultimo
+        };
+    }
+
     function updateDetailPanel(cliente) {
         if (!cliente) return;
         var title = $('.crm-v3-detail-title');
@@ -517,14 +619,23 @@
         }
         updateFollowButton(cliente);
 
-        var m = cliente.metrics || {};
+        // Métricas derivadas do estado atual do cliente (fonte da verdade
+        // é o que já foi carregado das APIs). Isso garante que o número
+        // mostrado bate com o que o usuário vê nas outras colunas.
+        var m = computeMetricas(cliente);
         var el;
-        el = $('#crm-metric-contatos'); if (el) el.textContent = m.contatos != null ? m.contatos : cliente.qtd_contatos || 0;
-        el = $('#crm-metric-oportunidades'); if (el) el.textContent = m.oportunidades != null ? m.oportunidades : 0;
-        el = $('#crm-metric-faturamento'); if (el) el.textContent = m.faturamento || '—';
-        el = $('#crm-metric-pis'); if (el) el.textContent = m.valor_pis || '—';
-        el = $('#crm-metric-tarefas'); if (el) el.textContent = m.tarefas_abertas != null ? m.tarefas_abertas : 0;
-        el = $('#crm-metric-ultimo'); if (el) el.textContent = m.ultimo_contato || '—';
+        el = $('#crm-metric-contatos');
+        if (el) { el.textContent = m.contatos; el.title = m.contatos + ' contato(s) cadastrado(s)'; }
+        el = $('#crm-metric-oportunidades');
+        if (el) { el.textContent = m.oportunidades; el.title = 'Cotações em aberto (rascunho, enviada, em acompanhamento)'; }
+        el = $('#crm-metric-faturamento');
+        if (el) { el.textContent = m.faturamento_label; el.title = 'Soma das cotações aprovadas para este cliente'; }
+        el = $('#crm-metric-pis');
+        if (el) { el.textContent = m.valor_pis_label; el.title = 'Soma das cotações em aberto (pipeline)'; }
+        el = $('#crm-metric-tarefas');
+        if (el) { el.textContent = m.tarefas_abertas; el.title = 'Atividades pendentes (não concluídas)'; }
+        el = $('#crm-metric-ultimo');
+        if (el) { el.textContent = m.ultimo_contato; el.title = 'Data da atividade concluída mais recente'; }
 
         updateStatusComercial(cliente);
         updateVinculos(cliente);
@@ -974,20 +1085,6 @@
         updateTabCounts();
     }
 
-    function populateAtividadeResponsaveis() {
-        var select = $('#filtro-resp-ativ');
-        if (!select) return;
-        var current = state.filtroAtivResponsavel;
-        var values = [];
-        state.atividades.forEach(function (a) {
-            if (a.responsavel && values.indexOf(a.responsavel) === -1) values.push(a.responsavel);
-        });
-        select.innerHTML = '<option value="">Responsável: todos</option>' + values.map(function (v) {
-            return '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>';
-        }).join('');
-        select.value = current;
-    }
-
     function renderSidebarAtividades() {
         var container = $('#crm-v3-sidebar-atividades-list');
         if (!container) return;
@@ -1421,6 +1518,7 @@
             state.contatos = data.contatos || [];
             state.contatoId = state.contatos.length ? state.contatos[0].id : null;
             renderContatos();
+            if (state.cliente) updateDetailPanel(state.cliente);
         }).catch(function (err) {
             if (container) container.innerHTML = '<div class="crm-v3-contatos-empty p-3">Erro ao carregar contatos.</div>';
             showToast(err.message, true);
@@ -1431,13 +1529,8 @@
         return api('/clientes/' + encodeURIComponent(clienteId) + '/atividades').then(function (data) {
             if (state.clienteId !== clienteId) return;
             state.atividades = data.atividades || [];
-            populateAtividadeResponsaveis();
             renderAtividades();
-            if (state.cliente) {
-                state.cliente.metrics = state.cliente.metrics || {};
-                state.cliente.metrics.tarefas_abertas = state.atividades.filter(function (a) { return a.status !== 'concluida'; }).length;
-                updateDetailPanel(state.cliente);
-            }
+            if (state.cliente) updateDetailPanel(state.cliente);
         }).catch(function (err) { showToast(err.message, true); });
     }
 
@@ -1454,10 +1547,7 @@
             if (state.clienteId !== clienteId) return;
             state.cotacoes = data.cotacoes || [];
             renderCotacoes();
-            if (state.cliente && state.cliente.metrics) {
-                state.cliente.metrics.oportunidades = state.cotacoes.length;
-                updateDetailPanel(state.cliente);
-            }
+            if (state.cliente) updateDetailPanel(state.cliente);
         }).catch(function (err) { showToast(err.message, true); });
     }
 
@@ -1474,6 +1564,9 @@
     }
 
     function selectCliente(clienteId) {
+        if (!clienteId) return;
+        // Evita re-render se já é o mesmo cliente selecionado.
+        if (state.clienteId === clienteId && state.cliente) return;
         state.clienteId = clienteId;
         state.cliente = state.clientes.find(function (c) { return c.id === clienteId; });
         state.atividades = [];
@@ -1491,6 +1584,7 @@
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
         loadNotas(clienteId);
+        saveSession({ lastClientId: clienteId });
     }
 
     function loadClientes() {
@@ -1499,8 +1593,14 @@
             state.clientes = data.clientes || [];
             renderClientes();
             if (state.clientes.length) {
-                var first = state.clientes.find(function (c) { return c.id === state.clienteId; }) || state.clientes[0];
-                selectCliente(first.id);
+                // Preferência: (1) cliente já selecionado no state; (2) último
+                // cliente usado (localStorage); (3) primeiro da lista.
+                var sess = loadSession();
+                var candidato =
+                    state.clientes.find(function (c) { return c.id === state.clienteId; }) ||
+                    state.clientes.find(function (c) { return c.id === sess.lastClientId; }) ||
+                    state.clientes[0];
+                selectCliente(candidato.id);
             }
         }).catch(function (err) {
             var container = $('#crm-v3-lista-clientes');
@@ -2163,6 +2263,7 @@
             if (groupName === 'atividades') {
                 state.filtroAtivTab = target;
                 renderAtividades();
+                saveSession({ filtroAtivTab: target });
             }
         }
 
@@ -2183,6 +2284,47 @@
         });
     }
 
+    /**
+     * Restaura filtros do localStorage antes de bindar os handlers.
+     * Só carrega valores que existam nos controles atuais para evitar
+     * ficar com filtro "fantasma" no state que a UI não reflete.
+     */
+    function restoreFiltros() {
+        var sess = loadSession();
+        if (sess.filtroPill) state.filtroPill = sess.filtroPill;
+        if (sess.filtroExecutivo != null) state.filtroExecutivo = sess.filtroExecutivo;
+        if (sess.filtroTipo != null) state.filtroTipo = sess.filtroTipo;
+        if (sess.filtroPerfil != null) state.filtroPerfil = sess.filtroPerfil;
+        if (sess.filtroAtivTab) state.filtroAtivTab = sess.filtroAtivTab;
+    }
+
+    /**
+     * Reflete o `state.filtro*` restaurado nos controles do DOM logo
+     * após montar a página; evita renders extras porque só ajusta o
+     * value dos selects/pills, o `renderClientes` roda uma única vez
+     * depois de `loadClientes`.
+     */
+    function syncFiltrosParaDom() {
+        var executivo = $('#filtro-executivo');
+        var tipo = $('#filtro-tipo');
+        var perfil = $('#filtro-perfil');
+        if (executivo && state.filtroExecutivo) executivo.value = state.filtroExecutivo;
+        if (tipo && state.filtroTipo) tipo.value = state.filtroTipo;
+        if (perfil && state.filtroPerfil) perfil.value = state.filtroPerfil;
+        $$('.crm-v3-pill').forEach(function (p) {
+            var active = p.getAttribute('data-filter') === state.filtroPill;
+            p.classList.toggle('is-active', active);
+            p.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        // Sincroniza aba ativa de atividades (todas/pendentes/concluidas)
+        $$('[data-tab-group="atividades"] .crm-v3-tab').forEach(function (tab) {
+            var active = tab.getAttribute('data-tab') === state.filtroAtivTab;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.setAttribute('tabindex', active ? '0' : '-1');
+        });
+    }
+
     function initFilters() {
         $$('.crm-v3-pill').forEach(function (pill) {
             pill.addEventListener('click', function () {
@@ -2195,6 +2337,7 @@
                 state.filtroPill = pill.getAttribute('data-filter') || 'todos';
                 state.paginaCliente = 1;
                 renderClientes();
+                saveSession({ filtroPill: state.filtroPill });
             });
         });
 
@@ -2225,16 +2368,19 @@
             state.filtroExecutivo = executivo.value;
             state.paginaCliente = 1;
             renderClientes();
+            saveSession({ filtroExecutivo: state.filtroExecutivo });
         });
         if (tipo) tipo.addEventListener('change', function () {
             state.filtroTipo = tipo.value;
             state.paginaCliente = 1;
             renderClientes();
+            saveSession({ filtroTipo: state.filtroTipo });
         });
         if (perfil) perfil.addEventListener('change', function () {
             state.filtroPerfil = perfil.value;
             state.paginaCliente = 1;
             renderClientes();
+            saveSession({ filtroPerfil: state.filtroPerfil });
         });
     }
 
@@ -2371,6 +2517,12 @@
     initModals();
     initTabs('atividades');
     initTabs('sidebar');
+    // Restaura filtros do localStorage antes de bindar handlers para não
+    // disparar renders extras — o `syncFiltrosParaDom` só ajusta valores
+    // e o primeiro `renderClientes` (dentro de `loadClientes`) já usa o
+    // state consolidado.
+    restoreFiltros();
+    syncFiltrosParaDom();
     initFilters();
     initButtons();
     showOverlay('Carregando CRM…');

@@ -170,6 +170,12 @@ def create_app(config_class=Config):
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)
 
+        # Painel administrativo de migrations — permite executar
+        # `migrations/*.sql` e `migrations/run_*.py` pelo navegador
+        # após o deploy. Restrito a superadmin (auth.py).
+        from .admin_migrations_routes import bp as admin_migrations_bp
+        app.register_blueprint(admin_migrations_bp)
+
         # Redirect da rota legada /teste-crm para /crm-v3 (mantido 1-2 sprints)
         from flask import redirect as _redirect, url_for as _url_for
 

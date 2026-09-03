@@ -1,0 +1,621 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Migrations — Administração{% endblock %}
+{% block page_label %}Administração · Migrations{% endblock %}
+{% block page_subtitle %}Aplicar alterações de schema após o deploy{% endblock %}
+
+{% block content %}
+<div class="mig-page">
+  <div class="mig-shell">
+
+    {# ==================================================================
+       Cabeçalho — resumo do ambiente e ações globais
+       ================================================================== #}
+    <header class="mig-head">
+      <div class="mig-head-left">
+        <div class="mig-head-title">
+          <i class="fa-solid fa-database" aria-hidden="true"></i>
+          <span>Migrations do banco</span>
+        </div>
+        <p class="mig-head-desc">
+          Aplique migrations pendentes após o deploy sem precisar abrir o SSH.
+          Cada migration é rastreada em <code>schema_migrations</code>; migrations
+          já aplicadas ficam bloqueadas por padrão (destrave com "forçar" quando
+          precisar reexecutar). Somente <strong>superadmin</strong> acessa esta tela.
+        </p>
+      </div>
+      <div class="mig-head-right">
+        <button type="button" id="mig-refresh" class="mig-btn mig-btn-outline">
+          <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+          <span>Atualizar</span>
+        </button>
+      </div>
+    </header>
+
+    {# Barra de ambiente (paths, python) — útil para debug rápido #}
+    <section class="mig-env" id="mig-env" aria-live="polite">
+      <div class="mig-env-item"><span class="mig-env-label">Diretório</span><code id="mig-env-dir">—</code></div>
+      <div class="mig-env-item"><span class="mig-env-label">Python</span><code id="mig-env-py">—</code></div>
+      <div class="mig-env-item"><span class="mig-env-label">Total</span><code id="mig-env-total">0</code></div>
+      <div class="mig-env-item"><span class="mig-env-label">Aplicadas</span><code id="mig-env-done" class="mig-env-done">0</code></div>
+      <div class="mig-env-item"><span class="mig-env-label">Pendentes</span><code id="mig-env-pending" class="mig-env-pending">0</code></div>
+    </section>
+
+    {# ==================================================================
+       Tabela de migrations
+       ================================================================== #}
+    <section class="mig-table-wrap">
+      <table class="mig-table" role="grid" aria-label="Lista de migrations">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Migration</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Última execução</th>
+            <th style="text-align:right; width: 220px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="mig-tbody">
+          <tr><td colspan="5" class="mig-empty">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    {# ==================================================================
+       Console — output da última execução / preview do arquivo
+       ================================================================== #}
+    <section class="mig-console" id="mig-console" hidden>
+      <header class="mig-console-head">
+        <div class="mig-console-title">
+          <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+          <span id="mig-console-title-text">Output</span>
+        </div>
+        <button type="button" id="mig-console-close" class="mig-btn mig-btn-ghost mig-btn-sm" aria-label="Fechar console">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <pre class="mig-console-body" id="mig-console-body">—</pre>
+    </section>
+  </div>
+</div>
+
+<style>
+  /* --------------------------------------------------------------------
+     Painel de migrations — usa o design system cx-* do ERP como base.
+     Mantido inline para manter o painel autocontido (é uma tela admin
+     pouco acessada). Se virar recorrente, migra para enterprise-system.
+     -------------------------------------------------------------------- */
+  .mig-page {
+    padding: 20px 24px 40px;
+    display: flex;
+    justify-content: center;
+    min-height: 100%;
+  }
+  .mig-shell {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .mig-head {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 22px;
+    background: #fff;
+    border: 1px solid var(--cx-border, #e5e7eb);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .mig-head-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--cx-text, #111827);
+  }
+  .mig-head-title i { color: var(--cx-brand, #2563eb); }
+  .mig-head-desc {
+    margin: 8px 0 0;
+    color: var(--cx-text-muted, #4b5563);
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 780px;
+  }
+  .mig-head-desc code {
+    padding: 1px 6px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .mig-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--cx-brand, #2563eb);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    white-space: nowrap;
+  }
+  .mig-btn:hover { filter: brightness(0.94); }
+  .mig-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .mig-btn-sm { padding: 6px 10px; font-size: 12px; }
+  .mig-btn-outline {
+    background: #fff;
+    color: var(--cx-text, #111827);
+    border-color: var(--cx-border, #d1d5db);
+  }
+  .mig-btn-outline:hover { background: #f9fafb; border-color: #9ca3af; }
+  .mig-btn-ghost {
+    background: transparent;
+    color: var(--cx-text-muted, #4b5563);
+    border-color: transparent;
+  }
+  .mig-btn-ghost:hover { background: #f3f4f6; color: var(--cx-text, #111827); }
+  .mig-btn-danger {
+    background: #dc2626;
+    color: #fff;
+  }
+  .mig-btn-danger:hover { filter: brightness(0.94); }
+
+  .mig-env {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border: 1px solid var(--cx-border, #e5e7eb);
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  .mig-env-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .mig-env-label {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--cx-text-subtle, #6b7280);
+  }
+  .mig-env-item code {
+    font-size: 12px;
+    color: var(--cx-text, #111827);
+    background: transparent;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .mig-env-done { color: #16a34a; font-weight: 700; }
+  .mig-env-pending { color: #d97706; font-weight: 700; }
+
+  .mig-table-wrap {
+    background: #fff;
+    border: 1px solid var(--cx-border, #e5e7eb);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .mig-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .mig-table th, .mig-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cx-border, #e5e7eb);
+    vertical-align: middle;
+    text-align: left;
+  }
+  .mig-table thead th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cx-text-subtle, #6b7280);
+    background: #f9fafb;
+  }
+  .mig-table tbody tr:last-child td { border-bottom: 0; }
+  .mig-table tbody tr:hover { background: #fafbfc; }
+  .mig-empty {
+    text-align: center;
+    color: var(--cx-text-subtle, #6b7280);
+    padding: 32px 16px !important;
+  }
+
+  .mig-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    color: var(--cx-text, #111827);
+    min-width: 0;
+  }
+  .mig-name button.mig-name-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+  }
+  .mig-name button.mig-name-btn:hover {
+    color: var(--cx-brand, #2563eb);
+    text-decoration: underline;
+  }
+
+  .mig-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .mig-type-sql {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #bfdbfe;
+  }
+  .mig-type-python {
+    background: #f3e8ff;
+    color: #6b21a8;
+    border-color: #e9d5ff;
+  }
+  .mig-type-off {
+    background: #f3f4f6;
+    color: #6b7280;
+    border-color: #e5e7eb;
+  }
+
+  .mig-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .mig-status-ok    { background: #dcfce7; color: #14532d; border-color: #bbf7d0; }
+  .mig-status-err   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+  .mig-status-wait  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  .mig-status-off   { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+
+  .mig-actions {
+    display: inline-flex;
+    gap: 6px;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .mig-force-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--cx-text-muted, #4b5563);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .mig-console {
+    background: #0b1220;
+    color: #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  .mig-console-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
+  }
+  .mig-console-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #9ca3af;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .mig-console-title i { color: #60a5fa; }
+  .mig-console-body {
+    margin: 0;
+    padding: 16px 20px;
+    max-height: 480px;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .mig-console.is-error .mig-console-head {
+    background: #7f1d1d;
+    border-bottom-color: #991b1b;
+  }
+  .mig-console.is-error .mig-console-title { color: #fecaca; }
+  .mig-console.is-error .mig-console-title i { color: #fecaca; }
+
+  .mig-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    padding: 12px 16px;
+    background: #111827;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 180ms ease;
+    transform: translateY(6px);
+  }
+  .mig-toast.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .mig-toast.is-error { background: #7f1d1d; }
+</style>
+
+<div id="mig-toast" class="mig-toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = {
+    list:    '{{ url_for('admin_migrations.api_list') }}',
+    run:     '{{ url_for('admin_migrations.api_run') }}',
+    preview: '{{ url_for('admin_migrations.api_preview') }}',
+    mark:    '{{ url_for('admin_migrations.api_mark') }}',
+  };
+
+  var $  = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  var state = { items: [], busy: false };
+
+  function toast(msg, isError) {
+    var el = $('#mig-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('is-error', !!isError);
+    el.classList.add('is-visible');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove('is-visible'); }, 4200);
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return iso; }
+  }
+
+  function statusBadge(item) {
+    if (!item.runnable) {
+      return '<span class="mig-status mig-status-off" title="Este arquivo é apenas leitura">' +
+             '<i class="fa-solid fa-lock" aria-hidden="true"></i> Só leitura</span>';
+    }
+    if (item.ok === true) {
+      return '<span class="mig-status mig-status-ok">' +
+             '<i class="fa-solid fa-check" aria-hidden="true"></i> Aplicada</span>';
+    }
+    if (item.ok === false) {
+      return '<span class="mig-status mig-status-err">' +
+             '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Falhou</span>';
+    }
+    return '<span class="mig-status mig-status-wait">' +
+           '<i class="fa-regular fa-circle-dot" aria-hidden="true"></i> Pendente</span>';
+  }
+
+  function typeBadge(item) {
+    if (!item.runnable) return '<span class="mig-type mig-type-off">' + (item.type === 'python' ? 'util .py' : item.type) + '</span>';
+    if (item.type === 'sql')    return '<span class="mig-type mig-type-sql"><i class="fa-solid fa-database" aria-hidden="true"></i> SQL</span>';
+    if (item.type === 'python') return '<span class="mig-type mig-type-python"><i class="fa-brands fa-python" aria-hidden="true"></i> Python</span>';
+    return '<span class="mig-type mig-type-off">' + item.type + '</span>';
+  }
+
+  function renderTable(payload) {
+    var tbody = $('#mig-tbody');
+    var items = state.items = payload.items || [];
+    $('#mig-env-dir').textContent   = payload.migrations_dir || '—';
+    $('#mig-env-py').textContent    = payload.python || '—';
+    $('#mig-env-total').textContent = String(items.length);
+    var done    = items.filter(function (i) { return i.ok === true; }).length;
+    var pending = items.filter(function (i) { return i.runnable && i.ok !== true; }).length;
+    $('#mig-env-done').textContent    = String(done);
+    $('#mig-env-pending').textContent = String(pending);
+
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="mig-empty">Nenhuma migration encontrada em <code>migrations/</code>.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(function (item) {
+      var isApplied = item.ok === true;
+      var canRun    = item.runnable;
+      var forceId   = 'mig-force-' + item.name.replace(/[^a-z0-9]/gi, '_');
+      var runBtnHtml = canRun
+        ? '<button type="button" class="mig-btn ' + (isApplied ? 'mig-btn-danger' : '') + '" data-run="' + item.name + '">' +
+            '<i class="fa-solid fa-play" aria-hidden="true"></i>' +
+            '<span>' + (isApplied ? 'Reexecutar' : 'Rodar') + '</span>' +
+          '</button>'
+        : '';
+      var markBtnHtml = (canRun && !isApplied)
+        ? '<button type="button" class="mig-btn mig-btn-ghost mig-btn-sm" data-mark="' + item.name + '" title="Marcar como já aplicada (não executa)">' +
+            '<i class="fa-solid fa-check-double" aria-hidden="true"></i>' +
+            '<span>Marcar aplicada</span>' +
+          '</button>'
+        : '';
+      var forceHtml = (canRun && isApplied)
+        ? '<label class="mig-force-label" for="' + forceId + '"><input id="' + forceId + '" type="checkbox" data-force="' + item.name + '" /> forçar</label>'
+        : '';
+      return (
+        '<tr data-name="' + item.name + '">' +
+          '<td>' +
+            '<div class="mig-name">' +
+              '<i class="fa-regular fa-file-code" aria-hidden="true"></i>' +
+              '<button type="button" class="mig-name-btn" data-preview="' + item.name + '" title="Ver conteúdo">' + item.name + '</button>' +
+            '</div>' +
+          '</td>' +
+          '<td>' + typeBadge(item) + '</td>' +
+          '<td>' + statusBadge(item) + '</td>' +
+          '<td>' + fmtDate(item.executed_at) + (item.executed_by ? ' <small class="text-muted">' + item.executed_by + '</small>' : '') + '</td>' +
+          '<td><div class="mig-actions">' + forceHtml + markBtnHtml + runBtnHtml + '</div></td>' +
+        '</tr>'
+      );
+    }).join('');
+  }
+
+  function loadList() {
+    return fetch(API.list, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Falha ao listar migrations');
+        renderTable(data);
+      })
+      .catch(function (err) {
+        $('#mig-tbody').innerHTML = '<tr><td colspan="5" class="mig-empty">Erro: ' + err.message + '</td></tr>';
+        toast(err.message, true);
+      });
+  }
+
+  function showConsole(title, body, isError) {
+    var wrap = $('#mig-console');
+    var titleEl = $('#mig-console-title-text');
+    var bodyEl = $('#mig-console-body');
+    if (!wrap) return;
+    titleEl.textContent = title || 'Output';
+    bodyEl.textContent = body || '(sem saída)';
+    wrap.classList.toggle('is-error', !!isError);
+    wrap.hidden = false;
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function runMigration(name, force) {
+    if (state.busy) return;
+    state.busy = true;
+    var row = document.querySelector('[data-name="' + name + '"]');
+    var btn = row && row.querySelector('[data-run]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span>Executando…</span>'; }
+
+    fetch(API.run, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, force: !!force })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (resp) {
+        var d = resp.data || {};
+        if (d.success) {
+          toast('Migration executada (' + (d.duration_ms || 0) + 'ms)');
+          showConsole('Sucesso · ' + name, d.output || '(sem saída)', false);
+        } else if (resp.status === 409 && d.already_executed) {
+          toast('Migration já foi aplicada — marque "forçar" para reexecutar.', true);
+        } else {
+          toast(d.error || 'Falha ao executar', true);
+          showConsole('Erro · ' + name, d.output || d.error || 'Sem detalhes', true);
+        }
+      })
+      .catch(function (err) { toast(err.message || 'Erro inesperado', true); })
+      .finally(function () {
+        state.busy = false;
+        loadList();
+      });
+  }
+
+  function previewMigration(name) {
+    fetch(API.preview + '?name=' + encodeURIComponent(name), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.success) throw new Error((d && d.error) || 'Falha ao carregar preview');
+        showConsole('Preview · ' + name, d.content || '(vazio)', false);
+      })
+      .catch(function (err) { toast(err.message, true); });
+  }
+
+  // Event delegation na tabela — evita bind por linha, funciona depois de rerender.
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-run]');
+    if (t) {
+      var name = t.getAttribute('data-run');
+      var forceInput = document.querySelector('[data-force="' + name + '"]');
+      var force = !!(forceInput && forceInput.checked);
+      var item = state.items.find(function (i) { return i.name === name; });
+      var msg = force
+        ? 'Reexecutar "' + name + '"? Isso vai rodar novamente e pode aplicar alterações duplicadas se a migration não for idempotente.'
+        : 'Executar "' + name + '"?';
+      if (item && item.ok === true && !force) {
+        msg = '"' + name + '" já foi aplicada em ' + fmtDate(item.executed_at) + '. Marque "forçar" antes de reexecutar.';
+        alert(msg);
+        return;
+      }
+      if (window.confirm(msg)) runMigration(name, force);
+      return;
+    }
+    var p = ev.target.closest('[data-preview]');
+    if (p) { previewMigration(p.getAttribute('data-preview')); return; }
+    var m = ev.target.closest('[data-mark]');
+    if (m) {
+      var mname = m.getAttribute('data-mark');
+      if (!window.confirm('Marcar "' + mname + '" como já aplicada? Isso apenas registra no histórico, sem executar SQL/runner. Use quando o schema já está aplicado na base.')) return;
+      m.disabled = true;
+      fetch(API.mark, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: mname })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.success) { toast('Marcada como aplicada'); loadList(); }
+          else toast((d && d.error) || 'Falha ao marcar', true);
+        })
+        .catch(function (err) { toast(err.message || 'Erro', true); });
+    }
+  });
+
+  $('#mig-refresh').addEventListener('click', loadList);
+  var closeBtn = $('#mig-console-close');
+  if (closeBtn) closeBtn.addEventListener('click', function () { $('#mig-console').hidden = true; });
+
+  // Bootstrap
+  loadList();
+})();
+</script>
+{% endblock %}

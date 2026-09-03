@@ -469,6 +469,9 @@
             {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
             {'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
             {'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true}
+        ]},
+        {'section': 'Sistema', 'superadmin_only': true, 'items': [
+            {'label': 'Migrations do banco', 'endpoint': 'admin_migrations.page', 'url': url_for('admin_migrations.page'), 'icon': 'fa-database', 'superadmin_only': true}
         ]}
     ] %}
 
@@ -490,16 +493,21 @@
             </div>
             <nav class="erp-nav">
                 {% for group in erp_nav %}
-                    <div class="erp-nav-section">{{ group['section'] }}</div>
-                    {% for item in group['items'] %}
-                        {% if (not item.get('central_only', false) or is_centralcomm_user) and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin']) %}
-                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
-                            <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
-                                <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
-                                <span>{{ item['label'] }}</span>
-                            </a>
-                        {% endif %}
-                    {% endfor %}
+                    {% if (not group.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
+                          and (not group.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                        <div class="erp-nav-section">{{ group['section'] }}</div>
+                        {% for item in group['items'] %}
+                            {% if (not item.get('central_only', false) or is_centralcomm_user)
+                                  and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
+                                  and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
+                                    <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
+                                    <span>{{ item['label'] }}</span>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
                 {% endfor %}
 
                 {% if session.get('user_type') in ['admin', 'superadmin'] %}
@@ -545,29 +553,34 @@
                         Início
                     </a>
                     {% for group in erp_nav[1:] %}
-                        {% set group_active = namespace(value=false) %}
-                        {% for item in group['items'] %}
-                            {% if (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
-                                {% set group_active.value = true %}
-                            {% endif %}
-                        {% endfor %}
-                        <div class="erp-nav-group">
-                            <button type="button" class="erp-nav-trigger {% if group_active.value %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
-                                {{ group['section'] }}
-                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
-                            </button>
-                            <div class="erp-nav-menu" role="menu">
-                                {% for item in group['items'] %}
-                                    {% if (not item.get('central_only', false) or is_centralcomm_user) and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin']) %}
-                                        {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
-                                        <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
-                                            <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
-                                            <span>{{ item['label'] }}</span>
-                                        </a>
-                                    {% endif %}
-                                {% endfor %}
+                        {% if (not group.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
+                              and (not group.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                            {% set group_active = namespace(value=false) %}
+                            {% for item in group['items'] %}
+                                {% if (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                    {% set group_active.value = true %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="erp-nav-group">
+                                <button type="button" class="erp-nav-trigger {% if group_active.value %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                                    {{ group['section'] }}
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
+                                </button>
+                                <div class="erp-nav-menu" role="menu">
+                                    {% for item in group['items'] %}
+                                        {% if (not item.get('central_only', false) or is_centralcomm_user)
+                                              and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
+                                              and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                            <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
+                                                <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
+                                                <span>{{ item['label'] }}</span>
+                                            </a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             </div>
-                        </div>
+                        {% endif %}
                     {% endfor %}
                     {% if session.get('user_type') in ['admin', 'superadmin'] %}
                         <div class="erp-nav-group">

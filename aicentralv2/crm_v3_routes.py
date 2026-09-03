@@ -60,7 +60,15 @@ def crm_v3():
         executivos = _db.obter_vendedores_centralcomm() or []
     except Exception:  # noqa: BLE001 — best effort para não quebrar a página
         executivos = []
-    return render_template("crm_v3.html", executivos=executivos)
+    # Usuário logado é o executivo "default" do combo. O JS usa esse valor
+    # para pré-selecionar a base de clientes dele quando não há preferência
+    # anterior no localStorage.
+    usuario_atual = _executivo_from_session()
+    return render_template(
+        "crm_v3.html",
+        executivos=executivos,
+        usuario_atual=usuario_atual,
+    )
 
 
 @bp.route("/api/clientes")

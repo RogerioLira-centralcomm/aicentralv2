@@ -9,6 +9,14 @@
 {% endblock %}
 
 {% block content %}
+{# Contexto do usuário logado — usado pelo crm_v3.js para pré-selecionar
+   a base de clientes do executivo quando não há preferência anterior. #}
+<script>
+  window.CRM_V3_CONTEXT = {
+    userId: {{ (usuario_atual.id if usuario_atual else 0)|default(0)|tojson }},
+    userName: {{ (usuario_atual.nome if usuario_atual else '')|default('')|tojson }}
+  };
+</script>
 <div class="crm-v3-page">
   <div class="crm-v3-layout">
     <div class="crm-v3-main">
@@ -18,7 +26,11 @@
           <option value="">Executivo: todos</option>
           {% if executivos %}
             {% for ex in executivos %}
-              <option value="{{ ex.nome_completo }}" data-executivo-id="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+              <option
+                value="{{ ex.nome_completo }}"
+                data-executivo-id="{{ ex.id_contato_cliente }}"
+                {% if usuario_atual and usuario_atual.nome and ex.nome_completo == usuario_atual.nome %}data-eu="true"{% endif %}
+              >{{ ex.nome_completo }}</option>
             {% endfor %}
           {% else %}
             {# Fallback caso o banco não esteja acessível: mantém executivos do mock. #}

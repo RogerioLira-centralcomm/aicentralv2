@@ -2269,9 +2269,27 @@
     function restoreFiltros() {
         var sess = loadSession();
         if (sess.filtroPill) state.filtroPill = sess.filtroPill;
-        if (sess.filtroExecutivo != null) state.filtroExecutivo = sess.filtroExecutivo;
         if (sess.filtroTipo != null) state.filtroTipo = sess.filtroTipo;
         if (sess.filtroPerfil != null) state.filtroPerfil = sess.filtroPerfil;
+
+        // Executivo: se o usuário nunca escolheu um valor específico (chave
+        // `filtroExecutivo` ausente do storage — não é o mesmo que "vazio"),
+        // pré-seleciona o executivo logado (window.CRM_V3_CONTEXT.userName).
+        // Assim ele já entra vendo a base dele; se depois marcar "Executivo:
+        // todos" e voltar, aquela escolha fica salva.
+        if ('filtroExecutivo' in sess) {
+            state.filtroExecutivo = sess.filtroExecutivo;
+        } else {
+            var ctx = window.CRM_V3_CONTEXT || {};
+            var selfName = ctx.userName || '';
+            var options = $$('#filtro-executivo option');
+            var eu = options.filter(function (o) { return o.hasAttribute('data-eu'); })[0];
+            if (eu) {
+                state.filtroExecutivo = eu.value;
+            } else if (selfName && options.some(function (o) { return o.value === selfName; })) {
+                state.filtroExecutivo = selfName;
+            }
+        }
     }
 
     /**

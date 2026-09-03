@@ -120,6 +120,9 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "demanda_programatica_canais": bool(row.get("demanda_programatica_canais")),
         "observacoes_comerciais_adicionais": row.get("observacoes_comerciais_adicionais") or "",
         "responsavel": row.get("executivo_nome") or "",
+        # ID do executivo (vendas_central_comm) — usado por filtros
+        # opcionais no frontend (data-executivo-id no <option>).
+        "executivo_id": str(row.get("vendas_central_comm")) if row.get("vendas_central_comm") else "",
         "data_cadastro": (row.get("data_cadastro").isoformat() if row.get("data_cadastro") else None),
         "status": row.get("status") if row.get("status") is not None else True,
         "agencia_id": str(row.get("pk_id_tbl_agencia")) if row.get("pk_id_tbl_agencia") else "",

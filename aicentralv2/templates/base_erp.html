@@ -30,7 +30,6 @@
 
     <style>
         :root {
-            --erp-sidebar-w: 16rem;
             --erp-topbar-h: 3.5rem;
             --erp-primary: #1e4d4f;
             --erp-muted: #64748b;
@@ -138,6 +137,98 @@
             background: rgba(255, 255, 255, 0.92);
             padding: 0.625rem 1rem;
             backdrop-filter: blur(12px);
+        }
+        .erp-topbar-brand {
+            display: flex;
+            min-width: max-content;
+            align-items: center;
+            gap: 0.625rem;
+            color: #0f172a;
+        }
+        .erp-topbar-brand img {
+            height: 1.875rem;
+            width: auto;
+        }
+        .erp-horizontal-nav {
+            display: none;
+            align-items: center;
+            gap: 0.125rem;
+            min-width: 0;
+            flex: 1 1 auto;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .erp-horizontal-nav::-webkit-scrollbar { display: none; }
+        .erp-nav-group {
+            position: relative;
+        }
+        .erp-nav-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            border-radius: 0.625rem;
+            padding: 0.5rem 0.625rem;
+            color: #475569;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            line-height: 1;
+            transition: background 140ms ease, color 140ms ease;
+        }
+        .erp-nav-trigger:hover,
+        .erp-nav-group.is-open > .erp-nav-trigger {
+            background: #f1f5f9;
+            color: var(--erp-primary);
+        }
+        .erp-nav-trigger.active {
+            background: rgba(30, 77, 79, 0.1);
+            color: var(--erp-primary);
+        }
+        .erp-nav-menu {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            left: 0;
+            display: none;
+            min-width: 14rem;
+            border: 1px solid var(--erp-border);
+            border-radius: 0.875rem;
+            background: #fff;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+            padding: 0.375rem;
+        }
+        .erp-nav-group.is-open > .erp-nav-menu,
+        .erp-nav-group:hover > .erp-nav-menu {
+            display: block;
+        }
+        .erp-nav-menu::before {
+            content: '';
+            position: absolute;
+            inset: -0.5rem 0 auto;
+            height: 0.5rem;
+        }
+        .erp-nav-menu a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 0.625rem;
+            padding: 0.5rem 0.625rem;
+            color: #334155;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .erp-nav-menu a:hover {
+            background: #f8fafc;
+            color: #0f172a;
+        }
+        .erp-nav-menu a.active {
+            background: rgba(30, 77, 79, 0.08);
+            color: var(--erp-primary);
+            font-weight: 700;
+        }
+        .erp-nav-menu i {
+            width: 1rem;
+            text-align: center;
+            color: #64748b;
         }
         .erp-main-content {
             min-height: calc(100vh - var(--erp-topbar-h));
@@ -265,9 +356,10 @@
             pointer-events: none;
         }
         @media (min-width: 1024px) {
-            .erp-sidebar { transform: none; }
-            .erp-main { margin-left: var(--erp-sidebar-w); }
+            .erp-sidebar { display: none; }
+            .erp-main { margin-left: 0; }
             .erp-menu-toggle { display: none; }
+            .erp-horizontal-nav { display: flex; }
             .erp-search { display: flex; }
         }
         .cx-erp-shell .crm-mock-page {
@@ -376,7 +468,54 @@
                 <button type="button" class="erp-menu-toggle" id="erp-menu-toggle" aria-label="Abrir menu">
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
-                <div class="min-w-0">
+                <a href="{{ url_for('index') }}" class="erp-topbar-brand">
+                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX">
+                    <span class="hidden text-sm font-black tracking-tight sm:inline">CentralX</span>
+                </a>
+                <nav class="erp-horizontal-nav" aria-label="Navegação principal">
+                    <a href="{{ url_for('index') }}" class="erp-nav-trigger {% if request.endpoint == 'index' %}active{% endif %}">
+                        Início
+                    </a>
+                    {% for group in erp_nav[1:] %}
+                        {% set group_active = namespace(value=false) %}
+                        {% for item in group['items'] %}
+                            {% if (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                {% set group_active.value = true %}
+                            {% endif %}
+                        {% endfor %}
+                        <div class="erp-nav-group">
+                            <button type="button" class="erp-nav-trigger {% if group_active.value %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                                {{ group['section'] }}
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
+                            </button>
+                            <div class="erp-nav-menu" role="menu">
+                                {% for item in group['items'] %}
+                                    {% if not item.get('central_only', false) or is_centralcomm_user %}
+                                        {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                        <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
+                                            <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
+                                            <span>{{ item['label'] }}</span>
+                                        </a>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    {% if session.get('user_type') in ['admin', 'superadmin'] %}
+                        <div class="erp-nav-group">
+                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor', 'crm_test.teste_crm_mock'] %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                                Parâmetros
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
+                            </button>
+                            <div class="erp-nav-menu" role="menu">
+                                <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-gear" aria-hidden="true"></i>Tipos de Cliente</a>
+                                <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-sitemap" aria-hidden="true"></i>Setores</a>
+                                <a href="{{ url_for('crm_test.teste_crm_mock') }}" class="{% if request.endpoint == 'crm_test.teste_crm_mock' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-flask" aria-hidden="true"></i>Teste CRM</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </nav>
+                <div class="ml-auto min-w-0 lg:hidden">
                     <div class="text-sm font-semibold text-slate-900">{% block page_label %}CentralX{% endblock %}</div>
                     <div class="hidden text-xs text-slate-500 sm:block">{% block page_subtitle %}Gestão interna{% endblock %}</div>
                 </div>
@@ -460,6 +599,7 @@
         var userMenu = document.getElementById('erp-user-menu');
         var profileButton = document.getElementById('erp-profile-button');
         var refreshButton = document.getElementById('erp-refresh-page');
+        var navGroups = Array.prototype.slice.call(document.querySelectorAll('.erp-nav-group'));
 
         body.classList.add('fouc-ready');
 
@@ -472,6 +612,13 @@
             var open = typeof force === 'boolean' ? force : !userMenu.classList.contains('is-open');
             userMenu.classList.toggle('is-open', open);
             userTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        function closeTopNav() {
+            navGroups.forEach(function (group) {
+                group.classList.remove('is-open');
+                var trigger = group.querySelector('.erp-nav-trigger');
+                if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            });
         }
         if (toggle && sidebar) {
             toggle.addEventListener('click', function () {
@@ -486,15 +633,31 @@
         if (userTrigger) {
             userTrigger.addEventListener('click', function (ev) {
                 ev.stopPropagation();
+                closeTopNav();
                 toggleUserMenu();
             });
         }
+        navGroups.forEach(function (group) {
+            var trigger = group.querySelector('.erp-nav-trigger');
+            if (!trigger) return;
+            trigger.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                var open = group.classList.contains('is-open');
+                closeTopNav();
+                toggleUserMenu(false);
+                group.classList.toggle('is-open', !open);
+                trigger.setAttribute('aria-expanded', !open ? 'true' : 'false');
+            });
+        });
         document.addEventListener('click', function (ev) {
+            if (!ev.target.closest('.erp-nav-group')) closeTopNav();
             if (!ev.target.closest('#erp-user-trigger') && !ev.target.closest('#erp-user-menu')) toggleUserMenu(false);
         });
         document.addEventListener('keydown', function (ev) {
             if (ev.key === 'Escape') {
                 closeSidebar();
+                closeTopNav();
                 toggleUserMenu(false);
             }
         });

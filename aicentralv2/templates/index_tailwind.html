@@ -13,6 +13,10 @@
         --dash-border: #e2e8f0;
         --dash-surface: #ffffff;
         --dash-soft: #f8fafc;
+        --dash-primary: #1e4d4f;
+        --dash-neutral: #64748b;
+        --dash-attention: #b45309;
+        --dash-critical: #b91c1c;
     }
     .dash-card {
         background: var(--dash-surface);
@@ -77,6 +81,95 @@
         border-radius: 0.875rem;
         background: #f8fafc;
         color: #334155;
+    }
+    .erp-dashboard .text-primary,
+    .erp-dashboard .text-success,
+    .erp-dashboard .text-info {
+        color: var(--dash-primary) !important;
+    }
+    .erp-dashboard .text-secondary,
+    .erp-dashboard .text-accent {
+        color: var(--dash-neutral) !important;
+    }
+    .erp-dashboard .text-warning {
+        color: var(--dash-attention) !important;
+    }
+    .erp-dashboard .text-error {
+        color: var(--dash-critical) !important;
+    }
+    .erp-dashboard .badge-primary,
+    .erp-dashboard .badge-success,
+    .erp-dashboard .badge-info {
+        border-color: rgba(30, 77, 79, 0.32) !important;
+        color: var(--dash-primary) !important;
+        background: rgba(30, 77, 79, 0.05) !important;
+    }
+    .erp-dashboard .badge-secondary,
+    .erp-dashboard .badge-accent {
+        border-color: rgba(100, 116, 139, 0.32) !important;
+        color: var(--dash-neutral) !important;
+        background: rgba(100, 116, 139, 0.05) !important;
+    }
+    .erp-dashboard .badge-warning {
+        border-color: rgba(180, 83, 9, 0.32) !important;
+        color: var(--dash-attention) !important;
+        background: rgba(180, 83, 9, 0.06) !important;
+    }
+    .erp-dashboard .badge-error {
+        border-color: rgba(185, 28, 28, 0.32) !important;
+        color: var(--dash-critical) !important;
+        background: rgba(185, 28, 28, 0.06) !important;
+    }
+    .executive-list {
+        display: grid;
+        gap: 0.625rem;
+        align-content: start;
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 0.125rem;
+    }
+    .executive-list-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        border: 1px solid var(--dash-border);
+        border-radius: 0.75rem;
+        background: #fff;
+        padding: 0.75rem;
+    }
+    .executive-list-title {
+        min-width: 0;
+        color: var(--dash-ink);
+        font-size: 0.875rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .executive-list-sub {
+        margin-top: 0.125rem;
+        color: var(--dash-muted);
+        font-size: 0.75rem;
+    }
+    .executive-list-value {
+        color: var(--dash-primary);
+        font-size: 0.875rem;
+        font-weight: 800;
+        text-align: right;
+        white-space: nowrap;
+    }
+    .executive-empty {
+        display: flex;
+        min-height: 12rem;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed var(--dash-border);
+        border-radius: 0.875rem;
+        background: #f8fafc;
+        color: var(--dash-muted);
+        font-size: 0.875rem;
+        text-align: center;
     }
     .skeleton-pulse {
         animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -189,7 +282,7 @@
                     <button type="button" id="btnCarteiraABC" class="px-3 py-1 text-xs rounded-l font-medium bg-base-200 text-base-content/70" onclick="toggleCarteiraView('abc')">Classificação ABC</button>
                     <button type="button" id="btnCarteiraPerfil" class="px-3 py-1 text-xs rounded-r font-medium bg-primary text-primary-content" onclick="toggleCarteiraView('perfil')">Clientes finais / Agências</button>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartCarteiraWrap">
                     <canvas id="chartCarteira"></canvas>
                 </div>
             </div>
@@ -213,7 +306,7 @@
                         <div class="kpi-label text-base-content/60 mt-1">Total</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartCotacoesWrap">
                     <canvas id="chartCotacoes"></canvas>
                 </div>
             </div>
@@ -255,7 +348,7 @@
                         <div class="kpi-label text-base-content/60 mt-1">Pageviews</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartAcessosWrap">
                     <canvas id="chartAcessos"></canvas>
                 </div>
                 <div class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-base-300">
@@ -312,10 +405,10 @@
                     </div>
                 </div>
                 <div class="flex justify-center gap-1 mb-2">
-                    <button id="btnPIsQuant" class="px-3 py-1 text-xs rounded-l font-medium bg-primary text-primary-content" onclick="toggleChartPIs('quant')">Quant</button>
-                    <button id="btnPIsValores" class="px-3 py-1 text-xs rounded-r font-medium bg-base-200 text-base-content/70" onclick="toggleChartPIs('valores')">Valores</button>
+                    <button id="btnPIsQuant" class="px-3 py-1 text-xs rounded-l font-medium bg-base-200 text-base-content/70" onclick="toggleChartPIs('quant')">Quant</button>
+                    <button id="btnPIsValores" class="px-3 py-1 text-xs rounded-r font-medium bg-primary text-primary-content" onclick="toggleChartPIs('valores')">Valores</button>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartPIsWrap">
                     <canvas id="chartPIs"></canvas>
                 </div>
             </div>
@@ -351,7 +444,7 @@
                         <div class="kpi-label text-base-content/60 mt-1">Gasto</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartCampanhasWrap">
                     <canvas id="chartCampanhas"></canvas>
                 </div>
             </div>
@@ -381,7 +474,7 @@
                         <div class="kpi-label text-base-content/60 mt-1">Canais Ativos</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartAudienciasWrap">
                     <canvas id="chartAudiencias"></canvas>
                 </div>
             </div>
@@ -455,7 +548,7 @@
                         <div class="kpi-label text-base-content/60 mt-1">Pendentes</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartLeadsWrap">
                     <canvas id="chartLeads"></canvas>
                 </div>
             </div>
@@ -473,13 +566,13 @@ Chart.defaults.color = '#64748B';
 const COLORS = {
     primary: '#1E4D4F',
     secondary: '#64748B',
-    accent: '#94A3B8',
-    info: '#0F766E',
-    success: '#166534',
+    accent: '#CBD5E1',
+    info: '#1E4D4F',
+    success: '#1E4D4F',
     warning: '#B45309',
     error: '#B91C1C',
     soft: '#CBD5E1',
-    chart: ['#1E4D4F', '#64748B', '#94A3B8', '#CBD5E1']
+    chart: ['#1E4D4F', '#64748B', '#B45309', '#B91C1C']
 };
 
 let charts = {};
@@ -538,6 +631,49 @@ function getDashboardDaysForYear(year) {
     return Math.max(1, Math.ceil((now - start) / dayMs) + 1);
 }
 
+function ensureChartCanvas(wrapId, canvasId) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return document.getElementById(canvasId);
+    let canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+        canvas = document.getElementById(canvasId);
+    }
+    return canvas;
+}
+
+function renderEmptyState(wrapId, message) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="executive-empty">${message}</div>`;
+}
+
+function renderExecutiveList(wrapId, rows, emptyMessage) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    if (!rows.length) {
+        renderEmptyState(wrapId, emptyMessage);
+        return;
+    }
+    wrap.innerHTML = `<div class="executive-list">${rows.map(row => `
+        <div class="executive-list-row">
+            <div class="min-w-0">
+                <div class="executive-list-title">${escapeHtml(row.title)}</div>
+                <div class="executive-list-sub">${escapeHtml(row.sub || '')}</div>
+            </div>
+            <div class="executive-list-value">${escapeHtml(row.value)}</div>
+        </div>
+    `).join('')}</div>`;
+}
+
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 // ======================== SEÇÃO 1: Carteira de Clientes ========================
 let lastCarteiraData = null;
 /** Mesmo eixo de executivos: 'abc' = pilhas A/B/C/…; 'perfil' = pilhas Clientes finais + Agências */
@@ -545,7 +681,7 @@ let carteiraViewMode = 'perfil';
 
 const PERFIS_CARTEIRA = [
     { key: 'Clientes finais', color: '#1E4D4F' },
-    { key: 'Agências', color: '#F3B71B' }
+    { key: 'Agências', color: '#64748B' }
 ];
 
 function renderCarteiraKpis() {
@@ -585,6 +721,11 @@ function renderCarteiraChart() {
 
     const { classificacoes, classColors, porExecutivo, porExecutivoPerfil } = lastCarteiraData;
     const execs = porExecutivo || [];
+    if (!execs.length) {
+        renderEmptyState('chartCarteiraWrap', 'Sem carteira ativa para exibir.');
+        return;
+    }
+    const canvas = ensureChartCanvas('chartCarteiraWrap', 'chartCarteira');
 
     const carteiraBarOptions = {
         indexAxis: 'y',
@@ -596,40 +737,25 @@ function renderCarteiraChart() {
 
     let datasets;
     if (carteiraViewMode === 'abc') {
-        if (!execs.length || !classificacoes.length) {
-            datasets = [{ label: '—', data: [0], backgroundColor: '#94a3b8', borderRadius: 4 }];
-        } else {
-            datasets = classificacoes.map((cls, i) => ({
-                label: cls,
-                data: execs.map(e => e[cls] || 0),
-                backgroundColor: classColors[i % classColors.length],
-                borderRadius: 4
-            }));
-        }
+        datasets = classificacoes.map((cls, i) => ({
+            label: cls,
+            data: execs.map(e => e[cls] || 0),
+            backgroundColor: classColors[i % classColors.length],
+            borderRadius: 4
+        }));
     } else {
         const rows = porExecutivoPerfil || [];
-        if (!execs.length) {
-            datasets = PERFIS_CARTEIRA.map(p => ({
-                label: p.key,
-                data: [0],
-                backgroundColor: p.color,
-                borderRadius: 4
-            }));
-        } else {
-            datasets = PERFIS_CARTEIRA.map(p => ({
-                label: p.key,
-                data: rows.map(r => r[p.key] || 0),
-                backgroundColor: p.color,
-                borderRadius: 4
-            }));
-        }
+        datasets = PERFIS_CARTEIRA.map(p => ({
+            label: p.key,
+            data: rows.map(r => r[p.key] || 0),
+            backgroundColor: p.color,
+            borderRadius: 4
+        }));
     }
 
-    const labels = execs.length
-        ? execs.map(e => truncLabel(e.executivo, 18))
-        : ['Sem dados'];
+    const labels = execs.map(e => truncLabel(e.executivo, 18));
 
-    charts.chartCarteira = new Chart(document.getElementById('chartCarteira'), {
+    charts.chartCarteira = new Chart(canvas, {
         type: 'bar',
         data: { labels, datasets },
         options: carteiraBarOptions
@@ -666,8 +792,8 @@ async function loadCarteira() {
         const r = d.resumo || {};
 
         const classificacoes = d.classificacoes || [];
-        const classColors = ['#1E4D4F', '#64748B', '#94A3B8', '#CBD5E1', '#475569', '#0F766E'];
-        const classTextColors = ['text-primary', 'text-slate-600', 'text-slate-500', 'text-slate-400', 'text-slate-700', 'text-teal-700'];
+        const classColors = ['#1E4D4F', '#64748B', '#B45309', '#B91C1C'];
+        const classTextColors = ['text-primary', 'text-secondary', 'text-warning', 'text-error'];
 
         let clientesFinais = 0;
         let agencias = 0;
@@ -702,8 +828,8 @@ async function loadCotacoes() {
         const totalGeral = d.total || 0;
 
         const statusColors = {
-            'aprovada': 'text-success', 'rejeitada': 'text-error', 'recusada': 'text-error',
-            'rascunho': 'text-warning', 'enviada': 'text-info', 'expirada': 'text-accent'
+            'aprovada': 'text-primary', 'rejeitada': 'text-error', 'recusada': 'text-error',
+            'rascunho': 'text-warning', 'enviada': 'text-secondary', 'expirada': 'text-warning'
         };
         const getStatusColor = (nome) => {
             const lower = nome.toLowerCase().trim();
@@ -727,28 +853,47 @@ async function loadCotacoes() {
 
         destroyChart('chartCotacoes');
         const evolucao = d.evolucao || [];
+        if (!evolucao.length) {
+            renderEmptyState('chartCotacoesWrap', 'Sem evolução de cotações em 2026.');
+            return;
+        }
         const semanas = [...new Set(evolucao.map(e => e.semana))].sort();
-        const statusNomes = [...new Set(evolucao.map(e => e.status_nome))];
-        const datasets = statusNomes.map((nome, i) => ({
-            label: nome,
-            data: semanas.map(s => {
-                const item = evolucao.find(e => e.semana === s && e.status_nome === nome);
-                return item ? item.total : 0;
-            }),
-            backgroundColor: COLORS.chart[i % COLORS.chart.length],
-            borderRadius: 3
-        }));
-
-        charts.chartCotacoes = new Chart(document.getElementById('chartCotacoes'), {
+        const totaisPorSemana = semanas.map(s => evolucao
+            .filter(e => e.semana === s)
+            .reduce((acc, item) => acc + (item.total || 0), 0));
+        const canvas = ensureChartCanvas('chartCotacoesWrap', 'chartCotacoes');
+        charts.chartCotacoes = new Chart(canvas, {
             type: 'bar',
-            data: { labels: semanas.map(s => formatDateShort(s)), datasets },
+            data: {
+                labels: semanas.map(s => formatDateShort(s)),
+                datasets: [{
+                    label: 'Cotações por semana',
+                    data: totaisPorSemana,
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 4,
+                    maxBarThickness: 28
+                }]
+            },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true }
+                }
             }
         });
     } catch (e) { console.error('Erro cotacoes:', e); }
+}
+
+function renderCampanhasStatusList(porStatus) {
+    const rows = (porStatus || []).slice(0, 6).map((s) => ({
+        title: s.status_nome || 'Sem Status',
+        sub: `Gasto ${formatCurrencyShort(s.gasto_total || 0)} · Atingido ${formatCurrencyShort(s.atingido_total || 0)}`,
+        value: `${formatNumber(s.total || 0)} campanha${(s.total || 0) === 1 ? '' : 's'}`
+    }));
+    renderExecutiveList('chartCampanhasWrap', rows, 'Sem campanhas relevantes em 2026.');
 }
 
 // ======================== SEÇÃO 3: Acessos ao Cadu ========================
@@ -767,7 +912,12 @@ async function loadAcessos() {
 
         destroyChart('chartAcessos');
         const sessoes = d.sessoes_diarias || [];
-        charts.chartAcessos = new Chart(document.getElementById('chartAcessos'), {
+        if (!sessoes.length) {
+            renderEmptyState('chartAcessosWrap', 'Sem acessos do Cadu em 2026.');
+            return;
+        }
+        const canvas = ensureChartCanvas('chartAcessosWrap', 'chartAcessos');
+        charts.chartAcessos = new Chart(canvas, {
             type: 'line',
             data: {
                 labels: sessoes.map(s => formatDateShort(s.date)),
@@ -831,6 +981,11 @@ function toggleChartPIs(mode) {
         const [mb, yb] = b.split('/').map(Number);
         return ya !== yb ? ya - yb : ma - mb;
     });
+    if (!meses.length) {
+        renderEmptyState('chartPIsWrap', 'Sem PIs relevantes em 2026.');
+        return;
+    }
+    const canvas = ensureChartCanvas('chartPIsWrap', 'chartPIs');
 
     let datasets, options;
 
@@ -878,7 +1033,7 @@ function toggleChartPIs(mode) {
         };
     }
 
-    charts.chartPIs = new Chart(document.getElementById('chartPIs'), {
+    charts.chartPIs = new Chart(canvas, {
         type: 'bar',
         data: { labels: meses, datasets },
         options
@@ -900,7 +1055,7 @@ async function loadPIs() {
         setExecutiveMetric('exec-valor-pi', formatCurrencyShort(r.valor_total || 0));
 
         lastPIsData = d.por_mes || [];
-        toggleChartPIs('quant');
+        toggleChartPIs('valores');
     } catch (e) { console.error('Erro PIs:', e); }
 }
 
@@ -920,32 +1075,7 @@ async function loadCampanhas() {
 
         destroyChart('chartCampanhas');
         const porStatus = d.por_status || [];
-        charts.chartCampanhas = new Chart(document.getElementById('chartCampanhas'), {
-            type: 'doughnut',
-            data: {
-                labels: porStatus.map(s => s.status_nome),
-                datasets: [{
-                    data: porStatus.map(s => s.total),
-                    backgroundColor: porStatus.map((_, i) => COLORS.chart[i % COLORS.chart.length]),
-                    borderWidth: 2,
-                    borderColor: 'oklch(var(--b1))'
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
-                    tooltip: {
-                        callbacks: {
-                            afterLabel: function(ctx) {
-                                const item = porStatus[ctx.dataIndex];
-                                return item ? `Valor: ${formatCurrency(item.valor_plataforma)}` : '';
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        renderCampanhasStatusList(porStatus);
     } catch (e) { console.error('Erro campanhas:', e); }
 }
 
@@ -963,7 +1093,12 @@ async function loadAudiencias() {
 
         destroyChart('chartAudiencias');
         const top = d.top_audiencias || [];
-        charts.chartAudiencias = new Chart(document.getElementById('chartAudiencias'), {
+        if (!top.length) {
+            renderEmptyState('chartAudienciasWrap', 'Sem audiência relevante em 2026.');
+            return;
+        }
+        const canvas = ensureChartCanvas('chartAudienciasWrap', 'chartAudiencias');
+        charts.chartAudiencias = new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: top.map(a => truncLabel(a.audiencia_nome, 20)),
@@ -1052,7 +1187,12 @@ async function loadLeads() {
 
         destroyChart('chartLeads');
         const porExec = d.por_executivo || [];
-        charts.chartLeads = new Chart(document.getElementById('chartLeads'), {
+        if (!porExec.length) {
+            renderEmptyState('chartLeadsWrap', 'Sem leads relevantes em 2026.');
+            return;
+        }
+        const canvas = ensureChartCanvas('chartLeadsWrap', 'chartLeads');
+        charts.chartLeads = new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: porExec.map(e => truncLabel(e.executivo, 18)),

@@ -1479,6 +1479,36 @@ button:hover > .crm-v3-menu-hint {
     align-items: center;
     justify-content: center;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+    /* set/2026: virou <button> — reset dos estilos default de botão
+       para preservar a aparência circular de avatar, mantendo o
+       comportamento de foco/hover indicativo de clicável. */
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.crm-v3-detail-avatar:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px var(--crm-primary, #4f46e5);
+}
+
+.crm-v3-detail-avatar:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--crm-primary, #4f46e5),
+                0 0 0 4px rgba(79, 70, 229, 0.28);
+}
+
+/* Destaque visual temporário ao rolar até a seção "Site & logo".
+   Aplicado por JS em `#crm-v3-site-logo-section` — pulse suave 1.6s. */
+.crm-v3-site-logo-flash {
+    animation: crm-v3-site-logo-flash 1600ms ease-out 1;
+}
+@keyframes crm-v3-site-logo-flash {
+    0%   { background: rgba(79, 70, 229, 0.14); }
+    100% { background: transparent; }
 }
 
 .crm-v3-detail-avatar img {

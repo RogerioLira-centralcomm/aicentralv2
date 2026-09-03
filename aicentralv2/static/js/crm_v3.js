@@ -1065,6 +1065,102 @@
         }
     }
 
+    /**
+     * Avatar do header vira atalho para editar site/logo.
+     *
+     * Fluxo (set/2026): quando o executivo vê a logo do cliente errada
+     * (ou placeholder com iniciais quando o cliente tem site cadastrado),
+     * um clique no avatar leva direto para o input de "Site & logo" —
+     * antes precisava rolar a sidebar manualmente até o final.
+     *
+     * Passos:
+     *   1. Ativa a aba "Info" se estiver em outra (Objetivos, Cotações).
+     *   2. Rola a sidebar até `#crm-v3-site-logo-section` com behavior
+     *      smooth. Usa scroll do container (aside.crm-v3-sidebar) e não
+     *      da janela, senão a página toda se move.
+     *   3. Aplica uma classe de destaque temporária (flash 1.6s) para
+     *      indicar visualmente onde o usuário caiu.
+     *   4. Foca o input após a animação (600ms) — se focar antes, o
+     *      scroll é cancelado no Chrome/Firefox.
+     */
+    function bindAvatarShortcut() {
+        var avatar = $('#crm-v3-detail-avatar-wrap');
+        if (!avatar) return;
+        avatar.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            // Precisa de um cliente selecionado — sem isso não faz sentido.
+            if (!state.clienteId) return;
+
+            // 1) Ativa a aba "Info" (usa o mesmo mecanismo dos botões
+            //    role=tab que o CRM v3 usa em outros pontos).
+            var tabInfo = document.querySelector('[data-panel-group="sidebar"][data-panel="info"]');
+            var btnInfo = document.querySelector('[role="tab"][data-tab="info"]');
+            if (btnInfo && btnInfo.getAttribute('aria-selected') !== 'true') {
+                btnInfo.click();
+            }
+
+            var target = $('#crm-v3-site-logo-section');
+            if (!target) return;
+
+            // O container que ROLA é `.crm-v3-sidebar-body` (o
+            // `#crm-v3-sidebar` externo tem `overflow: hidden`).
+            // Fallback: sobe pelos ancestrais buscando um elemento
+            // com scroll vertical real.
+            var scroller = target.closest('.crm-v3-sidebar-body')
+                || document.querySelector('.crm-v3-sidebar-body');
+            if (!scroller) {
+                // Fallback defensivo: percorre ancestrais e pega o
+                // primeiro com overflow-y auto/scroll.
+                var el = target.parentElement;
+                while (el && el !== document.body) {
+                    var oy = getComputedStyle(el).overflowY;
+                    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+                        scroller = el;
+                        break;
+                    }
+                    el = el.parentElement;
+                }
+            }
+
+            // 2) Scroll — prioriza o container da sidebar; fallback é o
+            //    scrollIntoView padrão (funciona em qualquer container).
+            try {
+                if (scroller && typeof scroller.scrollTo === 'function') {
+                    // Offset relativo ao container real (soma dos offsets
+                    // de todos os pais até o scroller).
+                    var top = 0, node = target;
+                    while (node && node !== scroller) {
+                        top += node.offsetTop || 0;
+                        node = node.offsetParent;
+                    }
+                    scroller.scrollTo({ top: Math.max(0, top - 12), behavior: 'smooth' });
+                } else {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch (_) {
+                // Ambientes sem suporte a scrollTo com options:
+                if (target.scrollIntoView) target.scrollIntoView();
+            }
+
+            // 3) Flash visual para o usuário perceber onde caiu.
+            target.classList.remove('crm-v3-site-logo-flash');
+            // Trick de reflow para reiniciar a animação se clicar de novo.
+            // eslint-disable-next-line no-unused-expressions
+            void target.offsetWidth;
+            target.classList.add('crm-v3-site-logo-flash');
+
+            // 4) Foco no input após o scroll assentar. 600ms é folgado —
+            //    animações do Chrome/Firefox terminam em ~400ms.
+            setTimeout(function () {
+                var input = $('#crm-v3-site-input');
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }, 600);
+        });
+    }
+
     function updateStatusComercial(cliente) {
         var badge = $('#crm-v3-status-badge');
         var hint = $('#crm-v3-status-hint');
@@ -3074,6 +3170,12 @@
         // Editor de "Site & logo" da sidebar Info — binda uma vez;
         // opera sobre state.clienteId em cada interação.
         bindSiteEditor();
+
+        // Avatar do header vira atalho para editar site/logo: clica no
+        // avatar → sidebar rola até "Site & logo" e foca o input.
+        // (set/2026) Fluxo natural: usuário vê logo errada → clica →
+        // já está pronto para digitar o domínio correto.
+        bindAvatarShortcut();
 
         // Composer inline de notas + toggle "Ver anteriores".
         bindNotasComposer();

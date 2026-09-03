@@ -469,9 +469,6 @@
             {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
             {'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
             {'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true}
-        ]},
-        {'section': 'Sistema', 'superadmin_only': true, 'items': [
-            {'label': 'Migrations do banco', 'endpoint': 'admin_migrations.page', 'url': url_for('admin_migrations.page'), 'icon': 'fa-database', 'superadmin_only': true}
         ]}
     ] %}
 
@@ -518,6 +515,12 @@
                     <a href="{{ url_for('tbl_setor') }}" class="erp-nav-link {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
                         <i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Setores</span>
                     </a>
+                    {# Migrations do banco: só superadmin — operação de schema. #}
+                    {% if session.get('user_type') == 'superadmin' %}
+                        <a href="{{ url_for('admin_migrations.page') }}" class="erp-nav-link {% if request.endpoint and request.endpoint.startswith('admin_migrations.') %}active{% endif %}">
+                            <i class="fa-solid fa-database" aria-hidden="true"></i><span>Migrations do banco</span>
+                        </a>
+                    {% endif %}
                 {% endif %}
             </nav>
             <div class="erp-user-panel">
@@ -583,14 +586,18 @@
                         {% endif %}
                     {% endfor %}
                     {% if session.get('user_type') in ['admin', 'superadmin'] %}
+                        {% set is_mig = request.endpoint and request.endpoint.startswith('admin_migrations.') %}
                         <div class="erp-nav-group">
-                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor'] %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
+                            <button type="button" class="erp-nav-trigger {% if request.endpoint in ['tipos_cliente', 'tbl_setor'] or is_mig %}active{% endif %}" aria-haspopup="menu" aria-expanded="false">
                                 Parâmetros
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
                             </button>
                             <div class="erp-nav-menu" role="menu">
                                 <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-gear" aria-hidden="true"></i>Tipos de Cliente</a>
                                 <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}" role="menuitem"><i class="fa-solid fa-sitemap" aria-hidden="true"></i>Setores</a>
+                                {% if session.get('user_type') == 'superadmin' %}
+                                    <a href="{{ url_for('admin_migrations.page') }}" class="{% if is_mig %}active{% endif %}" role="menuitem"><i class="fa-solid fa-database" aria-hidden="true"></i>Migrations do banco</a>
+                                {% endif %}
                             </div>
                         </div>
                     {% endif %}

@@ -50,12 +50,13 @@
 <dialog id="crm-mock-modal-cliente" class="modal crm-mock-modal">
   <div class="modal-box max-w-lg">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold text-lg">Novo cliente</h3>
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-cliente-title">Novo cliente</h3>
       <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-cliente" aria-label="Fechar">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
     <form id="crm-mock-form-cliente">
+      <input type="hidden" id="crm-mock-cliente-id" value="">
       <div class="form-control w-full mb-3">
         <label class="label py-0" for="crm-mock-cliente-nome"><span class="label-text text-xs">Nome / Razão social *</span></label>
         <input type="text" id="crm-mock-cliente-nome" name="nome" required placeholder="Nome do cliente" class="input input-bordered input-sm w-full" />
@@ -141,6 +142,25 @@
           <option value="Baixa">Baixa</option>
         </select>
       </div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-atividade-tipo"><span class="label-text text-xs">Tipo</span></label>
+          <select id="crm-mock-atividade-tipo" class="select select-bordered select-sm w-full">
+            <option value="atividade">Atividade</option>
+            <option value="ligacao">Ligação</option>
+            <option value="reuniao">Reunião</option>
+            <option value="doc">Documento</option>
+          </select>
+        </div>
+        <div class="form-control w-full">
+          <label class="label py-0" for="crm-mock-atividade-responsavel"><span class="label-text text-xs">Responsável</span></label>
+          <select id="crm-mock-atividade-responsavel" class="select select-bordered select-sm w-full">
+            <option value="LS">Luisa Santana</option>
+            <option value="JP">João Paulo</option>
+            <option value="CM">Carla Mendes</option>
+          </select>
+        </div>
+      </div>
       <div class="modal-action mt-0">
         <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-atividade">Cancelar</button>
         <button type="submit" class="btn btn-sm btn-primary" id="crm-mock-atividade-submit">
@@ -201,6 +221,66 @@
       </div>
     </div>
     <p class="text-error text-xs mt-2" id="crm-mock-import-error" hidden></p>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+</dialog>
+
+<dialog id="crm-mock-modal-objetivo" class="modal crm-mock-modal">
+  <div class="modal-box max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-objetivo-title">Novo objetivo</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-objetivo" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="crm-mock-form-objetivo">
+      <input type="hidden" id="crm-mock-objetivo-id" value="">
+      <div class="form-control mb-3">
+        <label class="label py-0" for="crm-mock-objetivo-texto"><span class="label-text text-xs">Objetivo *</span></label>
+        <input type="text" id="crm-mock-objetivo-texto" required class="input input-bordered input-sm w-full">
+      </div>
+      <div class="form-control mb-4">
+        <label class="label py-0" for="crm-mock-objetivo-prazo"><span class="label-text text-xs">Prazo</span></label>
+        <input type="date" id="crm-mock-objetivo-prazo" class="input input-bordered input-sm w-full">
+      </div>
+      <div class="modal-action mt-0">
+        <button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-objetivo">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="crm-mock-objetivo-submit"><span class="crm-mock-btn-text">Salvar</span><span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span></button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+</dialog>
+
+<dialog id="crm-mock-modal-cotacao" class="modal crm-mock-modal">
+  <div class="modal-box max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-cotacao-title">Nova cotação</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-cotacao" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="crm-mock-form-cotacao">
+      <input type="hidden" id="crm-mock-cotacao-id" value="">
+      <div class="form-control mb-3"><label class="label py-0" for="crm-mock-cotacao-titulo"><span class="label-text text-xs">Título *</span></label><input type="text" id="crm-mock-cotacao-titulo" required class="input input-bordered input-sm w-full"></div>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-valor"><span class="label-text text-xs">Valor *</span></label><input type="text" id="crm-mock-cotacao-valor" required placeholder="R$ 0,00" class="input input-bordered input-sm w-full"></div>
+        <div class="form-control"><label class="label py-0" for="crm-mock-cotacao-status"><span class="label-text text-xs">Status</span></label><select id="crm-mock-cotacao-status" class="select select-bordered select-sm w-full"><option value="negociacao">Em negociação</option><option value="enviada">Enviada</option><option value="perdida">Perdida</option></select></div>
+      </div>
+      <div class="form-control mb-4"><label class="label py-0" for="crm-mock-cotacao-data"><span class="label-text text-xs">Data</span></label><input type="date" id="crm-mock-cotacao-data" class="input input-bordered input-sm w-full"></div>
+      <div class="modal-action mt-0"><button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-cotacao">Cancelar</button><button type="submit" class="btn btn-sm btn-primary" id="crm-mock-cotacao-submit"><span class="crm-mock-btn-text">Criar</span><span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span></button></div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+</dialog>
+
+<dialog id="crm-mock-modal-nota" class="modal crm-mock-modal">
+  <div class="modal-box max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg" id="crm-mock-modal-nota-title">Nova nota</h3>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost" data-close-modal="crm-mock-modal-nota" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="crm-mock-form-nota">
+      <input type="hidden" id="crm-mock-nota-id" value="">
+      <div class="form-control mb-4"><label class="label py-0" for="crm-mock-nota-texto"><span class="label-text text-xs">Nota *</span></label><textarea id="crm-mock-nota-texto" required rows="5" class="textarea textarea-bordered w-full"></textarea></div>
+      <div class="modal-action mt-0"><button type="button" class="btn btn-sm btn-outline" data-close-modal="crm-mock-modal-nota">Cancelar</button><button type="submit" class="btn btn-sm btn-primary" id="crm-mock-nota-submit"><span class="crm-mock-btn-text">Salvar</span><span class="loading loading-spinner loading-xs crm-mock-btn-loading" hidden></span></button></div>
+    </form>
   </div>
   <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>

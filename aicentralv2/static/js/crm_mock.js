@@ -12,11 +12,19 @@
         atividades: [],
         objetivos: [],
         cotacoes: [],
+        notas: [],
         filtroPill: 'todos',
+        filtroExecutivo: '',
+        filtroTipo: '',
+        filtroPerfil: '',
+        filtroAtivResponsavel: '',
+        filtroAtivTipo: '',
         buscaCliente: '',
         buscaContato: '',
         buscaAtividade: '',
         filtroAtivTab: 'todas',
+        paginaCliente: 1,
+        clientesPorPagina: 8,
         importRows: [],
         pendingObjetivoId: null,
         overlayTimer: null
@@ -48,12 +56,23 @@
             },
             body: opts.body ? JSON.stringify(opts.body) : undefined
         }).then(function (res) {
-            return res.json().then(function (data) {
+            return res.text().then(function (text) {
+                var data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (e) {
+                    throw new Error('Resposta inválida do servidor (HTTP ' + res.status + ')');
+                }
                 if (!res.ok || data.success === false) {
                     throw new Error(data.error || 'Erro na requisição');
                 }
                 return data;
             });
+        }).catch(function (err) {
+            if (err instanceof TypeError) {
+                throw new Error('Não foi possível conectar ao serviço mock.');
+            }
+            throw err;
         });
     }
 
@@ -73,7 +92,7 @@
             warning: 'badge-warning', atrasado: 'badge-warning', amanha: 'badge-warning', media: 'badge-warning',
             info: 'badge-info', enviada: 'badge-info', seguindo: 'badge-info',
             danger: 'badge-error', error: 'badge-error', perdida: 'badge-error', alta: 'badge-error',
-            muted: 'badge-ghost', sem-atividade: 'badge-ghost', baixa: 'badge-ghost'
+            muted: 'badge-ghost', 'sem-atividade': 'badge-ghost', baixa: 'badge-ghost'
         };
         return 'badge badge-sm ' + (map[(type || '').toLowerCase()] || 'badge-neutral');
     }
@@ -108,6 +127,35 @@
         if (digits.indexOf(ddi) === 0 && digits.length > 11) return digits;
         if (digits.length >= 10 && digits.indexOf(ddi) !== 0) return ddi + digits;
         return digits;
+    }
+
+    function dataParaInput(valor) {
+        if (!valor) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+        var br = String(valor).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return br ? br[3] + '-' + br[2] + '-' + br[1] : '';
+    }
+
+    function dataParaExibicao(valor) {
+        if (!valor) return '';
+        var iso = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        return iso ? iso[3] + '/' + iso[2] + '/' + iso[1] : valor;
+    }
+
+    function copiarTexto(texto) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(texto);
+        }
+        var input = document.createElement('textarea');
+        input.value = texto;
+        input.setAttribute('readonly', '');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        var ok = document.execCommand('copy');
+        input.remove();
+        return ok ? Promise.resolve() : Promise.reject(new Error('Não foi possível copiar'));
     }
 
     function showToast(msg, isError) {
@@ -191,7 +239,11 @@
 
         var termo = state.buscaCliente.toLowerCase();
         var filtrados = state.clientes.filter(function (c) {
-            if (state.filtroPill !== 'todos' && c.status !== state.filtroPill) return false;
+            if (state.filtroPill === 'seguindo' && !c.seguindo) return false;
+            if (state.filtroPill !== 'todos' && state.filtroPill !== 'seguindo' && c.status !== state.filtroPill) return false;
+            if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
+            if (state.filtroTipo && String(c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
+            if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
             if (termo && c.nome.toLowerCase().indexOf(termo) === -1) return false;
             return true;
         });
@@ -200,13 +252,22 @@
         if (countEl) countEl.textContent = filtrados.length;
 
         updatePillCounts();
+        var semContato = $('#crm-mock-sem-contato-count');
+        if (semContato) semContato.textContent = state.clientes.filter(function (c) { return !c.qtd_contatos; }).length;
 
         if (!filtrados.length) {
             container.innerHTML = '<div class="crm-mock-contatos-empty p-3 text-sm text-base-content/60">Nenhum cliente encontrado.</div>';
+            updatePagination(0);
             return;
         }
 
-        container.innerHTML = filtrados.map(function (c) {
+        var totalPaginas = Math.max(1, Math.ceil(filtrados.length / state.clientesPorPagina));
+        if (state.paginaCliente > totalPaginas) state.paginaCliente = totalPaginas;
+        var inicio = (state.paginaCliente - 1) * state.clientesPorPagina;
+        var pagina = filtrados.slice(inicio, inicio + state.clientesPorPagina);
+        updatePagination(totalPaginas);
+
+        container.innerHTML = pagina.map(function (c) {
             var ativo = c.id === state.clienteId;
             return (
                 '<div class="crm-mock-cliente flex items-start gap-2 px-2 py-2 border-l-4 border-transparent cursor-pointer transition-colors hover:bg-base-200' +
@@ -240,13 +301,25 @@
     function updatePillCounts() {
         var counts = { todos: state.clientes.length, atrasado: 0, 'sem-atividade': 0, seguindo: 0 };
         state.clientes.forEach(function (c) {
-            if (counts[c.status] !== undefined) counts[c.status]++;
+            if (c.status === 'atrasado') counts.atrasado++;
+            if (c.status === 'sem-atividade') counts['sem-atividade']++;
+            if (c.seguindo) counts.seguindo++;
         });
         $$('.crm-mock-pill').forEach(function (pill) {
             var f = pill.getAttribute('data-filter');
             var span = pill.querySelector('.crm-mock-pill-count');
             if (span && counts[f] !== undefined) span.textContent = counts[f];
         });
+    }
+
+    function updatePagination(totalPaginas) {
+        var label = $('#crm-mock-page-label');
+        var prev = $('#crm-mock-page-prev');
+        var next = $('#crm-mock-page-next');
+        totalPaginas = totalPaginas || 1;
+        if (label) label.textContent = state.paginaCliente + '/' + totalPaginas;
+        if (prev) prev.disabled = state.paginaCliente <= 1;
+        if (next) next.disabled = state.paginaCliente >= totalPaginas;
     }
 
     function updateDetailPanel(cliente) {
@@ -259,6 +332,12 @@
 
         var av = $('#crm-mock-detail-avatar');
         if (av) av.textContent = cliente.avatar || avatarIniciais(cliente.nome);
+        var star = $('.crm-mock-star');
+        if (star) {
+            star.classList.toggle('active', !!cliente.favorito);
+            star.setAttribute('aria-pressed', cliente.favorito ? 'true' : 'false');
+            star.setAttribute('aria-label', cliente.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+        }
 
         var metaResp = $('#crm-mock-meta-responsavel');
         if (metaResp) metaResp.textContent = cliente.responsavel || '—';
@@ -283,6 +362,27 @@
         var avSidebar = $('#crm-mock-sidebar-avatar');
         if (avSidebar) avSidebar.textContent = cliente.avatar || avatarIniciais(cliente.nome);
 
+        var infoCategoria = $('#crm-mock-info-categoria');
+        var infoTipo = $('#crm-mock-info-tipo');
+        var infoPrioridade = $('#crm-mock-info-prioridade');
+        if (infoCategoria) infoCategoria.textContent = cliente.categoria || '—';
+        if (infoTipo) infoTipo.textContent = cliente.tipo_label || '—';
+        if (infoPrioridade) {
+            infoPrioridade.textContent = cliente.prioridade || '—';
+            infoPrioridade.classList.toggle('text-error', cliente.prioridade === 'Alta');
+        }
+        var responsavelNome = $('#crm-mock-responsavel-nome');
+        var responsavelAvatar = $('#crm-mock-responsavel-avatar');
+        var responsavelEmail = $('#crm-mock-responsavel-email');
+        if (responsavelNome) responsavelNome.textContent = cliente.responsavel || '—';
+        if (responsavelAvatar) responsavelAvatar.textContent = avatarIniciais(cliente.responsavel);
+        if (responsavelEmail) {
+            responsavelEmail.textContent = cliente.responsavel
+                ? cliente.responsavel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '.') + '@centralcomm.media'
+                : '—';
+        }
+        updateFollowButton(cliente);
+
         var m = cliente.metrics || {};
         var el;
         el = $('#crm-metric-contatos'); if (el) el.textContent = m.contatos != null ? m.contatos : cliente.qtd_contatos || 0;
@@ -291,6 +391,15 @@
         el = $('#crm-metric-pis'); if (el) el.textContent = m.valor_pis || '—';
         el = $('#crm-metric-tarefas'); if (el) el.textContent = m.tarefas_abertas != null ? m.tarefas_abertas : 0;
         el = $('#crm-metric-ultimo'); if (el) el.textContent = m.ultimo_contato || '—';
+    }
+
+    function updateFollowButton(cliente) {
+        var btn = $('#crm-mock-seguir-toggle');
+        if (!btn || !cliente) return;
+        btn.textContent = cliente.seguindo ? 'Deixar de seguir' : 'Seguir cliente';
+        btn.setAttribute('aria-pressed', cliente.seguindo ? 'true' : 'false');
+        btn.classList.toggle('btn-error', !!cliente.seguindo);
+        btn.classList.toggle('btn-primary', !cliente.seguindo);
     }
 
     function updateSidebarContato(contato) {
@@ -344,10 +453,10 @@
         }
         if (copyBtn) {
             copyBtn.onclick = function () {
-                if (contato.email && navigator.clipboard) {
-                    navigator.clipboard.writeText(contato.email);
-                    showToast('E-mail copiado');
-                }
+                if (!contato.email) return;
+                copiarTexto(contato.email)
+                    .then(function () { showToast('E-mail copiado'); })
+                    .catch(function (err) { showToast(err.message, true); });
             };
         }
     }
@@ -450,8 +559,10 @@
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var text = btn.getAttribute('data-copy');
-                if (text && navigator.clipboard) navigator.clipboard.writeText(text);
-                showToast('E-mail copiado');
+                if (!text) return;
+                copiarTexto(text)
+                    .then(function () { showToast('E-mail copiado'); })
+                    .catch(function (err) { showToast(err.message, true); });
             });
         });
 
@@ -497,6 +608,8 @@
         var filtrados = state.atividades.filter(function (a) {
             if (state.filtroAtivTab === 'pendentes' && a.status === 'concluida') return false;
             if (state.filtroAtivTab === 'concluidas' && a.status !== 'concluida') return false;
+            if (state.filtroAtivResponsavel && a.responsavel !== state.filtroAtivResponsavel) return false;
+            if (state.filtroAtivTipo && a.tipo !== state.filtroAtivTipo) return false;
             if (termo) {
                 var blob = (a.titulo + ' ' + (a.descricao || '')).toLowerCase();
                 if (blob.indexOf(termo) === -1) return false;
@@ -506,11 +619,15 @@
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Selecione um cliente.</div>';
+            renderSidebarAtividades();
+            renderSugestao();
             return;
         }
 
         if (!filtrados.length) {
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhuma atividade.</div>';
+            renderSidebarAtividades();
+            renderSugestao();
             return;
         }
 
@@ -553,6 +670,48 @@
 
         container.innerHTML = html;
         bindAtividadeEvents(container);
+        renderSidebarAtividades();
+        renderSugestao();
+    }
+
+    function populateAtividadeResponsaveis() {
+        var select = $('#filtro-resp-ativ');
+        if (!select) return;
+        var current = state.filtroAtivResponsavel;
+        var values = [];
+        state.atividades.forEach(function (a) {
+            if (a.responsavel && values.indexOf(a.responsavel) === -1) values.push(a.responsavel);
+        });
+        select.innerHTML = '<option value="">Responsável: todos</option>' + values.map(function (v) {
+            return '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>';
+        }).join('');
+        select.value = current;
+    }
+
+    function renderSidebarAtividades() {
+        var container = $('#crm-mock-sidebar-atividades-list');
+        if (!container) return;
+        var items = state.atividades.slice(0, 6);
+        if (!items.length) {
+            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhuma atividade registrada.</p>';
+            return;
+        }
+        container.innerHTML = items.map(function (a) {
+            return '<div class="crm-mock-mini-ativ">' +
+                ativIconHtml(a.tipo) +
+                '<div class="crm-mock-mini-ativ-text">' + escapeHtml(a.titulo) + '</div>' +
+                '<span class="crm-mock-mini-ativ-time">' + escapeHtml((a.data_label || '') + (a.hora ? ' · ' + a.hora : '')) + '</span>' +
+                '</div>';
+        }).join('');
+    }
+
+    function renderSugestao() {
+        var el = $('#crm-mock-sugestao-texto');
+        if (!el) return;
+        var pendentes = state.atividades.filter(function (a) { return a.status !== 'concluida'; });
+        el.textContent = pendentes.length
+            ? 'Há ' + pendentes.length + ' atividade(s) pendente(s). Priorize o próximo contato e mantenha o cliente atualizado.'
+            : 'Sem atividades pendentes. Agende um contato para gerar novas oportunidades.';
     }
 
     function bindAtividadeEvents(container) {
@@ -590,7 +749,16 @@
                 } else if (action === 'duplicar') {
                     api('/clientes/' + encodeURIComponent(state.clienteId) + '/atividades', {
                         method: 'POST',
-                        body: { titulo: a.titulo + ' (cópia)', descricao: a.descricao, prioridade: a.prioridade, hora: a.hora, data_label: a.data_label }
+                        body: {
+                            titulo: a.titulo + ' (cópia)',
+                            descricao: a.descricao,
+                            prioridade: a.prioridade,
+                            hora: a.hora,
+                            data: a.data,
+                            data_label: a.data_label,
+                            tipo: a.tipo,
+                            responsavel: a.responsavel
+                        }
                     }).then(function () { loadAtividades(state.clienteId); showToast('Atividade duplicada'); })
                         .catch(function (err) { showToast(err.message, true); });
                 } else if (action === 'excluir') {
@@ -607,21 +775,36 @@
         if (!container) return;
         if (!state.objetivos.length) {
             container.innerHTML = '<div class="text-sm text-base-content/60 p-2">Nenhum objetivo.</div>';
+            renderSidebarObjetivos();
             return;
         }
         container.innerHTML = state.objetivos.map(function (o) {
             return (
                 '<div class="crm-mock-objetivo flex items-center gap-2 py-1" data-objetivo-id="' + escapeHtml(o.id) + '">' +
-                '<input type="checkbox" class="checkbox checkbox-xs" aria-label="' + escapeHtml(o.texto) + '" />' +
+                '<input type="checkbox" class="checkbox checkbox-xs crm-mock-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
                 '<span class="crm-mock-obj-text text-sm flex-1 truncate" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
-                '<span class="crm-mock-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(o.prazo || '') + '</span>' +
+                '<span class="crm-mock-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
                 '<div class="crm-mock-obj-actions flex gap-0">' +
-                '<button type="button" class="crm-mock-obj-btn btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="crm-mock-obj-edit btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
                 '<button type="button" class="crm-mock-obj-delete btn btn-ghost btn-xs btn-square text-error" aria-label="Excluir objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-trash"></i></button>' +
                 '</div></div>'
             );
         }).join('');
 
+        $$('.crm-mock-obj-toggle', container).forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                var id = cb.closest('[data-objetivo-id]').getAttribute('data-objetivo-id');
+                api('/objetivos/' + encodeURIComponent(id), { method: 'PATCH', body: { concluido: cb.checked } })
+                    .then(function () { return loadObjetivos(state.clienteId); })
+                    .catch(function (err) { cb.checked = !cb.checked; showToast(err.message, true); });
+            });
+        });
+        $$('.crm-mock-obj-edit', container).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.getAttribute('data-objetivo-id');
+                openObjetivoModal(state.objetivos.find(function (o) { return o.id === id; }));
+            });
+        });
         $$('.crm-mock-obj-delete', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 state.pendingObjetivoId = btn.getAttribute('data-objetivo-id');
@@ -631,6 +814,21 @@
                 openModal('crm-mock-modal-confirm-obj');
             });
         });
+        renderSidebarObjetivos();
+    }
+
+    function renderSidebarObjetivos() {
+        var container = $('#crm-mock-sidebar-objetivos-list');
+        if (!container) return;
+        if (!state.objetivos.length) {
+            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhum objetivo registrado.</p>';
+            return;
+        }
+        container.innerHTML = state.objetivos.map(function (o) {
+            return '<div class="crm-mock-objetivo"><input type="checkbox" class="checkbox checkbox-xs" disabled ' +
+                (o.concluido ? 'checked' : '') + '><span class="crm-mock-obj-text">' + escapeHtml(o.texto) +
+                '</span><span class="crm-mock-obj-date">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span></div>';
+        }).join('');
     }
 
     function renderCotacoes() {
@@ -643,14 +841,63 @@
         container.innerHTML = state.cotacoes.map(function (c) {
             return (
                 '<article class="crm-mock-cotacao-card p-2 border border-base-200 rounded-lg mb-2">' +
-                '<div class="crm-mock-cotacao-titulo text-sm font-medium truncate">' + escapeHtml(c.titulo) + '</div>' +
+                '<div class="flex items-start gap-1"><div class="crm-mock-cotacao-titulo text-sm font-medium truncate flex-1">' + escapeHtml(c.titulo) + '</div>' +
+                '<div class="dropdown dropdown-end"><button type="button" class="btn btn-ghost btn-xs btn-square" tabindex="0" aria-label="Ações da cotação"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                '<ul class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-32 border border-base-200 z-50 text-xs">' +
+                '<li><button type="button" class="crm-mock-cotacao-edit" data-cotacao-id="' + escapeHtml(c.id) + '">Editar</button></li>' +
+                '<li><button type="button" class="crm-mock-cotacao-delete text-error" data-cotacao-id="' + escapeHtml(c.id) + '">Excluir</button></li></ul></div></div>' +
                 '<div class="crm-mock-cotacao-valor text-sm font-semibold">' + escapeHtml(c.valor) + '</div>' +
                 '<div class="crm-mock-cotacao-meta flex items-center gap-2 mt-1">' +
                 '<span class="' + badgeDaisy(c.status) + '">' + escapeHtml(c.status_label || c.status) + '</span>' +
-                '<span class="crm-mock-cotacao-data text-xs text-base-content/60">' + escapeHtml(c.data || '') + '</span>' +
+                '<span class="crm-mock-cotacao-data text-xs text-base-content/60">' + escapeHtml(dataParaExibicao(c.data)) + '</span>' +
                 '</div></article>'
             );
         }).join('');
+        $$('.crm-mock-cotacao-edit', container).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.getAttribute('data-cotacao-id');
+                openCotacaoModal(state.cotacoes.find(function (c) { return c.id === id; }));
+            });
+        });
+        $$('.crm-mock-cotacao-delete', container).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.getAttribute('data-cotacao-id');
+                api('/cotacoes/' + encodeURIComponent(id), { method: 'DELETE' })
+                    .then(function () { showToast('Cotação excluída'); return loadCotacoes(state.clienteId); })
+                    .catch(function (err) { showToast(err.message, true); });
+            });
+        });
+    }
+
+    function renderNotas() {
+        var container = $('#crm-mock-notas-list');
+        if (!container) return;
+        if (!state.notas.length) {
+            container.innerHTML = '<p class="text-sm text-base-content/60">Nenhuma nota registrada para este cliente.</p>';
+            return;
+        }
+        container.innerHTML = state.notas.map(function (nota) {
+            return '<article class="rounded-lg border border-base-200 p-2" data-nota-id="' + escapeHtml(nota.id) + '">' +
+                '<p class="text-sm whitespace-pre-wrap">' + escapeHtml(nota.texto) + '</p>' +
+                '<div class="flex justify-between items-center mt-1"><span class="text-xs text-base-content/50">' +
+                escapeHtml(dataParaExibicao(nota.data) || 'Agora') + '</span>' +
+                '<span><button type="button" class="btn btn-ghost btn-xs crm-mock-nota-edit" aria-label="Editar nota"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="btn btn-ghost btn-xs text-error crm-mock-nota-delete" aria-label="Excluir nota"><i class="fa-solid fa-trash"></i></button></span></div></article>';
+        }).join('');
+        $$('.crm-mock-nota-edit', container).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
+                openNotaModal(state.notas.find(function (n) { return n.id === id; }));
+            });
+        });
+        $$('.crm-mock-nota-delete', container).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
+                api('/notas/' + encodeURIComponent(id), { method: 'DELETE' })
+                    .then(function () { showToast('Nota excluída'); return loadNotas(state.clienteId); })
+                    .catch(function (err) { showToast(err.message, true); });
+            });
+        });
     }
 
     function selectContato(id) {
@@ -664,6 +911,7 @@
             container.innerHTML = '<div class="p-3"><div class="skeleton h-12 w-full mb-2"></div><div class="skeleton h-12 w-full"></div></div>';
         }
         return api('/clientes/' + encodeURIComponent(clienteId) + '/contatos').then(function (data) {
+            if (state.clienteId !== clienteId) return;
             state.contatos = data.contatos || [];
             state.contatoId = state.contatos.length ? state.contatos[0].id : null;
             renderContatos();
@@ -675,7 +923,9 @@
 
     function loadAtividades(clienteId) {
         return api('/clientes/' + encodeURIComponent(clienteId) + '/atividades').then(function (data) {
+            if (state.clienteId !== clienteId) return;
             state.atividades = data.atividades || [];
+            populateAtividadeResponsaveis();
             renderAtividades();
             if (state.cliente) {
                 state.cliente.metrics = state.cliente.metrics || {};
@@ -687,6 +937,7 @@
 
     function loadObjetivos(clienteId) {
         return api('/clientes/' + encodeURIComponent(clienteId) + '/objetivos').then(function (data) {
+            if (state.clienteId !== clienteId) return;
             state.objetivos = data.objetivos || [];
             renderObjetivos();
         }).catch(function (err) { showToast(err.message, true); });
@@ -694,6 +945,7 @@
 
     function loadCotacoes(clienteId) {
         return api('/clientes/' + encodeURIComponent(clienteId) + '/cotacoes').then(function (data) {
+            if (state.clienteId !== clienteId) return;
             state.cotacoes = data.cotacoes || [];
             renderCotacoes();
             if (state.cliente && state.cliente.metrics) {
@@ -703,15 +955,36 @@
         }).catch(function (err) { showToast(err.message, true); });
     }
 
+    function loadNotas(clienteId) {
+        return api('/clientes/' + encodeURIComponent(clienteId) + '/notas').then(function (data) {
+            if (state.clienteId !== clienteId) return;
+            state.notas = data.notas || [];
+            renderNotas();
+        }).catch(function (err) {
+            state.notas = [];
+            renderNotas();
+            showToast(err.message, true);
+        });
+    }
+
     function selectCliente(clienteId) {
         state.clienteId = clienteId;
         state.cliente = state.clientes.find(function (c) { return c.id === clienteId; });
+        state.atividades = [];
+        state.objetivos = [];
+        state.cotacoes = [];
+        state.notas = [];
         renderClientes();
         updateDetailPanel(state.cliente);
+        renderAtividades();
+        renderObjetivos();
+        renderCotacoes();
+        renderNotas();
         loadContatos(clienteId);
         loadAtividades(clienteId);
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
+        loadNotas(clienteId);
     }
 
     function loadClientes() {
@@ -754,9 +1027,22 @@
         openModal('crm-mock-modal-contato');
     }
 
-    function openClienteModal() {
+    function openClienteModal(cliente) {
         var form = $('#crm-mock-form-cliente');
         if (form) form.reset();
+        var id = $('#crm-mock-cliente-id');
+        var title = $('#crm-mock-modal-cliente-title');
+        var submitText = $('#crm-mock-cliente-submit .crm-mock-btn-text');
+        if (id) id.value = cliente ? cliente.id : '';
+        if (title) title.textContent = cliente ? 'Editar cliente' : 'Novo cliente';
+        if (submitText) submitText.textContent = cliente ? 'Salvar alterações' : 'Criar cliente';
+        if (cliente) {
+            $('#crm-mock-cliente-nome').value = cliente.nome || '';
+            $('#crm-mock-cliente-perfil').value = cliente.perfil || 'direto';
+            $('#crm-mock-cliente-categoria').value = cliente.categoria || 'Privado';
+            $('#crm-mock-cliente-prioridade').value = cliente.prioridade || 'Média';
+            $('#crm-mock-cliente-responsavel').value = cliente.responsavel || 'Luisa Santana';
+        }
         openModal('crm-mock-modal-cliente');
     }
 
@@ -772,8 +1058,49 @@
             $('#crm-mock-atividade-desc').value = ativ.descricao || '';
             $('#crm-mock-atividade-prioridade').value = ativ.prioridade || 'Média';
             $('#crm-mock-atividade-hora').value = ativ.hora || '';
+            $('#crm-mock-atividade-data').value = ativ.data || '';
+            $('#crm-mock-atividade-tipo').value = ativ.tipo || 'atividade';
+            $('#crm-mock-atividade-responsavel').value = ativ.responsavel || 'LS';
         }
         openModal('crm-mock-modal-atividade');
+    }
+
+    function openObjetivoModal(objetivo) {
+        var form = $('#crm-mock-form-objetivo');
+        if (!form) return;
+        form.reset();
+        $('#crm-mock-objetivo-id').value = objetivo ? objetivo.id : '';
+        $('#crm-mock-modal-objetivo-title').textContent = objetivo ? 'Editar objetivo' : 'Novo objetivo';
+        if (objetivo) {
+            $('#crm-mock-objetivo-texto').value = objetivo.texto || '';
+            $('#crm-mock-objetivo-prazo').value = dataParaInput(objetivo.prazo);
+        }
+        openModal('crm-mock-modal-objetivo');
+    }
+
+    function openCotacaoModal(cotacao) {
+        var form = $('#crm-mock-form-cotacao');
+        if (form) form.reset();
+        $('#crm-mock-cotacao-id').value = cotacao ? cotacao.id : '';
+        $('#crm-mock-modal-cotacao-title').textContent = cotacao ? 'Editar cotação' : 'Nova cotação';
+        var data = $('#crm-mock-cotacao-data');
+        if (data) data.value = cotacao ? dataParaInput(cotacao.data) : new Date().toISOString().slice(0, 10);
+        if (cotacao) {
+            $('#crm-mock-cotacao-titulo').value = cotacao.titulo || '';
+            $('#crm-mock-cotacao-valor').value = cotacao.valor || '';
+            $('#crm-mock-cotacao-status').value = cotacao.status || 'negociacao';
+        }
+        openModal('crm-mock-modal-cotacao');
+    }
+
+    function openNotaModal(nota) {
+        var form = $('#crm-mock-form-nota');
+        if (!form) return;
+        form.reset();
+        $('#crm-mock-nota-id').value = nota ? nota.id : '';
+        $('#crm-mock-modal-nota-title').textContent = nota ? 'Editar nota' : 'Nova nota';
+        $('#crm-mock-nota-texto').value = nota ? nota.texto : '';
+        openModal('crm-mock-modal-nota');
     }
 
     function setImportStep(step) {
@@ -844,6 +1171,7 @@
             formCliente.addEventListener('submit', function (e) {
                 e.preventDefault();
                 var btn = $('#crm-mock-cliente-submit');
+                var clienteId = $('#crm-mock-cliente-id').value;
                 var perfil = $('#crm-mock-cliente-perfil').value;
                 var body = {
                     nome: $('#crm-mock-cliente-nome').value,
@@ -854,10 +1182,13 @@
                     responsavel: $('#crm-mock-cliente-responsavel').value
                 };
                 setBtnLoading(btn, true);
-                api('/clientes', { method: 'POST', body: body }).then(function (data) {
+                var req = clienteId
+                    ? api('/clientes/' + encodeURIComponent(clienteId), { method: 'PATCH', body: body })
+                    : api('/clientes', { method: 'POST', body: body });
+                req.then(function (data) {
                     closeModal('crm-mock-modal-cliente');
-                    showToast('Cliente criado');
-                    state.clienteId = data.cliente.id;
+                    showToast(clienteId ? 'Cliente atualizado' : 'Cliente criado');
+                    state.clienteId = (data.cliente && data.cliente.id) || clienteId;
                     return loadClientes();
                 }).catch(function (err) { showToast(err.message, true); })
                     .finally(function () { setBtnLoading(btn, false); });
@@ -879,7 +1210,10 @@
                     descricao: $('#crm-mock-atividade-desc').value,
                     prioridade: $('#crm-mock-atividade-prioridade').value,
                     hora: $('#crm-mock-atividade-hora').value,
-                    data_label: $('#crm-mock-atividade-data').value ? 'Agendada' : 'Hoje'
+                    data: $('#crm-mock-atividade-data').value,
+                    data_label: $('#crm-mock-atividade-data').value ? 'Agendada' : 'Hoje',
+                    tipo: $('#crm-mock-atividade-tipo').value,
+                    responsavel: $('#crm-mock-atividade-responsavel').value
                 };
                 setBtnLoading(btn, true);
                 var req = ativId
@@ -889,6 +1223,80 @@
                     closeModal('crm-mock-modal-atividade');
                     showToast(ativId ? 'Atividade atualizada' : 'Atividade criada');
                     return loadAtividades(state.clienteId);
+                }).catch(function (err) { showToast(err.message, true); })
+                    .finally(function () { setBtnLoading(btn, false); });
+            });
+        }
+
+        var formObjetivo = $('#crm-mock-form-objetivo');
+        if (formObjetivo) {
+            formObjetivo.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var btn = $('#crm-mock-objetivo-submit');
+                var objetivoId = $('#crm-mock-objetivo-id').value;
+                var body = {
+                    texto: $('#crm-mock-objetivo-texto').value,
+                    prazo: $('#crm-mock-objetivo-prazo').value
+                };
+                setBtnLoading(btn, true);
+                var req = objetivoId
+                    ? api('/objetivos/' + encodeURIComponent(objetivoId), { method: 'PATCH', body: body })
+                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/objetivos', { method: 'POST', body: body });
+                req.then(function () {
+                    closeModal('crm-mock-modal-objetivo');
+                    showToast(objetivoId ? 'Objetivo atualizado' : 'Objetivo criado');
+                    return loadObjetivos(state.clienteId);
+                }).catch(function (err) { showToast(err.message, true); })
+                    .finally(function () { setBtnLoading(btn, false); });
+            });
+        }
+
+        var formCotacao = $('#crm-mock-form-cotacao');
+        if (formCotacao) {
+            formCotacao.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var btn = $('#crm-mock-cotacao-submit');
+                var cotacaoId = $('#crm-mock-cotacao-id').value;
+                var body = {
+                    titulo: $('#crm-mock-cotacao-titulo').value,
+                    valor: $('#crm-mock-cotacao-valor').value,
+                    status: $('#crm-mock-cotacao-status').value,
+                    status_label: {
+                        negociacao: 'Em negociação',
+                        enviada: 'Enviada',
+                        perdida: 'Perdida'
+                    }[$('#crm-mock-cotacao-status').value],
+                    data: $('#crm-mock-cotacao-data').value
+                };
+                setBtnLoading(btn, true);
+                var req = cotacaoId
+                    ? api('/cotacoes/' + encodeURIComponent(cotacaoId), { method: 'PATCH', body: body })
+                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/cotacoes', { method: 'POST', body: body });
+                req
+                    .then(function () {
+                        closeModal('crm-mock-modal-cotacao');
+                        showToast(cotacaoId ? 'Cotação atualizada' : 'Cotação criada');
+                        return loadCotacoes(state.clienteId);
+                    }).catch(function (err) { showToast(err.message, true); })
+                    .finally(function () { setBtnLoading(btn, false); });
+            });
+        }
+
+        var formNota = $('#crm-mock-form-nota');
+        if (formNota) {
+            formNota.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var btn = $('#crm-mock-nota-submit');
+                var notaId = $('#crm-mock-nota-id').value;
+                setBtnLoading(btn, true);
+                var req = notaId
+                    ? api('/notas/' + encodeURIComponent(notaId), { method: 'PATCH', body: { texto: $('#crm-mock-nota-texto').value } })
+                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/notas', { method: 'POST', body: { texto: $('#crm-mock-nota-texto').value } });
+                req.then(function () {
+                    closeModal('crm-mock-modal-nota');
+                    showToast(notaId ? 'Nota atualizada' : 'Nota adicionada');
+                    formNota.reset();
+                    return loadNotas(state.clienteId);
                 }).catch(function (err) { showToast(err.message, true); })
                     .finally(function () { setBtnLoading(btn, false); });
             });
@@ -925,6 +1333,7 @@
         var next2 = $('#crm-mock-import-next-2');
         if (next2) next2.addEventListener('click', function () {
             collectImportRowsFromTable();
+            if (!validarImportRows()) return;
             var msg = $('#crm-mock-import-confirm-msg');
             if (msg) msg.textContent = 'Confirmar importação de ' + state.importRows.length + ' contato(s)?';
             setImportStep(3);
@@ -944,10 +1353,7 @@
                     return;
                 }
                 collectImportRowsFromTable();
-                if (!state.importRows.length) {
-                    showToast('Nenhum contato para importar', true);
-                    return;
-                }
+                if (!validarImportRows()) return;
                 setBtnLoading(importSubmit, true);
                 api('/clientes/' + encodeURIComponent(state.clienteId) + '/contatos/importar', {
                     method: 'POST',
@@ -1007,6 +1413,28 @@
         }).filter(function (r) { return r.nome && r.email; });
     }
 
+    function validarImportRows() {
+        var erro = $('#crm-mock-import-error');
+        if (!state.importRows.length) {
+            if (erro) {
+                erro.textContent = 'Nenhum contato válido para importar.';
+                erro.hidden = false;
+            }
+            return false;
+        }
+        var invalido = state.importRows.find(function (r) { return r.email.indexOf('@') === -1; });
+        if (invalido) {
+            setImportStep(2);
+            if (erro) {
+                erro.textContent = 'Revise o e-mail de ' + invalido.nome + '.';
+                erro.hidden = false;
+            }
+            return false;
+        }
+        if (erro) erro.hidden = true;
+        return true;
+    }
+
     function initTabs(groupName) {
         var tabContainer = document.querySelector('[data-tab-group="' + groupName + '"]');
         if (!tabContainer) return;
@@ -1055,6 +1483,7 @@
                 pill.classList.add('btn-active');
                 pill.setAttribute('aria-pressed', 'true');
                 state.filtroPill = pill.getAttribute('data-filter') || 'todos';
+                state.paginaCliente = 1;
                 renderClientes();
             });
         });
@@ -1063,6 +1492,7 @@
         if (buscaCliente) {
             buscaCliente.addEventListener('input', function () {
                 state.buscaCliente = buscaCliente.value;
+                state.paginaCliente = 1;
                 renderClientes();
             });
         }
@@ -1082,11 +1512,103 @@
                 renderAtividades();
             }, 300));
         }
+
+        var executivo = $('#filtro-executivo');
+        var tipo = $('#filtro-tipo');
+        var perfil = $('#filtro-perfil');
+        if (executivo) executivo.addEventListener('change', function () {
+            state.filtroExecutivo = executivo.value;
+            state.paginaCliente = 1;
+            renderClientes();
+        });
+        if (tipo) tipo.addEventListener('change', function () {
+            state.filtroTipo = tipo.value;
+            state.paginaCliente = 1;
+            renderClientes();
+        });
+        if (perfil) perfil.addEventListener('change', function () {
+            state.filtroPerfil = perfil.value;
+            state.paginaCliente = 1;
+            renderClientes();
+        });
+        var respAtiv = $('#filtro-resp-ativ');
+        var tipoAtiv = $('#filtro-tipo-ativ');
+        if (respAtiv) respAtiv.addEventListener('change', function () {
+            state.filtroAtivResponsavel = respAtiv.value;
+            renderAtividades();
+        });
+        if (tipoAtiv) tipoAtiv.addEventListener('change', function () {
+            state.filtroAtivTipo = tipoAtiv.value;
+            renderAtividades();
+        });
+    }
+
+    function exportarClientesCsv() {
+        if (!state.clientes.length) {
+            showToast('Não há clientes para exportar', true);
+            return;
+        }
+        var rows = [['Nome', 'Tipo', 'Categoria', 'Responsável', 'Contatos', 'Seguindo']];
+        state.clientes.forEach(function (c) {
+            rows.push([c.nome, c.tipo_label, c.categoria, c.responsavel, c.qtd_contatos, c.seguindo ? 'Sim' : 'Não']);
+        });
+        var csv = rows.map(function (row) {
+            return row.map(function (value) { return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"'; }).join(';');
+        }).join('\n');
+        var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'clientes-crm-mock.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        showToast('CSV exportado');
     }
 
     function initButtons() {
         var novoCliente = $('#crm-mock-btn-novo-cliente-header');
-        if (novoCliente) novoCliente.addEventListener('click', openClienteModal);
+        if (novoCliente) novoCliente.addEventListener('click', function () { openClienteModal(null); });
+        var novoClienteLista = $('#crm-mock-btn-novo-cliente-lista');
+        if (novoClienteLista) novoClienteLista.addEventListener('click', function () { openClienteModal(null); });
+
+        var limpar = $('#crm-mock-btn-limpar-filtros');
+        if (limpar) limpar.addEventListener('click', function () {
+            state.filtroPill = 'todos';
+            state.filtroExecutivo = '';
+            state.filtroTipo = '';
+            state.filtroPerfil = '';
+            state.buscaCliente = '';
+            state.paginaCliente = 1;
+            $('#crm-mock-busca').value = '';
+            $('#filtro-executivo').value = '';
+            $('#filtro-tipo').value = '';
+            $('#filtro-perfil').value = '';
+            $$('.crm-mock-pill').forEach(function (pill) {
+                var active = pill.getAttribute('data-filter') === 'todos';
+                pill.classList.toggle('btn-active', active);
+                pill.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            renderClientes();
+        });
+
+        var exportar = $('#crm-mock-btn-exportar');
+        if (exportar) exportar.addEventListener('click', exportarClientesCsv);
+        var exportarHeader = $('.crm-mock-header-action-export');
+        if (exportarHeader) exportarHeader.addEventListener('click', exportarClientesCsv);
+        var editarHeader = $('.crm-mock-header-action-edit');
+        if (editarHeader) editarHeader.addEventListener('click', function () { openClienteModal(state.cliente); });
+
+        var prev = $('#crm-mock-page-prev');
+        var next = $('#crm-mock-page-next');
+        if (prev) prev.addEventListener('click', function () {
+            if (state.paginaCliente > 1) { state.paginaCliente--; renderClientes(); }
+        });
+        if (next) next.addEventListener('click', function () {
+            state.paginaCliente++;
+            renderClientes();
+        });
 
         var novoContato = $('#crm-mock-btn-novo-contato');
         if (novoContato) novoContato.addEventListener('click', function () { openContatoModal(); });
@@ -1100,6 +1622,38 @@
         var agendar = $('#crm-mock-btn-agendar');
         if (agendar) agendar.addEventListener('click', function () { openAtividadeModal(null); });
 
+        var novoObjetivo = $('#crm-mock-btn-novo-objetivo');
+        if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });
+        var novaCotacao = $('#crm-mock-btn-nova-cotacao');
+        if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
+        var novaNota = $('#crm-mock-btn-nova-nota');
+        if (novaNota) novaNota.addEventListener('click', function () { openNotaModal(null); });
+        var expandir = $('#crm-mock-btn-expandir-cotacoes');
+        if (expandir) expandir.addEventListener('click', function () {
+            var painel = $('.crm-mock-center-right');
+            var expanded = painel.classList.toggle('is-expanded');
+            expandir.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+            expandir.querySelector('i').className = expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+        });
+
+        var seguir = $('#crm-mock-seguir-toggle');
+        if (seguir) seguir.addEventListener('click', function () {
+            if (!state.cliente) return;
+            seguir.disabled = true;
+            api('/clientes/' + encodeURIComponent(state.cliente.id), {
+                method: 'PATCH',
+                body: { seguindo: !state.cliente.seguindo }
+            }).then(function (data) {
+                state.cliente = data.cliente;
+                var idx = state.clientes.findIndex(function (c) { return c.id === state.cliente.id; });
+                if (idx !== -1) state.clientes[idx] = data.cliente;
+                updateDetailPanel(state.cliente);
+                renderClientes();
+                showToast(state.cliente.seguindo ? 'Cliente seguido' : 'Você deixou de seguir o cliente');
+            }).catch(function (err) { showToast(err.message, true); })
+                .finally(function () { seguir.disabled = false; });
+        });
+
         var verTodos = $('#crm-mock-ver-todos-contatos');
         if (verTodos) {
             verTodos.addEventListener('click', function () {
@@ -1110,8 +1664,15 @@
 
         $$('.crm-mock-star').forEach(function (star) {
             star.addEventListener('click', function () {
-                var active = star.classList.toggle('active');
-                star.setAttribute('aria-pressed', active ? 'true' : 'false');
+                if (!state.cliente) return;
+                var active = !state.cliente.favorito;
+                api('/clientes/' + encodeURIComponent(state.cliente.id), { method: 'PATCH', body: { favorito: active } })
+                    .then(function (data) {
+                        state.cliente = data.cliente;
+                        star.classList.toggle('active', !!data.cliente.favorito);
+                        star.setAttribute('aria-pressed', data.cliente.favorito ? 'true' : 'false');
+                        star.setAttribute('aria-label', data.cliente.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+                    }).catch(function (err) { showToast(err.message, true); });
             });
         });
     }

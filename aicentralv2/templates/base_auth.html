@@ -9,15 +9,8 @@
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: light)">
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: dark)">
     
-    {% if APP_CONFIG.get('USE_CSS_CDN') or not APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
-    <!-- Tailwind + DaisyUI via CDN (fallback/dev) -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.2/dist/full.min.css" rel="stylesheet" type="text/css" />
-    {% endif %}
-    {% if APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
-    <!-- Tailwind + daisyUI (build local) -->
+    <!-- Build local Tailwind 3.4 + DaisyUI 4.12 -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
-    {% endif %}
         <script>
             // Aplica o tema salvo (se existir) o mais cedo possível
             (function(){

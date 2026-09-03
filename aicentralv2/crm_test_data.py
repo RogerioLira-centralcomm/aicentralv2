@@ -2,6 +2,7 @@
 
 import copy
 import uuid
+from datetime import date
 
 from .crm_test_helpers import pluralizar_contatos
 
@@ -39,7 +40,7 @@ _INITIAL_CLIENTES = [
         "nome": "CLX",
         "tipo_label": "Agência",
         "perfil": "agencia",
-        "status": "seguindo",
+        "status": "amanha",
         "badge": "Amanhã",
         "badge_type": "info",
         "avatar": "C",
@@ -81,7 +82,7 @@ _INITIAL_CLIENTES = [
         "nome": "FAZCOM",
         "tipo_label": "Agência",
         "perfil": "agencia",
-        "status": "seguindo",
+        "status": "hoje",
         "badge": "Hoje",
         "badge_type": "success",
         "avatar": "F",
@@ -109,7 +110,7 @@ _INITIAL_CLIENTES = [
         "nome": "GRUPO ABC",
         "tipo_label": "Cliente final",
         "perfil": "direto",
-        "status": "seguindo",
+        "status": "hoje",
         "badge": "Hoje",
         "badge_type": "muted",
         "avatar": "G",
@@ -293,6 +294,7 @@ _INITIAL_ATIVIDADES = {
             "titulo": "Ligar para responsável financeiro",
             "descricao": "Alinhar pendências e próximos passos",
             "data_label": "Hoje — 26 de maio",
+            "data": "2024-05-26",
             "hora": "10:30",
             "prioridade": "Alta",
             "status": "pendente",
@@ -304,6 +306,7 @@ _INITIAL_ATIVIDADES = {
             "titulo": "Enviar proposta comercial",
             "descricao": "Proposta de campanha Q3",
             "data_label": "Hoje — 26 de maio",
+            "data": "2024-05-26",
             "hora": "14:00",
             "prioridade": "Média",
             "status": "pendente",
@@ -315,6 +318,7 @@ _INITIAL_ATIVIDADES = {
             "titulo": "Reunião de alinhamento",
             "descricao": "Apresentar estratégias e cronograma",
             "data_label": "Hoje — 26 de maio",
+            "data": "2024-05-26",
             "hora": "16:00",
             "prioridade": "Alta",
             "status": "pendente",
@@ -326,6 +330,7 @@ _INITIAL_ATIVIDADES = {
             "titulo": "Acompanhar aprovação de mídia",
             "descricao": "Verificar status com aprovação",
             "data_label": "Amanhã — 27 de maio",
+            "data": "2024-05-27",
             "hora": "10:30",
             "prioridade": "Média",
             "status": "pendente",
@@ -372,14 +377,46 @@ _INITIAL_COTACOES = {
     ],
 }
 
+_INITIAL_NOTAS = {
+    "auto-shopping": [
+        {
+            "id": "n1",
+            "texto": "Cliente prefere contato pela manhã.",
+            "autor": "Luisa Santana",
+            "data": "2024-05-26",
+        }
+    ],
+}
+
+
+def _validate_iso_date(value, field="data"):
+    value = str(value or "").strip()
+    if value:
+        try:
+            date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(f"{field.capitalize()} deve estar no formato ISO YYYY-MM-DD") from exc
+    return value
+
+
+def _require_text(data, field, label):
+    value = str(data.get(field) or "").strip()
+    if not value:
+        raise ValueError(f"{label} é obrigatório")
+    return value
+
 
 class CrmTestStore:
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self.clientes = copy.deepcopy(_INITIAL_CLIENTES)
         self.contatos = copy.deepcopy(_INITIAL_CONTATOS)
         self.atividades = copy.deepcopy(_INITIAL_ATIVIDADES)
         self.objetivos = copy.deepcopy(_INITIAL_OBJETIVOS)
         self.cotacoes = copy.deepcopy(_INITIAL_COTACOES)
+        self.notas = copy.deepcopy(_INITIAL_NOTAS)
 
     def _enrich_cliente(self, c):
         cliente_id = c["id"]
@@ -388,6 +425,8 @@ class CrmTestStore:
         tarefas = sum(1 for a in ativs if a.get("status") != "concluida")
         cotacoes = self.cotacoes.get(cliente_id, [])
         item = dict(c)
+        item["seguindo"] = bool(item.get("seguindo", False))
+        item["favorito"] = bool(item.get("favorito", False))
         item["qtd_contatos"] = qtd
         item["sub"] = f"{c['tipo_label']} · {pluralizar_contatos(qtd)}"
         item["metrics"] = {
@@ -410,20 +449,24 @@ class CrmTestStore:
         return None
 
     def create_cliente(self, data):
-        nome = (data.get("nome") or "").strip()
-        if not nome:
-            raise ValueError("Nome é obrigatório")
+        nome = _require_text(data, "nome", "Nome")
         cliente_id = data.get("id") or uuid.uuid4().hex[:12]
+        if self.get_cliente(cliente_id):
+            raise ValueError("ID de cliente já existe")
+        status = str(data.get("status") or "sem-atividade").strip()
+        if status == "seguindo":
+            status = "sem-atividade"
         cliente = {
             "id": cliente_id,
             "nome": nome,
             "tipo_label": data.get("tipo_label") or "Cliente final",
             "perfil": data.get("perfil") or "direto",
-            "status": "seguindo",
+            "status": status,
             "badge": "Novo",
             "badge_type": "info",
             "avatar": nome[0].upper(),
             "seguindo": False,
+            "favorito": bool(data.get("favorito", False)),
             "prioridade": data.get("prioridade") or "Média",
             "categoria": data.get("categoria") or "Privado",
             "responsavel": data.get("responsavel") or "Luisa Santana",
@@ -433,7 +476,34 @@ class CrmTestStore:
         self.atividades[cliente_id] = []
         self.objetivos[cliente_id] = []
         self.cotacoes[cliente_id] = []
+        self.notas[cliente_id] = []
         return self.get_cliente(cliente_id)
+
+    def update_cliente(self, cliente_id, data):
+        for i, cliente in enumerate(self.clientes):
+            if cliente["id"] != cliente_id:
+                continue
+            updated = dict(cliente)
+            text_fields = (
+                "nome", "tipo_label", "perfil", "status", "badge", "badge_type",
+                "prioridade", "categoria", "responsavel",
+            )
+            for key in text_fields:
+                if key in data:
+                    value = str(data[key] or "").strip()
+                    if key == "nome" and not value:
+                        raise ValueError("Nome é obrigatório")
+                    updated[key] = value
+            for key in ("seguindo", "favorito"):
+                if key in data:
+                    if not isinstance(data[key], bool):
+                        raise ValueError(f"{key.capitalize()} deve ser booleano")
+                    updated[key] = data[key]
+            if "nome" in data:
+                updated["avatar"] = updated["nome"][0].upper()
+            self.clientes[i] = updated
+            return self.get_cliente(cliente_id)
+        return None
 
     def list_contatos(self, cliente_id):
         if not self.get_cliente(cliente_id):
@@ -494,14 +564,14 @@ class CrmTestStore:
     def create_atividade(self, cliente_id, data):
         if not self.get_cliente(cliente_id):
             return None
-        titulo = (data.get("titulo") or "").strip()
-        if not titulo:
-            raise ValueError("Título é obrigatório")
+        titulo = _require_text(data, "titulo", "Título")
+        data_iso = _validate_iso_date(data.get("data"))
         ativ = {
             "id": f"a-{uuid.uuid4().hex[:8]}",
             "titulo": titulo,
             "descricao": (data.get("descricao") or "").strip(),
             "data_label": data.get("data_label") or "Agendada",
+            "data": data_iso,
             "hora": data.get("hora") or "",
             "prioridade": data.get("prioridade") or "Média",
             "status": "pendente",
@@ -516,9 +586,16 @@ class CrmTestStore:
             for i, a in enumerate(items):
                 if a["id"] == atividade_id:
                     updated = dict(a)
-                    for key in ("titulo", "descricao", "hora", "prioridade", "status", "data_label"):
+                    for key in (
+                        "titulo", "descricao", "hora", "prioridade", "status",
+                        "data_label", "tipo", "responsavel",
+                    ):
                         if key in data and data[key] is not None:
                             updated[key] = str(data[key]).strip()
+                    if "titulo" in data and not updated["titulo"]:
+                        raise ValueError("Título é obrigatório")
+                    if "data" in data:
+                        updated["data"] = _validate_iso_date(data["data"])
                     items[i] = updated
                     return updated, cliente_id
         return None, None
@@ -536,6 +613,40 @@ class CrmTestStore:
             return None
         return list(self.objetivos.get(cliente_id, []))
 
+    def create_objetivo(self, cliente_id, data):
+        if not self.get_cliente(cliente_id):
+            return None
+        concluido = data.get("concluido", False)
+        if not isinstance(concluido, bool):
+            raise ValueError("Concluido deve ser booleano")
+        objetivo = {
+            "id": f"o-{uuid.uuid4().hex[:8]}",
+            "texto": _require_text(data, "texto", "Texto"),
+            "prazo": str(data.get("prazo") or "").strip(),
+            "concluido": concluido,
+        }
+        self.objetivos.setdefault(cliente_id, []).append(objetivo)
+        return objetivo
+
+    def update_objetivo(self, objetivo_id, data):
+        for cliente_id, items in self.objetivos.items():
+            for i, objetivo in enumerate(items):
+                if objetivo["id"] != objetivo_id:
+                    continue
+                updated = dict(objetivo)
+                for key in ("texto", "prazo"):
+                    if key in data:
+                        updated[key] = str(data[key] or "").strip()
+                if "texto" in data and not updated["texto"]:
+                    raise ValueError("Texto é obrigatório")
+                if "concluido" in data:
+                    if not isinstance(data["concluido"], bool):
+                        raise ValueError("Concluido deve ser booleano")
+                    updated["concluido"] = data["concluido"]
+                items[i] = updated
+                return updated, cliente_id
+        return None, None
+
     def delete_objetivo(self, objetivo_id):
         for cliente_id, items in self.objetivos.items():
             for i, o in enumerate(items):
@@ -548,6 +659,85 @@ class CrmTestStore:
         if not self.get_cliente(cliente_id):
             return None
         return list(self.cotacoes.get(cliente_id, []))
+
+    def create_cotacao(self, cliente_id, data):
+        if not self.get_cliente(cliente_id):
+            return None
+        cotacao = {
+            "id": f"cot-{uuid.uuid4().hex[:8]}",
+            "titulo": _require_text(data, "titulo", "Título"),
+            "valor": str(data.get("valor") or "").strip(),
+            "status": str(data.get("status") or "rascunho").strip(),
+            "status_label": str(data.get("status_label") or "Rascunho").strip(),
+            "data": str(data.get("data") or "").strip(),
+        }
+        self.cotacoes.setdefault(cliente_id, []).append(cotacao)
+        return cotacao
+
+    def update_cotacao(self, cotacao_id, data):
+        for cliente_id, items in self.cotacoes.items():
+            for i, cotacao in enumerate(items):
+                if cotacao["id"] != cotacao_id:
+                    continue
+                updated = dict(cotacao)
+                for key in ("titulo", "valor", "status", "status_label", "data"):
+                    if key in data:
+                        updated[key] = str(data[key] or "").strip()
+                if "titulo" in data and not updated["titulo"]:
+                    raise ValueError("Título é obrigatório")
+                items[i] = updated
+                return updated, cliente_id
+        return None, None
+
+    def delete_cotacao(self, cotacao_id):
+        for cliente_id, items in self.cotacoes.items():
+            for i, cotacao in enumerate(items):
+                if cotacao["id"] == cotacao_id:
+                    items.pop(i)
+                    return True, cliente_id
+        return False, None
+
+    def list_notas(self, cliente_id):
+        if not self.get_cliente(cliente_id):
+            return None
+        return list(self.notas.get(cliente_id, []))
+
+    def create_nota(self, cliente_id, data):
+        if not self.get_cliente(cliente_id):
+            return None
+        nota = {
+            "id": f"n-{uuid.uuid4().hex[:8]}",
+            "texto": _require_text(data, "texto", "Texto"),
+            "autor": str(data.get("autor") or "Usuário").strip(),
+            "data": _validate_iso_date(data.get("data")),
+        }
+        self.notas.setdefault(cliente_id, []).append(nota)
+        return nota
+
+    def update_nota(self, nota_id, data):
+        for cliente_id, items in self.notas.items():
+            for i, nota in enumerate(items):
+                if nota["id"] != nota_id:
+                    continue
+                updated = dict(nota)
+                for key in ("texto", "autor"):
+                    if key in data:
+                        updated[key] = str(data[key] or "").strip()
+                if "texto" in data and not updated["texto"]:
+                    raise ValueError("Texto é obrigatório")
+                if "data" in data:
+                    updated["data"] = _validate_iso_date(data["data"])
+                items[i] = updated
+                return updated, cliente_id
+        return None, None
+
+    def delete_nota(self, nota_id):
+        for cliente_id, items in self.notas.items():
+            for i, nota in enumerate(items):
+                if nota["id"] == nota_id:
+                    items.pop(i)
+                    return True, cliente_id
+        return False, None
 
     def import_contatos(self, cliente_id, contatos_data):
         if not self.get_cliente(cliente_id):

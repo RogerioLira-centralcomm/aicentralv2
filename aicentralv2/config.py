@@ -142,14 +142,14 @@ class DevelopmentConfig(Config):
 	"""Configuração de desenvolvimento"""
 	DEBUG = True
 	TESTING = False
-	USE_CSS_CDN = True
+	USE_CSS_CDN = False
 
 
 class ProductionConfig(Config):
 	"""Configuração de produção"""
 	DEBUG = False
 	TESTING = False
-	USE_CSS_CDN = True
+	USE_CSS_CDN = False
 
 
 class TestingConfig(Config):

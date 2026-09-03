@@ -498,13 +498,25 @@ class CrmV3Repository:
             return {}
         data_iso = self._iso_date(row.get("data_atividade"))
         titulo = (row.get("titulo") or "").strip() or (row.get("descricao") or "").strip()
+        # hora_atividade é opcional (coluna nova em set/2026). Retorna
+        # string vazia quando a base não tem a coluna ou o registro
+        # ficou sem hora — a UI só exibe hora quando não-vazia.
+        hora_raw = row.get("hora_atividade")
+        hora_str = ""
+        if hora_raw is not None:
+            try:
+                # `psycopg` devolve `datetime.time`; `strftime` mantém
+                # somente HH:MM (o input `type=time` do drawer é HH:MM).
+                hora_str = hora_raw.strftime("%H:%M") if hasattr(hora_raw, "strftime") else str(hora_raw)[:5]
+            except Exception:
+                hora_str = str(hora_raw)[:5]
         return {
             "id": str(row.get("id")),
             "titulo": titulo,
             "descricao": row.get("descricao") or "",
             "data": data_iso,
             "data_label": "",  # UI computa o rótulo (Hoje/Amanhã/etc.)
-            "hora": "",  # tabela é DATE; hora não é persistida
+            "hora": hora_str,
             "prioridade": "Média",  # tabela não persiste prioridade
             "status": row.get("status") or "pendente",
             "tipo": row.get("tipo") or "atividade",
@@ -548,6 +560,9 @@ class CrmV3Repository:
                 contato_id = int(contato_raw)
             except (TypeError, ValueError):
                 contato_id = None
+        # Hora é opcional. Aceita "HH:MM" ou "HH:MM:SS". Vazio → None.
+        hora_raw = (data.get("hora") or "").strip()
+        hora_val = hora_raw or None
         row = _db().criar_atividade_cliente(
             cliente_id=cliente_id,
             executivo_id=self._current_executivo_id(),
@@ -557,6 +572,7 @@ class CrmV3Repository:
             tipo=tipo,
             titulo=titulo or None,
             data_prazo=self._validate_iso_date(data.get("data_prazo"), "data_prazo"),
+            hora_atividade=hora_val,
         )
         if not row:
             return None
@@ -588,6 +604,11 @@ class CrmV3Repository:
             payload["status"] = status
         if "contato_id" in data:
             payload["contato_id"] = data.get("contato_id")
+        if "hora" in data:
+            # Vazio → None (limpa a hora). Backend só persiste se a coluna
+            # hora_atividade existir; caso contrário ignora silenciosamente.
+            hora_raw = (data.get("hora") or "").strip()
+            payload["hora_atividade"] = hora_raw or None
         if not payload:
             return None, None
         try:

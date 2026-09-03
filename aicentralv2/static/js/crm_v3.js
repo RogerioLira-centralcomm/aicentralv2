@@ -1307,8 +1307,17 @@
         if (!form) return;
         var titulo = $('#crm-v3-composer-titulo');
         var dataInput = $('#crm-v3-composer-data');
-        var horaInput = $('#crm-v3-composer-hora');
+        // Hora foi removida do composer em set/2026 — só faz sentido no
+        // drawer de edição. Ver `_drawer_atividade.html`.
         var tipoBtn = $('#crm-v3-composer-tipo');
+
+        // Data padrão = hoje, mínimo = hoje. Impede escolher datas
+        // passadas para atividades novas (que são sempre "a fazer").
+        var hojeISO = new Date().toISOString().slice(0, 10);
+        if (dataInput) {
+            dataInput.min = hojeISO;
+            if (!dataInput.value) dataInput.value = hojeISO;
+        }
 
         // Ciclo de tipos de atividade
         var tipos = [
@@ -1348,10 +1357,8 @@
                 titulo: tituloVal,
                 descricao: '',
                 tipo: tipoBtn.getAttribute('data-tipo') || 'atividade',
-                prioridade: 'Média',
                 data: dataInput.value || hoje,
                 data_label: dataInput.value && dataInput.value !== hoje ? 'Agendada' : 'Hoje',
-                hora: horaInput.value || '',
                 responsavel: responsavelIniciais,
                 responsavel_nome: responsavelNome || undefined,
                 status: 'pendente'

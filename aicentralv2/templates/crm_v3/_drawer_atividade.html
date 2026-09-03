@@ -112,7 +112,7 @@
         <span class="cx-drawer-section-title">Quando</span>
         <span class="cx-drawer-section-hint">Data, prazo e status atual</span>
       </header>
-      <div class="cx-drawer-grid">
+      <div class="cx-drawer-grid cx-drawer-grid-3">
         <div class="cx-drawer-field">
           <label for="cx-ativ-data">Data <span class="cx-required">*</span></label>
           <div class="cx-drawer-input-wrap">
@@ -121,9 +121,16 @@
           </div>
         </div>
         <div class="cx-drawer-field">
-          <label for="cx-ativ-prazo">Prazo (opcional)</label>
+          <label for="cx-ativ-hora">Hora (opcional)</label>
           <div class="cx-drawer-input-wrap">
             <i class="fa-regular fa-clock cx-drawer-input-icon" aria-hidden="true"></i>
+            <input id="cx-ativ-hora" type="time" name="hora" data-field="hora" />
+          </div>
+        </div>
+        <div class="cx-drawer-field">
+          <label for="cx-ativ-prazo">Prazo (opcional)</label>
+          <div class="cx-drawer-input-wrap">
+            <i class="fa-regular fa-hourglass-half cx-drawer-input-icon" aria-hidden="true"></i>
             <input id="cx-ativ-prazo" type="date" name="data_prazo" data-field="data_prazo" />
           </div>
         </div>

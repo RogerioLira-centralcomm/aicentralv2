@@ -5635,6 +5635,16 @@ def _atividades_tem_colunas_novas(cur):
     return _has_column(cur, "sales_atividades", "tipo")
 
 
+def _atividades_tem_hora(cur):
+    """Detecta se a base tem a coluna opcional `hora_atividade` (TIME).
+
+    Introduzida em set/2026 para o drawer de edição de atividade permitir
+    registrar um horário. Bases legadas continuam funcionando sem hora.
+    Para habilitar: `ALTER TABLE sales_atividades ADD COLUMN hora_atividade TIME;`
+    """
+    return _has_column(cur, "sales_atividades", "hora_atividade")
+
+
 def obter_atividades_cliente(cliente_id, contato_id=None):
     """Lista atividades do cliente, com contato/responsável populados.
 
@@ -5645,10 +5655,16 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
     conn = get_db()
     with conn.cursor() as cur:
         has_new = _atividades_tem_colunas_novas(cur)
+        has_hora = _atividades_tem_hora(cur)
         select_extra = (
             "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
             if has_new
             else "'atividade' AS tipo, NULL AS data_prazo, NULL AS titulo"
+        )
+        # hora_atividade é opcional (introduzida em set/2026). Bases
+        # antigas devolvem NULL — o mapper trata como string vazia.
+        select_extra += (
+            ", sa.hora_atividade" if has_hora else ", NULL AS hora_atividade"
         )
         order = (
             "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
@@ -5680,17 +5696,36 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
 
 
 def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
-                            contato_id=None, tipo="atividade", titulo=None, data_prazo=None):
+                            contato_id=None, tipo="atividade", titulo=None,
+                            data_prazo=None, hora_atividade=None):
     """INSERT em sales_atividades. Retorna dict {id}.
 
     Espelha `crm.routes.api_criar_atividade` (L1620–1638). `descricao` e
     `data_atividade` são obrigatórios pelo contrato do CRM legado; o
     caller (CrmV3Repository) valida antes.
+
+    `hora_atividade` (opcional) só é persistida se a coluna existir na
+    base — bases legadas ignoram silenciosamente.
     """
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            if _atividades_tem_colunas_novas(cur):
+            has_new = _atividades_tem_colunas_novas(cur)
+            has_hora = _atividades_tem_hora(cur)
+            if has_new and has_hora:
+                cur.execute(
+                    """
+                    INSERT INTO sales_atividades
+                        (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                         tipo, titulo, data_prazo, hora_atividade)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                     tipo or "atividade", titulo or None, data_prazo or None,
+                     hora_atividade or None),
+                )
+            elif has_new:
                 cur.execute(
                     """
                     INSERT INTO sales_atividades
@@ -5731,6 +5766,7 @@ def atualizar_atividade_cliente(atividade_id, dados):
     try:
         with conn.cursor() as cur:
             has_new = _atividades_tem_colunas_novas(cur)
+            has_hora = _atividades_tem_hora(cur)
             sets, vals = [], []
             if "descricao" in dados:
                 d = (dados.get("descricao") or "").strip()
@@ -5762,6 +5798,10 @@ def atualizar_atividade_cliente(atividade_id, dados):
                     cid = dados.get("contato_id")
                     sets.append("contato_id = %s")
                     vals.append(int(cid) if cid else None)
+            # Coluna opcional: só aplica se a base tiver `hora_atividade`.
+            if has_hora and "hora_atividade" in dados:
+                sets.append("hora_atividade = %s")
+                vals.append(dados.get("hora_atividade") or None)
             if not sets:
                 return None
             sets.append("updated_at = NOW()")
@@ -5824,10 +5864,14 @@ def obter_atividade_cliente_por_id(atividade_id):
     conn = get_db()
     with conn.cursor() as cur:
         has_new = _atividades_tem_colunas_novas(cur)
+        has_hora = _atividades_tem_hora(cur)
         select_extra = (
             "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
             if has_new
             else "'atividade' AS tipo, NULL AS data_prazo, NULL AS titulo"
+        )
+        select_extra += (
+            ", sa.hora_atividade" if has_hora else ", NULL AS hora_atividade"
         )
         cur.execute(
             f"""

@@ -375,6 +375,9 @@
         if (payload.contato_id === '' || payload.contato_id == null) payload.contato_id = null;
         // Prazo vazio significa "sem prazo" — mande null para o server.
         if (!payload.data_prazo) payload.data_prazo = null;
+        // Hora vazia significa "sem hora" — mande null. Só é persistido
+        // no banco se a base tiver a coluna `hora_atividade` (opcional).
+        if (!payload.hora) payload.hora = null;
 
         var isEdit = !!(atividade && atividade.id);
         var req = isEdit

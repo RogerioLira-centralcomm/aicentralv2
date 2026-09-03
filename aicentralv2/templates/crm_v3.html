@@ -215,8 +215,11 @@
                     <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
                   </button>
                   <input type="text" class="crm-v3-ativ-composer-input" id="crm-v3-composer-titulo" placeholder="Adicionar atividade rápida... (Enter salva, Shift+Enter descrição)" aria-label="Título da atividade" />
+                  {# Data: default hoje, mínimo hoje. Hora ficou apenas no
+                     drawer de edição — no composer rápido não faz sentido
+                     pedir horário para uma atividade que pode nem ter um.
+                  #}
                   <input type="date" class="crm-v3-ativ-composer-date" id="crm-v3-composer-data" aria-label="Data" />
-                  <input type="time" class="crm-v3-ativ-composer-time" id="crm-v3-composer-hora" aria-label="Hora" />
                   <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-composer-submit" aria-label="Adicionar atividade">
                     <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                   </button>

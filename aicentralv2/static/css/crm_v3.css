@@ -2627,6 +2627,49 @@ html:has(.crm-v3-page) body {
     line-height: var(--crm-line-tight);
 }
 
+/* Bloco de observações comerciais — parágrafo abaixo do grid. */
+.crm-v3-info-obs {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--crm-border, rgba(0, 0, 0, 0.08));
+}
+.crm-v3-info-obs .crm-v3-info-label {
+    display: block;
+    margin-bottom: 4px;
+}
+.crm-v3-info-obs-text {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text);
+    line-height: 1.45;
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+/* Notas (append-only) — cartão simples e legível. */
+.crm-v3-nota-item {
+    padding: 10px 12px;
+    border: 1px solid var(--crm-border, rgba(0, 0, 0, 0.08));
+    border-radius: 8px;
+    background: var(--crm-surface, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.crm-v3-nota-item + .crm-v3-nota-item {
+    margin-top: 8px;
+}
+.crm-v3-nota-texto {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    margin: 0;
+}
+.crm-v3-nota-meta {
+    font-size: var(--crm-font-xs);
+    color: var(--crm-text-subtle);
+}
+
 .crm-v3-text-danger {
     color: var(--crm-danger);
 }

@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=39">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=40">
 {% endblock %}
 
 {% block content %}
@@ -297,10 +297,25 @@
               <div class="crm-v3-info-row"><span class="crm-v3-info-label">Perfil</span><span class="crm-v3-info-value" id="crm-v3-info-categoria">—</span></div>
               <div class="crm-v3-info-row"><span class="crm-v3-info-label">Classificação</span><span class="crm-v3-info-value" id="crm-v3-info-classificacao">—</span></div>
               <div class="crm-v3-info-row"><span class="crm-v3-info-label">Tipo de cliente</span><span class="crm-v3-info-value" id="crm-v3-info-tipo">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Prioridade</span><span class="crm-v3-info-value" id="crm-v3-info-prioridade">—</span></div>
               <div class="crm-v3-info-row"><span class="crm-v3-info-label">CNPJ</span><span class="crm-v3-info-value" id="crm-v3-info-cnpj">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Fonte</span><span class="crm-v3-info-value" id="crm-v3-info-fonte">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Cidade / UF</span><span class="crm-v3-info-value" id="crm-v3-info-cidade">—</span></div>
               <div class="crm-v3-info-row"><span class="crm-v3-info-label">Criado em</span><span class="crm-v3-info-value" id="crm-v3-info-criado">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Atualizado em</span><span class="crm-v3-info-value" id="crm-v3-info-atualizado">—</span></div>
+            </div>
+          </div>
+
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Perfil comercial</div>
+            <div class="crm-v3-info-grid">
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">BV</span><span class="crm-v3-info-value" id="crm-v3-info-bv">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Margem CC</span><span class="crm-v3-info-value" id="crm-v3-info-margem">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Opera mídia</span><span class="crm-v3-info-value" id="crm-v3-info-opera">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Demanda dados</span><span class="crm-v3-info-value" id="crm-v3-info-demanda-dados">—</span></div>
+              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Programática/Canais</span><span class="crm-v3-info-value" id="crm-v3-info-demanda-prog">—</span></div>
+            </div>
+            <div class="crm-v3-info-obs" id="crm-v3-info-obs-wrap" hidden>
+              <div class="crm-v3-info-label">Observações comerciais</div>
+              <p class="crm-v3-info-obs-text" id="crm-v3-info-obs">—</p>
             </div>
           </div>
 
@@ -341,14 +356,6 @@
                 <div class="crm-v3-responsavel-name" id="crm-v3-responsavel-nome">—</div>
                 <div class="crm-v3-responsavel-email" id="crm-v3-responsavel-email">—</div>
               </div>
-            </div>
-          </div>
-
-          <div class="crm-v3-sidebar-section">
-            <div class="crm-v3-info-grid">
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Origem</span><span class="crm-v3-info-value">CRM</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Segmento</span><span class="crm-v3-info-value" id="crm-v3-info-segmento">—</span></div>
-              <div class="crm-v3-info-row"><span class="crm-v3-info-label">Cidade</span><span class="crm-v3-info-value" id="crm-v3-info-cidade">—</span></div>
             </div>
           </div>
 
@@ -404,7 +411,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=13"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

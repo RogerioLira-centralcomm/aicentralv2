@@ -1409,10 +1409,17 @@ def obter_contatos_ativos_por_cliente(id_cliente):
 # ==================== CLIENTES - CRUD ====================
 
 def obter_cliente_por_id(id_cliente):
-    """Retorna um cliente específico com informações do plano e agência"""
+    """Retorna um cliente específico com informações do plano e agência.
+
+    Também inclui a nota-livre do executivo (`nota_executivo_vendas`) e o
+    email do executivo responsável, quando as colunas existirem — o SELECT
+    é auto-degradável para bases sem essas colunas.
+    """
     conn = get_db()
     with conn.cursor() as cursor:
-        cursor.execute('''
+        tem_nota_executivo = _has_column(cursor, 'tbl_cliente', 'nota_executivo_vendas')
+        col_nota = "c.nota_executivo_vendas" if tem_nota_executivo else "NULL::text AS nota_executivo_vendas"
+        cursor.execute(f'''
             SELECT 
                 c.id_cliente,
                 c.razao_social,
@@ -1446,14 +1453,20 @@ def obter_cliente_por_id(id_cliente):
                 c.pk_id_aux_estado as estado,
                 ag.display as agencia_display,
                 ag.key as agencia_key,
+                ag_cli.nome_fantasia AS agencia_nome,
+                ag_cli.razao_social  AS agencia_razao,
                 tc.display as tipo_cliente_display,
                 est.descricao as estado_nome,
-                vend.nome_completo as executivo_nome
+                est.sigla   as estado_sigla,
+                vend.nome_completo as executivo_nome,
+                vend.email as executivo_email,
+                {col_nota}
             FROM tbl_cliente c
             LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
             LEFT JOIN tbl_estado est ON c.pk_id_aux_estado = est.id_estado
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+            LEFT JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = c.pk_id_tbl_agencia
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
         row = cursor.fetchone()

@@ -89,15 +89,26 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         classificacao = "Prospecção"
 
     nome = row.get("nome_fantasia") or row.get("razao_social") or ""
+    # UF de exibição: prefere a sigla oficial do JOIN (tbl_estado.sigla);
+    # se ausente, tenta interpretar o campo bruto (`estado`) apenas quando
+    # for uma string curta tipo "MG"/"SP".
+    sigla_estado = (row.get("estado_sigla") or "").strip().upper()
+    if not sigla_estado:
+        raw_estado = row.get("estado")
+        if isinstance(raw_estado, str) and len(raw_estado.strip()) <= 3:
+            sigla_estado = raw_estado.strip().upper()
     endereco = {
         "cep": row.get("cep") or "",
-        "uf": (row.get("estado") or "").strip().upper() if isinstance(row.get("estado"), str) else "",
+        "uf": sigla_estado,
         "cidade": row.get("cidade") or "",
         "bairro": row.get("bairro") or "",
         "logradouro": row.get("logradouro") or "",
         "numero": row.get("numero") or "",
         "complemento": row.get("complemento") or "",
     }
+
+    def _fmt_iso(dt):
+        return dt.isoformat() if hasattr(dt, "isoformat") else (dt or None)
 
     return {
         "id": str(row.get("id_cliente")),
@@ -118,6 +129,7 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "id_tipo_cliente": row.get("id_tipo_cliente"),
         "cidade": row.get("cidade") or "",
         "uf": endereco["uf"],
+        "estado_nome": row.get("estado_nome") or "",
         "endereco": endereco,
         "bv_percentual": float(row.get("percentual") or 0),
         "margem_cc": float(row.get("margem_cc") or 0),
@@ -125,13 +137,23 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "demanda_dados": bool(row.get("demanda_dados")),
         "demanda_programatica_canais": bool(row.get("demanda_programatica_canais")),
         "observacoes_comerciais_adicionais": row.get("observacoes_comerciais_adicionais") or "",
+        # Nota livre do executivo (tbl_cliente.nota_executivo_vendas) — pode
+        # ser NULL em bases sem a coluna (SELECT já degrada para NULL).
+        "nota_executivo": row.get("nota_executivo_vendas") or "",
         "responsavel": row.get("executivo_nome") or "",
+        "responsavel_email": row.get("executivo_email") or "",
         # ID do executivo (vendas_central_comm) — usado por filtros
         # opcionais no frontend (data-executivo-id no <option>).
         "executivo_id": str(row.get("vendas_central_comm")) if row.get("vendas_central_comm") else "",
-        "data_cadastro": (row.get("data_cadastro").isoformat() if row.get("data_cadastro") else None),
+        "data_cadastro": _fmt_iso(row.get("data_cadastro")),
+        "data_modificacao": _fmt_iso(row.get("data_modificacao")),
         "status": row.get("status") if row.get("status") is not None else True,
         "agencia_id": str(row.get("pk_id_tbl_agencia")) if row.get("pk_id_tbl_agencia") else "",
+        # Nome da agência quando esta ficha é de cliente-final vinculado a
+        # uma agência (usado na sidebar Info do CRM v3).
+        "agencia_nome": (
+            row.get("agencia_nome") or row.get("agencia_razao") or ""
+        ) if row.get("pk_id_tbl_agencia") and not is_agencia else "",
         "agencias_vinculadas": [
             {"agencia_id": str(v["id_cliente"]), "is_principal": bool(v.get("is_principal"))}
             for v in (row.get("agencias_vinculadas") or [])

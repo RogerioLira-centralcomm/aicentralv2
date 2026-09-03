@@ -584,36 +584,60 @@
             metaPri.className = 'badge badge-sm ' + (cliente.prioridade === 'Alta' ? 'badge-error' : cliente.prioridade === 'Média' ? 'badge-warning' : 'badge-ghost');
         }
 
-        var infoCategoria = $('#crm-v3-info-categoria');
-        var infoClassificacao = $('#crm-v3-info-classificacao');
-        var infoTipo = $('#crm-v3-info-tipo');
-        var infoPrioridade = $('#crm-v3-info-prioridade');
-        var infoCnpj = $('#crm-v3-info-cnpj');
-        var infoFonte = $('#crm-v3-info-fonte');
-        var infoCriado = $('#crm-v3-info-criado');
-        var infoSegmento = $('#crm-v3-info-segmento');
-        var infoCidade = $('#crm-v3-info-cidade');
-        if (infoCategoria) infoCategoria.textContent = cliente.tipo_label || '—';
-        if (infoClassificacao) infoClassificacao.textContent = cliente.classificacao_cliente || cliente.classificacao || '—';
-        if (infoTipo) infoTipo.textContent = cliente.tipo || cliente.categoria || '—';
-        if (infoCnpj) infoCnpj.textContent = cliente.cnpj || '—';
-        if (infoFonte) infoFonte.textContent = cliente.fonte || '—';
-        if (infoCriado) infoCriado.textContent = dataParaExibicao(cliente.data_cadastro) || '—';
-        if (infoSegmento) infoSegmento.textContent = cliente.segmento || '—';
-        if (infoCidade) infoCidade.textContent = [cliente.cidade, cliente.uf].filter(Boolean).join(', ') || '—';
-        if (infoPrioridade) {
-            infoPrioridade.textContent = cliente.prioridade || '—';
-            infoPrioridade.classList.toggle('text-error', cliente.prioridade === 'Alta');
-        }
+        // Aba Info — todos os valores vêm do backend (`_map_cliente` do
+        // repositório real popula esses campos a partir de tbl_cliente +
+        // JOINs de tipo/estado/executivo/agência).
+        var setText = function (sel, val) {
+            var el = $(sel);
+            if (el) el.textContent = (val == null || val === '') ? '—' : val;
+        };
+        setText('#crm-v3-info-categoria', cliente.tipo_label);
+        setText('#crm-v3-info-classificacao', cliente.classificacao_cliente || cliente.classificacao);
+        setText('#crm-v3-info-tipo', cliente.tipo || cliente.categoria);
+        setText('#crm-v3-info-cnpj', cliente.cnpj);
+        setText('#crm-v3-info-criado', dataParaExibicao(cliente.data_cadastro));
+        setText('#crm-v3-info-atualizado', dataParaExibicao(cliente.data_modificacao));
+        setText('#crm-v3-info-cidade', [cliente.cidade, cliente.uf].filter(Boolean).join(', '));
+
+        // Perfil comercial — números e booleanos reais.
+        var fmtPct = function (v) {
+            var n = parseFloat(v);
+            if (!isFinite(n) || n === 0) return '—';
+            return n.toFixed(2).replace('.', ',') + '%';
+        };
+        var yesno = function (v) { return v ? 'Sim' : 'Não'; };
+        setText('#crm-v3-info-bv', fmtPct(cliente.bv_percentual));
+        setText('#crm-v3-info-margem', fmtPct(cliente.margem_cc));
+        setText('#crm-v3-info-opera', yesno(cliente.opera_midia));
+        setText('#crm-v3-info-demanda-dados', yesno(cliente.demanda_dados));
+        setText('#crm-v3-info-demanda-prog', yesno(cliente.demanda_programatica_canais));
+
+        var obsWrap = $('#crm-v3-info-obs-wrap');
+        var obsText = $('#crm-v3-info-obs');
+        var obs = (cliente.observacoes_comerciais_adicionais || '').trim();
+        if (obsWrap) obsWrap.hidden = !obs;
+        if (obsText) obsText.textContent = obs || '—';
+
         var responsavelNome = $('#crm-v3-responsavel-nome');
         var responsavelAvatar = $('#crm-v3-responsavel-avatar');
         var responsavelEmail = $('#crm-v3-responsavel-email');
         if (responsavelNome) responsavelNome.textContent = cliente.responsavel || '—';
         if (responsavelAvatar) responsavelAvatar.textContent = avatarIniciais(cliente.responsavel);
         if (responsavelEmail) {
-            responsavelEmail.textContent = cliente.responsavel
-                ? cliente.responsavel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '.') + '@centralcomm.media'
-                : '—';
+            // Prefere email real (tbl_contato_cliente.email do executivo).
+            // Fallback: derivar de "nome.sobrenome@centralcomm.media" — só se
+            // o email real não estiver disponível na base.
+            var emailReal = (cliente.responsavel_email || '').trim();
+            if (emailReal) {
+                responsavelEmail.textContent = emailReal;
+            } else if (cliente.responsavel) {
+                responsavelEmail.textContent = cliente.responsavel
+                    .toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '.') + '@centralcomm.media';
+            } else {
+                responsavelEmail.textContent = '—';
+            }
         }
         updateFollowButton(cliente);
 
@@ -1452,6 +1476,10 @@
     }
 
     function renderNotas() {
+        // Histórico do cliente é APPEND-ONLY (paridade com /crm/api/cliente/
+        // <id>/historico). Só listamos + permitimos criar novas notas; não
+        // há edição/exclusão porque a base `sales_historico_cliente` não
+        // suporta esses verbos no CRM legado.
         var container = $('#crm-v3-notas-list');
         if (!container) return;
         updateTabCounts();
@@ -1460,27 +1488,16 @@
             return;
         }
         container.innerHTML = state.notas.map(function (nota) {
-            return '<article class="rounded-lg border border-base-200 p-2" data-nota-id="' + escapeHtml(nota.id) + '">' +
-                '<p class="text-sm whitespace-pre-wrap">' + escapeHtml(nota.texto) + '</p>' +
-                '<div class="flex justify-between items-center mt-1"><span class="text-xs text-base-content/50">' +
-                escapeHtml(dataParaExibicao(nota.data) || 'Agora') + '</span>' +
-                '<span><button type="button" class="btn btn-ghost btn-xs crm-v3-nota-edit" aria-label="Editar nota"><i class="fa-solid fa-pen"></i></button>' +
-                '<button type="button" class="btn btn-ghost btn-xs text-error crm-v3-nota-delete" aria-label="Excluir nota"><i class="fa-solid fa-trash"></i></button></span></div></article>';
+            var autor = (nota.autor || '').trim();
+            var dataStr = dataParaExibicao(nota.data) || '';
+            var meta = [autor, dataStr].filter(Boolean).join(' · ');
+            return (
+                '<article class="crm-v3-nota-item" data-nota-id="' + escapeHtml(nota.id) + '">' +
+                '<p class="crm-v3-nota-texto">' + escapeHtml(nota.texto) + '</p>' +
+                (meta ? '<div class="crm-v3-nota-meta">' + escapeHtml(meta) + '</div>' : '') +
+                '</article>'
+            );
         }).join('');
-        $$('.crm-v3-nota-edit', container).forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
-                openNotaModal(state.notas.find(function (n) { return n.id === id; }));
-            });
-        });
-        $$('.crm-v3-nota-delete', container).forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = btn.closest('[data-nota-id]').getAttribute('data-nota-id');
-                api('/notas/' + encodeURIComponent(id), { method: 'DELETE' })
-                    .then(function () { showToast('Nota excluída'); return loadNotas(state.clienteId); })
-                    .catch(function (err) { showToast(err.message, true); });
-            });
-        });
     }
 
     function selectContato(id) {
@@ -1559,6 +1576,23 @@
         renderObjetivos();
         renderCotacoes();
         renderNotas();
+        // Detalhe completo do cliente (endereço, nota-executivo, agência
+        // pai, BV/margem, estado) — o `list_clientes` do repositório
+        // Postgres não carrega esses campos por performance, então
+        // buscamos o cliente selecionado individualmente para popular a
+        // aba "Info" da sidebar sem regressar em latência.
+        api('/clientes/' + encodeURIComponent(clienteId)).then(function (data) {
+            if (state.clienteId !== clienteId) return; // trocou enquanto carregava
+            if (data && data.cliente) {
+                // Merge: preserva campos do listing (métricas agregadas) e
+                // sobrescreve com os campos ricos do detalhe.
+                state.cliente = Object.assign({}, state.cliente || {}, data.cliente);
+                // Atualiza também na lista para próximos re-renders.
+                var idx = state.clientes.findIndex(function (c) { return c.id === clienteId; });
+                if (idx !== -1) state.clientes[idx] = state.cliente;
+                updateDetailPanel(state.cliente);
+            }
+        }).catch(function () { /* já temos um cliente base do listing */ });
         loadContatos(clienteId);
         loadAtividades(clienteId);
         loadObjetivos(clienteId);

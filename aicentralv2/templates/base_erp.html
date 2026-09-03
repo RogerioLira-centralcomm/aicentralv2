@@ -51,19 +51,29 @@
         }
         .erp-sidebar {
             position: fixed;
-            inset: 0 auto 0 0;
+            inset: calc(var(--erp-topbar-h) + 0.5rem) 0.75rem auto;
             z-index: 40;
-            width: var(--erp-sidebar-w);
+            width: auto;
+            max-height: calc(100vh - var(--erp-topbar-h) - 1.5rem);
             background: #0f2f31;
             color: #e5f0ef;
             border-right: 1px solid rgba(255, 255, 255, 0.08);
-            transform: translateX(-100%);
-            transition: transform 180ms ease;
+            border-radius: 1rem;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-0.5rem);
+            transition: transform 180ms ease, opacity 180ms ease;
         }
-        .erp-sidebar.is-open { transform: translateX(0); }
+        .erp-sidebar.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
         .erp-sidebar-inner {
             display: flex;
-            min-height: 100%;
+            max-height: calc(100vh - var(--erp-topbar-h) - 1.5rem);
+            min-height: 0;
             flex-direction: column;
         }
         .erp-brand {
@@ -404,7 +414,9 @@
             {'label': 'Métricas Plataforma', 'endpoint': 'admin_metrics_dashboard', 'url': url_for('admin_metrics_dashboard'), 'icon': 'fa-gauge-high'},
             {'label': 'Nova Audiência', 'endpoint': 'up_audiencia', 'url': url_for('up_audiencia'), 'icon': 'fa-upload'},
             {'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
-            {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'}
+            {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
+            {'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
+            {'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true}
         ]}
     ] %}
 
@@ -421,7 +433,7 @@
                 {% for group in erp_nav %}
                     <div class="erp-nav-section">{{ group['section'] }}</div>
                     {% for item in group['items'] %}
-                        {% if not item.get('central_only', false) or is_centralcomm_user %}
+                        {% if (not item.get('central_only', false) or is_centralcomm_user) and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin']) %}
                             {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
                             <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
                                 <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
@@ -490,7 +502,7 @@
                             </button>
                             <div class="erp-nav-menu" role="menu">
                                 {% for item in group['items'] %}
-                                    {% if not item.get('central_only', false) or is_centralcomm_user %}
+                                    {% if (not item.get('central_only', false) or is_centralcomm_user) and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin']) %}
                                         {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
                                         <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
                                             <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>

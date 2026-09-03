@@ -556,6 +556,10 @@
                             <li><a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">Audiências</a></li>
                             <li><a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">Categorias</a></li>
                             <li><a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">Subcategorias</a></li>
+                            {% if session.get('user_type') in ['admin', 'superadmin'] %}
+                            <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
+                            <li><a href="{{ url_for('design_system_enterprise') }}" class="{% if request.endpoint == 'design_system_enterprise' %}active{% endif %}">Design System Enterprise</a></li>
+                            {% endif %}
                         </ul>
                     </div>
 
@@ -847,6 +851,14 @@
                                             Subcategorias
                                         </a>
                                     </li>
+                                    {% if session.get('user_type') in ['admin', 'superadmin'] %}
+                                    <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">Design</span></li>
+                                    <li>
+                                        <a href="{{ url_for('design_system_enterprise') }}" class="{% if request.endpoint == 'design_system_enterprise' %}active{% endif %}">
+                                            Design System Enterprise
+                                        </a>
+                                    </li>
+                                    {% endif %}
                                 </ul>
                             </details>
                         </li>

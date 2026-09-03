@@ -998,6 +998,12 @@ def init_routes(app):
         """Página do Design System"""
         return render_template('design_system.html')
 
+    @app.route('/design-system-enterprise')
+    @login_required
+    def design_system_enterprise():
+        """Página de aprovação do Design System Enterprise"""
+        return render_template('design_system_enterprise.html')
+
     # ==================== ARQUIVOS ESTÁTICOS ====================
     @app.after_request
     def add_header(response):

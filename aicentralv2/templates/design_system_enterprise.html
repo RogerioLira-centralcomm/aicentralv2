@@ -1,0 +1,277 @@
+{% extends "base_erp.html" %}
+
+{% block title %}Design System Enterprise - CentralX{% endblock %}
+{% block page_label %}Design System{% endblock %}
+{% block page_subtitle %}Aprovação visual enterprise{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="cx-page">
+  <div class="cx-container">
+    <header class="cx-header">
+      <div>
+        <div class="cx-eyebrow">CentralX Enterprise</div>
+        <h1 class="cx-title">Design System Vanilla</h1>
+        <p class="cx-subtitle">
+          Página de aprovação do padrão visual do ERP. Estes componentes usam classes próprias
+          com prefixo <strong>cx-</strong>, sem depender de classes DaisyUI nos exemplos.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="cx-btn cx-btn-secondary" data-open-modal="cx-modal-confirm">Ver modal simples</button>
+        <button type="button" class="cx-btn cx-btn-primary" data-open-modal="cx-modal-complex">Ver modal complexo</button>
+      </div>
+    </header>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Paleta E Contraste</h2>
+          <p class="cx-section-description">Cores com função clara: marca, neutros, sucesso, atenção, erro e informação.</p>
+        </div>
+        <span class="cx-badge cx-badge-success">AA-first</span>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-4">
+          <div class="cx-card"><span class="cx-badge">Marca</span><div class="cx-kpi-value" style="color:var(--cx-brand)">#1E4D4F</div><p class="cx-kpi-meta">Ação principal, navegação ativa e série principal.</p></div>
+          <div class="cx-card"><span class="cx-badge cx-badge-muted">Neutro</span><div class="cx-kpi-value" style="color:var(--cx-text-muted)">#64748B</div><p class="cx-kpi-meta">Comparação, texto auxiliar e dados secundários.</p></div>
+          <div class="cx-card"><span class="cx-badge cx-badge-warning">Atenção</span><div class="cx-kpi-value" style="color:var(--cx-warning)">#B45309</div><p class="cx-kpi-meta">Pendências, rascunhos e ações aguardando decisão.</p></div>
+          <div class="cx-card"><span class="cx-badge cx-badge-danger">Crítico</span><div class="cx-kpi-value" style="color:var(--cx-danger)">#B91C1C</div><p class="cx-kpi-meta">Erro, atraso real e risco operacional.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Tipografia E Métricas</h2>
+          <p class="cx-section-description">Escala compacta para ERP, sem textos abaixo de 12px.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-4">
+          <div class="cx-kpi"><div class="cx-kpi-label">Receita 2026</div><div class="cx-kpi-value">R$ 3,8M</div><div class="cx-kpi-meta">+12% vs. período anterior</div></div>
+          <div class="cx-kpi"><div class="cx-kpi-label">PIs ativos</div><div class="cx-kpi-value">119</div><div class="cx-kpi-meta">18 em faturamento</div></div>
+          <div class="cx-kpi"><div class="cx-kpi-label">Cotações</div><div class="cx-kpi-value">67</div><div class="cx-kpi-meta">10 aprovadas</div></div>
+          <div class="cx-kpi"><div class="cx-kpi-label">Pendências</div><div class="cx-kpi-value" style="color:var(--cx-warning)">6</div><div class="cx-kpi-meta">Exigem acompanhamento</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Navbar Horizontal ERP</h2>
+          <p class="cx-section-description">Modelo para desktop/tablet/mobile com módulos de negócio e busca rápida.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-enterprise-nav-demo" aria-label="Exemplo de navbar">
+          <a href="#" class="is-active">Início</a>
+          <button type="button">Comercial</button>
+          <button type="button">Operação</button>
+          <button type="button">Financeiro</button>
+          <button type="button">Cadu</button>
+          <button type="button">Parâmetros</button>
+          <div style="margin-left:auto; min-width:14rem">
+            <input class="cx-input" type="search" placeholder="Buscar PI">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Botões E Ações</h2>
+          <p class="cx-section-description">Estados principais, secundários, perigo, loading e desabilitado.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="flex flex-wrap gap-2">
+          <button class="cx-btn cx-btn-primary" type="button"><i class="fa-solid fa-plus"></i>Novo registro</button>
+          <button class="cx-btn cx-btn-secondary" type="button">Salvar rascunho</button>
+          <button class="cx-btn cx-btn-outline" type="button">Exportar</button>
+          <button class="cx-btn cx-btn-ghost" type="button">Cancelar</button>
+          <button class="cx-btn cx-btn-danger" type="button">Excluir</button>
+          <button class="cx-btn cx-btn-primary" type="button" disabled><i class="fa-solid fa-spinner fa-spin"></i>Processando</button>
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button">Pequeno</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Formulários</h2>
+          <p class="cx-section-description">Campos enterprise para filtros, CRUD e modais longos.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-3">
+          <label class="cx-field"><span class="cx-label">Cliente</span><input class="cx-input" type="text" value="CentralComm" placeholder="Nome do cliente"><span class="cx-help">Campo com valor preenchido.</span></label>
+          <label class="cx-field"><span class="cx-label">Status</span><select class="cx-select"><option>Ativo</option><option>Pendente</option><option>Inativo</option></select><span class="cx-help">Select nativo padronizado.</span></label>
+          <label class="cx-field"><span class="cx-label">Busca</span><input class="cx-input" type="search" placeholder="Buscar por código, nome ou email"><span class="cx-help">Usado em tabelas e nav.</span></label>
+          <label class="cx-field"><span class="cx-label">Briefing</span><textarea class="cx-textarea" placeholder="Descreva o contexto comercial"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Campo com erro</span><input class="cx-input" type="text" value="Valor inválido"><span class="cx-field-error">Informe um valor válido.</span></label>
+          <div class="cx-field">
+            <span class="cx-label">Opções</span>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" checked> Receber notificações</label>
+            <label class="flex items-center gap-2 text-sm"><input type="radio" name="ds-radio" checked> Prioridade normal</label>
+            <label class="flex items-center gap-2 text-sm"><input type="radio" name="ds-radio"> Prioridade alta</label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Tabelas Enterprise</h2>
+          <p class="cx-section-description">Densidade maior, ações claras por linha e estado vazio padronizado.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-table-wrap">
+          <div class="cx-table-toolbar">
+            <div class="flex flex-wrap gap-2">
+              <input class="cx-input" type="search" placeholder="Buscar cliente" style="width:16rem">
+              <select class="cx-select" style="width:12rem"><option>Status: todos</option><option>Ativos</option><option>Pendentes</option></select>
+            </div>
+            <button class="cx-btn cx-btn-primary" type="button">Nova categoria</button>
+          </div>
+          <table class="cx-table">
+            <thead>
+              <tr><th>Nome</th><th>Status</th><th>Uso</th><th>Responsável</th><th>Ações</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Governo</td><td><span class="cx-badge cx-badge-success">Ativo</span></td><td>42 audiências</td><td>Luisa Santana</td><td><button class="cx-btn cx-btn-sm cx-btn-secondary">Editar</button></td></tr>
+              <tr><td>Varejo</td><td><span class="cx-badge cx-badge-warning">Revisar</span></td><td>18 audiências</td><td>João Paulo</td><td><button class="cx-btn cx-btn-sm cx-btn-secondary">Editar</button></td></tr>
+              <tr><td>Educação</td><td><span class="cx-badge cx-badge-muted">Rascunho</span></td><td>0 audiências</td><td>Sem responsável</td><td><button class="cx-btn cx-btn-sm cx-btn-secondary">Editar</button></td></tr>
+            </tbody>
+          </table>
+          <div class="cx-pagination">
+            <span class="cx-help">1-3 de 3 registros</span>
+            <button class="cx-btn cx-btn-sm cx-btn-secondary" type="button">Anterior</button>
+            <button class="cx-btn cx-btn-sm cx-btn-primary" type="button">Próxima</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Badges, Mensagens E Estados</h2>
+          <p class="cx-section-description">Mensagens menores, objetivas e com cor só quando comunica estado.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-2">
+          <div class="cx-card">
+            <div class="flex flex-wrap gap-2">
+              <span class="cx-badge cx-badge-success">Aprovado</span>
+              <span class="cx-badge cx-badge-warning">Pendente</span>
+              <span class="cx-badge cx-badge-danger">Atrasado</span>
+              <span class="cx-badge cx-badge-info">Informativo</span>
+              <span class="cx-badge cx-badge-muted">Rascunho</span>
+            </div>
+          </div>
+          <div class="cx-card">
+            <div class="cx-alert cx-alert-info"><i class="fa-solid fa-circle-info"></i><span>Use mensagens curtas. Contexto detalhado fica no corpo do modal ou painel.</span></div>
+            <div class="mt-3 cx-alert cx-alert-warning"><i class="fa-solid fa-triangle-exclamation"></i><span>Há 3 itens aguardando revisão.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Painel Lateral E Tabs</h2>
+          <p class="cx-section-description">Padrão para detalhe de cliente, filtros avançados e histórico.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-sidepanel-demo">
+          <div class="p-4">
+            <div class="cx-tabs" role="tablist">
+              <button class="cx-tab cx-tab-active" type="button">Resumo</button>
+              <button class="cx-tab" type="button">Atividades</button>
+              <button class="cx-tab" type="button">Notas</button>
+            </div>
+            <div class="mt-4 cx-empty-state">
+              <div><strong>Área de trabalho</strong><br>Conteúdo principal com tabela, kanban ou formulário.</div>
+            </div>
+          </div>
+          <aside class="cx-sidepanel">
+            <div class="cx-sidepanel-header"><strong>Detalhe do registro</strong><div class="cx-help">Cliente final · Atualizado hoje</div></div>
+            <div class="cx-sidepanel-body">
+              <div class="cx-card"><div class="cx-kpi-label">Responsável</div><div class="mt-1 font-semibold">Luisa Santana</div></div>
+              <div class="cx-card"><div class="cx-kpi-label">Próxima ação</div><div class="mt-1 font-semibold">Enviar proposta revisada</div></div>
+              <div class="cx-card"><div class="cx-kpi-label">Histórico</div><div class="mt-1 cx-help">3 atividades nos últimos 7 dias.</div></div>
+            </div>
+            <div class="cx-sidepanel-footer"><button class="cx-btn cx-btn-secondary w-full" type="button">Abrir registro</button></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="cx-section">
+      <div class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Modais E Toasts</h2>
+          <p class="cx-section-description">Confirmações curtas, formulários com rodapé fixo e feedback discreto.</p>
+        </div>
+      </div>
+      <div class="cx-section-body">
+        <div class="cx-grid cx-grid-3">
+          <div class="cx-toast-demo"><i class="fa-solid fa-check-circle" style="color:var(--cx-success)"></i><span>Registro salvo com sucesso.</span></div>
+          <div class="cx-empty-state"><div><strong>Sem dados</strong><br>Nenhum item relevante para os filtros atuais.</div></div>
+          <div class="cx-card"><span class="cx-badge cx-badge-warning">Loading</span><p class="cx-kpi-meta">Use loading no botão e, em operações longas, overlay com mensagem curta.</p></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog class="cx-modal" id="cx-modal-confirm">
+  <div class="cx-modal-header"><strong>Confirmar ação</strong><button class="cx-btn cx-btn-sm cx-btn-ghost" data-close-modal type="button">Fechar</button></div>
+  <div class="cx-modal-body"><p>Mensagem curta e direta. Use no máximo duas linhas para confirmação simples.</p></div>
+  <div class="cx-modal-footer"><button class="cx-btn cx-btn-secondary" data-close-modal type="button">Cancelar</button><button class="cx-btn cx-btn-danger" data-close-modal type="button">Confirmar</button></div>
+</dialog>
+
+<dialog class="cx-modal" id="cx-modal-complex">
+  <div class="cx-modal-header"><div><strong>Novo registro complexo</strong><div class="cx-help">Exemplo com tabs, formulário e rodapé fixo.</div></div><button class="cx-btn cx-btn-sm cx-btn-ghost" data-close-modal type="button">Fechar</button></div>
+  <div class="cx-modal-body">
+    <div class="cx-tabs"><button class="cx-tab cx-tab-active" type="button">Dados</button><button class="cx-tab" type="button">Contatos</button><button class="cx-tab" type="button">Auditoria</button></div>
+    <div class="cx-grid cx-grid-2">
+      <label class="cx-field"><span class="cx-label">Nome</span><input class="cx-input" type="text" placeholder="Nome fantasia"></label>
+      <label class="cx-field"><span class="cx-label">Responsável</span><select class="cx-select"><option>Luisa Santana</option><option>João Paulo</option></select></label>
+      <label class="cx-field"><span class="cx-label">Descrição</span><textarea class="cx-textarea" placeholder="Contexto interno"></textarea></label>
+      <div class="cx-card"><span class="cx-badge cx-badge-info">Ajuda</span><p class="cx-kpi-meta">Mensagens de modal devem ser menores e mais objetivas.</p></div>
+    </div>
+  </div>
+  <div class="cx-modal-footer"><button class="cx-btn cx-btn-secondary" data-close-modal type="button">Cancelar</button><button class="cx-btn cx-btn-primary" data-close-modal type="button">Salvar</button></div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('click', function (event) {
+  const openButton = event.target.closest('[data-open-modal]');
+  if (openButton) {
+    const modal = document.getElementById(openButton.dataset.openModal);
+    if (modal && typeof modal.showModal === 'function') modal.showModal();
+  }
+
+  if (event.target.closest('[data-close-modal]')) {
+    const modal = event.target.closest('dialog');
+    if (modal) modal.close();
+  }
+});
+</script>
+{% endblock %}

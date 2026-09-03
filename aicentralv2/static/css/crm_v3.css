@@ -3863,6 +3863,109 @@ button:hover > .crm-v3-menu-hint {
     resize: vertical;
 }
 
+/* ============================================================
+   Chip do cliente-alvo no modal "Importar contatos" (set/2026)
+   Deixa explícito PARA QUAL cliente os contatos serão gravados.
+   ============================================================ */
+
+.crm-v3-import-target {
+    margin-bottom: 12px;
+}
+
+.crm-v3-import-target-ok {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--crm-border-light, #e5e7eb);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(79, 70, 229, 0.02));
+    border-radius: 10px;
+}
+
+.crm-v3-import-target-avatar {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--crm-primary, #4f46e5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.crm-v3-import-target-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+    display: block;
+}
+.crm-v3-import-target-avatar img[hidden] {
+    display: none !important;
+}
+.crm-v3-import-target-initials {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+
+.crm-v3-import-target-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+.crm-v3-import-target-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--crm-text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.crm-v3-import-target-nome {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--crm-text, #111827);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crm-v3-import-target-meta {
+    font-size: 12px;
+    color: var(--crm-text-muted, #6b7280);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Estado de erro: sem cliente selecionado. Vermelho suave, sem
+   parecer catastrófico — é só uma orientação. */
+.crm-v3-import-target-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    background: rgba(254, 226, 226, 0.4);
+    color: #991b1b;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.crm-v3-import-target-empty i {
+    font-size: 16px;
+    margin-top: 2px;
+    color: #dc2626;
+}
+.crm-v3-import-target-empty strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
 .crm-v3-btn-loading[hidden] {
     display: none !important;
 }

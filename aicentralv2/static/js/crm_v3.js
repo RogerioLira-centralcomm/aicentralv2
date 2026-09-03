@@ -2565,10 +2565,89 @@
     }
 
     function openImportModal() {
+        // Guard-rail: sem cliente selecionado, o modal abre em modo
+        // "vazio" (alerta vermelho + botão Processar desabilitado)
+        // em vez de crashar no submit. Antes o usuário só descobria
+        // que faltava selecionar cliente após colar 100 linhas.
+        var cliente = state.clienteId
+            ? state.clientes.find(function (c) { return c.id === state.clienteId; })
+            : null;
+
+        renderImportTarget(cliente);
+
         state.importRows = [];
-        $('#crm-v3-import-texto').value = '';
+        var texto = $('#crm-v3-import-texto');
+        if (texto) texto.value = '';
         setImportStep(1);
         openModal('crm-v3-modal-import');
+    }
+
+    /**
+     * Mostra o "chip" do cliente-alvo no topo do modal Importar contatos.
+     *
+     * Reaproveita o mesmo raciocínio do avatar principal (Clearbit logo
+     * do domínio → fallback iniciais). Se o cliente for null, mostra
+     * o estado de erro e desabilita os controles do modal.
+     */
+    function renderImportTarget(cliente) {
+        var ok = $('#crm-v3-import-target-ok');
+        var empty = $('#crm-v3-import-target-empty');
+        var processar = $('#crm-v3-import-processar');
+        var submit = $('#crm-v3-import-submit');
+        var textarea = $('#crm-v3-import-texto');
+
+        if (!cliente) {
+            if (ok) ok.hidden = true;
+            if (empty) empty.hidden = false;
+            if (processar) processar.disabled = true;
+            if (submit) submit.disabled = true;
+            if (textarea) textarea.disabled = true;
+            return;
+        }
+
+        if (empty) empty.hidden = true;
+        if (ok) ok.hidden = false;
+        if (processar) processar.disabled = false;
+        if (submit) submit.disabled = false;
+        if (textarea) textarea.disabled = false;
+
+        // Nome + subtítulo (perfil/classificação).
+        var nomeEl = $('#crm-v3-import-target-nome');
+        if (nomeEl) nomeEl.textContent = cliente.nome || cliente.nome_fantasia || cliente.razao_social || 'Cliente sem nome';
+        var metaEl = $('#crm-v3-import-target-meta');
+        if (metaEl) {
+            var partes = [];
+            if (cliente.classificacao_cliente) partes.push(cliente.classificacao_cliente);
+            if (cliente.tipo_label) partes.push(cliente.tipo_label);
+            if (cliente.responsavel) partes.push(cliente.responsavel);
+            metaEl.textContent = partes.join(' · ');
+        }
+
+        // Iniciais como fallback + logo Clearbit (mesma regra do header).
+        var iniciaisEl = $('#crm-v3-import-target-initials');
+        var img = $('#crm-v3-import-target-logo');
+        var nomeCliente = (cliente.nome || cliente.nome_fantasia || cliente.razao_social || '?').trim();
+        var partesNome = nomeCliente.split(/\s+/);
+        var iniciais = (
+            (partesNome[0] || '').charAt(0) +
+            (partesNome[1] || '').charAt(0)
+        ).toUpperCase() || '?';
+        if (iniciaisEl) iniciaisEl.textContent = iniciais;
+
+        // Logo Clearbit — usa mesma lógica do dominioParaLogo, que já
+        // trata site_url e fallback pro email do contato principal.
+        if (img) {
+            img.hidden = true;
+            img.alt = '';
+            var dominio = typeof dominioParaLogo === 'function' ? dominioParaLogo(cliente) : null;
+            if (dominio) {
+                img.onload = function () {
+                    if (img.naturalWidth > 0) img.hidden = false;
+                };
+                img.onerror = function () { img.hidden = true; };
+                img.src = 'https://logo.clearbit.com/' + dominio + '?size=64';
+            }
+        }
     }
 
     function initModals() {

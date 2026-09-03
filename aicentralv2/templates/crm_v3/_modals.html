@@ -304,6 +304,34 @@
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
+
+    {# Cliente-alvo (set/2026): a importação sempre grava em UM cliente
+       específico (POST /clientes/<id>/contatos/importar). O chip deixa
+       explícito PARA QUEM os contatos vão — antes o usuário tinha que
+       lembrar qual cliente estava aberto na coluna 1.
+       Estado "não selecionado" mostra alerta em vermelho e o step 1
+       fica desabilitado. #}
+    <div class="crm-v3-import-target" id="crm-v3-import-target" aria-live="polite">
+      <div class="crm-v3-import-target-ok" id="crm-v3-import-target-ok" hidden>
+        <div class="crm-v3-import-target-avatar" id="crm-v3-import-target-avatar">
+          <img id="crm-v3-import-target-logo" alt="" hidden />
+          <span class="crm-v3-import-target-initials" id="crm-v3-import-target-initials">?</span>
+        </div>
+        <div class="crm-v3-import-target-body">
+          <span class="crm-v3-import-target-label">Importar em</span>
+          <strong class="crm-v3-import-target-nome" id="crm-v3-import-target-nome">—</strong>
+          <span class="crm-v3-import-target-meta" id="crm-v3-import-target-meta"></span>
+        </div>
+      </div>
+      <div class="crm-v3-import-target-empty" id="crm-v3-import-target-empty" hidden>
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <div>
+          <strong>Nenhum cliente selecionado</strong>
+          <span>Feche este modal e clique num cliente na coluna à esquerda antes de importar.</span>
+        </div>
+      </div>
+    </div>
+
     <div class="steps steps-horizontal w-full text-xs mb-4" id="crm-v3-import-steps">
       <div class="step step-primary" data-step="1">Texto</div>
       <div class="step" data-step="2">Revisão</div>

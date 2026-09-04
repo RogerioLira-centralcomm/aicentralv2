@@ -1052,10 +1052,26 @@
 
         var salvo = normalizarDominio(cliente && cliente.site_url);
         var inferido = extrairDominioContato(cliente);
-        input.value = salvo || '';
+        // Set/2026: além do placeholder, AUTO-PREENCHE o input com o
+        // domínio inferido quando não há site salvo. Assim o usuário
+        // vê o valor concreto (não uma dica cinza) e basta clicar
+        // Confirmar. `data-auto-fill` marca o valor como sugerido,
+        // para o handler de Confirmar diferenciar "usuário digitou"
+        // de "sugestão auto-preenchida".
+        var valorEfetivo = salvo || inferido || '';
+        input.value = valorEfetivo;
         input.placeholder = inferido
             ? ('ex.: ' + inferido)
             : 'ex.: cliente.com.br';
+        if (!salvo && inferido) {
+            input.dataset.autoFill = inferido;
+            // Sub-linha visual: seleciona o texto para o usuário
+            // sobrescrever facilmente se quiser mudar.
+            input.classList.add('is-auto-fill');
+        } else {
+            delete input.dataset.autoFill;
+            input.classList.remove('is-auto-fill');
+        }
 
         // Estado de hint inicial.
         if (hint) {
@@ -1064,7 +1080,7 @@
                 hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Salvo — logo aplicado nos cards e no header.';
             } else if (inferido) {
                 hint.className = 'crm-v3-site-hint';
-                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato principal: <strong>' + escapeHtml(inferido) + '</strong>. Digite para editar ou clique em Confirmar.';
+                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato principal preenchida: <strong>' + escapeHtml(inferido) + '</strong>. Clique em Confirmar ou edite antes.';
                 // Pré-carrega o preview com a sugestão sem digitar.
                 _atualizarPreviewSite(inferido, img, fallback, cliente);
             } else {
@@ -1146,7 +1162,15 @@
             else _mostrarSiteFallback(img, fallback, cliente);
             confirmar.disabled = !d;
         }, 250);
-        input.addEventListener('input', previewDebounced);
+        input.addEventListener('input', function () {
+            // Usuário editou manualmente — some a marca de auto-fill
+            // e o estilo azulado. A partir daqui o valor é dele.
+            if (input.classList.contains('is-auto-fill')) {
+                input.classList.remove('is-auto-fill');
+                delete input.dataset.autoFill;
+            }
+            previewDebounced();
+        });
 
         // Enter no campo → dispara confirmação.
         input.addEventListener('keydown', function (ev) {
@@ -2658,6 +2682,10 @@
 
             renderAgenciasVinculadas(cliente);
         } else {
+            // Novo cliente: pré-preencher executivo do filtro atual
+            if (state.filtroExecutivo) {
+                setVal('#crm-v3-cliente-responsavel', state.filtroExecutivo);
+            }
             renderAgenciasVinculadas(null);
         }
         openModal('crm-v3-modal-cliente');
@@ -2765,6 +2793,12 @@
             $('#crm-v3-atividade-data').value = ativ.data || '';
             $('#crm-v3-atividade-tipo').value = ativ.tipo || 'atividade';
             $('#crm-v3-atividade-responsavel').value = ativ.responsavel || 'LS';
+        } else {
+            // Nova atividade: pré-preencher executivo do filtro atual
+            var respSelect = $('#crm-v3-atividade-responsavel');
+            if (respSelect && state.filtroExecutivo) {
+                respSelect.value = state.filtroExecutivo;
+            }
         }
         openModal('crm-v3-modal-atividade');
     }
@@ -2793,15 +2827,21 @@
         if (fim) fim.value = cotacao ? dataParaInput(cotacao.periodo_fim) : '';
         var objetivoInput = $('#crm-v3-cotacao-objetivo');
         var plataformasInput = $('#crm-v3-cotacao-plataformas');
+        var responsavelSelect = $('#crm-v3-cotacao-responsavel');
         if (cotacao) {
             $('#crm-v3-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
             $('#crm-v3-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
             $('#crm-v3-cotacao-status').value = cotacao.status || 'rascunho';
             if (objetivoInput) objetivoInput.value = cotacao.objetivo || '';
             if (plataformasInput) plataformasInput.value = Array.isArray(cotacao.plataformas) ? cotacao.plataformas.join(', ') : (cotacao.plataformas || '');
+            if (responsavelSelect) responsavelSelect.value = cotacao.responsavel_id || cotacao.executivo_id || '';
         } else {
             if (objetivoInput) objetivoInput.value = '';
             if (plataformasInput) plataformasInput.value = '';
+            // Nova cotação: pré-preencher executivo do filtro atual
+            if (responsavelSelect && state.filtroExecutivo) {
+                responsavelSelect.value = state.filtroExecutivo;
+            }
         }
         openModal('crm-v3-modal-cotacao');
     }

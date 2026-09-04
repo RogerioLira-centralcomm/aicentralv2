@@ -1797,6 +1797,24 @@ button:hover > .crm-v3-menu-hint {
     border-color: var(--crm-primary, #4f46e5);
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
+/* Set/2026: quando o input traz o domínio auto-preenchido a partir
+   do contato principal, sinalizamos visualmente com borda tracejada
+   e fundo azul-claro. Assim o usuário percebe "isso é uma sugestão"
+   antes de clicar em Confirmar. Ao digitar, o JS remove `is-auto-fill`
+   e o input volta ao estado padrão. */
+.crm-v3-site-input.is-auto-fill {
+    border-style: dashed;
+    border-color: rgba(79, 70, 229, 0.45);
+    background: rgba(79, 70, 229, 0.04);
+    color: var(--crm-primary-dark, #3730a3);
+    font-weight: 500;
+}
+.crm-v3-site-input.is-auto-fill:focus {
+    border-style: solid;
+    background: #ffffff;
+    color: var(--crm-text, #111827);
+    font-weight: 400;
+}
 .crm-v3-site-hint {
     font-size: 11px;
     color: var(--crm-text-subtle, #6b7280);

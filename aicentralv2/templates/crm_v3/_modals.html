@@ -418,7 +418,10 @@
         <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-inicio"><span class="label-text text-xs">Início</span></label><input type="date" id="crm-v3-cotacao-inicio" class="input input-bordered input-sm w-full"></div>
         <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-fim"><span class="label-text text-xs">Fim</span></label><input type="date" id="crm-v3-cotacao-fim" class="input input-bordered input-sm w-full"></div>
       </div>
-      <div class="form-control mb-3"><label class="label py-0" for="crm-v3-cotacao-objetivo"><span class="label-text text-xs">Objetivo geral</span></label><input type="text" id="crm-v3-cotacao-objetivo" placeholder="Ex.: Awareness, Performance, Institucional…" class="input input-bordered input-sm w-full"></div>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-objetivo"><span class="label-text text-xs">Objetivo geral</span></label><input type="text" id="crm-v3-cotacao-objetivo" placeholder="Awareness, Performance…" class="input input-bordered input-sm w-full"></div>
+        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-responsavel"><span class="label-text text-xs">Responsável</span></label><select id="crm-v3-cotacao-responsavel" class="select select-bordered select-sm w-full" data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome"><option value="">— Carregando… —</option></select></div>
+      </div>
       <div class="form-control mb-4"><label class="label py-0" for="crm-v3-cotacao-plataformas"><span class="label-text text-xs">Plataformas</span></label><input type="text" id="crm-v3-cotacao-plataformas" placeholder="TV Aberta, OOH, Meta Ads (separadas por vírgula)" class="input input-bordered input-sm w-full"></div>
       <div class="modal-action mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-cotacao">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-cotacao-submit"><span class="crm-v3-btn-text">Criar</span><span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span></button></div>
     </form>

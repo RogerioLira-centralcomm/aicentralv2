@@ -5279,22 +5279,28 @@ def init_routes(app):
                         }
                         ordem.append(gid)
                     grupos[gid]['cotacoes'].append(cot)
-                    grupos[gid]['valor'] += float(cot.get('valor_total_proposta') or 0)
+                    grupos[gid]['valor'] += float(
+                        cot.get('valor_total_bruto') or cot.get('valor_total_proposta') or 0
+                    )
                 lista = [grupos[gid] for gid in ordem]
                 lista.sort(key=lambda g: (0 if g['kind'] == 'agencia' else 1, (g['label'] or '').lower()))
                 return lista
 
-            colunas_grupos = {status: _grupos_coluna(cots) for status, cots in colunas.items()}
-            
-            # Obter listas para filtros
+            # Só o Histórico (Rejeitada) agrupa por agência/cliente.
+            colunas_grupos = {
+                'Rejeitada': _grupos_coluna(colunas.get('Rejeitada') or []),
+            }
+
             vendedores = db.obter_vendedores_centralcomm()
             clientes = db.obter_clientes_para_filtro()
-            
-            # Calcular totais por coluna
+
+            def _valor_coluna(c):
+                return float(c.get('valor_total_bruto') or c.get('valor_total_proposta') or 0)
+
             totais = {
                 status: {
                     'count': len(cotacoes),
-                    'valor': sum(c.get('valor_total_proposta') or 0 for c in cotacoes)
+                    'valor': sum(_valor_coluna(c) for c in cotacoes)
                 }
                 for status, cotacoes in colunas.items()
             }

@@ -1,58 +1,58 @@
-/* Pipeline de cotações — vanilla ERP. */
+/* Pipeline de cotações — deal cards para o executivo. */
 
 .pp-page {
   --cn-ink: #0f172a;
-  --cn-muted: #475569;
+  --cn-muted: #64748b;
   --cn-line: #d8dee8;
   --cn-brand: #1e4d4f;
   --cn-soft: #e8f1f1;
   --cn-hist: #64748b;
+  --cn-money: #166534;
   height: calc(100vh - var(--erp-topbar-h, 3.5rem));
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 1rem 0.75rem;
-  gap: 0.75rem;
+  padding: 0.5rem 1rem 0.65rem;
+  gap: 0.5rem;
   min-height: 0;
 }
 
-.pp-header {
+.pp-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1.25rem;
-  background: #fff;
-  border: 1px solid var(--cn-line);
-  border-radius: 0.5rem;
+  gap: 0.75rem;
   flex-shrink: 0;
+  min-height: 2.25rem;
 }
 
-.pp-header h1 {
+.pp-title-block h1 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--cn-ink);
 }
 
-.pp-header p {
-  margin: 0.15rem 0 0;
-  font-size: 0.875rem;
+.pp-title-block p {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
   color: var(--cn-muted);
 }
 
 .pp-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   flex-shrink: 0;
 }
 
 .pp-header-actions .cx-btn {
-  min-height: 2.5rem;
-  padding: 0 1rem;
-  font-size: 0.875rem;
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  font-size: 0.8125rem;
 }
+
+.pp-views {
   display: inline-flex;
   border: 1px solid var(--cn-line);
   border-radius: 0.375rem;
@@ -62,9 +62,9 @@
 .pp-views a {
   display: inline-flex;
   align-items: center;
-  min-height: 2.5rem;
-  padding: 0 0.9rem;
-  font-size: 0.875rem;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--cn-muted);
   text-decoration: none;
@@ -79,19 +79,31 @@
 .pp-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 0.65rem 1.25rem;
-  background: #fff;
-  border: 1px solid var(--cn-line);
-  border-radius: 0.5rem;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  padding: 0.45rem 0 0.55rem;
+  border-bottom: 1px solid var(--cn-line);
   flex-shrink: 0;
+  background: transparent;
+}
+
+.pp-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.pp-filter span {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cn-muted);
 }
 
 .pp-filters select {
-  min-height: 2.5rem;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  font-size: 0.8125rem;
   color: var(--cn-ink);
   background: #fff;
   border: 1px solid var(--cn-line);
@@ -104,9 +116,9 @@
   box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.16);
 }
 
-.pp-filters #filtro_executivo { min-width: 12rem; }
-.pp-filters #filtro_mes { min-width: 10rem; }
-.pp-filters #filtro_status { min-width: 9rem; }
+.pp-filters #filtro_executivo { min-width: 11rem; }
+.pp-filters #filtro_mes { min-width: 8.5rem; }
+.pp-filters #filtro_status { min-width: 8rem; }
 
 .pp-board {
   display: flex;
@@ -118,17 +130,17 @@
 
 .pp-col {
   flex: 1 1 0;
-  min-width: 16.5rem;
+  min-width: 17.5rem;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #fff;
+  background: #f3f5f7;
   border: 1px solid var(--cn-line);
   border-radius: 0.5rem;
 }
 
 .pp-col.is-historico {
-  background: #f4f5f7;
+  background: #eceff2;
   border-color: #cfd4dc;
 }
 
@@ -137,13 +149,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.5rem 0.7rem;
   border-bottom: 1px solid var(--cn-line);
   flex-shrink: 0;
 }
 
 .pp-col-head strong {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--cn-ink);
 }
@@ -156,34 +168,31 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
   color: var(--cn-muted);
+  white-space: nowrap;
 }
 
 .pp-col-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.45rem;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .pp-group {
-  border: 1px solid var(--cn-line);
+  border: 1px solid #d5d9e0;
   border-radius: 0.4rem;
-  background: #f8fafc;
-}
-
-.pp-col.is-historico .pp-group {
-  background: #eceff3;
-  border-color: #d5d9e0;
+  background: #e4e8ed;
 }
 
 .pp-group[open] {
-  background: #fff;
+  background: #eef0f3;
 }
 
 .pp-group summary {
@@ -193,8 +202,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.8125rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem;
   font-weight: 650;
   color: var(--cn-ink);
 }
@@ -216,7 +225,7 @@
 
 .pp-kind {
   flex-shrink: 0;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: var(--cn-brand);
 }
@@ -227,100 +236,216 @@
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   color: var(--cn-muted);
+  white-space: nowrap;
 }
 
 .pp-group-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0 0.4rem 0.45rem;
+  gap: 0.3rem;
+  padding: 0 0.35rem 0.4rem;
 }
 
-.pp-card {
+.pp-deal {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.65rem 0.7rem 0.55rem;
   background: #fff;
   border: 1px solid var(--cn-line);
-  border-radius: 0.35rem;
+  border-radius: 0.45rem;
   cursor: grab;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
 }
 
-.pp-card:hover { border-color: var(--cn-brand); }
+.pp-deal:hover {
+  border-color: var(--cn-brand);
+}
 
-.pp-card.is-urgente {
+.pp-deal.is-urgente {
   border-color: #d97706;
 }
 
-.pp-col.is-historico .pp-card {
-  background: #f8fafc;
-  border-color: #d8dee8;
-  opacity: 0.88;
+.pp-deal.dragging,
+.pp-hist-card.dragging {
+  opacity: 0.45;
 }
-
-.pp-card.dragging { opacity: 0.45; }
 
 .pp-col.drag-over {
   outline: 2px dashed var(--cn-brand);
   outline-offset: -2px;
 }
 
-.pp-avatar {
-  width: 1.75rem;
-  height: 1.75rem;
+.pp-deal-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.pp-deal-who {
+  min-width: 0;
+  flex: 1;
+}
+
+.pp-deal-client {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--cn-ink);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-deal-agency {
+  font-size: 0.6875rem;
+  color: var(--cn-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-deal-campaign {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-deal-obj {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--cn-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pp-deal-plats {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cn-brand);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-deal-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #eef2f6;
+}
+
+.pp-deal-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.6875rem;
+  color: var(--cn-muted);
+  white-space: nowrap;
+}
+
+.pp-deal-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-deal-money {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pp-deal-money strong {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--cn-ink);
+}
+
+.pp-deal-money span {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cn-money);
+}
+
+.pp-avatar,
+.pp-avatar-fallback {
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 999px;
-  object-fit: cover;
   flex-shrink: 0;
+}
+
+.pp-avatar {
+  object-fit: cover;
   background: var(--cn-soft);
 }
 
 .pp-avatar-fallback {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--cn-brand);
   color: #fff;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  flex-shrink: 0;
 }
 
-.pp-card-body {
+.pp-hist-card {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.45rem;
+  background: #f7f8fa;
+  border: 1px solid #d8dee8;
+  border-radius: 0.3rem;
+  cursor: grab;
+}
+
+.pp-hist-card:hover {
+  border-color: #94a3b8;
+}
+
+.pp-hist-body {
   min-width: 0;
   flex: 1;
 }
 
-.pp-card-name {
-  font-size: 0.8125rem;
+.pp-hist-name {
+  font-size: 0.75rem;
   font-weight: 650;
-  color: var(--cn-ink);
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-hist-meta {
+  font-size: 0.625rem;
+  color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pp-card-meta {
-  font-size: 0.6875rem;
-  color: var(--cn-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pp-card-val {
+.pp-hist-val {
   flex-shrink: 0;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--cn-ink);
-}
-
-.pp-col.is-historico .pp-card-val {
   color: var(--cn-hist);
+  white-space: nowrap;
 }
 
 dialog.modal[open] {
@@ -328,4 +453,13 @@ dialog.modal[open] {
   inset: 0;
   margin: auto;
   max-height: 90vh;
+}
+
+@media (max-width: 900px) {
+  .pp-toolbar {
+    flex-wrap: wrap;
+  }
+  .pp-col {
+    min-width: 16.5rem;
+  }
 }

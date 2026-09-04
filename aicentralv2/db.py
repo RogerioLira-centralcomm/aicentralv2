@@ -9443,19 +9443,33 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.periodo_inicio,
                     cot.periodo_fim,
                     cot.agencia_id,
-                    -- Calcular dias na fase atual
+                    cot.objetivo_campanha,
+                    cot.plataforma_campanha,
                     EXTRACT(DAY FROM (NOW() - COALESCE(cot.updated_at, cot.created_at)))::INTEGER as dias_na_fase,
-                    -- Dados do cliente
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao,
                     ag_perfil.key AS agencia_key,
                     ag_perfil.display AS agencia_display,
                     COALESCE(ag_emp.nome_fantasia, ag_emp.razao_social) AS agencia_nome,
-                    -- Dados do executivo
                     exec.nome_completo as executivo_nome,
                     exec.foto_url as executivo_foto_url,
-                    -- Verificar se tem briefing
-                    CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing
+                    CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing,
+                    COALESCE((SELECT SUM(COALESCE(investimento_bruto, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
+                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0) as valor_total_bruto,
+                    COALESCE((SELECT SUM(COALESCE(investimento_liquido, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
+                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0) as valor_total_liquido,
+                    (
+                        SELECT string_agg(plat, ' · ')
+                        FROM (
+                            SELECT DISTINCT NULLIF(TRIM(l.plataforma), '') AS plat
+                            FROM cadu_cotacao_linhas l
+                            WHERE l.cotacao_id = cot.id
+                              AND COALESCE(l.is_deleted, false) = false
+                              AND COALESCE(l.is_header, false) = false
+                              AND COALESCE(l.is_subtotal, false) = false
+                        ) p
+                        WHERE plat IS NOT NULL
+                    ) as plataformas
                 FROM cadu_cotacoes cot
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
                 LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = cli.pk_id_tbl_agencia

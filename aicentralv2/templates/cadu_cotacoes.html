@@ -5,7 +5,7 @@
 {% block page_subtitle %}Propostas comerciais{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
@@ -82,13 +82,13 @@
     <table class="cot-lista-table lista-table">
       <thead>
         <tr>
-          <th style="width: 8.5rem;">Cotação</th>
+          <th class="col-cotacao">Cotação</th>
           <th>Cliente / campanha</th>
-          <th style="width: 8rem;">Executivo</th>
-          <th class="is-center" style="width: 8rem;">Período</th>
-          <th class="is-num" style="width: 8rem;">Valor</th>
-          <th class="is-center" style="width: 6.5rem;">Status</th>
-          <th class="is-center" style="width: 7rem;">Itens</th>
+          <th class="col-exec">Executivo</th>
+          <th class="is-center col-periodo">Período</th>
+          <th class="is-num col-valor">Valor</th>
+          <th class="is-center col-status">Status</th>
+          <th class="is-center col-itens">Itens</th>
           <th class="is-center" style="width: 3rem;">Ações</th>
         </tr>
       </thead>
@@ -103,7 +103,7 @@
         <tr class="{% if urgente %}is-urgente{% endif %}"
             onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
 
-          <td onclick="event.stopPropagation()">
+          <td class="col-cotacao" onclick="event.stopPropagation()">
             <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
             <div class="cot-lista-sub">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
           </td>
@@ -113,16 +113,22 @@
             <div class="cot-lista-sub">{{ cotacao.nome_campanha or '—' }}</div>
           </td>
 
-          <td>
+          <td class="col-exec">
             {% if sem_responsavel %}
             <span class="cot-lista-warn">Sem responsável</span>
             {% else %}
-            {{ cotacao.responsavel_nome }}
+            <div class="cot-lista-exec">
+              {% if cotacao.responsavel_foto_url %}
+              <img class="cot-lista-exec-foto" src="{{ cotacao.responsavel_foto_url }}" alt="">
+              {% else %}
+              <span class="cot-lista-exec-foto is-fallback" aria-hidden="true">{{ cotacao.responsavel_nome[0] }}</span>
+              {% endif %}
+              <span>{{ cotacao.responsavel_nome.split()[0] }}</span>
+            </div>
             {% endif %}
           </td>
 
-          <td class="is-center">
-            {% if cotacao.periodo_inicio %}
+          <td class="is-center col-periodo">
             <div>{{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}</div>
             {% if status_enviada and dias_para_inicio is not none %}
               {% if dias_para_inicio < 0 %}
@@ -142,19 +148,18 @@
             {% endif %}
           </td>
 
-          <td class="is-num">
+          <td class="is-num col-valor">
             {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
             {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
             {% if bruto > 0 or liquido > 0 %}
-            <div class="cot-lista-money">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
-            <div class="cot-lista-money-liq">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+            <div class="cot-lista-money">R$&nbsp;{{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+            <div class="cot-lista-money-liq">R$&nbsp;{{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
             {% else %}
             <span class="cot-lista-hint">—</span>
             {% endif %}
           </td>
 
-          <td class="is-center">
-            {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
+          <td class="is-center col-status">
             {% if status_display == 'Enviada' %}
             <span class="cot-lista-badge cot-lista-badge-enviada">{{ status_display }}</span>
             {% elif status_display == 'Aprovada' %}
@@ -166,7 +171,7 @@
             {% endif %}
           </td>
 
-          <td class="is-center">
+          <td class="is-center col-itens">
             <div class="cot-lista-chips">
               <span class="cot-lista-chip {% if (cotacao.total_linhas or 0) > 0 %}is-on{% endif %}" title="Itens">{{ cotacao.total_linhas or 0 }}</span>
               <span class="cot-lista-chip {% if (cotacao.total_audiencias or 0) > 0 %}is-on{% endif %}" title="Audiências">{{ cotacao.total_audiencias or 0 }}</span>

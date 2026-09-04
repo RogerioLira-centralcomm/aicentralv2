@@ -331,6 +331,68 @@ class CrmV3Repository:
                     mapped["clientes_finais_count"] = 0
                     mapped["clientes_finais"] = []
             items.append(mapped)
+
+        # Enriquecer com logo canônico do `cliente_web_info` — set/2026.
+        # Motivo: na lista de clientes (coluna 1 do CRM v3) queremos
+        # mostrar a logo real do site (og:image scrapeado) em vez de
+        # só as iniciais. Antes o frontend usava `state.webInfoCache`,
+        # mas esse cache só era populado ao selecionar o cliente — na
+        # lista sempre aparecia só iniciais.
+        #
+        # Estratégia: uma única query batch (IN(...)) que traz todos
+        # os logos de uma vez, em vez de N chamadas separadas. O
+        # `web_logo_url` fica direto no dict do cliente, sem depender
+        # do webInfoCache.
+        #
+        # Silencioso em caso de erro: se `cliente_web_info` não existe
+        # (base antiga sem migration) ou a query falha, seguimos sem
+        # logo — o frontend cai no Clearbit como sempre.
+        try:
+            ids_int = []
+            for m in items:
+                try:
+                    ids_int.append(int(m["id"]))
+                except (ValueError, TypeError):
+                    pass
+            if ids_int:
+                # Usa a conexão gerenciada pelo Flask (g.db) — NÃO
+                # fechamos aqui, quem fecha é `close_db` no teardown.
+                conn = _db().get_db()
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id_cliente, logo_url, dominio "
+                        "FROM cliente_web_info "
+                        "WHERE id_cliente = ANY(%s) AND status = 'ok'",
+                        (ids_int,),
+                    )
+                    rows = cur.fetchall()
+                logos = {}
+                for r in rows:
+                    # psycopg pode retornar tuple ou dict-row dependendo
+                    # do row_factory. Suportamos ambos.
+                    if isinstance(r, dict):
+                        cid, logo, dom = r.get("id_cliente"), r.get("logo_url"), r.get("dominio")
+                    else:
+                        cid, logo, dom = r[0], r[1], r[2]
+                    if cid is not None:
+                        logos[str(cid)] = {"logo_url": logo, "dominio": dom}
+                for m in items:
+                    info = logos.get(str(m["id"]))
+                    if info:
+                        if info.get("logo_url"):
+                            m["web_logo_url"] = info["logo_url"]
+                        # Preenche site_url quando o cadastro estava
+                        # vazio mas o scout descobriu o domínio real.
+                        if info.get("dominio") and not m.get("site_url"):
+                            m["site_url"] = info["dominio"]
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("aicentral.crm_v3").info(
+                "enriquecimento web_logo_url falhou (base sem cliente_web_info?): %s: %s",
+                type(e).__name__, e,
+            )
+            _rollback_if_failed("web_logo_url batch")
+
         return items
 
     def list_lookups(self) -> Dict[str, Any]:

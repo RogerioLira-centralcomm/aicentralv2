@@ -271,19 +271,29 @@
         return (nome || '?').slice(0, 2).toUpperCase();
     }
 
-    function avatarHtml(nome, sizeClass, dominio, clienteId) {
+    function avatarHtml(nome, sizeClass, dominio, clienteId, webLogoUrl) {
         sizeClass = sizeClass || 'w-7 h-7';
         var tone = avatarTone(nome);
         var ini = avatarIniciais(nome);
         var bg = tone === 'primary' ? 'bg-primary text-primary-content' : 'bg-neutral text-neutral-content';
-        // Fase B (set/2026): se o clienteId foi passado e temos o
-        // web_info em cache com logo_url canônico (og:image real do
-        // site), usamos ele como fonte primária no <img>. Fallback
-        // permanece Clearbit (caso o link do og:image tenha quebrado
-        // desde o scrape ou o cache ainda não foi carregado).
+        // Ordem de preferência (set/2026):
+        // 1) `webLogoUrl` passado direto: usado pela lista de clientes
+        //    (que recebe `c.web_logo_url` já resolvido no backend em
+        //    batch — evita depender do webInfoCache que só é populado
+        //    ao SELECIONAR o cliente).
+        // 2) `state.webInfoCache[clienteId]`: fallback para telas que
+        //    passam clienteId e já rodaram loadWebInfo (sidebar Info,
+        //    header do cliente selecionado).
+        // 3) Clearbit apex (`logo.clearbit.com/dominio`) quando temos
+        //    domínio mas não temos og:image scrapeado.
+        // 4) Sem nada → só iniciais (o <img hidden> não faz nada e
+        //    o <span> das iniciais fica visível).
         var dominioClean = normalizarDominio(dominio);
         var srcPrincipal = '';
-        if (clienteId && state.webInfoCache && state.webInfoCache[clienteId]) {
+        if (webLogoUrl) {
+            srcPrincipal = webLogoUrl;
+        }
+        if (!srcPrincipal && clienteId && state.webInfoCache && state.webInfoCache[clienteId]) {
             var wi = state.webInfoCache[clienteId];
             if (wi && wi.status === 'ok' && wi.logo_url) srcPrincipal = wi.logo_url;
         }
@@ -792,7 +802,7 @@
                 ' data-status="' + escapeHtml(c.status) + '"' +
                 ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
-                avatarHtml(c.nome, 'w-7 h-7', c.site_url, c.id) +
+                avatarHtml(c.nome, 'w-7 h-7', c.site_url, c.id, c.web_logo_url) +
                 '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
                 '<div class="crm-v3-cliente-headline">' +
                 (icones.length ? '<span class="crm-v3-cliente-icones">' + icones.join('') + '</span>' : '') +

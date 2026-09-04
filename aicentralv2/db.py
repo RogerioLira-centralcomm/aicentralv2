@@ -19551,8 +19551,18 @@ def excluir_incentivo(id_incentivo):
         raise e
 
 
-def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_entidade=None):
-    """Relatório de incentivos: agências em cadu_pi_incentivos com volume de PIs no período."""
+def obter_relatorio_incentivos_agencias(
+    ano_ref=None,
+    mes_ref_comp=None,
+    tipo_entidade=None,
+    id_status_pi=None,
+    id_sub_status_pi=None,
+):
+    """Relatório de incentivos: agências em cadu_pi_incentivos com volume de PIs no período.
+
+    Volume agregado exclusivamente por p.id_agencia (= i.cliente_id).
+    id_status_pi / id_sub_status_pi são opcionais (não aplicados por padrão).
+    """
     conn = get_db()
     parse_bruto = _parse_vr_bruto_pi_sql('p')
     _ = tipo_entidade  # legado; relatório sempre usa cadu_pi_incentivos
@@ -19563,8 +19573,15 @@ def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_en
         'p.id_agencia IS NOT NULL',
         'p.id_agencia > 0',
     ]
-
     agg_params = []
+
+    if id_status_pi is not None:
+        agg_where.append('p.id_status_pi = %s')
+        agg_params.append(int(id_status_pi))
+    if id_sub_status_pi is not None:
+        agg_where.append('p.id_sub_status_pi = %s')
+        agg_params.append(int(id_sub_status_pi))
+
     if mes_ref_comp:
         agg_where.append('p.mes_ref_comp = %s')
         agg_params.append(mes_ref_comp)
@@ -19604,7 +19621,7 @@ def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_en
                     WHERE {agg_where_sql}
                     GROUP BY p.id_agencia
                 ) agg ON agg.id_agencia = i.cliente_id
-                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, cli.nome_fantasia ASC NULLS LAST
+                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, i.cliente_id ASC NULLS LAST
                 ''',
                 tuple(agg_params),
             )
@@ -19651,6 +19668,142 @@ def obter_relatorio_incentivos_agencias(ano_ref=None, mes_ref_comp=None, tipo_en
         })
 
     return resultado
+
+
+def obter_pis_relatorio_incentivo_agencia(
+    cliente_id,
+    ano_ref=None,
+    mes_ref_comp=None,
+    id_status_pi=None,
+    id_sub_status_pi=None,
+):
+    """Lista PIs de uma agência (id_agencia) para o modal do relatório de incentivos."""
+    if not cliente_id:
+        return []
+
+    where = [
+        "p.mes_ref_comp IS NOT NULL",
+        "p.mes_ref_comp != ''",
+        'p.id_agencia IS NOT NULL',
+        'p.id_agencia > 0',
+        'p.id_agencia = %s',
+    ]
+    params = [int(cliente_id)]
+
+    if id_status_pi is not None:
+        where.append('p.id_status_pi = %s')
+        params.append(int(id_status_pi))
+    if id_sub_status_pi is not None:
+        where.append('p.id_sub_status_pi = %s')
+        params.append(int(id_sub_status_pi))
+
+    if mes_ref_comp:
+        where.append('p.mes_ref_comp = %s')
+        params.append(mes_ref_comp)
+    elif ano_ref is not None:
+        yy = str(int(ano_ref))
+        where.append('''
+            (
+                SPLIT_PART(p.mes_ref_comp, '/', 2) = %s
+                OR RIGHT(SPLIT_PART(p.mes_ref_comp, '/', 2), 2) = %s
+            )
+        ''')
+        params.extend([yy, yy])
+
+    where_sql = ' AND '.join(where)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT
+                    p.id_pi,
+                    p.codigo_pi_cc,
+                    p.codigo_pi_ag,
+                    p.titulo_pi,
+                    p.mes_ref_comp,
+                    COALESCE(NULLIF(TRIM(cli.nome_fantasia), ''), cli.razao_social) AS cliente_nome,
+                    COALESCE(NULLIF(TRIM(cli_ag.nome_fantasia), ''), cli_ag.razao_social) AS agencia_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                LEFT JOIN tbl_cliente cli_ag ON cli_ag.id_cliente = p.id_agencia
+                WHERE {where_sql}
+                ORDER BY
+                    CAST(SPLIT_PART(p.mes_ref_comp, '/', 2) AS INTEGER) DESC NULLS LAST,
+                    CAST(SPLIT_PART(p.mes_ref_comp, '/', 1) AS INTEGER) DESC NULLS LAST,
+                    p.codigo_pi_cc ASC NULLS LAST,
+                    p.id_pi DESC
+                ''',
+                tuple(params),
+            )
+            return cursor.fetchall() or []
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_pis_incentivo_id_inconsistentes(ano_ref=None, mes_ref_comp=None, id_status_pi=None, id_sub_status_pi=None):
+    """Diagnóstico: PIs cujo id_agencia não tem incentivo, mas existe incentivo p/ outro id com nome similar."""
+    conn = get_db()
+    where = [
+        "p.mes_ref_comp IS NOT NULL",
+        "p.mes_ref_comp != ''",
+        'p.id_agencia IS NOT NULL',
+        'p.id_agencia > 0',
+        '''NOT EXISTS (
+            SELECT 1 FROM cadu_pi_incentivos inc WHERE inc.cliente_id = p.id_agencia
+        )''',
+    ]
+    params = []
+    if id_status_pi is not None:
+        where.append('p.id_status_pi = %s')
+        params.append(int(id_status_pi))
+    if id_sub_status_pi is not None:
+        where.append('p.id_sub_status_pi = %s')
+        params.append(int(id_sub_status_pi))
+    if mes_ref_comp:
+        where.append('p.mes_ref_comp = %s')
+        params.append(mes_ref_comp)
+    elif ano_ref is not None:
+        yy = str(int(ano_ref))
+        where.append('''
+            (
+                SPLIT_PART(p.mes_ref_comp, '/', 2) = %s
+                OR RIGHT(SPLIT_PART(p.mes_ref_comp, '/', 2), 2) = %s
+            )
+        ''')
+        params.extend([yy, yy])
+
+    where_sql = ' AND '.join(where)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT DISTINCT
+                    p.id_pi,
+                    p.id_agencia,
+                    cli_ag.nome_fantasia AS agencia_nome_pi,
+                    inc_alt.cliente_id AS incentivo_cliente_id,
+                    cli_inc.nome_fantasia AS incentivo_agencia_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli_ag ON cli_ag.id_cliente = p.id_agencia
+                INNER JOIN cadu_pi_incentivos inc_alt ON inc_alt.cliente_id <> p.id_agencia
+                LEFT JOIN tbl_cliente cli_inc ON cli_inc.id_cliente = inc_alt.cliente_id
+                WHERE {where_sql}
+                  AND (
+                    LOWER(TRIM(COALESCE(cli_ag.nome_fantasia, ''))) = LOWER(TRIM(COALESCE(cli_inc.nome_fantasia, '')))
+                    OR LOWER(TRIM(COALESCE(cli_ag.razao_social, ''))) = LOWER(TRIM(COALESCE(cli_inc.razao_social, '')))
+                  )
+                  AND COALESCE(cli_ag.nome_fantasia, cli_ag.razao_social, '') != ''
+                ORDER BY p.id_agencia, p.id_pi
+                LIMIT 200
+                ''',
+                tuple(params),
+            )
+            return cursor.fetchall() or []
+    except Exception as e:
+        conn.rollback()
+        raise e
 
 
 # ==================== CADU PI COM VENDAS ====================

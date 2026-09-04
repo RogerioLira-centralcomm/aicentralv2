@@ -44,7 +44,7 @@
             {% endfor %}
           </select>
         </form>
-        <input type="text" id="searchInput" placeholder="Buscar agência..."
+        <input type="text" id="searchInput" placeholder="Buscar agência ou ID..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
       </div>
     </div>
@@ -105,11 +105,27 @@
           </thead>
           <tbody class="divide-y divide-gray-100" id="relatorioTableBody">
             {% for linha in linhas %}
-            <tr class="hover:bg-gray-50 transition-colors relatorio-row">
+            <tr class="hover:bg-gray-50 transition-colors relatorio-row" data-cliente-id="{{ linha.cliente_id or '' }}">
               <td class="py-2 px-2 sticky left-0 bg-white z-10 border-r border-gray-100">
                 <span class="font-medium text-gray-800">{{ linha.agencia_nome }}</span>
+                {% if linha.cliente_id %}
+                <span class="block text-[10px] text-gray-400 font-mono">#{{ linha.cliente_id }}</span>
+                {% endif %}
               </td>
-              <td class="py-2 px-2 text-right text-gray-600">{{ linha.total_pis }}</td>
+              <td class="py-2 px-2 text-right text-gray-600">
+                {% if linha.total_pis > 0 %}
+                <button type="button"
+                        class="btn-pis-incentivo-modal inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors cursor-pointer"
+                        data-cliente-id="{{ linha.cliente_id }}"
+                        data-agencia-nome="{{ ((linha.agencia_nome if linha.agencia_nome and linha.agencia_nome != '—' else linha.agencia_razao) or '')|e }}"
+                        title="Ver códigos dos PIs">
+                  {{ linha.total_pis }} PIs
+                  <i class="fas fa-external-link-alt text-[10px] opacity-70"></i>
+                </button>
+                {% else %}
+                0
+                {% endif %}
+              </td>
               <td class="py-2 px-2 text-right text-gray-800">{{ fmt_moeda(linha.volume_bruto) }}</td>
               <td class="py-2 px-2 text-gray-600">{{ linha.faixa_atual }}</td>
               <td class="py-2 px-2 text-right text-gray-600">{{ fmt_pct(linha.perc_atual) }}</td>
@@ -151,6 +167,54 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<dialog id="modal_pis_incentivo" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50 shrink-0">
+      <div>
+        <h3 class="font-semibold text-base text-gray-800" id="modal_pis_titulo">PIs da agência</h3>
+        <p class="text-xs text-gray-500 mt-0.5" id="modal_pis_subtitulo"></p>
+      </div>
+      <button type="button" onclick="document.getElementById('modal_pis_incentivo').close()" class="p-2 hover:bg-gray-200 rounded transition-colors" aria-label="Fechar">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div id="modal_pis_loading" class="hidden p-8 text-center text-gray-500">
+      <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+      <p class="text-sm">Carregando PIs...</p>
+    </div>
+    <div id="modal_pis_erro" class="hidden p-6 text-center text-red-600 text-sm"></div>
+
+    <div id="modal_pis_conteudo" class="hidden flex-1 overflow-y-auto min-h-0">
+      <div class="px-5 py-3 border-b border-gray-100 bg-gray-50/80 flex flex-wrap gap-2">
+        <button type="button" onclick="copiarTodosCodigosPis('cc', this)"
+                class="text-xs px-2.5 py-1.5 bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors">
+          <i class="far fa-copy mr-1"></i>Copiar todos CC
+        </button>
+        <button type="button" onclick="copiarTodosCodigosPis('ag', this)"
+                class="text-xs px-2.5 py-1.5 bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors">
+          <i class="far fa-copy mr-1"></i>Copiar todos AG
+        </button>
+        <button type="button" onclick="copiarTodosCodigosPis('tudo', this)"
+                class="text-xs px-2.5 py-1.5 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="far fa-copy mr-1"></i>Copiar tudo (CC + AG)
+        </button>
+      </div>
+      <div id="modal_pis_lista" class="divide-y divide-gray-100"></div>
+    </div>
+
+    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-end">
+      <button type="button" onclick="document.getElementById('modal_pis_incentivo').close()"
+              class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700 transition-colors">
+        Fechar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
 
 <script>
 function filtrarMesesIncentivoPorAno() {
@@ -175,10 +239,210 @@ filtrarMesesIncentivoPorAno();
   input.addEventListener('input', function () {
     const q = this.value.trim().toLowerCase();
     document.querySelectorAll('#relatorioTableBody .relatorio-row').forEach(function (row) {
-      const nome = (row.querySelector('td')?.textContent || '').toLowerCase();
-      row.style.display = !q || nome.includes(q) ? '' : 'none';
+      var td = row.querySelector('td');
+      var nome = (td && td.textContent ? td.textContent : '').toLowerCase();
+      var clienteId = (row.getAttribute('data-cliente-id') || '').toLowerCase();
+      const match = !q || nome.includes(q) || clienteId.includes(q);
+      row.style.display = match ? '' : 'none';
     });
   });
 })();
+
+var _modalPisData = [];
+
+function copiarTextoPis(texto, btn) {
+  if (!texto) return;
+  var done = function () {
+    if (!btn) return;
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check text-green-600 mr-1"></i>Copiado!';
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(done).catch(function () {
+      fallbackCopy(texto);
+      done();
+    });
+  } else {
+    fallbackCopy(texto);
+    done();
+  }
+}
+
+function fallbackCopy(texto) {
+  var ta = document.createElement('textarea');
+  ta.value = texto;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+  document.body.removeChild(ta);
+}
+
+function escHtml(s) {
+  if (s == null || s === '') return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderModalPisLista(pis) {
+  _modalPisData = pis || [];
+  var lista = document.getElementById('modal_pis_lista');
+  if (!lista) return;
+  if (!_modalPisData.length) {
+    lista.innerHTML = '<p class="p-6 text-center text-gray-500 text-sm">Nenhum PI no período selecionado.</p>';
+    return;
+  }
+  lista.innerHTML = _modalPisData.map(function (pi) {
+    var cc = pi.codigo_pi_cc || '';
+    var ag = pi.codigo_pi_ag || '';
+    var clienteNome = pi.cliente_nome || '';
+    var agenciaNomePi = pi.agencia_nome || '';
+    var ctx = [pi.titulo_pi, pi.mes_ref_comp].filter(Boolean).join(' · ');
+    return (
+      '<div class="px-5 py-3 hover:bg-gray-50/80 transition-colors">' +
+        (ctx ? '<p class="text-[11px] text-gray-400 mb-2 truncate" title="' + escHtml(ctx) + '">' + escHtml(ctx) + '</p>' : '') +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+          '<div class="min-w-0 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">' +
+            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cliente</span>' +
+            (clienteNome ? '<p class="text-sm font-medium text-gray-800 truncate mt-0.5" title="' + escHtml(clienteNome) + '">' + escHtml(clienteNome) + '</p>' : '') +
+            '<span class="text-[10px] text-gray-400 mt-1 block">Código CC</span>' +
+            '<div class="flex items-center gap-1.5 mt-0.5">' +
+              '<code class="text-sm font-mono text-gray-800 truncate flex-1">' + escHtml(cc || '—') + '</code>' +
+              (cc ? '<button type="button" class="shrink-0 p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Copiar CC" onclick="copiarTextoPis(' + JSON.stringify(cc) + ', this)"><i class="far fa-copy text-xs"></i></button>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="min-w-0 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">' +
+            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Agência</span>' +
+            (agenciaNomePi ? '<p class="text-sm font-medium text-gray-800 truncate mt-0.5" title="' + escHtml(agenciaNomePi) + '">' + escHtml(agenciaNomePi) + '</p>' : '') +
+            '<span class="text-[10px] text-gray-400 mt-1 block">Código AG</span>' +
+            '<div class="flex items-center gap-1.5 mt-0.5">' +
+              '<code class="text-sm font-mono text-gray-800 truncate flex-1">' + escHtml(ag || '—') + '</code>' +
+              (ag ? '<button type="button" class="shrink-0 p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Copiar AG" onclick="copiarTextoPis(' + JSON.stringify(ag) + ', this)"><i class="far fa-copy text-xs"></i></button>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+function copiarTodosCodigosPis(modo, btn) {
+  if (!_modalPisData.length) return;
+  var linhas = [];
+  if (modo === 'cc') {
+    _modalPisData.forEach(function (pi) {
+      if (pi.codigo_pi_cc) linhas.push(pi.codigo_pi_cc);
+    });
+  } else if (modo === 'ag') {
+    _modalPisData.forEach(function (pi) {
+      if (pi.codigo_pi_ag) linhas.push(pi.codigo_pi_ag);
+    });
+  } else {
+    _modalPisData.forEach(function (pi) {
+      var cc = pi.codigo_pi_cc || '';
+      var ag = pi.codigo_pi_ag || '';
+      linhas.push(cc + '\t' + ag);
+    });
+  }
+  if (!linhas.length) return;
+  copiarTextoPis(linhas.join('\n'), btn);
+}
+
+function abrirModalPisIncentivo(clienteId, agenciaNome) {
+  var modal = document.getElementById('modal_pis_incentivo');
+  var loading = document.getElementById('modal_pis_loading');
+  var erro = document.getElementById('modal_pis_erro');
+  var conteudo = document.getElementById('modal_pis_conteudo');
+  var titulo = document.getElementById('modal_pis_titulo');
+  var subtitulo = document.getElementById('modal_pis_subtitulo');
+
+  if (!modal) return;
+
+  titulo.textContent = agenciaNome || 'Agência';
+  subtitulo.textContent = 'ID #' + clienteId;
+  loading.classList.remove('hidden');
+  erro.classList.add('hidden');
+  conteudo.classList.add('hidden');
+  erro.textContent = '';
+  try {
+    if (typeof modal.showModal === 'function') {
+      if (!modal.open) modal.showModal();
+    } else {
+      modal.setAttribute('open', 'open');
+    }
+  } catch (err) {
+    console.error('Erro ao abrir modal PIs:', err);
+    modal.setAttribute('open', 'open');
+  }
+
+  var params = new URLSearchParams({ cliente_id: String(clienteId) });
+  var form = document.getElementById('form_filtros_incentivo');
+  if (form) {
+    var mesSel = form.querySelector('[name="mes_ref_comp"]');
+    var anoSel = form.querySelector('[name="ano"]');
+    if (mesSel && mesSel.value) params.set('mes_ref_comp', mesSel.value);
+    if (anoSel && anoSel.value) params.set('ano', anoSel.value);
+  }
+
+  fetch('{{ url_for("financeiro.api_relatorio_incentivos_pis") }}?' + params.toString(), {
+    headers: { 'Accept': 'application/json' },
+    credentials: 'same-origin',
+  })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (res) {
+      loading.classList.add('hidden');
+      if (!res.ok || !res.data.success) {
+        erro.textContent = res.data.message || 'Erro ao carregar PIs.';
+        erro.classList.remove('hidden');
+        return;
+      }
+      var nomeAgencia = res.data.agencia_nome || agenciaNome || 'Agência';
+      var qtd = (res.data.pis || []).length;
+      titulo.textContent = nomeAgencia;
+      subtitulo.textContent = '#' + res.data.cliente_id + ' · ' + qtd + ' PI' + (qtd !== 1 ? 's' : '');
+      renderModalPisLista(res.data.pis);
+      conteudo.classList.remove('hidden');
+    })
+    .catch(function () {
+      loading.classList.add('hidden');
+      erro.textContent = 'Erro de conexão ao carregar PIs.';
+      erro.classList.remove('hidden');
+    });
+}
+
+window.abrirModalPisIncentivo = abrirModalPisIncentivo;
+
+document.addEventListener('DOMContentLoaded', function () {
+  var modal = document.getElementById('modal_pis_incentivo');
+  if (modal && modal.parentNode !== document.body) {
+    document.body.appendChild(modal);
+  }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.btn-pis-incentivo-modal');
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var clienteId = parseInt(btn.getAttribute('data-cliente-id'), 10);
+    var agenciaNome = btn.getAttribute('data-agencia-nome')
+      || (btn.dataset && btn.dataset.agenciaNome)
+      || '';
+    if (!agenciaNome) {
+      var row = btn.closest('tr');
+      var nomeEl = row && row.querySelector('td .font-medium');
+      if (nomeEl) agenciaNome = nomeEl.textContent.trim();
+    }
+    if (clienteId) abrirModalPisIncentivo(clienteId, agenciaNome);
+  });
+});
 </script>
 {% endblock %}

@@ -265,6 +265,55 @@ def relatorio_incentivos():
     )
 
 
+@bp.route('/api/relatorio-incentivos/pis')
+@login_required_api
+def api_relatorio_incentivos_pis():
+    """PIs de uma agência c/ incentivo — códigos CC/AG para modal do relatório."""
+    cliente_id = request.args.get('cliente_id', type=int)
+    if not cliente_id:
+        return jsonify({'success': False, 'message': 'cliente_id obrigatório.'}), 400
+
+    if not main_db.cliente_possui_incentivo(cliente_id):
+        return jsonify({'success': False, 'message': 'Agência sem incentivo cadastrado.'}), 404
+
+    mes_ref_comp = request.args.get('mes_ref_comp', '').strip() or None
+    ano_raw = request.args.get('ano', '').strip()
+    ano_ref = None
+    if ano_raw:
+        try:
+            ano_int = int(ano_raw)
+            ano_ref = ano_int % 100 if ano_int > 100 else ano_int
+        except ValueError:
+            pass
+
+    rows = main_db.obter_pis_relatorio_incentivo_agencia(
+        cliente_id=cliente_id,
+        ano_ref=ano_ref,
+        mes_ref_comp=mes_ref_comp,
+    )
+    cli = main_db.obter_cliente_por_id(cliente_id) or {}
+    agencia_nome = cli.get('nome_fantasia') or cli.get('razao_social') or '—'
+
+    pis = []
+    for r in rows:
+        pis.append({
+            'id_pi': r.get('id_pi'),
+            'codigo_pi_cc': r.get('codigo_pi_cc') or None,
+            'codigo_pi_ag': r.get('codigo_pi_ag') or None,
+            'titulo_pi': r.get('titulo_pi') or None,
+            'mes_ref_comp': r.get('mes_ref_comp') or None,
+            'cliente_nome': r.get('cliente_nome') or None,
+            'agencia_nome': r.get('agencia_nome') or agencia_nome,
+        })
+
+    return jsonify({
+        'success': True,
+        'agencia_nome': agencia_nome,
+        'cliente_id': cliente_id,
+        'pis': pis,
+    })
+
+
 # --------------- API colaborador ---------------
 
 @bp.route('/api/categories')

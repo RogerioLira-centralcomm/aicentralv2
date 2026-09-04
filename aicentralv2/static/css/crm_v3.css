@@ -2901,38 +2901,88 @@ button:hover > .crm-v3-menu-hint {
     gap: 14px;
 }
 
+/* Empty state (nenhuma cotação em NENHUM grupo) — versão rica com
+   ícone + hint contextual. Antes era só uma linha de texto cinza que
+   deixava dúvida sobre "porque?". Agora explica que cotações da
+   agência vinculada também apareceriam. */
 .crm-v3-cotacao-empty {
-    padding: 12px;
+    padding: 20px 12px;
     text-align: center;
     color: var(--crm-text-subtle);
     font-size: var(--crm-font-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.crm-v3-cotacao-empty > i {
+    font-size: 28px;
+    opacity: 0.5;
+}
+.crm-v3-cotacao-empty p {
+    margin: 0;
+    font-weight: 500;
+}
+.crm-v3-cotacao-empty-hint {
+    font-size: var(--crm-font-xs);
+    color: var(--crm-text-subtle);
+    opacity: 0.85;
 }
 
+/* Empty inline (grupo Em andamento sem cotações mas cliente tem
+   histórico) — mais discreto, indica "aqui não tem nada agora" sem
+   confundir com o empty state global. */
 .crm-v3-cotacao-empty-inline {
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: var(--crm-surface);
     border: 1px dashed var(--crm-border);
     border-radius: var(--crm-radius-sm);
     font-size: var(--crm-font-xs);
+    text-align: center;
+    color: var(--crm-text-subtle);
 }
 
 .crm-v3-cotacao-grupo {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.crm-v3-cotacao-grupo:last-child {
+    margin-bottom: 0;
 }
 
 .crm-v3-cotacao-grupo-title {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    gap: 8px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--crm-text-subtle);
     padding: 0 2px;
+}
+
+/* Ícone à esquerda do label do grupo (play/check/histórico). */
+.crm-v3-cotacao-grupo-icon {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* Colorização sutil do ícone por grupo — reforça o padrão do card
+   sem competir com o texto do título (que fica cinza sempre). */
+.crm-v3-cotacao-grupo-em-andamento .crm-v3-cotacao-grupo-icon {
+    color: #4f46e5;
+    opacity: 1;
+}
+.crm-v3-cotacao-grupo-aprovadas .crm-v3-cotacao-grupo-icon {
+    color: #16a34a;
+    opacity: 1;
+}
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-grupo-icon {
+    color: #94a3b8;
+    opacity: 1;
 }
 
 .crm-v3-cotacao-grupo-count {
@@ -4780,4 +4830,110 @@ button:hover > .crm-v3-menu-hint {
 @keyframes crm-v3-web-shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+/* =====================================================================
+   Cotações — grupo "Aprovadas" (verde) — set/2026
+   =====================================================================
+   Cards destacados em verde para cotações ganhas. Design compacto:
+   uma linha topline (check + título + valor) + uma linha meta (número,
+   período, badge de vínculo). Sem descrição/plataformas — para
+   detalhes o executivo clica e abre o drawer completo.
+   Verde inspirado no "won deal" do Pipedrive: fundo esverdeado suave,
+   borda verde mais forte, checkmark preenchido. Nunca gritante.
+   ================================================================== */
+.crm-v3-cotacao-card-aprovada {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: var(--crm-radius-md);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    /* botão-like (o article vira role="button" no HTML): remove outline
+       do foco default e usa focus-visible customizado abaixo. */
+    outline: none;
+}
+.crm-v3-cotacao-card-aprovada:hover {
+    background: #dcfce7;
+    border-color: #4ade80;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.12);
+}
+.crm-v3-cotacao-card-aprovada:focus-visible {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25);
+}
+
+.crm-v3-cotacao-aprovada-topline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.crm-v3-cotacao-aprovada-icon {
+    color: #16a34a;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+.crm-v3-cotacao-aprovada-titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #14532d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crm-v3-cotacao-aprovada-valor {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #15803d;
+    font-variant-numeric: tabular-nums;
+}
+
+.crm-v3-cotacao-aprovada-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 11px;
+    color: #166534;
+    opacity: 0.8;
+    padding-left: 22px; /* alinha com o texto do title, depois do ícone */
+}
+/* Origem (agência vinculada) dentro do card aprovada — mantém verde. */
+.crm-v3-cotacao-card-aprovada .crm-v3-cotacao-origem {
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+}
+
+/* =====================================================================
+   Cotações — histórico (cinza discreto) — set/2026
+   =====================================================================
+   Refinamento visual do grupo histórico: paleta cinza-suave em todos
+   os itens (rejeitada, expirada, canceladas). Sem cores fortes — é
+   arquivo/referência. O usuário reforçou: "rejeitada apenas deixar
+   em historico cinza".
+   ================================================================== */
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha {
+    background: #f8fafc;
+    color: var(--crm-text-muted);
+}
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha:hover {
+    background: #f1f5f9;
+    color: var(--crm-text);
+}
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-icon,
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-nome,
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-valor,
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-meta {
+    color: inherit;
+}
+/* Ícone de status no histórico — cinza médio, sem verde/vermelho. */
+.crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-icon {
+    opacity: 0.65;
 }

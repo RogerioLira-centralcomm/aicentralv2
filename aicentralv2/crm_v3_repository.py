@@ -1059,7 +1059,16 @@ class CrmV3Repository:
         status (aliases em `crm_v3_data`).
 
         Se `include_vinculados=False`, usa a função original sem vínculos.
+
+        Set/2026: antes engolíamos qualquer exceção com `return []`, o que
+        fazia o UI mostrar "Nenhuma cotação registrada" indistinguível de
+        "não conseguimos falar com o banco". Agora logamos WARNING com o
+        tipo de exceção e mensagem antes de degradar — se o usuário vê
+        vazio no CRM mas sabe que existe cotação, o log em journalctl
+        mostra o motivo real. Adicionamos também `_rollback_if_failed`
+        para evitar cascata de InFailedSqlTransaction.
         """
+        import logging
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
@@ -1068,10 +1077,17 @@ class CrmV3Repository:
                 rows = _db().obter_cotacoes_cliente_com_vinculos(cliente_id) or []
             else:
                 rows = _db().obter_cotacoes_cliente(cliente_id) or []
-        except Exception:
-            # Se a tabela não existir ou a query falhar, degrada para lista
-            # vazia — o UI já lida com "Nenhuma cotação registrada".
+        except Exception as e:  # noqa: BLE001
+            _rollback_if_failed("list_cotacoes")
+            logging.getLogger("aicentral.crm_v3").warning(
+                "list_cotacoes cliente=%s include_vinculados=%s falhou: %s: %s",
+                cliente_id, include_vinculados, type(e).__name__, e,
+            )
             return []
+        logging.getLogger("aicentral.crm_v3").info(
+            "list_cotacoes cliente=%s → %d cotações (com_vinculos=%s)",
+            cliente_id, len(rows), include_vinculados,
+        )
         return [self._map_cotacao(r) for r in rows]
 
     def _prepare_cotacao_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:

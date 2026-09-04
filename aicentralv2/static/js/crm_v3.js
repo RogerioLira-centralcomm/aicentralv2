@@ -2597,13 +2597,28 @@
         });
     }
 
-    // Status considerados "em aberto" (trabalho ativo do executivo).
-    // Restante entra no histórico.
-    var COT_STATUS_ABERTO = ['rascunho', 'enviada', 'em-acompanhamento', 'em_acompanhamento'];
+    // Classificação de cotações em 3 grupos visuais (set/2026):
+    //  - EM_ANDAMENTO: trabalho ativo (rascunho / enviada / em acompanhamento)
+    //  - APROVADA:     ganho comercial confirmado (destaque verde separado)
+    //  - HISTORICO:    rejeitada / expirada / demais status (cinza compacto)
+    // A separação de "aprovada" num grupo próprio veio da imagem
+    // reference do usuário — no Pipedrive/HubSpot ganhos ficam
+    // destacados em verde, atalhando revisão de pipeline fechado.
+    var COT_STATUS_EM_ANDAMENTO = ['rascunho', 'enviada', 'em-acompanhamento', 'em_acompanhamento'];
+    var COT_STATUS_APROVADA = ['aprovada', 'ganha', 'fechada'];
 
-    function cotacaoEstaAberta(c) {
+    function cotacaoGrupo(c) {
         var s = String(c.status || '').toLowerCase();
-        return COT_STATUS_ABERTO.indexOf(s) !== -1;
+        if (COT_STATUS_EM_ANDAMENTO.indexOf(s) !== -1) return 'em_andamento';
+        if (COT_STATUS_APROVADA.indexOf(s) !== -1) return 'aprovada';
+        return 'historico';
+    }
+
+    // Compat: `cotacaoEstaAberta` continua exportada por outros pontos do
+    // arquivo (updateTabCounts etc.). Marcamos como "em andamento" —
+    // aprovada NÃO conta como aberta.
+    function cotacaoEstaAberta(c) {
+        return cotacaoGrupo(c) === 'em_andamento';
     }
 
     /**
@@ -2702,34 +2717,105 @@
         );
     }
 
+    /**
+     * Render da coluna "Cotações recentes" — 3 grupos visuais.
+     *
+     * Set/2026: refatorado por pedido do usuário. Antes tinha 2 grupos
+     * (Em aberto / Histórico) e não distinguia visualmente cotações
+     * ganhas. Agora:
+     *
+     *   1. **Em andamento** — cards em tom neutro, mostram todos os
+     *      detalhes (título, plataformas, período, valor). São o foco
+     *      de trabalho do executivo. Sempre visíveis com header, mesmo
+     *      vazias, para dar previsibilidade da estrutura da coluna.
+     *
+     *   2. **Aprovadas** — cards em VERDE (background suave), sinalizam
+     *      pipeline realizado. Só aparecem quando há aprovadas — não
+     *      confundem a UI com header vazio.
+     *
+     *   3. **Histórico** — linhas CINZA compactas (rejeitadas, expiradas,
+     *      demais). Sem cores fortes, é arquivo de referência. Igual
+     *      antes mas visualmente mais discreto (mesma paleta cinza pra
+     *      todas as linhas).
+     *
+     * Vínculos (agência ↔ cliente final): cada cotação vem com
+     * `origem: 'proprio' | 'vinculado'` do backend. `cliente_nome`
+     * aparece no card como pill "🔗 Griletto" quando vinculado.
+     * Nada muda aqui — só a agrupação.
+     */
     function renderCotacoes() {
         var container = $('#crm-v3-cotacao-list');
         if (!container) return;
         updateTabCounts();
+
+        // Separa por grupo em uma única passada (mais barato que 3 filters).
+        var emAndamento = [];
+        var aprovadas = [];
+        var historico = [];
+        (state.cotacoes || []).forEach(function (c) {
+            var g = cotacaoGrupo(c);
+            if (g === 'em_andamento') emAndamento.push(c);
+            else if (g === 'aprovada') aprovadas.push(c);
+            else historico.push(c);
+        });
+
+        // Ordena aprovadas e histórico por período_fim desc → cotações
+        // mais recentes primeiro (fica melhor para revisão comercial).
+        function porDataDesc(a, b) {
+            var da = a.periodo_fim || a.data || '';
+            var db = b.periodo_fim || b.data || '';
+            if (db > da) return 1;
+            if (db < da) return -1;
+            return 0;
+        }
+        aprovadas.sort(porDataDesc);
+        historico.sort(porDataDesc);
+
+        // Se realmente não há nada em nenhum grupo, mostra empty state
+        // único no lugar dos 3 headers vazios.
         if (!state.cotacoes.length) {
-            container.innerHTML = '<div class="crm-v3-cotacao-empty">Nenhuma cotação registrada.</div>';
+            container.innerHTML =
+                '<div class="crm-v3-cotacao-empty">' +
+                    '<i class="fa-regular fa-file-lines" aria-hidden="true"></i>' +
+                    '<p>Nenhuma cotação registrada para este cliente</p>' +
+                    '<span class="crm-v3-cotacao-empty-hint">Cotações da agência vinculada também aparecem aqui.</span>' +
+                '</div>';
             return;
         }
 
-        var abertas = state.cotacoes.filter(cotacaoEstaAberta);
-        var historico = state.cotacoes.filter(function (c) { return !cotacaoEstaAberta(c); });
-
         var html = '';
-        html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-abertas">' +
+
+        // -------- Grupo 1: Em andamento --------
+        html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-em-andamento">' +
                 '<div class="crm-v3-cotacao-grupo-title">' +
-                    '<span>Em aberto</span>' +
-                    '<span class="crm-v3-cotacao-grupo-count">' + abertas.length + '</span>' +
+                    '<i class="fa-solid fa-circle-play crm-v3-cotacao-grupo-icon" aria-hidden="true"></i>' +
+                    '<span>Em andamento</span>' +
+                    '<span class="crm-v3-cotacao-grupo-count">' + emAndamento.length + '</span>' +
                 '</div>';
-        if (abertas.length) {
-            html += abertas.map(cotacaoCardAberta).join('');
+        if (emAndamento.length) {
+            html += emAndamento.map(cotacaoCardAberta).join('');
         } else {
-            html += '<div class="crm-v3-cotacao-empty crm-v3-cotacao-empty-inline">Sem cotações em aberto.</div>';
+            html += '<div class="crm-v3-cotacao-empty crm-v3-cotacao-empty-inline">Nenhuma cotação em andamento.</div>';
         }
         html += '</div>';
 
+        // -------- Grupo 2: Aprovadas (destaque verde) --------
+        if (aprovadas.length) {
+            html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-aprovadas">' +
+                    '<div class="crm-v3-cotacao-grupo-title">' +
+                        '<i class="fa-solid fa-circle-check crm-v3-cotacao-grupo-icon" aria-hidden="true"></i>' +
+                        '<span>Aprovadas</span>' +
+                        '<span class="crm-v3-cotacao-grupo-count">' + aprovadas.length + '</span>' +
+                    '</div>' +
+                    aprovadas.map(cotacaoCardAprovada).join('') +
+                    '</div>';
+        }
+
+        // -------- Grupo 3: Histórico (cinza compacto) --------
         if (historico.length) {
             html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-historico">' +
                     '<div class="crm-v3-cotacao-grupo-title">' +
+                        '<i class="fa-solid fa-clock-rotate-left crm-v3-cotacao-grupo-icon" aria-hidden="true"></i>' +
                         '<span>Histórico</span>' +
                         '<span class="crm-v3-cotacao-grupo-count">' + historico.length + '</span>' +
                     '</div>' +
@@ -2740,6 +2826,8 @@
         }
         container.innerHTML = html;
 
+        // Delegação de clique para abrir detalhes (funciona para todos
+        // os grupos: card aberto, card aprovada e linha histórico).
         $$('.crm-v3-cotacao-detalhes', container).forEach(function (btn) {
             btn.addEventListener('click', function (ev) {
                 ev.preventDefault();
@@ -2749,6 +2837,42 @@
                 if (cot) openCotacaoModal(cot);
             });
         });
+    }
+
+    /**
+     * Card compacto para cotação APROVADA — destaque verde estilo
+     * Pipedrive-won. Mostra título + valor + período; sem plataformas
+     * detalhadas (já foi ganha, o executivo revisa se quiser detalhe
+     * clicando). Se for cotação vinculada, pill do cliente.
+     */
+    function cotacaoCardAprovada(c) {
+        var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
+        var numero = c.numero_cotacao || '';
+        var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
+        var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
+        var origemPill = '';
+        if (c.origem === 'vinculado' && c.cliente_nome) {
+            origemPill = '<span class="crm-v3-cotacao-origem" title="Cotação de ' + escapeHtml(c.cliente_nome) + '">' +
+                '<i class="fas fa-link" aria-hidden="true"></i> ' + escapeHtml(c.cliente_nome) +
+                '</span>';
+        }
+        return (
+            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aprovada crm-v3-cotacao-detalhes"' +
+                ' data-cotacao-id="' + escapeHtml(c.id) + '"' +
+                ' role="button" tabindex="0"' +
+                ' title="Ver detalhes da cotação aprovada">' +
+            '<div class="crm-v3-cotacao-aprovada-topline">' +
+                '<i class="fa-solid fa-circle-check crm-v3-cotacao-aprovada-icon" aria-hidden="true"></i>' +
+                '<span class="crm-v3-cotacao-aprovada-titulo">' + escapeHtml(titulo) + '</span>' +
+                (valor ? '<span class="crm-v3-cotacao-aprovada-valor">' + escapeHtml(valor) + '</span>' : '') +
+            '</div>' +
+            '<div class="crm-v3-cotacao-aprovada-meta">' +
+                (numero ? '<span>' + escapeHtml(numero) + '</span>' : '') +
+                (periodo ? '<span>' + escapeHtml(periodo) + '</span>' : '') +
+                origemPill +
+            '</div>' +
+            '</article>'
+        );
     }
 
     function renderNotas() {

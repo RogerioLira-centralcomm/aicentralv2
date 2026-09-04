@@ -6297,15 +6297,29 @@ def criar_historico_cliente(cliente_id, executivo_id, texto):
 # ==================== COTAÇÕES ====================
 
 def obter_cotacoes_cliente(cliente_id):
-    """Retorna todas as cotações de um cliente (exceto as soft-deletadas)."""
+    """Retorna todas as cotações de um cliente (exceto as soft-deletadas).
+
+    Set/2026 (fix crítico): o schema real de `cadu_cotacoes` usa
+    `client_id`, `client_user_id` e `responsavel_comercial` — as
+    versões anteriores desta função referenciavam `cliente_id`,
+    `contato_cliente_id` e `vendas_central_comm`, colunas que NÃO
+    existem no schema. Todo SELECT falhava com `UndefinedColumn`,
+    o repositório CRM v3 engolia a exceção com `return []`, e a
+    coluna de cotações no CRM v3 sempre aparecia vazia para
+    agências E clientes diretos. Alinhado com `criar_cotacao`
+    (linha 7847), `obter_cotacoes` (linha 7671) e
+    `obter_cotacao_por_id` (linha 7822) do CRM legado, que
+    funcionam há anos com os nomes corretos.
+
+    Também mantém `deleted_at IS NULL` em paridade com
+    `obter_cotacoes_cliente_com_vinculos` — antes o CRM v3 contava
+    cotações soft-deletadas nas métricas de "Cotações em aberto"
+    e "Pipeline em aberto", inflando os números sem que o usuário
+    visse essas linhas na lista (que já filtrava deleted_at).
+    """
     conn = get_db()
     
     with conn.cursor() as cursor:
-        # Set/2026: paridade com `obter_cotacoes_cliente_com_vinculos`,
-        # que já filtra `deleted_at IS NULL`. Antes o CRM v3 contava
-        # cotações soft-deletadas nas métricas de "Cotações em aberto"
-        # e "Pipeline em aberto", inflando os números sem que o usuário
-        # visse essas linhas na lista (que já filtrava deleted_at).
         cursor.execute('''
             SELECT 
                 c.*,
@@ -6313,10 +6327,10 @@ def obter_cotacoes_cliente(cliente_id):
                 vend.nome_completo as vendedor_nome,
                 st.descricao as status_descricao
             FROM cadu_cotacoes c
-            LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
-            LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+            LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
+            LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
             LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-            WHERE c.cliente_id = %s AND c.deleted_at IS NULL
+            WHERE c.client_id = %s AND c.deleted_at IS NULL
             ORDER BY c.created_at DESC
         ''', (cliente_id,))
         return cursor.fetchall()
@@ -6383,6 +6397,19 @@ def obter_cotacoes_cliente_com_vinculos(cliente_id):
                         cliente_ids.append(row['id_cliente'])
 
             # 3. Buscar cotações de todos os IDs
+            #
+            # Set/2026 (fix crítico): mesmo bug da `obter_cotacoes_cliente`.
+            # As colunas reais em `cadu_cotacoes` são `client_id`,
+            # `client_user_id` e `responsavel_comercial`. As referências
+            # antigas (cliente_id / contato_cliente_id / vendas_central_comm)
+            # não existem no schema e faziam esta query estourar
+            # UndefinedColumn — capturado pelo `except` abaixo e degradado
+            # para lista vazia, com log de erro invisível para o usuário
+            # final. Efeito na UI: coluna "Cotações recentes" sempre vazia
+            # no CRM v3, para agências (agregando filhos) e clientes
+            # diretos. Aliases `cliente_nome/contato_nome/vendedor_nome/
+            # status_descricao/origem` são preservados para não quebrar
+            # o `_map_cotacao` no repositório.
             cursor.execute('''
                 SELECT 
                     c.*,
@@ -6390,13 +6417,13 @@ def obter_cotacoes_cliente_com_vinculos(cliente_id):
                     cont.nome_completo as contato_nome,
                     vend.nome_completo as vendedor_nome,
                     st.descricao as status_descricao,
-                    CASE WHEN c.cliente_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
+                    CASE WHEN c.client_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
                 FROM cadu_cotacoes c
-                JOIN tbl_cliente cli ON c.cliente_id = cli.id_cliente
-                LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
-                LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+                JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
+                LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
                 LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-                WHERE c.cliente_id = ANY(%s) AND c.deleted_at IS NULL
+                WHERE c.client_id = ANY(%s) AND c.deleted_at IS NULL
                 ORDER BY c.created_at DESC
             ''', (int(cliente_id), cliente_ids))
             return cursor.fetchall()

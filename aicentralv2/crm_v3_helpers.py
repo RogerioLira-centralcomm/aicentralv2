@@ -138,3 +138,31 @@ def uf_por_capital_operacao(cidade: Optional[str]) -> Optional[str]:
         "rio de janeiro": "RJ",
         "sao paulo": "SP",
     }.get(chave)
+
+
+def texto_sem_markdown(texto: Optional[str]) -> str:
+    """Remove marcações markdown comuns de títulos/roteiros gerados por IA."""
+    s = str(texto or "")
+    s = re.sub(r"```[\s\S]*?```", lambda m: m.group(0).replace("```", ""), s)
+    s = s.replace("```", "")
+    s = re.sub(r"^#{1,6}\s+", "", s, flags=re.M)
+    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+    s = re.sub(r"__(.+?)__", r"\1", s)
+    s = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"\1", s)
+    s = re.sub(r"`([^`]+)`", r"\1", s)
+    s = re.sub(r"^[\s]*[-*+]\s+", "- ", s, flags=re.M)
+    s = re.sub(r"^\s{0,3}>\s?", "", s, flags=re.M)
+    s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
+    s = re.sub(r"[ \t]+\n", "\n", s)
+    return s.strip()
+
+
+def titulo_atividade_lista(titulo: Optional[str], descricao: Optional[str] = None) -> str:
+    """Primeira linha limpa para o card da coluna (sem markdown, sem bloco)."""
+    bruto = texto_sem_markdown(titulo)
+    if not bruto:
+        bruto = texto_sem_markdown(descricao)
+    linha = (bruto.splitlines()[0] if bruto else "").strip()
+    if not linha:
+        return "Atividade"
+    return linha[:90] + ("…" if len(linha) > 90 else "")

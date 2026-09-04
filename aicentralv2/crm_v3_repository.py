@@ -42,7 +42,12 @@ import os
 import re
 from datetime import date as _date, datetime as _datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from .crm_v3_helpers import filtrar_vinculos_colisao_lookup, uf_por_capital_operacao
+from .crm_v3_helpers import (
+    filtrar_vinculos_colisao_lookup,
+    uf_por_capital_operacao,
+    texto_sem_markdown,
+    titulo_atividade_lista,
+)
 
 
 def _db():
@@ -520,6 +525,7 @@ class CrmV3Repository:
                 "id": str(r.get("id_contato_cliente")),
                 "nome": r.get("nome_completo") or "",
                 "email": r.get("email") or "",
+                "foto_url": r.get("foto_url") or "",
             }
             for r in _safe(db.obter_vendedores_centralcomm)
             if r.get("id_contato_cliente") is not None
@@ -999,7 +1005,8 @@ class CrmV3Repository:
         if not row:
             return {}
         data_iso = self._iso_date(row.get("data_atividade"))
-        titulo = (row.get("titulo") or "").strip() or (row.get("descricao") or "").strip()
+        titulo = titulo_atividade_lista(row.get("titulo"), row.get("descricao"))
+        descricao = texto_sem_markdown(row.get("descricao") or "")
         # hora_atividade é opcional (coluna nova em set/2026). Retorna
         # string vazia quando a base não tem a coluna ou o registro
         # ficou sem hora — a UI só exibe hora quando não-vazia.
@@ -1015,7 +1022,7 @@ class CrmV3Repository:
         return {
             "id": str(row.get("id")),
             "titulo": titulo,
-            "descricao": row.get("descricao") or "",
+            "descricao": descricao,
             "data": data_iso,
             "data_label": "",  # UI computa o rótulo (Hoje/Amanhã/etc.)
             "hora": hora_str,
@@ -1024,6 +1031,7 @@ class CrmV3Repository:
             "tipo": row.get("tipo") or "atividade",
             "responsavel": row.get("responsavel_nome") or "",
             "responsavel_iniciais": self._initials(row.get("responsavel_nome") or ""),
+            "responsavel_foto_url": (row.get("responsavel_foto_url") or "").strip(),
             "contato_id": (
                 str(row.get("contato_id")) if row.get("contato_id") is not None else ""
             ),
@@ -1046,8 +1054,8 @@ class CrmV3Repository:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
-        titulo = (data.get("titulo") or "").strip()
-        descricao = (data.get("descricao") or "").strip() or titulo
+        titulo = texto_sem_markdown(data.get("titulo") or "").strip()
+        descricao = texto_sem_markdown(data.get("descricao") or "").strip() or titulo
         if not descricao:
             raise ValueError("Título é obrigatório")
         data_iso = self._validate_iso_date(data.get("data"), "data")
@@ -1085,14 +1093,14 @@ class CrmV3Repository:
         # Mapeamento shape v3 → colunas do banco:
         payload: Dict[str, Any] = {}
         if "titulo" in data:
-            titulo = (data.get("titulo") or "").strip()
+            titulo = texto_sem_markdown(data.get("titulo") or "").strip()
             payload["titulo"] = titulo or None
             # Quando o UI edita só o título, mantemos `descricao` sincronizada
             # (base legada usa descricao como texto principal).
             if titulo and "descricao" not in data:
                 payload["descricao"] = titulo
         if "descricao" in data:
-            payload["descricao"] = (data.get("descricao") or "").strip()
+            payload["descricao"] = texto_sem_markdown(data.get("descricao") or "").strip()
         if "data" in data:
             payload["data_atividade"] = self._validate_iso_date(data.get("data"), "data")
         if "data_prazo" in data:

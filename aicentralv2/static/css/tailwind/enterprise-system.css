@@ -1687,3 +1687,36 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-atividade-date-grid { grid-template-columns: 1fr; }
   .cx-atividade-date-grid input { font-size: 13.5px; }
 }
+
+.cx-sequence-preview {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.cx-sequence-preview-row {
+  display: grid;
+  grid-template-columns: 120px 110px 1fr;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--cx-border);
+  border-radius: 8px;
+  background: var(--cx-bg);
+}
+.cx-sequence-preview-row input,
+.cx-sequence-preview-row select,
+.cx-sequence-preview-row textarea {
+  min-width: 0;
+  border: 1px solid var(--cx-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: inherit;
+}
+.cx-sequence-preview-row textarea {
+  grid-column: 1 / -1;
+  min-height: 54px;
+  resize: vertical;
+}
+@media (max-width: 640px) {
+  .cx-sequence-preview-row { grid-template-columns: 1fr; }
+  .cx-sequence-preview-row textarea { grid-column: auto; }
+}

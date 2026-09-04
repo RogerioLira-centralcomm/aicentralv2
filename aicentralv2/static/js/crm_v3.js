@@ -13,6 +13,9 @@
         objetivos: [],
         cotacoes: [],
         notas: [],
+        nextAction: null,
+        nextActionLoading: false,
+        nextActionCache: {},
         filtroPill: 'classif-ativo',
         filtroSecundario: '',
         filtroExecutivo: '',
@@ -2578,6 +2581,55 @@
         );
     }
 
+    function renderNextAction() {
+        var el = $('#crm-v3-next-action');
+        if (!el) return;
+        if (!state.clienteId) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        el.hidden = false;
+        if (state.nextActionLoading) {
+            el.innerHTML = '<div class="crm-v3-next-action-loading"><i class="fa-solid fa-spinner fa-spin"></i> Analisando contexto comercial…</div>';
+            return;
+        }
+        var s = state.nextAction;
+        if (!s) {
+            el.innerHTML = '<button type="button" class="crm-v3-next-action-refresh" data-next-action="refresh"><i class="fa-solid fa-wand-magic-sparkles"></i> Recomendar próximo passo</button>';
+        } else {
+            var origem = s.source === 'openrouter' ? 'IA contextual' : 'Sugestão local';
+            el.innerHTML =
+                '<div class="crm-v3-next-action-kicker"><i class="fa-solid fa-compass"></i> Próxima melhor ação <span>' + escapeHtml(origem) + '</span></div>' +
+                '<strong>' + escapeHtml(s.titulo || s.acao_sugerida || 'Próximo passo') + '</strong>' +
+                '<p>' + escapeHtml(s.motivo || s.descricao || '') + '</p>' +
+                '<div class="crm-v3-next-action-actions">' +
+                    '<button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" data-next-action="apply">Preparar atividade</button>' +
+                    '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" data-next-action="refresh" title="Atualizar recomendação"><i class="fa-solid fa-rotate"></i></button>' +
+                '</div>';
+        }
+        if (!el._nextActionBound) {
+            el._nextActionBound = true;
+            el.addEventListener('click', function (event) {
+                var btn = event.target.closest('[data-next-action]');
+                if (!btn) return;
+                if (btn.getAttribute('data-next-action') === 'refresh') {
+                    loadNextAction(state.clienteId, true);
+                    return;
+                }
+                if (btn.getAttribute('data-next-action') === 'apply' && state.nextAction) {
+                    var sugestao = Object.assign({}, state.nextAction, {
+                        data: state.nextAction.data_sugerida || new Date().toISOString().slice(0, 10),
+                        status: 'pendente'
+                    });
+                    if (window.crmV3Drawer && typeof window.crmV3Drawer.openAtividade === 'function') {
+                        window.crmV3Drawer.openAtividade(sugestao, state.clienteId);
+                    }
+                }
+            });
+        }
+    }
+
     function renderAtividades() {
         var container = $('#crm-v3-ativ-list');
         if (!container) return;
@@ -3595,6 +3647,33 @@
         }).catch(function (err) { showToast(err.message, true); });
     }
 
+    function loadNextAction(clienteId, force) {
+        if (!clienteId) return Promise.resolve();
+        if (!force && state.nextActionCache[String(clienteId)]) {
+            state.nextAction = state.nextActionCache[String(clienteId)];
+            state.nextActionLoading = false;
+            renderNextAction();
+            return Promise.resolve(state.nextAction);
+        }
+        state.nextActionLoading = true;
+        state.nextAction = null;
+        renderNextAction();
+        return api('/ia/sugerir-atividade', {
+            method: 'POST',
+            body: { cliente_id: clienteId, contato_id: state.contatoId || null }
+        }).then(function (data) {
+            if (state.clienteId !== clienteId) return;
+            state.nextAction = data.data || data;
+            state.nextActionCache[String(clienteId)] = state.nextAction;
+        }).catch(function () {
+            if (state.clienteId === clienteId) state.nextAction = null;
+        }).finally(function () {
+            if (state.clienteId !== clienteId) return;
+            state.nextActionLoading = false;
+            renderNextAction();
+        });
+    }
+
     function loadObjetivos(clienteId) {
         return api('/clientes/' + encodeURIComponent(clienteId) + '/objetivos').then(function (data) {
             if (state.clienteId !== clienteId) return;
@@ -3640,12 +3719,15 @@
         state.objetivos = [];
         state.cotacoes = [];
         state.notas = [];
+        state.nextAction = null;
+        state.nextActionLoading = false;
         updateClienteActiveCard();
         updateDetailPanel(state.cliente);
         renderAtividades();
         renderObjetivos();
         renderCotacoes();
         renderNotas();
+        renderNextAction();
         showSidebarInformacoes();
         if (isMobileCrm()) {
             setMobileView('detail');
@@ -3677,6 +3759,7 @@
         }).catch(function () { /* já temos um cliente base do listing */ });
         loadContatos(clienteId);
         loadAtividades(clienteId);
+        loadNextAction(clienteId);
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
         loadNotas(clienteId);
@@ -3974,6 +4057,76 @@
             $('#crm-v3-objetivo-prazo').value = dataParaInput(objetivo.prazo);
         }
         openModal('crm-v3-modal-objetivo');
+    }
+
+    function sugerirObjetivosIA(btn) {
+        if (!state.clienteId) {
+            showToast('Selecione um cliente', true);
+            return;
+        }
+        setBtnLoading(btn, true);
+        api('/ia/sugerir-objetivos', {
+            method: 'POST',
+            body: { cliente_id: state.clienteId, contato_id: state.contatoId || null }
+        }).then(function (data) {
+            data = data.data || data;
+            var itens = data.objetivos || [];
+            var list = $('#crm-v3-objetivos-ia-list');
+            if (!list || !itens.length) throw new Error('A IA não sugeriu objetivos');
+            var hoje = new Date();
+            list.innerHTML = itens.map(function (item, idx) {
+                if (typeof item === 'string') item = { texto: item, prazo_dias: 30 };
+                var prazo = new Date(hoje.getTime());
+                prazo.setDate(prazo.getDate() + Number(item.prazo_dias || 30));
+                return '<label class="flex gap-2 items-start border border-base-200 rounded-lg p-3" data-objetivo-ia-row>' +
+                    '<input type="checkbox" class="checkbox checkbox-sm mt-1" checked>' +
+                    '<div class="flex-1">' +
+                    '<input class="input input-bordered input-sm w-full" data-objetivo-ia-texto value="' + escapeHtml(item.texto || '') + '">' +
+                    '<div class="flex gap-2 items-center mt-2"><input type="date" class="input input-bordered input-xs" data-objetivo-ia-prazo value="' + prazo.toISOString().slice(0, 10) + '">' +
+                    '<span class="text-xs text-base-content/60">' + escapeHtml(item.motivo || '') + '</span></div></div></label>';
+            }).join('');
+            var progress = $('#crm-v3-objetivos-ia-progress');
+            if (progress) progress.textContent = 'Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local');
+            openModal('crm-v3-modal-objetivos-ia');
+        }).catch(function (err) {
+            showToast(err.message, true);
+        }).finally(function () {
+            setBtnLoading(btn, false);
+        });
+    }
+
+    function criarObjetivosIASugeridos(btn) {
+        var rows = $$('#crm-v3-objetivos-ia-list [data-objetivo-ia-row]').filter(function (row) {
+            return row.querySelector('input[type="checkbox"]').checked;
+        });
+        if (!rows.length) {
+            showToast('Selecione ao menos um objetivo', true);
+            return;
+        }
+        btn.disabled = true;
+        var progress = $('#crm-v3-objetivos-ia-progress');
+        var index = 0;
+        var created = 0;
+        function next() {
+            if (index >= rows.length) return Promise.resolve();
+            var row = rows[index++];
+            if (progress) progress.textContent = 'Criando ' + index + ' de ' + rows.length + '…';
+            return api('/clientes/' + encodeURIComponent(state.clienteId) + '/objetivos', {
+                method: 'POST',
+                body: {
+                    texto: row.querySelector('[data-objetivo-ia-texto]').value,
+                    prazo: row.querySelector('[data-objetivo-ia-prazo]').value
+                }
+            }).then(function () { created += 1; return next(); });
+        }
+        next().then(function () {
+            closeModal('crm-v3-modal-objetivos-ia');
+            showToast(created + ' objetivo(s) criado(s)');
+            return loadObjetivos(state.clienteId);
+        }).catch(function (err) {
+            if (progress) progress.textContent = created + ' criado(s); falha no item ' + (created + 1) + '.';
+            showToast(err.message, true);
+        }).finally(function () { btn.disabled = false; });
     }
 
     function openCotacaoModal(cotacao) {
@@ -4608,8 +4761,9 @@
                     return;
                 }
                 setBtnLoading(processarBtn, true);
-                api('/contatos/parse-texto', { method: 'POST', body: { texto: texto } })
+                api('/ia/extrair-contatos', { method: 'POST', body: { texto: texto } })
                     .then(function (data) {
+                        data = data.data || data;
                         state.importRows = data.contatos || [];
                         if (!state.importRows.length) {
                             var err = $('#crm-v3-import-error');
@@ -4652,14 +4806,29 @@
                 collectImportRowsFromTable();
                 if (!validarImportRows()) return;
                 setBtnLoading(importSubmit, true);
-                api('/clientes/' + encodeURIComponent(state.clienteId) + '/contatos/importar', {
-                    method: 'POST',
-                    body: { contatos: state.importRows }
-                }).then(function (data) {
+                var confirmMsg = $('#crm-v3-import-confirm-msg');
+                var importados = 0;
+                var pos = 0;
+                function importarProximo() {
+                    if (pos >= state.importRows.length) return Promise.resolve();
+                    var row = state.importRows[pos++];
+                    if (confirmMsg) confirmMsg.textContent = 'Importando ' + pos + ' de ' + state.importRows.length + '…';
+                    return api('/clientes/' + encodeURIComponent(state.clienteId) + '/contatos/importar', {
+                        method: 'POST',
+                        body: { contatos: [row] }
+                    }).then(function (data) {
+                        importados += Number(data.importados || 1);
+                        return importarProximo();
+                    });
+                }
+                importarProximo().then(function () {
                     closeModal('crm-v3-modal-import');
-                    showToast((data.importados || state.importRows.length) + ' contato(s) importado(s)');
+                    showToast(importados + ' contato(s) importado(s)');
                     return loadClientes();
-                }).catch(function (err) { showToast(err.message, true); })
+                }).catch(function (err) {
+                    if (confirmMsg) confirmMsg.textContent = importados + ' importado(s); falha no item ' + (importados + 1) + '.';
+                    showToast(err.message, true);
+                })
                     .finally(function () { setBtnLoading(importSubmit, false); });
             });
         }
@@ -4940,6 +5109,10 @@
 
         var novoObjetivo = $('#crm-v3-btn-novo-objetivo');
         if (novoObjetivo) novoObjetivo.addEventListener('click', function () { openObjetivoModal(null); });
+        var sugerirObjetivos = $('#crm-v3-btn-sugerir-objetivos');
+        if (sugerirObjetivos) sugerirObjetivos.addEventListener('click', function () { sugerirObjetivosIA(sugerirObjetivos); });
+        var criarObjetivosIA = $('#crm-v3-objetivos-ia-create');
+        if (criarObjetivosIA) criarObjetivosIA.addEventListener('click', function () { criarObjetivosIASugeridos(criarObjetivosIA); });
         var novaCotacao = $('#crm-v3-btn-nova-cotacao');
         if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
         // Handler do botão "Nova nota" removido em set/2026: a criação

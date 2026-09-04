@@ -594,7 +594,11 @@ class CrmTestApiTest(unittest.TestCase):
         def fake_call(system, user, **kwargs):
             captured["system"] = system
             captured["user"] = user
-            return "Objetivo: preparar conversa\nRoteiro:\n- ouvir\nFechamento: combinar retorno"
+            return json.dumps({
+                "texto": "Objetivo: preparar conversa\nRoteiro:\n- ouvir\nFechamento: combinar retorno",
+                "motivo": "Reunião de descoberta",
+                "contexto_utilizado": ["foco", "tom"],
+            })
 
         routes._call_openrouter = fake_call
         try:
@@ -614,6 +618,70 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertIn("Foco principal: Entender necessidades", captured["user"])
         self.assertIn("Tom da comunicação: Consultivo", captured["user"])
         self.assertIn("Antecipar objeções sobre prazo", captured["user"])
+
+    def test_contexto_ia_nao_expoe_dados_pessoais(self):
+        contexto = store.get_ai_context("auto-shopping", "comunicacao")
+        serializado = json.dumps(contexto, ensure_ascii=False)
+        self.assertNotIn("cnpj", serializado.lower())
+        self.assertNotIn("@", serializado)
+        self.assertNotIn("telefone", serializado.lower())
+        self.assertEqual(contexto["profile"], "comunicacao")
+
+    def test_melhorar_texto_exige_texto_existente(self):
+        res = self.client.post(
+            "/crm-v3/api/ia/melhorar-texto",
+            json={"cliente_id": "auto-shopping", "titulo": "Somente título"},
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_comunicacao_preserva_canal_e_contato_escolhido(self):
+        contato = (store.list_contatos("auto-shopping") or [])[0]
+        res = self.client.post(
+            "/crm-v3/api/ia/gerar-comunicacao",
+            json={
+                "cliente_id": "auto-shopping",
+                "contato_id": contato["id"],
+                "tipo": "whatsapp",
+                "objetivo": "Retomar proposta",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()["data"]
+        self.assertEqual(data["tipo"], "whatsapp")
+        self.assertEqual(data["contato"]["id"], contato["id"])
+
+    def test_historico_ia_funciona_no_store_mock(self):
+        generated = self.client.post(
+            "/crm-v3/api/ia/gerar-roteiro",
+            json={
+                "cliente_id": "auto-shopping",
+                "titulo": "Preparar reunião",
+                "tipo": "reuniao",
+            },
+        )
+        self.assertEqual(generated.status_code, 200)
+        history_id = generated.get_json()["data"]["history_id"]
+        listed = self.client.get("/crm-v3/api/clientes/auto-shopping/ia/historico")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.get_json()["historico"][0]["id"], history_id)
+        applied = self.client.patch(
+            f"/crm-v3/api/ia/historico/{history_id}/aplicar", json={}
+        )
+        self.assertEqual(applied.status_code, 200)
+
+    def test_sequencia_invalida_nao_cria_nenhuma_atividade(self):
+        antes = len(store.list_atividades("auto-shopping"))
+        res = self.client.post(
+            "/crm-v3/api/clientes/auto-shopping/atividades/sequencia",
+            json={
+                "itens": [
+                    {"titulo": "Primeiro", "data": "2026-09-10"},
+                    {"titulo": "Sem data"},
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(len(store.list_atividades("auto-shopping")), antes)
 
     def test_store_reinicia_em_memoria(self):
         self.client.post(

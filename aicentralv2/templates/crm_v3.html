@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=76">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=77">
 {% endblock %}
 
 {% block content %}
@@ -254,6 +254,8 @@
                 <div class="crm-v3-section-header">
                   <h3 class="crm-v3-section-title" id="crm-ativ-title">Atividades</h3>
                 </div>
+
+                <div class="crm-v3-next-action" id="crm-v3-next-action" hidden aria-live="polite"></div>
 
                 <form class="crm-v3-ativ-composer" id="crm-v3-ativ-composer" autocomplete="off">
                   <button type="button" class="crm-v3-ativ-composer-type" id="crm-v3-composer-tipo" data-tipo="atividade" title="Alterar tipo (Ctrl+T)" aria-label="Tipo da atividade">
@@ -586,7 +588,10 @@
               <h2>Objetivos</h2>
               <p>Metas comerciais deste cliente</p>
             </div>
-            <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-novo-objetivo"><i class="fa-solid fa-plus" aria-hidden="true"></i> Novo</button>
+            <div class="flex gap-1">
+              <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-sugerir-objetivos"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Sugerir</button>
+              <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-novo-objetivo"><i class="fa-solid fa-plus" aria-hidden="true"></i> Novo</button>
+            </div>
           </div>
           <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-objetivos-list"></div>
         </div>
@@ -747,7 +752,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=53"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=54"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=15"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

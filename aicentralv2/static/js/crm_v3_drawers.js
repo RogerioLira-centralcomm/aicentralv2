@@ -702,18 +702,45 @@
         row.className = 'cx-atividade-ia-history-item';
         var copy = document.createElement('div');
         copy.className = 'cx-atividade-ia-history-copy';
-        copy.textContent = (item.label || 'Sugestão') + ' · ' + item.texto;
+        copy.textContent = (item.label || 'Sugestão') +
+            (item.source ? ' · ' + item.source : '') + ' · ' + item.texto;
         copy.title = item.texto;
         var apply = document.createElement('button');
         apply.type = 'button';
         apply.className = 'cx-atividade-ia-history-apply';
         apply.textContent = 'Aplicar no editor';
         apply.addEventListener('click', function () {
-            applyTextSafely(form, item.texto);
+            if (!applyTextSafely(form, item.texto)) return;
+            if (item.historyId) {
+                apiFetch('/ia/historico/' + encodeURIComponent(item.historyId) + '/aplicar', {
+                    method: 'PATCH',
+                    body: {}
+                }).catch(function () { /* migration opcional */ });
+            }
         });
         row.appendChild(copy);
         row.appendChild(apply);
         list.insertBefore(row, list.firstChild);
+    }
+
+    function loadIaHistory(wrapper, form, clienteId) {
+        if (!clienteId) return;
+        apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/ia/historico?limit=8')
+            .then(function (res) {
+                var data = res.data || res;
+                var items = data.historico || (Array.isArray(data) ? data : []);
+                items.slice().reverse().forEach(function (item) {
+                    var content = item.content || {};
+                    var texto = content.texto || content.mensagem || content.titulo || '';
+                    if (!texto) return;
+                    addIaHistory(wrapper, form, {
+                        label: item.function || 'Sugestão',
+                        source: item.source === 'openrouter' ? 'IA' : 'fallback',
+                        texto: stripMarkdown(texto),
+                        historyId: item.id
+                    });
+                });
+            }).catch(function () { /* migration ainda não aplicada */ });
     }
 
     function wireAtividadeModelo(wrapper, form) {
@@ -774,6 +801,7 @@
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
         wireAtividadeModelo(wrapper, form);
+        loadIaHistory(wrapper, form, clienteId);
 
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
@@ -919,11 +947,17 @@
                 var texto = stripMarkdown((data && (data.texto || data.descricao || data.texto_melhorado)) || '');
                 if (texto) {
                     addIaHistory(wrapper, form, {
-                        label: 'Roteiro ' + (payload.foco || ''),
-                        texto: texto
+                        label: endpoint === 'melhorar-texto' ? 'Texto revisado' : 'Roteiro ' + (payload.foco || ''),
+                        texto: texto,
+                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                        historyId: data.history_id
                     });
                     if (applyTextSafely(form, texto)) {
-                        output.textContent = 'Roteiro aplicado no editor. Revise antes de salvar.';
+                        output.textContent = (endpoint === 'melhorar-texto' ? 'Texto revisado' : 'Roteiro aplicado') +
+                            '. Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
+                            (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '') +
+                            ((data.contexto_utilizado || []).length ? '\nDados considerados: ' + data.contexto_utilizado.join(', ') : '') +
+                            '\nRevise antes de salvar.';
                     } else {
                         output.textContent = 'Sugestão guardada no histórico sem substituir seu texto.';
                     }
@@ -960,76 +994,90 @@
                     if (sugestaoTexto) {
                         addIaHistory(wrapper, form, {
                             label: 'Próxima atividade',
-                            texto: sugestaoTexto
+                            texto: sugestaoTexto,
+                            source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                            historyId: data.history_id
                         });
                         applyTextSafely(form, sugestaoTexto);
                     }
-                    output.textContent = 'Sugestão aplicada aos campos disponíveis.';
+                    output.textContent = 'Sugestão aplicada aos campos disponíveis.' +
+                        (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '') +
+                        '\nOrigem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local');
                 }
             } else if (endpoint === 'touchpoints') {
                 var list = (data && data.touchpoints) || [];
                 if (!list.length) { output.textContent = 'Sem sequência sugerida.'; }
                 else {
-                    output.textContent = 'Sequência sugerida:\n' + list.map(function (t) {
-                        return '• ' + (t.data_sugerida || '') + ' · ' + (t.tipo || '') + ' — ' + (t.titulo || '');
-                    }).join('\n') + '\n\nUse "Criar sequência" para inserir todas.';
-                    // Adiciona botão dinâmico
-                    if (!output.querySelector('.cx-drawer-ia-apply')) {
-                        var apply = document.createElement('button');
-                        apply.type = 'button';
-                        apply.className = 'cx-drawer-ia-action cx-drawer-ia-apply';
-                        apply.style.marginTop = '8px';
-                        apply.textContent = 'Criar ' + list.length + ' atividades';
-                        apply.addEventListener('click', function () {
-                            if (apply.disabled) return;
-                            apply.disabled = true;
-                            var applyLabel = apply.textContent;
-                            apply.textContent = 'Criando atividades…';
-                            Promise.all(list.map(function (t) {
-                                return apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', {
-                                    method: 'POST',
-                                    body: {
-                                        titulo: stripMarkdown(t.titulo),
-                                        descricao: stripMarkdown(t.descricao || ''),
-                                        tipo: t.tipo || 'ligacao',
-                                        prioridade: t.prioridade || 'Média',
-                                        data: t.data_sugerida,
-                                        hora: t.hora || '',
-                                        executivo_id: payload.executivo_id || null
-                                    }
-                                });
-                            })).then(function () {
-                                toast('Sequência criada');
-                                if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
-                                    window.crmV3.reloadAtividades();
-                                }
-                                apply.textContent = 'Atividades criadas';
-                            }).catch(function (err) {
-                                apply.disabled = false;
-                                apply.textContent = applyLabel;
-                                toast(err.message, true);
-                            });
+                    output.innerHTML = '<strong>Revise a sequência antes de criar</strong>' +
+                        '<p>' + escapeHtml(data.motivo || '') + '</p>' +
+                        '<div class="cx-sequence-preview">' + list.map(function (t) {
+                            return '<div class="cx-sequence-preview-row">' +
+                                '<input type="date" data-seq-date value="' + escapeHtml(t.data_sugerida || '') + '">' +
+                                '<select data-seq-type>' +
+                                ['email', 'whatsapp', 'ligacao', 'reuniao'].map(function (tipo) {
+                                    return '<option value="' + tipo + '"' + (tipo === t.tipo ? ' selected' : '') + '>' + tipo + '</option>';
+                                }).join('') + '</select>' +
+                                '<input type="text" data-seq-title value="' + escapeHtml(stripMarkdown(t.titulo || '')) + '">' +
+                                '<textarea data-seq-description>' + escapeHtml(stripMarkdown(t.descricao || '')) + '</textarea>' +
+                                '</div>';
+                        }).join('') + '</div>';
+                    var apply = document.createElement('button');
+                    apply.type = 'button';
+                    apply.className = 'cx-drawer-ia-action cx-drawer-ia-apply';
+                    apply.textContent = 'Criar ' + list.length + ' atividades em uma transação';
+                    apply.addEventListener('click', function () {
+                        if (apply.disabled) return;
+                        var itens = $$('.cx-sequence-preview-row', output).map(function (row, idx) {
+                            return {
+                                titulo: row.querySelector('[data-seq-title]').value,
+                                descricao: row.querySelector('[data-seq-description]').value,
+                                tipo: row.querySelector('[data-seq-type]').value,
+                                data: row.querySelector('[data-seq-date]').value,
+                                hora: list[idx].hora || '09:00',
+                                prioridade: list[idx].prioridade || 'Média',
+                                contato_id: payload.contato_id || null,
+                                executivo_id: payload.executivo_id || null
+                            };
                         });
-                        output.appendChild(document.createElement('br'));
-                        output.appendChild(apply);
-                    }
+                        apply.disabled = true;
+                        apply.textContent = 'Criando sequência…';
+                        apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades/sequencia', {
+                            method: 'POST',
+                            body: {
+                                titulo: 'Follow-up comercial',
+                                source: data.source || 'fallback',
+                                executivo_id: payload.executivo_id || null,
+                                itens: itens
+                            }
+                        }).then(function () {
+                            toast('Sequência criada por completo');
+                            if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
+                                window.crmV3.reloadAtividades();
+                            }
+                            apply.textContent = 'Sequência criada';
+                        }).catch(function (err) {
+                            apply.disabled = false;
+                            apply.textContent = 'Tentar criar sequência novamente';
+                            toast(err.message, true);
+                        });
+                    });
+                    output.appendChild(apply);
                 }
             } else if (endpoint === 'gerar-comunicacao') {
                 if (data && data.mensagem) {
                     var msg = stripMarkdown(data.mensagem);
                     addIaHistory(wrapper, form, {
                         label: String(payload.tipo || 'Comunicação'),
-                        texto: msg
+                        texto: msg,
+                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                        historyId: data.history_id
                     });
-                    applyTextSafely(form, msg);
-                    if (data.assunto) {
-                        var titEl = form.querySelector('[data-field="titulo"]');
-                        if (titEl && !(titEl.value || '').trim()) titEl.value = stripMarkdown(data.assunto);
-                    }
-                    output.textContent = 'Mensagem preenchida no roteiro. Revise, envie e marque a atividade como concluída.';
+                    output.textContent = 'Comunicação criada separadamente do roteiro. Origem: ' +
+                        (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
+                        (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '');
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
-                    setTimeout(function () { openDrawerComunicacao(data, clienteId); }, 200);
+                    setTimeout(function () { openDrawerComunicacao(data, clienteId, payload); }, 200);
                 } else {
                     output.textContent = 'Sem conteúdo gerado.';
                 }
@@ -1044,9 +1092,15 @@
         });
     }
 
-    function openDrawerComunicacao(data, clienteId) {
+    function openDrawerComunicacao(data, clienteId, atividadePayload) {
+        atividadePayload = atividadePayload || {};
+        var canal = data.tipo === 'whatsapp' ? 'whatsapp' : 'email';
+        var contato = data.contato || {};
         var wrap = document.createElement('div');
         wrap.innerHTML = (
+            '<div class="cx-drawer-section"><div class="cx-drawer-section-title">Canal e destinatário</div>' +
+            '<p>' + escapeHtml(canal === 'whatsapp' ? 'WhatsApp' : 'E-mail') + ' · ' +
+            escapeHtml(contato.nome || 'Contato selecionado') + '</p></div>' +
             '<div class="cx-drawer-section">' +
             '<div class="cx-drawer-section-title">Assunto</div>' +
             '<div class="cx-drawer-field"><input type="text" id="cx-com-assunto" value="' + escapeHtml(data.assunto || '') + '" /></div>' +
@@ -1054,8 +1108,45 @@
             '<div class="cx-drawer-section">' +
             '<div class="cx-drawer-section-title">Mensagem</div>' +
             '<div class="cx-drawer-field"><textarea rows="12" id="cx-com-body">' + escapeHtml(data.mensagem || '') + '</textarea></div>' +
-            '</div>'
+            '</div>' +
+            '<div class="cx-drawer-section cx-com-actions">' +
+            '<button type="button" class="cx-drawer-ia-action" data-com-action="copy"><i class="fa-regular fa-copy"></i> Copiar mensagem</button> ' +
+            '<button type="button" class="cx-drawer-ia-action" data-com-action="open"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir ' +
+            (canal === 'whatsapp' ? 'WhatsApp' : 'e-mail') + '</button></div>'
         );
+
+        wrap.addEventListener('click', function (event) {
+            var btn = event.target.closest('[data-com-action]');
+            if (!btn) return;
+            var assunto = wrap.querySelector('#cx-com-assunto').value;
+            var msg = wrap.querySelector('#cx-com-body').value;
+            if (btn.getAttribute('data-com-action') === 'copy') {
+                if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                    toast('Copie a mensagem pelo campo de texto.', true);
+                    return;
+                }
+                navigator.clipboard.writeText(msg).then(function () { toast('Mensagem copiada'); })
+                    .catch(function () { toast('Não foi possível copiar automaticamente.', true); });
+                return;
+            }
+            var destino;
+            if (canal === 'whatsapp') {
+                var telefone = String(contato.telefone || '').replace(/\D/g, '');
+                if (!telefone) {
+                    toast('O contato selecionado não possui telefone.', true);
+                    return;
+                }
+                destino = 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(msg);
+            } else {
+                if (!contato.email) {
+                    toast('O contato selecionado não possui e-mail.', true);
+                    return;
+                }
+                destino = 'mailto:' + encodeURIComponent(contato.email || '') +
+                    '?subject=' + encodeURIComponent(assunto) + '&body=' + encodeURIComponent(msg);
+            }
+            window.open(destino, '_blank', 'noopener');
+        });
 
         cxDrawer.open({
             title: 'Preparar comunicação',
@@ -1066,7 +1157,7 @@
             actions: [
                 { label: 'Fechar', variant: 'ghost', close: true },
                 {
-                    label: 'Registrar como atividade',
+                    label: 'Registrar contato realizado',
                     variant: 'primary',
                     onClick: function (ev, id) {
                         var assunto = wrap.querySelector('#cx-com-assunto').value;
@@ -1074,15 +1165,17 @@
                         apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', {
                             method: 'POST',
                             body: {
-                                titulo: assunto || 'E-mail para contato principal',
+                                titulo: assunto || (canal === 'whatsapp' ? 'WhatsApp para contato selecionado' : 'E-mail para contato selecionado'),
                                 descricao: msg,
-                                tipo: 'email',
+                                tipo: canal,
                                 prioridade: 'Média',
                                 data: new Date().toISOString().slice(0, 10),
-                                responsavel: (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente && window.crmV3.state.cliente.responsavel) || 'Luisa Santana'
+                                status: 'concluida',
+                                contato_id: contato.id || atividadePayload.contato_id || null,
+                                executivo_id: atividadePayload.executivo_id || null
                             }
                         }).then(function () {
-                            toast('E-mail registrado como atividade');
+                            toast((canal === 'whatsapp' ? 'WhatsApp' : 'E-mail') + ' registrado como atividade');
                             cxDrawer.close(id);
                             if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
                                 window.crmV3.reloadAtividades();

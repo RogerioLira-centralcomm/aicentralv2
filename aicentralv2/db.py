@@ -7805,6 +7805,7 @@ def obter_cotacoes_filtradas(
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
+                    resp.foto_url as responsavel_foto_url,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) as total_linhas,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id AND (is_deleted IS NULL OR is_deleted = FALSE)), 0) as total_anexos,
@@ -20179,3 +20180,185 @@ def excluir_cadu_pi_com_vendas(row_id):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+# ---------------------------------------------------------------------------
+# Copiloto comercial CRM v3 — histórico e sequências transacionais
+# ---------------------------------------------------------------------------
+
+def registrar_interacao_ia(cliente_id, executivo_id, funcao, origem, conteudo,
+                           modelo=None, atividade_id=None):
+    """Persiste somente a saída estruturada. Base sem migration retorna None."""
+    import json
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crm_ai_interactions') AS tabela")
+            row = cur.fetchone() or {}
+            tabela = row.get("tabela") if isinstance(row, dict) else row[0]
+            if not tabela:
+                return None
+            cur.execute(
+                """
+                INSERT INTO crm_ai_interactions
+                    (cliente_id, atividade_id, executivo_id, funcao, origem, modelo, conteudo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+                RETURNING id
+                """,
+                (
+                    cliente_id, atividade_id, executivo_id, funcao,
+                    origem or "fallback", modelo,
+                    json.dumps(conteudo or {}, ensure_ascii=False, default=str),
+                ),
+            )
+            created = cur.fetchone()
+        conn.commit()
+        return created
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def listar_interacoes_ia(cliente_id, limit=20):
+    """Histórico mais recente; degrada para lista vazia sem a migration."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crm_ai_interactions') AS tabela")
+            row = cur.fetchone() or {}
+            tabela = row.get("tabela") if isinstance(row, dict) else row[0]
+            if not tabela:
+                return []
+            cur.execute(
+                """
+                SELECT id, cliente_id, atividade_id, executivo_id, funcao,
+                       origem, modelo, conteudo, aplicado, aplicado_em, criado_em
+                FROM crm_ai_interactions
+                WHERE cliente_id = %s
+                ORDER BY criado_em DESC
+                LIMIT %s
+                """,
+                (cliente_id, max(1, min(int(limit or 20), 100))),
+            )
+            return cur.fetchall() or []
+    except Exception:
+        conn.rollback()
+        return []
+
+
+def marcar_interacao_ia_aplicada(interacao_id, atividade_id=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crm_ai_interactions') AS tabela")
+            row = cur.fetchone() or {}
+            tabela = row.get("tabela") if isinstance(row, dict) else row[0]
+            if not tabela:
+                return None
+            cur.execute(
+                """
+                UPDATE crm_ai_interactions
+                SET aplicado = TRUE, aplicado_em = CURRENT_TIMESTAMP,
+                    atividade_id = COALESCE(%s, atividade_id)
+                WHERE id = %s
+                RETURNING id
+                """,
+                (atividade_id, interacao_id),
+            )
+            updated = cur.fetchone()
+        conn.commit()
+        return updated
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def criar_sequencia_atividades(cliente_id, executivo_id, titulo, origem, itens):
+    """Cria todos os passos em uma transação; qualquer erro faz rollback."""
+    itens = list(itens or [])
+    if not itens or len(itens) > 20:
+        raise ValueError("A sequência deve ter entre 1 e 20 atividades")
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            has_new = _atividades_tem_colunas_novas(cur)
+            has_hora = _atividades_tem_hora(cur)
+            cur.execute("SELECT to_regclass('public.crm_atividade_sequencias') AS tabela")
+            reg = cur.fetchone() or {}
+            has_sequence = bool(reg.get("tabela") if isinstance(reg, dict) else reg[0])
+            sequencia_id = None
+            if has_sequence:
+                cur.execute(
+                    """
+                    INSERT INTO crm_atividade_sequencias
+                        (cliente_id, executivo_id, titulo, origem)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (cliente_id, executivo_id, (titulo or "Sequência comercial")[:255], origem or "fallback"),
+                )
+                sequencia_id = cur.fetchone()["id"]
+
+            atividade_ids = []
+            for ordem, item in enumerate(itens, 1):
+                descricao = (item.get("descricao") or item.get("titulo") or "").strip()
+                if not descricao or not item.get("data"):
+                    raise ValueError(f"Passo {ordem}: título/descrição e data são obrigatórios")
+                status = item.get("status") or "pendente"
+                if status not in ("pendente", "em_andamento", "concluida"):
+                    raise ValueError(f"Passo {ordem}: status inválido")
+                contato_id = item.get("contato_id") or None
+                item_exec = item.get("executivo_id") or executivo_id or None
+                if has_new and has_hora:
+                    cur.execute(
+                        """
+                        INSERT INTO sales_atividades
+                            (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                             tipo, titulo, data_prazo, hora_atividade, status)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+                        """,
+                        (
+                            cliente_id, contato_id, item_exec, descricao, item["data"],
+                            item.get("tipo") or "atividade", item.get("titulo") or None,
+                            item.get("data_prazo") or None, item.get("hora") or None, status,
+                        ),
+                    )
+                elif has_new:
+                    cur.execute(
+                        """
+                        INSERT INTO sales_atividades
+                            (cliente_id, contato_id, executivo_id, descricao, data_atividade,
+                             tipo, titulo, data_prazo, status)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+                        """,
+                        (
+                            cliente_id, contato_id, item_exec, descricao, item["data"],
+                            item.get("tipo") or "atividade", item.get("titulo") or None,
+                            item.get("data_prazo") or None, status,
+                        ),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO sales_atividades
+                            (cliente_id, contato_id, executivo_id, descricao, data_atividade, status)
+                        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
+                        """,
+                        (cliente_id, contato_id, item_exec, descricao, item["data"], status),
+                    )
+                atividade_id = cur.fetchone()["id"]
+                atividade_ids.append(atividade_id)
+                if sequencia_id:
+                    cur.execute(
+                        """
+                        INSERT INTO crm_atividade_sequencia_itens
+                            (sequencia_id, atividade_id, ordem, canal)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (sequencia_id, atividade_id, ordem, item.get("tipo") or "atividade"),
+                    )
+        conn.commit()
+        return {"id": sequencia_id, "atividade_ids": atividade_ids}
+    except Exception:
+        conn.rollback()
+        raise

@@ -1,7 +1,8 @@
-# Contrato mock — CRM v3
+# Contrato de API — CRM v3
 
-O frontend de `/crm-v3` usa somente rotas em memória sob `/crm-v3/api`.
-Os dados reiniciam junto com o processo e não acessam o schema do CRM real.
+O frontend de `/crm-v3` usa rotas sob `/crm-v3/api`. O padrão é o
+repositório Postgres; o store em memória é habilitado explicitamente para
+testes com `USE_CRM_V3_STORE=mock`.
 
 Todas as respostas usam:
 
@@ -24,6 +25,7 @@ Em erro:
 - `POST /contatos/parse-texto`
 - `POST /clientes/:cliente_id/contatos/importar`
 - `GET/POST /clientes/:cliente_id/atividades`
+- `POST /clientes/:cliente_id/atividades/sequencia`
 - `PATCH/DELETE /atividades/:atividade_id`
 - `GET/POST /clientes/:cliente_id/objetivos`
 - `PATCH/DELETE /objetivos/:objetivo_id`
@@ -60,22 +62,39 @@ são normalizados para manter compatibilidade.
 
 Exportação de clientes é gerada em CSV no navegador e não possui endpoint.
 
-## IA — endpoints (Fase 3)
+## Copiloto comercial contextual
 
-- `POST /api/ia/melhorar-texto` — refina descrição/nota. Espera `{"texto"}`.
+- `POST /api/ia/gerar-roteiro` — cria roteiro de execução separado da
+  comunicação. Retorna `texto`, `motivo`, `contexto_utilizado`, `source`
+  e, quando a migration está aplicada, `history_id`.
+- `POST /api/ia/melhorar-texto` — revisão real do texto existente; não gera
+  roteiro quando o texto está vazio.
 - `POST /api/ia/sugerir-atividade` — sugere próxima atividade a partir do
-  histórico do cliente. Espera `{"cliente_id"}`.
-- `POST /api/ia/touchpoints` — cadência (D+1/D+3/D+7/D+14 conforme
-  classificação). Espera `{"cliente_id"}`.
-- `POST /api/ia/gerar-comunicacao` — email/WhatsApp para contato principal.
-  Espera `{"cliente_id","objetivo","tipo","tamanho"}`.
-- `POST /api/ia/sugerir-objetivos` — 3-5 objetivos para o próximo mês.
+  contexto comercial. Retorna recomendação única, motivo e ação sugerida.
+- `POST /api/ia/touchpoints` — devolve uma sequência editável. A persistência
+  deve ser feita em uma única chamada a
+  `POST /clientes/:cliente_id/atividades/sequencia` com `{"itens":[...]}`.
+- `POST /api/ia/gerar-comunicacao` — cria e-mail ou WhatsApp separado do
+  roteiro. Espera `cliente_id`, `contato_id`, `objetivo`, `tipo` e `tamanho`.
+- `POST /api/ia/sugerir-objetivos` — devolve objetos com `texto`,
+  `prazo_dias` e `motivo` para preview e seleção.
 - `POST /api/ia/extrair-contatos` — extrai contatos estruturados a partir de
-  texto livre.
+  texto livre no mesmo schema do OCR (`nome`, `email`, `telefone`,
+  `telefone2`, `cargo`).
+- `GET /api/clientes/:cliente_id/ia/historico` — lista saídas persistidas.
+- `PATCH /api/ia/historico/:id/aplicar` — marca uma sugestão como aplicada.
 
 Todos usam OpenRouter (Gemini 2.5 Flash) quando `OPENROUTER_API_KEY` está
 disponível. Caso contrário, respondem com um fallback determinístico e
-`source: "fallback"` no payload — útil para desenvolvimento offline.
+`source: "fallback"` no payload. Falhas do provider são registradas no log.
+Os prompts recebem contexto minimizado por perfil e não recebem CNPJ,
+telefone, e-mail, listas completas ou valores exatos desnecessários.
+
+### Migration
+
+Aplicar `migrations/create_crm_copilot_history_sequences.sql` para persistir
+histórico de IA e vínculos das sequências. Sem ela, o CRM continua funcional:
+as sequências permanecem atômicas e o histórico fica apenas na sessão.
 
 ## Paridade com o CRM real (`/crm`)
 
@@ -95,14 +114,11 @@ disponível. Caso contrário, respondem com um fallback determinístico e
 
 ### Feature flag `USE_CRM_V3_STORE`
 
-O default agora é **banco real** (repositório Postgres via `db.py`).
-Se o processo não conseguir carregar `libpq` ou a primeira query
-falhar, `get_store()` degrada automaticamente para o store em memória
-e imprime uma linha no stderr (`[crm_v3] Repositório real
-indisponível ...`).
+O default é **banco real** (repositório Postgres via `db.py`). Se a conexão
+falhar, a API responde 503; dados fictícios nunca substituem a base
+silenciosamente.
 
 - Produção: **não seta nada** — usa banco por default.
-- Dev sem banco / sandbox: automático via fallback.
 - Forçar mock para demo/teste: `export USE_CRM_V3_STORE=mock`
   (aceita também `memory`, `in-memory`, `1`, `true`, `yes`).
 - Forçar banco (explícito): `export USE_CRM_V3_STORE=real`

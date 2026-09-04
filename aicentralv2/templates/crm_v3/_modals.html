@@ -458,6 +458,25 @@
   <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
+<dialog id="crm-v3-modal-objetivos-ia" class="modal crm-v3-modal">
+  <div class="modal-box max-w-xl">
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <h3 class="font-semibold text-lg">Objetivos sugeridos pela IA</h3>
+        <p class="text-xs text-base-content/60">Revise, edite e desmarque o que não deseja criar.</p>
+      </div>
+      <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-objetivos-ia" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="crm-v3-objetivos-ia-list" class="space-y-2 my-4"></div>
+    <p id="crm-v3-objetivos-ia-progress" class="text-xs text-base-content/60" aria-live="polite"></p>
+    <div class="modal-action mt-3">
+      <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-objetivos-ia">Cancelar</button>
+      <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-objetivos-ia-create">Criar selecionados</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+</dialog>
+
 <dialog id="crm-v3-modal-cotacao" class="modal crm-v3-modal">
   <div class="modal-box max-w-md">
     <div class="flex items-center justify-between mb-4">

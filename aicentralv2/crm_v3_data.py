@@ -804,6 +804,7 @@ class CrmTestStore:
         self.objetivos = copy.deepcopy(_INITIAL_OBJETIVOS)
         self.cotacoes = copy.deepcopy(_INITIAL_COTACOES)
         self.notas = copy.deepcopy(_INITIAL_NOTAS)
+        self._ai_history = {}
 
     def _enrich_cliente(self, c):
         cliente_id = c["id"]
@@ -1419,6 +1420,104 @@ class CrmTestStore:
         if not self.get_cliente(cliente_id):
             return None
         return list(self.notas.get(cliente_id, []))
+
+    def get_ai_context(self, cliente_id, profile="next_action", contato_id=None):
+        cliente = self.get_cliente(cliente_id)
+        if not cliente:
+            return None
+        contatos = self.list_contatos(cliente_id) or []
+        contato = next(
+            (c for c in contatos if contato_id and str(c.get("id")) == str(contato_id)),
+            next((c for c in contatos if c.get("principal")), contatos[0] if contatos else {}),
+        )
+        return {
+            "profile": profile,
+            "cliente": {
+                "id": str(cliente_id),
+                "nome": cliente.get("nome") or "",
+                "classificacao": cliente.get("classificacao_cliente") or "",
+                "tipo": cliente.get("tipo_label") or cliente.get("tipo") or "",
+                "responsavel": cliente.get("responsavel") or "",
+                "agencia": cliente.get("agencia_nome") or "",
+                "observacoes": str(cliente.get("observacoes_comerciais_adicionais") or "")[:700],
+                "metrics": cliente.get("metrics") or {},
+            },
+            "contato": {
+                "id": str(contato.get("id") or ""),
+                "nome": contato.get("nome") or "",
+                "cargo": contato.get("cargo") or "",
+                "setor": contato.get("setor") or "",
+            } if contato else {},
+            "atividades": [
+                {
+                    "titulo": a.get("titulo") or a.get("descricao") or "",
+                    "tipo": a.get("tipo") or "atividade",
+                    "status": a.get("status") or "",
+                    "data": a.get("data") or "",
+                }
+                for a in (self.list_atividades(cliente_id) or [])[:5]
+            ],
+            "notas": [
+                {"texto": str(n.get("texto") or "")[:350], "data": n.get("data") or ""}
+                for n in (self.list_notas(cliente_id) or [])[:3]
+            ],
+            "objetivos": [
+                {"texto": o.get("texto") or "", "prazo": o.get("prazo") or ""}
+                for o in (self.list_objetivos(cliente_id) or []) if not o.get("concluido")
+            ][:5],
+            "cotacoes": [],
+            "web": {},
+        }
+
+    def register_ai_interaction(self, cliente_id, function, data):
+        if not hasattr(self, "_ai_history"):
+            self._ai_history = {}
+        item = {
+            "id": f"ia-{uuid.uuid4().hex[:8]}",
+            "function": function,
+            "source": data.get("source") or "fallback",
+            "model": "google/gemini-2.5-flash" if data.get("source") == "openrouter" else None,
+            "content": dict(data),
+            "applied": False,
+            "created_at": date.today().isoformat(),
+        }
+        self._ai_history.setdefault(cliente_id, []).insert(0, item)
+        return item["id"]
+
+    def list_ai_history(self, cliente_id, limit=20):
+        if not self.get_cliente(cliente_id):
+            return None
+        return list(getattr(self, "_ai_history", {}).get(cliente_id, []))[:limit]
+
+    def mark_ai_interaction_applied(self, interaction_id, atividade_id=None):
+        for items in getattr(self, "_ai_history", {}).values():
+            for item in items:
+                if item["id"] == interaction_id:
+                    item["applied"] = True
+                    item["atividade_id"] = atividade_id
+                    return True
+        return False
+
+    def create_activity_sequence(self, cliente_id, data):
+        if not self.get_cliente(cliente_id):
+            return None
+        itens = list(data.get("itens") or [])
+        if not itens or len(itens) > 20:
+            raise ValueError("A sequência deve ter entre 1 e 20 atividades")
+        for idx, item in enumerate(itens, 1):
+            if not (item.get("titulo") or item.get("descricao")) or not item.get("data"):
+                raise ValueError(f"Passo {idx}: título/descrição e data são obrigatórios")
+        snapshot = list(self.atividades.get(cliente_id, []))
+        try:
+            created = [self.create_atividade(cliente_id, item) for item in itens]
+        except Exception:
+            self.atividades[cliente_id] = snapshot
+            raise
+        return {
+            "id": f"seq-{uuid.uuid4().hex[:8]}",
+            "migration_applied": True,
+            "atividades": created,
+        }
 
     def create_nota(self, cliente_id, data):
         if not self.get_cliente(cliente_id):

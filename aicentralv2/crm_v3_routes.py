@@ -410,6 +410,45 @@ def api_create_atividade(cliente_id):
         return _err(str(e))
 
 
+@bp.route("/api/clientes/<cliente_id>/atividades/sequencia", methods=["POST"])
+@login_required_api
+def api_create_atividade_sequence(cliente_id):
+    """Cria a sequência completa ou nenhuma atividade."""
+    try:
+        sequencia = store.create_activity_sequence(
+            cliente_id, request.get_json(silent=True) or {}
+        )
+        if sequencia is None:
+            return _err("Cliente não encontrado", 404)
+        return _ok(sequencia, sequencia=sequencia), 201
+    except ValueError as e:
+        return _err(str(e))
+    except Exception:
+        current_app.logger.exception("Falha transacional ao criar sequência")
+        return _err("Não foi possível criar a sequência; nenhuma atividade foi salva.", 500)
+
+
+@bp.route("/api/clientes/<cliente_id>/ia/historico")
+@login_required_api
+def api_ai_history(cliente_id):
+    items = store.list_ai_history(cliente_id, limit=request.args.get("limit", 20))
+    if items is None:
+        return _err("Cliente não encontrado", 404)
+    return _ok(items, historico=items)
+
+
+@bp.route("/api/ia/historico/<interaction_id>/aplicar", methods=["PATCH"])
+@login_required_api
+def api_apply_ai_history(interaction_id):
+    data = request.get_json(silent=True) or {}
+    ok = store.mark_ai_interaction_applied(
+        interaction_id, atividade_id=data.get("atividade_id")
+    )
+    if not ok:
+        return _err("Interação não encontrada ou migration não aplicada", 404)
+    return _ok(applied=True)
+
+
 @bp.route("/api/atividades/<atividade_id>", methods=["PATCH"])
 @login_required_api
 def api_update_atividade(atividade_id):
@@ -795,6 +834,66 @@ def _texto_ia_limpo(texto) -> str:
     return texto_sem_markdown(texto or "")
 
 
+def _contexto_ia(data: dict, profile: str) -> dict:
+    cliente_id = str(data.get("cliente_id") or "").strip()
+    if not cliente_id:
+        return {}
+    try:
+        return store.get_ai_context(
+            cliente_id, profile=profile, contato_id=data.get("contato_id")
+        ) or {}
+    except Exception as exc:  # pragma: no cover - proteção para bases antigas
+        current_app.logger.exception(
+            "Falha ao montar contexto IA profile=%s cliente=%s: %s",
+            profile, cliente_id, exc,
+        )
+        return {}
+
+
+def _contexto_ia_json(data: dict, profile: str) -> str:
+    import json
+    return json.dumps(_contexto_ia(data, profile), ensure_ascii=False, default=str)
+
+
+def _parse_ia_json(raw: str, required=()) -> dict:
+    """Normaliza fences, valida objeto JSON e campos obrigatórios."""
+    import json
+    texto = (raw or "").strip()
+    if texto.startswith("```"):
+        texto = texto.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    parsed = json.loads(texto)
+    if not isinstance(parsed, dict):
+        raise ValueError("Resposta da IA não é um objeto JSON")
+    missing = [key for key in required if parsed.get(key) in (None, "")]
+    if missing:
+        raise ValueError("Campos ausentes na resposta da IA: " + ", ".join(missing))
+    return parsed
+
+
+def _log_provider_failure(funcao: str, exc: Exception) -> None:
+    from flask import has_app_context
+    if not has_app_context():
+        return
+    current_app.logger.warning(
+        "OpenRouter falhou em crm_v3/%s: %s: %s",
+        funcao, type(exc).__name__, str(exc)[:500],
+        exc_info=True,
+    )
+
+
+def _registrar_saida_ia(data: dict, funcao: str, saida: dict) -> dict:
+    cliente_id = str(data.get("cliente_id") or "").strip()
+    if not cliente_id:
+        return saida
+    try:
+        history_id = store.register_ai_interaction(cliente_id, funcao, saida)
+        if history_id:
+            saida["history_id"] = history_id
+    except Exception as exc:  # compatível sem migration
+        current_app.logger.info("Histórico IA indisponível: %s", exc)
+    return saida
+
+
 def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> str:
     nome = (cliente or {}).get("nome") or "o cliente"
     tipo_label = {
@@ -861,44 +960,47 @@ def _montar_roteiro(data: dict) -> dict:
 
     if _openrouter_available():
         try:
-            nome = (cliente or {}).get("nome") or "cliente"
-            classif = (cliente or {}).get("classificacao_cliente") or "Prospecção"
-            nome_contato = (contato or {}).get("nome") or ""
-            cargo_contato = (contato or {}).get("cargo") or ""
             user = (
-                f"Cliente: {nome}\n"
-                f"Classificação: {classif}\n"
+                "CONTEXTO COMERCIAL (JSON minimizado):\n"
+                f"{_contexto_ia_json(data, 'roteiro')}\n\n"
                 f"Tipo da atividade: {tipo or 'atividade'}\n"
                 f"Formato do texto: {formato or tipo or 'roteiro'}\n"
                 f"Título: {titulo or '(sem título)'}\n"
                 f"Foco principal: {foco_label}\n"
                 f"Tom da comunicação: {tom_label}\n"
             )
-            if nome_contato:
-                user += f"Contato: {nome_contato}"
-                if cargo_contato:
-                    user += f" ({cargo_contato})"
-                user += "\n"
             if descricao:
                 user += f"Notas do executivo:\n{descricao}\n"
             if instrucoes:
                 user += f"Instrução adicional do executivo:\n{instrucoes}\n"
             system_prompt = (
-                "Você é um assistente de vendas da CentralComm (mídia).\n"
+                "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
                 "Sua tarefa NÃO é enfeitar texto: é ajudar o executivo a EXECUTAR a atividade.\n"
-                "Escreva em português um roteiro curto (máx. 180 palavras) com estas seções em texto puro:\n"
-                "Objetivo: (1 frase)\n"
-                "Roteiro:\n- item\n"
-                "Fechamento: (como registrar o resultado e o próximo passo)\n"
-                "NUNCA use markdown: sem asteriscos, sem #, sem crases, sem colchetes de link. "
-                "Listas só com hífen. Não invente números, prazos ou nomes que não estejam no contexto."
+                "Não invente dados e priorize o estágio da oportunidade, objetivos, última interação e decisor.\n"
+                "Retorne APENAS JSON válido no formato "
+                '{"texto":"roteiro em texto puro, máximo 220 palavras",'
+                '"motivo":"por que este roteiro é adequado agora",'
+                '"contexto_utilizado":["dado verificável 1","dado verificável 2"]}. '
+                "O texto deve conter Objetivo, Roteiro e Fechamento. Sem markdown."
             )
-            texto = _texto_ia_limpo(_call_openrouter(system_prompt, user, max_tokens=450, temperature=0.4))
-            return {"texto": texto, "source": "openrouter"}
-        except Exception:
-            pass
+            parsed = _parse_ia_json(
+                _call_openrouter(system_prompt, user, max_tokens=650, temperature=0.35),
+                required=("texto", "motivo"),
+            )
+            return {
+                "texto": _texto_ia_limpo(parsed["texto"]),
+                "motivo": _texto_ia_limpo(parsed["motivo"]),
+                "contexto_utilizado": [
+                    _texto_ia_limpo(x) for x in (parsed.get("contexto_utilizado") or [])[:5]
+                ],
+                "source": "openrouter",
+            }
+        except Exception as exc:
+            _log_provider_failure("gerar-roteiro", exc)
     return {
         "texto": _roteiro_fallback(titulo, tipo, cliente, contato, foco, tom),
+        "motivo": "Roteiro seguro baseado no tipo, foco e classificação disponíveis.",
+        "contexto_utilizado": ["cliente", "contato selecionado", "foco e tom"],
         "source": "fallback",
     }
 
@@ -908,15 +1010,42 @@ def _montar_roteiro(data: dict) -> dict:
 def api_ia_melhorar_texto():
     data = request.get_json(silent=True) or {}
     texto = (data.get("descricao") or data.get("texto") or "").strip()
-    titulo = (data.get("titulo") or "").strip()
-    if not texto and not titulo:
-        return _err("Informe o título da atividade para gerar o roteiro", 400)
-    # Sem descrição: gera roteiro a partir do título (é o caso real do drawer).
     if not texto:
-        out = _montar_roteiro(data)
-        return _ok({"texto": out["texto"], "texto_melhorado": out["texto"], "source": out["source"]})
-    out = _montar_roteiro(data)
-    return _ok({"texto": out["texto"], "texto_melhorado": out["texto"], "source": out["source"]})
+        return _err("Informe o texto que deseja revisar", 400)
+    if _openrouter_available():
+        try:
+            prompt = (
+                f"CONTEXTO COMERCIAL:\n{_contexto_ia_json(data, 'roteiro')}\n\n"
+                f"TEXTO ORIGINAL:\n{texto[:4000]}\n\n"
+                "Preserve fatos e intenção. Corrija clareza, concisão, gramática e orientação "
+                "ao próximo passo. Não transforme a mensagem em roteiro."
+            )
+            system_prompt = (
+                "Você revisa textos comerciais em português sem inventar informações. "
+                "Retorne APENAS JSON: "
+                '{"texto":"versão revisada em texto puro","alteracoes":["mudança objetiva"]}.'
+            )
+            parsed = _parse_ia_json(
+                _call_openrouter(system_prompt, prompt, max_tokens=900, temperature=0.25),
+                required=("texto",),
+            )
+            revisado = _texto_ia_limpo(parsed["texto"])
+            saida = {
+                "texto": revisado,
+                "texto_melhorado": revisado,
+                "alteracoes": parsed.get("alteracoes") or [],
+                "source": "openrouter",
+            }
+            return _ok(_registrar_saida_ia(data, "melhorar-texto", saida))
+        except Exception as exc:
+            _log_provider_failure("melhorar-texto", exc)
+    revisado = _texto_ia_limpo(texto)
+    return _ok(_registrar_saida_ia(data, "melhorar-texto", {
+        "texto": revisado,
+        "texto_melhorado": revisado,
+        "alteracoes": [],
+        "source": "fallback",
+    }))
 
 
 @bp.route("/api/ia/gerar-roteiro", methods=["POST"])
@@ -926,7 +1055,13 @@ def api_ia_gerar_roteiro():
     if not (data.get("titulo") or data.get("descricao") or data.get("tipo")):
         return _err("Informe o título da atividade para gerar o roteiro", 400)
     out = _montar_roteiro(data)
-    return _ok({"texto": out["texto"], "descricao": out["texto"], "source": out["source"]})
+    return _ok(_registrar_saida_ia(data, "gerar-roteiro", {
+        "texto": out["texto"],
+        "descricao": out["texto"],
+        "motivo": out.get("motivo"),
+        "contexto_utilizado": out.get("contexto_utilizado") or [],
+        "source": out["source"],
+    }))
 
 
 @bp.route("/api/ia/sugerir-atividade", methods=["POST"])
@@ -938,33 +1073,22 @@ def api_ia_sugerir_atividade():
 
     if _openrouter_available() and cliente:
         try:
-            import json as json_mod
-            contatos = store.list_contatos(cliente_id) or []
-            contatos_str = ", ".join(
-                f"{c.get('nome') or ''} ({c.get('cargo') or 'sem cargo'})" for c in contatos[:5]
-            ) if contatos else "Nenhum contato"
-            atividades = store.list_atividades(cliente_id) or []
-            ultimas_str = "\n".join(
-                f"- [{a.get('status')}] {a.get('titulo') or a.get('descricao')}" for a in atividades[:5]
-            ) if atividades else "Sem atividades recentes"
-            contexto = (
-                f"Cliente: {cliente.get('nome')}\n"
-                f"Classificação: {cliente.get('classificacao_cliente') or 'Prospecção'}\n"
-                f"Contatos: {contatos_str}\n"
-                f"Últimas atividades:\n{ultimas_str}"
-            )
+            contexto = _contexto_ia_json(data, "next_action")
             system_prompt = (
-                "Você é um assistente comercial da CENTRALCOMM (mídia digital).\n"
-                "Com base no contexto do cliente, sugira UMA atividade de acompanhamento.\n"
-                "Responda APENAS em JSON com: {\"tipo\": \"...\", \"titulo\": \"...\", \"descricao\": \"...\", \"prioridade\": \"Alta|Média|Baixa\"}\n"
+                "Você é o copiloto comercial da CENTRALCOMM, especialista em mídia digital.\n"
+                "Escolha UMA próxima melhor ação com base, nesta ordem, em cotação/pipeline, "
+                "último contato, pendências, objetivos e classificação. Explique a decisão.\n"
+                "Responda APENAS em JSON com: "
+                '{"tipo":"...","titulo":"...","descricao":"...",'
+                '"prioridade":"Alta|Média|Baixa","motivo":"...",'
+                '"acao_sugerida":"verbo + resultado","contexto_utilizado":["..."]}\n'
                 "Tipos válidos: ligacao, reuniao, email, whatsapp, planejamento, atividade\n"
-                "titulo e descricao em texto puro, sem markdown (sem ** # `).\n"
-                "Seja breve e prático."
+                "Texto puro, sem markdown. Não invente datas, pessoas ou oportunidades."
             )
-            resp = _call_openrouter(system_prompt, contexto, max_tokens=300, temperature=0.7).strip()
-            if resp.startswith("```"):
-                resp = resp.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            sugestao = json_mod.loads(resp)
+            sugestao = _parse_ia_json(
+                _call_openrouter(system_prompt, contexto, max_tokens=500, temperature=0.35),
+                required=("tipo", "titulo", "descricao", "prioridade", "motivo"),
+            )
             hoje = date.today()
             delta = {"Prospecção": 1, "Ativo": 3, "Geladeira": 14}.get(
                 cliente.get("classificacao_cliente") or "Prospecção", 2
@@ -972,10 +1096,11 @@ def api_ia_sugerir_atividade():
             sugestao.setdefault("data_sugerida", (hoje + timedelta(days=delta)).isoformat())
             sugestao["titulo"] = _texto_ia_limpo(sugestao.get("titulo"))
             sugestao["descricao"] = _texto_ia_limpo(sugestao.get("descricao"))
+            sugestao["motivo"] = _texto_ia_limpo(sugestao.get("motivo"))
             sugestao["source"] = "openrouter"
-            return _ok(sugestao)
-        except Exception:  # pragma: no cover
-            pass
+            return _ok(_registrar_saida_ia(data, "sugerir-atividade", sugestao))
+        except Exception as exc:  # pragma: no cover
+            _log_provider_failure("sugerir-atividade", exc)
 
     # Fallback determinístico
     classificacao = (cliente or {}).get("classificacao_cliente") or "Prospecção"
@@ -991,10 +1116,16 @@ def api_ia_sugerir_atividade():
         ),
         "tipo": "ligacao" if classificacao != "Ativo" else "reuniao",
         "prioridade": "Alta" if classificacao == "Prospecção" else "Média",
+        "motivo": (
+            f"O cliente está classificado como {classificacao} e precisa de "
+            "um próximo passo comercial explícito."
+        ),
+        "acao_sugerida": "Retomar contato e combinar o próximo marco",
+        "contexto_utilizado": ["classificação do cliente", "responsável comercial"],
         "data_sugerida": (hoje + timedelta(days=delta)).isoformat(),
         "source": "fallback",
     }
-    return _ok(sugestao)
+    return _ok(_registrar_saida_ia(data, "sugerir-atividade", sugestao))
 
 
 @bp.route("/api/ia/touchpoints", methods=["POST"])
@@ -1006,28 +1137,26 @@ def api_ia_touchpoints():
 
     if _openrouter_available() and cliente:
         try:
-            import json as json_mod
-            nome_cliente = cliente.get("nome") or "cliente"
             classificacao = cliente.get("classificacao_cliente") or "Prospecção"
-            contexto = (
-                f"Cliente: {nome_cliente}\n"
-                f"Classificação: {classificacao}\n"
-                f"Responsável: {cliente.get('responsavel') or 'Executivo'}\n"
-            )
+            contexto = _contexto_ia_json(data, "touchpoints")
             system_prompt = (
-                "Você é um estrategista de cadência comercial (estilo Pipedrive/Outreach).\n"
-                "Gere uma sequência de 4 touchpoints com dias (D+1, D+3, D+7, D+14 para prospecção; "
-                "D+7, D+14, D+30 para clientes ativos; D+14, D+45, D+90 para geladeira).\n"
-                "Ajuste a cadência conforme a classificação do cliente.\n"
-                "Responda APENAS em JSON: {\"touchpoints\":[{\"titulo\":\"...\",\"descricao\":\"...\",\"tipo\":\"email|whatsapp|ligacao|reuniao\",\"prioridade\":\"Alta|Média|Baixa\",\"dias\":N}]}\n"
-                "titulo e descricao em texto puro, sem markdown."
+                "Você é estrategista de cadência comercial para venda de mídia. "
+                "Crie 3 a 4 passos que evoluam a conversa, sem repetir mensagens. "
+                "Use o estágio da cotação, última interação e objetivo aberto. "
+                "Responda APENAS em JSON: "
+                '{"touchpoints":[{"titulo":"...","descricao":"...",'
+                '"tipo":"email|whatsapp|ligacao|reuniao","prioridade":"Alta|Média|Baixa",'
+                '"dias":1,"motivo":"..."}],"motivo":"lógica da sequência"}. '
+                "Texto puro e sem dados inventados."
             )
-            resp = _call_openrouter(system_prompt, contexto, max_tokens=800, temperature=0.6).strip()
-            if resp.startswith("```"):
-                resp = resp.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            parsed = json_mod.loads(resp)
+            parsed = _parse_ia_json(
+                _call_openrouter(system_prompt, contexto, max_tokens=900, temperature=0.4),
+                required=("touchpoints",),
+            )
+            if not isinstance(parsed.get("touchpoints"), list):
+                raise ValueError("touchpoints precisa ser uma lista")
             hoje = date.today()
-            for tp in parsed.get("touchpoints", []):
+            for tp in parsed.get("touchpoints", [])[:4]:
                 dias = int(tp.pop("dias", 1) or 1)
                 tp["data_sugerida"] = (hoje + timedelta(days=dias)).isoformat()
                 tp.setdefault("hora", "09:00")
@@ -1035,9 +1164,9 @@ def api_ia_touchpoints():
                 tp["descricao"] = _texto_ia_limpo(tp.get("descricao"))
             parsed["classificacao"] = classificacao
             parsed["source"] = "openrouter"
-            return _ok(**parsed)
-        except Exception:  # pragma: no cover
-            pass
+            return _ok(_registrar_saida_ia(data, "touchpoints", parsed))
+        except Exception as exc:  # pragma: no cover
+            _log_provider_failure("touchpoints", exc)
 
     classificacao = (cliente or {}).get("classificacao_cliente") or "Prospecção"
     cadencia = {
@@ -1060,7 +1189,12 @@ def api_ia_touchpoints():
                 "hora": "09:00",
             }
         )
-    return _ok({"touchpoints": touchpoints, "classificacao": classificacao, "source": "fallback"})
+    return _ok(_registrar_saida_ia(data, "touchpoints", {
+        "touchpoints": touchpoints,
+        "classificacao": classificacao,
+        "motivo": f"Cadência padrão segura para clientes em {classificacao}.",
+        "source": "fallback",
+    }))
 
 
 @bp.route("/api/ia/gerar-comunicacao", methods=["POST"])
@@ -1082,39 +1216,40 @@ def api_ia_gerar_comunicacao():
     if _openrouter_available() and cliente and objetivo:
         try:
             nome_contato = (contato_principal or {}).get("nome") or "responsável"
-            cargo_contato = (contato_principal or {}).get("cargo") or "sem cargo definido"
             responsavel = (session.get("user_name") or cliente.get("responsavel") or "Equipe CentralComm").strip()
+            contexto = _contexto_ia_json(data, "comunicacao")
             system_prompt = (
-                "Você é um redator comercial da CENTRALCOMM, empresa de operação de mídia digital.\n\n"
-                f"Gere uma mensagem {tipo} de tamanho {tamanho} para o contato "
-                f"{nome_contato} ({cargo_contato}) do cliente {cliente.get('nome')}.\n\n"
-                f"Objetivo: {objetivo}\n"
-                "Se for WhatsApp: tom direto, pessoal, sem formalidades excessivas. Máximo 3 parágrafos curtos.\n"
-                "Se for Email: inclua assunto, saudação, corpo e despedida. Tom profissional mas acessível.\n"
-                "Texto puro: NUNCA use markdown (sem ** # ` listas com asterisco). Sem emojis excessivos.\n"
-                f"Assine como: {responsavel}"
+                "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
+                "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
+                "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
+                "Retorne APENAS JSON: "
+                '{"assunto":"vazio para WhatsApp","mensagem":"texto puro",'
+                '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
             )
-            resultado = _texto_ia_limpo(_call_openrouter(system_prompt, objetivo, max_tokens=1500))
-            # Tentamos separar assunto e corpo se for email
-            assunto = None
-            mensagem = resultado
-            if tipo == "email":
-                for line in resultado.splitlines():
-                    if line.lower().startswith("assunto:"):
-                        assunto = texto_sem_markdown(line.split(":", 1)[1].strip())
-                        mensagem = texto_sem_markdown(resultado.replace(line, "", 1))
-                        break
-                if not assunto:
-                    assunto = f"Follow-up comercial — {cliente.get('nome')}"
-            return _ok({
+            user_prompt = (
+                f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
+                f"Contato: {nome_contato}\nAssinatura: {responsavel}\n"
+                f"Contexto comercial:\n{contexto}"
+            )
+            parsed = _parse_ia_json(
+                _call_openrouter(system_prompt, user_prompt, max_tokens=1000, temperature=0.4),
+                required=("mensagem",),
+            )
+            assunto = _texto_ia_limpo(parsed.get("assunto"))
+            if tipo == "email" and not assunto:
+                assunto = f"Follow-up comercial — {cliente.get('nome')}"
+            saida = {
                 "assunto": assunto,
-                "mensagem": mensagem,
+                "mensagem": _texto_ia_limpo(parsed["mensagem"]),
+                "motivo": _texto_ia_limpo(parsed.get("motivo")),
+                "contexto_utilizado": parsed.get("contexto_utilizado") or [],
                 "tipo": tipo,
                 "contato": contato_principal,
                 "source": "openrouter",
-            })
-        except Exception:  # pragma: no cover
-            pass
+            }
+            return _ok(_registrar_saida_ia(data, "gerar-comunicacao", saida))
+        except Exception as exc:  # pragma: no cover
+            _log_provider_failure("gerar-comunicacao", exc)
 
     # Fallback determinístico
     nome_cliente = (cliente or {}).get("nome") or "cliente"
@@ -1138,7 +1273,15 @@ def api_ia_gerar_comunicacao():
             "Abraço,\n"
             f"{responsavel}\nCentralComm"
         )
-    return _ok({"assunto": assunto, "mensagem": mensagem, "tipo": tipo, "contato": contato_principal, "source": "fallback"})
+    return _ok(_registrar_saida_ia(data, "gerar-comunicacao", {
+        "assunto": assunto,
+        "mensagem": mensagem,
+        "motivo": "Modelo local seguro para retomada comercial.",
+        "contexto_utilizado": ["cliente", "contato selecionado", "canal"],
+        "tipo": tipo,
+        "contato": contato_principal,
+        "source": "fallback",
+    }))
 
 
 @bp.route("/api/ia/sugerir-objetivos", methods=["POST"])
@@ -1157,41 +1300,50 @@ def api_ia_sugerir_objetivos():
 
     if _openrouter_available():
         try:
-            contatos = store.list_contatos(cliente_id) or []
-            atividades = store.list_atividades(cliente_id) or []
-            contatos_str = ", ".join(
-                f"{c.get('nome')} ({c.get('cargo') or 'sem cargo'})" for c in contatos[:10]
-            ) if contatos else "Nenhum contato cadastrado"
-            atividades_str = "\n".join(
-                f"- [{a.get('status')}] {a.get('descricao')}" for a in atividades[:5]
-            ) if atividades else "Sem atividades pendentes"
-            contexto = (
-                f"Cliente: {cliente.get('nome')}\n"
-                f"Classificação: {cliente.get('classificacao_cliente') or 'Prospecção'}\n"
-                f"Contatos: {contatos_str}\n"
-                f"Atividades pendentes:\n{atividades_str}"
-            )
+            contexto = _contexto_ia_json(data, "objetivos")
             system_prompt = (
-                "Você é um consultor comercial da CENTRALCOMM. Sugira 3-5 objetivos "
-                "comerciais práticos para o próximo mês, focados em retomar contatos, "
-                "apresentar novos produtos e ampliar volume de cotações. Retorne apenas "
-                "a lista de objetivos, um por linha, sem numeração."
+                "Você é consultor comercial da CENTRALCOMM, especialista em mídia. "
+                "Sugira 3 a 5 objetivos mensuráveis que não dupliquem objetivos abertos "
+                "e que avancem oportunidades, decisores ou expansão de canais. "
+                "Retorne APENAS JSON: "
+                '{"objetivos":[{"texto":"verbo + resultado verificável",'
+                '"prazo_dias":30,"motivo":"..."}]}.'
             )
-            resultado = _call_openrouter(system_prompt, contexto)
-            objetivos = [o.strip("-• ").strip() for o in resultado.splitlines() if o.strip()]
-            return _ok({"objetivos": objetivos, "source": "openrouter"})
-        except Exception:  # pragma: no cover
-            pass
+            parsed = _parse_ia_json(
+                _call_openrouter(system_prompt, contexto, max_tokens=800, temperature=0.4),
+                required=("objetivos",),
+            )
+            objetivos = parsed.get("objetivos")
+            if not isinstance(objetivos, list):
+                raise ValueError("objetivos precisa ser uma lista")
+            normalizados = []
+            for item in objetivos[:5]:
+                if isinstance(item, str):
+                    item = {"texto": item}
+                texto = _texto_ia_limpo(item.get("texto"))
+                if texto:
+                    normalizados.append({
+                        "texto": texto,
+                        "prazo_dias": max(1, min(int(item.get("prazo_dias") or 30), 180)),
+                        "motivo": _texto_ia_limpo(item.get("motivo")),
+                    })
+            return _ok(_registrar_saida_ia(data, "sugerir-objetivos", {
+                "objetivos": normalizados, "source": "openrouter",
+            }))
+        except Exception as exc:  # pragma: no cover
+            _log_provider_failure("sugerir-objetivos", exc)
 
     # Fallback
     nome = cliente.get("nome") or "cliente"
     objetivos = [
-        f"Retomar contato com decisor principal de {nome} nesta semana",
-        f"Apresentar portfólio de mídia programática para {nome}",
-        f"Levar case de performance similar ao segmento de {nome}",
-        f"Agendar reunião de planejamento comercial trimestral com {nome}",
+        {"texto": f"Retomar contato com decisor principal de {nome} nesta semana", "prazo_dias": 7, "motivo": "Reativar a conversa comercial."},
+        {"texto": f"Apresentar portfólio de mídia programática para {nome}", "prazo_dias": 14, "motivo": "Criar oportunidade de expansão."},
+        {"texto": f"Levar case de performance similar ao segmento de {nome}", "prazo_dias": 21, "motivo": "Reduzir risco percebido."},
+        {"texto": f"Agendar reunião de planejamento comercial trimestral com {nome}", "prazo_dias": 30, "motivo": "Definir próximos investimentos."},
     ]
-    return _ok({"objetivos": objetivos, "source": "fallback"})
+    return _ok(_registrar_saida_ia(data, "sugerir-objetivos", {
+        "objetivos": objetivos, "source": "fallback",
+    }))
 
 
 @bp.route("/api/ia/extrair-contatos", methods=["POST"])
@@ -1209,7 +1361,8 @@ def api_ia_extrair_contatos():
             system_prompt = (
                 "Você é um extrator de dados de contatos profissionais. "
                 "Retorne APENAS um array JSON válido com objetos "
-                "{\"nome\":\"...\",\"email\":\"...\",\"telefone\":\"...\",\"telefone2\":\"...\"}. "
+                "{\"nome\":\"...\",\"email\":\"...\",\"telefone\":\"...\","
+                "\"telefone2\":\"...\",\"cargo\":\"...\"}. "
                 "Nome e email são obrigatórios."
             )
             resp = _call_openrouter(system_prompt, texto, max_tokens=2000, temperature=0.1).strip()
@@ -1228,10 +1381,11 @@ def api_ia_extrair_contatos():
                         "email": email,
                         "telefone": (c.get("telefone") or "").strip(),
                         "telefone2": (c.get("telefone2") or "").strip(),
+                        "cargo": (c.get("cargo") or "").strip(),
                     })
             return _ok({"contatos": limpos, "source": "openrouter"})
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            _log_provider_failure("extrair-contatos", exc)
 
     # Fallback: usa o parser determinístico local
     contatos = parse_texto_contatos(texto)

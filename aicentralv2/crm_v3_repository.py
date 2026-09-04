@@ -1633,6 +1633,119 @@ class CrmV3Repository:
             return []
         return [self._map_nota(r) for r in (data.get("registros") if data else []) or []]
 
+    def get_ai_context(
+        self, cliente_id: str, profile: str = "next_action",
+        contato_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Contexto comercial minimizado para as funções de IA.
+
+        Centraliza a seleção de dados para evitar que cada prompt faça queries
+        e regras diferentes. O retorno nunca inclui CNPJ, e-mail ou telefone.
+        """
+        cliente = self.get_cliente(cliente_id)
+        if not cliente:
+            return None
+
+        def _safe(fn, default):
+            try:
+                return fn() or default
+            except Exception:
+                _rollback_if_failed("get_ai_context")
+                return default
+
+        contatos = _safe(lambda: self.list_contatos(cliente_id), [])
+        contato = next(
+            (c for c in contatos if contato_id and str(c.get("id")) == str(contato_id)),
+            next((c for c in contatos if c.get("principal")), contatos[0] if contatos else {}),
+        )
+        atividades = _safe(lambda: self.list_atividades(cliente_id), [])
+        objetivos = _safe(lambda: self.list_objetivos(cliente_id), [])
+        notas = _safe(lambda: self.list_notas(cliente_id), [])
+        cotacoes = _safe(lambda: self.list_cotacoes(cliente_id), [])
+
+        def _faixa(valor):
+            try:
+                n = float(valor or 0)
+            except (TypeError, ValueError):
+                n = 0
+            if n <= 0:
+                return "não informado"
+            if n < 10000:
+                return "até R$ 10 mil"
+            if n < 50000:
+                return "R$ 10–50 mil"
+            if n < 100000:
+                return "R$ 50–100 mil"
+            return "acima de R$ 100 mil"
+
+        web_info = {}
+        if profile in ("next_action", "roteiro", "comunicacao", "objetivos"):
+            try:
+                from .crm_v3_web_scout import obter_web_info
+                web_info = obter_web_info(cliente_id) or {}
+            except Exception:
+                web_info = {}
+
+        return {
+            "profile": profile,
+            "cliente": {
+                "id": str(cliente.get("id") or cliente_id),
+                "nome": cliente.get("nome") or "",
+                "classificacao": cliente.get("classificacao_cliente") or "",
+                "tipo": cliente.get("tipo_label") or cliente.get("tipo") or "",
+                "cidade": cliente.get("cidade") or "",
+                "uf": cliente.get("uf") or "",
+                "responsavel": cliente.get("responsavel") or "",
+                "agencia": cliente.get("agencia_nome") or "",
+                "observacoes": str(
+                    cliente.get("observacoes_comerciais_adicionais")
+                    or cliente.get("nota_executivo")
+                    or ""
+                )[:700],
+                "opera_midia": bool(cliente.get("opera_midia")),
+                "demanda_dados": bool(cliente.get("demanda_dados")),
+                "demanda_programatica": bool(cliente.get("demanda_programatica_canais")),
+                "metrics": cliente.get("metrics") or {},
+            },
+            "contato": {
+                "id": str(contato.get("id") or ""),
+                "nome": contato.get("nome") or "",
+                "cargo": contato.get("cargo") or "",
+                "setor": contato.get("setor") or "",
+            } if contato else {},
+            "atividades": [
+                {
+                    "titulo": a.get("titulo") or a.get("descricao") or "",
+                    "tipo": a.get("tipo") or "atividade",
+                    "status": a.get("status") or "",
+                    "data": a.get("data") or "",
+                }
+                for a in atividades[:5]
+            ],
+            "notas": [
+                {"texto": str(n.get("texto") or "")[:350], "data": n.get("data") or ""}
+                for n in notas[:3]
+            ],
+            "objetivos": [
+                {"texto": o.get("texto") or "", "prazo": o.get("prazo") or ""}
+                for o in objetivos if not o.get("concluido")
+            ][:5],
+            "cotacoes": [
+                {
+                    "titulo": c.get("titulo") or "",
+                    "status": c.get("status_label") or c.get("status") or "",
+                    "valor_faixa": _faixa(c.get("valor_total")),
+                    "plataformas": (c.get("plataformas") or [])[:4],
+                }
+                for c in cotacoes[:3]
+            ],
+            "web": {
+                "titulo": str(web_info.get("titulo") or "")[:180],
+                "descricao": str(web_info.get("descricao") or "")[:450],
+                "dominio": web_info.get("dominio") or "",
+            } if web_info and web_info.get("status") == "ok" else {},
+        }
+
     def create_nota(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
@@ -1688,6 +1801,63 @@ class CrmV3Repository:
             except Exception:
                 continue
         return created
+
+    # ---------------- Copiloto: histórico e sequências -----------------------
+
+    def register_ai_interaction(self, cliente_id: str, function: str, data: Dict[str, Any]):
+        """Registra saída sanitizada; retorna None quando a migration não existe."""
+        allowed = {
+            "texto", "mensagem", "assunto", "titulo", "tipo", "prioridade",
+            "motivo", "contexto_utilizado", "touchpoints", "objetivos", "source",
+        }
+        conteudo = {k: data.get(k) for k in allowed if k in data}
+        row = _db().registrar_interacao_ia(
+            cliente_id=cliente_id,
+            executivo_id=self._current_executivo_id(),
+            funcao=function,
+            origem=data.get("source") or "fallback",
+            modelo="google/gemini-2.5-flash" if data.get("source") == "openrouter" else None,
+            conteudo=conteudo,
+        )
+        return str(row.get("id")) if row else None
+
+    def list_ai_history(self, cliente_id: str, limit: int = 20):
+        if not self.get_cliente(cliente_id):
+            return None
+        rows = _db().listar_interacoes_ia(cliente_id, limit=limit) or []
+        return [
+            {
+                "id": str(r.get("id")),
+                "function": r.get("funcao") or "",
+                "source": r.get("origem") or "fallback",
+                "model": r.get("modelo"),
+                "content": r.get("conteudo") or {},
+                "applied": bool(r.get("aplicado")),
+                "created_at": self._iso_date(r.get("criado_em")) or "",
+            }
+            for r in rows
+        ]
+
+    def mark_ai_interaction_applied(self, interaction_id: str, atividade_id=None):
+        return bool(_db().marcar_interacao_ia_aplicada(interaction_id, atividade_id))
+
+    def create_activity_sequence(self, cliente_id: str, data: Dict[str, Any]):
+        if not self.get_cliente(cliente_id):
+            return None
+        result = _db().criar_sequencia_atividades(
+            cliente_id=cliente_id,
+            executivo_id=data.get("executivo_id") or self._current_executivo_id(),
+            titulo=data.get("titulo") or "Sequência comercial",
+            origem=data.get("source") or "fallback",
+            itens=data.get("itens") or [],
+        )
+        atividades = self.list_atividades(cliente_id) or []
+        ids = {str(x) for x in result.get("atividade_ids", [])}
+        return {
+            "id": str(result.get("id")) if result.get("id") is not None else None,
+            "migration_applied": result.get("id") is not None,
+            "atividades": [a for a in atividades if str(a.get("id")) in ids],
+        }
 
 
 # Instância única — segue o padrão do CrmTestStore.

@@ -5550,3 +5550,40 @@ img.crm-v3-avatar-mini {
 .crm-v3-cotacao-grupo-historico .crm-v3-cotacao-linha-icon {
     opacity: 0.65;
 }
+
+/* Copiloto contextual — recomendação principal da coluna de atividades. */
+.crm-v3-next-action {
+    margin: 0 14px 10px;
+    padding: 12px 14px;
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 72%);
+    color: #1e293b;
+}
+.crm-v3-next-action-kicker {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 5px;
+    color: #4338ca;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.crm-v3-next-action-kicker span {
+    margin-left: auto;
+    color: #64748b;
+    font-size: 9px;
+}
+.crm-v3-next-action > strong { display: block; font-size: 13px; }
+.crm-v3-next-action > p { margin: 4px 0 9px; color: #475569; font-size: 11px; line-height: 1.45; }
+.crm-v3-next-action-actions { display: flex; align-items: center; gap: 6px; }
+.crm-v3-next-action-loading,
+.crm-v3-next-action-refresh {
+    border: 0;
+    background: transparent;
+    color: #4338ca;
+    font-size: 12px;
+    font-weight: 700;
+}

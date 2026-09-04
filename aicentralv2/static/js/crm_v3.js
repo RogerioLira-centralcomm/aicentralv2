@@ -178,50 +178,81 @@
      *   [ícone] [Nd | rótulo curto]
      * O tipo é dado pela cor sutil do ícone; o texto principal fica neutro.
      */
+    /**
+     * Situação da próxima atividade — badge estilo Pipedrive.
+     *
+     * Set/2026: redesenhado para uma **bolinha circular** compacta
+     * (22x22) com apenas o ícone dentro + tooltip completo no hover,
+     * inspirada na coluna de atividades do Pipedrive. Antes era
+     * ícone + label texto ("atrasado", "hoje"), o que criava dois
+     * problemas: (a) ocupava largura demais na coluna 1 estreita
+     * e (b) todos os clientes sem `badge` no backend caíam num
+     * "—" cinza inútil.
+     *
+     * Fonte da verdade: `c.badge` (texto humanizado) e
+     * `c.proxima_atividade` (objeto com data/título/dias). O backend
+     * popula ambos em list_clientes → _metrics_for.
+     *
+     * Variantes visuais (ver crm_v3.css .crm-v3-sit--*):
+     *   - atrasado : amarelo com !  → há atividade vencida
+     *   - alert    : amarelo com !  → cliente SEM atividade agendada
+     *   - hoje     : verde com sino → atividade prevista pra hoje
+     *   - agenda   : azul com cal.  → atividade futura (amanhã / em N dias)
+     *   - Se cliente é geladeira / sem info, retorna string vazia
+     *     (sem badge — comportamento igual ao Pipedrive).
+     */
     function situacaoHtml(c) {
         var badge = c.badge || '';
-        var type = (c.badge_type || '').toLowerCase();
-        var m = badge.match(/(\d+)\s*dias?/i);
-        var dias = m ? m[1] + 'd' : '';
-        var icon, label, variante;
+        if (!badge) return '';
 
-        if (type === 'danger' || /sem atividade/i.test(badge)) {
-            icon = 'fa-solid fa-circle-question';
-            label = dias || 'sem ativ.';
+        var proxima = c.proxima_atividade || null;
+        var m = badge.match(/(\d+)\s*dias?/i);
+        var dias = m ? m[1] : '';
+        var icon, variante, title;
+
+        if (/sem atividade/i.test(badge)) {
+            // Cliente SEM atividade pendente — no Pipedrive isso aparece
+            // como bolinha âmbar com "!" indicando que o executivo
+            // precisa marcar próximo passo. Não é erro, é chamado à ação.
+            icon = 'fa-solid fa-exclamation';
             variante = 'alert';
-        } else if (type === 'warning' || /atrasad/i.test(badge)) {
-            icon = 'fa-solid fa-triangle-exclamation';
-            label = dias || 'atrasado';
+            title = 'Sem atividade agendada · marque um próximo passo';
+        } else if (/atrasad/i.test(badge)) {
+            icon = 'fa-solid fa-exclamation';
             variante = 'atrasado';
+            title = (proxima && proxima.titulo)
+                ? proxima.titulo + ' · ' + badge.toLowerCase()
+                : badge.charAt(0).toUpperCase() + badge.slice(1);
         } else if (/^hoje/i.test(badge)) {
-            icon = 'fa-regular fa-calendar-check';
-            label = 'hoje';
+            icon = 'fa-solid fa-bell';
             variante = 'hoje';
+            title = (proxima && proxima.titulo)
+                ? proxima.titulo + ' · hoje'
+                : 'Atividade agendada para hoje';
         } else if (/^amanh/i.test(badge)) {
             icon = 'fa-regular fa-calendar';
-            label = 'amanhã';
             variante = 'agenda';
+            title = (proxima && proxima.titulo)
+                ? proxima.titulo + ' · amanhã'
+                : 'Atividade agendada para amanhã';
         } else if (/^em\s+\d+/i.test(badge)) {
             icon = 'fa-regular fa-calendar';
-            label = dias || 'agendado';
             variante = 'agenda';
-        } else if (/sem contato/i.test(badge)) {
-            icon = 'fa-regular fa-circle';
-            label = 'sem contato';
-            variante = 'neutro';
+            title = (proxima && proxima.titulo)
+                ? proxima.titulo + ' · em ' + dias + ' dias'
+                : 'Atividade em ' + dias + ' dias';
         } else if (/novo/i.test(badge)) {
             icon = 'fa-solid fa-sparkles';
-            label = 'novo';
             variante = 'agenda';
+            title = 'Cliente novo';
         } else {
-            icon = 'fa-regular fa-circle';
-            label = badge || '—';
-            variante = 'neutro';
+            return '';
         }
         return (
-            '<span class="crm-v3-sit crm-v3-sit--' + variante + '" title="' + escapeHtml(badge) + '">' +
+            '<span class="crm-v3-sit crm-v3-sit--' + variante + '"' +
+            ' title="' + escapeHtml(title) + '"' +
+            ' aria-label="' + escapeHtml(title) + '">' +
             '<i class="' + icon + '" aria-hidden="true"></i>' +
-            '<span class="crm-v3-sit-label">' + escapeHtml(label) + '</span>' +
             '</span>'
         );
     }

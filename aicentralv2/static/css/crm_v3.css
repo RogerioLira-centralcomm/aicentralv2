@@ -1425,60 +1425,73 @@ button:hover > .crm-v3-menu-hint {
  * Ícone colorido + texto neutro compacto ("18d", "hoje", "amanhã").
  * Sem fundo colorido — só o ícone comunica a criticidade.
  * ==================================================================== */
+/* Badge de situação da próxima atividade — set/2026.
+   Redesenhado como bolinha circular estilo Pipedrive (22x22) com
+   fundo colorido + ícone único dentro. Sem label ao lado, o texto
+   completo vive no title/tooltip. Ver situacaoHtml() em crm_v3.js
+   para a matriz de variantes.
+
+   Design: cores CHEIAS (não outline) para maior contraste na coluna
+   estreita e leitura ágil de longe. Formato circular consistente com
+   o Pipedrive — o usuário associa forma+cor com "estado da atividade"
+   sem precisar ler texto. */
 .crm-v3-sit {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: transparent;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--crm-text-muted);
-    white-space: nowrap;
-    line-height: 1;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    flex-shrink: 0;
+    /* Sombra interna leve para diferenciar do avatar/pill do fundo. */
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
 
 .crm-v3-sit i {
-    font-size: 12px;
+    font-size: 11px;
+    /* Font Awesome traz padding vertical em alguns pesos — trava
+       o baseline pra ficar geometricamente centrado. */
+    line-height: 1;
 }
 
-.crm-v3-sit-label {
-    font-variant-numeric: tabular-nums;
+/* Variante 'alert' — cliente SEM atividade agendada. Âmbar como o
+   Pipedrive (é um chamado à ação, não um erro crítico). */
+.crm-v3-sit--alert {
+    background: #fef3c7;
+    color: #b45309;
+    box-shadow: 0 0 0 1px #fde68a;
 }
 
-.crm-v3-sit--alert i {
-    color: #dc2626;
+/* Variante 'atrasado' — atividade vencida. Mesmo tom âmbar do alert,
+   mas com bolinha um pouco mais forte pra reforçar a urgência. */
+.crm-v3-sit--atrasado {
+    background: #fcd34d;
+    color: #78350f;
+    box-shadow: 0 0 0 1px #f59e0b;
 }
 
-.crm-v3-sit--alert .crm-v3-sit-label {
-    color: #dc2626;
+/* Variante 'hoje' — atividade prevista para hoje. Verde como no
+   Pipedrive (tudo em dia + prompt de ação imediata). */
+.crm-v3-sit--hoje {
+    background: #bbf7d0;
+    color: #14532d;
+    box-shadow: 0 0 0 1px #86efac;
 }
 
-.crm-v3-sit--atrasado i {
-    color: #ea580c;
+/* Variante 'agenda' — atividade futura (amanhã, em N dias). Azul-
+   claro neutro; menor prioridade visual que atrasado/hoje. */
+.crm-v3-sit--agenda {
+    background: #dbeafe;
+    color: #1e3a8a;
+    box-shadow: 0 0 0 1px #93c5fd;
 }
 
-.crm-v3-sit--atrasado .crm-v3-sit-label {
-    color: #ea580c;
-}
-
-.crm-v3-sit--hoje i {
-    color: var(--crm-primary);
-}
-
-.crm-v3-sit--hoje .crm-v3-sit-label {
-    color: var(--crm-primary);
-}
-
-.crm-v3-sit--agenda i,
-.crm-v3-sit--agenda .crm-v3-sit-label {
-    color: var(--crm-text-muted);
-}
-
-.crm-v3-sit--neutro i,
-.crm-v3-sit--neutro .crm-v3-sit-label {
-    color: var(--crm-text-subtle);
+/* Sit dentro de um card selecionado (fundo verde-claro da linha) —
+   remove o box-shadow externo pra não competir com a borda do card. */
+.crm-v3-cliente-ativo .crm-v3-sit {
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 
 .crm-v3-pin-icon {

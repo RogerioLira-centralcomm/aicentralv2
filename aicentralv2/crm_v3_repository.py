@@ -276,6 +276,36 @@ class CrmV3Repository:
                 mapped["metrics"] = dict(_metrics_default)
                 mapped["metrics_error"] = f"{type(e).__name__}: {str(e)[:120]}"
 
+            # Set/2026 — Badge estilo Pipedrive na lista de clientes.
+            # Deriva do `proxima_atividade` calculado em `_metrics_for`.
+            # O frontend (situacaoHtml em crm_v3.js) faz regex nesse texto
+            # para escolher a variante visual da bolinha; mantemos os
+            # padrões que ele espera: "N dia(s) atrasado", "Hoje",
+            # "Amanhã", "Em N dias", "Sem atividade".
+            proxima = mapped.get("metrics", {}).get("proxima_atividade")
+            mapped["proxima_atividade"] = proxima
+            if not proxima:
+                mapped["badge"] = "Sem atividade"
+                mapped["badge_type"] = "danger"
+            else:
+                dias = int(proxima.get("dias") or 0)
+                if dias < 0:
+                    d_abs = abs(dias)
+                    mapped["badge"] = (
+                        f"{d_abs} dia atrasado" if d_abs == 1
+                        else f"{d_abs} dias atrasado"
+                    )
+                    mapped["badge_type"] = "warning"
+                elif dias == 0:
+                    mapped["badge"] = "Hoje"
+                    mapped["badge_type"] = "success"
+                elif dias == 1:
+                    mapped["badge"] = "Amanhã"
+                    mapped["badge_type"] = "info"
+                else:
+                    mapped["badge"] = f"Em {dias} dias"
+                    mapped["badge_type"] = "info"
+
             # Preencher clientes finais/ agência nome para o card
             if mapped["is_agencia"]:
                 try:
@@ -687,6 +717,12 @@ class CrmV3Repository:
         # Tarefas abertas + último contato baseado em atividades reais.
         tarefas_abertas = 0
         ultimo_contato = "—"
+        # Próxima atividade pendente — alimenta o badge estilo Pipedrive
+        # (bolinha amarela ! para atrasadas, verde ✓ para hoje/futuras)
+        # que aparece no canto direito de cada card na coluna 1 do CRM v3.
+        # Ver `situacaoHtml` no crm_v3.js — o frontend interpreta pelo
+        # texto do badge; badge_type é redundante mas útil para debug.
+        proxima_atividade = None
         try:
             atividades = _db().obter_atividades_cliente(cliente_id) or []
             tarefas_abertas = sum(
@@ -717,6 +753,49 @@ class CrmV3Repository:
                         )
                     except Exception:
                         ultimo_contato = iso
+
+            # Próxima atividade pendente: percorre pendentes/em_andamento,
+            # separa em atrasadas / hoje / futuras, e escolhe a mais
+            # crítica na ordem (atrasada > hoje > futura mais próxima).
+            hoje = _date.today()
+            atrasadas: List[Dict[str, Any]] = []
+            hoje_list: List[Dict[str, Any]] = []
+            futuras: List[Dict[str, Any]] = []
+            for a in atividades:
+                if str(a.get("status") or "").casefold() == "concluida":
+                    continue
+                # data_prazo é a coluna nova (set/2026). Prioriza ela;
+                # fallback para data_atividade em bases antigas.
+                dt_alvo = a.get("data_prazo") or a.get("data_atividade")
+                iso = self._iso_date(dt_alvo)
+                if not iso:
+                    continue
+                try:
+                    d = _datetime.strptime(iso, "%Y-%m-%d").date()
+                except Exception:
+                    continue
+                diff = (d - hoje).days
+                reg = {
+                    "id": a.get("id"),
+                    "data": iso,
+                    "titulo": (a.get("titulo") or a.get("descricao") or "").strip()[:120],
+                    "dias": diff,
+                }
+                if diff < 0:
+                    atrasadas.append(reg)
+                elif diff == 0:
+                    hoje_list.append(reg)
+                else:
+                    futuras.append(reg)
+            if atrasadas:
+                # Mais atrasada = menor `dias` (mais negativo). O usuário
+                # precisa ver a atividade mais crítica primeiro.
+                proxima_atividade = min(atrasadas, key=lambda r: r["dias"])
+            elif hoje_list:
+                proxima_atividade = hoje_list[0]
+            elif futuras:
+                # Mais próxima = menor `dias` positivo.
+                proxima_atividade = min(futuras, key=lambda r: r["dias"])
         except Exception as e:
             _rollback_if_failed("obter_atividades_cliente")
             import logging
@@ -733,6 +812,9 @@ class CrmV3Repository:
             "tarefas_abertas": tarefas_abertas,
             "cotacoes_abertas": len(abertas),
             "ultimo_contato": ultimo_contato,
+            # Próxima atividade pendente (ou None).
+            # {id, data (ISO), titulo, dias (negativo=atrasada)}
+            "proxima_atividade": proxima_atividade,
         }
 
     # ---------------- Atividades (sales_atividades) --------------------------

@@ -1040,38 +1040,44 @@ button:hover > .crm-v3-menu-hint {
  * com label. Trocamos o grid rígido por flex-wrap para as 6 pills se
  * ajustarem em 1-2 linhas conforme a largura da coluna.
  * ==================================================================== */
+/* Grid 3-linhas para os filtros da coluna 1 — set/2026.
+   Antes usávamos flex-wrap, o que fazia as 3 pills icônicas
+   (⚠ ❓ 📦) ficarem alinhadas à esquerda com um "buraco" à direita
+   na terceira linha. Agora forçamos:
+     Linha 1: Todos              (1 pill  ocupa 100%)
+     Linha 2: Ativos + Prospec.  (2 pills 50/50)
+     Linha 3: ⚠ + ❓ + 📦        (3 pills 33/33/33)
+   O grid gap uniforme (4px) garante alinhamento vertical entre
+   colunas e evita a "escada" visual do flex-wrap. */
 .crm-v3-pills {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px;
     margin-top: 8px;
     width: 100%;
 }
 .crm-v3-pills .crm-v3-pill[data-filter="todos"] {
-    /* "Todos" sempre ocupa a linha inteira — é a pill primária e serve
-       de header visual para as pills de refino abaixo (Ativos/Prospec.
-       e icônicas). Assim o time comercial identifica em duas leituras
-       (base total + refino). */
-    flex: 1 1 100%;
+    /* Ocupa as 6 colunas → linha inteira. É a pill primária e serve
+       de header visual para as pills de refino abaixo. */
+    grid-column: span 6;
 }
-/* Pills de classificação dividem a segunda linha meio a meio, sempre. */
+/* Ativos + Prospecção: cada uma ocupa 3 colunas (50%). */
 .crm-v3-pill-classif {
-    flex: 1 1 calc(50% - 2px);
-    min-width: 96px;
+    grid-column: span 3;
+    min-width: 0;
 }
-/* Icônicas ocupam a terceira linha (ou continuam na segunda quando
-   sobra espaço), com largura fixa compacta. */
+/* Icônicas: cada uma ocupa 2 colunas (33%), fechando a linha 3. */
 .crm-v3-pill[data-filter="atrasado"],
 .crm-v3-pill[data-filter="sem-atividade"],
 .crm-v3-pill[data-filter="arquivo"] {
-    flex: 0 0 auto;
+    grid-column: span 2;
 }
 
 .crm-v3-pill {
     min-width: 0;
     font-size: 12px;
     font-weight: 600;
-    min-height: 32px;
+    min-height: 30px;
     padding: 0 10px;
     border-radius: 8px;
     border: 1px solid var(--crm-border);
@@ -1098,15 +1104,14 @@ button:hover > .crm-v3-menu-hint {
 }
 
 /* Pills icônicas (Atrasado / Sem atividade / Arquivo): só ícone + count.
-   Ficam mais compactas para caber junto com as pills que têm label.
-   Set/2026: antes usávamos :not(:first-child), mas isso escondia o
-   label das novas pills de classificação (Ativos/Prospecção). Agora
-   selecionamos as pills icônicas explicitamente pelo data-filter. */
+   O grid da linha 3 (span 2 cada) já garante que ocupem 100% da
+   largura em 3 colunas iguais, então só precisamos ajustar o padding
+   e centralizar o conteúdo. Sem min-width porque o grid manda. */
 .crm-v3-pill[data-filter="atrasado"],
 .crm-v3-pill[data-filter="sem-atividade"],
 .crm-v3-pill[data-filter="arquivo"] {
-    padding: 0 8px;
-    min-width: 44px;
+    padding: 0 6px;
+    gap: 4px;
 }
 
 /* Pills de classificação — Ativos (verde) e Prospecção (azul).

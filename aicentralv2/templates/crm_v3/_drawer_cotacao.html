@@ -17,6 +17,28 @@
   <form id="cx-drawer-cotacao-form" data-drawer-form="cotacao">
     <input type="hidden" name="id" data-field="id" />
 
+    {# Cabeçalho contextual read-only ------------------------------------
+       Set/2026: espelha o que a tela `/cotacoes/nova` mostra em
+       "Participantes" (Cliente / Agência), mas AQUI é apenas informativo.
+       O vínculo Cliente↔Agência já vem da seleção no CRM v3 e alterá-lo
+       aqui geraria inconsistência silenciosa. O JS preenche os spans a
+       partir de `window.crmV3.state.cliente` e esconde a linha de
+       agência quando o cliente é direto (sem agência pai). Se o
+       cliente selecionado É a agência, mostramos só "Agência: X".
+    #}
+    <div class="cx-drawer-context" id="cx-cot-contexto" hidden>
+      <div class="cx-drawer-context-row" id="cx-cot-ctx-cliente-row" hidden>
+        <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
+        <span class="cx-drawer-context-label">Cliente</span>
+        <span class="cx-drawer-context-value" id="cx-cot-ctx-cliente-nome">—</span>
+      </div>
+      <div class="cx-drawer-context-row" id="cx-cot-ctx-agencia-row" hidden>
+        <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
+        <span class="cx-drawer-context-label">Agência</span>
+        <span class="cx-drawer-context-value" id="cx-cot-ctx-agencia-nome">—</span>
+      </div>
+    </div>
+
     <div class="cx-drawer-section">
       <div class="cx-drawer-section-title">Dados da campanha</div>
       <div class="cx-drawer-section-subtitle">
@@ -67,6 +89,25 @@
             name="periodo_fim"
             data-field="periodo_fim"
           />
+        </div>
+
+        {# Contador dinâmico da duração — atualizado pelo JS em input/change
+           dos dois campos de data. Mostra dias corridos (inclusivo, como
+           faz o form legado) e dias úteis (seg-sex, sem feriados nesta
+           fase para não divergir do legado). #}
+        <div class="cx-drawer-field cx-drawer-field-full cx-cot-duracao" id="cx-cot-duracao" role="status" aria-live="polite">
+          <span class="cx-cot-duracao-item">
+            <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
+            <strong id="cx-cot-dias-corridos">—</strong>
+            <span class="cx-cot-duracao-unit">dias corridos</span>
+          </span>
+          <span class="cx-cot-duracao-sep" aria-hidden="true">·</span>
+          <span class="cx-cot-duracao-item">
+            <i class="fa-solid fa-briefcase" aria-hidden="true"></i>
+            <strong id="cx-cot-dias-uteis">—</strong>
+            <span class="cx-cot-duracao-unit">dias úteis</span>
+          </span>
+          <span class="cx-cot-duracao-hint" id="cx-cot-duracao-hint" hidden></span>
         </div>
 
         <div class="cx-drawer-field" style="grid-column: span 2;">

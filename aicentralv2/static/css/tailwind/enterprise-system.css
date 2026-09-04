@@ -816,6 +816,112 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   margin-bottom: 2px;
 }
 
+/* ------------------------------------------------------------------
+ * Cabeçalho contextual do drawer (Cliente / Agência read-only)
+ * ------------------------------------------------------------------
+ * Usado hoje no drawer "Nova cotação" para deixar visível para quem
+ * o comercial está criando a cotação, sem permitir edição (o vínculo
+ * já veio da seleção do CRM v3). Padrão de chip informativo com
+ * borda suave em tom de brand para não competir com os campos
+ * editáveis abaixo.
+ * ------------------------------------------------------------------ */
+.cx-drawer-context {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: var(--cx-brand-soft, rgba(37, 99, 235, 0.06));
+  border: 1px solid var(--cx-brand-border, rgba(37, 99, 235, 0.22));
+}
+.cx-drawer-context-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--cx-text, inherit);
+  min-width: 0;
+}
+.cx-drawer-context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--cx-brand, #2563eb);
+  color: #fff;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.cx-drawer-context-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cx-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.cx-drawer-context-value {
+  font-weight: 600;
+  color: var(--cx-text, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ------------------------------------------------------------------
+ * Contador de duração (dias corridos · dias úteis)
+ * ------------------------------------------------------------------
+ * Renderizado dentro do grid do drawer de cotação, ocupando as 2
+ * colunas. Atualizado pelo JS a cada input/change dos date inputs.
+ * Estética "chip suave" com fundo cinza claro para diferenciar das
+ * inputs de dados.
+ * ------------------------------------------------------------------ */
+.cx-cot-duracao {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--cx-surface-subtle, #f8fafc);
+  border: 1px dashed var(--cx-border, #e2e8f0);
+  font-size: 12.5px;
+  color: var(--cx-text-muted, var(--cx-text-subtle));
+}
+.cx-cot-duracao-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cx-cot-duracao-item i {
+  color: var(--cx-brand, #2563eb);
+  font-size: 12px;
+}
+.cx-cot-duracao-item strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cx-text, inherit);
+  min-width: 1.4em;
+  text-align: right;
+}
+.cx-cot-duracao-unit {
+  font-weight: 500;
+}
+.cx-cot-duracao-sep {
+  color: var(--cx-text-subtle);
+  font-weight: 700;
+}
+.cx-cot-duracao-hint {
+  color: #b91c1c;
+  font-weight: 500;
+  margin-left: auto;
+}
+
 .cx-drawer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

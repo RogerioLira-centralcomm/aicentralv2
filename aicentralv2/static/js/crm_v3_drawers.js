@@ -940,6 +940,163 @@
         }).catch(function (err) { toast(err.message, true); });
     }
 
+    /* ------------------------------------------------------------
+     * Cabeçalho contextual read-only do drawer de cotação.
+     * ------------------------------------------------------------
+     * Puxa o cliente/agência do estado atual do CRM v3 e preenche o
+     * bloco `.cx-drawer-context`. Se o cliente selecionado É a
+     * agência (is_agencia=true), mostra apenas a linha "Agência".
+     * Caso contrário mostra Cliente e, se houver agência pai,
+     * mostra também a linha "Agência". Cliente direto (sem agência)
+     * mostra apenas a linha "Cliente".
+     * ------------------------------------------------------------ */
+    function fillContextoCotacao(wrapper, clienteId) {
+        var box = wrapper.querySelector('#cx-cot-contexto');
+        var clienteRow = wrapper.querySelector('#cx-cot-ctx-cliente-row');
+        var agenciaRow = wrapper.querySelector('#cx-cot-ctx-agencia-row');
+        var clienteVal = wrapper.querySelector('#cx-cot-ctx-cliente-nome');
+        var agenciaVal = wrapper.querySelector('#cx-cot-ctx-agencia-nome');
+        if (!box || !clienteRow || !agenciaRow) return;
+
+        var cliente = (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente) || null;
+        // Sanidade: só usamos o state.cliente se casar com o clienteId
+        // que abriu o drawer. Se abriu de um deep-link ou trocou de
+        // cliente por baixo, evitamos mostrar dado inconsistente.
+        if (cliente && clienteId && String(cliente.id) !== String(clienteId)) {
+            cliente = null;
+        }
+        if (!cliente) {
+            box.hidden = true;
+            return;
+        }
+
+        var nome = cliente.nome || '—';
+        var isAgencia = !!cliente.is_agencia;
+        var agenciaNome = cliente.agencia_nome || '';
+
+        if (isAgencia) {
+            // Cliente selecionado é a própria agência — mostra só
+            // "Agência: <nome>" para deixar o vínculo claro.
+            clienteRow.hidden = true;
+            agenciaRow.hidden = false;
+            if (agenciaVal) agenciaVal.textContent = nome;
+        } else {
+            clienteRow.hidden = false;
+            if (clienteVal) {
+                clienteVal.textContent = nome;
+                clienteVal.title = nome;
+            }
+            if (agenciaNome) {
+                agenciaRow.hidden = false;
+                if (agenciaVal) {
+                    agenciaVal.textContent = agenciaNome;
+                    agenciaVal.title = agenciaNome;
+                }
+            } else {
+                agenciaRow.hidden = true;
+            }
+        }
+        box.hidden = false;
+    }
+
+    /* ------------------------------------------------------------
+     * Datas: defaults hoje / hoje+30d e contador de duração.
+     * ------------------------------------------------------------
+     * Só aplicamos defaults quando é criação (isEdit=false) e os
+     * campos não vieram preenchidos. Na edição respeitamos o valor
+     * salvo. `wireDuracaoCotacao` recalcula dias corridos e dias
+     * úteis (seg-sex) em cada input/change e mostra hint em vermelho
+     * quando fim < inicio ou qualquer campo está vazio.
+     * ------------------------------------------------------------ */
+    function isoHoje() {
+        // Usa data local (não UTC) para não pular um dia quando o
+        // fuso é negativo. `toISOString().slice(0,10)` produziria
+        // resultado errado em GMT-3 perto da meia-noite.
+        var d = new Date();
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+    }
+    function isoMaisDias(baseIso, days) {
+        var parts = String(baseIso || '').split('-');
+        if (parts.length !== 3) return '';
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        d.setDate(d.getDate() + Number(days || 0));
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+    }
+
+    function contarDias(inicioIso, fimIso) {
+        // Retorna { corridos, uteis } inclusivos.
+        // Considera "dia útil" apenas seg-sex; feriados ficam fora
+        // desta fase para manter paridade com o campo "Duração" do
+        // form legado `/cotacoes/nova` (que também não desconta
+        // feriados hoje).
+        var pInicio = String(inicioIso).split('-');
+        var pFim = String(fimIso).split('-');
+        if (pInicio.length !== 3 || pFim.length !== 3) return null;
+        var a = new Date(Number(pInicio[0]), Number(pInicio[1]) - 1, Number(pInicio[2]));
+        var b = new Date(Number(pFim[0]), Number(pFim[1]) - 1, Number(pFim[2]));
+        if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+        if (b < a) return null;
+        var corridos = Math.round((b - a) / 86400000) + 1;
+        // Loop de dias úteis. 30 dias médios × ~2 anos = ~700 iter
+        // máx num caso patológico; ainda barato.
+        var uteis = 0;
+        var cursor = new Date(a);
+        for (var i = 0; i < corridos; i++) {
+            var dow = cursor.getDay();
+            if (dow !== 0 && dow !== 6) uteis++;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return { corridos: corridos, uteis: uteis };
+    }
+
+    function wireDuracaoCotacao(wrapper) {
+        var inicioEl = wrapper.querySelector('#cx-cot-periodo-inicio');
+        var fimEl = wrapper.querySelector('#cx-cot-periodo-fim');
+        var corridosEl = wrapper.querySelector('#cx-cot-dias-corridos');
+        var uteisEl = wrapper.querySelector('#cx-cot-dias-uteis');
+        var hintEl = wrapper.querySelector('#cx-cot-duracao-hint');
+        if (!inicioEl || !fimEl || !corridosEl || !uteisEl) return;
+
+        function atualizar() {
+            var ini = inicioEl.value;
+            var fim = fimEl.value;
+            if (!ini || !fim) {
+                corridosEl.textContent = '—';
+                uteisEl.textContent = '—';
+                if (hintEl) {
+                    hintEl.hidden = false;
+                    hintEl.textContent = 'Preencha início e fim para calcular';
+                }
+                return;
+            }
+            var r = contarDias(ini, fim);
+            if (!r) {
+                corridosEl.textContent = '—';
+                uteisEl.textContent = '—';
+                if (hintEl) {
+                    hintEl.hidden = false;
+                    hintEl.textContent = 'Data de fim antes do início';
+                }
+                return;
+            }
+            corridosEl.textContent = String(r.corridos);
+            uteisEl.textContent = String(r.uteis);
+            if (hintEl) hintEl.hidden = true;
+        }
+
+        inicioEl.addEventListener('input', atualizar);
+        inicioEl.addEventListener('change', atualizar);
+        fimEl.addEventListener('input', atualizar);
+        fimEl.addEventListener('change', atualizar);
+        atualizar();
+    }
+
     function openDrawerCotacao(cotacao, clienteId) {
         var frag = cloneTpl('cx-drawer-cotacao-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
@@ -954,6 +1111,27 @@
         fillForm(form, cotacao || {});
 
         var isEdit = !!(cotacao && cotacao.id);
+
+        // Cabeçalho de contexto (Cliente / Agência) — read-only.
+        // Preenche a partir do state global do CRM v3.
+        fillContextoCotacao(wrapper, clienteId);
+
+        // Defaults de data: hoje / hoje+30d — só em criação e só se
+        // o valor ainda estiver vazio (não sobrescreve dados de
+        // edição vindos do fillForm acima).
+        if (!isEdit) {
+            var inicioInput = wrapper.querySelector('#cx-cot-periodo-inicio');
+            var fimInput = wrapper.querySelector('#cx-cot-periodo-fim');
+            var hoje = isoHoje();
+            if (inicioInput && !inicioInput.value) inicioInput.value = hoje;
+            if (fimInput && !fimInput.value) fimInput.value = isoMaisDias(hoje, 30);
+        }
+
+        // Contador dinâmico de duração — precisa vir DEPOIS de setar
+        // os defaults acima para que a leitura inicial já mostre "31
+        // dias corridos" (hoje + 30) em vez de "—".
+        wireDuracaoCotacao(wrapper);
+
         var actions = [
             { label: 'Cancelar', variant: 'ghost', close: true },
             {

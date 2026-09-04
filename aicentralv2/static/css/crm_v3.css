@@ -1376,23 +1376,17 @@ button:hover > .crm-v3-menu-hint {
 }
 
 .crm-v3-cliente-icon {
-    font-size: 10px;
-    width: 16px;
-    height: 16px;
+    font-size: 9px;
+    width: 14px;
+    height: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 3px;
-}
-
-.crm-v3-cliente-icon-agencia {
-    color: #6366f1;
-    background: #eef2ff;
-}
-
-.crm-v3-cliente-icon-publico {
-    color: #059669;
-    background: #d1fae5;
+    color: var(--crm-text-muted);
+    background: var(--crm-surface);
+    border: 1px solid var(--crm-border-light);
+    cursor: help;
 }
 
 .crm-v3-cliente-nome {

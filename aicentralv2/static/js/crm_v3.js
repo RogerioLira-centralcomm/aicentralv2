@@ -595,19 +595,38 @@
             var isAgencia = !!c.is_agencia;
             var clientesFinaisCount = Number(c.clientes_finais_count || 0);
             var agenciaNome = c.agencia_nome || '';
-            var tipoCliente = String(c.tipo || c.categoria || '').toLowerCase();
-            var isPublico = tipoCliente === 'publico' || tipoCliente === 'público' || tipoCliente === 'governo';
+            var tipoCliente = String(c.tipo || c.categoria || c.tipo_label || '').toLowerCase();
+            var perfilCliente = String(c.perfil || '').toLowerCase();
 
-            // Ícones inline no headline (tipo + perfil)
+            // Mapear tipos para ícones e tooltips
+            var TIPO_ICONES = {
+                'publico': { icon: 'fa-landmark', tooltip: 'Setor Público' },
+                'público': { icon: 'fa-landmark', tooltip: 'Setor Público' },
+                'governo': { icon: 'fa-landmark', tooltip: 'Setor Público' },
+                'privado': { icon: 'fa-building', tooltip: 'Setor Privado' },
+                'parceiro regional': { icon: 'fa-handshake', tooltip: 'Parceiro Regional' },
+                'público/privado': { icon: 'fa-scale-balanced', tooltip: 'Público/Privado (Misto)' },
+                'publico/privado': { icon: 'fa-scale-balanced', tooltip: 'Público/Privado (Misto)' }
+            };
+
+            // Ícones inline no headline (perfil + tipo)
             var icones = [];
-            // Ícone de agência ou cliente final (só se filtro "todos" ou não redundante)
-            if (isAgencia) {
-                icones.push('<i class="fa-solid fa-sitemap crm-v3-cliente-icon crm-v3-cliente-icon-agencia" title="Agência' + (clientesFinaisCount > 0 ? ' (' + clientesFinaisCount + ' clientes)' : '') + '" aria-hidden="true"></i>');
+
+            // Ícone de perfil: agência ou cliente final (só se filtro perfil não estiver ativo)
+            if (!state.filtroPerfil) {
+                if (isAgencia || perfilCliente === 'agencia') {
+                    var agTooltip = 'Agência' + (clientesFinaisCount > 0 ? ' (' + clientesFinaisCount + ' clientes vinculados)' : '');
+                    icones.push('<i class="fa-solid fa-sitemap crm-v3-cliente-icon" title="' + agTooltip + '" aria-hidden="true"></i>');
+                } else {
+                    icones.push('<i class="fa-solid fa-user-tie crm-v3-cliente-icon" title="Cliente Final" aria-hidden="true"></i>');
+                }
             }
-            // Ícone de público/privado (só se filtro tipo = todos)
+
+            // Ícone de tipo: público, privado, parceiro, misto (só se filtro tipo não estiver ativo)
             if (!state.filtroTipo) {
-                if (isPublico) {
-                    icones.push('<i class="fa-solid fa-landmark crm-v3-cliente-icon crm-v3-cliente-icon-publico" title="Setor Público" aria-hidden="true"></i>');
+                var tipoInfo = TIPO_ICONES[tipoCliente];
+                if (tipoInfo) {
+                    icones.push('<i class="fa-solid ' + tipoInfo.icon + ' crm-v3-cliente-icon" title="' + tipoInfo.tooltip + '" aria-hidden="true"></i>');
                 }
             }
 
@@ -874,25 +893,35 @@
             // Prioriza site_url salvo; fallback = e-mail do contato principal.
             var dominio = dominioParaLogo(cliente);
             if (dominio) {
-                var logoUrl = 'https://logo.clearbit.com/' + encodeURIComponent(dominio);
-                img.onload = function () {
-                    // Guard extra: se o servidor devolveu uma "imagem" de
-                    // 0px (raro, mas acontece com alguns fallbacks), ignora
-                    // e continua com iniciais.
-                    if (!img.naturalWidth || !img.naturalHeight) {
+                // Cascata Clearbit → Google Favicons → DuckDuckGo (mesma
+                // lógica da preview em Site & logo). Antes usávamos só
+                // Clearbit e caía em iniciais para clientes fora do
+                // catálogo global (a maioria dos nossos). Ver
+                // `_proximaLogoUrl` para o rationale completo.
+                var tentativa = 0;
+                var tentarHeader = function () {
+                    var url = _proximaLogoUrl(dominio, tentativa);
+                    if (!url) {
                         img.hidden = true;
                         if (av) av.hidden = false;
                         return;
                     }
-                    img.hidden = false;
-                    if (av) av.hidden = true;
+                    img.onload = function () {
+                        if (!img.naturalWidth || !img.naturalHeight) {
+                            tentativa++;
+                            tentarHeader();
+                            return;
+                        }
+                        img.hidden = false;
+                        if (av) av.hidden = true;
+                    };
+                    img.onerror = function () {
+                        tentativa++;
+                        tentarHeader();
+                    };
+                    img.src = url;
                 };
-                img.onerror = function () {
-                    // 404 ou erro de rede → mantém iniciais visíveis
-                    img.hidden = true;
-                    if (av) av.hidden = false;
-                };
-                img.src = logoUrl;
+                tentarHeader();
             }
             // Sem domínio → simplesmente mantém a imagem escondida e as
             // iniciais visíveis (default acima).
@@ -1120,6 +1149,33 @@
         }
     }
 
+    /**
+     * Cascata de fontes de logo por domínio. Retorna a próxima URL a
+     * tentar quando a atual falhou; retorna null quando esgotou. A
+     * cascata é (set/2026, ordem por qualidade + cobertura):
+     *   1. logo.clearbit.com — melhor qualidade quando cobre; mas
+     *      cobertura ficou fraca depois do shutdown público (2023),
+     *      falha em muitos clientes locais.
+     *   2. Google Favicons s2 sz=128 — cobre praticamente qualquer
+     *      site que tenha favicon; qualidade média mas nunca falha.
+     *   3. DuckDuckGo icons — reserva se o Google também falhar.
+     * Quando todas falham o helper mostra iniciais.
+     *
+     * A Fase B (crawl do site) vai preencher `cliente.logo_url` com
+     * o og:image real, o que substitui essa cascata pelo logo oficial
+     * do site do cliente.
+     */
+    function _proximaLogoUrl(dominio, tentativaAtual) {
+        var d = normalizarDominio(dominio);
+        if (!d) return null;
+        switch (tentativaAtual) {
+            case 0: return 'https://logo.clearbit.com/' + d;
+            case 1: return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(d) + '&sz=128';
+            case 2: return 'https://icons.duckduckgo.com/ip3/' + d + '.ico';
+            default: return null;
+        }
+    }
+
     function _atualizarPreviewSite(dominio, img, fallback, cliente) {
         var d = normalizarDominio(dominio);
         if (!d) { _mostrarSiteFallback(img, fallback, cliente); return; }
@@ -1127,20 +1183,34 @@
         fallback.textContent = (cliente && cliente.avatar) || avatarIniciais(cliente && cliente.nome || '');
         img.alt = '';
         img.hidden = true;
-        img.onload = function () {
-            if (!img.naturalWidth || !img.naturalHeight) {
+
+        var tentativa = 0;
+        function tentar() {
+            var url = _proximaLogoUrl(d, tentativa);
+            if (!url) {
+                // Esgotou — mantém iniciais.
                 img.hidden = true;
                 fallback.hidden = false;
                 return;
             }
-            img.hidden = false;
-            fallback.hidden = true;
-        };
-        img.onerror = function () {
-            img.hidden = true;
-            fallback.hidden = false;
-        };
-        img.src = 'https://logo.clearbit.com/' + encodeURIComponent(d);
+            img.onload = function () {
+                // Alguns providers devolvem 200 com imagem de 0x0 quando
+                // não tem cobertura. Descarta e passa para a próxima.
+                if (!img.naturalWidth || !img.naturalHeight) {
+                    tentativa++;
+                    tentar();
+                    return;
+                }
+                img.hidden = false;
+                fallback.hidden = true;
+            };
+            img.onerror = function () {
+                tentativa++;
+                tentar();
+            };
+            img.src = url;
+        }
+        tentar();
     }
 
     // Bind único (event delegation) do editor de site. Chamado uma vez

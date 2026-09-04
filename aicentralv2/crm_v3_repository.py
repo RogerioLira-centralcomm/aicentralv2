@@ -651,11 +651,26 @@ class CrmV3Repository:
                 "obter_cotacoes_cliente %s falhou: %s: %s", cliente_id, type(e).__name__, e
             )
             cotacoes = []
-        abertas = [
-            c for c in cotacoes
-            if str(c.get("status") or "").casefold() in {"rascunho", "enviada", "em-acompanhamento", "em acompanhamento", "negociacao", "em negociação"}
-        ]
-        aprovadas = [c for c in cotacoes if str(c.get("status") or "").casefold() == "aprovada"]
+
+        # Set/2026 — bug corrigido: `cadu_cotacoes.status` é FK numérica
+        # para `cadu_cotacoes_status.id`. Antes comparávamos essa FK
+        # (ex.: "3") diretamente contra strings tipo "aprovada", o que
+        # NUNCA batia — todas as métricas caíam para 0/R$ 0,00 mesmo
+        # quando o cliente tinha cotações reais.
+        # Solução: derivar o slug canônico a partir de `status_descricao`
+        # (valor textual vindo do LEFT JOIN, ex.: "Aprovada",
+        # "Rascunho") e comparar via `COTACAO_STATUS_ALIASES`.
+        from .crm_v3_data import COTACAO_STATUS_ALIASES
+
+        def _slug(cot: Dict[str, Any]) -> str:
+            raw = str(cot.get("status_descricao") or "").strip().casefold()
+            if not raw:
+                return ""
+            return COTACAO_STATUS_ALIASES.get(raw) or raw.replace(" ", "-")
+
+        STATUS_ABERTAS = {"rascunho", "enviada", "em-acompanhamento"}
+        abertas = [c for c in cotacoes if _slug(c) in STATUS_ABERTAS]
+        aprovadas = [c for c in cotacoes if _slug(c) == "aprovada"]
 
         def _sum(items):
             total = 0.0
@@ -1136,7 +1151,14 @@ class CrmV3Repository:
         """Converte um registro de `cadu_cotacoes` para o shape do v3 UI."""
         from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
 
-        raw_status = str(row.get("status") or "").strip()
+        # Set/2026 — bug corrigido: `cadu_cotacoes.status` é FK numérica
+        # para `cadu_cotacoes_status.id`, então `row["status"]` costuma
+        # ser "3" e não "Aprovada". O valor textual está em
+        # `status_descricao` (LEFT JOIN em `obter_cotacoes_cliente*`).
+        # Priorizamos ele para achar o slug canônico; caímos em
+        # `status` só quando a query não fez o JOIN (retro-compat com
+        # mocks e testes que passam string direto).
+        raw_status = str(row.get("status_descricao") or row.get("status") or "").strip()
         slug = (
             COTACAO_STATUS_ALIASES.get(raw_status.casefold())
             or raw_status.casefold().replace(" ", "-")

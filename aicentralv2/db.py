@@ -6175,10 +6175,15 @@ def criar_historico_cliente(cliente_id, executivo_id, texto):
 # ==================== COTAÇÕES ====================
 
 def obter_cotacoes_cliente(cliente_id):
-    """Retorna todas as cotações de um cliente"""
+    """Retorna todas as cotações de um cliente (exceto as soft-deletadas)."""
     conn = get_db()
     
     with conn.cursor() as cursor:
+        # Set/2026: paridade com `obter_cotacoes_cliente_com_vinculos`,
+        # que já filtra `deleted_at IS NULL`. Antes o CRM v3 contava
+        # cotações soft-deletadas nas métricas de "Cotações em aberto"
+        # e "Pipeline em aberto", inflando os números sem que o usuário
+        # visse essas linhas na lista (que já filtrava deleted_at).
         cursor.execute('''
             SELECT 
                 c.*,
@@ -6189,7 +6194,7 @@ def obter_cotacoes_cliente(cliente_id):
             LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
             LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-            WHERE c.cliente_id = %s
+            WHERE c.cliente_id = %s AND c.deleted_at IS NULL
             ORDER BY c.created_at DESC
         ''', (cliente_id,))
         return cursor.fetchall()

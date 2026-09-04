@@ -274,6 +274,28 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _slug_status_cotacao(cot: Dict[str, Any]) -> str:
+    from .crm_v3_data import COTACAO_STATUS_ALIASES
+
+    raw = str(cot.get("status_descricao") or cot.get("status") or "").strip().casefold()
+    if not raw:
+        return ""
+    return COTACAO_STATUS_ALIASES.get(raw) or raw.replace(" ", "-")
+
+
+def _aplicar_filhos_agencia(mapped: Dict[str, Any], filhos: List[Dict[str, Any]]) -> None:
+    mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
+    mapped["clientes_finais_count"] = len(filhos)
+    mapped["clientes_finais"] = [
+        {
+            "id": str(x["id_cliente"]),
+            "nome": x.get("nome_fantasia") or x.get("razao_social"),
+            "classificacao_cliente": x.get("classificacao_cliente"),
+        }
+        for x in filhos
+    ]
+
+
 def _stamp_atividade_badge(mapped: Dict[str, Any]) -> Dict[str, Any]:
     """Preenche badge / proxima_atividade a partir de metrics.
 
@@ -324,6 +346,8 @@ class CrmV3Repository:
         # filtro cliente-side por executivo/tipo/perfil/pill/busca. 1000 é
         # confortável para a base atual; se crescer, movemos a paginação
         # para server-side via query params.
+        import time
+        t0 = time.perf_counter()
         page = _db().obter_clientes_paginado(page=1, per_page=1000) or {}
         rows = page.get("clientes", []) or []
         ids_lote = [r.get("id_cliente") for r in rows if r.get("id_cliente") is not None]
@@ -337,12 +361,15 @@ class CrmV3Repository:
             )
             _rollback_if_failed("agencias_vinculadas lote")
         items = []
-        _metrics_default = {
-            "faturamento": 0.0, "pipeline": 0.0,
-            "cotacoes_abertas": 0, "cotacoes_aprovadas": 0,
-            "contatos_total": 0, "tarefas_abertas": 0,
-            "ultimo_contato": "—",
-        }
+        metrics_lote = {}
+        try:
+            metrics_lote = self._metrics_lote(ids_lote) or {}
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "_metrics_lote falhou: %s: %s", type(e).__name__, e,
+            )
+            _rollback_if_failed("_metrics_lote")
         for row in rows:
             row = dict(row)
             cid = row.get("id_cliente")
@@ -350,58 +377,31 @@ class CrmV3Repository:
                 vinculos_lote.get(cid) or vinculos_lote.get(str(cid)) or []
             )
             mapped = _map_cliente(row)
-            # Blindagem (set/2026): se _metrics_for ou o LEFT JOIN de
-            # agências vinculadas falharem para UM cliente específico
-            # (ex.: id órfão, executivo inexistente, cotação com valor
-            # NULL num row antigo), NÃO derrubamos toda a listagem — o
-            # card renderiza sem métricas e o log registra o erro para
-            # investigação depois. Antes qualquer erro aqui virava 500
-            # na página inteira.
+            mapped["metrics"] = metrics_lote.get(str(mapped["id"])) or self._metrics_vazio()
+            _stamp_atividade_badge(mapped)
+            items.append(mapped)
+
+        agencia_ids = [m["id"] for m in items if m.get("is_agencia")]
+        filhos_lote = {}
+        if agencia_ids:
             try:
-                mapped["metrics"] = self._metrics_for(mapped["id"])
+                filhos_lote = _db().listar_clientes_vinculados_agencia_lote(agencia_ids) or {}
             except Exception as e:  # noqa: BLE001
                 import logging
                 logging.getLogger("aicentral.crm_v3").warning(
-                    "_metrics_for falhou para cliente %s: %s: %s",
-                    mapped.get("id"), type(e).__name__, e,
+                    "listar_clientes_vinculados_agencia_lote falhou: %s: %s",
+                    type(e).__name__, e,
                 )
-                # ROLLBACK crítico: se _metrics_for morreu por causa de
-                # uma query com erro, TODAS as queries seguintes retornam
-                # InFailedSqlTransaction até dar rollback. Sem essa
-                # linha, o try/except abaixo (listar_clientes_vinculados_agencia)
-                # e o próximo cliente da lista também falhariam em cascata.
-                _rollback_if_failed("_metrics_for")
-                mapped["metrics"] = dict(_metrics_default)
-                mapped["metrics_error"] = f"{type(e).__name__}: {str(e)[:120]}"
-
-            # Set/2026 — Badge estilo Pipedrive na lista de clientes.
-            _stamp_atividade_badge(mapped)
-
-            # Preencher clientes finais/ agência nome para o card
-            if mapped["is_agencia"]:
-                try:
-                    filhos = _db().listar_clientes_vinculados_agencia(mapped["id"]) or []
-                    mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
-                    mapped["clientes_finais_count"] = len(filhos)
-                    mapped["clientes_finais"] = [
-                        {
-                            "id": str(x["id_cliente"]),
-                            "nome": x.get("nome_fantasia") or x.get("razao_social"),
-                            "classificacao_cliente": x.get("classificacao_cliente"),
-                        }
-                        for x in filhos
-                    ]
-                except Exception as e:  # noqa: BLE001
-                    import logging
-                    logging.getLogger("aicentral.crm_v3").warning(
-                        "listar_clientes_vinculados_agencia falhou para %s: %s: %s",
-                        mapped.get("id"), type(e).__name__, e,
-                    )
-                    _rollback_if_failed("listar_clientes_vinculados_agencia")
-                    mapped["clientes_finais_ids"] = []
-                    mapped["clientes_finais_count"] = 0
-                    mapped["clientes_finais"] = []
-            items.append(mapped)
+                _rollback_if_failed("listar_clientes_vinculados_agencia_lote")
+        for mapped in items:
+            if not mapped.get("is_agencia"):
+                continue
+            try:
+                key = int(mapped["id"])
+            except (TypeError, ValueError):
+                key = mapped["id"]
+            filhos = filhos_lote.get(key) or []
+            _aplicar_filhos_agencia(mapped, filhos)
 
         # Enriquecer com logo canônico do `cliente_web_info` — set/2026.
         # Motivo: na lista de clientes (coluna 1 do CRM v3) queremos
@@ -464,6 +464,11 @@ class CrmV3Repository:
             )
             _rollback_if_failed("web_logo_url batch")
 
+        import logging
+        logging.getLogger("aicentral.crm_v3").info(
+            "list_clientes → %d clientes em %.2fs",
+            len(items), time.perf_counter() - t0,
+        )
         return items
 
     def list_lookups(self) -> Dict[str, Any]:
@@ -611,16 +616,7 @@ class CrmV3Repository:
         if mapped["is_agencia"]:
             try:
                 filhos = _db().listar_clientes_vinculados_agencia(cliente_id) or []
-                mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
-                mapped["clientes_finais_count"] = len(filhos)
-                mapped["clientes_finais"] = [
-                    {
-                        "id": str(x["id_cliente"]),
-                        "nome": x.get("nome_fantasia") or x.get("razao_social"),
-                        "classificacao_cliente": x.get("classificacao_cliente"),
-                    }
-                    for x in filhos
-                ]
+                _aplicar_filhos_agencia(mapped, filhos)
             except Exception as e:  # noqa: BLE001
                 import logging
                 logging.getLogger("aicentral.crm_v3").warning(
@@ -628,9 +624,7 @@ class CrmV3Repository:
                     cliente_id, type(e).__name__, e,
                 )
                 _rollback_if_failed("listar_clientes_vinculados_agencia")
-                mapped["clientes_finais_ids"] = []
-                mapped["clientes_finais_count"] = 0
-                mapped["clientes_finais"] = []
+                _aplicar_filhos_agencia(mapped, [])
         return mapped
 
     def create_cliente(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -824,6 +818,165 @@ class CrmV3Repository:
     def _brl(v: float) -> str:
         return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+    def _metrics_vazio(self) -> Dict[str, Any]:
+        return {
+            "contatos": 0,
+            "contatos_total": 0,
+            "oportunidades": 0,
+            "faturamento": self._brl(0.0),
+            "valor_pis": self._brl(0.0),
+            "pipeline": 0.0,
+            "cotacoes_abertas": 0,
+            "cotacoes_aprovadas": 0,
+            "tarefas_abertas": 0,
+            "ultimo_contato": "—",
+            "proxima_atividade": None,
+        }
+
+    def _resumo_atividades(self, atividades: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Badge / último contato / tarefas a partir de um lote de atividades."""
+        tarefas_abertas = sum(
+            1 for a in atividades
+            if str(a.get("status") or "").casefold() != "concluida"
+        )
+        ultimo_contato = "—"
+        proxima_atividade = None
+        concluidas = sorted(
+            [
+                a for a in atividades
+                if str(a.get("status") or "").casefold() == "concluida"
+                and a.get("data_atividade")
+            ],
+            key=lambda a: a.get("data_atividade"),
+            reverse=True,
+        )
+        if concluidas:
+            iso = self._iso_date(concluidas[0].get("data_atividade"))
+            if iso:
+                try:
+                    d = _datetime.strptime(iso, "%Y-%m-%d").date()
+                    diff = (_date.today() - d).days
+                    ultimo_contato = (
+                        "Hoje" if diff == 0 else
+                        "Ontem" if diff == 1 else
+                        f"{diff}d atrás"
+                    )
+                except Exception:
+                    ultimo_contato = iso
+
+        hoje = _date.today()
+        atrasadas: List[Dict[str, Any]] = []
+        hoje_list: List[Dict[str, Any]] = []
+        futuras: List[Dict[str, Any]] = []
+        for a in atividades:
+            if str(a.get("status") or "").casefold() == "concluida":
+                continue
+            dt_alvo = a.get("data_prazo") or a.get("data_atividade")
+            iso = self._iso_date(dt_alvo)
+            if not iso:
+                continue
+            try:
+                d = _datetime.strptime(iso, "%Y-%m-%d").date()
+            except Exception:
+                continue
+            diff = (d - hoje).days
+            reg = {
+                "id": a.get("id"),
+                "data": iso,
+                "titulo": (a.get("titulo") or a.get("descricao") or "").strip()[:120],
+                "dias": diff,
+            }
+            if diff < 0:
+                atrasadas.append(reg)
+            elif diff == 0:
+                hoje_list.append(reg)
+            else:
+                futuras.append(reg)
+        if atrasadas:
+            proxima_atividade = min(atrasadas, key=lambda r: r["dias"])
+        elif hoje_list:
+            proxima_atividade = hoje_list[0]
+        elif futuras:
+            proxima_atividade = min(futuras, key=lambda r: r["dias"])
+        return {
+            "tarefas_abertas": tarefas_abertas,
+            "ultimo_contato": ultimo_contato,
+            "proxima_atividade": proxima_atividade,
+        }
+
+    def _metrics_lote(self, cliente_ids: Iterable[Any]) -> Dict[str, Dict[str, Any]]:
+        """Métricas da lista em poucas queries (não 1 round-trip por card)."""
+        import logging
+
+        ids = []
+        for x in cliente_ids or []:
+            try:
+                ids.append(int(x))
+            except (TypeError, ValueError):
+                pass
+        if not ids:
+            return {}
+
+        try:
+            cotacoes_por = _db().obter_cotacoes_resumo_lote(ids) or {}
+        except Exception as e:  # noqa: BLE001
+            _rollback_if_failed("obter_cotacoes_resumo_lote")
+            logging.getLogger("aicentral.crm_v3").warning(
+                "obter_cotacoes_resumo_lote falhou: %s: %s", type(e).__name__, e,
+            )
+            cotacoes_por = {}
+        try:
+            contatos_por = _db().contar_contatos_lote(ids) or {}
+        except Exception as e:  # noqa: BLE001
+            _rollback_if_failed("contar_contatos_lote")
+            logging.getLogger("aicentral.crm_v3").warning(
+                "contar_contatos_lote falhou: %s: %s", type(e).__name__, e,
+            )
+            contatos_por = {}
+        try:
+            atividades_por = _db().obter_atividades_resumo_lote(ids) or {}
+        except Exception as e:  # noqa: BLE001
+            _rollback_if_failed("obter_atividades_resumo_lote")
+            logging.getLogger("aicentral.crm_v3").warning(
+                "obter_atividades_resumo_lote falhou: %s: %s", type(e).__name__, e,
+            )
+            atividades_por = {}
+
+        status_abertas = {"rascunho", "enviada", "em-acompanhamento"}
+        out: Dict[str, Dict[str, Any]] = {}
+        for cid in ids:
+            cotacoes = cotacoes_por.get(cid) or []
+            abertas = [c for c in cotacoes if _slug_status_cotacao(c) in status_abertas]
+            aprovadas = [c for c in cotacoes if _slug_status_cotacao(c) == "aprovada"]
+            faturamento = 0.0
+            pipeline = 0.0
+            for c in aprovadas:
+                try:
+                    faturamento += float(c.get("valor_total_proposta") or 0)
+                except (TypeError, ValueError):
+                    pass
+            for c in abertas:
+                try:
+                    pipeline += float(c.get("valor_total_proposta") or 0)
+                except (TypeError, ValueError):
+                    pass
+            n_contatos = int(contatos_por.get(cid) or 0)
+            atv = self._resumo_atividades(atividades_por.get(cid) or [])
+            out[str(cid)] = {
+                "contatos": n_contatos,
+                "contatos_total": n_contatos,
+                "oportunidades": len(abertas),
+                "faturamento": self._brl(faturamento),
+                "valor_pis": self._brl(pipeline),
+                "pipeline": pipeline,
+                "cotacoes_abertas": len(abertas),
+                "cotacoes_aprovadas": len(aprovadas),
+                "tarefas_abertas": atv["tarefas_abertas"],
+                "ultimo_contato": atv["ultimo_contato"],
+                "proxima_atividade": atv["proxima_atividade"],
+            }
+        return out
+
     def _metrics_for(self, cliente_id: str) -> Dict[str, Any]:
         """Métricas resumidas do cliente para o header do CRM v3.
 
@@ -834,168 +987,12 @@ class CrmV3Repository:
 
         Cotações entram pela mesma regra da lista: `client_id` (e
         `agencia_id`) das empresas vinculadas N:N, não por contato.
-
-        Cada fonte é isolada em try/except: se contatos falhar, ainda
-        entregamos cotações; se cotações falhar, ainda entregamos
-        atividades. Antes uma exceção em qualquer uma delas quebrava
-        toda a listagem de clientes.
         """
+        lote = self._metrics_lote([cliente_id])
         try:
-            contatos = self.list_contatos(cliente_id) or []
-        except Exception as e:
-            _rollback_if_failed("list_contatos")
-            import logging
-            logging.getLogger("aicentral.crm_v3").warning(
-                "list_contatos %s falhou: %s: %s", cliente_id, type(e).__name__, e
-            )
-            contatos = []
-        try:
-            # Mesma base da lista "Cotações recentes": client_id da
-            # empresa + agências/clientes finais vinculados (N:N).
-            cotacoes = _db().obter_cotacoes_cliente_com_vinculos(cliente_id) or []
-        except Exception as e:
-            _rollback_if_failed("obter_cotacoes_cliente_com_vinculos")
-            import logging
-            logging.getLogger("aicentral.crm_v3").warning(
-                "obter_cotacoes_cliente_com_vinculos %s falhou: %s: %s",
-                cliente_id, type(e).__name__, e,
-            )
-            cotacoes = []
-
-        # Set/2026 — bug corrigido: `cadu_cotacoes.status` é FK numérica
-        # para `cadu_cotacoes_status.id`. Antes comparávamos essa FK
-        # (ex.: "3") diretamente contra strings tipo "aprovada", o que
-        # NUNCA batia — todas as métricas caíam para 0/R$ 0,00 mesmo
-        # quando o cliente tinha cotações reais.
-        # Solução: derivar o slug canônico a partir de `status_descricao`
-        # (valor textual vindo do LEFT JOIN, ex.: "Aprovada",
-        # "Rascunho") e comparar via `COTACAO_STATUS_ALIASES`.
-        from .crm_v3_data import COTACAO_STATUS_ALIASES
-
-        def _slug(cot: Dict[str, Any]) -> str:
-            raw = str(cot.get("status_descricao") or "").strip().casefold()
-            if not raw:
-                return ""
-            return COTACAO_STATUS_ALIASES.get(raw) or raw.replace(" ", "-")
-
-        STATUS_ABERTAS = {"rascunho", "enviada", "em-acompanhamento"}
-        abertas = [c for c in cotacoes if _slug(c) in STATUS_ABERTAS]
-        aprovadas = [c for c in cotacoes if _slug(c) == "aprovada"]
-
-        def _sum(items):
-            total = 0.0
-            for c in items:
-                try:
-                    total += float(c.get("valor_total_proposta") or 0)
-                except (TypeError, ValueError):
-                    continue
-            return total
-
-        faturamento = _sum(aprovadas)
-        pipeline = _sum(abertas)
-
-        # Tarefas abertas + último contato baseado em atividades reais.
-        tarefas_abertas = 0
-        ultimo_contato = "—"
-        # Próxima atividade pendente — alimenta o badge estilo Pipedrive
-        # (bolinha amarela ! para atrasadas, verde ✓ para hoje/futuras)
-        # que aparece no canto direito de cada card na coluna 1 do CRM v3.
-        # Ver `situacaoHtml` no crm_v3.js — o frontend interpreta pelo
-        # texto do badge; badge_type é redundante mas útil para debug.
-        proxima_atividade = None
-        try:
-            atividades = _db().obter_atividades_cliente(cliente_id) or []
-            tarefas_abertas = sum(
-                1 for a in atividades
-                if str(a.get("status") or "").casefold() != "concluida"
-            )
-            # Última atividade concluída (data_atividade).
-            concluidas = sorted(
-                [
-                    a for a in atividades
-                    if str(a.get("status") or "").casefold() == "concluida"
-                    and a.get("data_atividade")
-                ],
-                key=lambda a: a.get("data_atividade"),
-                reverse=True,
-            )
-            if concluidas:
-                dt = concluidas[0].get("data_atividade")
-                iso = self._iso_date(dt)
-                if iso:
-                    try:
-                        d = _datetime.strptime(iso, "%Y-%m-%d").date()
-                        diff = (_date.today() - d).days
-                        ultimo_contato = (
-                            "Hoje" if diff == 0 else
-                            "Ontem" if diff == 1 else
-                            f"{diff}d atrás"
-                        )
-                    except Exception:
-                        ultimo_contato = iso
-
-            # Próxima atividade pendente: percorre pendentes/em_andamento,
-            # separa em atrasadas / hoje / futuras, e escolhe a mais
-            # crítica na ordem (atrasada > hoje > futura mais próxima).
-            hoje = _date.today()
-            atrasadas: List[Dict[str, Any]] = []
-            hoje_list: List[Dict[str, Any]] = []
-            futuras: List[Dict[str, Any]] = []
-            for a in atividades:
-                if str(a.get("status") or "").casefold() == "concluida":
-                    continue
-                # data_prazo é a coluna nova (set/2026). Prioriza ela;
-                # fallback para data_atividade em bases antigas.
-                dt_alvo = a.get("data_prazo") or a.get("data_atividade")
-                iso = self._iso_date(dt_alvo)
-                if not iso:
-                    continue
-                try:
-                    d = _datetime.strptime(iso, "%Y-%m-%d").date()
-                except Exception:
-                    continue
-                diff = (d - hoje).days
-                reg = {
-                    "id": a.get("id"),
-                    "data": iso,
-                    "titulo": (a.get("titulo") or a.get("descricao") or "").strip()[:120],
-                    "dias": diff,
-                }
-                if diff < 0:
-                    atrasadas.append(reg)
-                elif diff == 0:
-                    hoje_list.append(reg)
-                else:
-                    futuras.append(reg)
-            if atrasadas:
-                # Mais atrasada = menor `dias` (mais negativo). O usuário
-                # precisa ver a atividade mais crítica primeiro.
-                proxima_atividade = min(atrasadas, key=lambda r: r["dias"])
-            elif hoje_list:
-                proxima_atividade = hoje_list[0]
-            elif futuras:
-                # Mais próxima = menor `dias` positivo.
-                proxima_atividade = min(futuras, key=lambda r: r["dias"])
-        except Exception as e:
-            _rollback_if_failed("obter_atividades_cliente")
-            import logging
-            logging.getLogger("aicentral.crm_v3").warning(
-                "obter_atividades_cliente %s falhou: %s: %s",
-                cliente_id, type(e).__name__, e
-            )
-
-        return {
-            "contatos": len(contatos),
-            "oportunidades": len(abertas),
-            "faturamento": self._brl(faturamento),
-            "valor_pis": self._brl(pipeline),
-            "tarefas_abertas": tarefas_abertas,
-            "cotacoes_abertas": len(abertas),
-            "ultimo_contato": ultimo_contato,
-            # Próxima atividade pendente (ou None).
-            # {id, data (ISO), titulo, dias (negativo=atrasada)}
-            "proxima_atividade": proxima_atividade,
-        }
+            return lote.get(str(int(cliente_id))) or self._metrics_vazio()
+        except (TypeError, ValueError):
+            return lote.get(str(cliente_id)) or self._metrics_vazio()
 
     # ---------------- Atividades (sales_atividades) --------------------------
 

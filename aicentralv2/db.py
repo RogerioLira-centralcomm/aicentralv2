@@ -6335,112 +6335,107 @@ def obter_cotacoes_cliente(cliente_id):
                 c.*,
                 cont.nome_completo as contato_nome,
                 vend.nome_completo as vendedor_nome,
-                st.descricao as status_descricao
+                c.status as status_descricao
             FROM cadu_cotacoes c
             LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
             LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
-            LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
             WHERE c.client_id = %s AND c.deleted_at IS NULL
             ORDER BY c.created_at DESC
         ''', (cliente_id,))
         return cursor.fetchall()
 
 
-def _ids_clientes_para_cotacoes(cursor, cliente_id):
-    """IDs de `tbl_cliente` cujas cotações devem aparecer na ficha.
+def _int_ids(vals):
+    ids = []
+    seen = set()
+    for x in vals or []:
+        try:
+            i = int(x)
+        except (TypeError, ValueError):
+            continue
+        if i not in seen:
+            seen.add(i)
+            ids.append(i)
+    return ids
 
-    Agrupa por empresa (`client_id` em `cadu_cotacoes`), não por contato
-    (`client_user_id`). Inclui:
-    - o próprio cliente
-    - clientes finais ligados a esta ficha como agência (`tbl_cliente_agencia`)
-    - agências ligadas a este cliente final (`tbl_cliente_agencia`)
-    - fallback legado `pk_id_tbl_agencia` / `tbl_agencia.id_cliente`
 
-    A ficha de agência no CRM é um `tbl_cliente`; o N:N aponta para
-    `id_agencia_cliente` (= id_cliente da agência), não para o lookup
-    Sim/Não em `tbl_agencia`.
+def _mapa_empresas_cotacoes(cursor, cliente_ids):
+    """viewer_id → empresas cujas cotações entram na ficha (próprio + N:N).
+
+    Mesma regra de `_ids_clientes_para_cotacoes`, em lote: 2 queries
+    para N fichas. `tbl_agencia` é só lookup Sim/Não.
     """
-    cid = int(cliente_id)
-    ids = [cid]
+    ids = _int_ids(cliente_ids)
+    if not ids:
+        return {}
+    mapa = {i: [i] for i in ids}
 
-    def _add(val):
+    def _add(viewer, val):
         try:
             i = int(val)
         except (TypeError, ValueError):
             return
-        if i not in ids:
-            ids.append(i)
+        if viewer in mapa and i not in mapa[viewer]:
+            mapa[viewer].append(i)
 
     cursor.execute('''
-        SELECT ca.id_cliente
+        SELECT ca.id_agencia_cliente, ca.id_cliente
         FROM tbl_cliente_agencia ca
         JOIN tbl_cliente cli ON cli.id_cliente = ca.id_cliente
-        WHERE ca.id_agencia_cliente = %s
+        WHERE ca.id_agencia_cliente = ANY(%s)
           AND COALESCE(cli.status, true) = true
-    ''', (cid,))
+    ''', (ids,))
     for r in cursor.fetchall():
-        _add(r['id_cliente'] if isinstance(r, dict) else r[0])
+        viewer = r['id_agencia_cliente'] if isinstance(r, dict) else r[0]
+        child = r['id_cliente'] if isinstance(r, dict) else r[1]
+        try:
+            _add(int(viewer), child)
+        except (TypeError, ValueError):
+            continue
 
     cursor.execute(f'''
-        SELECT ca.id_agencia_cliente
+        SELECT ca.id_cliente, ca.id_agencia_cliente
         FROM tbl_cliente_agencia ca
         JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
         LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = ag_cli.pk_id_tbl_agencia
-        WHERE ca.id_cliente = %s
+        WHERE ca.id_cliente = ANY(%s)
           AND ca.id_agencia_cliente <> ca.id_cliente
           AND {_SQL_PERFIL_AGENCIA.strip()}
-    ''', (cid,))
+    ''', (ids,))
+    by_viewer = {}
     for r in cursor.fetchall():
-        _add(r['id_agencia_cliente'] if isinstance(r, dict) else r[0])
+        vid = r['id_cliente'] if isinstance(r, dict) else r[0]
+        aid = r['id_agencia_cliente'] if isinstance(r, dict) else r[1]
+        try:
+            vid = int(vid)
+        except (TypeError, ValueError):
+            continue
+        by_viewer.setdefault(vid, []).append({"id_agencia_cliente": aid})
+    try:
+        lookup_ids = _ids_lookup_tbl_agencia(cursor)
+    except Exception:
+        lookup_ids = set()
+    for viewer, vinculos in by_viewer.items():
+        for v in filtrar_vinculos_colisao_lookup(vinculos, lookup_ids):
+            _add(viewer, v.get("id_agencia_cliente"))
+    return mapa
 
-    # Legado: perfil de agência via tbl_agencia.id_cliente + filhos
-    # com pk_id_tbl_agencia, ou cliente final só com a FK antiga.
-    cursor.execute('''
-        SELECT
-            c.pk_id_tbl_agencia,
-            COALESCE(
-                (ag.key IS TRUE) OR
-                LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'),
-                false
-            ) AS eh_agencia
-        FROM tbl_cliente c
-        LEFT JOIN tbl_agencia ag ON ag.id_agencia = c.pk_id_tbl_agencia
-        WHERE c.id_cliente = %s
-    ''', (cid,))
-    perfil = cursor.fetchone() or {}
-    if perfil.get('eh_agencia'):
-        cursor.execute(
-            'SELECT id_agencia FROM tbl_agencia WHERE id_cliente = %s',
-            (cid,),
-        )
-        ag_row = cursor.fetchone()
-        if ag_row:
-            cursor.execute('''
-                SELECT id_cliente FROM tbl_cliente
-                WHERE pk_id_tbl_agencia = %s AND COALESCE(status, true) = true
-            ''', (ag_row['id_agencia'],))
-            for r in cursor.fetchall():
-                _add(r['id_cliente'] if isinstance(r, dict) else r[0])
-    else:
-        pk_agencia = perfil.get('pk_id_tbl_agencia')
-        if pk_agencia:
-            cursor.execute(
-                'SELECT id_cliente FROM tbl_agencia WHERE id_agencia = %s',
-                (pk_agencia,),
-            )
-            row = cursor.fetchone()
-            if row:
-                _add(row['id_cliente'] if isinstance(row, dict) else row[0])
 
-    return ids
+def _ids_clientes_para_cotacoes(cursor, cliente_id):
+    """IDs de `tbl_cliente` cujas cotações devem aparecer na ficha."""
+    cid = int(cliente_id)
+    return _mapa_empresas_cotacoes(cursor, [cid]).get(cid, [cid])
 
 
 def obter_cotacoes_cliente_com_vinculos(cliente_id):
     """Retorna cotações do cliente + cotações das empresas vinculadas.
 
-    Agência: próprias + clientes finais (N:N e legado).
+    Agência: próprias + clientes finais (N:N em `tbl_cliente_agencia`).
     Cliente final: próprias + agência(s) vinculada(s).
     Cada linha traz `origem` ('proprio' ou 'vinculado') e `cliente_nome`.
+    `status` em `cadu_cotacoes` já é o rótulo textual (Rascunho, Enviada,
+    Aprovada...) — `cadu_cotacoes_status.id` é integer e o JOIN
+    `c.status = st.id` quebrava com UndefinedFunction.
     Falhas sobem para o caller (CRM v3 loga WARNING) — não devolver [].
     """
     conn = get_db()
@@ -6460,19 +6455,164 @@ def obter_cotacoes_cliente_com_vinculos(cliente_id):
                 COALESCE(cli.nome_fantasia, agn.nome_fantasia) as cliente_nome,
                 cont.nome_completo as contato_nome,
                 vend.nome_completo as vendedor_nome,
-                st.descricao as status_descricao,
+                c.status as status_descricao,
                 CASE WHEN c.client_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
             FROM cadu_cotacoes c
             LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
             LEFT JOIN tbl_cliente agn ON c.agencia_id = agn.id_cliente
             LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
             LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
-            LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
             WHERE c.deleted_at IS NULL
               AND (c.client_id = ANY(%s) OR c.agencia_id = ANY(%s))
             ORDER BY c.created_at DESC
         ''', (int(cliente_id), cliente_ids, cliente_ids))
         return cursor.fetchall()
+
+
+def obter_cotacoes_resumo_lote(cliente_ids):
+    """Cotações por ficha (próprio + N:N), só status/valor — para a lista.
+
+    Uma passagem nas empresas + um SELECT em `cadu_cotacoes`. Evita o
+    N+1 de `obter_cotacoes_cliente_com_vinculos` em `list_clientes`.
+    """
+    conn = get_db()
+    with conn.cursor() as cursor:
+        mapa = _mapa_empresas_cotacoes(cursor, cliente_ids)
+        if not mapa:
+            return {}
+        empresas = []
+        seen = set()
+        for lst in mapa.values():
+            for eid in lst:
+                if eid not in seen:
+                    seen.add(eid)
+                    empresas.append(eid)
+        cursor.execute('''
+            SELECT id, client_id, agencia_id, status, valor_total_proposta
+            FROM cadu_cotacoes
+            WHERE deleted_at IS NULL
+              AND (client_id = ANY(%s) OR agencia_id = ANY(%s))
+        ''', (empresas, empresas))
+        quotes = [dict(r) for r in cursor.fetchall()]
+
+    by_company = {}
+    for q in quotes:
+        for key in ("client_id", "agencia_id"):
+            raw = q.get(key)
+            if raw is None:
+                continue
+            try:
+                cid = int(raw)
+            except (TypeError, ValueError):
+                continue
+            by_company.setdefault(cid, []).append(q)
+
+    out = {}
+    for viewer, empresas_v in mapa.items():
+        seen_ids = set()
+        rows = []
+        for eid in empresas_v:
+            for q in by_company.get(eid, []):
+                qid = q.get("id")
+                if qid in seen_ids:
+                    continue
+                seen_ids.add(qid)
+                rows.append({
+                    "status": q.get("status"),
+                    "status_descricao": q.get("status"),
+                    "valor_total_proposta": q.get("valor_total_proposta"),
+                })
+        out[viewer] = rows
+    return out
+
+
+def contar_contatos_lote(cliente_ids):
+    """{id_cliente: qtd} em `tbl_contato_cliente` (todos, como a lista)."""
+    ids = _int_ids(cliente_ids)
+    if not ids:
+        return {}
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT pk_id_tbl_cliente AS id_cliente, COUNT(*)::int AS n
+            FROM tbl_contato_cliente
+            WHERE pk_id_tbl_cliente = ANY(%s)
+            GROUP BY pk_id_tbl_cliente
+        ''', (ids,))
+        out = {}
+        for r in cursor.fetchall():
+            row = dict(r) if not isinstance(r, dict) else r
+            try:
+                out[int(row["id_cliente"])] = int(row["n"])
+            except (TypeError, ValueError, KeyError):
+                continue
+        return out
+
+
+def obter_atividades_resumo_lote(cliente_ids):
+    """Atividades por cliente, colunas usadas no badge/métricas da lista."""
+    ids = _int_ids(cliente_ids)
+    if not ids:
+        return {}
+    conn = get_db()
+    with conn.cursor() as cur:
+        extra = (
+            "sa.data_prazo, sa.titulo"
+            if _atividades_tem_colunas_novas(cur)
+            else "NULL AS data_prazo, NULL AS titulo"
+        )
+        cur.execute(f'''
+            SELECT sa.cliente_id, sa.id, sa.status, sa.data_atividade,
+                   sa.descricao, {extra}
+            FROM sales_atividades sa
+            WHERE sa.cliente_id = ANY(%s)
+        ''', (ids,))
+        grouped = {}
+        for r in cur.fetchall():
+            row = dict(r)
+            try:
+                cid = int(row.get("cliente_id"))
+            except (TypeError, ValueError):
+                continue
+            grouped.setdefault(cid, []).append(row)
+        return grouped
+
+
+def listar_clientes_vinculados_agencia_lote(agencia_ids):
+    """Mesmo recorte de `listar_clientes_vinculados_agencia`, em lote."""
+    ids = _int_ids(agencia_ids)
+    if not ids:
+        return {}
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                ca.id_agencia_cliente,
+                ca.id,
+                ca.id_cliente,
+                ca.is_principal,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                COALESCE(cli.classificacao_cliente, 'Prospecção') AS classificacao_cliente
+            FROM tbl_cliente_agencia ca
+            JOIN tbl_cliente cli ON cli.id_cliente = ca.id_cliente
+            WHERE ca.id_agencia_cliente = ANY(%s)
+              AND COALESCE(cli.status, true) = true
+            ORDER BY ca.id_agencia_cliente,
+                     ca.is_principal DESC,
+                     cli.nome_fantasia ASC NULLS LAST,
+                     cli.razao_social ASC NULLS LAST
+        ''', (ids,))
+        grouped = {}
+        for r in cursor.fetchall():
+            row = dict(r)
+            try:
+                aid = int(row["id_agencia_cliente"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            grouped.setdefault(aid, []).append(row)
+        return grouped
 
 
 def obter_todas_cotacoes():

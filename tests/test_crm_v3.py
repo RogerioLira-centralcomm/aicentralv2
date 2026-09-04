@@ -559,6 +559,62 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(created.status_code, 400)
         self.assertFalse(created.get_json()["success"])
 
+    def test_atividade_cria_e_edita_status_e_executivo(self):
+        created = self.client.post(
+            "/crm-v3/api/clientes/auto-shopping/atividades",
+            json={
+                "titulo": "Preparar reunião",
+                "data": "2026-09-05",
+                "status": "em_andamento",
+                "executivo_id": "77",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        atividade = created.get_json()["atividade"]
+        self.assertEqual(atividade["status"], "em_andamento")
+        self.assertEqual(atividade["executivo_id"], "77")
+
+        updated = self.client.patch(
+            f"/crm-v3/api/atividades/{atividade['id']}",
+            json={"status": "concluida", "executivo_id": "88"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        atividade = updated.get_json()["atividade"]
+        self.assertEqual(atividade["status"], "concluida")
+        self.assertEqual(atividade["executivo_id"], "88")
+
+    def test_roteiro_ia_recebe_foco_tom_e_instrucao(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        captured = {}
+        original_available = routes._openrouter_available
+        original_call = routes._call_openrouter
+        routes._openrouter_available = lambda: True
+
+        def fake_call(system, user, **kwargs):
+            captured["system"] = system
+            captured["user"] = user
+            return "Objetivo: preparar conversa\nRoteiro:\n- ouvir\nFechamento: combinar retorno"
+
+        routes._call_openrouter = fake_call
+        try:
+            result = routes._montar_roteiro({
+                "cliente_id": "auto-shopping",
+                "titulo": "Reunião de descoberta",
+                "tipo": "reuniao",
+                "foco": "entender_necessidades",
+                "tom": "consultivo",
+                "instrucoes": "Antecipar objeções sobre prazo",
+            })
+        finally:
+            routes._openrouter_available = original_available
+            routes._call_openrouter = original_call
+
+        self.assertEqual(result["source"], "openrouter")
+        self.assertIn("Foco principal: Entender necessidades", captured["user"])
+        self.assertIn("Tom da comunicação: Consultivo", captured["user"])
+        self.assertIn("Antecipar objeções sobre prazo", captured["user"])
+
     def test_store_reinicia_em_memoria(self):
         self.client.post(
             "/crm-v3/api/clientes", json={"nome": "Cliente temporário"}
@@ -646,6 +702,36 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(kwargs["descricao"], "Ligar")
         self.assertEqual(kwargs["data_atividade"], "2026-09-04")
         self.assertEqual(kwargs["tipo"], "atividade")
+        self.assertEqual(kwargs["status"], "pendente")
+
+    def test_create_atividade_persiste_status_e_responsavel(self):
+        self.db.criar_atividade_cliente.return_value = {"id": 100}
+        self.db.obter_atividade_cliente_por_id.return_value = {
+            "id": 100, "descricao": "Apresentar proposta",
+            "data_atividade": "2026-09-04", "status": "em_andamento",
+            "titulo": "Apresentar proposta", "executivo_id": 77,
+        }
+        self.repo.create_atividade("1", {
+            "titulo": "Apresentar proposta",
+            "data": "2026-09-04",
+            "status": "em_andamento",
+            "executivo_id": "77",
+        })
+        kwargs = self.db.criar_atividade_cliente.call_args.kwargs
+        self.assertEqual(kwargs["status"], "em_andamento")
+        self.assertEqual(kwargs["executivo_id"], 77)
+
+    def test_update_atividade_persiste_responsavel(self):
+        self.db.atualizar_atividade_cliente.return_value = {"id": 1}
+        self.db.obter_atividade_cliente_por_id.return_value = {
+            "id": 1, "cliente_id": 9, "descricao": "Ligar",
+            "data_atividade": "2026-09-04", "status": "pendente",
+            "titulo": "Ligar", "executivo_id": 88,
+        }
+        self.repo.update_atividade("1", {"executivo_id": "88"})
+        atividade_id, payload = self.db.atualizar_atividade_cliente.call_args.args
+        self.assertEqual(atividade_id, "1")
+        self.assertEqual(payload["executivo_id"], 88)
 
     def test_update_atividade_rejeita_status_invalido(self):
         with self.assertRaises(ValueError):

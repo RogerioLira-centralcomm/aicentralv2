@@ -832,6 +832,9 @@ class CrmV3Repository:
         `computeMetricas`. Este método é o fallback para renderização
         inicial e para casos em que a UI ainda não puxou relacionamentos.
 
+        Cotações entram pela mesma regra da lista: `client_id` (e
+        `agencia_id`) das empresas vinculadas N:N, não por contato.
+
         Cada fonte é isolada em try/except: se contatos falhar, ainda
         entregamos cotações; se cotações falhar, ainda entregamos
         atividades. Antes uma exceção em qualquer uma delas quebrava
@@ -847,12 +850,15 @@ class CrmV3Repository:
             )
             contatos = []
         try:
-            cotacoes = _db().obter_cotacoes_cliente(cliente_id) or []
+            # Mesma base da lista "Cotações recentes": client_id da
+            # empresa + agências/clientes finais vinculados (N:N).
+            cotacoes = _db().obter_cotacoes_cliente_com_vinculos(cliente_id) or []
         except Exception as e:
-            _rollback_if_failed("obter_cotacoes_cliente")
+            _rollback_if_failed("obter_cotacoes_cliente_com_vinculos")
             import logging
             logging.getLogger("aicentral.crm_v3").warning(
-                "obter_cotacoes_cliente %s falhou: %s: %s", cliente_id, type(e).__name__, e
+                "obter_cotacoes_cliente_com_vinculos %s falhou: %s: %s",
+                cliente_id, type(e).__name__, e,
             )
             cotacoes = []
 
@@ -1076,9 +1082,19 @@ class CrmV3Repository:
         # Hora é opcional. Aceita "HH:MM" ou "HH:MM:SS". Vazio → None.
         hora_raw = (data.get("hora") or "").strip()
         hora_val = hora_raw or None
+        status = (data.get("status") or "pendente").strip()
+        if status not in ("pendente", "em_andamento", "concluida"):
+            raise ValueError("status inválido")
+        executivo_id = self._current_executivo_id()
+        executivo_raw = data.get("executivo_id")
+        if executivo_raw not in (None, "", 0, "0"):
+            try:
+                executivo_id = int(executivo_raw)
+            except (TypeError, ValueError):
+                raise ValueError("responsável inválido")
         row = _db().criar_atividade_cliente(
             cliente_id=cliente_id,
-            executivo_id=self._current_executivo_id(),
+            executivo_id=executivo_id,
             descricao=descricao,
             data_atividade=data_iso,
             contato_id=contato_id,
@@ -1086,6 +1102,7 @@ class CrmV3Repository:
             titulo=titulo or None,
             data_prazo=self._validate_iso_date(data.get("data_prazo"), "data_prazo"),
             hora_atividade=hora_val,
+            status=status,
         )
         if not row:
             return None
@@ -1115,6 +1132,15 @@ class CrmV3Repository:
             if status not in ("pendente", "em_andamento", "concluida"):
                 raise ValueError("status inválido")
             payload["status"] = status
+        if "executivo_id" in data:
+            executivo_raw = data.get("executivo_id")
+            if executivo_raw in (None, "", 0, "0"):
+                payload["executivo_id"] = None
+            else:
+                try:
+                    payload["executivo_id"] = int(executivo_raw)
+                except (TypeError, ValueError):
+                    raise ValueError("responsável inválido")
         if "contato_id" in data:
             payload["contato_id"] = data.get("contato_id")
         if "hora" in data:
@@ -1229,6 +1255,84 @@ class CrmV3Repository:
         row = _db().excluir_objetivo_cliente(objetivo_id)
         return (row is not None), cliente_id
 
+    def get_incentivo_agencia(self, cliente_id: str) -> Optional[Dict[str, Any]]:
+        """Incentivos PI da agência para a sidebar Info (Perfil comercial).
+
+        Resolve o id_cliente da agência a partir do cliente selecionado:
+        - Se o cliente É agência → usa o próprio id.
+        - Se é cliente final com vínculo → usa agencia_id do vínculo.
+
+        Retorna None quando o cliente não existe. Retorna dict com
+        `incentivo: null` quando não há cadastro em cadu_pi_incentivos
+        (a UI não exibe nada extra nesse caso).
+        """
+        cliente = self.get_cliente(cliente_id)
+        if not cliente:
+            return None
+
+        agencia_id: Optional[str] = None
+        agencia_nome = ""
+        via_vinculo = False
+
+        if cliente.get("is_agencia"):
+            agencia_id = str(cliente_id)
+            agencia_nome = cliente.get("nome") or ""
+        elif cliente.get("agencia_id"):
+            agencia_id = str(cliente["agencia_id"])
+            agencia_nome = cliente.get("agencia_nome") or ""
+            via_vinculo = True
+        else:
+            return {"incentivo": None}
+
+        try:
+            row = _db().obter_incentivo_por_cliente_id(agencia_id)
+        except Exception as e:  # noqa: BLE001
+            _rollback_if_failed("get_incentivo_agencia")
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "get_incentivo_agencia agencia=%s falhou: %s: %s",
+                agencia_id, type(e).__name__, e,
+            )
+            return {"incentivo": None}
+
+        if not row:
+            return {"incentivo": None}
+
+        from . import db as _db_mod
+        faixas: List[Dict[str, Any]] = []
+        for f in _db_mod.INCENTIVOS_FAIXAS:
+            key = f"pct_{f}"
+            raw = row.get(key)
+            if raw is None or str(raw).strip() == "":
+                continue
+            faixas.append({
+                "faixa": f,
+                "label": f"Até {f.upper()}",
+                "percentual": str(raw).strip(),
+            })
+
+        if not faixas:
+            return {"incentivo": None}
+
+        bv = row.get("bv")
+        bv_fmt = None
+        if bv is not None and str(bv).strip() != "":
+            try:
+                bv_fmt = f"{float(bv):.2f}".replace(".", ",") + "%"
+            except (TypeError, ValueError):
+                bv_fmt = str(bv)
+
+        return {
+            "incentivo": {
+                "id": str(row.get("id")),
+                "agencia_id": agencia_id,
+                "agencia_nome": agencia_nome or row.get("cliente_nome") or "",
+                "via_vinculo": via_vinculo,
+                "bv": bv_fmt,
+                "faixas": faixas,
+            },
+        }
+
     def list_cotacoes(self, cliente_id: str, include_vinculados: bool = True) -> Optional[List[Dict[str, Any]]]:
         """Cotações reais do cliente (tabela `cadu_cotacoes`).
 
@@ -1335,9 +1439,26 @@ class CrmV3Repository:
             else:
                 plats = []
             payload["plataforma_campanha"] = ", ".join(plats)
+        agencia_raw = data.get("agencia_id")
+        if agencia_raw not in (None, ""):
+            try:
+                payload["agencia_id"] = int(agencia_raw)
+            except (TypeError, ValueError):
+                raise ValueError("agencia_id inválido")
         return payload
 
     def create_cotacao(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        data = dict(data or {})
+        ficha_id = str(cliente_id)
+        target_id = str(data.get("client_id") or cliente_id).strip() or ficha_id
+        if target_id != ficha_id:
+            filhos = _db().listar_clientes_vinculados_agencia(ficha_id) or []
+            allowed = {str(x.get("id_cliente")) for x in filhos}
+            if target_id not in allowed:
+                raise ValueError("Selecione um cliente vinculado a esta agência")
+            if not data.get("agencia_id"):
+                data["agencia_id"] = ficha_id
+            cliente_id = target_id
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None

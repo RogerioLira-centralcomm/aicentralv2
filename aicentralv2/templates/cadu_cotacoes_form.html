@@ -1,25 +1,26 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
 
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
+{% block page_label %}{% if modo == 'novo' %}Nova cotação{% else %}Editar cotação{% endif %}{% endblock %}
+{% block page_subtitle %}Cotações{% endblock %}
 
 {% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=2">
 <style>
-  /* Remove padding do main container apenas nesta página */
-  main { padding: 0 !important; }
   .tab-nav-item { border-bottom: 2px solid transparent; }
-  .tab-nav-item.active { color: #065f46; border-bottom-color: #10b981; font-weight: 600; }
-  .tab-nav-item.active .tab-nav-icon { color: #10b981; }
-  .nova-cotacao-compact label { font-size: 8px; }
-  .nova-cotacao-compact input,
-  .nova-cotacao-compact select,
-  .nova-cotacao-compact textarea { font-size: 10px; }
-  .nova-cotacao-compact .secao-titulo { font-size: 11px; }
-  .nova-cotacao-compact .secao-num { width: 18px; height: 18px; font-size: 9px; }
+  .tab-nav-item.active { color: #1e4d4f; border-bottom-color: #1e4d4f; font-weight: 600; }
+  .tab-nav-item.active .tab-nav-icon { color: #1e4d4f; }
+  dialog.modal[open] {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    max-height: 90vh;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="bg-gray-50">
+<div class="{% if modo == 'novo' %}cot-nova-page{% else %}bg-gray-50{% endif %}">
   {% if modo == 'editar' %}
   <!-- Header compacto (estilo detalhes) -->
   <div class="bg-white border-b border-gray-200 px-2 py-1 shadow-sm sticky top-0 z-40">
@@ -66,27 +67,16 @@
   {% endwith %}
 
   {% if modo == 'novo' %}
-  <!-- Header Nova cotação -->
-  <div class="bg-white border border-gray-200 rounded px-2 py-1.5 mb-2 flex items-center justify-between gap-2">
-    <div class="flex items-center gap-2 min-w-0">
-      <span class="w-7 h-7 rounded flex items-center justify-center text-white flex-shrink-0" style="background-color: #72cd80;">
-        <i class="fas fa-file-invoice-dollar text-[10px]"></i>
-      </span>
-      <div class="min-w-0">
-        <h1 class="text-xs font-bold text-gray-800 leading-tight">Nova cotação</h1>
-        <p class="text-[8px] text-gray-500 leading-tight">Preencha as informações principais para iniciar sua cotação.</p>
-      </div>
+  <div class="cot-nova-shell">
+  <div class="cot-nova-header">
+    <div class="min-w-0">
+      <h1>Nova cotação</h1>
+      <p>Informe campanha, participantes e período. Depois você monta audiência e preço no detalhe.</p>
     </div>
-    <div class="flex items-center gap-1 flex-shrink-0">
-      <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="px-2 py-0.5 text-[10px] border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors">
-        Cancelar
-      </a>
-      <button type="submit" form="cotacao_form" name="salvar_rascunho" value="1" class="px-2 py-0.5 text-[10px] border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1">
-        <i class="fas fa-save text-[8px] text-gray-400"></i>Salvar rascunho
-      </button>
-      <button type="submit" form="cotacao_form" class="px-2 py-0.5 text-[10px] rounded text-white font-medium transition-colors flex items-center gap-1" style="background-color: #72cd80;">
-        <i class="fas fa-check text-[8px]"></i>Criar cotação
-      </button>
+    <div class="cot-nova-header-actions">
+      <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="cx-btn cx-btn-secondary">Cancelar</a>
+      <button type="submit" form="cotacao_form" name="salvar_rascunho" value="1" class="cx-btn cx-btn-secondary">Salvar rascunho</button>
+      <button type="submit" form="cotacao_form" class="cx-btn cx-btn-primary">Criar cotação</button>
     </div>
   </div>
   {% endif %}
@@ -476,11 +466,8 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Cliente <span class="text-red-500">*</span></label>
           <div class="flex gap-0.5 items-center mb-1">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[22px]">
-              <span id="nome_cliente_selecionado">{% if cliente_selecionado %}{{ cliente_selecionado_nome|default('') }}{% else %}Buscar cliente...{% endif %}</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-500" title="Buscar cliente">
-              <i class="fas fa-search text-[9px]"></i>
+            <button type="button" class="cot-nova-name-btn" onclick="abrirModalCliente()" title="Buscar cliente">
+              <span id="nome_cliente_selecionado">{% if cliente_selecionado %}{{ cliente_selecionado_nome|default('') }}{% else %}Buscar cliente…{% endif %}</span>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Novo cliente">
               <i class="fas fa-plus text-[9px]"></i>
@@ -499,16 +486,13 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Agência</label>
           <div id="agencia_combo_wrap" class="hidden mb-1">
-            <select id="agencia_combo" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
+            <select id="agencia_combo" hidden aria-hidden="true">
               <option value="">Selecione...</option>
             </select>
           </div>
           <div id="agencia_busca_wrap" class="flex gap-0.5 items-center mb-1">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[22px]">
-              <span id="nome_agencia_selecionada">Buscar agência...</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-500" title="Buscar agência">
-              <i class="fas fa-search text-[9px]"></i>
+            <button type="button" class="cot-nova-name-btn" onclick="abrirModalAgencia()" title="Buscar agência">
+              <span id="nome_agencia_selecionada">Buscar agência…</span>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Nova agência">
               <i class="fas fa-plus text-[9px]"></i>
@@ -562,8 +546,9 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Duração</label>
           <input type="text" id="duracao_dias" readonly
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed"
-                 placeholder="Calculada" value="">
+                 class="cot-nova-duracao w-full cursor-not-allowed"
+                 placeholder="Calculada" value="" aria-live="polite">
+          <span class="cot-nova-duracao-hint" id="duracao_uteis"></span>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Budget estimado <span class="text-red-500">*</span></label>
@@ -668,6 +653,7 @@
 
     <input type="hidden" name="origem" value="Admin">
   </form>
+  {% if modo == 'novo' %}</div>{% endif %}
 
   </div>
 </div>
@@ -1022,22 +1008,42 @@ function calcularDuracao() {
   const inicio = document.getElementById('periodo_inicio').value;
   const fim = document.getElementById('periodo_fim').value;
   const duracaoField = document.getElementById('duracao_dias');
-  
+  const uteisEl = document.getElementById('duracao_uteis');
+  if (!duracaoField) return;
+
+  function setUteis(txt) {
+    if (uteisEl) uteisEl.textContent = txt || '';
+  }
+
   if (inicio && fim) {
     const dataInicio = new Date(inicio);
     const dataFim = new Date(fim);
     const diffTime = dataFim - dataInicio;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays > 0) {
-      duracaoField.value = diffDays === 1 ? '1 dia' : `${diffDays} dias`;
+      duracaoField.value = diffDays === 1 ? '1 dia corrido' : `${diffDays} dias corridos`;
     } else if (diffDays === 0) {
-      duracaoField.value = '1 dia';
+      duracaoField.value = '1 dia corrido';
     } else {
       duracaoField.value = 'Data inválida';
+      setUteis('');
+      return;
     }
+
+    const a = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
+    const b = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate());
+    let uteis = 0;
+    const cursor = new Date(a);
+    while (cursor <= b) {
+      const dow = cursor.getDay();
+      if (dow !== 0 && dow !== 6) uteis++;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    setUteis(uteis === 1 ? '1 dia útil' : `${uteis} dias úteis`);
   } else {
     duracaoField.value = '';
+    setUteis('');
   }
 }
 
@@ -1558,66 +1564,88 @@ function atualizarUiAgencia(agencias, agenciaSelecionadaId) {
   const nomeSpan = document.getElementById('nome_agencia_selecionada');
   const contatoSelect = document.getElementById('agencia_user_id');
 
-  if (!comboWrap || !buscaWrap || !combo || !hiddenAgencia) return;
+  if (!buscaWrap || !hiddenAgencia) return;
 
   const lista = Array.isArray(agencias) ? [...agencias] : [];
   const idSel = agenciaSelecionadaId ? parseInt(agenciaSelecionadaId, 10) : null;
+  window._agenciasVinculadas = lista;
 
-  if (idSel && !lista.some(a => a.id_agencia_cliente === idSel)) {
+  if (comboWrap) comboWrap.classList.add('hidden');
+  buscaWrap.classList.remove('hidden');
+  agenciaModoCombo = false;
+
+  if (idSel && !lista.some(a => Number(a.id_agencia_cliente) === idSel)) {
     const nomeAtual = nomeSpan?.textContent?.trim();
-    const vazio = ['Nenhuma', 'Buscar agência...', ''];
+    const vazio = ['Nenhuma', 'Buscar agência...', 'Buscar agência…', ''];
     lista.unshift({
       id_agencia_cliente: idSel,
       nome_fantasia: nomeAtual && !vazio.includes(nomeAtual) ? nomeAtual : `Agência #${idSel}`,
       is_principal: false
     });
+    window._agenciasVinculadas = lista;
   }
 
-  if (lista.length > 0) {
-    agenciaModoCombo = true;
-    comboWrap.classList.remove('hidden');
-    buscaWrap.classList.add('hidden');
+  let idParaSelecionar = idSel;
+  if (!idParaSelecionar && lista.length) {
+    const principal = lista.find(a => a.is_principal);
+    idParaSelecionar = principal ? principal.id_agencia_cliente : lista[0].id_agencia_cliente;
+  }
 
-    combo.innerHTML = '<option value="">Selecione...</option>';
-    lista.forEach(ag => {
-      const opt = document.createElement('option');
-      opt.value = ag.id_agencia_cliente;
-      opt.textContent = labelAgenciaVinculada(ag);
-      combo.appendChild(opt);
-    });
-
-    let idParaSelecionar = idSel;
-    if (!idParaSelecionar) {
-      const principal = lista.find(a => a.is_principal);
-      if (principal) {
-        idParaSelecionar = principal.id_agencia_cliente;
-      } else if (lista.length === 1) {
-        idParaSelecionar = lista[0].id_agencia_cliente;
-      }
-    }
-
-    combo.value = idParaSelecionar ? String(idParaSelecionar) : '';
-    hiddenAgencia.value = combo.value;
-
-    if (combo.value) {
-      carregarContatosAgencia(combo.value);
-    } else if (contatoSelect) {
-      contatoSelect.innerHTML = '<option value="">Selecione...</option>';
-    }
+  if (idParaSelecionar) {
+    const escolhida = lista.find(a => Number(a.id_agencia_cliente) === Number(idParaSelecionar));
+    hiddenAgencia.value = String(idParaSelecionar);
+    if (combo) combo.value = String(idParaSelecionar);
+    if (nomeSpan) nomeSpan.textContent = escolhida ? labelAgenciaVinculada(escolhida) : (`Agência #${idParaSelecionar}`);
+    carregarContatosAgencia(idParaSelecionar);
   } else {
-    agenciaModoCombo = false;
-    comboWrap.classList.add('hidden');
-    buscaWrap.classList.remove('hidden');
-    combo.innerHTML = '<option value="">Selecione...</option>';
-
-    if (!idSel) {
-      hiddenAgencia.value = '';
-      if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
-      if (contatoSelect) contatoSelect.innerHTML = '<option value="">Selecione...</option>';
-    }
+    hiddenAgencia.value = '';
+    if (combo) combo.value = '';
+    if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
+    if (contatoSelect) contatoSelect.innerHTML = '<option value="">Selecione o contato</option>';
   }
 
   atualizarEstadoBriefing();
+}
+
+function abrirModalCliente() {
+  const modal = document.getElementById('modal_escolher_cliente');
+  if (!modal) return;
+  modal.showModal();
+  const input = document.getElementById('busca_cliente_modal');
+  if (input) {
+    input.value = '';
+    setTimeout(function () { input.focus(); }, 40);
+  }
+}
+
+function abrirModalAgencia() {
+  const modal = document.getElementById('modal_escolher_agencia');
+  if (!modal) return;
+  modal.showModal();
+  const input = document.getElementById('busca_agencia_modal');
+  if (input) input.value = '';
+  renderAgenciasModalInicial();
+  if (input) setTimeout(function () { input.focus(); }, 40);
+}
+
+function renderAgenciasModalInicial() {
+  const resultados = document.getElementById('resultados_agencia_modal');
+  if (!resultados) return;
+  const lista = window._agenciasVinculadas || [];
+  if (!lista.length) {
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite o nome da agência para buscar</p>';
+    return;
+  }
+  let html = '<p class="text-xs font-semibold text-gray-500 mb-2">Agências deste cliente</p><div class="space-y-2">';
+  lista.forEach(function (ag) {
+    const id = ag.id_agencia_cliente;
+    const nome = labelAgenciaVinculada(ag);
+    const nomeEsc = String(nome).replace(/'/g, "\\'");
+    html += '<button type="button" class="w-full text-left border border-gray-200 rounded p-3 hover:bg-gray-50" onclick="selecionarAgenciaForm(\'' + id + '\', \'' + nomeEsc + '\')">' +
+      '<p class="font-semibold text-sm text-gray-800">' + nome + '</p></button>';
+  });
+  html += '</div><p class="text-xs text-gray-400 mt-3">Ou busque outra agência pelo nome.</p>';
+  resultados.innerHTML = html;
 }
 
 async function iniciarAgenciaForm() {

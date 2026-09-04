@@ -332,7 +332,7 @@ html:has(.crm-v3-page) body {
 
 /* ===== BOTÕES UNIFICADOS (padrão único) =============================
  * Todos os botões do CRM v3 usam `.crm-v3-btn` como base + variantes:
- *   Estilo:  -primary  -outline  -ghost  -danger  -danger-outline
+ *   Estilo:  -primary  -secondary  -outline  -ghost  -danger  -danger-outline
  *   Tamanho: (default 32px)  -sm (26px)  -xs (22px)
  *   Ícone:   .crm-v3-icon-btn (32x32)  .crm-v3-icon-btn.-sm (26x26)
  * Sem misturar mais com classes DaisyUI dentro da tela.
@@ -397,6 +397,21 @@ html:has(.crm-v3-page) body {
     background: var(--crm-primary-dark);
     color: var(--crm-primary-content);
     border-color: var(--crm-primary-dark);
+}
+
+/* Secundário — ações de apoio (ex.: Editar cliente no header).
+   Alinhado ao .cx-btn-secondary do enterprise-system: fundo claro,
+   borda visível, texto escuro. Não compete com CTAs primários. */
+.crm-v3-btn-secondary {
+    background: #fff;
+    color: var(--crm-text);
+    border-color: #cbd5e1;
+}
+
+.crm-v3-btn-secondary:hover {
+    background: #f1f5f9;
+    color: var(--crm-text);
+    border-color: #94a3b8;
 }
 
 .crm-v3-btn-outline {
@@ -1785,6 +1800,10 @@ img.crm-v3-avatar-mini {
     min-width: 0;
 }
 
+.crm-v3-mobile-back {
+    display: none;
+}
+
 .crm-v3-detail-title-row {
     display: flex;
     align-items: center;
@@ -2518,6 +2537,16 @@ img.crm-v3-avatar-mini {
     margin-bottom: 4px;
 }
 
+/* Header com fundo secundário — ex.: Cotações recentes.
+   Destaca a barra de título sem competir com o conteúdo abaixo. */
+.crm-v3-section-header-secondary {
+    background: var(--crm-surface);
+    border: 1px solid var(--crm-border-light);
+    border-radius: var(--crm-radius);
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+
 .crm-v3-section-title {
     font-size: var(--crm-font-section);
     font-weight: 600;
@@ -2790,6 +2819,25 @@ img.crm-v3-avatar-mini {
     font-weight: 500;
     text-transform: none;
     letter-spacing: 0;
+}
+.cx-cot-duracao {
+    grid-column: 1 / -1;
+    display: block;
+    margin: -4px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--crm-text-muted);
+}
+.cx-cot-duracao strong {
+    font-weight: 700;
+    color: var(--crm-text);
+}
+.cx-drawer-context-row select {
+    flex: 1;
+    min-width: 0;
 }
 .cx-drawer-field-hint {
     margin: 6px 0 0;
@@ -3985,6 +4033,68 @@ img.crm-v3-avatar-mini {
     margin: 0;
 }
 
+/* Incentivos PI — Perfil comercial (sidebar Info) — set/2026.
+   Só visível quando a agência tem cadastro em cadu_pi_incentivos.
+   Layout compacto: faixas em grid 2 colunas, espelhando /incentivos. */
+.crm-v3-incentivos-block {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--crm-border-light);
+}
+.crm-v3-incentivos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.crm-v3-incentivos-link {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--crm-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.crm-v3-incentivos-link:hover {
+    text-decoration: underline;
+}
+.crm-v3-incentivos-hint {
+    font-size: 10.5px;
+    color: var(--crm-text-subtle);
+    margin: 0 0 6px;
+    line-height: 1.3;
+}
+.crm-v3-incentivos-faixas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 10px;
+}
+.crm-v3-incentivo-faixa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11px;
+    padding: 3px 0;
+    min-width: 0;
+}
+.crm-v3-incentivo-faixa-label {
+    color: var(--crm-text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.crm-v3-incentivo-faixa-val {
+    color: var(--crm-text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
 /* ==============================================================
    Edit-in-place (Pipedrive-style) — usado na aba Info da sidebar.
    Cada .crm-v3-editable-row é clicável e mostra hover + estados
@@ -4321,6 +4431,209 @@ img.crm-v3-avatar-mini {
     .crm-v3-section-sugestao {
         grid-column: 1;
         grid-row: auto;
+    }
+}
+
+/* ===== MOBILE (telefone, ≤767px) =====================================
+ * Desktop e tablet (992+) ficam como estão. No telefone a coluna
+ * Clientes é a home; a ficha vira uma página longa (centro +
+ * contatos + sidebar empilhados). Override do display:none do 992px.
+ * ================================================================== */
+@media (max-width: 767px) {
+    html:has(.crm-v3-page.is-mobile-detail),
+    html:has(.crm-v3-page.is-mobile-detail) body {
+        overflow: auto !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .crm-v3-page {
+        min-height: calc(100vh - 56px);
+    }
+
+    .crm-v3-page.is-mobile-detail {
+        height: auto;
+        max-height: none;
+        overflow: visible !important;
+    }
+
+    .crm-v3-header #filtro-tipo,
+    .crm-v3-header #filtro-perfil,
+    .crm-v3-header .dropdown {
+        display: none;
+    }
+
+    .crm-v3-header .crm-v3-btn-primary span,
+    .crm-v3-header #crm-v3-btn-novo-cliente-header {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .crm-v3-pill[data-filter="atrasado"],
+    .crm-v3-pill[data-filter="sem-atividade"],
+    .crm-v3-pill[data-filter="arquivo"] {
+        display: none;
+    }
+
+    .crm-v3-pills {
+        grid-template-columns: 1fr 1fr;
+    }
+    .crm-v3-pill-classif {
+        grid-column: span 1;
+    }
+
+    .crm-v3-col-clientes .crm-v3-col-footer {
+        display: none;
+    }
+
+    .crm-v3-search {
+        height: 40px;
+        font-size: 16px;
+        border-radius: 10px;
+    }
+
+    .crm-v3-cliente {
+        min-height: 56px;
+        padding: 12px 12px 12px 14px;
+        gap: 10px;
+    }
+
+    .crm-v3-layout,
+    .crm-v3-grid-main {
+        grid-template-columns: 1fr;
+    }
+
+    .crm-v3-col-clientes {
+        display: flex !important;
+    }
+
+    .crm-v3-col-center,
+    .crm-v3-col-contatos,
+    .crm-v3-col-sidebar {
+        display: none;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-col-clientes {
+        display: none !important;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-layout {
+        display: block;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-main {
+        overflow: visible;
+        height: auto;
+        max-height: none;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-grid-main {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+        min-height: 0;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-col-center,
+    .crm-v3-page.is-mobile-detail .crm-v3-col-contatos,
+    .crm-v3-page.is-mobile-detail .crm-v3-col-sidebar {
+        display: flex;
+        width: 100%;
+        height: auto;
+        max-height: none;
+        min-height: 0;
+        overflow: visible;
+        position: static;
+        box-shadow: none;
+        border-top: 1px solid var(--crm-border-light);
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-col {
+        overflow: visible;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-col-body,
+    .crm-v3-page.is-mobile-detail .crm-v3-sidebar-panel-wrap,
+    .crm-v3-page.is-mobile-detail .crm-v3-center-content,
+    .crm-v3-page.is-mobile-detail .crm-v3-section-atividades,
+    .crm-v3-page.is-mobile-detail .crm-v3-center-right,
+    .crm-v3-page.is-mobile-detail .crm-v3-ativ-list {
+        overflow: visible;
+        max-height: none;
+        height: auto;
+        min-height: 0;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-center-content {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 10px 24px;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-section-atividades,
+    .crm-v3-page.is-mobile-detail .crm-v3-center-right {
+        grid-column: auto;
+        grid-row: auto;
+        border: 0;
+        box-shadow: none;
+        max-height: none;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-detail-header {
+        position: sticky;
+        top: 56px;
+        z-index: 20;
+        background: #fff;
+        padding-bottom: 8px;
+    }
+
+    .crm-v3-mobile-back {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        margin: 0 8px 0 0;
+        padding: 8px 4px 8px 0;
+        border: 0;
+        background: transparent;
+        color: var(--crm-primary);
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        min-height: 44px;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-mobile-back {
+        display: inline-flex;
+    }
+
+    .crm-v3-page.is-mobile-detail .crm-v3-detail-title-row {
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .crm-v3-page.is-mobile-detail #crm-v3-btn-import-contatos {
+        display: none;
+    }
+
+    .crm-v3-sidebar-reopen {
+        display: none !important;
+    }
+
+    .cx-drawer,
+    .cx-drawer[data-size] {
+        width: 100vw;
+    }
+}
+
+@media (min-width: 768px) {
+    .crm-v3-mobile-back {
+        display: none !important;
     }
 }
 

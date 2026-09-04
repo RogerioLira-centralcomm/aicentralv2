@@ -17,20 +17,23 @@
   <form id="cx-drawer-cotacao-form" data-drawer-form="cotacao">
     <input type="hidden" name="id" data-field="id" />
 
-    {# Cabeçalho contextual read-only ------------------------------------
-       Set/2026: espelha o que a tela `/cotacoes/nova` mostra em
-       "Participantes" (Cliente / Agência), mas AQUI é apenas informativo.
-       O vínculo Cliente↔Agência já vem da seleção no CRM v3 e alterá-lo
-       aqui geraria inconsistência silenciosa. O JS preenche os spans a
-       partir de `window.crmV3.state.cliente` e esconde a linha de
-       agência quando o cliente é direto (sem agência pai). Se o
-       cliente selecionado É a agência, mostramos só "Agência: X".
-    #}
+    {# Cliente + agência. Na ficha de agência o cliente é um select
+       dos finais vinculados (cadu_cotacoes.client_id). A agência
+       fica só leitura. #}
+    <input type="hidden" name="agencia_id" data-field="agencia_id" id="cx-cot-agencia-id" />
     <div class="cx-drawer-context" id="cx-cot-contexto" hidden>
       <div class="cx-drawer-context-row" id="cx-cot-ctx-cliente-row" hidden>
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
-        <span class="cx-drawer-context-label">Cliente</span>
-        <span class="cx-drawer-context-value" id="cx-cot-ctx-cliente-nome">—</span>
+        <label class="cx-drawer-context-label" for="cx-cot-client-id">Cliente</label>
+        <select
+          id="cx-cot-client-id"
+          name="client_id"
+          data-field="client_id"
+          hidden
+        >
+          <option value="">— Selecione o cliente —</option>
+        </select>
+        <span class="cx-drawer-context-value" id="cx-cot-ctx-cliente-nome" hidden>—</span>
       </div>
       <div class="cx-drawer-context-row" id="cx-cot-ctx-agencia-row" hidden>
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
@@ -91,24 +94,12 @@
           />
         </div>
 
-        {# Contador dinâmico da duração — atualizado pelo JS em input/change
-           dos dois campos de data. Mostra dias corridos (inclusivo, como
-           faz o form legado) e dias úteis (seg-sex, sem feriados nesta
-           fase para não divergir do legado). #}
-        <div class="cx-drawer-field cx-drawer-field-full cx-cot-duracao" id="cx-cot-duracao" role="status" aria-live="polite">
-          <span class="cx-cot-duracao-item">
-            <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
-            <strong id="cx-cot-dias-corridos">—</strong>
-            <span class="cx-cot-duracao-unit">dias corridos</span>
-          </span>
+        <p class="cx-cot-duracao" id="cx-cot-duracao" role="status" aria-live="polite">
+          <strong id="cx-cot-dias-corridos">—</strong> dias corridos
           <span class="cx-cot-duracao-sep" aria-hidden="true">·</span>
-          <span class="cx-cot-duracao-item">
-            <i class="fa-solid fa-briefcase" aria-hidden="true"></i>
-            <strong id="cx-cot-dias-uteis">—</strong>
-            <span class="cx-cot-duracao-unit">dias úteis</span>
-          </span>
+          <strong id="cx-cot-dias-uteis">—</strong> dias úteis
           <span class="cx-cot-duracao-hint" id="cx-cot-duracao-hint" hidden></span>
-        </div>
+        </p>
 
         <div class="cx-drawer-field" style="grid-column: span 2;">
           <label for="cx-cot-objetivo">Objetivo da campanha</label>

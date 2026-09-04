@@ -1205,6 +1205,9 @@ class CrmTestStore:
             return None
         titulo = _require_text(data, "titulo", "Título")
         data_iso = _validate_iso_date(data.get("data"))
+        status = data.get("status") or "pendente"
+        if status not in ("pendente", "em_andamento", "concluida"):
+            raise ValueError("status inválido")
         ativ = {
             "id": f"a-{uuid.uuid4().hex[:8]}",
             "titulo": titulo,
@@ -1213,9 +1216,12 @@ class CrmTestStore:
             "data": data_iso,
             "hora": data.get("hora") or "",
             "prioridade": data.get("prioridade") or "Média",
-            "status": "pendente",
+            "status": status,
             "tipo": data.get("tipo") or "atividade",
             "responsavel": data.get("responsavel") or "LS",
+            "executivo_id": str(data.get("executivo_id") or ""),
+            "contato_id": str(data.get("contato_id") or ""),
+            "data_prazo": data.get("data_prazo") or "",
         }
         self.atividades.setdefault(cliente_id, []).append(ativ)
         return ativ
@@ -1225,9 +1231,14 @@ class CrmTestStore:
             for i, a in enumerate(items):
                 if a["id"] == atividade_id:
                     updated = dict(a)
+                    if "status" in data and data["status"] not in (
+                        "pendente", "em_andamento", "concluida"
+                    ):
+                        raise ValueError("status inválido")
                     for key in (
                         "titulo", "descricao", "hora", "prioridade", "status",
-                        "data_label", "tipo", "responsavel",
+                        "data_label", "tipo", "responsavel", "executivo_id",
+                        "contato_id", "data_prazo",
                     ):
                         if key in data and data[key] is not None:
                             updated[key] = str(data[key]).strip()
@@ -1298,6 +1309,12 @@ class CrmTestStore:
         if not self.get_cliente(cliente_id):
             return None
         return list(self.cotacoes.get(cliente_id, []))
+
+    def get_incentivo_agencia(self, cliente_id):
+        """Mock: sem cadastro de incentivos PI."""
+        if not self.get_cliente(cliente_id):
+            return None
+        return {"incentivo": None}
 
     def create_cotacao(self, cliente_id, data):
         if not self.get_cliente(cliente_id):

@@ -485,6 +485,24 @@ def api_cotacoes(cliente_id):
     return _ok(items, cotacoes=items)
 
 
+@bp.route("/api/clientes/<cliente_id>/incentivos")
+@login_required_api
+def api_incentivos_agencia(cliente_id):
+    """Faixas de incentivo PI da agência (sidebar Info → Perfil comercial).
+
+    Só retorna dados quando existe cadastro em cadu_pi_incentivos para a
+    agência resolvida (própria ou vinculada). Caso contrário incentivo=null
+    e a UI não exibe bloco extra.
+    """
+    payload = store.get_incentivo_agencia(cliente_id)
+    if payload is None:
+        return _err("Cliente não encontrado", 404)
+    incentivo = payload.get("incentivo")
+    if incentivo:
+        incentivo["link"] = url_for("incentivos_lista")
+    return _ok(incentivo=incentivo)
+
+
 @bp.route("/api/clientes/<cliente_id>/cotacoes", methods=["POST"])
 @login_required_api
 def api_create_cotacao(cliente_id):
@@ -777,7 +795,7 @@ def _texto_ia_limpo(texto) -> str:
     return texto_sem_markdown(texto or "")
 
 
-def _roteiro_fallback(titulo, tipo, cliente, contato=None) -> str:
+def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> str:
     nome = (cliente or {}).get("nome") or "o cliente"
     tipo_label = {
         "ligacao": "ligação",
@@ -790,10 +808,24 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None) -> str:
     assunto = (titulo or f"esta {tipo_label}").strip()
     quem = ((contato or {}).get("nome") or "").strip()
     alvo = f"{quem} ({nome})" if quem else nome
+    foco_label = {
+        "apresentar_empresa": "apresentar a CentralComm",
+        "entender_necessidades": "entender necessidades e prioridades",
+        "apresentar_proposta": "apresentar a proposta",
+        "follow_up": "realizar o follow-up",
+        "outro": "conduzir o objetivo informado",
+    }.get(foco, "executar a atividade")
+    tom_label = {
+        "institucional": "institucional",
+        "consultivo": "consultivo",
+        "direto": "direto e objetivo",
+        "informal": "próximo e informal",
+    }.get(tom, "consultivo")
     return (
         f"Objetivo: executar “{assunto}” com {alvo}.\n\n"
         "Roteiro:\n"
-        "- Abrir com contexto (por que estamos falando agora).\n"
+        f"- Abrir em tom {tom_label} e contextualizar por que estamos falando agora.\n"
+        f"- Direcionar a conversa para {foco_label}.\n"
         "- Confirmar interesse e restrições (prazo, verba, aprovação).\n"
         "- Apresentar o ponto combinado e checar objeções.\n"
         "- Combinar um próximo passo com data.\n\n"
@@ -807,6 +839,22 @@ def _montar_roteiro(data: dict) -> dict:
     tipo = (data.get("tipo") or "atividade").strip()
     formato = (data.get("formato") or "").strip().lower()
     descricao = texto_sem_markdown(data.get("descricao") or data.get("texto") or "").strip()
+    foco = (data.get("foco") or "").strip().lower()
+    tom = (data.get("tom") or "").strip().lower()
+    instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
+    foco_label = {
+        "apresentar_empresa": "Apresentar a CentralComm",
+        "entender_necessidades": "Entender necessidades",
+        "apresentar_proposta": "Apresentar proposta",
+        "follow_up": "Follow-up",
+        "outro": "Outro objetivo informado",
+    }.get(foco, "Executar a atividade")
+    tom_label = {
+        "institucional": "Institucional",
+        "consultivo": "Consultivo",
+        "direto": "Direto e objetivo",
+        "informal": "Mais informal",
+    }.get(tom, "Consultivo")
     cliente_id = data.get("cliente_id") or ""
     cliente = store.get_cliente(cliente_id) if cliente_id else None
     contato, _ = _contato_para_ia(data, cliente_id)
@@ -823,6 +871,8 @@ def _montar_roteiro(data: dict) -> dict:
                 f"Tipo da atividade: {tipo or 'atividade'}\n"
                 f"Formato do texto: {formato or tipo or 'roteiro'}\n"
                 f"Título: {titulo or '(sem título)'}\n"
+                f"Foco principal: {foco_label}\n"
+                f"Tom da comunicação: {tom_label}\n"
             )
             if nome_contato:
                 user += f"Contato: {nome_contato}"
@@ -831,6 +881,8 @@ def _montar_roteiro(data: dict) -> dict:
                 user += "\n"
             if descricao:
                 user += f"Notas do executivo:\n{descricao}\n"
+            if instrucoes:
+                user += f"Instrução adicional do executivo:\n{instrucoes}\n"
             system_prompt = (
                 "Você é um assistente de vendas da CentralComm (mídia).\n"
                 "Sua tarefa NÃO é enfeitar texto: é ajudar o executivo a EXECUTAR a atividade.\n"
@@ -845,7 +897,10 @@ def _montar_roteiro(data: dict) -> dict:
             return {"texto": texto, "source": "openrouter"}
         except Exception:
             pass
-    return {"texto": _roteiro_fallback(titulo, tipo, cliente, contato), "source": "fallback"}
+    return {
+        "texto": _roteiro_fallback(titulo, tipo, cliente, contato, foco, tom),
+        "source": "fallback",
+    }
 
 
 @bp.route("/api/ia/melhorar-texto", methods=["POST"])

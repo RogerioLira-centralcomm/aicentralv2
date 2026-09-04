@@ -78,6 +78,63 @@
         return Array.prototype.slice.call((root || document).querySelectorAll(sel));
     }
 
+    var CRM_MOBILE_MQ = window.matchMedia('(max-width: 767px)');
+
+    function isMobileCrm() {
+        return CRM_MOBILE_MQ.matches;
+    }
+
+    function clienteIdFromHash() {
+        var m = String(location.hash || '').match(/^#cliente=([^&]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function setMobileView(view) {
+        var page = $('.crm-v3-page');
+        if (!page) return;
+        if (!isMobileCrm() || !view) {
+            page.classList.remove('is-mobile-list', 'is-mobile-detail');
+            return;
+        }
+        page.classList.toggle('is-mobile-list', view === 'list');
+        page.classList.toggle('is-mobile-detail', view === 'detail');
+        if (view === 'detail') {
+            window.scrollTo(0, 0);
+        }
+    }
+
+    function syncClienteHash(clienteId, replace) {
+        if (!isMobileCrm()) return;
+        var next = clienteId ? '#cliente=' + encodeURIComponent(clienteId) : '';
+        if (next === location.hash) return;
+        var url = location.pathname + location.search + next;
+        if (replace) history.replaceState({ crmV3: true }, '', url);
+        else history.pushState({ crmV3: true }, '', url);
+    }
+
+    function openMobileList() {
+        setMobileView('list');
+        if (location.hash) {
+            history.pushState({ crmV3: true }, '', location.pathname + location.search);
+        }
+        var ativo = $('#crm-v3-lista-clientes .crm-v3-cliente-ativo');
+        if (ativo && ativo.scrollIntoView) ativo.scrollIntoView({ block: 'nearest' });
+    }
+
+    function applyMobileFromUrl() {
+        if (!isMobileCrm()) {
+            setMobileView(null);
+            return;
+        }
+        var hid = clienteIdFromHash();
+        if (hid) {
+            if (String(state.clienteId) !== String(hid)) selectCliente(hid, { fromHistory: true });
+            else setMobileView('detail');
+        } else {
+            setMobileView('list');
+        }
+    }
+
     function escapeHtml(str) {
         return String(str || '')
             .replace(/&/g, '&amp;')
@@ -340,7 +397,81 @@
                 state.cliente = state.clientes[idx];
             }
         }
-        renderClientes();
+        updateClienteCardBadge(clienteId);
+    }
+
+    function findClienteCard(container, clienteId) {
+        if (!container || clienteId == null) return null;
+        var cards = container.querySelectorAll('.crm-v3-cliente[data-cliente-id]');
+        for (var i = 0; i < cards.length; i++) {
+            if (String(cards[i].getAttribute('data-cliente-id')) === String(clienteId)) {
+                return cards[i];
+            }
+        }
+        return null;
+    }
+
+    /** Atualiza só a classe ativa — evita reescrever a lista inteira ao clicar. */
+    function updateClienteActiveCard() {
+        var container = $('#crm-v3-lista-clientes');
+        if (!container) return;
+        $$('.crm-v3-cliente', container).forEach(function (card) {
+            var ativo = String(card.getAttribute('data-cliente-id')) === String(state.clienteId);
+            card.classList.toggle('crm-v3-cliente-ativo', ativo);
+            card.setAttribute('aria-current', ativo ? 'page' : 'false');
+        });
+    }
+
+    function updateClienteCardBadge(clienteId) {
+        var container = $('#crm-v3-lista-clientes');
+        if (!container || !clienteId) return;
+        var card = findClienteCard(container, clienteId);
+        if (!card) return;
+        var c = (state.clientes || []).find(function (x) {
+            return String(x.id) === String(clienteId);
+        });
+        if (!c) return;
+        var right = card.querySelector('.crm-v3-cliente-right');
+        if (right) right.innerHTML = situacaoHtml(c);
+    }
+
+    function updateClienteCardLogo(clienteId) {
+        var container = $('#crm-v3-lista-clientes');
+        if (!container || !clienteId) return;
+        var card = findClienteCard(container, clienteId);
+        if (!card) return;
+        var c = (state.clientes || []).find(function (x) {
+            return String(x.id) === String(clienteId);
+        });
+        if (!c) return;
+        var src = logoRealDoCliente(c);
+        if (!src) return;
+        var wrap = card.querySelector('.crm-v3-card-logo-wrap');
+        if (wrap) {
+            var img = wrap.querySelector('img[data-crm-logo]');
+            if (img && img.getAttribute('src') !== src) img.src = src;
+            return;
+        }
+        card.insertAdjacentHTML('afterbegin', logoCardHtml(c));
+        bindLogoImgs(card);
+    }
+
+    function bindClientesListDelegation() {
+        var container = $('#crm-v3-lista-clientes');
+        if (!container || container._crmV3ListBound) return;
+        container._crmV3ListBound = true;
+        container.addEventListener('click', function (e) {
+            var card = e.target.closest('.crm-v3-cliente[data-cliente-id]');
+            if (!card || !container.contains(card)) return;
+            selectCliente(card.getAttribute('data-cliente-id'));
+        });
+        container.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            var card = e.target.closest('.crm-v3-cliente[data-cliente-id]');
+            if (!card || !container.contains(card)) return;
+            e.preventDefault();
+            selectCliente(card.getAttribute('data-cliente-id'));
+        });
     }
 
     function bindLogoImgs(root) {
@@ -1054,18 +1185,6 @@
         }
 
         container.innerHTML = html;
-
-        $$('.crm-v3-cliente', container).forEach(function (card) {
-            card.addEventListener('click', function () {
-                selectCliente(card.getAttribute('data-cliente-id'));
-            });
-            card.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    selectCliente(card.getAttribute('data-cliente-id'));
-                }
-            });
-        });
         bindLogoImgs(container);
     }
 
@@ -1179,13 +1298,17 @@
             ? state.contatos.length
             : (fallback.contatos != null ? fallback.contatos : (cliente && cliente.qtd_contatos) || 0);
 
-        var cotAbertas = (state.cotacoes || []).filter(cotacaoEstaAberta);
-        var cotAprovadas = (state.cotacoes || []).filter(function (c) {
+        var cotacoes = Array.isArray(state.cotacoes) ? state.cotacoes : [];
+        var cotAbertas = cotacoes.filter(cotacaoEstaAberta);
+        var cotAprovadas = cotacoes.filter(function (c) {
             return String(c.status || '').toLowerCase() === 'aprovada';
         });
-        var oportunidades = cotAbertas.length || (fallback.oportunidades != null ? fallback.oportunidades : 0);
+        var oportunidades = cotAbertas.length;
         var faturamento = cotAprovadas.reduce(function (s, c) { return s + _cotValor(c); }, 0);
         var pipeline = cotAbertas.reduce(function (s, c) { return s + _cotValor(c); }, 0);
+        if (!cotacoes.length) {
+            if (fallback.oportunidades != null) oportunidades = fallback.oportunidades;
+        }
         var tarefas = (state.atividades || []).filter(function (a) {
             return a.status !== 'concluida';
         }).length;
@@ -1573,7 +1696,7 @@
                     renderSiteEditor(state.cliente);
                     if (info && info.logo_url) {
                         updateDetailPanel(state.cliente);
-                        renderClientes();
+                        updateClienteCardLogo(clienteId);
                     }
                 }
             })
@@ -1583,6 +1706,62 @@
                 renderWebInfo(null);
                 updateTabBadgeWeb(null);
                 if (state.cliente) renderSiteEditor(state.cliente);
+            });
+    }
+
+    /**
+     * Incentivos PI na sidebar (Perfil comercial) — set/2026.
+     * Só exibe faixas quando a agência (própria ou vinculada) tem
+     * cadastro em cadu_pi_incentivos. Sem cadastro → bloco hidden.
+     */
+    function renderIncentivosSidebar(inc) {
+        var block = $('#crm-v3-incentivos-block');
+        var container = $('#crm-v3-incentivos-faixas');
+        var hint = $('#crm-v3-incentivos-hint');
+        var link = $('#crm-v3-incentivos-link');
+        if (!block || !container) return;
+
+        if (!inc || !inc.faixas || !inc.faixas.length) {
+            block.hidden = true;
+            container.innerHTML = '';
+            if (hint) hint.hidden = true;
+            return;
+        }
+
+        block.hidden = false;
+        if (link && inc.link) link.href = inc.link;
+
+        if (hint) {
+            if (inc.via_vinculo && inc.agencia_nome) {
+                hint.textContent = 'Agência: ' + inc.agencia_nome;
+                hint.hidden = false;
+            } else {
+                hint.hidden = true;
+            }
+        }
+
+        container.innerHTML = inc.faixas.map(function (f) {
+            return (
+                '<div class="crm-v3-incentivo-faixa">' +
+                '<span class="crm-v3-incentivo-faixa-label">' + escapeHtml(f.label) + '</span>' +
+                '<span class="crm-v3-incentivo-faixa-val">' + escapeHtml(String(f.percentual)) + '%</span>' +
+                '</div>'
+            );
+        }).join('');
+    }
+
+    function loadIncentivos(clienteId) {
+        renderIncentivosSidebar(null);
+        if (!clienteId) return;
+        return api('/clientes/' + encodeURIComponent(clienteId) + '/incentivos')
+            .then(function (data) {
+                if (String(state.clienteId) !== String(clienteId)) return;
+                renderIncentivosSidebar((data && data.incentivo) || null);
+            })
+            .catch(function () {
+                if (String(state.clienteId) === String(clienteId)) {
+                    renderIncentivosSidebar(null);
+                }
             });
     }
 
@@ -1628,7 +1807,7 @@
                 renderSiteEditor(state.cliente);
                 if (info && info.logo_url) {
                     updateDetailPanel(state.cliente);
-                    renderClientes();
+                    updateClienteCardLogo(cid);
                 }
             }
             if (info && info.status === 'ok') {
@@ -2051,11 +2230,9 @@
 
     function renderContatos() {
         var container = $('#crm-v3-lista-contatos');
-        var countEl = $('#crm-v3-contatos-count');
         if (!container) return;
 
         var lista = state.contatos || [];
-        if (countEl) countEl.textContent = String(lista.length);
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
@@ -2065,11 +2242,8 @@
         if (!state.contatos.length) {
             container.innerHTML =
                 '<div class="crm-v3-contatos-empty p-3 text-sm text-center">' +
-                'Nenhum contato cadastrado.<br>' +
-                '<button type="button" class="btn btn-sm btn-primary mt-2" id="crm-v3-empty-add-contato">+ Adicionar contato</button>' +
+                'Nenhum contato cadastrado.' +
                 '</div>';
-            var emptyBtn = $('#crm-v3-empty-add-contato');
-            if (emptyBtn) emptyBtn.addEventListener('click', openContatoModal);
             return;
         }
 
@@ -2087,7 +2261,6 @@
                 '<div class="crm-v3-contato-nome-row">' +
                 '<button type="button" class="crm-v3-contato-nome" data-contato-id="' + escapeHtml(c.id) + '" title="Editar ' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</button>' +
                 (c.principal ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-principal" title="Contato principal"><i class="fa-solid fa-star" aria-hidden="true"></i></span>' : '') +
-                (c.conversas ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-count" title="' + c.conversas + ' conversa(s)">' + c.conversas + '</span>' : '') +
                 '</div>' +
                 (subLinha ? '<div class="crm-v3-contato-cargo">' + escapeHtml(subLinha) + '</div>' : '') +
                 '</div>' +
@@ -3449,28 +3622,33 @@
         });
     }
 
-    function selectCliente(clienteId) {
+    function selectCliente(clienteId, opts) {
+        opts = opts || {};
         if (!clienteId) return;
-        // Evita re-render se já é o mesmo cliente selecionado.
-        if (state.clienteId === clienteId && state.cliente) return;
+        if (String(state.clienteId) === String(clienteId) && state.cliente) {
+            if (isMobileCrm() && !opts.fromHistory) {
+                setMobileView('detail');
+                syncClienteHash(clienteId, !!opts.replaceUrl);
+            }
+            return;
+        }
         state.clienteId = clienteId;
-        state.cliente = state.clientes.find(function (c) { return c.id === clienteId; });
+        state.cliente = state.clientes.find(function (c) { return String(c.id) === String(clienteId); });
         state.atividades = [];
         state.objetivos = [];
         state.cotacoes = [];
         state.notas = [];
-        renderClientes();
+        updateClienteActiveCard();
         updateDetailPanel(state.cliente);
         renderAtividades();
         renderObjetivos();
         renderCotacoes();
         renderNotas();
         showSidebarInformacoes();
-        // Detalhe completo do cliente (endereço, nota-executivo, agência
-        // pai, BV/margem, estado) — o `list_clientes` do repositório
-        // Postgres não carrega esses campos por performance, então
-        // buscamos o cliente selecionado individualmente para popular a
-        // aba "Info" da sidebar sem regressar em latência.
+        if (isMobileCrm()) {
+            setMobileView('detail');
+            if (!opts.fromHistory) syncClienteHash(clienteId, !!opts.replaceUrl);
+        }
         api('/clientes/' + encodeURIComponent(clienteId)).then(function (data) {
             if (state.clienteId !== clienteId) return; // trocou enquanto carregava
             if (data && data.cliente) {
@@ -3490,7 +3668,7 @@
                 var idx = state.clientes.findIndex(function (c) { return String(c.id) === String(clienteId); });
                 if (idx !== -1) state.clientes[idx] = state.cliente;
                 updateDetailPanel(state.cliente);
-                renderClientes();
+                updateClienteCardBadge(clienteId);
                 var cachedWeb = state.webInfoCache[String(clienteId)] || state.webInfoCache[clienteId];
                 if (cachedWeb !== undefined) renderWebInfo(cachedWeb);
             }
@@ -3500,6 +3678,7 @@
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
         loadNotas(clienteId);
+        loadIncentivos(clienteId);
         // Fase B (set/2026): dispara em paralelo o fetch do web-info
         // cacheado. Se não houver cache no backend (nunca scrapeamos),
         // o GET retorna 404 e renderWebInfo mostra o CTA "Buscar
@@ -3516,14 +3695,25 @@
             state.clientes = data.clientes || [];
             renderClientes();
             if (state.clientes.length) {
-                // Preferência: (1) cliente já selecionado no state; (2) último
-                // cliente usado (localStorage); (3) primeiro da lista.
-                var sess = loadSession();
-                var candidato =
-                    state.clientes.find(function (c) { return c.id === state.clienteId; }) ||
-                    state.clientes.find(function (c) { return c.id === sess.lastClientId; }) ||
-                    state.clientes[0];
-                selectCliente(candidato.id);
+                var hashId = clienteIdFromHash();
+                if (isMobileCrm()) {
+                    var doHash = hashId && state.clientes.some(function (c) {
+                        return String(c.id) === String(hashId);
+                    });
+                    if (doHash) {
+                        selectCliente(hashId, { replaceUrl: true, fromHistory: true });
+                        setMobileView('detail');
+                    } else {
+                        setMobileView('list');
+                    }
+                } else {
+                    var sess = loadSession();
+                    var candidato =
+                        state.clientes.find(function (c) { return c.id === state.clienteId; }) ||
+                        state.clientes.find(function (c) { return c.id === sess.lastClientId; }) ||
+                        state.clientes[0];
+                    selectCliente(candidato.id);
+                }
             }
         }).catch(function (err) {
             var container = $('#crm-v3-lista-clientes');
@@ -4763,16 +4953,6 @@
         var novaCotacao = $('#crm-v3-btn-nova-cotacao');
         if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
         // Handler do botão "Nova nota" removido em set/2026: a criação
-        // acontece pelo composer inline dentro da seção Notas (Info).
-        var expandir = $('#crm-v3-btn-expandir-cotacoes');
-        if (expandir) expandir.addEventListener('click', function () {
-            var painel = $('.crm-v3-center-right');
-            var expanded = painel.classList.toggle('is-expanded');
-            expandir.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-            expandir.querySelector('i').className = expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
-        });
-
-        // O toggle Seguir/Deixar de seguir foi removido da UI. Filtro por
         // "Seguindo" continua funcional via pill de status no header.
 
         // Handler do botão "Ver todas atividades" removido em set/2026
@@ -5098,7 +5278,38 @@
         });
     }
 
+    function initMobileNav() {
+        var back = $('#crm-v3-mobile-back');
+        if (back) {
+            back.addEventListener('click', function (e) {
+                e.preventDefault();
+                openMobileList();
+            });
+        }
+        window.addEventListener('popstate', function () {
+            applyMobileFromUrl();
+        });
+        var onMq = function () {
+            if (!isMobileCrm()) {
+                setMobileView(null);
+                return;
+            }
+            if (state.clienteId && clienteIdFromHash()) {
+                setMobileView('detail');
+            } else if (state.clienteId) {
+                setMobileView('detail');
+                syncClienteHash(state.clienteId, true);
+            } else {
+                setMobileView('list');
+            }
+        };
+        if (CRM_MOBILE_MQ.addEventListener) CRM_MOBILE_MQ.addEventListener('change', onMq);
+        else if (CRM_MOBILE_MQ.addListener) CRM_MOBILE_MQ.addListener(onMq);
+        if (isMobileCrm()) setMobileView('list');
+    }
+
     initModals();
+    initMobileNav();
     initTabs('sidebar');
     // Restaura filtros do localStorage antes de bindar handlers para não
     // disparar renders extras — o `syncFiltrosParaDom` só ajusta valores
@@ -5109,6 +5320,7 @@
     initFilters();
     initButtons();
     initInfoEditable();
+    bindClientesListDelegation();
     showOverlay('Carregando CRM…');
     loadClientes().finally(hideOverlay);
 

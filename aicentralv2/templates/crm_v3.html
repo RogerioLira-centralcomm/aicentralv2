@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=70">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=74">
 {% endblock %}
 
 {% block content %}
@@ -198,8 +198,12 @@
               </button>
               <div class="crm-v3-detail-identity">
                 <div class="crm-v3-detail-title-row">
+                  <button type="button" class="crm-v3-mobile-back" id="crm-v3-mobile-back" aria-label="Voltar para clientes">
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                    <span>Clientes</span>
+                  </button>
                   <h1 class="crm-v3-detail-title" title="">—</h1>
-                  <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm crm-v3-header-action-edit">
+                  <button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm crm-v3-header-action-edit">
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                     Editar cliente
                   </button>
@@ -282,10 +286,9 @@
 
             <aside class="crm-v3-center-right" aria-label="Cotações">
               <section class="crm-v3-section h-full">
-                <div class="crm-v3-section-header">
+                <div class="crm-v3-section-header crm-v3-section-header-secondary">
                   <h3 class="crm-v3-section-title">Cotações recentes</h3>
                   <div class="crm-v3-section-actions">
-                    <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm" id="crm-v3-btn-expandir-cotacoes" aria-label="Expandir cotações"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
                     <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-btn-nova-cotacao"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova</button>
                   </div>
                 </div>
@@ -309,7 +312,6 @@
             <div class="crm-v3-col-header-row">
               <div class="crm-v3-col-heading">
                 <h2 class="crm-v3-col-title">Contatos</h2>
-                <span class="crm-v3-count" id="crm-v3-contatos-count" aria-live="polite">0</span>
               </div>
               <div class="crm-v3-col-header-actions">
                 <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-import-contatos" title="Importar contatos">
@@ -462,6 +464,22 @@
                  data-placeholder="Adicionar observações comerciais">
               <span class="crm-v3-info-label">Observações comerciais</span>
               <p class="crm-v3-info-obs-text" data-editable-display id="crm-v3-info-obs">—</p>
+            </div>
+            {# Incentivos PI — set/2026: só aparece quando a agência
+               (própria ou vinculada) tem cadastro em cadu_pi_incentivos.
+               Faixas espelham /incentivos; sem cadastro o bloco fica
+               hidden e o Perfil comercial não ganha linhas extras. #}
+            <div class="crm-v3-incentivos-block" id="crm-v3-incentivos-block" hidden>
+              <div class="crm-v3-incentivos-header">
+                <span class="crm-v3-info-label">Incentivos PI</span>
+                <a class="crm-v3-incentivos-link" id="crm-v3-incentivos-link"
+                   href="/incentivos" target="_blank" rel="noopener"
+                   title="Abrir cadastro completo de incentivos">
+                  Ver todos <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+              </div>
+              <p class="crm-v3-incentivos-hint" id="crm-v3-incentivos-hint" hidden></p>
+              <div class="crm-v3-incentivos-faixas" id="crm-v3-incentivos-faixas"></div>
             </div>
           </div>
 
@@ -738,7 +756,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=45"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=49"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=12"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

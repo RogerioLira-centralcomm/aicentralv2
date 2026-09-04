@@ -5877,7 +5877,8 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
 
 def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
                             contato_id=None, tipo="atividade", titulo=None,
-                            data_prazo=None, hora_atividade=None):
+                            data_prazo=None, hora_atividade=None,
+                            status="pendente"):
     """INSERT em sales_atividades. Retorna dict {id}.
 
     Espelha `crm.routes.api_criar_atividade` (L1620–1638). `descricao` e
@@ -5887,6 +5888,8 @@ def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
     `hora_atividade` (opcional) só é persistida se a coluna existir na
     base — bases legadas ignoram silenciosamente.
     """
+    if status not in ("pendente", "em_andamento", "concluida"):
+        raise ValueError("status inválido")
     conn = get_db()
     try:
         with conn.cursor() as cur:
@@ -5897,35 +5900,35 @@ def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
                     """
                     INSERT INTO sales_atividades
                         (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                         tipo, titulo, data_prazo, hora_atividade)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         tipo, titulo, data_prazo, hora_atividade, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (cliente_id, contato_id, executivo_id, descricao, data_atividade,
                      tipo or "atividade", titulo or None, data_prazo or None,
-                     hora_atividade or None),
+                     hora_atividade or None, status),
                 )
             elif has_new:
                 cur.execute(
                     """
                     INSERT INTO sales_atividades
                         (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                         tipo, titulo, data_prazo)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                         tipo, titulo, data_prazo, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                     tipo or "atividade", titulo or None, data_prazo or None),
+                     tipo or "atividade", titulo or None, data_prazo or None, status),
                 )
             else:
                 cur.execute(
                     """
                     INSERT INTO sales_atividades
-                        (cliente_id, contato_id, executivo_id, descricao, data_atividade)
-                    VALUES (%s, %s, %s, %s, %s)
+                        (cliente_id, contato_id, executivo_id, descricao, data_atividade, status)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (cliente_id, contato_id, executivo_id, descricao, data_atividade),
+                    (cliente_id, contato_id, executivo_id, descricao, data_atividade, status),
                 )
             row = cur.fetchone()
         conn.commit()
@@ -5938,8 +5941,8 @@ def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
 def atualizar_atividade_cliente(atividade_id, dados):
     """PATCH parcial em sales_atividades. Retorna dict {id} ou None.
 
-    Aceita chaves: descricao, data_atividade, status, titulo, tipo,
-    data_prazo, contato_id. Só aplica campos das colunas novas se elas
+    Aceita chaves: descricao, data_atividade, status, executivo_id, titulo,
+    tipo, data_prazo, contato_id. Só aplica campos das colunas novas se elas
     existirem. Espelha `crm.routes.api_atualizar_atividade` (L1673–1723).
     """
     conn = get_db()
@@ -5963,6 +5966,10 @@ def atualizar_atividade_cliente(atividade_id, dados):
                     raise ValueError("status inválido")
                 sets.append("status = %s")
                 vals.append(st)
+            if "executivo_id" in dados:
+                eid = dados.get("executivo_id")
+                sets.append("executivo_id = %s")
+                vals.append(int(eid) if eid else None)
             if has_new:
                 if "titulo" in dados:
                     t = (dados.get("titulo") or "").strip() or None
@@ -6339,101 +6346,133 @@ def obter_cotacoes_cliente(cliente_id):
         return cursor.fetchall()
 
 
-def obter_cotacoes_cliente_com_vinculos(cliente_id):
-    """Retorna cotações do cliente + cotações dos clientes vinculados (agência ↔ finais).
+def _ids_clientes_para_cotacoes(cursor, cliente_id):
+    """IDs de `tbl_cliente` cujas cotações devem aparecer na ficha.
 
-    Se o cliente for uma agência, inclui cotações dos clientes finais vinculados.
-    Se for um cliente final com agência, inclui cotações da agência.
-    Cada cotação inclui campos `origem` ('proprio' ou 'vinculado') e `cliente_nome`.
+    Agrupa por empresa (`client_id` em `cadu_cotacoes`), não por contato
+    (`client_user_id`). Inclui:
+    - o próprio cliente
+    - clientes finais ligados a esta ficha como agência (`tbl_cliente_agencia`)
+    - agências ligadas a este cliente final (`tbl_cliente_agencia`)
+    - fallback legado `pk_id_tbl_agencia` / `tbl_agencia.id_cliente`
+
+    A ficha de agência no CRM é um `tbl_cliente`; o N:N aponta para
+    `id_agencia_cliente` (= id_cliente da agência), não para o lookup
+    Sim/Não em `tbl_agencia`.
+    """
+    cid = int(cliente_id)
+    ids = [cid]
+
+    def _add(val):
+        try:
+            i = int(val)
+        except (TypeError, ValueError):
+            return
+        if i not in ids:
+            ids.append(i)
+
+    cursor.execute('''
+        SELECT ca.id_cliente
+        FROM tbl_cliente_agencia ca
+        JOIN tbl_cliente cli ON cli.id_cliente = ca.id_cliente
+        WHERE ca.id_agencia_cliente = %s
+          AND COALESCE(cli.status, true) = true
+    ''', (cid,))
+    for r in cursor.fetchall():
+        _add(r['id_cliente'] if isinstance(r, dict) else r[0])
+
+    cursor.execute(f'''
+        SELECT ca.id_agencia_cliente
+        FROM tbl_cliente_agencia ca
+        JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
+        LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = ag_cli.pk_id_tbl_agencia
+        WHERE ca.id_cliente = %s
+          AND ca.id_agencia_cliente <> ca.id_cliente
+          AND {_SQL_PERFIL_AGENCIA.strip()}
+    ''', (cid,))
+    for r in cursor.fetchall():
+        _add(r['id_agencia_cliente'] if isinstance(r, dict) else r[0])
+
+    # Legado: perfil de agência via tbl_agencia.id_cliente + filhos
+    # com pk_id_tbl_agencia, ou cliente final só com a FK antiga.
+    cursor.execute('''
+        SELECT
+            c.pk_id_tbl_agencia,
+            COALESCE(
+                (ag.key IS TRUE) OR
+                LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'),
+                false
+            ) AS eh_agencia
+        FROM tbl_cliente c
+        LEFT JOIN tbl_agencia ag ON ag.id_agencia = c.pk_id_tbl_agencia
+        WHERE c.id_cliente = %s
+    ''', (cid,))
+    perfil = cursor.fetchone() or {}
+    if perfil.get('eh_agencia'):
+        cursor.execute(
+            'SELECT id_agencia FROM tbl_agencia WHERE id_cliente = %s',
+            (cid,),
+        )
+        ag_row = cursor.fetchone()
+        if ag_row:
+            cursor.execute('''
+                SELECT id_cliente FROM tbl_cliente
+                WHERE pk_id_tbl_agencia = %s AND COALESCE(status, true) = true
+            ''', (ag_row['id_agencia'],))
+            for r in cursor.fetchall():
+                _add(r['id_cliente'] if isinstance(r, dict) else r[0])
+    else:
+        pk_agencia = perfil.get('pk_id_tbl_agencia')
+        if pk_agencia:
+            cursor.execute(
+                'SELECT id_cliente FROM tbl_agencia WHERE id_agencia = %s',
+                (pk_agencia,),
+            )
+            row = cursor.fetchone()
+            if row:
+                _add(row['id_cliente'] if isinstance(row, dict) else row[0])
+
+    return ids
+
+
+def obter_cotacoes_cliente_com_vinculos(cliente_id):
+    """Retorna cotações do cliente + cotações das empresas vinculadas.
+
+    Agência: próprias + clientes finais (N:N e legado).
+    Cliente final: próprias + agência(s) vinculada(s).
+    Cada linha traz `origem` ('proprio' ou 'vinculado') e `cliente_nome`.
+    Falhas sobem para o caller (CRM v3 loga WARNING) — não devolver [].
     """
     conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            # 1. Buscar cliente e verificar se é agência
-            cursor.execute('''
-                SELECT 
-                    c.id_cliente,
-                    c.nome_fantasia,
-                    COALESCE(
-                        (ag.key IS TRUE) OR 
-                        LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'),
-                        false
-                    ) AS eh_agencia,
-                    c.pk_id_tbl_agencia
-                FROM tbl_cliente c
-                LEFT JOIN tbl_agencia ag ON ag.id_agencia = c.pk_id_tbl_agencia
-                WHERE c.id_cliente = %s
-            ''', (cliente_id,))
-            cliente = cursor.fetchone()
-            if not cliente:
-                return []
+    with conn.cursor() as cursor:
+        cursor.execute(
+            'SELECT id_cliente FROM tbl_cliente WHERE id_cliente = %s',
+            (cliente_id,),
+        )
+        if not cursor.fetchone():
+            return []
 
-            # 2. Coletar IDs: cliente atual + vinculados
-            cliente_ids = [int(cliente_id)]
+        cliente_ids = _ids_clientes_para_cotacoes(cursor, cliente_id)
 
-            if cliente.get('eh_agencia'):
-                # Agência: buscar clientes finais vinculados
-                # Primeiro, encontrar o id_agencia desta agência na tabela tbl_agencia
-                cursor.execute('''
-                    SELECT id_agencia FROM tbl_agencia
-                    WHERE id_cliente = %s
-                ''', (cliente_id,))
-                ag_row = cursor.fetchone()
-                if ag_row:
-                    cursor.execute('''
-                        SELECT id_cliente FROM tbl_cliente
-                        WHERE pk_id_tbl_agencia = %s AND status = true
-                    ''', (ag_row['id_agencia'],))
-                    for r in cursor.fetchall():
-                        if r['id_cliente'] not in cliente_ids:
-                            cliente_ids.append(r['id_cliente'])
-            else:
-                # Cliente final: buscar agência vinculada
-                pk_agencia = cliente.get('pk_id_tbl_agencia')
-                if pk_agencia:
-                    cursor.execute('''
-                        SELECT id_cliente FROM tbl_agencia
-                        WHERE id_agencia = %s
-                    ''', (pk_agencia,))
-                    row = cursor.fetchone()
-                    if row and row['id_cliente'] not in cliente_ids:
-                        cliente_ids.append(row['id_cliente'])
-
-            # 3. Buscar cotações de todos os IDs
-            #
-            # Set/2026 (fix crítico): mesmo bug da `obter_cotacoes_cliente`.
-            # As colunas reais em `cadu_cotacoes` são `client_id`,
-            # `client_user_id` e `responsavel_comercial`. As referências
-            # antigas (cliente_id / contato_cliente_id / vendas_central_comm)
-            # não existem no schema e faziam esta query estourar
-            # UndefinedColumn — capturado pelo `except` abaixo e degradado
-            # para lista vazia, com log de erro invisível para o usuário
-            # final. Efeito na UI: coluna "Cotações recentes" sempre vazia
-            # no CRM v3, para agências (agregando filhos) e clientes
-            # diretos. Aliases `cliente_nome/contato_nome/vendedor_nome/
-            # status_descricao/origem` são preservados para não quebrar
-            # o `_map_cotacao` no repositório.
-            cursor.execute('''
-                SELECT 
-                    c.*,
-                    cli.nome_fantasia as cliente_nome,
-                    cont.nome_completo as contato_nome,
-                    vend.nome_completo as vendedor_nome,
-                    st.descricao as status_descricao,
-                    CASE WHEN c.client_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
-                FROM cadu_cotacoes c
-                JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
-                LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
-                LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
-                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-                WHERE c.client_id = ANY(%s) AND c.deleted_at IS NULL
-                ORDER BY c.created_at DESC
-            ''', (int(cliente_id), cliente_ids))
-            return cursor.fetchall()
-    except Exception as e:
-        conn.rollback()
-        current_app.logger.error(f"Erro obter_cotacoes_cliente_com_vinculos: {e}")
-        return []
+        cursor.execute('''
+            SELECT
+                c.*,
+                COALESCE(cli.nome_fantasia, agn.nome_fantasia) as cliente_nome,
+                cont.nome_completo as contato_nome,
+                vend.nome_completo as vendedor_nome,
+                st.descricao as status_descricao,
+                CASE WHEN c.client_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
+            FROM cadu_cotacoes c
+            LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+            LEFT JOIN tbl_cliente agn ON c.agencia_id = agn.id_cliente
+            LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
+            LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
+            LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+            WHERE c.deleted_at IS NULL
+              AND (c.client_id = ANY(%s) OR c.agencia_id = ANY(%s))
+            ORDER BY c.created_at DESC
+        ''', (int(cliente_id), cliente_ids, cliente_ids))
+        return cursor.fetchall()
 
 
 def obter_todas_cotacoes():
@@ -19530,6 +19569,43 @@ def obter_incentivo_por_id(id_incentivo):
                 WHERE i.id = %s
                 ''',
                 (id_incentivo,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_incentivo_por_cliente_id(cliente_id):
+    """Retorna o cadastro de incentivo PI da agência (1:1 por cliente_id).
+
+    Usado pelo CRM v3 na sidebar Info → Perfil comercial. Mesmo shape de
+    `obter_incentivo_por_id`, filtrado pelo id_cliente da agência em
+    `cadu_pi_incentivos.cliente_id`.
+    """
+    if not cliente_id:
+        return None
+    conn = get_db()
+    cols = _sql_select_incentivos_cols('i')
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT
+                    i.id,
+                    i.cliente_id,
+                    cli.percentual AS bv,
+                    {cols},
+                    i.created_at,
+                    i.updated_at,
+                    cli.nome_fantasia AS cliente_nome,
+                    cli.razao_social AS cliente_razao
+                FROM cadu_pi_incentivos i
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                WHERE i.cliente_id = %s
+                LIMIT 1
+                ''',
+                (int(cliente_id),),
             )
             return cursor.fetchone()
     except Exception as e:

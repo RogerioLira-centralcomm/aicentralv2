@@ -570,49 +570,40 @@
        Drawer: Atividade + IA
        ----------------------------------------------------------- */
 
-    /**
-     * Popula um <select> a partir da lista de executivos reais do
-     * `window.CRM_V3_CONTEXT.executivos` (mesmo formato usado no drawer
-     * de cotação). Usa o nome como VALOR — o backend
-     * (`update_atividade` / `create_atividade`) resolve para
-     * `executivo_id` via `_executivo_id_por_nome` ou usa o executivo
-     * logado como default.
-     */
+    /** Popula o responsável usando o ID real de vendas_central_comm. */
     function populateAtividadeResponsaveis(select, atividade) {
         if (!select) return;
         var ctx = window.CRM_V3_CONTEXT || {};
         var lista = Array.isArray(ctx.executivos) ? ctx.executivos : [];
-        // Preserva a option "— Selecionar —" (index 0) já no template.
-        // Deduplica por nome porque a lista pode vir do estado do CRM.
         var vistos = {};
         lista.forEach(function (ex) {
             var nome = ex.nome_completo || ex.nome || '';
-            if (!nome || vistos[nome]) return;
-            vistos[nome] = true;
+            var id = ex.id_contato_cliente || ex.id || '';
+            if (!nome || !id || vistos[String(id)]) return;
+            vistos[String(id)] = true;
             var opt = document.createElement('option');
-            opt.value = nome;
+            opt.value = String(id);
             opt.textContent = nome;
             select.appendChild(opt);
         });
-        // Preferência de valor selecionado:
-        //   1) responsavel já vindo da atividade (edição)
-        //   2) responsável do cliente atualmente selecionado no CRM
-        //   3) usuário logado (ctx.userName)
-        var preferido = (atividade && atividade.responsavel)
-            || (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente && window.crmV3.state.cliente.responsavel)
-            || ctx.userName
+        var cliente = window.crmV3 && window.crmV3.state && window.crmV3.state.cliente;
+        var preferido = (atividade && atividade.executivo_id)
+            || (cliente && cliente.executivo_id)
+            || ctx.userId
             || '';
         if (preferido) {
             var achou = false;
             for (var i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === preferido) { achou = true; select.selectedIndex = i; break; }
+                if (select.options[i].value === String(preferido)) {
+                    achou = true;
+                    select.selectedIndex = i;
+                    break;
+                }
             }
-            // Se não estava na lista, adiciona no topo para não perder o
-            // valor (ex.: legado com nome fora do vendas_central_comm).
             if (!achou) {
                 var extra = document.createElement('option');
-                extra.value = preferido;
-                extra.textContent = preferido;
+                extra.value = String(preferido);
+                extra.textContent = (atividade && atividade.responsavel) || ('Executivo #' + preferido);
                 extra.selected = true;
                 select.insertBefore(extra, select.options[1] || null);
             }
@@ -675,6 +666,73 @@
         });
     }
 
+    function fillAtividadeContext(wrapper, clienteId) {
+        var target = wrapper.querySelector('[data-atividade-cliente]');
+        if (!target) return;
+        var state = window.crmV3 && window.crmV3.state;
+        var cliente = state && state.cliente;
+        if (cliente && String(cliente.id) === String(clienteId)) {
+            target.textContent = cliente.nome || ('Cliente #' + clienteId);
+            return;
+        }
+        target.textContent = clienteId ? ('Cliente #' + clienteId) : '—';
+    }
+
+    function applyTextSafely(form, texto) {
+        var desc = form.querySelector('[data-field="descricao"]');
+        texto = stripMarkdown(texto || '');
+        if (!desc || !texto) return false;
+        var atual = (desc.value || '').trim();
+        if (atual && atual !== texto) {
+            var ok = window.confirm('Substituir o roteiro atual por esta sugestão? O texto atual será removido do editor.');
+            if (!ok) return false;
+        }
+        desc.value = texto;
+        desc.focus();
+        return true;
+    }
+
+    function addIaHistory(wrapper, form, item) {
+        if (!wrapper || !item || !item.texto) return;
+        var section = wrapper.querySelector('[data-ia-history-section]');
+        var list = wrapper.querySelector('[data-ia-history]');
+        if (!section || !list) return;
+        section.hidden = false;
+        var row = document.createElement('div');
+        row.className = 'cx-atividade-ia-history-item';
+        var copy = document.createElement('div');
+        copy.className = 'cx-atividade-ia-history-copy';
+        copy.textContent = (item.label || 'Sugestão') + ' · ' + item.texto;
+        copy.title = item.texto;
+        var apply = document.createElement('button');
+        apply.type = 'button';
+        apply.className = 'cx-atividade-ia-history-apply';
+        apply.textContent = 'Aplicar no editor';
+        apply.addEventListener('click', function () {
+            applyTextSafely(form, item.texto);
+        });
+        row.appendChild(copy);
+        row.appendChild(apply);
+        list.insertBefore(row, list.firstChild);
+    }
+
+    function wireAtividadeModelo(wrapper, form) {
+        var btn = wrapper.querySelector('[data-atividade-modelo]');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var tipo = (form.querySelector('[data-field="tipo"]') || {}).value || 'atividade';
+            var modelos = {
+                ligacao: 'Objetivo: \n\nPerguntas principais:\n- \n- \n\nArgumentos e informações:\n- \n\nPróximo passo combinado: ',
+                reuniao: 'Objetivo da reunião: \n\nAgenda:\n- Contexto e alinhamento\n- Necessidades e prioridades\n- Proposta de próximo passo\n\nDecisões e responsáveis: ',
+                email: 'Objetivo da mensagem: \n\nContexto: \n\nPontos principais:\n- \n- \n\nChamada para ação: ',
+                whatsapp: 'Objetivo da conversa: \n\nMensagem principal: \n\nPergunta de fechamento: ',
+                planejamento: 'Objetivo: \n\nCenário atual: \n\nAções:\n- \n- \n\nPrazo e responsável: ',
+                atividade: 'Objetivo: \n\nO que executar:\n- \n- \n\nResultado esperado: \n\nPróximo passo: '
+            };
+            applyTextSafely(form, modelos[tipo] || modelos.atividade);
+        });
+    }
+
     function openDrawerAtividade(atividade, clienteId, opts) {
         opts = opts || {};
         var frag = cloneTpl('cx-drawer-atividade-tpl');
@@ -687,6 +745,7 @@
         // o valor se as <option>s já existem no DOM.
         populateAtividadeResponsaveis(wrapper.querySelector('#cx-ativ-responsavel'), atividade);
         populateAtividadeContatos(wrapper.querySelector('#cx-ativ-contato'), atividade);
+        fillAtividadeContext(wrapper, clienteId);
 
         // Preenche todos os `data-field` (input/select/hidden) a partir
         // do objeto atividade. Isso alimenta as hiddens `tipo` e
@@ -702,6 +761,7 @@
         // Conecta os chip-groups (Tipo, Status, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
+        wireAtividadeModelo(wrapper, form);
 
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
@@ -722,14 +782,14 @@
         // IA actions
         $$('[data-ia-action]', wrapper).forEach(function (btn) {
             btn.addEventListener('click', function () {
-                runIA(btn, form, wrapper.querySelector('[data-ia-output]'), clienteId);
+                runIA(btn, form, wrapper.querySelector('[data-ia-output]'), clienteId, wrapper);
             });
         });
 
         cxDrawer.open({
             title: (atividade && atividade.id) ? 'Editar atividade' : 'Nova atividade',
             breadcrumb: 'CRM v3 · Atividade',
-            size: 'md',
+            size: 'editor',
             contentEl: wrapper,
             // Sobreposto — não empurra as colunas do CRM.
             split: false,
@@ -738,7 +798,10 @@
                 {
                     label: (atividade && atividade.id) ? 'Salvar alterações' : 'Criar atividade',
                     variant: 'primary',
-                    onClick: function (ev, id) { submitAtividade(form, atividade, clienteId, id); }
+                    id: 'cx-drawer-atividade-submit',
+                    onClick: function (ev, id) {
+                        submitAtividade(form, atividade, clienteId, id, ev.currentTarget);
+                    }
                 }
             ]
         });
@@ -746,11 +809,13 @@
         if (opts.gerarRoteiro) {
             var roteiroBtn = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
             var outEl = wrapper.querySelector('[data-ia-output]');
-            if (roteiroBtn) runIA(roteiroBtn, form, outEl, clienteId);
+            if (roteiroBtn) runIA(roteiroBtn, form, outEl, clienteId, wrapper);
         }
     }
 
-    function submitAtividade(form, atividade, clienteId, drawerId) {
+    function submitAtividade(form, atividade, clienteId, drawerId, submitBtn) {
+        if (form.dataset.submitting === '1') return;
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
         var payload = serializeForm(form);
         if (!payload.titulo || !payload.titulo.trim()) { toast('Título é obrigatório', true); return; }
         if (!payload.data) { toast('Data é obrigatória', true); return; }
@@ -765,6 +830,13 @@
         // no banco se a base tiver a coluna `hora_atividade` (opcional).
         if (!payload.hora) payload.hora = null;
 
+        form.dataset.submitting = '1';
+        form.setAttribute('aria-busy', 'true');
+        var submitLabel = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
+        }
         var isEdit = !!(atividade && atividade.id);
         var req = isEdit
             ? apiFetch('/atividades/' + encodeURIComponent(atividade.id), { method: 'PATCH', body: payload })
@@ -775,7 +847,16 @@
             if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
                 window.crmV3.reloadAtividades();
             }
-        }).catch(function (err) { toast(err.message, true); });
+        }).catch(function (err) {
+            toast(err.message, true);
+        }).finally(function () {
+            form.dataset.submitting = '0';
+            form.removeAttribute('aria-busy');
+            if (submitBtn && document.body.contains(submitBtn)) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = submitLabel;
+            }
+        });
     }
 
     function stripMarkdown(s) {
@@ -790,20 +871,30 @@
         return s.trim();
     }
 
-    function runIA(btn, form, output, clienteId) {
+    function runIA(btn, form, output, clienteId, wrapper) {
+        if (!wrapper || wrapper.dataset.iaBusy === '1') return;
         var action = btn.getAttribute('data-ia-action');
         var payload = serializeForm(form);
         payload.cliente_id = clienteId;
+        var instrucoes = wrapper && wrapper.querySelector('[data-ia-field="instrucoes"]');
+        payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
         var endpoint = action;
         if (action === 'gerar-comunicacao') {
             var fmt = String(payload.formato || payload.tipo || '').toLowerCase();
             if (fmt === 'sequencia') endpoint = 'touchpoints';
-            else if (fmt === 'roteiro' || fmt === 'ligacao' || fmt === 'reuniao') endpoint = 'gerar-roteiro';
-            else payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : 'email';
+            else {
+                endpoint = 'gerar-comunicacao';
+                payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : 'email';
+            }
         }
-        btn.disabled = true;
+        wrapper.dataset.iaBusy = '1';
+        var iaButtons = $$('[data-ia-action]', wrapper);
+        iaButtons.forEach(function (actionBtn) { actionBtn.disabled = true; });
+        var iaPanel = wrapper.querySelector('.cx-atividade-ia');
+        if (iaPanel) iaPanel.setAttribute('aria-busy', 'true');
         output.classList.add('is-visible');
+        output.setAttribute('aria-busy', 'true');
         output.textContent = 'Consultando assistente…';
 
         apiFetch('/ia/' + endpoint, { method: 'POST', body: payload }).then(function (res) {
@@ -811,9 +902,15 @@
             if (endpoint === 'melhorar-texto' || endpoint === 'gerar-roteiro') {
                 var texto = stripMarkdown((data && (data.texto || data.descricao || data.texto_melhorado)) || '');
                 if (texto) {
-                    var desc = form.querySelector('[data-field="descricao"]');
-                    if (desc) desc.value = texto;
-                    output.textContent = 'Roteiro preenchido na descrição. Ajuste se precisar, execute e salve.';
+                    addIaHistory(wrapper, form, {
+                        label: 'Roteiro ' + (payload.foco || ''),
+                        texto: texto
+                    });
+                    if (applyTextSafely(form, texto)) {
+                        output.textContent = 'Roteiro aplicado no editor. Revise antes de salvar.';
+                    } else {
+                        output.textContent = 'Sugestão guardada no histórico sem substituir seu texto.';
+                    }
                 } else {
                     output.textContent = 'A IA não devolveu roteiro. Tente de novo ou escreva na descrição.';
                 }
@@ -840,11 +937,18 @@
                             });
                         }
                     };
+                    var sugestaoTexto = stripMarkdown(data.descricao);
                     setField('titulo', stripMarkdown(data.titulo));
-                    setField('descricao', stripMarkdown(data.descricao));
                     setField('tipo', data.tipo);
                     setField('data', data.data_sugerida);
-                    output.textContent = 'Sugestão preenchida no formulário.';
+                    if (sugestaoTexto) {
+                        addIaHistory(wrapper, form, {
+                            label: 'Próxima atividade',
+                            texto: sugestaoTexto
+                        });
+                        applyTextSafely(form, sugestaoTexto);
+                    }
+                    output.textContent = 'Sugestão aplicada aos campos disponíveis.';
                 }
             } else if (endpoint === 'touchpoints') {
                 var list = (data && data.touchpoints) || [];
@@ -861,6 +965,10 @@
                         apply.style.marginTop = '8px';
                         apply.textContent = 'Criar ' + list.length + ' atividades';
                         apply.addEventListener('click', function () {
+                            if (apply.disabled) return;
+                            apply.disabled = true;
+                            var applyLabel = apply.textContent;
+                            apply.textContent = 'Criando atividades…';
                             Promise.all(list.map(function (t) {
                                 return apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', {
                                     method: 'POST',
@@ -871,7 +979,7 @@
                                         prioridade: t.prioridade || 'Média',
                                         data: t.data_sugerida,
                                         hora: t.hora || '',
-                                        responsavel: (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente && window.crmV3.state.cliente.responsavel) || 'Luisa Santana'
+                                        executivo_id: payload.executivo_id || null
                                     }
                                 });
                             })).then(function () {
@@ -879,8 +987,12 @@
                                 if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
                                     window.crmV3.reloadAtividades();
                                 }
-                                apply.disabled = true;
-                            }).catch(function (err) { toast(err.message, true); });
+                                apply.textContent = 'Atividades criadas';
+                            }).catch(function (err) {
+                                apply.disabled = false;
+                                apply.textContent = applyLabel;
+                                toast(err.message, true);
+                            });
                         });
                         output.appendChild(document.createElement('br'));
                         output.appendChild(apply);
@@ -889,8 +1001,11 @@
             } else if (endpoint === 'gerar-comunicacao') {
                 if (data && data.mensagem) {
                     var msg = stripMarkdown(data.mensagem);
-                    var descEl = form.querySelector('[data-field="descricao"]');
-                    if (descEl) descEl.value = msg;
+                    addIaHistory(wrapper, form, {
+                        label: String(payload.tipo || 'Comunicação'),
+                        texto: msg
+                    });
+                    applyTextSafely(form, msg);
                     if (data.assunto) {
                         var titEl = form.querySelector('[data-field="titulo"]');
                         if (titEl && !(titEl.value || '').trim()) titEl.value = stripMarkdown(data.assunto);
@@ -906,7 +1021,10 @@
         }).catch(function (err) {
             output.textContent = 'Erro: ' + err.message;
         }).finally(function () {
-            btn.disabled = false;
+            wrapper.dataset.iaBusy = '0';
+            iaButtons.forEach(function (actionBtn) { actionBtn.disabled = false; });
+            output.removeAttribute('aria-busy');
+            if (iaPanel) iaPanel.removeAttribute('aria-busy');
         });
     }
 
@@ -1044,15 +1162,20 @@
 
     function submitCotacaoCaminhoA(form, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
-        // Sanidade mínima do lado do cliente. O server valida definitivamente.
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
 
         var isEdit = !!(cotacao && cotacao.id);
+        var targetId = String(payload.client_id || clienteId || '').trim();
+        if (!isEdit && !targetId) {
+            toast('Selecione o cliente da cotação', true);
+            return;
+        }
+
         var req = isEdit
             ? apiFetch('/cotacoes/' + encodeURIComponent(cotacao.id), { method: 'PATCH', body: payload })
-            : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/cotacoes', { method: 'POST', body: payload });
+            : apiFetch('/clientes/' + encodeURIComponent(targetId) + '/cotacoes', { method: 'POST', body: payload });
 
         req.then(function (resp) {
             toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
@@ -1081,14 +1204,9 @@
     }
 
     /* ------------------------------------------------------------
-     * Cabeçalho contextual read-only do drawer de cotação.
-     * ------------------------------------------------------------
-     * Puxa o cliente/agência do estado atual do CRM v3 e preenche o
-     * bloco `.cx-drawer-context`. Se o cliente selecionado É a
-     * agência (is_agencia=true), mostra apenas a linha "Agência".
-     * Caso contrário mostra Cliente e, se houver agência pai,
-     * mostra também a linha "Agência". Cliente direto (sem agência)
-     * mostra apenas a linha "Cliente".
+     * Cabeçalho Cliente / Agência do drawer de cotação.
+     * Ficha de agência: select dos clientes finais vinculados.
+     * Ficha de cliente final: nome só leitura + agência se houver.
      * ------------------------------------------------------------ */
     function fillContextoCotacao(wrapper, clienteId) {
         var box = wrapper.querySelector('#cx-cot-contexto');
@@ -1096,12 +1214,11 @@
         var agenciaRow = wrapper.querySelector('#cx-cot-ctx-agencia-row');
         var clienteVal = wrapper.querySelector('#cx-cot-ctx-cliente-nome');
         var agenciaVal = wrapper.querySelector('#cx-cot-ctx-agencia-nome');
+        var clientSelect = wrapper.querySelector('#cx-cot-client-id');
+        var agenciaIdInput = wrapper.querySelector('#cx-cot-agencia-id');
         if (!box || !clienteRow || !agenciaRow) return;
 
         var cliente = (window.crmV3 && window.crmV3.state && window.crmV3.state.cliente) || null;
-        // Sanidade: só usamos o state.cliente se casar com o clienteId
-        // que abriu o drawer. Se abriu de um deep-link ou trocou de
-        // cliente por baixo, evitamos mostrar dado inconsistente.
         if (cliente && clienteId && String(cliente.id) !== String(clienteId)) {
             cliente = null;
         }
@@ -1113,16 +1230,62 @@
         var nome = cliente.nome || '—';
         var isAgencia = !!cliente.is_agencia;
         var agenciaNome = cliente.agencia_nome || '';
+        var finais = Array.isArray(cliente.clientes_finais) ? cliente.clientes_finais.slice() : [];
+        if (!finais.length && isAgencia && window.crmV3 && Array.isArray(window.crmV3.state.clientes)) {
+            finais = window.crmV3.state.clientes
+                .filter(function (c) {
+                    if (String(c.id) === String(cliente.id)) return false;
+                    if (String(c.agencia_id || '') === String(cliente.id)) return true;
+                    return (c.agencias_vinculadas || []).some(function (v) {
+                        return String(v.agencia_id) === String(cliente.id);
+                    });
+                })
+                .map(function (c) { return { id: c.id, nome: c.nome }; });
+        }
+
+        box.hidden = false;
+        clienteRow.hidden = false;
 
         if (isAgencia) {
-            // Cliente selecionado é a própria agência — mostra só
-            // "Agência: <nome>" para deixar o vínculo claro.
-            clienteRow.hidden = true;
             agenciaRow.hidden = false;
-            if (agenciaVal) agenciaVal.textContent = nome;
+            if (agenciaVal) {
+                agenciaVal.textContent = nome;
+                agenciaVal.title = nome;
+            }
+            if (agenciaIdInput) agenciaIdInput.value = String(cliente.id);
+            if (clienteVal) clienteVal.hidden = true;
+            if (clientSelect) {
+                clientSelect.hidden = false;
+                clientSelect.required = true;
+                clientSelect.innerHTML = '';
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = finais.length
+                    ? '— Selecione o cliente —'
+                    : 'Nenhum cliente vinculado';
+                clientSelect.appendChild(placeholder);
+                finais.forEach(function (f) {
+                    var opt = document.createElement('option');
+                    opt.value = String(f.id);
+                    opt.textContent = f.nome || ('#' + f.id);
+                    clientSelect.appendChild(opt);
+                });
+                clientSelect.disabled = !finais.length;
+            }
         } else {
-            clienteRow.hidden = false;
+            if (clientSelect) {
+                clientSelect.hidden = true;
+                clientSelect.required = false;
+                clientSelect.disabled = false;
+                clientSelect.innerHTML = '';
+                var selfOpt = document.createElement('option');
+                selfOpt.value = String(cliente.id);
+                selfOpt.selected = true;
+                selfOpt.textContent = nome;
+                clientSelect.appendChild(selfOpt);
+            }
             if (clienteVal) {
+                clienteVal.hidden = false;
                 clienteVal.textContent = nome;
                 clienteVal.title = nome;
             }
@@ -1132,11 +1295,12 @@
                     agenciaVal.textContent = agenciaNome;
                     agenciaVal.title = agenciaNome;
                 }
+                if (agenciaIdInput) agenciaIdInput.value = String(cliente.agencia_id || '');
             } else {
                 agenciaRow.hidden = true;
+                if (agenciaIdInput) agenciaIdInput.value = '';
             }
         }
-        box.hidden = false;
     }
 
     /* ------------------------------------------------------------

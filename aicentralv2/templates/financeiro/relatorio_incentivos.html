@@ -188,7 +188,7 @@
     </div>
     <div id="modal_pis_erro" class="hidden p-6 text-center text-red-600 text-sm"></div>
 
-    <div id="modal_pis_conteudo" class="hidden flex-1 overflow-y-auto min-h-0">
+    <div id="modal_pis_conteudo" class="hidden flex-1 overflow-hidden min-h-0 flex flex-col">
       <div class="px-5 py-3 border-b border-gray-100 bg-gray-50/80 flex flex-wrap gap-2">
         <button type="button" onclick="copiarTodosCodigosPis('cc', this)"
                 class="text-xs px-2.5 py-1.5 bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors">
@@ -203,7 +203,24 @@
           <i class="far fa-copy mr-1"></i>Copiar tudo (CC + AG)
         </button>
       </div>
-      <div id="modal_pis_lista" class="divide-y divide-gray-100"></div>
+      <div id="modal_pis_lista" class="divide-y divide-gray-100 flex-1 overflow-y-auto min-h-0"></div>
+      <div id="modal_pis_totais" class="hidden shrink-0 px-5 py-3 border-t border-gray-200 bg-gray-50">
+        <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Total (<span id="modal_pis_totais_qtd">0</span> PIs)
+          </span>
+          <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div class="flex items-baseline gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valor bruto</span>
+              <span class="text-sm font-semibold text-gray-800 tabular-nums" id="modal_pis_total_bruto">—</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valor líquido</span>
+              <span class="text-sm font-semibold text-gray-800 tabular-nums" id="modal_pis_total_liquido">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-end">
@@ -293,12 +310,43 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function fmtMoedaBr(val) {
+  if (val == null || val === '' || isNaN(Number(val))) return '—';
+  return 'R$ ' + Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function somarValoresPis(pis, campo) {
+  var total = 0;
+  (pis || []).forEach(function (pi) {
+    var v = pi[campo];
+    if (v != null && v !== '' && !isNaN(Number(v))) total += Number(v);
+  });
+  return total;
+}
+
+function atualizarTotaisModalPis(pis) {
+  var wrap = document.getElementById('modal_pis_totais');
+  var qtdEl = document.getElementById('modal_pis_totais_qtd');
+  var brutoEl = document.getElementById('modal_pis_total_bruto');
+  var liquidoEl = document.getElementById('modal_pis_total_liquido');
+  if (!wrap || !qtdEl || !brutoEl || !liquidoEl) return;
+  if (!pis || !pis.length) {
+    wrap.classList.add('hidden');
+    return;
+  }
+  qtdEl.textContent = String(pis.length);
+  brutoEl.textContent = fmtMoedaBr(somarValoresPis(pis, 'valor_bruto'));
+  liquidoEl.textContent = fmtMoedaBr(somarValoresPis(pis, 'valor_liquido'));
+  wrap.classList.remove('hidden');
+}
+
 function renderModalPisLista(pis) {
   _modalPisData = pis || [];
   var lista = document.getElementById('modal_pis_lista');
   if (!lista) return;
   if (!_modalPisData.length) {
     lista.innerHTML = '<p class="p-6 text-center text-gray-500 text-sm">Nenhum PI no período selecionado.</p>';
+    atualizarTotaisModalPis([]);
     return;
   }
   lista.innerHTML = _modalPisData.map(function (pi) {
@@ -306,6 +354,8 @@ function renderModalPisLista(pis) {
     var ag = pi.codigo_pi_ag || '';
     var clienteNome = pi.cliente_nome || '';
     var agenciaNomePi = pi.agencia_nome || '';
+    var valorBruto = fmtMoedaBr(pi.valor_bruto);
+    var valorLiquido = fmtMoedaBr(pi.valor_liquido);
     var ctx = [pi.titulo_pi, pi.mes_ref_comp].filter(Boolean).join(' · ');
     return (
       '<div class="px-5 py-3 hover:bg-gray-50/80 transition-colors">' +
@@ -328,11 +378,22 @@ function renderModalPisLista(pis) {
               '<code class="text-sm font-mono text-gray-800 truncate flex-1">' + escHtml(ag || '—') + '</code>' +
               (ag ? '<button type="button" class="shrink-0 p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Copiar AG" onclick="copiarTextoPis(' + JSON.stringify(ag) + ', this)"><i class="far fa-copy text-xs"></i></button>' : '') +
             '</div>' +
+            '<div class="mt-2 pt-2 border-t border-gray-100 space-y-1">' +
+              '<div class="flex items-baseline justify-between gap-2">' +
+                '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valor bruto</span>' +
+                '<span class="text-sm font-medium text-gray-800 tabular-nums">' + escHtml(valorBruto) + '</span>' +
+              '</div>' +
+              '<div class="flex items-baseline justify-between gap-2">' +
+                '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valor líquido</span>' +
+                '<span class="text-sm font-medium text-gray-800 tabular-nums">' + escHtml(valorLiquido) + '</span>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>'
     );
   }).join('');
+  atualizarTotaisModalPis(_modalPisData);
 }
 
 function copiarTodosCodigosPis(modo, btn) {

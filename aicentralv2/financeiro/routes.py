@@ -304,6 +304,8 @@ def api_relatorio_incentivos_pis():
             'mes_ref_comp': r.get('mes_ref_comp') or None,
             'cliente_nome': r.get('cliente_nome') or None,
             'agencia_nome': r.get('agencia_nome') or agencia_nome,
+            'valor_bruto': float(r['valor_bruto']) if r.get('valor_bruto') is not None else None,
+            'valor_liquido': float(r['valor_liquido']) if r.get('valor_liquido') is not None else None,
         })
 
     return jsonify({

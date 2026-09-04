@@ -19851,6 +19851,8 @@ def obter_pis_relatorio_incentivo_agencia(
         params.extend([yy, yy])
 
     where_sql = ' AND '.join(where)
+    parse_bruto = _parse_vr_bruto_pi_sql('p')
+    parse_liquido = _parse_valor_monetario_col_sql('p.vr_liquido_pi')
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -19863,7 +19865,9 @@ def obter_pis_relatorio_incentivo_agencia(
                     p.titulo_pi,
                     p.mes_ref_comp,
                     COALESCE(NULLIF(TRIM(cli.nome_fantasia), ''), cli.razao_social) AS cliente_nome,
-                    COALESCE(NULLIF(TRIM(cli_ag.nome_fantasia), ''), cli_ag.razao_social) AS agencia_nome
+                    COALESCE(NULLIF(TRIM(cli_ag.nome_fantasia), ''), cli_ag.razao_social) AS agencia_nome,
+                    ({parse_bruto}) AS valor_bruto,
+                    ({parse_liquido}) AS valor_liquido
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON cli_ag.id_cliente = p.id_agencia

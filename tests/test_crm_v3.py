@@ -11,6 +11,8 @@ from aicentralv2.crm_v3_helpers import (
     pluralizar_contatos,
     filtrar_vinculos_colisao_lookup,
     uf_por_capital_operacao,
+    texto_sem_markdown,
+    titulo_atividade_lista,
 )
 from aicentralv2.crm_v3_data import store
 from aicentralv2.crm_v3_routes import bp

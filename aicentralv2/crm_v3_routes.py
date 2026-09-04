@@ -8,7 +8,7 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 from flask import Blueprint, current_app, g, jsonify, render_template, request, session, url_for
 
 from .auth import admin_required_api, login_required, login_required_api
-from .crm_v3_helpers import parse_texto_contatos
+from .crm_v3_helpers import parse_texto_contatos, texto_sem_markdown
 from .crm_v3_repository import StoreUnavailable, get_store, store_diagnostic
 
 
@@ -761,7 +761,23 @@ def _call_openrouter_multimodal(system_prompt: str, text_prompt: str, image_data
     return resp.json()["choices"][0]["message"]["content"]
 
 
-def _roteiro_fallback(titulo, tipo, cliente) -> str:
+def _contato_para_ia(data: dict, cliente_id: str):
+    """Contato escolhido no drawer, senão o principal do cliente."""
+    contato_id = str(data.get("contato_id") or "").strip()
+    contatos = store.list_contatos(cliente_id) or [] if cliente_id else []
+    if contato_id:
+        for c in contatos:
+            if str(c.get("id")) == contato_id:
+                return c, contatos
+    principal = next((c for c in contatos if c.get("principal")), (contatos[0] if contatos else {}))
+    return principal or {}, contatos
+
+
+def _texto_ia_limpo(texto) -> str:
+    return texto_sem_markdown(texto or "")
+
+
+def _roteiro_fallback(titulo, tipo, cliente, contato=None) -> str:
     nome = (cliente or {}).get("nome") or "o cliente"
     tipo_label = {
         "ligacao": "ligação",
@@ -772,8 +788,10 @@ def _roteiro_fallback(titulo, tipo, cliente) -> str:
         "planejamento": "planejamento",
     }.get((tipo or "").lower(), "atividade")
     assunto = (titulo or f"esta {tipo_label}").strip()
+    quem = ((contato or {}).get("nome") or "").strip()
+    alvo = f"{quem} ({nome})" if quem else nome
     return (
-        f"Objetivo: executar “{assunto}” com {nome}.\n\n"
+        f"Objetivo: executar “{assunto}” com {alvo}.\n\n"
         "Roteiro:\n"
         "- Abrir com contexto (por que estamos falando agora).\n"
         "- Confirmar interesse e restrições (prazo, verba, aprovação).\n"
@@ -785,38 +803,49 @@ def _roteiro_fallback(titulo, tipo, cliente) -> str:
 
 def _montar_roteiro(data: dict) -> dict:
     """Gera roteiro de execução a partir do título/tipo + contexto do cliente."""
-    titulo = (data.get("titulo") or "").strip()
+    titulo = texto_sem_markdown(data.get("titulo") or "").strip()
     tipo = (data.get("tipo") or "atividade").strip()
-    descricao = (data.get("descricao") or data.get("texto") or "").strip()
+    formato = (data.get("formato") or "").strip().lower()
+    descricao = texto_sem_markdown(data.get("descricao") or data.get("texto") or "").strip()
     cliente_id = data.get("cliente_id") or ""
     cliente = store.get_cliente(cliente_id) if cliente_id else None
+    contato, _ = _contato_para_ia(data, cliente_id)
 
     if _openrouter_available():
         try:
             nome = (cliente or {}).get("nome") or "cliente"
             classif = (cliente or {}).get("classificacao_cliente") or "Prospecção"
+            nome_contato = (contato or {}).get("nome") or ""
+            cargo_contato = (contato or {}).get("cargo") or ""
             user = (
                 f"Cliente: {nome}\n"
                 f"Classificação: {classif}\n"
                 f"Tipo da atividade: {tipo or 'atividade'}\n"
+                f"Formato do texto: {formato or tipo or 'roteiro'}\n"
                 f"Título: {titulo or '(sem título)'}\n"
             )
+            if nome_contato:
+                user += f"Contato: {nome_contato}"
+                if cargo_contato:
+                    user += f" ({cargo_contato})"
+                user += "\n"
             if descricao:
                 user += f"Notas do executivo:\n{descricao}\n"
             system_prompt = (
                 "Você é um assistente de vendas da CentralComm (mídia).\n"
                 "Sua tarefa NÃO é enfeitar texto: é ajudar o executivo a EXECUTAR a atividade.\n"
-                "Escreva em português um roteiro curto (máx. 180 palavras) com exatamente estas seções:\n"
+                "Escreva em português um roteiro curto (máx. 180 palavras) com estas seções em texto puro:\n"
                 "Objetivo: (1 frase)\n"
-                "Roteiro: (3 a 6 bullets do que falar/perguntar)\n"
+                "Roteiro:\n- item\n"
                 "Fechamento: (como registrar o resultado e o próximo passo)\n"
-                "Não invente números, prazos ou nomes que não estejam no contexto."
+                "NUNCA use markdown: sem asteriscos, sem #, sem crases, sem colchetes de link. "
+                "Listas só com hífen. Não invente números, prazos ou nomes que não estejam no contexto."
             )
-            texto = _call_openrouter(system_prompt, user, max_tokens=450, temperature=0.4).strip()
+            texto = _texto_ia_limpo(_call_openrouter(system_prompt, user, max_tokens=450, temperature=0.4))
             return {"texto": texto, "source": "openrouter"}
         except Exception:
             pass
-    return {"texto": _roteiro_fallback(titulo, tipo, cliente), "source": "fallback"}
+    return {"texto": _roteiro_fallback(titulo, tipo, cliente, contato), "source": "fallback"}
 
 
 @bp.route("/api/ia/melhorar-texto", methods=["POST"])
@@ -873,7 +902,8 @@ def api_ia_sugerir_atividade():
                 "Você é um assistente comercial da CENTRALCOMM (mídia digital).\n"
                 "Com base no contexto do cliente, sugira UMA atividade de acompanhamento.\n"
                 "Responda APENAS em JSON com: {\"tipo\": \"...\", \"titulo\": \"...\", \"descricao\": \"...\", \"prioridade\": \"Alta|Média|Baixa\"}\n"
-                "Tipos válidos: ligacao, almoco, reuniao, projeto, planejamento, cadu, atividade\n"
+                "Tipos válidos: ligacao, reuniao, email, whatsapp, planejamento, atividade\n"
+                "titulo e descricao em texto puro, sem markdown (sem ** # `).\n"
                 "Seja breve e prático."
             )
             resp = _call_openrouter(system_prompt, contexto, max_tokens=300, temperature=0.7).strip()
@@ -885,6 +915,8 @@ def api_ia_sugerir_atividade():
                 cliente.get("classificacao_cliente") or "Prospecção", 2
             )
             sugestao.setdefault("data_sugerida", (hoje + timedelta(days=delta)).isoformat())
+            sugestao["titulo"] = _texto_ia_limpo(sugestao.get("titulo"))
+            sugestao["descricao"] = _texto_ia_limpo(sugestao.get("descricao"))
             sugestao["source"] = "openrouter"
             return _ok(sugestao)
         except Exception:  # pragma: no cover

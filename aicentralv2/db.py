@@ -1218,7 +1218,7 @@ def obter_vendedores_centralcomm(incluir_usuario_comercial=False):
         filtro_usuario = "" if incluir_usuario_comercial else "AND c.nome_completo != 'Usuário Comercial'"
         cur.execute(
             f'''
-            SELECT c.id_contato_cliente, c.nome_completo
+            SELECT c.id_contato_cliente, c.nome_completo, c.email, c.foto_url
             FROM tbl_contato_cliente c
             JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
@@ -5858,7 +5858,9 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
                 sa.contato_id, sa.created_at,
                 {select_extra},
                 c.nome_completo AS contato_nome,
-                ex.nome_completo AS responsavel_nome
+                sa.executivo_id,
+                ex.nome_completo AS responsavel_nome,
+                ex.foto_url AS responsavel_foto_url
             FROM sales_atividades sa
             LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
             LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
@@ -6058,7 +6060,8 @@ def obter_atividade_cliente_por_id(atividade_id):
                 sa.contato_id, sa.executivo_id, sa.created_at,
                 {select_extra},
                 c.nome_completo AS contato_nome,
-                ex.nome_completo AS responsavel_nome
+                ex.nome_completo AS responsavel_nome,
+                ex.foto_url AS responsavel_foto_url
             FROM sales_atividades sa
             LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
             LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id

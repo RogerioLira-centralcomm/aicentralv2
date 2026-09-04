@@ -1032,6 +1032,9 @@ class CrmV3Repository:
             "responsavel": row.get("responsavel_nome") or "",
             "responsavel_iniciais": self._initials(row.get("responsavel_nome") or ""),
             "responsavel_foto_url": (row.get("responsavel_foto_url") or "").strip(),
+            "executivo_id": (
+                str(row.get("executivo_id")) if row.get("executivo_id") is not None else ""
+            ),
             "contato_id": (
                 str(row.get("contato_id")) if row.get("contato_id") is not None else ""
             ),

@@ -2879,6 +2879,47 @@ button:hover > .crm-v3-menu-hint {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+/* Badge de cotação vinculada (agência/cliente final) */
+.crm-v3-cotacao-origem {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #6366f1;
+    background: #eef2ff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.crm-v3-cotacao-origem i {
+    font-size: 9px;
+}
+
+.crm-v3-cotacao-vinculada {
+    border-left: 3px solid #6366f1;
+}
+
+.crm-v3-cotacao-linha-vinculada {
+    border-left: 3px solid #6366f1;
+    padding-left: 10px;
+}
+
+.crm-v3-cotacao-linha-origem {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #6366f1;
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+
 .crm-v3-cotacao-topline {
     display: flex;
     align-items: center;

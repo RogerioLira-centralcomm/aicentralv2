@@ -6195,6 +6195,90 @@ def obter_cotacoes_cliente(cliente_id):
         return cursor.fetchall()
 
 
+def obter_cotacoes_cliente_com_vinculos(cliente_id):
+    """Retorna cotações do cliente + cotações dos clientes vinculados (agência ↔ finais).
+
+    Se o cliente for uma agência, inclui cotações dos clientes finais vinculados.
+    Se for um cliente final com agência, inclui cotações da agência.
+    Cada cotação inclui campos `origem` ('proprio' ou 'vinculado') e `cliente_nome`.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # 1. Buscar cliente e verificar se é agência
+            cursor.execute('''
+                SELECT 
+                    c.id_cliente,
+                    c.nome_fantasia,
+                    COALESCE(
+                        (ag.key IS TRUE) OR 
+                        LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'),
+                        false
+                    ) AS eh_agencia,
+                    c.pk_id_tbl_agencia
+                FROM tbl_cliente c
+                LEFT JOIN tbl_agencia ag ON ag.id_agencia = c.pk_id_tbl_agencia
+                WHERE c.id_cliente = %s
+            ''', (cliente_id,))
+            cliente = cursor.fetchone()
+            if not cliente:
+                return []
+
+            # 2. Coletar IDs: cliente atual + vinculados
+            cliente_ids = [int(cliente_id)]
+
+            if cliente.get('eh_agencia'):
+                # Agência: buscar clientes finais vinculados
+                # Primeiro, encontrar o id_agencia desta agência na tabela tbl_agencia
+                cursor.execute('''
+                    SELECT id_agencia FROM tbl_agencia
+                    WHERE id_cliente = %s
+                ''', (cliente_id,))
+                ag_row = cursor.fetchone()
+                if ag_row:
+                    cursor.execute('''
+                        SELECT id_cliente FROM tbl_cliente
+                        WHERE pk_id_tbl_agencia = %s AND status = true
+                    ''', (ag_row['id_agencia'],))
+                    for r in cursor.fetchall():
+                        if r['id_cliente'] not in cliente_ids:
+                            cliente_ids.append(r['id_cliente'])
+            else:
+                # Cliente final: buscar agência vinculada
+                pk_agencia = cliente.get('pk_id_tbl_agencia')
+                if pk_agencia:
+                    cursor.execute('''
+                        SELECT id_cliente FROM tbl_agencia
+                        WHERE id_agencia = %s
+                    ''', (pk_agencia,))
+                    row = cursor.fetchone()
+                    if row and row['id_cliente'] not in cliente_ids:
+                        cliente_ids.append(row['id_cliente'])
+
+            # 3. Buscar cotações de todos os IDs
+            cursor.execute('''
+                SELECT 
+                    c.*,
+                    cli.nome_fantasia as cliente_nome,
+                    cont.nome_completo as contato_nome,
+                    vend.nome_completo as vendedor_nome,
+                    st.descricao as status_descricao,
+                    CASE WHEN c.cliente_id = %s THEN 'proprio' ELSE 'vinculado' END as origem
+                FROM cadu_cotacoes c
+                JOIN tbl_cliente cli ON c.cliente_id = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
+                LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+                WHERE c.cliente_id = ANY(%s) AND c.deleted_at IS NULL
+                ORDER BY c.created_at DESC
+            ''', (int(cliente_id), cliente_ids))
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        current_app.logger.error(f"Erro obter_cotacoes_cliente_com_vinculos: {e}")
+        return []
+
+
 def obter_todas_cotacoes():
     """Retorna todas as cotações do sistema"""
     conn = get_db()

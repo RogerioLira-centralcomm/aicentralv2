@@ -953,18 +953,24 @@ class CrmV3Repository:
         row = _db().excluir_objetivo_cliente(objetivo_id)
         return (row is not None), cliente_id
 
-    def list_cotacoes(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
+    def list_cotacoes(self, cliente_id: str, include_vinculados: bool = True) -> Optional[List[Dict[str, Any]]]:
         """Cotações reais do cliente (tabela `cadu_cotacoes`).
 
-        Consome `db.obter_cotacoes_cliente` (já cobre client_id + joins com
-        contato/vendedor/status). Mapeia os campos para o formato usado pelo
-        v3 UI, normalizando o status (aliases em `crm_v3_data`).
+        Consome `db.obter_cotacoes_cliente_com_vinculos` para incluir também
+        cotações de clientes vinculados (agência ↔ clientes finais).
+        Mapeia os campos para o formato usado pelo v3 UI, normalizando o
+        status (aliases em `crm_v3_data`).
+
+        Se `include_vinculados=False`, usa a função original sem vínculos.
         """
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
             return None
         try:
-            rows = _db().obter_cotacoes_cliente(cliente_id) or []
+            if include_vinculados:
+                rows = _db().obter_cotacoes_cliente_com_vinculos(cliente_id) or []
+            else:
+                rows = _db().obter_cotacoes_cliente(cliente_id) or []
         except Exception:
             # Se a tabela não existir ou a query falhar, degrada para lista
             # vazia — o UI já lida com "Nenhuma cotação registrada".
@@ -1170,6 +1176,8 @@ class CrmV3Repository:
             "plataformas": plataformas,
             "vendedor_nome": row.get("vendedor_nome") or "",
             "contato_nome": row.get("contato_nome") or "",
+            "origem": row.get("origem") or "proprio",
+            "cliente_nome": row.get("cliente_nome") or "",
         }
 
     # ---------------- Notas / histórico (sales_historico_cliente) ------------

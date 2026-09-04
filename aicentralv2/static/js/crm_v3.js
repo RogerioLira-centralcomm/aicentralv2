@@ -2133,8 +2133,14 @@
         // é opcional (o `filter(Boolean)` evita "· ·" quando algum campo vem
         // vazio do backend).
         var meta = [numero, statusLabel, periodo].filter(Boolean).join(' · ');
+        // Badge de vínculo para cotações de clientes vinculados
+        var origemLabel = '';
+        if (c.origem === 'vinculado' && c.cliente_nome) {
+            origemLabel = '<span class="crm-v3-cotacao-linha-origem" title="' + escapeHtml(c.cliente_nome) + '"><i class="fas fa-link" aria-hidden="true"></i></span>';
+        }
         return (
-            '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" title="Abrir detalhes">' +
+            '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes' + (c.origem === 'vinculado' ? ' crm-v3-cotacao-linha-vinculada' : '') + '" data-cotacao-id="' + escapeHtml(c.id) + '" title="' + (c.origem === 'vinculado' ? 'Cotação de ' + escapeHtml(c.cliente_nome) : 'Abrir detalhes') + '">' +
+                origemLabel +
                 '<i class="crm-v3-cotacao-linha-icon ' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
                 '<span class="crm-v3-cotacao-linha-body">' +
                     '<span class="crm-v3-cotacao-linha-row1">' +

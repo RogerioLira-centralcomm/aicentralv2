@@ -303,6 +303,69 @@
     }
 
     /**
+     * Formata uma data em rótulo "há N unidade(s)" cobrindo dias,
+     * semanas, meses e anos. Usado nos campos "Criado em" e
+     * "Atualizado em" da sidebar Info, onde antes aparecia o ISO cru
+     * (ex.: "2025-08-28T23:05:54.515997") porque `dataParaExibicao`
+     * só sabia lidar com "YYYY-MM-DD" e devolvia a string sem casar
+     * o regex.
+     *
+     * Aceita:
+     * - "YYYY-MM-DD"
+     * - "YYYY-MM-DDTHH:MM:SS[.fff]" (Postgres/JSON)
+     * - "dd/MM/yyyy" (fallback pt-BR já formatado)
+     *
+     * Regra de arredondamento (compatível com o "sentir intuitivo"
+     * pt-BR que o usuário pediu):
+     *   0 dias   → "hoje"
+     *   1 dia    → "ontem"
+     *   2-6 dias → "há N dias"
+     *   7-29 d   → "há N semanas"     (N = round(dias/7), mín 1)
+     *   30-59 d  → "há 1 mês"
+     *   60-364 d → "há N meses"       (N = round(dias/30))
+     *   365-729d → "há 1 ano"
+     *   730+ dias→ "há N anos"        (N = floor(dias/365))
+     */
+    function formatarHaTempo(valor) {
+        if (!valor) return '—';
+        var s = String(valor);
+        var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        var d;
+        if (iso) {
+            d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+        } else {
+            var br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+            if (br) {
+                d = new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]));
+            }
+        }
+        if (!d || isNaN(d.getTime())) return '—';
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
+        var diff = Math.round((hoje.getTime() - d.getTime()) / 86400000);
+        // Datas futuras (raras) — mostra "em breve" para não devolver
+        // "há -3 dias".
+        if (diff < 0) return 'em breve';
+        if (diff === 0) return 'hoje';
+        if (diff === 1) return 'ontem';
+        if (diff < 7) return 'há ' + diff + ' dias';
+        if (diff < 30) {
+            var semanas = Math.round(diff / 7);
+            if (semanas < 1) semanas = 1;
+            return 'há ' + semanas + (semanas === 1 ? ' semana' : ' semanas');
+        }
+        if (diff < 60) return 'há 1 mês';
+        if (diff < 365) {
+            var meses = Math.round(diff / 30);
+            return 'há ' + meses + ' meses';
+        }
+        if (diff < 730) return 'há 1 ano';
+        var anos = Math.floor(diff / 365);
+        return 'há ' + anos + ' anos';
+    }
+
+    /**
      * Deriva o domínio de e-mail do contato principal (ou primeiro
      * contato com e-mail) do cliente selecionado. Usado como chave para
      * a Clearbit Logo API — retorna string vazia quando não há e-mail
@@ -838,8 +901,24 @@
         };
         setText('#crm-v3-info-categoria', cliente.tipo_label);
         setText('#crm-v3-info-tipo', cliente.tipo || cliente.categoria);
-        setText('#crm-v3-info-criado', dataParaExibicao(cliente.data_cadastro));
-        setText('#crm-v3-info-atualizado', dataParaExibicao(cliente.data_modificacao));
+        // Datas de auditoria em formato relativo pt-BR ("há 6 meses",
+        // "há 1 ano"). O ISO cru (ex.: 2025-08-28T23:05:54.515997)
+        // fica no atributo title para quem quiser o valor exato via
+        // hover. Antes ficava visível na tela — feio e sem valor
+        // executivo. Ver `formatarHaTempo` para as faixas.
+        var setDataRelativa = function (sel, val) {
+            var el = $(sel);
+            if (!el) return;
+            if (val == null || val === '') {
+                el.textContent = '—';
+                el.removeAttribute('title');
+                return;
+            }
+            el.textContent = formatarHaTempo(val);
+            el.setAttribute('title', String(val));
+        };
+        setDataRelativa('#crm-v3-info-criado', cliente.data_cadastro);
+        setDataRelativa('#crm-v3-info-atualizado', cliente.data_modificacao);
         setText('#crm-v3-info-uf', cliente.uf);
 
         // Perfil comercial — formatação amigável para o display.
@@ -2011,8 +2090,16 @@
                 (plataformas.length > 4 ? '<span class="crm-v3-cotacao-plataforma crm-v3-cotacao-plataforma-more">+' + (plataformas.length - 4) + '</span>' : '') +
               '</div>'
             : '';
+        // Badge de vínculo: mostra se cotação é de cliente vinculado (agência/final)
+        var origemBadge = '';
+        if (c.origem === 'vinculado' && c.cliente_nome) {
+            origemBadge = '<span class="crm-v3-cotacao-origem" title="Cotação de cliente vinculado: ' + escapeHtml(c.cliente_nome) + '">' +
+                '<i class="fas fa-link" aria-hidden="true"></i> ' + escapeHtml(c.cliente_nome) +
+            '</span>';
+        }
         return (
-            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta" data-cotacao-id="' + escapeHtml(c.id) + '">' +
+            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta' + (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') + '" data-cotacao-id="' + escapeHtml(c.id) + '">' +
+            origemBadge +
             '<div class="crm-v3-cotacao-topline">' +
                 (numero ? '<span class="crm-v3-cotacao-numero">' + escapeHtml(numero) + '</span>' : '') +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +

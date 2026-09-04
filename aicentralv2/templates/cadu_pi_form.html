@@ -296,11 +296,22 @@
       <div class="mb-3 bg-white border border-gray-200 shadow-sm rounded-lg p-3" id="calculadora_pi_block">
         <div class="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-gray-100">
           <h2 class="text-[10px] font-semibold text-gray-800">Valores Financeiros</h2>
-          <div class="text-right">
-            <span class="text-[9px] text-gray-400 block">Valor Bruto</span>
+          <div class="text-right min-w-[120px]">
+            <label for="input_valor_bruto" class="text-[9px] text-gray-400 block">Valor Bruto</label>
+            {% if pi_valores_editaveis %}
+            <input type="text" name="valor_bruto" id="input_valor_bruto"
+              class="w-full text-[11px] font-bold text-emerald-700 tabular-nums border border-gray-200 rounded px-2 py-0.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-right"
+              placeholder="R$ 0,00"
+              value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+            {% else %}
             <span id="badge_valor_bruto" class="text-[11px] font-bold text-emerald-700 tabular-nums">{% if pi and pi.valor_bruto %}{{ pi.valor_bruto }}{% else %}—{% endif %}</span>
+            <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+            {% endif %}
           </div>
         </div>
+        {% if pi_valores_editaveis %}
+        <p class="text-[9px] text-gray-500 mb-2">Valores em R$ podem ser corrigidos manualmente.</p>
+        {% endif %}
         <div id="calc_warning" class="hidden mb-2 text-[10px] text-red-600"></div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
@@ -391,7 +402,6 @@
         <input type="hidden" name="val_com_vendas" id="input_val_com_vendas" value="{{ pi.val_com_vendas if pi and pi.val_com_vendas else '' }}">
         <input type="hidden" name="val_pl_incentivos" id="input_val_pl_incentivos" value="{{ pi.val_pl_incentivos if pi and pi.val_pl_incentivos else '' }}">
         <input type="hidden" name="val_impostos" id="input_val_impostos" value="{{ pi.val_impostos if pi and pi.val_impostos else '' }}">
-        <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
 
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 mt-2 pt-2 border-t border-gray-100">
           <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
@@ -455,7 +465,11 @@
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Valor Líquido</label>
             <div class="flex">
               <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
-              <input type="text" name="valor_liquido" id="input_valor_liquido" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
+              <input type="text" name="valor_liquido" id="input_valor_liquido"
+                class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 {% if pi_valores_editaveis %}bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none{% else %}bg-gray-100 text-gray-500{% endif %}"
+                placeholder="0,00"
+                value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}"
+                {% if not pi_valores_editaveis %}readonly{% endif %}>
             </div>
           </div>
           <div>
@@ -815,6 +829,7 @@
   }
 
   function recalcCalculadora() {
+    if (PI_MODO === 'editar' && PI_VALORES_EDITAVEIS) return;
     if (!els.custoBase() || !els.objetivo()) return;
     var warning = els.calcWarning();
     if (warning) warning.classList.add('hidden');
@@ -1168,8 +1183,10 @@
   });
 
   document.getElementById('pi_form').addEventListener('submit', function(e) {
-    if (parseBRL(els.valorBruto().value) > 0 || calculadoraTemBaseValida()) {
-      calcValores();
+    if (!(PI_MODO === 'editar' && PI_VALORES_EDITAVEIS)) {
+      if (parseBRL(els.valorBruto().value) > 0 || calculadoraTemBaseValida()) {
+        calcValores();
+      }
     }
     if (!els.clienteHidden().value) {
       e.preventDefault();
@@ -1187,7 +1204,7 @@
     }
     if (PI_VALORES_EDITAVEIS && parseBRL(els.valorBruto().value) <= 0) {
       e.preventDefault();
-      if (typeof showToast === 'function') showToast('Preencha os valores financeiros na calculadora antes de salvar.', 'error');
+      if (typeof showToast === 'function') showToast('Preencha o Valor Bruto antes de salvar.', 'error');
       var calcBlock = document.getElementById('calculadora_pi_block');
       if (calcBlock) calcBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -1278,10 +1295,23 @@
     var objEl0 = els.objetivo();
     if (objEl0 && objEl0.value) maskObjetivo(objEl0);
     atualizarHintObjetivo();
-    if (calculadoraTemBaseValida()) {
-      recalcCalculadora();
-    } else if (!PI_HAS_PERSISTED_VALOR_BRUTO) {
-      recalcCalculadora();
+    if (PI_MODO === 'novo') {
+      if (calculadoraTemBaseValida()) {
+        recalcCalculadora();
+      } else if (!PI_HAS_PERSISTED_VALOR_BRUTO) {
+        recalcCalculadora();
+      }
+    }
+
+    if (PI_VALORES_EDITAVEIS) {
+      var brutoEl = els.valorBruto();
+      var liquidoEl = els.valorLiquido();
+      if (brutoEl && brutoEl.type !== 'hidden') {
+        brutoEl.addEventListener('input', function() { maskMoney(this); });
+      }
+      if (liquidoEl && !liquidoEl.readOnly) {
+        liquidoEl.addEventListener('input', function() { maskMoney(this); });
+      }
     }
 
     var clienteId = els.clienteHidden().value;
@@ -2383,7 +2413,7 @@ function abrirViewCampanha(c) {
               '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
             '</summary>' +
             '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
-              '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">' +
+              '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">' +
                 '<div>' +
                   '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
                   '<span class="text-gray-600 text-xs">' + periodoLinha1 + periodoLinha2 + '</span>' +
@@ -2401,9 +2431,14 @@ function abrirViewCampanha(c) {
                   '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span>' +
                 '</div>' +
                 '<div>' +
+                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</span>' +
+                  '<span class="font-semibold text-gray-800 text-xs">' + fmtBrl(previsto) + '</span>' +
+                  '<span class="block text-[10px] text-gray-400">Obj: ' + dispContr + '</span>' +
+                '</div>' +
+                '<div>' +
                   '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
                   '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
-                  '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span>' +
+                  '<span class="block text-[10px] text-gray-400">gasto realizado</span>' +
                 '</div>' +
                 '<div class="flex flex-wrap items-end gap-2">' +
                   '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +

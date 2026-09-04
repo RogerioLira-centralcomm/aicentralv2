@@ -10672,6 +10672,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if not pi_atual:
             return data
 
+        # Status 1/2 com edição manual: confiar nos valores enviados pelo formulário.
+        if not _pi_somente_leitura(pi_atual) and _int_safe(pi_atual.get('id_sub_status_pi')) in (1, 2):
+            return data
+
         campos = (
             'valor_bruto', 'valor_liquido', 'comissao_agencia', 'comissao_parceiro',
             'valor_liquido_pr', 'valor_plataformas',

@@ -587,36 +587,34 @@
         var pagina = filtrados.slice(inicio, inicio + state.clientesPorPagina);
         updatePagination(totalPaginas);
 
-        container.innerHTML = pagina.map(function (c) {
+        // Função para renderizar um card de cliente
+        function renderClienteCard(c) {
             var ativo = c.id === state.clienteId;
             var classificacao = c.classificacao_cliente || c.classificacao || '';
             var classifSlug = classificacao.replace(/ç/g, 'c').replace(/ã/g, 'a');
             var isAgencia = !!c.is_agencia;
             var clientesFinaisCount = Number(c.clientes_finais_count || 0);
             var agenciaNome = c.agencia_nome || '';
+            var tipoCliente = String(c.tipo || c.categoria || '').toLowerCase();
+            var isPublico = tipoCliente === 'publico' || tipoCliente === 'público' || tipoCliente === 'governo';
 
-            var chips = [];
-            if (classificacao) {
-                chips.push(
-                    '<span class="crm-v3-chip crm-v3-chip-classificacao--' + escapeHtml(classifSlug) + '" title="Classificação">' +
-                    escapeHtml(classificacao) +
-                    '</span>'
-                );
+            // Ícones inline no headline (tipo + perfil)
+            var icones = [];
+            // Ícone de agência ou cliente final (só se filtro "todos" ou não redundante)
+            if (isAgencia) {
+                icones.push('<i class="fa-solid fa-sitemap crm-v3-cliente-icon crm-v3-cliente-icon-agencia" title="Agência' + (clientesFinaisCount > 0 ? ' (' + clientesFinaisCount + ' clientes)' : '') + '" aria-hidden="true"></i>');
             }
-            if (isAgencia && clientesFinaisCount > 0) {
-                chips.push(
-                    '<span class="crm-v3-chip crm-v3-chip-agencia" title="Agência com ' + clientesFinaisCount + ' cliente(s) final(is)">' +
-                    '<i class="fa-solid fa-sitemap" aria-hidden="true"></i>' +
-                    clientesFinaisCount +
-                    '</span>'
-                );
-            } else if (agenciaNome) {
-                chips.push(
-                    '<span class="crm-v3-chip crm-v3-chip-filho" title="Vinculado à agência ' + escapeHtml(agenciaNome) + '">' +
-                    '<i class="fa-solid fa-code-branch" aria-hidden="true"></i>' +
-                    escapeHtml(agenciaNome) +
-                    '</span>'
-                );
+            // Ícone de público/privado (só se filtro tipo = todos)
+            if (!state.filtroTipo) {
+                if (isPublico) {
+                    icones.push('<i class="fa-solid fa-landmark crm-v3-cliente-icon crm-v3-cliente-icon-publico" title="Setor Público" aria-hidden="true"></i>');
+                }
+            }
+
+            // Sub-texto com agência vinculada (se houver)
+            var subText = c.sub || '';
+            if (agenciaNome && !isAgencia) {
+                subText = agenciaNome;
             }
 
             return (
@@ -626,22 +624,58 @@
                 ' data-status="' + escapeHtml(c.status) + '"' +
                 ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
-                // Passa o site_url salvo — se estiver vazio, o helper
-                // pula o <img> e mantém iniciais (não faz lookup de
-                // contato principal aqui para evitar N+1 no boot).
                 avatarHtml(c.nome, 'w-7 h-7', c.site_url) +
                 '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
                 '<div class="crm-v3-cliente-headline">' +
+                (icones.length ? '<span class="crm-v3-cliente-icones">' + icones.join('') + '</span>' : '') +
                 '<div class="crm-v3-cliente-nome" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
                 '</div>' +
-                '<div class="crm-v3-cliente-sub" title="' + escapeHtml(c.sub) + '">' + escapeHtml(c.sub) + '</div>' +
-                (chips.length ? '<div class="crm-v3-cliente-meta">' + chips.join('') + '</div>' : '') +
+                (subText ? '<div class="crm-v3-cliente-sub" title="' + escapeHtml(subText) + '">' + escapeHtml(subText) + '</div>' : '') +
                 '</div>' +
                 '<div class="crm-v3-cliente-right shrink-0">' +
                 situacaoHtml(c) +
                 '</div></div>'
             );
-        }).join('');
+        }
+
+        // Agrupar por classificação quando filtro = todos
+        var mostrarGrupos = state.filtroPill === 'todos';
+        var html = '';
+
+        if (mostrarGrupos) {
+            // Separar em grupos: Ativo, Prospecção
+            var grupos = {
+                'Ativo': [],
+                'Prospecção': []
+            };
+            pagina.forEach(function (c) {
+                var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
+                if (classif === 'ativo') {
+                    grupos['Ativo'].push(c);
+                } else {
+                    grupos['Prospecção'].push(c);
+                }
+            });
+
+            // Renderizar cada grupo com header
+            ['Ativo', 'Prospecção'].forEach(function (grupoNome) {
+                var clientes = grupos[grupoNome];
+                if (clientes.length) {
+                    html += '<div class="crm-v3-cliente-grupo">' +
+                        '<div class="crm-v3-cliente-grupo-header">' +
+                        '<span class="crm-v3-cliente-grupo-label">' + grupoNome + '</span>' +
+                        '<span class="crm-v3-cliente-grupo-count">' + clientes.length + '</span>' +
+                        '</div>' +
+                        clientes.map(renderClienteCard).join('') +
+                        '</div>';
+                }
+            });
+        } else {
+            // Sem agrupamento
+            html = pagina.map(renderClienteCard).join('');
+        }
+
+        container.innerHTML = html;
 
         $$('.crm-v3-cliente', container).forEach(function (card) {
             card.addEventListener('click', function () {

@@ -1267,8 +1267,9 @@ button:hover > .crm-v3-menu-hint {
 
 .crm-v3-cliente-headline {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
 }
 
 /* ===== AVATARES (paleta unificada: primary + muted) ===== */
@@ -1326,10 +1327,72 @@ button:hover > .crm-v3-menu-hint {
     background: var(--crm-primary);
 }
 
+/* ===== GRUPOS DE CLIENTES ===== */
+.crm-v3-cliente-grupo {
+    margin-bottom: 4px;
+}
+
+.crm-v3-cliente-grupo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--crm-surface);
+    border-bottom: 1px solid var(--crm-border-light);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.crm-v3-cliente-grupo-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--crm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.crm-v3-cliente-grupo-count {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--crm-text-subtle);
+    background: var(--crm-border-light);
+    padding: 2px 6px;
+    border-radius: 999px;
+}
+
 /* ===== INFO DO CLIENTE NA LISTA ===== */
 .crm-v3-cliente-info {
     flex: 1;
     min-width: 0;
+}
+
+.crm-v3-cliente-icones {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+
+.crm-v3-cliente-icon {
+    font-size: 10px;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+}
+
+.crm-v3-cliente-icon-agencia {
+    color: #6366f1;
+    background: #eef2ff;
+}
+
+.crm-v3-cliente-icon-publico {
+    color: #059669;
+    background: #d1fae5;
 }
 
 .crm-v3-cliente-nome {

@@ -245,6 +245,48 @@
   min-height: 2.5rem;
 }
 
+.cot-nova-name-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--cn-line, #d8dee8);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cot-nova-name-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cot-nova-name-btn i {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #1e4d4f;
+}
+
+.cot-nova-name-btn.has-value {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.cot-nova-name-btn:hover,
+.cot-nova-name-btn:focus {
+  border-color: #1e4d4f;
+  outline: none;
+}
+
 @media (max-width: 900px) {
   .cot-nova-header {
     position: static;

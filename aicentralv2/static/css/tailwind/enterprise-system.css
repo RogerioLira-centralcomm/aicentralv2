@@ -907,6 +907,101 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   display: none;
 }
 
+.cx-name-picker {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--cx-text-subtle, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.cx-name-picker.has-value {
+  color: var(--cx-text, inherit);
+  font-weight: 600;
+}
+.cx-name-picker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-name-picker i {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #1e4d4f;
+}
+.cx-name-picker[hidden] {
+  display: none;
+}
+.cx-name-pick-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 28rem;
+  width: calc(100% - 2rem);
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+}
+.cx-name-pick-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+.cx-name-pick-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cx-name-pick-box h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.cx-name-pick-box input[type="search"] {
+  min-height: 2.5rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+}
+.cx-name-pick-list {
+  max-height: 18rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cx-name-pick-item {
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cx-name-pick-item:hover {
+  background: #f8fafc;
+}
+.cx-name-pick-empty {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
 /* ------------------------------------------------------------------
  * Contador de duração (dias corridos · dias úteis)
  * ------------------------------------------------------------------

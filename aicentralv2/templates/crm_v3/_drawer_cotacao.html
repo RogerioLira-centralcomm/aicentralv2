@@ -17,30 +17,38 @@
   <form id="cx-drawer-cotacao-form" data-drawer-form="cotacao">
     <input type="hidden" name="id" data-field="id" />
 
-    {# Cliente + agência. Na ficha de agência o cliente é um select
-       dos finais vinculados (cadu_cotacoes.client_id). A agência
-       fica só leitura. #}
+    {# Cliente e agência: nome visível + modal. IDs vão nos hiddens. #}
     <input type="hidden" name="agencia_id" data-field="agencia_id" id="cx-cot-agencia-id" />
+    <input type="hidden" name="client_id" data-field="client_id" id="cx-cot-client-id" />
     <div class="cx-drawer-context" id="cx-cot-contexto" hidden>
       <div class="cx-drawer-context-row" id="cx-cot-ctx-cliente-row" hidden>
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
-        <label class="cx-drawer-context-label" for="cx-cot-client-id">Cliente</label>
-        <select
-          id="cx-cot-client-id"
-          name="client_id"
-          data-field="client_id"
-          hidden
-        >
-          <option value="">— Selecione o cliente —</option>
-        </select>
+        <span class="cx-drawer-context-label">Cliente</span>
+        <button type="button" class="cx-name-picker" id="cx-cot-client-picker" hidden>
+          <span id="cx-cot-client-picker-label">Buscar cliente pelo nome</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </button>
         <span class="cx-drawer-context-value" id="cx-cot-ctx-cliente-nome" hidden>—</span>
       </div>
       <div class="cx-drawer-context-row" id="cx-cot-ctx-agencia-row" hidden>
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
         <span class="cx-drawer-context-label">Agência</span>
+        <button type="button" class="cx-name-picker" id="cx-cot-agencia-picker" hidden>
+          <span id="cx-cot-agencia-picker-label">Buscar agência pelo nome</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </button>
         <span class="cx-drawer-context-value" id="cx-cot-ctx-agencia-nome">—</span>
       </div>
     </div>
+    <dialog id="cx-cot-pick-modal" class="cx-name-pick-dialog">
+      <div class="cx-name-pick-box">
+        <h3 id="cx-cot-pick-title">Escolher</h3>
+        <input type="search" id="cx-cot-pick-q" placeholder="Filtrar pelo nome" autocomplete="off" />
+        <div id="cx-cot-pick-list" class="cx-name-pick-list"></div>
+        <button type="button" class="cx-btn cx-btn-secondary" id="cx-cot-pick-cancel">Cancelar</button>
+      </div>
+    </dialog>
+
 
     <div class="cx-drawer-section">
       <div class="cx-drawer-section-title">Dados da campanha</div>

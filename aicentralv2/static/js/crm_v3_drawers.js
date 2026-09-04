@@ -1205,8 +1205,8 @@
 
     /* ------------------------------------------------------------
      * Cabeçalho Cliente / Agência do drawer de cotação.
-     * Ficha de agência: select dos clientes finais vinculados.
-     * Ficha de cliente final: nome só leitura + agência se houver.
+     * Ficha de agência: modal com nome dos clientes finais vinculados.
+     * Ficha de cliente final: nome só leitura; várias agências também abrem modal.
      * ------------------------------------------------------------ */
     function fillContextoCotacao(wrapper, clienteId) {
         var box = wrapper.querySelector('#cx-cot-contexto');
@@ -1214,7 +1214,11 @@
         var agenciaRow = wrapper.querySelector('#cx-cot-ctx-agencia-row');
         var clienteVal = wrapper.querySelector('#cx-cot-ctx-cliente-nome');
         var agenciaVal = wrapper.querySelector('#cx-cot-ctx-agencia-nome');
-        var clientSelect = wrapper.querySelector('#cx-cot-client-id');
+        var clientInput = wrapper.querySelector('#cx-cot-client-id');
+        var clientPicker = wrapper.querySelector('#cx-cot-client-picker');
+        var clientPickerLabel = wrapper.querySelector('#cx-cot-client-picker-label');
+        var agenciaPicker = wrapper.querySelector('#cx-cot-agencia-picker');
+        var agenciaPickerLabel = wrapper.querySelector('#cx-cot-agencia-picker-label');
         var agenciaIdInput = wrapper.querySelector('#cx-cot-agencia-id');
         if (!box || !clienteRow || !agenciaRow) return;
 
@@ -1242,56 +1246,63 @@
                 })
                 .map(function (c) { return { id: c.id, nome: c.nome }; });
         }
+        var agenciasVinc = Array.isArray(cliente.agencias_vinculadas) ? cliente.agencias_vinculadas.slice() : [];
 
         box.hidden = false;
         clienteRow.hidden = false;
+        wrapper._cotFinais = finais;
+        wrapper._cotAgencias = agenciasVinc.map(function (a) {
+            return {
+                id: a.agencia_id || a.id || a.id_agencia_cliente,
+                nome: a.nome || a.nome_fantasia || a.razao_social || ('#' + (a.agencia_id || a.id || ''))
+            };
+        });
+
+        wirePickModal(wrapper);
 
         if (isAgencia) {
             agenciaRow.hidden = false;
+            if (agenciaPicker) agenciaPicker.hidden = true;
             if (agenciaVal) {
+                agenciaVal.hidden = false;
                 agenciaVal.textContent = nome;
                 agenciaVal.title = nome;
             }
             if (agenciaIdInput) agenciaIdInput.value = String(cliente.id);
             if (clienteVal) clienteVal.hidden = true;
-            if (clientSelect) {
-                clientSelect.hidden = false;
-                clientSelect.required = true;
-                clientSelect.innerHTML = '';
-                var placeholder = document.createElement('option');
-                placeholder.value = '';
-                placeholder.textContent = finais.length
-                    ? '— Selecione o cliente —'
-                    : 'Nenhum cliente vinculado';
-                clientSelect.appendChild(placeholder);
-                finais.forEach(function (f) {
-                    var opt = document.createElement('option');
-                    opt.value = String(f.id);
-                    opt.textContent = f.nome || ('#' + f.id);
-                    clientSelect.appendChild(opt);
-                });
-                clientSelect.disabled = !finais.length;
+            if (clientInput) clientInput.value = '';
+            if (clientPicker) {
+                clientPicker.hidden = false;
+                clientPicker.disabled = !finais.length;
+                if (clientPickerLabel) {
+                    clientPickerLabel.textContent = finais.length
+                        ? 'Buscar cliente pelo nome'
+                        : 'Nenhum cliente vinculado';
+                }
             }
         } else {
-            if (clientSelect) {
-                clientSelect.hidden = true;
-                clientSelect.required = false;
-                clientSelect.disabled = false;
-                clientSelect.innerHTML = '';
-                var selfOpt = document.createElement('option');
-                selfOpt.value = String(cliente.id);
-                selfOpt.selected = true;
-                selfOpt.textContent = nome;
-                clientSelect.appendChild(selfOpt);
-            }
+            if (clientInput) clientInput.value = String(cliente.id);
+            if (clientPicker) clientPicker.hidden = true;
             if (clienteVal) {
                 clienteVal.hidden = false;
                 clienteVal.textContent = nome;
                 clienteVal.title = nome;
             }
-            if (agenciaNome) {
+            if (wrapper._cotAgencias.length > 1) {
                 agenciaRow.hidden = false;
+                if (agenciaVal) agenciaVal.hidden = true;
+                if (agenciaPicker) {
+                    agenciaPicker.hidden = false;
+                    if (agenciaPickerLabel) {
+                        agenciaPickerLabel.textContent = agenciaNome || 'Buscar agência pelo nome';
+                    }
+                }
+                if (agenciaIdInput) agenciaIdInput.value = String(cliente.agencia_id || '');
+            } else if (agenciaNome) {
+                agenciaRow.hidden = false;
+                if (agenciaPicker) agenciaPicker.hidden = true;
                 if (agenciaVal) {
+                    agenciaVal.hidden = false;
                     agenciaVal.textContent = agenciaNome;
                     agenciaVal.title = agenciaNome;
                 }
@@ -1300,6 +1311,78 @@
                 agenciaRow.hidden = true;
                 if (agenciaIdInput) agenciaIdInput.value = '';
             }
+        }
+    }
+
+    function wirePickModal(wrapper) {
+        if (wrapper._cotPickWired) return;
+        wrapper._cotPickWired = true;
+        var modal = wrapper.querySelector('#cx-cot-pick-modal');
+        var listEl = wrapper.querySelector('#cx-cot-pick-list');
+        var q = wrapper.querySelector('#cx-cot-pick-q');
+        var title = wrapper.querySelector('#cx-cot-pick-title');
+        var cancel = wrapper.querySelector('#cx-cot-pick-cancel');
+        var clientPicker = wrapper.querySelector('#cx-cot-client-picker');
+        var agenciaPicker = wrapper.querySelector('#cx-cot-agencia-picker');
+
+        function render(kind, filtro) {
+            var items = kind === 'cliente' ? (wrapper._cotFinais || []) : (wrapper._cotAgencias || []);
+            var termo = String(filtro || '').toLowerCase();
+            listEl.innerHTML = '';
+            items.filter(function (it) {
+                return !termo || String(it.nome || '').toLowerCase().indexOf(termo) !== -1;
+            }).forEach(function (it) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'cx-name-pick-item';
+                btn.textContent = it.nome || ('#' + it.id);
+                btn.addEventListener('click', function () {
+                    if (kind === 'cliente') {
+                        var input = wrapper.querySelector('#cx-cot-client-id');
+                        var lab = wrapper.querySelector('#cx-cot-client-picker-label');
+                        if (input) input.value = String(it.id);
+                        if (lab) lab.textContent = it.nome || ('#' + it.id);
+                        if (clientPicker) clientPicker.classList.add('has-value');
+                    } else {
+                        var hid = wrapper.querySelector('#cx-cot-agencia-id');
+                        var alab = wrapper.querySelector('#cx-cot-agencia-picker-label');
+                        if (hid) hid.value = String(it.id);
+                        if (alab) alab.textContent = it.nome || ('#' + it.id);
+                        if (agenciaPicker) agenciaPicker.classList.add('has-value');
+                    }
+                    if (modal && modal.close) modal.close();
+                });
+                listEl.appendChild(btn);
+            });
+            if (!listEl.childNodes.length) {
+                listEl.innerHTML = '<p class="cx-name-pick-empty">Nenhum resultado</p>';
+            }
+        }
+
+        function openKind(kind) {
+            wrapper._cotPickKind = kind;
+            if (title) title.textContent = kind === 'cliente' ? 'Escolher cliente' : 'Escolher agência';
+            if (q) q.value = '';
+            render(kind, '');
+            if (modal && modal.showModal) modal.showModal();
+            if (q) setTimeout(function () { q.focus(); }, 40);
+        }
+
+        if (q) {
+            q.addEventListener('input', function () {
+                render(wrapper._cotPickKind || 'cliente', q.value);
+            });
+        }
+        if (cancel) {
+            cancel.addEventListener('click', function () {
+                if (modal && modal.close) modal.close();
+            });
+        }
+        if (clientPicker) {
+            clientPicker.addEventListener('click', function () { openKind('cliente'); });
+        }
+        if (agenciaPicker) {
+            agenciaPicker.addEventListener('click', function () { openKind('agencia'); });
         }
     }
 

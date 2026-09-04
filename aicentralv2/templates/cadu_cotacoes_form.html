@@ -5,7 +5,7 @@
 {% block page_subtitle %}Cotações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=3">
 <style>
   .tab-nav-item { border-bottom: 2px solid transparent; }
   .tab-nav-item.active { color: #1e4d4f; border-bottom-color: #1e4d4f; font-weight: 600; }
@@ -178,11 +178,9 @@
           <div>
             <label class="block text-[8px] font-medium text-gray-500">Cliente <span class="text-red-500">*</span></label>
             <div class="flex gap-0.5 items-center mb-0.5">
-              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+              <button type="button" class="cot-nova-name-btn has-value" onclick="abrirModalCliente()" title="Buscar cliente">
                 <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
-              </div>
-              <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Buscar cliente">
-                <i class="fas fa-search text-[9px]"></i>
+                <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Novo Cliente">
                 <i class="fas fa-plus text-[9px]"></i>
@@ -203,16 +201,14 @@
           <div>
             <label class="block text-[8px] font-medium text-gray-500">Agência</label>
             <div id="agencia_combo_wrap" class="hidden mb-0.5">
-              <select id="agencia_combo" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+              <select id="agencia_combo" hidden aria-hidden="true">
                 <option value="">Selecione...</option>
               </select>
             </div>
             <div id="agencia_busca_wrap" class="flex gap-0.5 items-center mb-0.5">
-              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+              <button type="button" class="cot-nova-name-btn{% if modo == 'editar' and cotacao and cotacao.agencia_nome %} has-value{% endif %}" onclick="abrirModalAgencia()" title="Buscar agência">
                 <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
-              </div>
-              <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar agência">
-                <i class="fas fa-search text-[9px]"></i>
+                <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Nova Agência">
                 <i class="fas fa-plus text-[9px]"></i>
@@ -466,8 +462,9 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Cliente <span class="text-red-500">*</span></label>
           <div class="flex gap-0.5 items-center mb-1">
-            <button type="button" class="cot-nova-name-btn" onclick="abrirModalCliente()" title="Buscar cliente">
-              <span id="nome_cliente_selecionado">{% if cliente_selecionado %}{{ cliente_selecionado_nome|default('') }}{% else %}Buscar cliente…{% endif %}</span>
+            <button type="button" class="cot-nova-name-btn{% if cliente_selecionado %} has-value{% endif %}" onclick="abrirModalCliente()" title="Buscar cliente">
+              <span id="nome_cliente_selecionado">{% if cliente_selecionado %}{{ cliente_selecionado_nome|default('') }}{% else %}Buscar cliente pelo nome{% endif %}</span>
+              <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Novo cliente">
               <i class="fas fa-plus text-[9px]"></i>
@@ -492,7 +489,8 @@
           </div>
           <div id="agencia_busca_wrap" class="flex gap-0.5 items-center mb-1">
             <button type="button" class="cot-nova-name-btn" onclick="abrirModalAgencia()" title="Buscar agência">
-              <span id="nome_agencia_selecionada">Buscar agência…</span>
+              <span id="nome_agencia_selecionada">Buscar agência pelo nome</span>
+              <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Nova agência">
               <i class="fas fa-plus text-[9px]"></i>
@@ -1334,9 +1332,16 @@ function limparBuscaModal() {
   document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
 }
 
+function marcarNomePicker(spanId, preenchido) {
+  const span = document.getElementById(spanId);
+  const btn = span && span.closest('.cot-nova-name-btn');
+  if (btn) btn.classList.toggle('has-value', !!preenchido);
+}
+
 async function selecionarClienteForm(clienteId, nomeFantasia) {
   document.getElementById('client_id').value = clienteId;
   document.getElementById('nome_cliente_selecionado').textContent = nomeFantasia;
+  marcarNomePicker('nome_cliente_selecionado', true);
 
   const event = new Event('change', { bubbles: true });
   document.getElementById('client_id').dispatchEvent(event);
@@ -1596,11 +1601,13 @@ function atualizarUiAgencia(agencias, agenciaSelecionadaId) {
     hiddenAgencia.value = String(idParaSelecionar);
     if (combo) combo.value = String(idParaSelecionar);
     if (nomeSpan) nomeSpan.textContent = escolhida ? labelAgenciaVinculada(escolhida) : (`Agência #${idParaSelecionar}`);
+    marcarNomePicker('nome_agencia_selecionada', true);
     carregarContatosAgencia(idParaSelecionar);
   } else {
     hiddenAgencia.value = '';
     if (combo) combo.value = '';
     if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
+    marcarNomePicker('nome_agencia_selecionada', false);
     if (contatoSelect) contatoSelect.innerHTML = '<option value="">Selecione o contato</option>';
   }
 
@@ -1669,7 +1676,7 @@ async function buscarAgenciasModal() {
   const resultados = document.getElementById('resultados_agencia_modal');
 
   if (termo.length < 2) {
-    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
+    renderAgenciasModalInicial();
     return;
   }
 
@@ -1713,13 +1720,15 @@ async function buscarAgenciasModal() {
 }
 
 function limparBuscaAgenciaModal() {
-  document.getElementById('busca_agencia_modal').value = '';
-  document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
+  const input = document.getElementById('busca_agencia_modal');
+  if (input) input.value = '';
+  renderAgenciasModalInicial();
 }
 
 async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
   document.getElementById('agencia_id').value = agenciaId;
   document.getElementById('nome_agencia_selecionada').textContent = nomeAgencia;
+  marcarNomePicker('nome_agencia_selecionada', true);
   document.getElementById('modal_escolher_agencia').close();
   limparBuscaAgenciaModal();
 
@@ -1756,6 +1765,7 @@ function limparAgenciaSelecionada() {
   if (combo) combo.value = '';
   const nomeSpan = document.getElementById('nome_agencia_selecionada');
   if (nomeSpan) nomeSpan.textContent = textoAgenciaVazia();
+  marcarNomePicker('nome_agencia_selecionada', false);
   document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
 
   atualizarEstadoBriefing();
@@ -2181,6 +2191,7 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
     if (contexto === 'cliente') {
       document.getElementById('client_id').value = novoId;
       document.getElementById('nome_cliente_selecionado').textContent = nome;
+      marcarNomePicker('nome_cliente_selecionado', true);
       document.getElementById('client_id').dispatchEvent(new Event('change', { bubbles: true }));
       atualizarEstadoBriefing();
       try {
@@ -2193,6 +2204,7 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
     } else if (contexto === 'agencia') {
       document.getElementById('agencia_id').value = novoId;
       document.getElementById('nome_agencia_selecionada').textContent = nome;
+      marcarNomePicker('nome_agencia_selecionada', true);
       atualizarEstadoBriefing();
       await carregarContatosAgencia(novoId);
     } else if (contexto === 'parceiro') {

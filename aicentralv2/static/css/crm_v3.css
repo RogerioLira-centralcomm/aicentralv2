@@ -1487,6 +1487,75 @@ button:hover > .crm-v3-menu-hint {
     overflow: hidden;
 }
 
+/* Metadados compactos abaixo do nome do cliente — set/2026.
+   Linha de chips com ícone+valor: cotações, contatos, último
+   contato, localização. Objetivo: o executivo consegue avaliar
+   "vale abrir esse cliente?" sem selecionar o card.
+   Ver renderClienteCard no crm_v3.js para a lógica de priorização
+   e limite de 3 chips. */
+.crm-v3-cliente-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 6px;
+    margin-top: 3px;
+    line-height: 1;
+}
+.crm-v3-cliente-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--crm-text-muted);
+    background: transparent;
+    padding: 0;
+    white-space: nowrap;
+    cursor: help;
+}
+.crm-v3-cliente-meta-chip > i {
+    font-size: 9.5px;
+    opacity: 0.75;
+}
+/* Cotações abertas: destaque azul (sinal comercial ativo). */
+.crm-v3-cliente-meta-chip.is-cot {
+    color: var(--crm-primary, #4f46e5);
+    font-weight: 700;
+}
+.crm-v3-cliente-meta-chip.is-cot > i {
+    opacity: 1;
+}
+/* "0 contatos" — aviso suave (não crítico, é acionável mas não
+   quebra nada). Cor amarela-âmbar para não competir com o vermelho
+   dos badges de atraso. */
+.crm-v3-cliente-meta-chip.is-warn {
+    color: #b45309;
+}
+.crm-v3-cliente-meta-chip.is-warn > i {
+    color: #d97706;
+    opacity: 1;
+}
+/* Chips secundários (último contato, localização): mais discretos
+   para não competir com cotações/contatos que são "acionáveis". */
+.crm-v3-cliente-meta-chip.is-muted {
+    color: var(--crm-text-subtle);
+    font-weight: 500;
+}
+.crm-v3-cliente-meta-chip.is-muted > i {
+    opacity: 0.6;
+}
+/* Quando o card está ativo (selecionado), os chips ficam mais
+   legíveis contra o fundo destacado. */
+.crm-v3-cliente-ativo .crm-v3-cliente-meta-chip {
+    color: var(--crm-text);
+}
+.crm-v3-cliente-ativo .crm-v3-cliente-meta-chip.is-cot {
+    color: var(--crm-primary, #4f46e5);
+}
+.crm-v3-cliente-ativo .crm-v3-cliente-meta-chip.is-warn {
+    color: #92400e;
+}
+
 .crm-v3-cliente-right {
     display: flex;
     flex-direction: column;

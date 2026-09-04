@@ -682,11 +682,108 @@
                 }
             }
 
-            // Sub-texto com agência vinculada (se houver)
+            // Sub-texto com agência vinculada (se houver).
+            // Set/2026: mantido para clientes com agência-mãe — a
+            // agência é a info mais importante depois do nome.
             var subText = c.sub || '';
             if (agenciaNome && !isAgencia) {
                 subText = agenciaNome;
             }
+
+            // Linha de metadados compacta abaixo do nome — set/2026.
+            // Motivação (imagem-referência do usuário): os cards antes
+            // ficavam só com nome+badge, deixando o executivo sem
+            // contexto para escolher qual cliente abrir. Agora damos
+            // 2-3 chips relevantes que respondem "vale abrir?":
+            //   - Cotações abertas (destaque azul, priorizado)
+            //   - Contatos (com destaque quando é 0 = "precisa
+            //     cadastrar gente")
+            //   - Último contato (relativo, ex.: "3d atrás")
+            //   - Localização (fallback quando não há métricas)
+            // Ordem/limite baseado em prioridade comercial: sinal de
+            // pipeline > histórico > geografia. Máx. 3 itens para
+            // caber em 1 linha na coluna estreita.
+            var m = c.metrics || {};
+            var metaChips = [];
+
+            // 1) Cotações em andamento — mais crítico para o comercial.
+            var cotAbertas = Number(m.cotacoes_abertas || 0);
+            if (cotAbertas > 0) {
+                metaChips.push({
+                    icon: 'fa-file-lines',
+                    text: cotAbertas + (cotAbertas === 1 ? ' cot.' : ' cots.'),
+                    cls: 'is-cot',
+                    title: cotAbertas === 1
+                        ? '1 cotação em andamento'
+                        : cotAbertas + ' cotações em andamento'
+                });
+            }
+
+            // 2) Contatos — número com aviso visual quando é zero
+            //    ("0 contatos" em vermelho suave = ação recomendada:
+            //    cadastrar gente).
+            var contatos = Number(m.contatos_total || m.contatos || c.qtd_contatos || 0);
+            if (contatos > 0) {
+                metaChips.push({
+                    icon: 'fa-user-group',
+                    text: contatos,
+                    title: contatos === 1
+                        ? '1 contato cadastrado'
+                        : contatos + ' contatos cadastrados'
+                });
+            } else {
+                metaChips.push({
+                    icon: 'fa-user-slash',
+                    text: '0',
+                    cls: 'is-warn',
+                    title: 'Nenhum contato cadastrado — considere adicionar um contato'
+                });
+            }
+
+            // 3) Último contato — só quando existe registro real.
+            //    m.ultimo_contato vem já formatado do backend
+            //    ("Hoje" / "Ontem" / "12d atrás") — só normalizamos
+            //    para minúscula para casar com o visual "há X dias".
+            var uc = String(m.ultimo_contato || '').trim();
+            if (uc && uc !== '—' && metaChips.length < 3) {
+                metaChips.push({
+                    icon: 'fa-clock-rotate-left',
+                    text: uc.toLowerCase(),
+                    cls: 'is-muted',
+                    title: 'Última interação: ' + uc
+                });
+            }
+
+            // 4) Fallback: localização (cidade/UF). Só usa se sobrou
+            //    espaço nos 3 slots — informação de contexto, não é
+            //    ação. Ex.: quando um cliente novo ainda não tem
+            //    contatos nem cotações mas tem endereço cadastrado.
+            if (metaChips.length < 3) {
+                var loc = '';
+                if (c.cidade) loc = c.cidade;
+                if (c.uf) loc += (loc ? '/' : '') + c.uf;
+                if (loc) {
+                    metaChips.push({
+                        icon: 'fa-location-dot',
+                        text: loc,
+                        cls: 'is-muted',
+                        title: 'Localização: ' + loc
+                    });
+                }
+            }
+
+            var metaHtml = metaChips.length
+                ? '<div class="crm-v3-cliente-meta">' +
+                  metaChips.map(function (chip) {
+                      return '<span class="crm-v3-cliente-meta-chip' +
+                          (chip.cls ? ' ' + chip.cls : '') + '"' +
+                          ' title="' + escapeHtml(chip.title) + '">' +
+                          '<i class="fa-solid ' + chip.icon + '" aria-hidden="true"></i>' +
+                          '<span>' + escapeHtml(String(chip.text)) + '</span>' +
+                          '</span>';
+                  }).join('') +
+                  '</div>'
+                : '';
 
             return (
                 '<div class="crm-v3-cliente' + (ativo ? ' crm-v3-cliente-ativo' : '') + '"' +
@@ -702,6 +799,7 @@
                 '<div class="crm-v3-cliente-nome" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
                 '</div>' +
                 (subText ? '<div class="crm-v3-cliente-sub" title="' + escapeHtml(subText) + '">' + escapeHtml(subText) + '</div>' : '') +
+                metaHtml +
                 '</div>' +
                 '<div class="crm-v3-cliente-right shrink-0">' +
                 situacaoHtml(c) +

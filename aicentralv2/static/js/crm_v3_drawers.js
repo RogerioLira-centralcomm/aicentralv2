@@ -733,8 +733,20 @@
         });
     }
 
+    var _atividadeDrawerId = null;
+
     function openDrawerAtividade(atividade, clienteId, opts) {
         opts = opts || {};
+        // Defesa contra clique duplo e contra listeners legados duplicados:
+        // só pode existir um editor de atividade aberto por vez.
+        if (_atividadeDrawerId
+            && typeof cxDrawer !== 'undefined'
+            && typeof cxDrawer.isOpen === 'function'
+            && cxDrawer.isOpen(_atividadeDrawerId)) {
+            var aberto = document.getElementById(_atividadeDrawerId);
+            if (aberto) aberto.focus();
+            return _atividadeDrawerId;
+        }
         var frag = cloneTpl('cx-drawer-atividade-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
         var wrapper = document.createElement('div');
@@ -786,13 +798,16 @@
             });
         });
 
-        cxDrawer.open({
+        _atividadeDrawerId = cxDrawer.open({
             title: (atividade && atividade.id) ? 'Editar atividade' : 'Nova atividade',
             breadcrumb: 'CRM v3 · Atividade',
             size: 'editor',
             contentEl: wrapper,
             // Sobreposto — não empurra as colunas do CRM.
             split: false,
+            onClose: function (id) {
+                if (_atividadeDrawerId === id) _atividadeDrawerId = null;
+            },
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
                 {
@@ -811,6 +826,7 @@
             var outEl = wrapper.querySelector('[data-ia-output]');
             if (roteiroBtn) runIA(roteiroBtn, form, outEl, clienteId, wrapper);
         }
+        return _atividadeDrawerId;
     }
 
     function submitAtividade(form, atividade, clienteId, drawerId, submitBtn) {

@@ -2869,6 +2869,11 @@
     }
 
     function bindAtividadeEvents(container) {
+        // O container sobrevive aos `innerHTML` de renderAtividades().
+        // Sem esta trava, cada render adicionava outro listener e um único
+        // clique em editar abria dois ou mais drawers.
+        if (!container || container._crmV3AtividadeEventsBound) return;
+        container._crmV3AtividadeEventsBound = true;
         container.addEventListener('click', function (e) {
             var btn = e.target.closest('[data-ativ-action]');
             if (!btn || !container.contains(btn)) return;

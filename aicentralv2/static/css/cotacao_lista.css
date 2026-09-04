@@ -1,0 +1,327 @@
+/* Lista /cotacoes — visual ERP vanilla. Query params e IDs não mudam. */
+
+.cot-lista-page {
+  --cn-ink: #0f172a;
+  --cn-muted: #475569;
+  --cn-line: #d8dee8;
+  --cn-brand: #1e4d4f;
+  --cn-soft: #e8f1f1;
+  --cn-danger: #b91c1c;
+  max-width: 88rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cot-lista-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  background: #fff;
+  border: 1px solid var(--cn-line);
+  border-radius: 0.5rem;
+}
+
+.cot-lista-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--cn-ink);
+}
+
+.cot-lista-header p {
+  margin: 0.2rem 0 0;
+  font-size: 0.875rem;
+  color: var(--cn-muted);
+}
+
+.cot-lista-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.cot-lista-count {
+  font-size: 0.8125rem;
+  color: var(--cn-muted);
+}
+
+.cot-lista-header-actions .cx-btn {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+}
+
+.pp-views {
+  display: inline-flex;
+  border: 1px solid var(--cn-line, #d8dee8);
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.pp-views a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cn-muted, #475569);
+  text-decoration: none;
+  background: #fff;
+}
+
+.pp-views a.is-on {
+  background: var(--cn-brand, #1e4d4f);
+  color: #fff;
+}
+
+.cot-lista-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #fff;
+  border: 1px solid var(--cn-line);
+  border-radius: 0.5rem;
+}
+
+.cot-lista-filters select,
+.cot-lista-filters input[type="text"] {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--cn-ink);
+  background: #fff;
+  border: 1px solid var(--cn-line);
+  border-radius: 0.375rem;
+}
+
+.cot-lista-filters select:focus,
+.cot-lista-filters input:focus {
+  outline: none;
+  border-color: var(--cn-brand);
+  box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.16);
+}
+
+.cot-lista-filters #filtro_executivo {
+  min-width: 12rem;
+}
+
+.cot-lista-filters #filtro_mes {
+  min-width: 10rem;
+}
+
+.cot-lista-filters #filtro_busca {
+  min-width: 14rem;
+  flex: 1;
+}
+
+.cot-lista-filters #filtro_status {
+  min-width: 8.5rem;
+}
+
+.cot-lista-pipeline {
+  font-size: 0.8125rem;
+  color: var(--cn-muted);
+  text-decoration: none;
+  margin-left: 0.25rem;
+}
+
+.cot-lista-pipeline:hover {
+  color: var(--cn-brand);
+}
+
+.cot-lista-flash {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--cn-line);
+}
+
+.cot-lista-flash-success { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+.cot-lista-flash-error { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.cot-lista-flash-warning { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+
+.cot-lista-table-wrap {
+  background: #fff;
+  border: 1px solid var(--cn-line);
+  border-radius: 0.5rem;
+  overflow: auto;
+}
+
+.cot-lista-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.cot-lista-table th {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--cn-muted);
+  border-bottom: 1px solid var(--cn-line);
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.cot-lista-table th.is-num,
+.cot-lista-table td.is-num {
+  text-align: right;
+}
+
+.cot-lista-table th.is-center,
+.cot-lista-table td.is-center {
+  text-align: center;
+}
+
+.cot-lista-table td {
+  padding: 0.7rem 0.85rem;
+  vertical-align: top;
+  border-bottom: 1px solid #eef2f6;
+  color: var(--cn-ink);
+}
+
+.cot-lista-table tbody tr {
+  cursor: pointer;
+}
+
+.cot-lista-table tbody tr:hover {
+  background: var(--cn-soft);
+}
+
+.cot-lista-table tbody tr.is-urgente {
+  background: #fffbeb;
+}
+
+.cot-lista-num {
+  font-weight: 700;
+  color: var(--cn-brand);
+  text-decoration: none;
+}
+
+.cot-lista-num:hover {
+  text-decoration: underline;
+}
+
+.cot-lista-sub {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--cn-muted);
+}
+
+.cot-lista-warn {
+  color: #b45309;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.cot-lista-hint-bad { font-size: 0.75rem; font-weight: 600; color: var(--cn-danger); }
+.cot-lista-hint-warn { font-size: 0.75rem; font-weight: 600; color: #b45309; }
+.cot-lista-hint { font-size: 0.75rem; color: var(--cn-muted); }
+
+.cot-lista-money {
+  font-weight: 650;
+}
+
+.cot-lista-money-liq {
+  font-size: 0.75rem;
+  color: #166534;
+}
+
+.cot-lista-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cot-lista-badge-enviada { background: #1e4d4f; color: #fff; }
+.cot-lista-badge-aprovada { background: #dcfce7; color: #166534; }
+.cot-lista-badge-rejeitada { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+.cot-lista-badge-default { background: #f1f5f9; color: #475569; }
+
+.cot-lista-chips {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.cot-lista-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 1.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.cot-lista-chip.is-on {
+  background: var(--cn-soft);
+  color: var(--cn-brand);
+}
+
+.cot-lista-more {
+  border: 0;
+  background: transparent;
+  color: var(--cn-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.cot-lista-more:hover {
+  color: var(--cn-brand);
+}
+
+.cot-lista-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: #fff;
+  border: 1px solid var(--cn-line);
+  border-radius: 0.5rem;
+}
+
+.cot-lista-empty p {
+  margin: 0 0 0.35rem;
+  color: var(--cn-muted);
+}
+
+.cot-lista-empty .cx-btn {
+  margin-top: 0.75rem;
+}
+
+dialog.modal[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: 90vh;
+}
+
+@media (max-width: 900px) {
+  .cot-lista-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cot-lista-header-actions {
+    justify-content: flex-end;
+  }
+  .cot-lista-filters #filtro_busca {
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -1,155 +1,131 @@
-{% extends 'base_tailwind.html' %}
-{% block title %}Pipeline CRM - CentralX{% endblock %}
+{% extends 'base_erp.html' %}
+{% block title %}Cotações - CentralComm AI{% endblock %}
+{% block page_label %}Cotações{% endblock %}
+{% block page_subtitle %}Pipeline comercial{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=1">
+<style>
+.modal-tab-content.hidden { display: none; }
+.tab-btn.tab-active { color: #1e4d4f; border-bottom-color: #1e4d4f; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2">
-  <!-- Header Compacto (max 66px) -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
-      <!-- Título + Link -->
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold text-gray-800">Pipeline</h1>
-        <a href="{{ url_for('cotacoes_list') }}" class="text-xs text-gray-500 hover:text-gray-700">
-          <i class="fa-solid fa-table-list mr-1"></i>Tabela
-        </a>
+<div class="pp-page">
+  <div class="pp-header">
+    <div class="min-w-0">
+      <h1>Cotações</h1>
+      <p>Acompanhe propostas por status. A lista fica na visão tabela.</p>
+    </div>
+    <div class="pp-header-actions">
+      <div class="pp-views">
+        <a href="{{ url_for('crm_pipeline') }}" class="is-on">Pipeline</a>
+        <a href="{{ url_for('cotacoes.cotacoes_list') }}">Lista</a>
       </div>
-      
-      <!-- Filtros Inline -->
-      <form id="filtros_form" class="flex items-center gap-3">
-        <!-- Executivo -->
-        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
-          <option value="">Todos executivos</option>
-          {% for vendedor in vendedores %}
-            <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
-              {{ vendedor.nome_completo }}
-            </option>
-          {% endfor %}
-        </select>
-        
-        <!-- Mês -->
-        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
-          <option value="">Todos meses</option>
-          <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
-          <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
-          <option value="03" {% if filtros.get('mes') == '03' %}selected{% endif %}>Março</option>
-          <option value="04" {% if filtros.get('mes') == '04' %}selected{% endif %}>Abril</option>
-          <option value="05" {% if filtros.get('mes') == '05' %}selected{% endif %}>Maio</option>
-          <option value="06" {% if filtros.get('mes') == '06' %}selected{% endif %}>Junho</option>
-          <option value="07" {% if filtros.get('mes') == '07' %}selected{% endif %}>Julho</option>
-          <option value="08" {% if filtros.get('mes') == '08' %}selected{% endif %}>Agosto</option>
-          <option value="09" {% if filtros.get('mes') == '09' %}selected{% endif %}>Setembro</option>
-          <option value="10" {% if filtros.get('mes') == '10' %}selected{% endif %}>Outubro</option>
-          <option value="11" {% if filtros.get('mes') == '11' %}selected{% endif %}>Novembro</option>
-          <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
-        </select>
-        
-        <!-- Status Select -->
-        <div class="flex items-center gap-2 border-l border-gray-200 pl-3">
-          {% set status_atual = filtros.get('status') or 'TODOS' %}
-          <select name="status" id="filtro_status" onchange="aplicarFiltros()"
-                  class="text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
-            <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
-            <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-            <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
-            <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-            <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-          </select>
-        </div>
-      </form>
+      <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>
     </div>
   </div>
 
-  <!-- Kanban Board -->
-  <div class="flex gap-2 overflow-x-auto pb-4" style="min-height: calc(100vh - 120px);">
+  <form id="filtros_form" class="pp-filters">
+    <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" aria-label="Executivo">
+      <option value="">Todos executivos</option>
+      {% for vendedor in vendedores %}
+        <option value="{{ vendedor.id_contato_cliente }}"
+                data-executivo-nome="{{ vendedor.nome_completo }}"
+                {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+          {{ vendedor.nome_completo }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" aria-label="Mês">
+      <option value="">Todos meses</option>
+      <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+      <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+      <option value="03" {% if filtros.get('mes') == '03' %}selected{% endif %}>Março</option>
+      <option value="04" {% if filtros.get('mes') == '04' %}selected{% endif %}>Abril</option>
+      <option value="05" {% if filtros.get('mes') == '05' %}selected{% endif %}>Maio</option>
+      <option value="06" {% if filtros.get('mes') == '06' %}selected{% endif %}>Junho</option>
+      <option value="07" {% if filtros.get('mes') == '07' %}selected{% endif %}>Julho</option>
+      <option value="08" {% if filtros.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+      <option value="09" {% if filtros.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+      <option value="10" {% if filtros.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+      <option value="11" {% if filtros.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+      <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+    </select>
+    {% set status_atual = filtros.get('status') or 'TODOS' %}
+    <select name="status" id="filtro_status" onchange="aplicarFiltros()" aria-label="Status">
+      <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos os status</option>
+      <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+      <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+      <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+      <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Histórico</option>
+    </select>
+  </form>
+
+  <div class="pp-board">
     {% set status_list = ['Rascunho', 'Enviada', 'Aprovada', 'Rejeitada'] %}
-    
     {% for status in status_list %}
-    {% set cotacoes = colunas.get(status, []) %}
-    <div class="kanban-column flex flex-col bg-gray-50 rounded border border-gray-200"
-         style="min-width: 220px; flex: 1 1 0;"
+    {% set grupos = (colunas_grupos or {}).get(status, []) %}
+    {% set is_hist = status == 'Rejeitada' %}
+    <div class="pp-col kanban-column {% if is_hist %}is-historico{% endif %}"
          data-status="{{ status }}"
          ondragover="handleColumnDragOver(event)"
          ondragleave="handleColumnDragLeave(event)"
          ondrop="handleColumnDrop(event)">
-      
-      <!-- Header da Coluna -->
-      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-100 rounded-t">
-        <span class="font-medium text-sm text-gray-700">{{ status }}</span>
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-gray-500 bg-white px-1.5 py-0.5 rounded">{{ cotacoes|length }}</span>
+      <div class="pp-col-head">
+        <strong>{% if is_hist %}Histórico{% else %}{{ status }}{% endif %}</strong>
+        <div class="pp-col-meta">
+          <span class="pp-col-count">{{ totais[status].count if totais[status] else 0 }}</span>
           {% if totais[status].valor > 0 %}
-          <span class="text-xs text-gray-400">{{ "%.0f"|format(totais[status].valor / 1000) }}k</span>
+          <span>{{ "%.0f"|format(totais[status].valor / 1000) }}k</span>
           {% endif %}
         </div>
       </div>
-      
-      <!-- Cards Container -->
-      <div class="flex-1 p-2 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 180px);">
-        {% for cotacao in cotacoes %}
-        {% set dias_criacao = ((now() - cotacao.created_at).days if cotacao.created_at else 0) %}
-        {% set alerta_urgente = (status == 'Enviada') and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
-        
-        <div class="kanban-card bg-white rounded border {% if alerta_urgente %}border-amber-400{% else %}border-gray-200{% endif %} p-2.5 cursor-grab hover:shadow transition-shadow"
-             draggable="true"
-             data-cotacao-id="{{ cotacao.id }}"
-             data-status="{{ status }}"
-             onclick="abrirModalCotacao({{ cotacao.id }})"
-             ondragstart="handleCardDragStart(event)"
-             ondragend="handleCardDragEnd(event)">
-          
-          <!-- Row 1: Número + Dias -->
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-mono text-xs text-gray-500">{{ cotacao.numero_cotacao }}</span>
-            <span class="text-xs text-gray-400" title="Criada há {{ dias_criacao }} dias">{{ dias_criacao }}d</span>
-          </div>
-          
-          <!-- Cliente -->
-          <p class="font-medium text-sm text-gray-800 truncate" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
-            {{ cotacao.cliente_nome or 'Sem cliente' }}
-          </p>
-          
-          <!-- Campanha -->
-          <p class="text-xs text-gray-500 truncate mb-2" title="{{ cotacao.nome_campanha }}">
-            {{ cotacao.nome_campanha }}
-          </p>
-          
-          <!-- Alerta de urgência -->
-          {% if alerta_urgente %}
-          <div class="flex items-center gap-1 text-xs text-amber-600 mb-2">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Início {% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%d/%m') }}{% endif %}</span>
-          </div>
-          {% endif %}
-          
-          <!-- Footer: Executivo + Valor -->
-          <div class="flex items-center justify-between pt-2 border-t border-gray-100">
-            {% if cotacao.executivo_nome %}
-            <div class="flex items-center gap-1.5">
-              <div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
-                <span class="text-xs text-gray-600">{{ cotacao.executivo_nome[0] }}</span>
-              </div>
-              <span class="text-xs text-gray-500 truncate" style="max-width: 70px;">{{ cotacao.executivo_nome.split()[0] }}</span>
+      <div class="pp-col-body space-y-2">
+        {% for grupo in grupos %}
+        <details class="pp-group">
+          <summary>
+            <div class="pp-group-title">
+              <span class="pp-kind {% if grupo.kind == 'final' %}is-final{% endif %}">{% if grupo.kind == 'agencia' %}Agência{% else %}Final{% endif %}</span>
+              <span title="{{ grupo.label }}">{{ grupo.label }}</span>
             </div>
-            {% else %}
-            <div class="flex items-center gap-1 text-xs text-red-400">
-              <i class="fa-solid fa-user-slash"></i>
-              <span>Sem resp.</span>
-            </div>
-            {% endif %}
-            
-            <span class="text-sm font-semibold text-gray-700">
-              {% if cotacao.valor_total_proposta and cotacao.valor_total_proposta >= 1000 %}
-                {{ "%.1f"|format((cotacao.valor_total_proposta or 0) / 1000) }}k
-              {% elif cotacao.valor_total_proposta and cotacao.valor_total_proposta > 0 %}
-                R$ {{ "%.0f"|format(cotacao.valor_total_proposta) }}
+            <span class="pp-group-count">{{ grupo.cotacoes|length }}</span>
+          </summary>
+          <div class="pp-group-cards">
+            {% for cotacao in grupo.cotacoes %}
+            {% set alerta_urgente = (status == 'Enviada') and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
+            <div class="pp-card kanban-card {% if alerta_urgente %}is-urgente{% endif %}"
+                 draggable="true"
+                 data-cotacao-id="{{ cotacao.id }}"
+                 data-status="{{ status }}"
+                 onclick="abrirModalCotacao({{ cotacao.id }})"
+                 ondragstart="handleCardDragStart(event)"
+                 ondragend="handleCardDragEnd(event)">
+              {% if cotacao.executivo_foto_url %}
+              <img class="pp-avatar" src="{{ cotacao.executivo_foto_url }}" alt="{{ cotacao.executivo_nome or '' }}">
+              {% elif cotacao.executivo_nome %}
+              <span class="pp-avatar-fallback">{{ cotacao.executivo_nome[0] }}</span>
               {% else %}
-                -
+              <span class="pp-avatar-fallback">?</span>
               {% endif %}
-            </span>
+              <div class="pp-card-body">
+                <div class="pp-card-name" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
+                <div class="pp-card-meta">{{ cotacao.numero_cotacao }}{% if cotacao.nome_campanha %} · {{ cotacao.nome_campanha }}{% endif %}</div>
+              </div>
+              <span class="pp-card-val">
+                {% if cotacao.valor_total_proposta and cotacao.valor_total_proposta >= 1000 %}
+                  {{ "%.1f"|format((cotacao.valor_total_proposta or 0) / 1000) }}k
+                {% elif cotacao.valor_total_proposta and cotacao.valor_total_proposta > 0 %}
+                  {{ "%.0f"|format(cotacao.valor_total_proposta) }}
+                {% else %}
+                  —
+                {% endif %}
+              </span>
+            </div>
+            {% endfor %}
           </div>
-        </div>
+        </details>
         {% endfor %}
       </div>
     </div>
@@ -448,7 +424,26 @@ function aplicarFiltros() {
 (function restoreCrmFilters() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('_restored')) return;
-  const cExec = getCookie('cc_filtro_exec');
+  const cExecRaw = typeof getCookie === 'function' ? getCookie('cc_filtro_exec') : null;
+  const cookieMissing = cExecRaw === null;
+  let cExec = cExecRaw || '';
+  if (cookieMissing && !params.has('executivo_id')) {
+    try {
+      const raw = window.localStorage && window.localStorage.getItem('crm-v3.session.v1');
+      const sess = raw ? JSON.parse(raw) : null;
+      const nome = sess && sess.filtroExecutivo ? String(sess.filtroExecutivo) : '';
+      const sel = document.getElementById('filtro_executivo');
+      if (nome && sel) {
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].getAttribute('data-executivo-nome') === nome) {
+            cExec = sel.options[i].value;
+            setCookie('cc_filtro_exec', cExec, 30);
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }
   const cMes = getCookie('cc_filtro_mes');
   const cStatus = getCookie('crm_status');
   let needsRedirect = false;
@@ -473,15 +468,18 @@ let originalStatus = null;
 
 function handleCardDragStart(event) {
   event.stopPropagation();
-  draggedCard = event.target;
-  draggedCotacaoId = event.target.dataset.cotacaoId;
-  originalStatus = event.target.dataset.status;
-  event.target.classList.add('dragging');
+  const card = event.target.closest('.kanban-card');
+  if (!card) return;
+  draggedCard = card;
+  draggedCotacaoId = card.dataset.cotacaoId;
+  originalStatus = card.dataset.status;
+  card.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
 }
 
 function handleCardDragEnd(event) {
-  event.target.classList.remove('dragging');
+  const card = (draggedCard || event.target.closest && event.target.closest('.kanban-card')) || event.target;
+  if (card && card.classList) card.classList.remove('dragging');
   draggedCard = null;
 }
 
@@ -502,7 +500,7 @@ function handleColumnDrop(event) {
   const novoStatus = event.currentTarget.dataset.status;
   if (novoStatus === originalStatus) return;
   
-  const container = event.currentTarget.querySelector('.space-y-2');
+  const container = event.currentTarget.querySelector('.pp-col-body');
   container.appendChild(draggedCard);
   draggedCard.dataset.status = novoStatus;
   atualizarContadores();
@@ -526,7 +524,7 @@ async function atualizarStatusCotacao(cotacaoId, novoStatus) {
 function atualizarContadores() {
   document.querySelectorAll('.kanban-column').forEach(col => {
     const cards = col.querySelectorAll('.kanban-card').length;
-    const badge = col.querySelector('.bg-white.px-1\\.5');
+    const badge = col.querySelector('.pp-col-count');
     if (badge) badge.textContent = cards;
   });
 }

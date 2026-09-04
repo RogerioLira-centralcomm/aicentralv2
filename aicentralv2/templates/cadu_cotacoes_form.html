@@ -5,7 +5,7 @@
 {% block page_subtitle %}Cotações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=4">
 <style>
   .tab-nav-item { border-bottom: 2px solid transparent; }
   .tab-nav-item.active { color: #1e4d4f; border-bottom-color: #1e4d4f; font-weight: 600; }
@@ -74,7 +74,6 @@
       <p>Informe campanha, participantes e período. Depois você monta audiência e preço no detalhe.</p>
     </div>
     <div class="cot-nova-header-actions">
-      <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="cx-btn cx-btn-secondary">Cancelar</a>
       <button type="submit" form="cotacao_form" name="salvar_rascunho" value="1" class="cx-btn cx-btn-secondary">Salvar rascunho</button>
       <button type="submit" form="cotacao_form" class="cx-btn cx-btn-primary">Criar cotação</button>
     </div>
@@ -541,12 +540,12 @@
                  class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
                  onclick="this.showPicker()" onchange="calcularDuracao()">
         </div>
-        <div>
+        <div class="cot-nova-duracao-col">
           <label class="block font-medium text-gray-500 mb-0.5">Duração</label>
-          <input type="text" id="duracao_dias" readonly
-                 class="cot-nova-duracao w-full cursor-not-allowed"
-                 placeholder="Calculada" value="" aria-live="polite">
-          <span class="cot-nova-duracao-hint" id="duracao_uteis"></span>
+          <div class="cot-nova-duracao-block" aria-live="polite">
+            <span id="duracao_dias">—</span>
+            <span class="cot-nova-duracao-hint" id="duracao_uteis"></span>
+          </div>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Budget estimado <span class="text-red-500">*</span></label>
@@ -619,13 +618,13 @@
                  class="w-16 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 cot-nova-secao-textos">
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Objetivo da campanha <span class="text-red-500">*</span></label>
           <div class="relative">
             <textarea name="objetivo_campanha" id="objetivo_campanha"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
-                      rows="5" placeholder="Qual o principal objetivo desta campanha?"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
+                      rows="12" placeholder="Qual o principal objetivo desta campanha?"
                       maxlength="2000"
                       oninput="atualizarContador(this, 'contador_objetivo', 2000)">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
             <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
@@ -634,14 +633,14 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5" for="premissas">Premissas</label>
           <textarea name="premissas" id="premissas"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
-                    rows="5" placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
+                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
+                    rows="12" placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5" for="observacoes_gerais">Observações gerais</label>
           <textarea name="observacoes_gerais" id="observacoes_gerais"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
-                    rows="5" placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
+                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
+                    rows="12" placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
         </div>
       </div>
     </div>
@@ -1002,6 +1001,12 @@ function toggleBriefingSection() {
 // CÁLCULO DE DURAÇÃO
 // ============================================
 
+function escreverDuracao(el, txt) {
+  if (!el) return;
+  if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = txt;
+  else el.textContent = txt;
+}
+
 function calcularDuracao() {
   const inicio = document.getElementById('periodo_inicio').value;
   const fim = document.getElementById('periodo_fim').value;
@@ -1010,7 +1015,7 @@ function calcularDuracao() {
   if (!duracaoField) return;
 
   function setUteis(txt) {
-    if (uteisEl) uteisEl.textContent = txt || '';
+    escreverDuracao(uteisEl, txt || '');
   }
 
   if (inicio && fim) {
@@ -1020,11 +1025,11 @@ function calcularDuracao() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays > 0) {
-      duracaoField.value = diffDays === 1 ? '1 dia corrido' : `${diffDays} dias corridos`;
+      escreverDuracao(duracaoField, diffDays === 1 ? '1 dia corrido' : `${diffDays} dias corridos`);
     } else if (diffDays === 0) {
-      duracaoField.value = '1 dia corrido';
+      escreverDuracao(duracaoField, '1 dia corrido');
     } else {
-      duracaoField.value = 'Data inválida';
+      escreverDuracao(duracaoField, 'Data inválida');
       setUteis('');
       return;
     }
@@ -1040,7 +1045,7 @@ function calcularDuracao() {
     }
     setUteis(uteis === 1 ? '1 dia útil' : `${uteis} dias úteis`);
   } else {
-    duracaoField.value = '';
+    escreverDuracao(duracaoField, duracaoField.tagName === 'INPUT' ? '' : '—');
     setUteis('');
   }
 }

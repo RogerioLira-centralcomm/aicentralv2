@@ -1723,53 +1723,6 @@ img.crm-v3-avatar-mini {
 
 .crm-v3-dot-green { color: var(--crm-accent); }
 
-/* ===== FOOTER DA COLUNA ===== */
-.crm-v3-col-footer {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    border-top: 1px solid var(--crm-border-light);
-    font-size: var(--crm-font-xs);
-    color: var(--crm-text-subtle);
-    flex-shrink: 0;
-}
-
-.crm-v3-footer-label {
-    font-weight: 500;
-}
-
-.crm-v3-footer-count {
-    background: var(--crm-border-light);
-    padding: 2px 6px;
-    border-radius: var(--crm-radius-sm);
-}
-
-.crm-v3-pagination {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-}
-
-.crm-v3-page-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: var(--crm-radius-sm);
-    border: 1px solid var(--crm-border);
-    background: #fff;
-    color: var(--crm-text-muted);
-    cursor: pointer;
-    font-size: var(--crm-font-xs);
-}
-
-.crm-v3-page-btn:focus-visible {
-    outline: 2px solid var(--crm-primary);
-    outline-offset: 1px;
-}
-
 /* ===== COLUNA CENTRAL ===== */
 .crm-v3-col-center {
     display: flex;
@@ -4480,10 +4433,6 @@ img.crm-v3-avatar-mini {
     }
     .crm-v3-pill-classif {
         grid-column: span 1;
-    }
-
-    .crm-v3-col-clientes .crm-v3-col-footer {
-        display: none;
     }
 
     .crm-v3-search {

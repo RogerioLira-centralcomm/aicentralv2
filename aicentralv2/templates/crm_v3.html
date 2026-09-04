@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=74">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=75">
 {% endblock %}
 
 {% block content %}
@@ -174,15 +174,6 @@
             </div>
           </div>
 
-          <div class="crm-v3-col-footer sticky bottom-0 bg-base-100 z-10">
-            <span class="crm-v3-footer-label truncate" title="+ ATIVO (SEM CONTATO)">+ ATIVO (SEM CONTATO)</span>
-            <span class="crm-v3-footer-count" id="crm-v3-sem-contato-count">0</span>
-            <div class="crm-v3-pagination" id="crm-v3-pager" hidden>
-              <span class="crm-v3-page-label" id="crm-v3-page-label">1/1</span>
-              <button type="button" class="crm-v3-page-btn" id="crm-v3-page-prev" aria-label="Página anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-              <button type="button" class="crm-v3-page-btn" id="crm-v3-page-next" aria-label="Próxima página"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-            </div>
-          </div>
         </aside>
 
         <section class="crm-v3-col crm-v3-col-center min-h-0" aria-label="Detalhes do cliente">
@@ -756,7 +747,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=50"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=52"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=14"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

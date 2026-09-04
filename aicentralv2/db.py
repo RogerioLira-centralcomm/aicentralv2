@@ -9441,17 +9441,24 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.aprovada_em,
                     cot.periodo_inicio,
                     cot.periodo_fim,
+                    cot.agencia_id,
                     -- Calcular dias na fase atual
                     EXTRACT(DAY FROM (NOW() - COALESCE(cot.updated_at, cot.created_at)))::INTEGER as dias_na_fase,
                     -- Dados do cliente
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao,
+                    ag_perfil.key AS agencia_key,
+                    ag_perfil.display AS agencia_display,
+                    COALESCE(ag_emp.nome_fantasia, ag_emp.razao_social) AS agencia_nome,
                     -- Dados do executivo
                     exec.nome_completo as executivo_nome,
+                    exec.foto_url as executivo_foto_url,
                     -- Verificar se tem briefing
                     CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing
                 FROM cadu_cotacoes cot
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
+                LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = cli.pk_id_tbl_agencia
+                LEFT JOIN tbl_cliente ag_emp ON ag_emp.id_cliente = cot.agencia_id
                 LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
                 WHERE cot.deleted_at IS NULL
                     AND (cot.origem IS DISTINCT FROM %s)

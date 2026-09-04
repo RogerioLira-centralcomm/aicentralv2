@@ -22,13 +22,6 @@
         filtroAtivTipo: '',
         buscaCliente: '',
         buscaAtividade: '',
-        paginaCliente: 1,
-        // Set/2026: subimos de 8 → 40 clientes por página. O time
-        // pediu ver toda a base do executivo direto (~200 clientes)
-        // sem paginar manualmente. A coluna tem overflow-y:auto, então
-        // dá scroll suave e vem paginação só quando estoura ~40+ itens
-        // no filtro atual.
-        clientesPorPagina: 40,
         importRows: [],
         pendingObjetivoId: null,
         overlayTimer: null,
@@ -1001,20 +994,15 @@
         }
 
         updatePillCounts();
-        var semContato = $('#crm-v3-sem-contato-count');
-        if (semContato) semContato.textContent = state.clientes.filter(function (c) { return !c.qtd_contatos; }).length;
 
         if (!filtrados.length) {
             container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-base-content/60">Nenhum cliente encontrado.</div>';
-            updatePagination(0);
             return;
         }
 
-        var totalPaginas = Math.max(1, Math.ceil(filtrados.length / state.clientesPorPagina));
-        if (state.paginaCliente > totalPaginas) state.paginaCliente = totalPaginas;
-        var inicio = (state.paginaCliente - 1) * state.clientesPorPagina;
-        var pagina = filtrados.slice(inicio, inicio + state.clientesPorPagina);
-        updatePagination(totalPaginas);
+        // A lista usa rolagem contínua na própria coluna; não paginamos
+        // para que todo resultado filtrado permaneça acessível.
+        var pagina = filtrados;
 
         // Função para renderizar um card de cliente
         function renderClienteCard(c) {
@@ -1247,21 +1235,6 @@
             var span = pill.querySelector('.crm-v3-pill-count');
             if (span && counts[f] !== undefined) span.textContent = counts[f];
         });
-    }
-
-    function updatePagination(totalPaginas) {
-        var label = $('#crm-v3-page-label');
-        var prev = $('#crm-v3-page-prev');
-        var next = $('#crm-v3-page-next');
-        totalPaginas = totalPaginas || 1;
-        if (label) label.textContent = state.paginaCliente + '/' + totalPaginas;
-        if (prev) prev.disabled = state.paginaCliente <= 1;
-        if (next) next.disabled = state.paginaCliente >= totalPaginas;
-        // Set/2026: com clientesPorPagina=40 a paginação some quase
-        // sempre. Escondemos o rodapé inteiro quando cabe em 1 página
-        // para dar mais espaço para a lista respirar.
-        var pager = document.getElementById('crm-v3-pager');
-        if (pager) pager.hidden = totalPaginas <= 1;
     }
 
     /* ------------------------------------------------------------------
@@ -4861,7 +4834,6 @@
                 } else {
                     state.filtroSecundario = f;
                 }
-                state.paginaCliente = 1;
                 syncFiltrosParaDom();
                 renderClientes();
                 saveSession({
@@ -4875,7 +4847,6 @@
         if (buscaCliente) {
             buscaCliente.addEventListener('input', function () {
                 state.buscaCliente = buscaCliente.value;
-                state.paginaCliente = 1;
                 renderClientes();
             });
         }
@@ -4885,19 +4856,19 @@
         var perfil = $('#filtro-perfil');
         if (executivo) executivo.addEventListener('change', function () {
             state.filtroExecutivo = executivo.value;
-            state.paginaCliente = 1;
             renderClientes();
             saveSession({ filtroExecutivo: state.filtroExecutivo });
+            var opt = executivo.options[executivo.selectedIndex];
+            var execId = (opt && opt.getAttribute('data-executivo-id')) || '';
+            if (typeof setCookie === 'function') setCookie('cc_filtro_exec', execId, 30);
         });
         if (tipo) tipo.addEventListener('change', function () {
             state.filtroTipo = tipo.value;
-            state.paginaCliente = 1;
             renderClientes();
             saveSession({ filtroTipo: state.filtroTipo });
         });
         if (perfil) perfil.addEventListener('change', function () {
             state.filtroPerfil = perfil.value;
-            state.paginaCliente = 1;
             renderClientes();
             saveSession({ filtroPerfil: state.filtroPerfil });
         });
@@ -4915,16 +4886,6 @@
     function initButtons() {
         var novoCliente = $('#crm-v3-btn-novo-cliente-header');
         if (novoCliente) novoCliente.addEventListener('click', function () { openClienteModal(null); });
-
-        var prev = $('#crm-v3-page-prev');
-        var next = $('#crm-v3-page-next');
-        if (prev) prev.addEventListener('click', function () {
-            if (state.paginaCliente > 1) { state.paginaCliente--; renderClientes(); }
-        });
-        if (next) next.addEventListener('click', function () {
-            state.paginaCliente++;
-            renderClientes();
-        });
 
         var novoContato = $('#crm-v3-btn-novo-contato');
         if (novoContato) novoContato.addEventListener('click', function () { openContatoModal(); });

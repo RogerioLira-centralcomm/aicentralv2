@@ -181,12 +181,37 @@
   color: var(--cn-ink);
 }
 
+.cot-nova-duracao-block {
+  min-height: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.cot-nova-duracao-block #duracao_dias {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--cn-ink);
+  font-variant-numeric: tabular-nums;
+}
+
 .cot-nova-duracao-hint {
   display: block;
-  margin-top: 0.15rem;
-  font-size: 0.8125rem;
+  margin-top: 0;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--cn-muted);
+}
+
+.cot-nova-page .cot-nova-secao-textos textarea {
+  min-height: 18rem;
+  font-size: 0.8125rem !important;
+  line-height: 1.45;
+  padding: 0.75rem 0.85rem;
 }
 
 .cot-nova-page #budget_estimado {

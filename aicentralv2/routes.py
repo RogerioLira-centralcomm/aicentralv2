@@ -5247,6 +5247,44 @@ def init_routes(app):
 
             # Obter cotações agrupadas por status
             colunas = db.obter_cotacoes_pipeline(filtros)
+
+            def _eh_agencia(cot):
+                if cot.get('agencia_key') is True:
+                    return True
+                return str(cot.get('agencia_display') or '').strip().lower() in ('sim', 's')
+
+            def _grupos_coluna(cotacoes):
+                grupos = {}
+                ordem = []
+                for cot in cotacoes:
+                    if _eh_agencia(cot):
+                        gid = 'ag-%s' % cot.get('client_id')
+                        label = cot.get('cliente_nome') or 'Agência'
+                        kind = 'agencia'
+                    elif cot.get('agencia_id'):
+                        gid = 'ag-%s' % cot.get('agencia_id')
+                        label = cot.get('agencia_nome') or cot.get('cliente_nome') or 'Agência'
+                        kind = 'agencia'
+                    else:
+                        gid = 'cf-%s' % (cot.get('client_id') or 0)
+                        label = cot.get('cliente_nome') or 'Cliente final'
+                        kind = 'final'
+                    if gid not in grupos:
+                        grupos[gid] = {
+                            'id': gid,
+                            'label': label,
+                            'kind': kind,
+                            'cotacoes': [],
+                            'valor': 0,
+                        }
+                        ordem.append(gid)
+                    grupos[gid]['cotacoes'].append(cot)
+                    grupos[gid]['valor'] += float(cot.get('valor_total_proposta') or 0)
+                lista = [grupos[gid] for gid in ordem]
+                lista.sort(key=lambda g: (0 if g['kind'] == 'agencia' else 1, (g['label'] or '').lower()))
+                return lista
+
+            colunas_grupos = {status: _grupos_coluna(cots) for status, cots in colunas.items()}
             
             # Obter listas para filtros
             vendedores = db.obter_vendedores_centralcomm()
@@ -5263,6 +5301,7 @@ def init_routes(app):
             
             return render_template('crm_pipeline.html',
                                  colunas=colunas,
+                                 colunas_grupos=colunas_grupos,
                                  totais=totais,
                                  vendedores=vendedores,
                                  clientes=clientes,

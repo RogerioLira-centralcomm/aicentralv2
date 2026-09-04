@@ -1,252 +1,195 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
 
-{% block title %}Cotações (teste cálculo) - CentralComm AI{% endblock %}
+{% block title %}Cotações - CentralComm AI{% endblock %}
+{% block page_label %}Cotações{% endblock %}
+{% block page_subtitle %}Propostas comerciais{% endblock %}
 
 {% block styles %}
-<style>
-  .badge-status { padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 600; white-space: nowrap; }
-  .badge-enviada { background: #1f2937; color: #fff; }
-  .badge-aprovada { background: #dcfce7; color: #166534; }
-  .badge-rejeitada { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
-  .badge-analise { background: #fef3c7; color: #92400e; }
-  .badge-default { background: #f1f5f9; color: #475569; }
-
-  .lista-table tbody tr { cursor: pointer; transition: background 0.15s ease; }
-  .lista-table tbody tr:hover { background: #f8fafc; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-3 pb-6">
+<div class="cot-lista-page">
 
-  {# ====== FILTROS ====== #}
-  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-3 py-1.5 mb-2 mt-1 flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-2 flex-wrap">
-      <div class="relative">
-        <i class="fa-solid fa-user-tie absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px] pointer-events-none"></i>
-        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()"
-                class="text-[10px] bg-gray-50 border border-gray-200 rounded-lg pl-6 pr-2 py-0.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 130px;">
-          <option value="">Todos executivos</option>
-          {% for vendedor in vendedores %}
-            <option value="{{ vendedor.id_contato_cliente }}" {% if request.args.get('responsavel_comercial')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
-              {{ vendedor.nome_completo }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="relative">
-        <i class="fa-regular fa-calendar absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px] pointer-events-none"></i>
-        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()"
-                class="text-[10px] bg-gray-50 border border-gray-200 rounded-lg pl-6 pr-2 py-0.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 110px;">
-          <option value="">Todos meses</option>
-          <option value="01" {% if request.args.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
-          <option value="02" {% if request.args.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
-          <option value="03" {% if request.args.get('mes') == '03' %}selected{% endif %}>Março</option>
-          <option value="04" {% if request.args.get('mes') == '04' %}selected{% endif %}>Abril</option>
-          <option value="05" {% if request.args.get('mes') == '05' %}selected{% endif %}>Maio</option>
-          <option value="06" {% if request.args.get('mes') == '06' %}selected{% endif %}>Junho</option>
-          <option value="07" {% if request.args.get('mes') == '07' %}selected{% endif %}>Julho</option>
-          <option value="08" {% if request.args.get('mes') == '08' %}selected{% endif %}>Agosto</option>
-          <option value="09" {% if request.args.get('mes') == '09' %}selected{% endif %}>Setembro</option>
-          <option value="10" {% if request.args.get('mes') == '10' %}selected{% endif %}>Outubro</option>
-          <option value="11" {% if request.args.get('mes') == '11' %}selected{% endif %}>Novembro</option>
-          <option value="12" {% if request.args.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
-        </select>
-      </div>
-      <div class="relative">
-        <i class="fa-solid fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px] pointer-events-none"></i>
-        <input type="text" name="busca" id="filtro_busca"
-               value="{{ request.args.get('busca', '') }}"
-               placeholder="Buscar cliente..."
-               class="text-[10px] bg-gray-50 border border-gray-200 rounded-lg pl-6 pr-2 py-0.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-               style="min-width: 170px;"
-               onkeyup="debounceAplicarFiltros()">
-      </div>
-      <div class="flex items-center gap-1.5 border-l border-gray-200 pl-2">
-        {% set status_atual = request.args.get('status') or 'Enviada' %}
-        <select name="status" id="filtro_status" onchange="aplicarFiltros()"
-                class="text-[10px] bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
-          <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
-          <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-          <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
-          <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-          <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-        </select>
-      </div>
-      <a href="{{ url_for('crm_pipeline') }}" class="text-[10px] text-gray-400 hover:text-indigo-600 transition-colors ml-1">
-        <i class="fa-solid fa-columns mr-1"></i>Pipeline
-      </a>
+  <div class="cot-lista-header">
+    <div class="min-w-0">
+      <h1>Cotações</h1>
+      <p>Propostas comerciais em tabela. O pipeline é a visão principal.</p>
     </div>
-    <div class="flex items-center gap-2">
-      <span class="text-[10px] text-gray-500" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
-      <a href="{{ url_for('cotacoes.cotacao_nova') }}"
-         class="text-[10px] font-medium text-white rounded-lg px-3 py-1 transition-colors shadow-sm flex items-center gap-1"
-         style="background-color: #72cd80;">
-        <i class="fas fa-plus text-[9px]"></i> Nova
-      </a>
+    <div class="cot-lista-header-actions">
+      <div class="pp-views">
+        <a href="{{ url_for('crm_pipeline') }}">Pipeline</a>
+        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="is-on">Lista</a>
+      </div>
+      <span class="cot-lista-count" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
+      <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>
     </div>
+  </div>
+
+  <div class="cot-lista-filters">
+    <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" aria-label="Executivo">
+      <option value="">Todos executivos</option>
+      {% for vendedor in vendedores %}
+        <option value="{{ vendedor.id_contato_cliente }}"
+                data-executivo-nome="{{ vendedor.nome_completo }}"
+                {% if request.args.get('responsavel_comercial')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+          {{ vendedor.nome_completo }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" aria-label="Mês">
+      <option value="">Todos meses</option>
+      <option value="01" {% if request.args.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+      <option value="02" {% if request.args.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+      <option value="03" {% if request.args.get('mes') == '03' %}selected{% endif %}>Março</option>
+      <option value="04" {% if request.args.get('mes') == '04' %}selected{% endif %}>Abril</option>
+      <option value="05" {% if request.args.get('mes') == '05' %}selected{% endif %}>Maio</option>
+      <option value="06" {% if request.args.get('mes') == '06' %}selected{% endif %}>Junho</option>
+      <option value="07" {% if request.args.get('mes') == '07' %}selected{% endif %}>Julho</option>
+      <option value="08" {% if request.args.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+      <option value="09" {% if request.args.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+      <option value="10" {% if request.args.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+      <option value="11" {% if request.args.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+      <option value="12" {% if request.args.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+    </select>
+    <input type="text" name="busca" id="filtro_busca"
+           value="{{ request.args.get('busca', '') }}"
+           placeholder="Buscar cliente…"
+           aria-label="Buscar cliente"
+           onkeyup="debounceAplicarFiltros()">
+    {% set status_atual = request.args.get('status') or 'Enviada' %}
+    <select name="status" id="filtro_status" onchange="aplicarFiltros()" aria-label="Status">
+      <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos os status</option>
+      <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+      <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+      <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+      <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Histórico</option>
+    </select>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- elif category == 'warning' %} bg-amber-100 text-amber-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
+      {% for category, message in messages %}
+        <div class="cot-lista-flash {% if category == 'success' %}cot-lista-flash-success{% elif category == 'error' %}cot-lista-flash-error{% elif category == 'warning' %}cot-lista-flash-warning{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
     {% endif %}
   {% endwith %}
 
-  {# ====== TABELA COMPACTA ====== #}
   {% if cotacoes and cotacoes|length > 0 %}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-xs lista-table">
-        <thead>
-          <tr class="bg-gray-50 border-b border-gray-200">
-            <th class="text-left py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 130px;">Cotação</th>
-            <th class="text-left py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="max-width: 260px;">Cliente / Campanha</th>
-            <th class="text-left py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 100px;">Executivo</th>
-            <th class="text-center py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 110px;">Período</th>
-            <th class="text-right py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 110px;">Valor</th>
-            <th class="text-center py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 80px;">Status</th>
-            <th class="text-center py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 90px;">Itens</th>
-            <th class="text-center py-1.5 px-2 text-[9px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 44px;">Ações</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100" id="cotacoesTableBody">
-          {% for cotacao in cotacoes %}
-          {% set hoje = now().date() %}
-          {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
-          {% set status_enviada = cotacao.status == 'Enviada' %}
-          {% set sem_responsavel = not cotacao.responsavel_nome %}
-          {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
+  <div class="cot-lista-table-wrap">
+    <table class="cot-lista-table lista-table">
+      <thead>
+        <tr>
+          <th style="width: 8.5rem;">Cotação</th>
+          <th>Cliente / campanha</th>
+          <th style="width: 8rem;">Executivo</th>
+          <th class="is-center" style="width: 8rem;">Período</th>
+          <th class="is-num" style="width: 8rem;">Valor</th>
+          <th class="is-center" style="width: 6.5rem;">Status</th>
+          <th class="is-center" style="width: 7rem;">Itens</th>
+          <th class="is-center" style="width: 3rem;">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="cotacoesTableBody">
+        {% for cotacao in cotacoes %}
+        {% set hoje = now().date() %}
+        {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
+        {% set status_enviada = cotacao.status == 'Enviada' %}
+        {% set sem_responsavel = not cotacao.responsavel_nome %}
+        {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
 
-          <tr class="{% if urgente %}bg-amber-50/60{% endif %}"
-              onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
+        <tr class="{% if urgente %}is-urgente{% endif %}"
+            onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
 
-            {# — COTAÇÃO — #}
-            <td class="py-1.5 px-2 align-top" onclick="event.stopPropagation()">
-              <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
-                {{ cotacao.numero_cotacao }}
-              </a>
-              <div class="text-[10px] text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
-            </td>
+          <td onclick="event.stopPropagation()">
+            <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
+            <div class="cot-lista-sub">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
+          </td>
 
-            {# — CLIENTE / CAMPANHA — #}
-            <td class="py-1.5 px-2 align-top max-w-[260px]">
-              <div class="text-[10px] font-semibold text-gray-800 truncate">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
-              <div class="text-[10px] text-gray-400 truncate">{{ cotacao.nome_campanha or '—' }}</div>
-            </td>
+          <td>
+            <div>{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
+            <div class="cot-lista-sub">{{ cotacao.nome_campanha or '—' }}</div>
+          </td>
 
-            {# — EXECUTIVO — #}
-            <td class="py-1.5 px-2 align-top">
-              {% if sem_responsavel %}
-              <div class="flex items-center gap-1 text-amber-600">
-                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i>
-                <span class="text-[10px] font-medium">Sem responsável</span>
-              </div>
+          <td>
+            {% if sem_responsavel %}
+            <span class="cot-lista-warn">Sem responsável</span>
+            {% else %}
+            {{ cotacao.responsavel_nome }}
+            {% endif %}
+          </td>
+
+          <td class="is-center">
+            {% if cotacao.periodo_inicio %}
+            <div>{{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}</div>
+            {% if status_enviada and dias_para_inicio is not none %}
+              {% if dias_para_inicio < 0 %}
+              <div class="cot-lista-hint-bad">Já iniciou</div>
+              {% elif dias_para_inicio == 0 %}
+              <div class="cot-lista-hint-bad">Inicia hoje</div>
+              {% elif dias_para_inicio <= 3 %}
+              <div class="cot-lista-hint-bad">{{ dias_para_inicio }}d p/ início</div>
+              {% elif dias_para_inicio <= 7 %}
+              <div class="cot-lista-hint-warn">{{ dias_para_inicio }}d p/ início</div>
               {% else %}
-              <div class="text-[10px] text-gray-700 truncate max-w-[90px]">{{ cotacao.responsavel_nome }}</div>
+              <div class="cot-lista-hint">{{ dias_para_inicio }}d p/ início</div>
               {% endif %}
-            </td>
+            {% endif %}
+            {% else %}
+            <span class="cot-lista-hint">—</span>
+            {% endif %}
+          </td>
 
-            {# — PERÍODO — #}
-            <td class="py-1.5 px-2 text-center align-top whitespace-nowrap">
-              {% if cotacao.periodo_inicio %}
-              <div class="text-[10px] text-gray-600">
-                {{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
-              </div>
-              {% if status_enviada and dias_para_inicio is not none %}
-                {% if dias_para_inicio < 0 %}
-                <div class="text-[9px] font-medium text-red-500">Já iniciou</div>
-                {% elif dias_para_inicio == 0 %}
-                <div class="text-[9px] font-medium text-red-500">Inicia hoje!</div>
-                {% elif dias_para_inicio <= 3 %}
-                <div class="text-[9px] font-medium text-red-500">{{ dias_para_inicio }}d p/ início</div>
-                {% elif dias_para_inicio <= 7 %}
-                <div class="text-[9px] font-medium text-amber-500">{{ dias_para_inicio }}d p/ início</div>
-                {% else %}
-                <div class="text-[9px] text-gray-400">{{ dias_para_inicio }}d p/ início</div>
-                {% endif %}
-              {% endif %}
-              {% else %}
-              <span class="text-[10px] text-gray-400">—</span>
-              {% endif %}
-            </td>
+          <td class="is-num">
+            {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
+            {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
+            {% if bruto > 0 or liquido > 0 %}
+            <div class="cot-lista-money">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+            <div class="cot-lista-money-liq">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+            {% else %}
+            <span class="cot-lista-hint">—</span>
+            {% endif %}
+          </td>
 
-            {# — VALOR — #}
-            <td class="py-1.5 px-2 text-right align-top whitespace-nowrap">
-              {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
-              {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
-              {% if bruto > 0 or liquido > 0 %}
-              <div class="text-[10px] font-semibold text-gray-700">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
-              <div class="text-[10px] text-emerald-600">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
-              {% else %}
-              <span class="text-[10px] text-gray-400">—</span>
-              {% endif %}
-            </td>
+          <td class="is-center">
+            {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
+            {% if status_display == 'Enviada' %}
+            <span class="cot-lista-badge cot-lista-badge-enviada">{{ status_display }}</span>
+            {% elif status_display == 'Aprovada' %}
+            <span class="cot-lista-badge cot-lista-badge-aprovada">{{ status_display }}</span>
+            {% elif status_display == 'Rejeitada' %}
+            <span class="cot-lista-badge cot-lista-badge-rejeitada">Histórico</span>
+            {% else %}
+            <span class="cot-lista-badge cot-lista-badge-default">{{ status_display }}</span>
+            {% endif %}
+          </td>
 
-            {# — STATUS — #}
-            <td class="py-1.5 px-2 text-center align-top">
-              {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
-              {% if status_display == 'Enviada' %}
-              <span class="badge-status badge-enviada">{{ status_display }}</span>
-              {% elif status_display == 'Aprovada' %}
-              <span class="badge-status badge-aprovada">{{ status_display }}</span>
-              {% elif status_display == 'Rejeitada' %}
-              <span class="badge-status badge-rejeitada">{{ status_display }}</span>
-              {% else %}
-              <span class="badge-status badge-default">{{ status_display }}</span>
-              {% endif %}
-            </td>
+          <td class="is-center">
+            <div class="cot-lista-chips">
+              <span class="cot-lista-chip {% if (cotacao.total_linhas or 0) > 0 %}is-on{% endif %}" title="Itens">{{ cotacao.total_linhas or 0 }}</span>
+              <span class="cot-lista-chip {% if (cotacao.total_audiencias or 0) > 0 %}is-on{% endif %}" title="Audiências">{{ cotacao.total_audiencias or 0 }}</span>
+              <span class="cot-lista-chip {% if (cotacao.total_anexos or 0) > 0 %}is-on{% endif %}" title="Anexos">{{ cotacao.total_anexos or 0 }}</span>
+            </div>
+          </td>
 
-            {# — CONTADORES — #}
-            <td class="py-1.5 px-2 text-center align-top">
-              <div class="flex items-center justify-center gap-1">
-                <span class="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[9px] font-bold {% if (cotacao.total_linhas or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Itens">
-                  <i class="fa-solid fa-list text-[7px] mr-0.5"></i>{{ cotacao.total_linhas or 0 }}
-                </span>
-                <span class="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[9px] font-bold {% if (cotacao.total_audiencias or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Audiências">
-                  <i class="fa-solid fa-users text-[7px] mr-0.5"></i>{{ cotacao.total_audiencias or 0 }}
-                </span>
-                <span class="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[9px] font-bold {% if (cotacao.total_anexos or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Anexos">
-                  <i class="fa-solid fa-paperclip text-[7px] mr-0.5"></i>{{ cotacao.total_anexos or 0 }}
-                </span>
-              </div>
-            </td>
-
-            {# — AÇÕES — #}
-            <td class="py-1.5 px-2 text-center align-top" onclick="event.stopPropagation()">
-              <button onclick="abrirModalCotacao({{ cotacao.id }})"
-                      class="p-0.5 text-gray-400 hover:text-indigo-600 transition-colors" title="Detalhes">
-                <i class="fa-solid fa-ellipsis-vertical text-[10px]"></i>
-              </button>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+          <td class="is-center" onclick="event.stopPropagation()">
+            <button type="button" class="cot-lista-more" onclick="abrirModalCotacao({{ cotacao.id }})" title="Detalhes">
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
   {% else %}
-    <div class="text-center py-10 bg-white rounded-xl border border-gray-200">
-      <i class="fas fa-file-invoice text-4xl text-gray-200 mb-2"></i>
-      <p class="text-gray-400 text-sm mb-1">Nenhuma cotação encontrada.</p>
-      <p class="text-gray-400 text-xs mb-3">Ajuste os filtros ou crie uma nova cotação.</p>
-      <a href="{{ url_for('cotacoes.cotacao_nova') }}"
-         class="inline-flex items-center gap-1 text-[10px] font-medium text-white rounded-lg px-3 py-1.5 transition-colors shadow-sm"
-         style="background-color: #72cd80;">
-        <i class="fas fa-plus text-[9px]"></i> Criar Cotação
-      </a>
+    <div class="cot-lista-empty">
+      <p>Nenhuma cotação encontrada.</p>
+      <p>Ajuste os filtros ou crie uma nova cotação.</p>
+      <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>
     </div>
   {% endif %}
 </div>
@@ -254,7 +197,6 @@
 <!-- Modal Detalhes Cotação -->
 <dialog id="modal_cotacao_lista" class="modal">
   <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
-    <!-- Header -->
     <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
       <div>
         <h3 class="font-semibold text-sm text-gray-800" id="mcl_titulo">-</h3>
@@ -265,35 +207,32 @@
           <p class="text-sm font-bold text-gray-800" id="mcl_valor">R$ 0</p>
           <span class="text-[9px] px-1.5 py-0.5 rounded" id="mcl_status_badge">-</span>
         </div>
-        <button onclick="document.getElementById('modal_cotacao_lista').close()" class="p-1 hover:bg-gray-200 rounded">
+        <button type="button" onclick="document.getElementById('modal_cotacao_lista').close()" class="p-1 hover:bg-gray-200 rounded">
           <i class="fa-solid fa-xmark text-gray-500 text-[10px]"></i>
         </button>
       </div>
     </div>
 
-    <!-- Corpo -->
     <div class="p-3 space-y-2">
-      <!-- Info Grid -->
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <p class="text-[9px] font-medium text-gray-400 uppercase">Cliente</p>
+          <p class="text-[9px] font-medium text-gray-400">Cliente</p>
           <p class="text-[10px] text-gray-800 font-medium" id="mcl_cliente">-</p>
         </div>
         <div>
-          <p class="text-[9px] font-medium text-gray-400 uppercase">Campanha</p>
+          <p class="text-[9px] font-medium text-gray-400">Campanha</p>
           <p class="text-[10px] text-gray-800" id="mcl_campanha">-</p>
         </div>
         <div>
-          <p class="text-[9px] font-medium text-gray-400 uppercase">Executivo</p>
+          <p class="text-[9px] font-medium text-gray-400">Executivo</p>
           <p class="text-[10px] text-gray-800" id="mcl_executivo">-</p>
         </div>
         <div>
-          <p class="text-[9px] font-medium text-gray-400 uppercase">Período</p>
+          <p class="text-[9px] font-medium text-gray-400">Período</p>
           <p class="text-[10px] text-gray-800" id="mcl_periodo">-</p>
         </div>
       </div>
 
-      <!-- Contadores -->
       <div class="flex items-center gap-2 pt-1.5 border-t border-gray-100">
         <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg">
           <i class="fa-solid fa-list text-gray-400 text-[9px]"></i>
@@ -310,23 +249,22 @@
       </div>
     </div>
 
-    <!-- Footer -->
     <div class="flex items-center justify-between px-3 py-2 border-t border-gray-200 bg-gray-50">
       <div class="flex items-center gap-1.5">
         <a id="mcl_link_itens" href="#"
-           class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+           class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100">
           <i class="fa-solid fa-list text-[9px]"></i>Itens da Proposta
         </a>
         <a id="mcl_link_audiencias" href="#"
-           class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+           class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100">
           <i class="fa-solid fa-users text-[9px]"></i>Audiências Selecionadas
         </a>
       </div>
       <div id="mcl_aviso_pi" class="hidden inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
         <i class="fa-solid fa-circle-info text-[9px]"></i><span>Cotação possui PI vinculado — exclusão bloqueada</span>
       </div>
-      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()"
-              class="hidden inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+      <button type="button" id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()"
+              class="hidden inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">
         <i class="fa-solid fa-trash-can text-[9px]"></i>Excluir Cotação
       </button>
     </div>
@@ -361,11 +299,36 @@ function aplicarFiltros() {
   window.location.href = '/cotacoes' + (params.toString() ? '?' + params.toString() : '');
 }
 
+function execIdFromCrmSession() {
+  try {
+    const raw = window.localStorage && window.localStorage.getItem('crm-v3.session.v1');
+    if (!raw) return '';
+    const sess = JSON.parse(raw);
+    if (!sess || !('filtroExecutivo' in sess) || !sess.filtroExecutivo) return '';
+    const nome = String(sess.filtroExecutivo);
+    const sel = document.getElementById('filtro_executivo');
+    if (!sel) return '';
+    for (let i = 0; i < sel.options.length; i++) {
+      const opt = sel.options[i];
+      if (opt.getAttribute('data-executivo-nome') === nome) return opt.value;
+    }
+    return '';
+  } catch (e) {
+    return '';
+  }
+}
+
 (function restoreCotacoesFilters() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('_restored')) return;
   setCookie('cotacoes_status', '', -1);
-  const cExec = getCookie('cc_filtro_exec');
+  const cExecRaw = typeof getCookie === 'function' ? getCookie('cc_filtro_exec') : null;
+  const cookieMissing = cExecRaw === null;
+  let cExec = cExecRaw || '';
+  if (cookieMissing && !params.has('responsavel_comercial')) {
+    cExec = execIdFromCrmSession();
+    if (cExec) setCookie('cc_filtro_exec', cExec, 30);
+  }
   const cMes = getCookie('cc_filtro_mes');
   const cBusca = getCookie('cotacoes_busca');
   let needsRedirect = false;
@@ -489,7 +452,7 @@ async function deletarCotacao(cotacaoId) {
 
 function duplicarCotacao(cotacaoId) {
   if (!confirm('Deseja duplicar esta cotação?')) return;
-  
+
   fetch(`/api/cotacoes/${cotacaoId}/duplicar`, {
     method: 'POST'
   })

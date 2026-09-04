@@ -291,7 +291,8 @@
             min-height: calc(100vh - var(--erp-topbar-h));
             padding: 1rem;
         }
-        .erp-main-content.is-crm {
+        .erp-main-content.is-crm,
+        .erp-main-content.is-pipeline {
             padding: 0;
             overflow: hidden;
         }
@@ -444,7 +445,7 @@
             {'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
             {'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
             {'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
-            {'label': 'Cotações', 'match_prefix': 'cotacoes.', 'url': url_for('cotacoes.cotacoes_list'), 'icon': 'fa-file-invoice-dollar'},
+            {'label': 'Cotações', 'endpoint': 'crm_pipeline', 'match_prefix': 'cotacoes.', 'url': url_for('crm_pipeline'), 'icon': 'fa-file-invoice-dollar'},
             {'label': 'Briefings', 'endpoint': 'briefing_list', 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
             {'label': 'PI Recebido', 'endpoint': 'cadu_pi_novo', 'url': url_for('cadu_pi_novo'), 'icon': 'fa-inbox'},
             {'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'}
@@ -666,7 +667,7 @@
                 </div>
             </header>
 
-            <main class="erp-main-content cx-drawer-split-anchor {% if request.endpoint == 'crm_v3.crm_v3' %}is-crm{% endif %}">
+            <main class="erp-main-content cx-drawer-split-anchor {% if request.endpoint == 'crm_v3.crm_v3' %}is-crm{% elif request.endpoint == 'crm_pipeline' %}is-pipeline{% endif %}">
                 {% block content %}{% endblock %}
             </main>
         </div>

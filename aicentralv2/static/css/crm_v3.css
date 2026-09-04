@@ -2624,6 +2624,91 @@ button:hover > .crm-v3-menu-hint {
     transform: translateX(2px);
 }
 
+/* Modo compacto — set/2026.
+   Aparece SEMPRE no rodapé da coluna atividades (quando há
+   atividades reais acima), lembrando o executivo do próximo
+   touchpoint possível. Filosofia: 'sempre teremos o que fazer
+   com um cliente'.
+
+   Diferenças do modo default (empty state):
+   - Separador visual sutil no topo (border-top tracejada) para
+     descolar das atividades reais.
+   - Heading menor e discreto — não é o herói da coluna, é um
+     'nudge' contextual.
+   - Cards menores (padding reduzido, sem seta, ícone menor).
+   - Fundo cinza-suave para diferenciar visualmente dos itens
+     de atividade real (que ficam sobre fundo branco). */
+.crm-v3-ativ-empty-suggest.is-compact {
+    margin-top: 12px;
+    padding: 10px 4px 8px;
+    border-top: 1px dashed var(--crm-border);
+    background: transparent;
+    gap: 6px;
+}
+.crm-v3-ativ-empty-heading.is-compact {
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--crm-text-subtle);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+}
+.crm-v3-ativ-empty-heading.is-compact > i {
+    font-size: 11px;
+    color: #ca8a04;
+}
+.crm-v3-quick-ativ-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 14px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--crm-border-light);
+    color: var(--crm-text-muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-left: auto;
+}
+/* Grid compacto: 2 colunas responsivas, cards menores.
+   O minmax menor permite empilhar em 1 coluna quando o painel
+   está estreito (sidebar aberta / split-screen). */
+.crm-v3-quick-ativ-grid.is-compact {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px;
+}
+.crm-v3-quick-ativ-grid.is-compact > .crm-v3-quick-ativ {
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #fafafa;
+    gap: 8px;
+}
+.crm-v3-quick-ativ-grid.is-compact > .crm-v3-quick-ativ:hover {
+    background: #fff;
+}
+.crm-v3-quick-ativ-grid.is-compact .crm-v3-quick-ativ-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    border-radius: 6px;
+}
+.crm-v3-quick-ativ-grid.is-compact .crm-v3-quick-ativ-title {
+    font-size: 12px;
+    font-weight: 600;
+}
+.crm-v3-quick-ativ-grid.is-compact .crm-v3-quick-ativ-hint {
+    font-size: 10.5px;
+}
+/* No modo compact, a seta some para deixar o card mais discreto —
+   ele aparece pra convidar, não pra dominar visualmente. */
+.crm-v3-quick-ativ-grid.is-compact .crm-v3-quick-ativ-arrow {
+    display: none;
+}
+
 .crm-v3-date-group {
     display: flex;
     flex-direction: column;

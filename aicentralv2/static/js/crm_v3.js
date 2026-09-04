@@ -2259,12 +2259,9 @@
         }
 
         if (!filtrados.length) {
-            // Set/2026: em vez de mostrar só "Nenhuma atividade
-            // registrada", oferecemos 4 sugestões clicáveis para o
-            // usuário criar a primeira atividade em 1 clique. O template
-            // preenche o composer (título + tipo + data padrão) — não
-            // salva sozinho para o usuário ainda poder ajustar.
-            container.innerHTML = renderQuickAtividadesHTML();
+            // Empty state: sugestões em destaque com heading grande.
+            // O composer fica em cima; aqui embaixo vem o convite.
+            container.innerHTML = renderQuickAtividadesHTML({ compact: false });
             bindQuickAtividades(container);
             updateTabCounts();
             return;
@@ -2298,8 +2295,18 @@
             '</div>';
         });
 
+        // Set/2026: sugestões SEMPRE visíveis (não só no empty state).
+        // Filosofia do CRM v3: o executivo de vendas tem que ter um
+        // próximo passo à mão a cada momento — mais touchpoints =
+        // mais vendas. As sugestões vão no rodapé da coluna, em
+        // modo compacto (sem heading grande, sem competir visualmente
+        // com as atividades reais acima), e só as que ainda NÃO
+        // foram feitas pelo cliente (filtro em getSuggestionsForClient).
+        html += renderQuickAtividadesHTML({ compact: true });
+
         container.innerHTML = html;
         bindAtividadeEvents(container);
+        bindQuickAtividades(container);
         updateTabCounts();
     }
 
@@ -2384,16 +2391,46 @@
         });
     }
 
-    function renderQuickAtividadesHTML() {
+    /**
+     * Renderiza o bloco de sugestões rápidas.
+     *
+     * @param {Object} opts
+     * @param {boolean} [opts.compact=false]
+     *   - false (empty state): heading grande "Sugestões rápidas — clique
+     *     para começar" com ícone, mostra TODAS as sugestões disponíveis.
+     *   - true (rodapé da coluna quando o cliente já tem atividades):
+     *     heading pequeno "Próximos passos", limita a 4 sugestões para
+     *     não poluir. O objetivo é sempre lembrar o executivo do próximo
+     *     touchpoint possível — "sempre teremos o que fazer com um
+     *     cliente" (set/2026).
+     */
+    function renderQuickAtividadesHTML(opts) {
+        opts = opts || {};
+        var compact = !!opts.compact;
         var sugestoes = getSuggestionsForClient();
         var clienteNome = state.cliente ? state.cliente.nome : '';
 
         if (!sugestoes.length) {
-            return ''; // Todas as sugestões já foram usadas
+            // Filtro removeu tudo (raro — só quando o cliente fez
+            // todas as 15 sugestões possíveis). No modo compact
+            // isso é OK: rodapé fica limpo. No empty state precisamos
+            // dizer algo — o executivo abriu a coluna sem nada e não
+            // vamos deixar em branco.
+            if (compact) return '';
+            return (
+                '<div class="crm-v3-ativ-empty-suggest">' +
+                '<div class="crm-v3-ativ-empty-heading">' +
+                    '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>' +
+                    '<span>Este cliente já teve todos os touchpoints sugeridos. Use o composer acima para adicionar uma atividade personalizada.</span>' +
+                '</div></div>'
+            );
         }
 
-        var cards = sugestoes.map(function (s, i) {
-            // Personaliza título com nome do cliente
+        // Limite: 4 no modo compacto (não competir com atividades reais);
+        // todas no empty state (é a única coisa na tela, então destaque).
+        if (compact) sugestoes = sugestoes.slice(0, 4);
+
+        var cards = sugestoes.map(function (s) {
             var tituloDisplay = s.titulo;
             if (clienteNome) {
                 tituloDisplay = s.titulo + ' - ' + clienteNome;
@@ -2412,6 +2449,21 @@
                 '</button>'
             );
         }).join('');
+
+        if (compact) {
+            // Rodapé discreto: separador + heading pequeno + grid 2 colunas.
+            return (
+                '<div class="crm-v3-ativ-empty-suggest is-compact">' +
+                '<div class="crm-v3-ativ-empty-heading is-compact">' +
+                    '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
+                    '<span>Próximos passos sugeridos</span>' +
+                    '<span class="crm-v3-quick-ativ-count">' + sugestoes.length + '</span>' +
+                '</div>' +
+                '<div class="crm-v3-quick-ativ-grid is-compact">' + cards + '</div>' +
+                '</div>'
+            );
+        }
+
         return (
             '<div class="crm-v3-ativ-empty-suggest">' +
             '<div class="crm-v3-ativ-empty-heading">' +

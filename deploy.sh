@@ -41,10 +41,31 @@ echo "  > OK"
 # 2. Atualizar codigo
 echo ""
 echo "[2/7] Atualizando codigo..."
+# node_modules/.bin alterado por npm no servidor bloqueia git pull
+if git status --porcelain -- node_modules 2>/dev/null | grep -q .; then
+    echo "  > Descartando alteracoes locais em node_modules (reinstalado no build frontend)..."
+    git checkout -- node_modules 2>/dev/null || \
+        git restore -- node_modules 2>/dev/null || true
+fi
 git pull origin main 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
 echo "  > OK"
+
+# 2b. Build Tailwind (output.css nao e versionado — sempre gerado aqui)
+echo ""
+echo "[2b/8] Build frontend (Tailwind)..."
+if [ -x "./build_frontend.sh" ]; then
+    bash ./build_frontend.sh 2>&1
+    echo "  > OK"
+elif command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
+    npm install --no-audit --no-fund 2>&1
+    npm run build 2>&1
+    echo "  > OK"
+else
+    echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
+    exit 1
+fi
 
 # 3. Atualizar dependencias
 echo ""

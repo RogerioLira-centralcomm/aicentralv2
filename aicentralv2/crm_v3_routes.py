@@ -964,7 +964,8 @@ def api_ia_touchpoints():
                 "Gere uma sequência de 4 touchpoints com dias (D+1, D+3, D+7, D+14 para prospecção; "
                 "D+7, D+14, D+30 para clientes ativos; D+14, D+45, D+90 para geladeira).\n"
                 "Ajuste a cadência conforme a classificação do cliente.\n"
-                "Responda APENAS em JSON: {\"touchpoints\":[{\"titulo\":\"...\",\"descricao\":\"...\",\"tipo\":\"email|whatsapp|ligacao|reuniao\",\"prioridade\":\"Alta|Média|Baixa\",\"dias\":N}]}"
+                "Responda APENAS em JSON: {\"touchpoints\":[{\"titulo\":\"...\",\"descricao\":\"...\",\"tipo\":\"email|whatsapp|ligacao|reuniao\",\"prioridade\":\"Alta|Média|Baixa\",\"dias\":N}]}\n"
+                "titulo e descricao em texto puro, sem markdown."
             )
             resp = _call_openrouter(system_prompt, contexto, max_tokens=800, temperature=0.6).strip()
             if resp.startswith("```"):
@@ -975,6 +976,8 @@ def api_ia_touchpoints():
                 dias = int(tp.pop("dias", 1) or 1)
                 tp["data_sugerida"] = (hoje + timedelta(days=dias)).isoformat()
                 tp.setdefault("hora", "09:00")
+                tp["titulo"] = _texto_ia_limpo(tp.get("titulo"))
+                tp["descricao"] = _texto_ia_limpo(tp.get("descricao"))
             parsed["classificacao"] = classificacao
             parsed["source"] = "openrouter"
             return _ok(**parsed)
@@ -1011,12 +1014,15 @@ def api_ia_gerar_comunicacao():
     data = request.get_json(silent=True) or {}
     cliente_id = data.get("cliente_id") or ""
     cliente = store.get_cliente(cliente_id) if cliente_id else None
-    tipo = (data.get("tipo") or "email").strip().lower()
+    tipo = (data.get("formato") or data.get("tipo") or "email").strip().lower()
+    if tipo not in ("email", "whatsapp"):
+        tipo = "whatsapp" if "whats" in tipo else "email"
     tamanho = (data.get("tamanho") or "medio").strip().lower()
-    objetivo = (data.get("objetivo") or "").strip()
+    objetivo = texto_sem_markdown(
+        data.get("objetivo") or data.get("titulo") or data.get("descricao") or ""
+    ).strip()
 
-    contatos = store.list_contatos(cliente_id) or [] if cliente_id else []
-    contato_principal = next((c for c in contatos if c.get("principal")), (contatos[0] if contatos else {}))
+    contato_principal, contatos = _contato_para_ia(data, cliente_id)
 
     if _openrouter_available() and cliente and objetivo:
         try:
@@ -1030,18 +1036,18 @@ def api_ia_gerar_comunicacao():
                 f"Objetivo: {objetivo}\n"
                 "Se for WhatsApp: tom direto, pessoal, sem formalidades excessivas. Máximo 3 parágrafos curtos.\n"
                 "Se for Email: inclua assunto, saudação, corpo e despedida. Tom profissional mas acessível.\n"
-                "Não use emojis excessivos. Seja natural.\n"
+                "Texto puro: NUNCA use markdown (sem ** # ` listas com asterisco). Sem emojis excessivos.\n"
                 f"Assine como: {responsavel}"
             )
-            resultado = _call_openrouter(system_prompt, objetivo, max_tokens=1500)
+            resultado = _texto_ia_limpo(_call_openrouter(system_prompt, objetivo, max_tokens=1500))
             # Tentamos separar assunto e corpo se for email
             assunto = None
             mensagem = resultado
             if tipo == "email":
                 for line in resultado.splitlines():
                     if line.lower().startswith("assunto:"):
-                        assunto = line.split(":", 1)[1].strip()
-                        mensagem = resultado.replace(line, "", 1).strip()
+                        assunto = texto_sem_markdown(line.split(":", 1)[1].strip())
+                        mensagem = texto_sem_markdown(resultado.replace(line, "", 1))
                         break
                 if not assunto:
                     assunto = f"Follow-up comercial — {cliente.get('nome')}"
@@ -1056,22 +1062,28 @@ def api_ia_gerar_comunicacao():
             pass
 
     # Fallback determinístico
-    contatos_fb = contatos
-    contato_principal = next((c for c in contatos if c.get("principal")), (contatos[0] if contatos else {}))
     nome_cliente = (cliente or {}).get("nome") or "cliente"
     responsavel = (cliente or {}).get("responsavel") or "Executivo CentralX"
     nome_contato = contato_principal.get("nome") if contato_principal else "responsável"
     assunto = f"Follow-up comercial — {nome_cliente}"
-    mensagem = (
-        f"Olá {nome_contato},\n\n"
-        f"Aqui é {responsavel}, da CentralX. Passando para retomar nosso alinhamento "
-        f"sobre a agenda comercial da {nome_cliente}. Preparei um resumo dos próximos "
-        "passos e gostaria de propor uma rápida reunião para alinharmos prioridades.\n\n"
-        "Posso reservar 30 minutos na sua agenda esta semana?\n\n"
-        "Abraço,\n"
-        f"{responsavel}\nCentralX"
-    )
-    return _ok({"assunto": assunto, "mensagem": mensagem, "contato": contato_principal, "source": "fallback"})
+    if tipo == "whatsapp":
+        mensagem = (
+            f"Oi {nome_contato}, aqui é {responsavel} da CentralComm.\n\n"
+            f"Queria retomar o alinhamento com a {nome_cliente}. "
+            "Temos um próximo passo claro e gostaria de confirmar um horário rápido esta semana.\n\n"
+            "Pode ser?"
+        )
+    else:
+        mensagem = (
+            f"Olá {nome_contato},\n\n"
+            f"Aqui é {responsavel}, da CentralComm. Passando para retomar nosso alinhamento "
+            f"sobre a agenda comercial da {nome_cliente}. Preparei um resumo dos próximos "
+            "passos e gostaria de propor uma rápida reunião para alinharmos prioridades.\n\n"
+            "Posso reservar 30 minutos na sua agenda esta semana?\n\n"
+            "Abraço,\n"
+            f"{responsavel}\nCentralComm"
+        )
+    return _ok({"assunto": assunto, "mensagem": mensagem, "tipo": tipo, "contato": contato_principal, "source": "fallback"})
 
 
 @bp.route("/api/ia/sugerir-objetivos", methods=["POST"])

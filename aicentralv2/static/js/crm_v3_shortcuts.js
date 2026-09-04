@@ -8,7 +8,6 @@
  *   n      — novo cliente (drawer)
  *   t      — nova atividade (drawer) do cliente selecionado
  *   c      — nova cotação (drawer)
- *   d      — alternar densidade confortável/compacto
  *   Esc    — fecha drawer aberto
  *
  * Depende de:
@@ -50,33 +49,7 @@
         }
     }
 
-    function toggleDensidade() {
-        var page = document.querySelector('.crm-v3-page');
-        if (!page) return;
-        page.classList.toggle('is-compact');
-        try {
-            localStorage.setItem('crmV3.densidade', page.classList.contains('is-compact') ? 'compact' : 'comfort');
-        } catch (_) { /* ignore */ }
-    }
-
-    function restoreDensidade() {
-        try {
-            var v = localStorage.getItem('crmV3.densidade');
-            if (v === 'compact') {
-                var page = document.querySelector('.crm-v3-page');
-                if (page) page.classList.add('is-compact');
-            }
-        } catch (_) { /* ignore */ }
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
-        // Restaurar densidade
-        restoreDensidade();
-
-        // Botão de densidade
-        var btnDens = document.getElementById('crm-v3-btn-densidade');
-        if (btnDens) btnDens.addEventListener('click', toggleDensidade);
-
         // Registrar atalhos apenas na página /crm-v3
         if (!document.querySelector('.crm-v3-page')) return;
 
@@ -129,10 +102,6 @@
                         handled = true;
                     }
                     break;
-                case 'd':
-                    toggleDensidade();
-                    handled = true;
-                    break;
                 case '?':
                     mostrarAtalhos();
                     handled = true;
@@ -158,7 +127,6 @@
             '<tr><td><kbd>n</kbd></td><td>Novo cliente (drawer)</td></tr>' +
             '<tr><td><kbd>t</kbd></td><td>Nova atividade (drawer)</td></tr>' +
             '<tr><td><kbd>c</kbd></td><td>Nova cotação (drawer)</td></tr>' +
-            '<tr><td><kbd>d</kbd></td><td>Alternar densidade</td></tr>' +
             '<tr><td><kbd>Esc</kbd></td><td>Fechar drawer</td></tr>' +
             '<tr><td><kbd>?</kbd></td><td>Mostrar esta lista</td></tr>' +
             '</tbody></table></div>'

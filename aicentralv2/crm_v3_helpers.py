@@ -153,6 +153,7 @@ def texto_sem_markdown(texto: Optional[str]) -> str:
     s = re.sub(r"^[\s]*[-*+]\s+", "- ", s, flags=re.M)
     s = re.sub(r"^\s{0,3}>\s?", "", s, flags=re.M)
     s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
+    s = s.replace("**", "").replace("__", "")
     s = re.sub(r"[ \t]+\n", "\n", s)
     return s.strip()
 

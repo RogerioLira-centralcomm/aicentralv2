@@ -21,7 +21,6 @@
         filtroAtivResponsavel: '',
         filtroAtivTipo: '',
         buscaCliente: '',
-        buscaContato: '',
         buscaAtividade: '',
         paginaCliente: 1,
         // Set/2026: subimos de 8 → 40 clientes por página. O time
@@ -351,9 +350,15 @@
                 img.hidden = false;
                 var ini = img.previousElementSibling;
                 if (ini) ini.style.display = 'none';
+                var wrap = img.closest('.crm-v3-card-logo-wrap');
+                if (wrap) wrap.hidden = false;
             }
             img.addEventListener('load', reveal);
-            img.addEventListener('error', function () { img.hidden = true; });
+            img.addEventListener('error', function () {
+                img.hidden = true;
+                var wrap = img.closest('.crm-v3-card-logo-wrap');
+                if (wrap) wrap.hidden = true;
+            });
             if (img.complete) reveal();
         });
     }
@@ -430,6 +435,16 @@
         var parts = (nome || '?').trim().split(/\s+/);
         if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
         return (nome || '?').slice(0, 2).toUpperCase();
+    }
+
+    function logoCardHtml(c) {
+        var src = logoRealDoCliente(c);
+        if (!src) return '';
+        return (
+            '<div class="crm-v3-card-logo-wrap" hidden>' +
+            '<img class="crm-v3-card-logo" alt="" hidden data-crm-logo="1" src="' + escapeHtml(src) + '" />' +
+            '</div>'
+        );
     }
 
     function avatarHtml(nome, sizeClass, dominio, clienteId, webLogoUrl) {
@@ -874,51 +889,12 @@
         function renderClienteCard(c) {
             var ativo = c.id === state.clienteId;
             var classificacao = c.classificacao_cliente || c.classificacao || '';
-            var classifSlug = classificacao.replace(/ç/g, 'c').replace(/ã/g, 'a');
             var isAgencia = !!c.is_agencia;
-            var clientesFinaisCount = Number(c.clientes_finais_count || 0);
             var agenciaNome = '';
             var vinculos = Array.isArray(c.agencias_vinculadas) ? c.agencias_vinculadas : [];
             var principal = vinculos.filter(function (v) { return v && v.is_principal; })[0] || vinculos[0];
             if (principal) agenciaNome = principal.nome || '';
-            var tipoCliente = String(c.tipo || c.categoria || c.tipo_label || '').toLowerCase();
-            var perfilCliente = String(c.perfil || '').toLowerCase();
 
-            // Mapear tipos para ícones e tooltips
-            var TIPO_ICONES = {
-                'publico': { icon: 'fa-landmark', tooltip: 'Setor Público' },
-                'público': { icon: 'fa-landmark', tooltip: 'Setor Público' },
-                'governo': { icon: 'fa-landmark', tooltip: 'Setor Público' },
-                'privado': { icon: 'fa-building', tooltip: 'Setor Privado' },
-                'parceiro regional': { icon: 'fa-handshake', tooltip: 'Parceiro Regional' },
-                'público/privado': { icon: 'fa-scale-balanced', tooltip: 'Público/Privado (Misto)' },
-                'publico/privado': { icon: 'fa-scale-balanced', tooltip: 'Público/Privado (Misto)' }
-            };
-
-            // Ícones inline no headline (perfil + tipo)
-            var icones = [];
-
-            // Ícone de perfil: agência ou cliente final (só se filtro perfil não estiver ativo)
-            if (!state.filtroPerfil) {
-                if (isAgencia || perfilCliente === 'agencia') {
-                    var agTooltip = 'Agência' + (clientesFinaisCount > 0 ? ' (' + clientesFinaisCount + ' clientes vinculados)' : '');
-                    icones.push('<i class="fa-solid fa-sitemap crm-v3-cliente-icon" title="' + agTooltip + '" aria-hidden="true"></i>');
-                } else {
-                    icones.push('<i class="fa-solid fa-user-tie crm-v3-cliente-icon" title="Cliente Final" aria-hidden="true"></i>');
-                }
-            }
-
-            // Ícone de tipo: público, privado, parceiro, misto (só se filtro tipo não estiver ativo)
-            if (!state.filtroTipo) {
-                var tipoInfo = TIPO_ICONES[tipoCliente];
-                if (tipoInfo) {
-                    icones.push('<i class="fa-solid ' + tipoInfo.icon + ' crm-v3-cliente-icon" title="' + tipoInfo.tooltip + '" aria-hidden="true"></i>');
-                }
-            }
-
-            // Sub-texto com agência vinculada (se houver).
-            // Set/2026: mantido para clientes com agência-mãe — a
-            // agência é a info mais importante depois do nome.
             var subText = c.sub || '';
             if (agenciaNome && !isAgencia) {
                 subText = agenciaNome;
@@ -1026,10 +1002,9 @@
                 ' data-status="' + escapeHtml(c.status) + '"' +
                 ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
-                avatarHtml(c.nome, 'w-7 h-7', c.site_url, c.id, c.web_logo_url) +
+                logoCardHtml(c) +
                 '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
                 '<div class="crm-v3-cliente-headline">' +
-                (icones.length ? '<span class="crm-v3-cliente-icones">' + icones.join('') + '</span>' : '') +
                 '<div class="crm-v3-cliente-nome" title="' + escapeHtml(c.nome) + '">' + escapeHtml(c.nome) + '</div>' +
                 '</div>' +
                 (subText ? '<div class="crm-v3-cliente-sub" title="' + escapeHtml(subText) + '">' + escapeHtml(subText) + '</div>' : '') +
@@ -2079,14 +2054,8 @@
         var countEl = $('#crm-v3-contatos-count');
         if (!container) return;
 
-        var termo = state.buscaContato.toLowerCase().trim();
-        var filtrados = state.contatos.filter(function (c) {
-            if (!termo) return true;
-            return [c.nome, c.cargo, c.email, c.telefone, c.telefone_secundario]
-                .some(function (v) { return String(v || '').toLowerCase().indexOf(termo) !== -1; });
-        });
-
-        if (countEl) countEl.textContent = filtrados.length;
+        var lista = state.contatos || [];
+        if (countEl) countEl.textContent = String(lista.length);
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
@@ -2104,14 +2073,9 @@
             return;
         }
 
-        if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Nenhum contato encontrado.</div>';
-            return;
-        }
-
-        container.innerHTML = filtrados.map(function (c, idx) {
+        container.innerHTML = lista.map(function (c, idx) {
             var ativo = String(c.id) === String(state.contatoId);
-            var expandirTodos = filtrados.length <= 5;
+            var expandirTodos = lista.length <= 5;
             var expandido = expandirTodos || ativo || (!state.contatoId && idx === 0);
             var nomeExibido = (c.nome && String(c.nome).trim()) || (c.email ? String(c.email).split('@')[0] : 'Contato sem nome');
             var subLinha = [c.cargo, c.setor].filter(Boolean).join(' · ');
@@ -2301,21 +2265,78 @@
     }
 
     function ativIconClass(tipo) {
-        if (tipo === 'ligacao' || tipo === 'phone') return 'crm-v3-ativ-icon-phone';
-        if (tipo === 'reuniao' || tipo === 'meeting') return 'crm-v3-ativ-icon-meeting';
-        if (tipo === 'doc') return 'crm-v3-ativ-icon-doc';
+        var t = (tipo || '').toLowerCase();
+        if (t === 'ligacao' || t === 'phone') return 'crm-v3-ativ-icon-phone';
+        if (t === 'reuniao' || t === 'meeting') return 'crm-v3-ativ-icon-meeting';
+        if (t === 'doc') return 'crm-v3-ativ-icon-doc';
+        if (t === 'email') return 'crm-v3-ativ-icon-email';
+        if (t === 'whatsapp') return 'crm-v3-ativ-icon-whatsapp';
+        if (t === 'planejamento') return 'crm-v3-ativ-icon-plan';
         return 'crm-v3-ativ-icon-note';
     }
 
     function ativIconHtml(tipo) {
+        var t = (tipo || '').toLowerCase();
         var icons = {
-            ligacao: 'fa-phone', phone: 'fa-phone',
-            reuniao: 'fa-users', meeting: 'fa-users',
-            doc: 'fa-file-lines', note: 'fa-note-sticky'
+            ligacao: { ic: 'fa-solid fa-phone', cls: 'phone' },
+            phone: { ic: 'fa-solid fa-phone', cls: 'phone' },
+            reuniao: { ic: 'fa-solid fa-video', cls: 'meeting' },
+            meeting: { ic: 'fa-solid fa-video', cls: 'meeting' },
+            doc: { ic: 'fa-regular fa-file-lines', cls: 'doc' },
+            note: { ic: 'fa-regular fa-note-sticky', cls: 'note' },
+            email: { ic: 'fa-solid fa-envelope', cls: 'email' },
+            whatsapp: { ic: 'fa-brands fa-whatsapp', cls: 'whatsapp' },
+            planejamento: { ic: 'fa-solid fa-diagram-project', cls: 'plan' },
+            atividade: { ic: 'fa-regular fa-circle-check', cls: 'note' }
         };
-        var ic = icons[tipo] || 'fa-circle';
-        var solid = ic === 'fa-file-lines' ? 'fa-regular' : 'fa-solid';
-        return '<span class="crm-v3-ativ-icon ' + ativIconClass(tipo) + '" aria-hidden="true"><i class="' + solid + ' ' + ic + '"></i></span>';
+        var spec = icons[t] || { ic: 'fa-regular fa-circle-check', cls: 'note' };
+        return '<span class="crm-v3-ativ-icon ' + ativIconClass(t) + '" aria-hidden="true"><i class="' + spec.ic + '"></i></span>';
+    }
+
+    function stripMarkdown(s) {
+        s = String(s == null ? '' : s);
+        s = s.replace(/```[\s\S]*?```/g, function (m) { return m.replace(/```/g, ''); });
+        s = s.replace(/^#{1,6}\s+/gm, '');
+        s = s.replace(/\*\*(.+?)\*\*/g, '$1');
+        s = s.replace(/__(.+?)__/g, '$1');
+        s = s.replace(/`([^`]+)`/g, '$1');
+        s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+        s = s.replace(/^\s{0,3}>\s?/gm, '');
+        s = s.replace(/\*\*/g, '');
+        return s.trim();
+    }
+
+    function tituloAtividadeLista(a) {
+        var t = stripMarkdown(a && a.titulo).split('\n')[0].trim();
+        if (!t) t = stripMarkdown(a && a.descricao).split('\n')[0].trim();
+        if (!t) return 'Atividade';
+        return t.length > 88 ? t.slice(0, 87) + '…' : t;
+    }
+
+    function fotoExecutivoAtividade(a) {
+        if (a && a.responsavel_foto_url) return a.responsavel_foto_url;
+        var lista = (window.CRM_V3_CONTEXT && window.CRM_V3_CONTEXT.executivos) || [];
+        var nome = String((a && a.responsavel) || '').toLowerCase();
+        var id = a && a.executivo_id ? String(a.executivo_id) : '';
+        for (var i = 0; i < lista.length; i++) {
+            var ex = lista[i] || {};
+            var foto = ex.foto_url || '';
+            if (!foto) continue;
+            if (id && String(ex.id_contato_cliente || ex.id) === id) return foto;
+            var n = String(ex.nome_completo || ex.nome || '').toLowerCase();
+            if (n && nome && n === nome) return foto;
+        }
+        return '';
+    }
+
+    function execAvatarHtml(a) {
+        var nome = (a && a.responsavel) || '';
+        if (!nome) return '';
+        var foto = fotoExecutivoAtividade(a);
+        if (foto) {
+            return '<img class="crm-v3-avatar-mini crm-v3-ativ-owner" src="' + escapeHtml(foto) + '" alt="" title="' + escapeHtml(nome) + '">';
+        }
+        return '<div class="crm-v3-avatar-mini crm-v3-ativ-owner" title="' + escapeHtml(nome) + '">' + escapeHtml(avatarIniciais(nome)) + '</div>';
     }
 
     function prioridadeBadge(p) {
@@ -2364,24 +2385,21 @@
 
     function renderAtividadeItem(a) {
         var concluida = a.status === 'concluida';
-        var responsavel = a.responsavel || '';
         var dataStr = formatarDataAtividade(a);
         var horaStr = a.hora || '';
         var quando = [dataStr, horaStr].filter(Boolean).join(' · ');
+        var titulo = tituloAtividadeLista(a);
         return (
             '<div class="crm-v3-ativ' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '"' + (a._pending ? ' data-pending="true"' : '') + '>' +
-                '<button type="button" class="crm-v3-ativ-check" data-ativ-action="toggle" aria-label="' + (concluida ? 'Reabrir' : 'Marcar como feita') + ': ' + escapeHtml(a.titulo) + '" title="' + (concluida ? 'Reabrir' : 'Marcar como feita') + '">' +
+                '<button type="button" class="crm-v3-ativ-check" data-ativ-action="toggle" aria-label="' + (concluida ? 'Reabrir' : 'Marcar como feita') + ': ' + escapeHtml(titulo) + '" title="' + (concluida ? 'Reabrir' : 'Marcar como feita') + '">' +
                     '<i class="' + (concluida ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle') + '" aria-hidden="true"></i>' +
                 '</button>' +
                 ativIconHtml(a.tipo) +
-                '<div class="crm-v3-ativ-content">' +
-                    '<div class="crm-v3-ativ-titulo" data-editable="titulo" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.titulo) + '</div>' +
-                    (a.descricao && normalizarTitulo(a.descricao) !== normalizarTitulo(a.titulo)
-                        ? '<div class="crm-v3-ativ-desc" data-editable="descricao" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.descricao) + '</div>'
-                        : '') +
-                '</div>' +
+                '<button type="button" class="crm-v3-ativ-content" data-ativ-action="editar" title="Editar atividade">' +
+                    '<div class="crm-v3-ativ-titulo">' + escapeHtml(titulo) + '</div>' +
+                '</button>' +
                 (quando ? '<span class="crm-v3-ativ-when" title="' + escapeHtml(quando) + '">' + escapeHtml(quando) + '</span>' : '') +
-                (responsavel ? '<div class="crm-v3-avatar-mini crm-v3-ativ-owner" title="' + escapeHtml(responsavel) + '">' + escapeHtml(avatarIniciais(responsavel)) + '</div>' : '') +
+                execAvatarHtml(a) +
                 '<div class="crm-v3-ativ-actions">' +
                     '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" data-ativ-action="editar" aria-label="Editar" title="Editar"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
                     '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost crm-v3-icon-btn-danger" data-ativ-action="excluir" aria-label="Excluir" title="Excluir"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
@@ -2650,7 +2668,7 @@
                 titulo.value = sTitulo;
 
                 // Sincroniza o botão de tipo (mesma sequência do composer).
-                var tipos = ['atividade', 'ligacao', 'reuniao', 'doc', 'planejamento'];
+                var tipos = ['atividade', 'ligacao', 'reuniao', 'email', 'whatsapp', 'doc', 'planejamento'];
                 var tipoIdx = tipos.indexOf(sTipo);
                 if (tipoIdx === -1) tipoIdx = 0;
                 tipoBtn.setAttribute('data-tipo', sTipo);
@@ -2658,7 +2676,9 @@
                 var icons = {
                     atividade: 'fa-regular fa-circle-check',
                     ligacao: 'fa-solid fa-phone',
-                    reuniao: 'fa-solid fa-users',
+                    reuniao: 'fa-solid fa-video',
+                    email: 'fa-solid fa-envelope',
+                    whatsapp: 'fa-brands fa-whatsapp',
                     doc: 'fa-regular fa-file-lines',
                     planejamento: 'fa-solid fa-diagram-project'
                 };
@@ -2676,11 +2696,6 @@
     }
 
     function bindAtividadeEvents(container) {
-        // Edição inline (título/descrição via contenteditable) — clicar edita.
-        bindAtividadeInlineEdit(container);
-
-        // Uma delegação de eventos para toggle/editar/excluir cobre todas as
-        // ações; simplifica manutenção quando renderizamos por grupos de data.
         container.addEventListener('click', function (e) {
             var btn = e.target.closest('[data-ativ-action]');
             if (!btn || !container.contains(btn)) return;
@@ -2788,7 +2803,9 @@
         var tipos = [
             { id: 'atividade', icon: 'fa-regular fa-circle-check', label: 'Atividade' },
             { id: 'ligacao',   icon: 'fa-solid fa-phone',          label: 'Ligação' },
-            { id: 'reuniao',   icon: 'fa-solid fa-users',          label: 'Reunião' },
+            { id: 'reuniao',   icon: 'fa-solid fa-video',          label: 'Reunião' },
+            { id: 'email',     icon: 'fa-solid fa-envelope',       label: 'E-mail' },
+            { id: 'whatsapp',  icon: 'fa-brands fa-whatsapp',      label: 'WhatsApp' },
             { id: 'doc',       icon: 'fa-regular fa-file-lines',   label: 'Documento' },
             { id: 'planejamento', icon: 'fa-solid fa-diagram-project', label: 'Planejamento' }
         ];
@@ -4668,17 +4685,6 @@
             });
         }
 
-        var buscaContato = $('#crm-v3-busca-contato');
-        if (buscaContato) {
-            buscaContato.addEventListener('input', function () {
-                state.buscaContato = buscaContato.value;
-                renderContatos();
-            });
-        }
-
-        // Filtros textuais/select da coluna de atividades foram removidos por
-        // decisão de UX: a coluna mostra tudo agrupado por data.
-
         var executivo = $('#filtro-executivo');
         var tipo = $('#filtro-tipo');
         var perfil = $('#filtro-perfil');
@@ -4714,47 +4720,6 @@
     function initButtons() {
         var novoCliente = $('#crm-v3-btn-novo-cliente-header');
         if (novoCliente) novoCliente.addEventListener('click', function () { openClienteModal(null); });
-        var novoClienteLista = $('#crm-v3-btn-novo-cliente-lista');
-        if (novoClienteLista) novoClienteLista.addEventListener('click', function () { openClienteModal(null); });
-
-        var limpar = $('#crm-v3-btn-limpar-filtros');
-        if (limpar) limpar.addEventListener('click', function () {
-            state.filtroPill = 'classif-ativo';
-            state.filtroSecundario = '';
-            state.filtroExecutivo = '';
-            state.filtroTipo = '';
-            state.filtroPerfil = '';
-            state.buscaCliente = '';
-            state.paginaCliente = 1;
-            $('#crm-v3-busca').value = '';
-            $('#filtro-executivo').value = '';
-            $('#filtro-tipo').value = '';
-            $('#filtro-perfil').value = '';
-            syncFiltrosParaDom();
-            // Persistir "limpar filtros" no localStorage: caso contrário
-            // o boot da próxima sessão restauraria o executivo/tipo/perfil
-            // antigos e o usuário teria que limpar de novo. Escolha
-            // explícita do usuário sempre ganha do auto-select (data-eu).
-            saveSession({
-                filtroPill: 'classif-ativo',
-                filtroSecundario: '',
-                filtroExecutivo: '',
-                filtroTipo: '',
-                filtroPerfil: ''
-            });
-            renderClientes();
-        });
-
-        // Botão global "Exportar" foi removido do header (set/2026).
-        // Os exports CSV agora vivem no dropdown "Visões" (ao lado de
-        // "Novo cliente") e no menu 3-pontos do card, apontando para
-        // as rotas /crm/api/export/* do CRM legado.
-        //
-        // A ação `.crm-v3-header-action-edit` (Editar cliente) é
-        // interceptada por delegação em `crm_v3_drawers.js` — não
-        // precisamos de outro listener aqui. O fallback antigo
-        // (openClienteModal) permaneceu removido intencionalmente para
-        // evitar disparo duplo do drawer.
 
         var prev = $('#crm-v3-page-prev');
         var next = $('#crm-v3-page-next');

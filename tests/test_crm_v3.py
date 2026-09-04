@@ -82,6 +82,20 @@ class CrmTestHelpersTest(unittest.TestCase):
         self.assertIsNone(uf_por_capital_operacao("Contagem"))
         self.assertIsNone(uf_por_capital_operacao(""))
 
+    def test_texto_sem_markdown_e_titulo_lista(self):
+        bruto = "**Primeiro Contato - Isabel Matos**\n\n**Entrar em contato** com a gerente."
+        self.assertEqual(
+            texto_sem_markdown(bruto).splitlines()[0],
+            "Primeiro Contato - Isabel Matos",
+        )
+        self.assertEqual(
+            titulo_atividade_lista("**Primeiro Contato - Isabel Matos**", bruto),
+            "Primeiro Contato - Isabel Matos",
+        )
+        longo = "A" * 100
+        self.assertTrue(titulo_atividade_lista(longo).endswith("…"))
+        self.assertEqual(len(titulo_atividade_lista(longo)), 91)
+
 
 class CrmTestApiTest(unittest.TestCase):
     def setUp(self):
@@ -599,6 +613,20 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(mapped["data"], "2026-09-04")
         self.assertEqual(mapped["titulo"], "Ligar")  # fallback: descricao
         self.assertEqual(mapped["responsavel_iniciais"], "LS")
+
+    def test_map_atividade_remove_markdown_do_titulo(self):
+        mapped = self.repo._map_atividade({
+            "id": 1,
+            "titulo": "**Primeiro Contato - Isabel Matos**",
+            "descricao": "**Entrar em contato com Isabel Matos** para apresentar a CENTRALCOMM.",
+            "status": "pendente",
+            "tipo": "ligacao",
+            "responsavel_nome": "Apolo Lira",
+            "responsavel_foto_url": "https://example.com/al.jpg",
+        })
+        self.assertEqual(mapped["titulo"], "Primeiro Contato - Isabel Matos")
+        self.assertNotIn("**", mapped["descricao"])
+        self.assertEqual(mapped["responsavel_foto_url"], "https://example.com/al.jpg")
 
     def test_create_atividade_valida_titulo_obrigatorio(self):
         with self.assertRaises(ValueError):

@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=65">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=70">
 {% endblock %}
 
 {% block content %}
@@ -66,10 +66,7 @@
            dentro do sistema (o ERP tem várias telas parecidas) e serve
            de âncora visual pro início da barra de filtros. Não é link
            porque a rota atual já é a raiz do CRM v3. #}
-        <span class="crm-v3-brand" aria-label="CRM">
-          <i class="fa-solid fa-users-line" aria-hidden="true"></i>
-          <span class="crm-v3-brand-label">CRM</span>
-        </span>
+        <h1 class="crm-v3-brand">CRM</h1>
         <label class="sr-only" for="filtro-executivo">Filtrar por executivo</label>
         <select class="crm-v3-select" id="filtro-executivo" aria-label="Executivo">
           <option value="">Executivo: todos</option>
@@ -139,23 +136,7 @@
 
         <aside class="crm-v3-col crm-v3-col-clientes" aria-label="Lista de clientes">
           <div class="crm-v3-col-header">
-            <div class="crm-v3-col-header-row">
-              <div class="flex items-center gap-1">
-                <h2 class="crm-v3-col-title">Clientes</h2>
-                <span class="crm-v3-count" aria-live="polite">0</span>
-              </div>
-              <div class="crm-v3-col-header-actions">
-                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-novo-cliente-lista" aria-label="Adicionar cliente">
-                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-densidade" aria-label="Alternar densidade" title="Alternar entre confortável e compacto (atalho: d)">
-                  <i class="fa-solid fa-grip-lines" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="crm-v3-icon-btn" id="crm-v3-btn-limpar-filtros" aria-label="Limpar filtros" title="Limpar filtros">
-                  <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-                </button>
-              </div>
-            </div>
+            <h2 class="crm-v3-col-title">Clientes</h2>
             <div class="crm-v3-search-wrap">
               <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
               <label class="sr-only" for="crm-v3-busca">Buscar cliente</label>
@@ -166,7 +147,7 @@
                 <span class="crm-v3-pill-label">Ativos</span>
                 <span class="crm-v3-pill-count">0</span>
               </button>
-              <button type="button" class="crm-v3-pill crm-v3-pill-classif crm-v3-pill-classif--prospeccao" data-filter="classif-prospeccao" aria-pressed="false" title="Somente clientes em Prospecção" aria-label="Prospecção">
+              <button type="button" class="crm-v3-pill crm-v3-pill-classif" data-filter="classif-prospeccao" aria-pressed="false" title="Somente clientes em Prospecção" aria-label="Prospecção">
                 <span class="crm-v3-pill-label">Prospecção</span>
                 <span class="crm-v3-pill-count">0</span>
               </button>
@@ -326,9 +307,9 @@
         <aside class="crm-v3-col crm-v3-col-contatos" aria-label="Contatos do cliente">
           <div class="crm-v3-col-header">
             <div class="crm-v3-col-header-row">
-              <div class="flex items-center gap-1 min-w-0">
+              <div class="crm-v3-col-heading">
                 <h2 class="crm-v3-col-title">Contatos</h2>
-                <span class="crm-v3-count" id="crm-v3-contatos-count" aria-live="polite">1</span>
+                <span class="crm-v3-count" id="crm-v3-contatos-count" aria-live="polite">0</span>
               </div>
               <div class="crm-v3-col-header-actions">
                 <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-btn-import-contatos" title="Importar contatos">
@@ -338,11 +319,6 @@
                   <i class="fa-solid fa-plus" aria-hidden="true"></i> Contato
                 </button>
               </div>
-            </div>
-            <div class="crm-v3-search-wrap">
-              <i class="fa-solid fa-search crm-v3-search-icon" aria-hidden="true"></i>
-              <label class="sr-only" for="crm-v3-busca-contato">Buscar contato</label>
-              <input type="search" id="crm-v3-busca-contato" class="crm-v3-search" placeholder="Buscar contato..." autocomplete="off" />
             </div>
           </div>
 
@@ -762,7 +738,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=42"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=8"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=45"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

@@ -693,9 +693,31 @@
         // `status` — que serão sincronizadas com os chips logo abaixo.
         fillForm(form, atividade || {});
 
-        // Conecta os chip-groups (Tipo, Status) à respectiva hidden.
+        var tipoVal = (form.querySelector('[data-field="tipo"]') || {}).value || '';
+        var fmtEl = form.querySelector('[data-field="formato"]');
+        if (fmtEl && (!fmtEl.value || fmtEl.value === 'roteiro')) {
+            if (tipoVal === 'email' || tipoVal === 'whatsapp') fmtEl.value = tipoVal;
+        }
+
+        // Conecta os chip-groups (Tipo, Status, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
+
+        $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                var val = chip.getAttribute('data-value');
+                var fmt = form.querySelector('[data-field="formato"]');
+                var fg = wrapper.querySelector('[data-chip-group="formato"]');
+                if (!fmt || (val !== 'email' && val !== 'whatsapp')) return;
+                fmt.value = val;
+                if (!fg) return;
+                $$('.cx-drawer-chip', fg).forEach(function (c) {
+                    var active = c.getAttribute('data-value') === val;
+                    c.classList.toggle('is-active', active);
+                    c.setAttribute('aria-checked', active ? 'true' : 'false');
+                });
+            });
+        });
 
         // IA actions
         $$('[data-ia-action]', wrapper).forEach(function (btn) {
@@ -756,28 +778,46 @@
         }).catch(function (err) { toast(err.message, true); });
     }
 
+    function stripMarkdown(s) {
+        s = String(s == null ? '' : s);
+        s = s.replace(/```[\s\S]*?```/g, function (m) { return m.replace(/```/g, ''); });
+        s = s.replace(/^#{1,6}\s+/gm, '');
+        s = s.replace(/\*\*(.+?)\*\*/g, '$1');
+        s = s.replace(/__(.+?)__/g, '$1');
+        s = s.replace(/`([^`]+)`/g, '$1');
+        s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+        s = s.replace(/\*\*/g, '');
+        return s.trim();
+    }
+
     function runIA(btn, form, output, clienteId) {
         var action = btn.getAttribute('data-ia-action');
         var payload = serializeForm(form);
         payload.cliente_id = clienteId;
+        if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
+        var endpoint = action;
+        if (action === 'gerar-comunicacao') {
+            var fmt = String(payload.formato || payload.tipo || '').toLowerCase();
+            if (fmt === 'sequencia') endpoint = 'touchpoints';
+            else if (fmt === 'roteiro' || fmt === 'ligacao' || fmt === 'reuniao') endpoint = 'gerar-roteiro';
+            else payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : 'email';
+        }
         btn.disabled = true;
         output.classList.add('is-visible');
         output.textContent = 'Consultando assistente…';
 
-        apiFetch('/ia/' + action, { method: 'POST', body: payload }).then(function (res) {
+        apiFetch('/ia/' + endpoint, { method: 'POST', body: payload }).then(function (res) {
             var data = res.data || res;
-            if (action === 'melhorar-texto' || action === 'gerar-roteiro') {
-                var texto = (data && (data.texto || data.descricao || data.texto_melhorado)) || '';
+            if (endpoint === 'melhorar-texto' || endpoint === 'gerar-roteiro') {
+                var texto = stripMarkdown((data && (data.texto || data.descricao || data.texto_melhorado)) || '');
                 if (texto) {
                     var desc = form.querySelector('[data-field="descricao"]');
                     if (desc) desc.value = texto;
-                    output.textContent = action === 'gerar-roteiro'
-                        ? 'Roteiro preenchido na descrição. Ajuste se precisar e salve a atividade.'
-                        : 'Roteiro atualizado na descrição.';
+                    output.textContent = 'Roteiro preenchido na descrição. Ajuste se precisar, execute e salve.';
                 } else {
                     output.textContent = 'A IA não devolveu roteiro. Tente de novo ou escreva na descrição.';
                 }
-            } else if (action === 'sugerir-atividade') {
+            } else if (action === 'sugerir-atividade' || endpoint === 'sugerir-atividade') {
                 if (data) {
                     // Helper defensivo: só atualiza se o campo existir
                     // no drawer atual (o form de atividade pode não ter
@@ -800,13 +840,13 @@
                             });
                         }
                     };
-                    setField('titulo', data.titulo);
-                    setField('descricao', data.descricao);
+                    setField('titulo', stripMarkdown(data.titulo));
+                    setField('descricao', stripMarkdown(data.descricao));
                     setField('tipo', data.tipo);
                     setField('data', data.data_sugerida);
                     output.textContent = 'Sugestão preenchida no formulário.';
                 }
-            } else if (action === 'touchpoints') {
+            } else if (endpoint === 'touchpoints') {
                 var list = (data && data.touchpoints) || [];
                 if (!list.length) { output.textContent = 'Sem sequência sugerida.'; }
                 else {
@@ -825,8 +865,8 @@
                                 return apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', {
                                     method: 'POST',
                                     body: {
-                                        titulo: t.titulo,
-                                        descricao: t.descricao || '',
+                                        titulo: stripMarkdown(t.titulo),
+                                        descricao: stripMarkdown(t.descricao || ''),
                                         tipo: t.tipo || 'ligacao',
                                         prioridade: t.prioridade || 'Média',
                                         data: t.data_sugerida,
@@ -846,10 +886,18 @@
                         output.appendChild(apply);
                     }
                 }
-            } else if (action === 'gerar-comunicacao') {
+            } else if (endpoint === 'gerar-comunicacao') {
                 if (data && data.mensagem) {
-                    output.textContent = data.mensagem;
-                    // Drawer aninhado com o e-mail pronto
+                    var msg = stripMarkdown(data.mensagem);
+                    var descEl = form.querySelector('[data-field="descricao"]');
+                    if (descEl) descEl.value = msg;
+                    if (data.assunto) {
+                        var titEl = form.querySelector('[data-field="titulo"]');
+                        if (titEl && !(titEl.value || '').trim()) titEl.value = stripMarkdown(data.assunto);
+                    }
+                    output.textContent = 'Mensagem preenchida no roteiro. Revise, envie e marque a atividade como concluída.';
+                    data.mensagem = msg;
+                    data.assunto = stripMarkdown(data.assunto || '');
                     setTimeout(function () { openDrawerComunicacao(data, clienteId); }, 200);
                 } else {
                     output.textContent = 'Sem conteúdo gerado.';
@@ -877,7 +925,7 @@
 
         cxDrawer.open({
             title: 'Preparar comunicação',
-            breadcrumb: 'CRM v3 · IA · E-mail',
+            breadcrumb: 'CRM v3 · IA · Comunicação',
             size: 'md',
             contentEl: wrap,
             nested: true,
@@ -1339,7 +1387,7 @@
     // Redireciona os botões existentes para usar drawer no lugar dos modais grandes.
     document.addEventListener('DOMContentLoaded', function () {
         // Novo cliente (header e coluna)
-        ['crm-v3-btn-novo-cliente-header', 'crm-v3-btn-novo-cliente-lista'].forEach(function (id) {
+        ['crm-v3-btn-novo-cliente-header'].forEach(function (id) {
             var btn = document.getElementById(id);
             if (!btn) return;
             btn.addEventListener('click', function (ev) {

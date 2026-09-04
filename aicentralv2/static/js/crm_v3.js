@@ -149,6 +149,34 @@
         return true;
     }
 
+    function formatarCep(value, whileTyping) {
+        var d = String(value || '').replace(/\D/g, '').slice(0, 8);
+        if (whileTyping && d.length <= 5) return d;
+        if (d.length > 5) return d.slice(0, 5) + '-' + d.slice(5);
+        return d;
+    }
+
+    function buscarEnderecoPorCep(cep) {
+        var digits = String(cep || '').replace(/\D/g, '');
+        if (digits.length !== 8) return Promise.resolve(null);
+        return api('/cep/' + encodeURIComponent(digits)).then(function (resp) {
+            return (resp && resp.data) || null;
+        }).catch(function () { return null; });
+    }
+
+    function ufPorCapitalOperacao(cidade) {
+        var key = String(cidade || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (key === 'belo horizonte') return 'MG';
+        if (key === 'rio de janeiro') return 'RJ';
+        if (key === 'sao paulo') return 'SP';
+        return '';
+    }
+
     function debounce(fn, ms) {
         var t;
         return function () {
@@ -545,6 +573,50 @@
         if (diff < 730) return 'há 1 ano';
         var anos = Math.floor(diff / 365);
         return 'há ' + anos + ' anos';
+    }
+
+    function parseDataValor(valor) {
+        var s = String(valor || '').trim();
+        if (!s) return null;
+        var m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?/);
+        if (m) {
+            return {
+                date: new Date(
+                    Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+                    Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0)
+                ),
+                hasTime: !!m[4]
+            };
+        }
+        var br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (br) {
+            return {
+                date: new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1])),
+                hasTime: false
+            };
+        }
+        var d = new Date(s);
+        if (isNaN(d.getTime())) return null;
+        return { date: d, hasTime: true };
+    }
+
+    function formatarAtualizadoHa(valor) {
+        var parsed = parseDataValor(valor);
+        if (!parsed || isNaN(parsed.date.getTime())) return '';
+        if (parsed.hasTime) {
+            var mins = Math.floor((Date.now() - parsed.date.getTime()) / 60000);
+            if (mins < 0) mins = 0;
+            if (mins < 1) return 'Atualizado agora';
+            if (mins < 60) return 'Atualizado há ' + mins + ' min';
+            var horas = Math.floor(mins / 60);
+            if (horas < 24) return 'Atualizado há ' + horas + ' h';
+        }
+        var rel = formatarHaTempo(valor);
+        if (!rel || rel === '—') return '';
+        if (rel === 'hoje') return 'Atualizado hoje';
+        if (rel === 'ontem') return 'Atualizado ontem';
+        if (rel.indexOf('há') === 0 || rel.indexOf('em ') === 0) return 'Atualizado ' + rel;
+        return 'Atualizado ' + rel;
     }
 
     /**
@@ -1182,41 +1254,34 @@
             title.title = cliente.nome;
         }
 
-        // Avatar: og:image do scrape, senão iniciais. Sem globo/favicon.
-        var av = $('#crm-v3-detail-avatar');
+        // Logo: só aparece com og:image válido. Sem logo o slot some
+        // para o nome alinhar à esquerda (iniciais no header não ajudam).
+        var wrap = $('#crm-v3-detail-avatar-wrap');
         var img = $('#crm-v3-detail-avatar-img');
-        var iniciais = cliente.avatar || avatarIniciais(cliente.nome);
-        if (av) {
-            av.textContent = iniciais;
-            av.hidden = false; // sempre visível por default; só some se logo carregar de fato
-        }
+        var logoCanonico = logoRealDoCliente(cliente) || '';
+        if (wrap) wrap.hidden = !logoCanonico;
         if (img) {
             img.hidden = true;
             img.removeAttribute('src');
-            // Alt precisa ficar VAZIO: se o Clearbit devolver 404 e o
-            // browser exibir o alt como texto, ele vaza dentro do círculo
-            // (foi o que gerou o "ogo" — sobra do texto "Logo do cliente").
-            // Com alt="" o broken image não mostra texto nenhum e o
-            // fallback com iniciais fica limpo.
             img.alt = '';
-            var logoCanonico = logoRealDoCliente(cliente) || '';
+            img.onload = null;
+            img.onerror = null;
             if (logoCanonico) {
                 img.onload = function () {
                     if (!img.naturalWidth || !img.naturalHeight) {
                         img.hidden = true;
-                        if (av) av.hidden = false;
+                        if (wrap) wrap.hidden = true;
                         return;
                     }
                     img.hidden = false;
-                    if (av) av.hidden = true;
+                    if (wrap) wrap.hidden = false;
                 };
                 img.onerror = function () {
                     img.hidden = true;
-                    if (av) av.hidden = false;
+                    if (wrap) wrap.hidden = true;
                 };
                 img.src = logoCanonico;
             }
-            // Sem og:image: iniciais. Sem cascata de favicon/globo.
         }
 
         // Meta — todos os campos aqui vêm da base real (backend).
@@ -1236,13 +1301,19 @@
             classifChip.setAttribute('data-classif', classif);
         }
 
-        // Última atualização — vem de tbl_cliente.data_modificacao
-        // (ISO 8601 no backend). Rótulo relativo Hoje/Ontem/Ndias/data.
+        // Atualizado há N min / h / dias — data_modificacao com hora.
         var metaDate = $('#crm-v3-meta-date');
+        var metaDateText = $('#crm-v3-meta-date-text');
         if (metaDate) {
-            var rel = formatarDataRelativa(cliente.data_modificacao);
-            metaDate.textContent = rel ? ('Última atualização: ' + rel) : '';
+            var rel = formatarAtualizadoHa(cliente.data_modificacao);
+            if (metaDateText) metaDateText.textContent = rel;
+            else metaDate.textContent = rel;
             metaDate.hidden = !rel;
+            if (rel && cliente.data_modificacao) {
+                metaDate.title = String(cliente.data_modificacao);
+            } else {
+                metaDate.removeAttribute('title');
+            }
         }
 
         // Aba Info — populada pelo backend (`_map_cliente` do repositório
@@ -1347,7 +1418,6 @@
         el = $('#crm-metric-ultimo');
         if (el) { el.textContent = m.ultimo_contato; el.title = 'Data da atividade concluída mais recente'; }
 
-        updateStatusComercial(cliente);
         updateVinculos(cliente);
         // Editor de "Site & logo" na sidebar — hidrata com valor salvo
         // ou domínio inferido do contato e prepara o preview do logo.
@@ -1927,25 +1997,6 @@
         });
     }
 
-    function updateStatusComercial(cliente) {
-        var badge = $('#crm-v3-status-badge');
-        var hint = $('#crm-v3-status-hint');
-        var classificacao = cliente.classificacao_cliente || cliente.classificacao || '';
-        if (badge) {
-            badge.textContent = classificacao || '—';
-            badge.setAttribute('data-classificacao', classificacao || '');
-        }
-        if (hint) {
-            var mapaHint = {
-                'Prospecção': 'Foco em qualificação e cadência de touchpoints.',
-                'Prospeccao': 'Foco em qualificação e cadência de touchpoints.',
-                'Ativo': 'Manter relacionamento e detectar novas oportunidades.',
-                'Geladeira': 'Cliente em pausa; retomar quando fizer sentido comercial.'
-            };
-            hint.textContent = mapaHint[classificacao] || '';
-        }
-    }
-
     function updateVinculos(cliente) {
         var section = $('#crm-v3-sidebar-vinculos');
         var titulo = $('#crm-v3-vinculos-titulo');
@@ -2023,68 +2074,6 @@
     // existentes (pill "Seguindo") e paridade com o CRM legado.
     function updateFollowButton() { /* noop */ }
 
-    function updateSidebarContato(contato) {
-        var nomeEl = $('#crm-v3-sidebar-contato-nome');
-        var cargoEl = $('#crm-v3-sidebar-contato-cargo');
-        var setorEl = $('#crm-v3-sidebar-contato-setor');
-        var emailEl = $('#crm-v3-sidebar-contato-email');
-        var telEl = $('#crm-v3-sidebar-contato-telefone');
-        var avatarEl = $('#crm-v3-sidebar-contato-avatar');
-        var badgeEl = $('#crm-v3-sidebar-contato-badge');
-        var hintEl = $('#crm-v3-contato-principal-hint');
-        var detalhesEl = $('#crm-v3-sidebar-contato-detalhes');
-        var mailto = $('#crm-v3-mailto-link');
-        var whats = $('#crm-v3-whatsapp-link');
-        var copyBtn = $('#crm-v3-copy-email');
-
-        if (!contato) {
-            if (nomeEl) nomeEl.textContent = '—';
-            if (cargoEl) cargoEl.textContent = 'Selecione um contato';
-            if (setorEl) setorEl.textContent = '';
-            if (emailEl) { emailEl.textContent = '—'; emailEl.title = ''; }
-            if (telEl) { telEl.textContent = '—'; telEl.title = ''; }
-            if (badgeEl) badgeEl.hidden = true;
-            if (hintEl) hintEl.textContent = '—';
-            if (detalhesEl) detalhesEl.style.display = 'none';
-            if (mailto) mailto.href = '#';
-            if (whats) whats.href = '#';
-            return;
-        }
-
-        if (nomeEl) nomeEl.textContent = contato.nome;
-        if (cargoEl) cargoEl.textContent = contato.cargo || '—';
-        if (setorEl) setorEl.textContent = contato.setor || contato.status || '';
-        if (emailEl) {
-            emailEl.textContent = contato.email || '—';
-            emailEl.title = contato.email || '';
-        }
-        if (telEl) {
-            telEl.textContent = contato.telefone || '—';
-            telEl.title = contato.telefone || '';
-        }
-        if (avatarEl) avatarEl.textContent = contato.avatar || avatarIniciais(contato.nome);
-        if (badgeEl) {
-            badgeEl.hidden = !contato.principal;
-            badgeEl.textContent = 'Principal';
-        }
-        if (hintEl) hintEl.textContent = contato.nome;
-        if (detalhesEl) detalhesEl.style.display = '';
-
-        if (mailto && contato.email) mailto.href = 'mailto:' + encodeURIComponent(contato.email);
-        if (whats && contato.telefone) {
-            var digits = normalizarTelefone(contato.telefone);
-            whats.href = digits ? 'https://wa.me/' + digits : '#';
-        }
-        if (copyBtn) {
-            copyBtn.onclick = function () {
-                if (!contato.email) return;
-                copiarTexto(contato.email)
-                    .then(function () { showToast('E-mail copiado'); })
-                    .catch(function (err) { showToast(err.message, true); });
-            };
-        }
-    }
-
     function renderContatos() {
         var container = $('#crm-v3-lista-contatos');
         var countEl = $('#crm-v3-contatos-count');
@@ -2101,7 +2090,6 @@
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
-            updateSidebarContato(null);
             return;
         }
 
@@ -2113,7 +2101,6 @@
                 '</div>';
             var emptyBtn = $('#crm-v3-empty-add-contato');
             if (emptyBtn) emptyBtn.addEventListener('click', openContatoModal);
-            updateSidebarContato(null);
             return;
         }
 
@@ -2134,7 +2121,7 @@
                 avatarHtml(nomeExibido, 'w-8 h-8') +
                 '<div class="crm-v3-contato-info min-w-0">' +
                 '<div class="crm-v3-contato-nome-row">' +
-                '<span class="crm-v3-contato-nome" title="' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</span>' +
+                '<button type="button" class="crm-v3-contato-nome" data-contato-id="' + escapeHtml(c.id) + '" title="Editar ' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</button>' +
                 (c.principal ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-principal" title="Contato principal"><i class="fa-solid fa-star" aria-hidden="true"></i></span>' : '') +
                 (c.conversas ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-count" title="' + c.conversas + ' conversa(s)">' + c.conversas + '</span>' : '') +
                 '</div>' +
@@ -2149,8 +2136,6 @@
         }).join('');
 
         bindContatoEvents(container);
-        var contato = state.contatos.find(function (c) { return String(c.id) === String(state.contatoId); });
-        updateSidebarContato(contato);
     }
 
     function contatoDetailsHtml(c) {
@@ -2190,12 +2175,6 @@
                 '<span>' + escapeHtml(c.telefone_secundario) + '</span>' +
                 '</button>';
         }
-        rows +=
-            '<div class="crm-v3-contato-details-foot">' +
-            '<button type="button" class="crm-v3-contato-edit" data-contato-id="' + id + '">' +
-            '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Editar ficha' +
-            '</button>' +
-            '</div>';
         return '<div class="crm-v3-contato-details">' + rows + '</div>';
     }
 
@@ -2271,17 +2250,16 @@
     function bindContatoEvents(container) {
         $$('.crm-v3-contato-card', container).forEach(function (card) {
             card.addEventListener('click', function (e) {
-                if (e.target.closest('.crm-v3-contato-toggle, .crm-v3-contato-edit, .crm-v3-contato-copy, .crm-v3-contato-phone-row, .crm-v3-contato-whats-row, .crm-v3-contato-quick-add, .crm-v3-contato-quick-edit')) return;
+                if (e.target.closest('.crm-v3-contato-toggle, .crm-v3-contato-nome, .crm-v3-contato-copy, .crm-v3-contato-phone-row, .crm-v3-contato-whats-row, .crm-v3-contato-quick-add, .crm-v3-contato-quick-edit')) return;
                 selectContato(card.getAttribute('data-contato-id'));
             });
-            var main = card.querySelector('.crm-v3-contato-main');
-            if (main) {
-                main.addEventListener('dblclick', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openContatoModal(card.getAttribute('data-contato-id'));
-                });
-            }
+        });
+
+        $$('.crm-v3-contato-nome', container).forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openContatoModal(btn.getAttribute('data-contato-id'));
+            });
         });
 
         $$('.crm-v3-contato-toggle', container).forEach(function (btn) {
@@ -2291,13 +2269,6 @@
                 var expanded = card.classList.toggle('is-expanded');
                 btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
                 btn.setAttribute('aria-label', expanded ? 'Recolher contato' : 'Expandir contato');
-            });
-        });
-
-        $$('.crm-v3-contato-edit', container).forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                openContatoModal(btn.getAttribute('data-contato-id'));
             });
         });
 
@@ -3236,7 +3207,6 @@
         var toggle = $('#crm-v3-nota-anteriores-toggle');
         var toggleLabel = $('#crm-v3-nota-anteriores-label');
         var anterioresList = $('#crm-v3-nota-anteriores-list');
-        var empty = $('#crm-v3-nota-empty');
         var countInline = $('#crm-v3-notas-count-inline');
 
         updateTabCounts();
@@ -3267,11 +3237,8 @@
             if (destaque) destaque.hidden = true;
             if (toggle) toggle.hidden = true;
             if (anterioresList) { anterioresList.hidden = true; anterioresList.innerHTML = ''; }
-            if (empty) empty.hidden = false;
             return;
         }
-
-        if (empty) empty.hidden = true;
 
         // ---- Última nota (destaque) ----
         var ultima = ordenadas[0];
@@ -3481,6 +3448,7 @@
         renderObjetivos();
         renderCotacoes();
         renderNotas();
+        showSidebarInformacoes();
         // Detalhe completo do cliente (endereço, nota-executivo, agência
         // pai, BV/margem, estado) — o `list_clientes` do repositório
         // Postgres não carrega esses campos por performance, então
@@ -4555,6 +4523,13 @@
         return true;
     }
 
+    function showSidebarInformacoes() {
+        var btn = document.getElementById('tab-sidebar-info');
+        if (btn && !btn.classList.contains('is-active')) btn.click();
+        var wrap = document.querySelector('.crm-v3-sidebar-panel-wrap');
+        if (wrap) wrap.scrollTop = 0;
+    }
+
     function initTabs(groupName) {
         var tabContainer = document.querySelector('[data-tab-group="' + groupName + '"]');
         if (!tabContainer) return;
@@ -4835,14 +4810,6 @@
         // O toggle Seguir/Deixar de seguir foi removido da UI. Filtro por
         // "Seguindo" continua funcional via pill de status no header.
 
-        var verTodos = $('#crm-v3-ver-todos-contatos');
-        if (verTodos) {
-            verTodos.addEventListener('click', function () {
-                var col = $('.crm-v3-col-contatos');
-                if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            });
-        }
-
         // Handler do botão "Ver todas atividades" removido em set/2026
         // junto com a aba "Atividades" da sidebar (redundante com a
         // coluna central).
@@ -4964,6 +4931,14 @@
             if (type === 'number') { editor.step = '0.01'; editor.min = '0'; }
             editor.className = 'crm-v3-editable-input';
             editor.value = currentValue == null ? '' : String(currentValue);
+            if (field === 'cep') {
+                editor.setAttribute('inputmode', 'numeric');
+                editor.setAttribute('maxlength', '9');
+                editor.placeholder = '00000-000';
+                editor.addEventListener('input', function () {
+                    editor.value = formatarCep(editor.value, true);
+                });
+            }
         }
         return {
             editor: editor,
@@ -5015,10 +4990,29 @@
         var payload = {};
         payload[field] = newValue;
 
-        return api('/clientes/' + encodeURIComponent(state.clienteId), {
-            method: 'PATCH',
-            body: payload
-        }).then(function (resp) {
+        var ready = Promise.resolve(payload);
+        if (field === 'cep') {
+            payload.cep = formatarCep(newValue);
+            ready = buscarEnderecoPorCep(payload.cep).then(function (end) {
+                if (!end) return payload;
+                if (end.bairro) payload.bairro = end.bairro;
+                if (end.logradouro) payload.logradouro = end.logradouro;
+                if (end.cidade) payload.cidade = end.cidade;
+                if (end.uf) payload.uf = end.uf;
+                return payload;
+            });
+        }
+        if (field === 'cidade') {
+            var ufCap = ufPorCapitalOperacao(newValue);
+            if (ufCap) payload.uf = ufCap;
+        }
+
+        return ready.then(function (body) {
+            var preencheuEndereco = field === 'cep' && !!(body.bairro || body.logradouro || body.cidade);
+            return api('/clientes/' + encodeURIComponent(state.clienteId), {
+                method: 'PATCH',
+                body: body
+            }).then(function (resp) {
             row.classList.remove('is-saving');
             row.classList.add('is-saved');
             setTimeout(function () { row.classList.remove('is-saved'); }, 1200);
@@ -5028,10 +5022,11 @@
                 var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
                 if (idx !== -1) state.clientes[idx] = state.cliente;
             } else if (state.cliente) {
-                state.cliente[field] = newValue;
+                Object.keys(body).forEach(function (k) { state.cliente[k] = body[k]; });
             }
             // Re-formata o display com base no state atualizado.
             updateDetailPanel(state.cliente);
+            if (preencheuEndereco) showToast('Endereço atualizado pelo CEP');
         }).catch(function (err) {
             row.classList.remove('is-saving');
             row.classList.add('is-error');
@@ -5039,6 +5034,7 @@
             showToast(err.message || 'Falha ao salvar', true);
             // Reverte o texto para o valor original.
             if (display) updateDetailPanel(state.cliente);
+        });
         });
     }
 

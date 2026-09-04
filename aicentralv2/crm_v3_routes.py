@@ -303,6 +303,36 @@ def api_agencia_clientes(agencia_id):
     return _ok(filhos, clientes=filhos, total=len(filhos))
 
 
+@bp.route("/api/cep/<cep>")
+@login_required_api
+def api_cep(cep):
+    """Proxy autenticado do ViaCEP — mesma fonte do cadastro de
+    clientes (`cliente_form.js` / `clientes.html`).
+    """
+    digits = "".join(ch for ch in (cep or "") if ch.isdigit())
+    if len(digits) != 8 or digits == digits[0] * 8:
+        return _err("CEP inválido")
+    import requests
+    try:
+        resp = requests.get(
+            "https://viacep.com.br/ws/{}/json/".format(digits),
+            timeout=8,
+        )
+        data = resp.json() if resp.ok else {}
+    except Exception:  # noqa: BLE001
+        return _err("Não foi possível consultar o CEP", 502)
+    if not isinstance(data, dict) or data.get("erro"):
+        return _err("CEP não encontrado", 404)
+    return _ok({
+        "cep": digits,
+        "logradouro": data.get("logradouro") or "",
+        "bairro": data.get("bairro") or "",
+        "cidade": data.get("localidade") or "",
+        "uf": (data.get("uf") or "").upper(),
+        "complemento": data.get("complemento") or "",
+    })
+
+
 @bp.route("/api/clientes", methods=["POST"])
 @login_required_api
 def api_create_cliente():

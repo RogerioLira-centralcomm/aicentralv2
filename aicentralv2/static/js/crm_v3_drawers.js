@@ -87,11 +87,68 @@
         else console.log(msg);
     }
 
+    function formatarCepInput(value, whileTyping) {
+        var d = String(value || '').replace(/\D/g, '').slice(0, 8);
+        if (whileTyping && d.length <= 5) return d;
+        if (d.length > 5) return d.slice(0, 5) + '-' + d.slice(5);
+        return d;
+    }
+
+    function bindCepLookup(root) {
+        var cepInput = root.querySelector('[data-field="endereco.cep"]');
+        if (!cepInput || cepInput.dataset.cepBound === '1') return;
+        cepInput.dataset.cepBound = '1';
+        var last = '';
+
+        function applyEndereco(data) {
+            if (!data) return;
+            var map = {
+                logradouro: '[data-field="endereco.logradouro"]',
+                bairro: '[data-field="endereco.bairro"]',
+                cidade: '[data-field="endereco.cidade"]'
+            };
+            Object.keys(map).forEach(function (k) {
+                var el = root.querySelector(map[k]);
+                if (el && data[k]) el.value = data[k];
+            });
+            var uf = root.querySelector('[data-field="endereco.uf"]');
+            if (uf && data.uf) uf.value = data.uf;
+            var numero = root.querySelector('[data-field="endereco.numero"]');
+            if (numero) numero.focus();
+            toast('Endereço preenchido pelo CEP');
+        }
+
+        function lookup() {
+            var digits = String(cepInput.value || '').replace(/\D/g, '');
+            cepInput.value = formatarCepInput(digits);
+            if (digits.length !== 8 || digits === last) return;
+            if (/^(\d)\1{7}$/.test(digits)) return;
+            last = digits;
+            apiFetch('/cep/' + encodeURIComponent(digits)).then(function (resp) {
+                applyEndereco((resp && resp.data) || null);
+            }).catch(function (err) {
+                last = '';
+                toast(err.message || 'CEP não encontrado', true);
+            });
+        }
+
+        cepInput.addEventListener('input', function () {
+            cepInput.value = formatarCepInput(cepInput.value, true);
+        });
+        cepInput.addEventListener('blur', lookup);
+        cepInput.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                lookup();
+            }
+        });
+    }
+
     /* -----------------------------------------------------------
        Drawer: Cliente
        ----------------------------------------------------------- */
 
-    function openDrawerCliente(cliente) {
+    function openDrawerCliente(cliente, opts) {
         try {
             if (typeof cxDrawer === 'undefined' || typeof cxDrawer.open !== 'function') {
                 toast('Drawer indisponível. Recarregue a página.', true);
@@ -106,6 +163,8 @@
             fillForm(form, cliente || {});
 
             populateLookupSelects(wrapper, cliente);
+
+            bindCepLookup(wrapper);
 
             renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
             var addBtn = wrapper.querySelector('[data-drawer-action="add-agencia"]');
@@ -131,6 +190,19 @@
                     }
                 ]
             });
+
+            var focusField = opts && opts.focusField;
+            if (focusField) {
+                var field = wrapper.querySelector('[name="' + focusField + '"]');
+                if (field) {
+                    setTimeout(function () {
+                        if (typeof field.scrollIntoView === 'function') {
+                            field.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        }
+                        field.focus();
+                    }, 80);
+                }
+            }
         } catch (err) {
             toast((err && err.message) || 'Não foi possível abrir o cadastro do cliente.', true);
         }
@@ -167,6 +239,12 @@
 
         payload.bv_percentual = parseFloat(payload.bv_percentual) || 0;
         payload.margem_cc = parseFloat(payload.margem_cc) || 0;
+        var end = payload.endereco;
+        if (end && typeof end === 'object') {
+            ['cep', 'uf', 'cidade', 'bairro', 'logradouro', 'numero', 'complemento'].forEach(function (k) {
+                if (end[k] != null && String(end[k]).trim() !== '') payload[k] = end[k];
+            });
+        }
         payload.agencias_vinculadas = coletarAgenciasVinculadasFrom(form.closest('div').querySelector('#cx-drawer-cliente-agencias'));
 
         var isEdit = !!(cliente && cliente.id);
@@ -861,7 +939,7 @@
         cxDrawer.open({
             title: contato ? 'Editar contato' : 'Novo contato',
             breadcrumb: 'CRM v3 · Contato',
-            size: 'md',
+            size: 'sm',
             contentEl: wrapper,
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
@@ -1281,7 +1359,10 @@
                 ev.stopImmediatePropagation();
                 ev.preventDefault();
                 var cliente = window.crmV3 && window.crmV3.state && window.crmV3.state.cliente;
-                openDrawerCliente(cliente);
+                if (!cliente) { toast('Selecione um cliente', true); return; }
+                openDrawerCliente(cliente, {
+                    focusField: editBtn.getAttribute('data-focus-field') || ''
+                });
                 return;
             }
 

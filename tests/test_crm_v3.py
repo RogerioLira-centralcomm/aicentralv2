@@ -10,6 +10,7 @@ from aicentralv2.crm_v3_helpers import (
     parse_texto_contatos,
     pluralizar_contatos,
     filtrar_vinculos_colisao_lookup,
+    uf_por_capital_operacao,
 )
 from aicentralv2.crm_v3_data import store
 from aicentralv2.crm_v3_routes import bp
@@ -69,6 +70,15 @@ class CrmTestHelpersTest(unittest.TestCase):
     def test_parse_texto_contatos_lixo(self):
         self.assertEqual(parse_texto_contatos("sem email aqui"), [])
         self.assertEqual(parse_texto_contatos("nome;invalido"), [])
+
+    def test_uf_por_capital_operacao(self):
+        self.assertEqual(uf_por_capital_operacao("BELO HORIZONTE"), "MG")
+        self.assertEqual(uf_por_capital_operacao("Belo Horizonte"), "MG")
+        self.assertEqual(uf_por_capital_operacao("Rio de Janeiro"), "RJ")
+        self.assertEqual(uf_por_capital_operacao("são paulo"), "SP")
+        self.assertEqual(uf_por_capital_operacao("São Paulo"), "SP")
+        self.assertIsNone(uf_por_capital_operacao("Contagem"))
+        self.assertIsNone(uf_por_capital_operacao(""))
 
 
 class CrmTestApiTest(unittest.TestCase):
@@ -784,6 +794,50 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.db.atualizar_campos_cliente.assert_called_once_with(
             "1", {"cnpj": "123", "classificacao_cliente": "Ativo"}
         )
+
+
+class CrmCepApiTest(unittest.TestCase):
+    def setUp(self):
+        self.app = _crm_v3_app()
+        self.client = self.app.test_client()
+        _login(self.client)
+
+    def test_cep_invalido(self):
+        res = self.client.get("/crm-v3/api/cep/123")
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(json.loads(res.data)["success"])
+
+    def test_cep_preenche_endereco(self):
+        from unittest.mock import MagicMock, patch
+
+        fake = MagicMock()
+        fake.ok = True
+        fake.json.return_value = {
+            "logradouro": "Rua dos Guajajaras",
+            "bairro": "Centro",
+            "localidade": "Belo Horizonte",
+            "uf": "mg",
+        }
+        with patch("requests.get", return_value=fake) as mocked:
+            res = self.client.get("/crm-v3/api/cep/30120060")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["cidade"], "Belo Horizonte")
+        self.assertEqual(data["data"]["uf"], "MG")
+        self.assertEqual(data["data"]["bairro"], "Centro")
+        mocked.assert_called_once()
+
+    def test_cep_nao_encontrado(self):
+        from unittest.mock import MagicMock, patch
+
+        fake = MagicMock()
+        fake.ok = True
+        fake.json.return_value = {"erro": True}
+        with patch("requests.get", return_value=fake):
+            res = self.client.get("/crm-v3/api/cep/30130199")
+        self.assertEqual(res.status_code, 404)
+        self.assertFalse(json.loads(res.data)["success"])
 
 
 if __name__ == "__main__":

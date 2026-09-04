@@ -67,6 +67,50 @@ logger = logging.getLogger("aicentral.crm_v3.web_scout")
 FIRECRAWL_URL = "https://api.firecrawl.dev/v1/scrape"
 FIRECRAWL_TIMEOUT_S = 30
 
+_SQL_CREATE_CLIENTE_WEB_INFO = """
+CREATE TABLE IF NOT EXISTS cliente_web_info (
+    id SERIAL PRIMARY KEY,
+    id_cliente INTEGER NOT NULL UNIQUE
+        REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
+    dominio VARCHAR(255) NOT NULL,
+    logo_url TEXT,
+    favicon_url TEXT,
+    titulo TEXT,
+    descricao TEXT,
+    menu_links JSONB,
+    dados_extras JSONB,
+    status VARCHAR(20) NOT NULL DEFAULT 'ok',
+    erro_mensagem TEXT,
+    atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+
+def _ensure_cliente_web_info(conn) -> None:
+    """Cria a tabela se a migration SQL ainda não rodou neste ambiente."""
+    with conn.cursor() as cur:
+        cur.execute(_SQL_CREATE_CLIENTE_WEB_INFO)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cliente_web_info_dominio "
+            "ON cliente_web_info (dominio)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cliente_web_info_atualizado_em "
+            "ON cliente_web_info (atualizado_em)"
+        )
+    conn.commit()
+
+
+def _undefined_table(exc: Exception) -> bool:
+    name = type(exc).__name__.lower()
+    msg = str(exc).lower()
+    return "cliente_web_info" in msg and (
+        "does not exist" in msg
+        or "não existe" in msg
+        or "undefinedtable" in name
+    )
+
 
 def _normalizar_dominio(raw: Optional[str]) -> str:
     """Retorna o apex do domínio (sem protocolo, sem www, sem path)."""
@@ -417,6 +461,20 @@ def refresh_web_info(cliente_id, dominio: str) -> Dict[str, Any]:
 
 def _upsert_ok(cliente_id, dominio: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     conn = db.get_db()
+    try:
+        return _upsert_ok_once(conn, cliente_id, dominio, payload)
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        if not _undefined_table(e):
+            raise
+        _ensure_cliente_web_info(conn)
+        return _upsert_ok_once(conn, cliente_id, dominio, payload)
+
+
+def _upsert_ok_once(conn, cliente_id, dominio: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -463,6 +521,20 @@ def _upsert_ok(cliente_id, dominio: str, payload: Dict[str, Any]) -> Dict[str, A
 
 def _upsert_erro(cliente_id, dominio: str, mensagem: str) -> Dict[str, Any]:
     conn = db.get_db()
+    try:
+        return _upsert_erro_once(conn, cliente_id, dominio, mensagem)
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        if not _undefined_table(e):
+            raise
+        _ensure_cliente_web_info(conn)
+        return _upsert_erro_once(conn, cliente_id, dominio, mensagem)
+
+
+def _upsert_erro_once(conn, cliente_id, dominio: str, mensagem: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """

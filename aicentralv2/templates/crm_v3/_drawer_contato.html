@@ -1,13 +1,11 @@
-{# Drawer MD — Contato completo (design system vanilla cx-*). #}
+{# Drawer compacto — edição do contato a partir do nome na lista. #}
 <template id="cx-drawer-contato-tpl">
   <form id="cx-drawer-contato-form" data-drawer-form="contato" class="cx-drawer-form">
     <input type="hidden" name="id" data-field="id" />
+    <input type="hidden" name="status" data-field="status" />
+    <input type="hidden" name="telefone_secundario" data-field="telefone_secundario" />
 
     <section class="cx-drawer-section">
-      <header class="cx-drawer-section-head">
-        <span class="cx-drawer-section-title">Identificação</span>
-        <span class="cx-drawer-section-hint">Quem é essa pessoa</span>
-      </header>
       <div class="cx-drawer-grid">
         <div class="cx-drawer-field cx-drawer-field-full">
           <label for="cx-contato-nome">Nome <span class="cx-required">*</span></label>
@@ -15,10 +13,6 @@
         </div>
         <div class="cx-drawer-field">
           <label for="cx-contato-cargo">Cargo</label>
-          {# Input livre por enquanto: o CrmV3Repository.update_contato
-             ainda não persiste cargo/setor (não há coluna direta em
-             tbl_contato_cliente — só FK para tbl_cargo_contato).
-             Ligação total fica para a próxima iteração. #}
           <input id="cx-contato-cargo" type="text" name="cargo" data-field="cargo"
                  list="cx-contato-cargos-datalist" placeholder="Ex.: Gerente de mídia" />
           <datalist id="cx-contato-cargos-datalist" data-lookup-datalist="cargos" data-lookup-value="nome"></datalist>
@@ -29,52 +23,28 @@
                  list="cx-contato-setores-datalist" placeholder="Ex.: Marketing" />
           <datalist id="cx-contato-setores-datalist" data-lookup-datalist="setores" data-lookup-value="nome"></datalist>
         </div>
-        <div class="cx-drawer-field">
-          <label for="cx-contato-status">Status</label>
-          <select id="cx-contato-status" name="status" data-field="status">
-            <option value="Ativo">Ativo</option>
-            <option value="Inativo">Inativo</option>
-          </select>
-        </div>
-        <div class="cx-drawer-field cx-drawer-field-toggle">
-          <label class="cx-drawer-toggle">
-            <input type="checkbox" name="principal" data-field="principal" />
-            <span class="cx-drawer-toggle-switch" aria-hidden="true"></span>
-            <span class="cx-drawer-toggle-label">
-              <strong>Contato principal</strong>
-              <em>Aparece como referência do cliente</em>
-            </span>
-          </label>
-        </div>
-      </div>
-    </section>
-
-    <section class="cx-drawer-section">
-      <header class="cx-drawer-section-head">
-        <span class="cx-drawer-section-title">Canais de contato</span>
-        <span class="cx-drawer-section-hint">Como falar com essa pessoa</span>
-      </header>
-      <div class="cx-drawer-grid">
         <div class="cx-drawer-field cx-drawer-field-full">
-          <label for="cx-contato-email">E-mail <span class="cx-required">*</span></label>
+          <label for="cx-contato-email">E-mail</label>
           <div class="cx-drawer-input-wrap">
             <i class="fa-regular fa-envelope cx-drawer-input-icon" aria-hidden="true"></i>
-            <input id="cx-contato-email" type="email" name="email" data-field="email" required placeholder="nome@empresa.com" />
+            <input id="cx-contato-email" type="email" name="email" data-field="email" placeholder="nome@empresa.com" />
           </div>
         </div>
-        <div class="cx-drawer-field">
-          <label for="cx-contato-tel">Telefone principal</label>
+        <div class="cx-drawer-field cx-drawer-field-full">
+          <label for="cx-contato-tel">Telefone</label>
           <div class="cx-drawer-input-wrap">
             <i class="fa-solid fa-phone cx-drawer-input-icon" aria-hidden="true"></i>
             <input id="cx-contato-tel" type="text" name="telefone" data-field="telefone" placeholder="(31) 99999-9999" />
           </div>
         </div>
-        <div class="cx-drawer-field">
-          <label for="cx-contato-tel2">Telefone secundário</label>
-          <div class="cx-drawer-input-wrap">
-            <i class="fa-solid fa-phone cx-drawer-input-icon" aria-hidden="true"></i>
-            <input id="cx-contato-tel2" type="text" name="telefone_secundario" data-field="telefone_secundario" placeholder="Opcional" />
-          </div>
+        <div class="cx-drawer-field cx-drawer-field-full cx-drawer-field-toggle">
+          <label class="cx-drawer-toggle">
+            <input type="checkbox" name="principal" data-field="principal" />
+            <span class="cx-drawer-toggle-switch" aria-hidden="true"></span>
+            <span class="cx-drawer-toggle-label">
+              <strong>Contato principal</strong>
+            </span>
+          </label>
         </div>
       </div>
     </section>

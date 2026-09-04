@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=59">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=65">
 {% endblock %}
 
 {% block content %}
@@ -205,67 +205,36 @@
         </aside>
 
         <section class="crm-v3-col crm-v3-col-center min-h-0" aria-label="Detalhes do cliente">
-          <div class="crm-v3-detail-header p-3">
-            <div class="crm-v3-detail-row flex flex-wrap items-center gap-2">
-              {# Avatar do cliente — prioriza logo real do domínio do
-                 contato principal (via Clearbit Logo API, gratuito e
-                 não requer chave). Fallback = iniciais quando o
-                 domínio não tem logo indexado ou não há contato
-                 com e-mail.
-                 Clicável: abre a aba Web para ver/editar o site. #}
+          <div class="crm-v3-detail-header">
+            <div class="crm-v3-detail-top">
+              {# Logo só quando há og:image. Sem logo o círculo de
+                 iniciais não agrega e some, alinhando o nome à esquerda. #}
               <button type="button" class="crm-v3-detail-avatar" id="crm-v3-detail-avatar-wrap"
-                      aria-label="Editar site e logo deste cliente"
-                      title="Ajustar site e logo">
+                      hidden
+                      aria-label="Ver site e logo deste cliente"
+                      title="Ver site e logo">
                 <img id="crm-v3-detail-avatar-img" alt="" hidden />
-                <span class="crm-v3-detail-avatar-fallback" id="crm-v3-detail-avatar">A</span>
               </button>
-              <h1 class="crm-v3-detail-title text-base font-semibold truncate flex-1 min-w-0" title="">—</h1>
-              <div class="dropdown dropdown-end">
-                <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" tabindex="0" aria-label="Mais opções" id="crm-v3-header-more">
-                  <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
-                </button>
-                <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 border border-base-200 z-50 text-sm" role="menu">
-                  <li>
-                    <button type="button" class="crm-v3-header-action-edit">
-                      <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
-                      <span>Editar cliente</span>
-                    </button>
-                  </li>
-                  <li class="menu-title pt-2">
-                    <span><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Ver no CRM legado</span>
-                  </li>
-                  <li>
-                    <a href="{{ url_for('crm.atividades_consolidadas') }}" target="_blank" rel="noopener">
-                      <i class="fa-solid fa-list-check" aria-hidden="true"></i>
-                      <span>Todas as atividades</span>
-                      <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
-                    </a>
-                  </li>
-                  <li>
-                    <a href="{{ url_for('crm.objetivos_consolidadas') }}" target="_blank" rel="noopener">
-                      <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
-                      <span>Todos os objetivos</span>
-                      <i class="fa-solid fa-arrow-up-right-from-square crm-v3-menu-hint" aria-hidden="true"></i>
-                    </a>
-                  </li>
-                </ul>
+              <div class="crm-v3-detail-identity">
+                <div class="crm-v3-detail-title-row">
+                  <h1 class="crm-v3-detail-title" title="">—</h1>
+                  <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm crm-v3-header-action-edit">
+                    <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                    Editar cliente
+                  </button>
+                </div>
+                <div class="crm-v3-detail-meta">
+                  <span class="crm-v3-meta-item">Responsável: <strong id="crm-v3-meta-responsavel">—</strong></span>
+                  <span class="crm-v3-meta-item">Tipo: <span class="badge badge-sm badge-ghost" id="crm-v3-meta-categoria">—</span></span>
+                  <span class="crm-v3-meta-item" id="crm-v3-meta-classif-wrap" hidden>
+                    Classificação: <span class="crm-v3-classif-chip" id="crm-v3-meta-classif" data-classif="">—</span>
+                  </span>
+                  <span class="crm-v3-meta-date" id="crm-v3-meta-date" hidden>
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                    <span id="crm-v3-meta-date-text"></span>
+                  </span>
+                </div>
               </div>
-            </div>
-            {# Meta do cliente — todos os campos aqui vêm da base real.
-
-               • Responsável   → tbl_contato_cliente (executivo) via join
-               • Tipo          → tbl_tipo_cliente.display
-               • Classificação → tbl_cliente.classificacao_cliente
-                 (substitui a "Prioridade: Alta" que era mock)
-               • Atualização   → tbl_cliente.data_modificacao (relativa)
-            #}
-            <div class="crm-v3-detail-meta flex flex-wrap gap-2 mt-2 text-xs">
-              <span class="crm-v3-meta-item">Responsável: <strong id="crm-v3-meta-responsavel">—</strong></span>
-              <span class="crm-v3-meta-item">Tipo: <span class="badge badge-sm badge-ghost" id="crm-v3-meta-categoria">—</span></span>
-              <span class="crm-v3-meta-item" id="crm-v3-meta-classif-wrap" hidden>
-                Classificação: <span class="crm-v3-classif-chip" id="crm-v3-meta-classif" data-classif="">—</span>
-              </span>
-              <span class="crm-v3-meta-date text-base-content/60" id="crm-v3-meta-date">—</span>
             </div>
           </div>
 
@@ -391,7 +360,7 @@
 
     <aside class="crm-v3-col crm-v3-col-sidebar min-h-0" id="crm-v3-sidebar" aria-label="Detalhes do cliente">
       <div class="crm-v3-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
-        <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info" title="Informações">
+        <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info" title="Informações básicas">
           <i class="fas fa-info-circle" aria-hidden="true"></i>
           <span>Info</span>
         </button>
@@ -428,22 +397,6 @@
 
       <div class="crm-v3-sidebar-panel-wrap">
         <div class="crm-v3-tab-panel crm-v3-tab-panel-active" role="tabpanel" data-panel-group="sidebar" data-panel="informacoes" aria-labelledby="tab-sidebar-info">
-          <div class="crm-v3-sidebar-section">
-            <div class="crm-v3-sidebar-section-title">Status comercial</div>
-            <div class="crm-v3-status-row">
-              <span class="crm-v3-status-badge" id="crm-v3-status-badge" data-classificacao="">—</span>
-              <span class="crm-v3-status-hint" id="crm-v3-status-hint"></span>
-            </div>
-          </div>
-
-          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-vinculos" hidden>
-            <div class="crm-v3-sidebar-section-header">
-              <div class="crm-v3-sidebar-section-title" id="crm-v3-vinculos-titulo">Vínculos</div>
-              <span class="crm-v3-vinculos-badge" id="crm-v3-vinculos-count"></span>
-            </div>
-            <div class="crm-v3-vinculos-list" id="crm-v3-vinculos-list"></div>
-          </div>
-
           {# Bloco de infos com edit-in-place estilo Pipedrive.
 
              Cada .crm-v3-editable-row tem:
@@ -496,6 +449,14 @@
             </div>
           </div>
 
+          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-vinculos" hidden>
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title" id="crm-v3-vinculos-titulo">Vínculos</div>
+              <span class="crm-v3-vinculos-badge" id="crm-v3-vinculos-count"></span>
+            </div>
+            <div class="crm-v3-vinculos-list" id="crm-v3-vinculos-list"></div>
+          </div>
+
           <div class="crm-v3-sidebar-section">
             <div class="crm-v3-sidebar-section-title">Perfil comercial</div>
             <div class="crm-v3-info-grid" data-editable-scope="cliente">
@@ -525,32 +486,6 @@
                  data-placeholder="Adicionar observações comerciais">
               <span class="crm-v3-info-label">Observações comerciais</span>
               <p class="crm-v3-info-obs-text" data-editable-display id="crm-v3-info-obs">—</p>
-            </div>
-          </div>
-
-          <div class="crm-v3-sidebar-section">
-            <div class="crm-v3-sidebar-section-title">Endereço</div>
-            <div class="crm-v3-info-grid" data-editable-scope="cliente">
-              <div class="crm-v3-editable-row" data-field="cep" data-type="text" data-placeholder="Adicionar CEP">
-                <span class="crm-v3-info-label">CEP</span>
-                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cep">—</span>
-              </div>
-              <div class="crm-v3-editable-row" data-field="bairro" data-type="text" data-placeholder="Adicionar bairro">
-                <span class="crm-v3-info-label">Bairro</span>
-                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-bairro">—</span>
-              </div>
-              <div class="crm-v3-editable-row crm-v3-editable-row-block" data-field="logradouro" data-type="text" data-placeholder="Adicionar logradouro">
-                <span class="crm-v3-info-label">Logradouro</span>
-                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-logradouro">—</span>
-              </div>
-              <div class="crm-v3-editable-row" data-field="numero" data-type="text" data-placeholder="Adicionar nº">
-                <span class="crm-v3-info-label">Nº</span>
-                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-numero">—</span>
-              </div>
-              <div class="crm-v3-editable-row" data-field="complemento" data-type="text" data-placeholder="Adicionar complemento">
-                <span class="crm-v3-info-label">Complemento</span>
-                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-complemento">—</span>
-              </div>
             </div>
           </div>
 
@@ -609,46 +544,42 @@
               <span id="crm-v3-nota-anteriores-label">Ver anteriores</span>
             </button>
             <div class="crm-v3-nota-anteriores-list" id="crm-v3-nota-anteriores-list" hidden></div>
-
-            {# Estado vazio (nenhuma nota). #}
-            <p class="crm-v3-nota-empty" id="crm-v3-nota-empty" hidden>
-              <i class="fa-regular fa-note-sticky" aria-hidden="true"></i>
-              Este cliente ainda não tem notas.
-              Use o campo acima para registrar a primeira.
-            </p>
           </div>
 
-          <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-contato-resumo">
-            <div class="crm-v3-sidebar-section-header">
-              <div class="crm-v3-sidebar-section-title">Contato selecionado</div>
-              <button type="button" class="crm-v3-link crm-v3-link-btn" id="crm-v3-ver-todos-contatos" title="Ver coluna de contatos">Ver todos</button>
-            </div>
-            <div class="crm-v3-contact-card crm-v3-contact-card-sidebar" id="crm-v3-sidebar-contato-card">
-              <div class="crm-v3-avatar crm-v3-avatar-muted" id="crm-v3-sidebar-contato-avatar" aria-hidden="true">M</div>
-              <div class="crm-v3-contact-info min-w-0">
-                <div class="crm-v3-contact-name" id="crm-v3-sidebar-contato-nome">marketing</div>
-                <div class="crm-v3-contact-role" id="crm-v3-sidebar-contato-cargo">Analista de Mídias</div>
-                <div class="crm-v3-contact-role" id="crm-v3-sidebar-contato-setor">Marketing</div>
+          <div class="crm-v3-sidebar-section">
+            <div class="crm-v3-sidebar-section-title">Endereço</div>
+            <div class="crm-v3-info-grid" data-editable-scope="cliente">
+              <div class="crm-v3-editable-row" data-field="cep" data-type="text" data-placeholder="Adicionar CEP">
+                <span class="crm-v3-info-label">CEP</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cep">—</span>
               </div>
-              <span class="badge badge-sm badge-primary" id="crm-v3-sidebar-contato-badge">Principal</span>
-            </div>
-            <div class="crm-v3-contact-details mt-2" id="crm-v3-sidebar-contato-detalhes">
-              <div class="crm-v3-contact-row">
-                <i class="fa-regular fa-envelope crm-v3-contact-row-icon" aria-hidden="true"></i>
-                <span class="crm-v3-contact-row-text" id="crm-v3-sidebar-contato-email" title="">marketing@portalautoshopping.com.br</span>
-                <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" id="crm-v3-copy-email" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button>
-                <a class="crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" id="crm-v3-mailto-link" href="#" aria-label="Enviar e-mail"><i class="fa-regular fa-envelope"></i></a>
+              <div class="crm-v3-editable-row" data-field="bairro" data-type="text" data-placeholder="Adicionar bairro">
+                <span class="crm-v3-info-label">Bairro</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-bairro">—</span>
               </div>
-              <div class="crm-v3-contact-row">
-                <i class="fa-brands fa-whatsapp crm-v3-contact-row-icon" style="color: var(--crm-primary);" aria-hidden="true"></i>
-                <span class="crm-v3-contact-row-text" id="crm-v3-sidebar-contato-telefone" title="">(31) 99399-9939</span>
-                <a class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-xs" id="crm-v3-whatsapp-link" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</a>
+              <div class="crm-v3-editable-row crm-v3-editable-row-block" data-field="logradouro" data-type="text" data-placeholder="Adicionar logradouro">
+                <span class="crm-v3-info-label">Logradouro</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-logradouro">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="numero" data-type="text" data-placeholder="Adicionar nº">
+                <span class="crm-v3-info-label">Nº</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-numero">—</span>
+              </div>
+              <div class="crm-v3-editable-row" data-field="complemento" data-type="text" data-placeholder="Adicionar complemento">
+                <span class="crm-v3-info-label">Complemento</span>
+                <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-complemento">—</span>
               </div>
             </div>
           </div>
 
           <div class="crm-v3-sidebar-section">
-            <div class="crm-v3-sidebar-section-title">Responsável interno</div>
+            <div class="crm-v3-sidebar-section-header">
+              <div class="crm-v3-sidebar-section-title">Responsável interno</div>
+              <button type="button"
+                      class="crm-v3-link crm-v3-link-btn crm-v3-header-action-edit"
+                      data-focus-field="executivo_id"
+                      title="Alterar no cadastro do cliente">Alterar</button>
+            </div>
             <div class="crm-v3-responsavel-card">
               <div class="crm-v3-avatar crm-v3-avatar-muted" id="crm-v3-responsavel-avatar" aria-hidden="true">—</div>
               <div class="crm-v3-responsavel-info">
@@ -831,7 +762,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=35"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=42"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=8"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

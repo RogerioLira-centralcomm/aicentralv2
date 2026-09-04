@@ -42,7 +42,7 @@ import os
 import re
 from datetime import date as _date, datetime as _datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
+from .crm_v3_helpers import filtrar_vinculos_colisao_lookup, uf_por_capital_operacao
 
 
 def _db():
@@ -181,6 +181,9 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "numero": row.get("numero") or "",
         "complemento": row.get("complemento") or "",
     }
+    uf_capital = uf_por_capital_operacao(endereco["cidade"])
+    if uf_capital:
+        endereco["uf"] = uf_capital
 
     vinculos_src = row.get("agencias_vinculadas") or []
     lookup_ids = row.get("_agencia_lookup_ids")
@@ -569,6 +572,20 @@ class CrmV3Repository:
         if not row:
             return None
         mapped = _map_cliente(row)
+        uf_capital = uf_por_capital_operacao(mapped.get("cidade"))
+        sigla_db = (row.get("estado_sigla") or "").strip().upper()
+        if not sigla_db:
+            raw_estado = row.get("estado")
+            if isinstance(raw_estado, str) and len(raw_estado.strip()) <= 3:
+                sigla_db = raw_estado.strip().upper()
+        if uf_capital and sigla_db != uf_capital:
+            try:
+                _db().atualizar_campos_cliente(cliente_id, {"uf": uf_capital})
+            except Exception:  # noqa: BLE001 — a tela já mostra a sigla
+                pass
+            mapped["uf"] = uf_capital
+            if isinstance(mapped.get("endereco"), dict):
+                mapped["endereco"]["uf"] = uf_capital
         try:
             mapped["metrics"] = self._metrics_for(cliente_id)
         except Exception as e:  # noqa: BLE001

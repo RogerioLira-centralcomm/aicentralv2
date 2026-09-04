@@ -704,6 +704,12 @@ button:hover > .crm-v3-menu-hint {
 .crm-v3-contato-nome {
     flex: 1 1 auto;
     min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font: inherit;
     font-size: 13px;
     font-weight: 600;
     color: var(--crm-text);
@@ -711,6 +717,12 @@ button:hover > .crm-v3-menu-hint {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+}
+.crm-v3-contato-nome:hover {
+    color: var(--crm-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .crm-v3-contato-cargo {
@@ -863,32 +875,6 @@ button:hover > .crm-v3-menu-hint {
 .crm-v3-contato-quick-edit.is-saving .crm-v3-contato-quick-input {
     opacity: 0.65;
 }
-.crm-v3-contato-details-foot {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px solid var(--crm-border-light);
-}
-.crm-v3-contato-edit {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 26px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--crm-text-muted);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.crm-v3-contato-edit:hover {
-    background: var(--crm-surface);
-    color: var(--crm-primary);
-}
 
 .crm-v3-contato-email-row {
     display: flex;
@@ -1006,10 +992,6 @@ button:hover > .crm-v3-menu-hint {
     cursor: pointer;
     font-family: inherit;
     padding: 0;
-}
-
-.crm-v3-contact-card-sidebar {
-    margin-bottom: 6px;
 }
 
 /* ===== GRID PRINCIPAL ===== */
@@ -1807,8 +1789,27 @@ button:hover > .crm-v3-menu-hint {
     border: 0;
     border-radius: 0;
     margin: 0;
-    padding: 10px 14px 8px;
+    padding: 8px 14px 6px;
     flex-shrink: 0;
+}
+
+.crm-v3-detail-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.crm-v3-detail-identity {
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-v3-detail-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
 .crm-v3-detail-row {
@@ -1820,12 +1821,19 @@ button:hover > .crm-v3-menu-hint {
 
 .crm-v3-detail-title {
     font-size: var(--crm-font-xl);
-    font-weight: 600;
+    font-weight: 650;
     color: var(--crm-text);
-    line-height: 1.25;
+    line-height: 1.2;
     margin: 0;
     flex: 1;
-    min-width: 200px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crm-v3-header-action-edit {
+    flex-shrink: 0;
 }
 
 .crm-v3-header-label {
@@ -1861,23 +1869,24 @@ button:hover > .crm-v3-menu-hint {
     position: relative;
     width: 40px;
     height: 40px;
-    border-radius: 999px;
+    border-radius: 8px;
     overflow: hidden;
     flex-shrink: 0;
-    background: var(--crm-primary, #4f46e5);
+    background: #fff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
-    /* set/2026: virou <button> — reset dos estilos default de botão
-       para preservar a aparência circular de avatar, mantendo o
-       comportamento de foco/hover indicativo de clicável. */
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
     padding: 0;
     border: 0;
     cursor: pointer;
     transition: transform 120ms ease, box-shadow 120ms ease;
     -webkit-appearance: none;
     appearance: none;
+}
+
+.crm-v3-detail-avatar[hidden] {
+    display: none !important;
 }
 
 .crm-v3-detail-avatar:hover {
@@ -2288,25 +2297,6 @@ button:hover > .crm-v3-menu-hint {
     word-break: break-word;
 }
 
-/* Estado vazio */
-.crm-v3-nota-empty {
-    font-size: 12px;
-    color: var(--crm-text-subtle, #6b7280);
-    padding: 12px;
-    text-align: center;
-    background: var(--crm-surface, #f9fafb);
-    border: 1px dashed var(--crm-border, #e5e7eb);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin: 0;
-}
-.crm-v3-nota-empty i {
-    opacity: 0.6;
-}
-
 /* Chip de Classificação (Ativo / Prospecção / Geladeira) —
    substitui o antigo badge "Prioridade" que era mock. Cores
    monocromáticas por status para leitura rápida sem poluição. */
@@ -2341,11 +2331,12 @@ button:hover > .crm-v3-menu-hint {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 6px;
-    padding-left: 44px;
+    gap: 4px 12px;
+    margin-top: 2px;
+    padding-left: 0;
     font-size: var(--crm-font-xs);
     color: var(--crm-text-muted);
+    line-height: 1.3;
 }
 
 .crm-v3-meta-item {
@@ -2389,10 +2380,17 @@ button:hover > .crm-v3-menu-hint {
 }
 
 .crm-v3-meta-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     color: var(--crm-text-subtle);
     font-size: var(--crm-font-xs);
     margin-left: auto;
     white-space: nowrap;
+    font-weight: 500;
+}
+.crm-v3-meta-date i {
+    opacity: 0.75;
 }
 
 /* ===== MÉTRICAS ===== */
@@ -3780,50 +3778,6 @@ button:hover > .crm-v3-menu-hint {
 /* .crm-v3-sidebar-footer removido: botão Seguir/Deixar de seguir foi retirado
  * da sidebar. O rodapé não é mais renderizado no HTML. */
 
-/* Status comercial */
-.crm-v3-status-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.crm-v3-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    background: var(--crm-border-light);
-    color: var(--crm-text-muted);
-}
-.crm-v3-status-badge::before {
-    content: "";
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-}
-.crm-v3-status-badge[data-classificacao="Prospecção"],
-.crm-v3-status-badge[data-classificacao="Prospeccao"] {
-    background: #f1f5f9;
-    color: #475569;
-}
-.crm-v3-status-badge[data-classificacao="Ativo"] {
-    background: #dcfce7;
-    color: #166534;
-}
-.crm-v3-status-badge[data-classificacao="Geladeira"] {
-    background: #e0f2fe;
-    color: #075985;
-}
-.crm-v3-status-hint {
-    font-size: 12px;
-    color: var(--crm-text-muted);
-}
-
 /* Vínculos (agência ↔ clientes finais) */
 .crm-v3-vinculos-badge {
     display: inline-flex;
@@ -3980,6 +3934,10 @@ button:hover > .crm-v3-menu-hint {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 6px;
+}
+
+.crm-v3-sidebar-section-header .crm-v3-link {
+    margin-top: 0;
 }
 
 .crm-v3-info-grid {
@@ -4174,29 +4132,6 @@ button:hover > .crm-v3-menu-hint {
     color: var(--crm-danger);
 }
 
-.crm-v3-contact-card {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-.crm-v3-contact-card-sidebar {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: center;
-    padding: 10px;
-    border-radius: 8px;
-    background: var(--crm-surface);
-}
-
-.crm-v3-contact-card-sidebar .crm-v3-contact-name,
-.crm-v3-contact-card-sidebar .crm-v3-contact-role {
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
 .crm-v3-sidebar-panel-heading {
     display: flex;
     align-items: center;
@@ -4216,54 +4151,6 @@ button:hover > .crm-v3-menu-hint {
     margin: 2px 0 0;
     font-size: var(--crm-font-xs);
     color: var(--crm-text-subtle);
-}
-
-.crm-v3-contact-info {
-    flex: 1;
-}
-
-.crm-v3-contact-name {
-    font-size: var(--crm-font-sm);
-    font-weight: 600;
-    color: var(--crm-text);
-}
-
-.crm-v3-contact-role {
-    font-size: var(--crm-font-xs);
-    color: var(--crm-text-subtle);
-}
-
-.crm-v3-contact-details {
-    margin-top: 6px;
-}
-
-.crm-v3-contact-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: var(--crm-font-sm);
-    color: var(--crm-text);
-    margin-bottom: 4px;
-}
-
-.crm-v3-contact-row i {
-    width: 16px;
-    text-align: center;
-}
-
-.crm-v3-contact-row-icon {
-    color: var(--crm-text-muted);
-    font-size: 13px;
-    flex-shrink: 0;
-}
-
-.crm-v3-contact-row-text {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--crm-text);
 }
 
 .crm-v3-link {

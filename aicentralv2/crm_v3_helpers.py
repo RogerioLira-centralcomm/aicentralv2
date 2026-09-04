@@ -124,3 +124,17 @@ def filtrar_vinculos_colisao_lookup(vinculos, lookup_ids):
         if aid is None or aid not in lookup:
             claros.append(v)
     return claros if claros else list(vinculos)
+
+
+def uf_por_capital_operacao(cidade: Optional[str]) -> Optional[str]:
+    """UF das 3 capitais que a operação usa hoje (BH, Rio, São Paulo)."""
+    import unicodedata
+
+    chave = unicodedata.normalize("NFD", (cidade or "").strip().lower())
+    chave = "".join(c for c in chave if unicodedata.category(c) != "Mn")
+    chave = re.sub(r"\s+", " ", chave).strip()
+    return {
+        "belo horizonte": "MG",
+        "rio de janeiro": "RJ",
+        "sao paulo": "SP",
+    }.get(chave)

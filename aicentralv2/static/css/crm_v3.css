@@ -241,30 +241,99 @@ html:has(.crm-v3-page) body {
 .crm-v3-header {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
+    gap: 8px;
+    padding: 6px 12px;
     background: #fff;
     border-bottom: 1px solid var(--crm-border);
     flex-shrink: 0;
-    min-height: 34px;
+    min-height: 40px;
 }
 
+/* Brand "CRM" à esquerda do header — set/2026.
+   Marca visual da página dentro do ERP. Usa a cor primary com fundo
+   suave para chamar atenção sem competir com os filtros. O ícone
+   users-line reforça semanticamente "gestão de clientes".
+   Não é clicável (a página atual já é o CRM). */
+.crm-v3-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px 4px 10px;
+    background: rgba(79, 70, 229, 0.08);
+    color: var(--crm-primary, #4f46e5);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    /* Trava a largura para não esticar quando o header aperta em
+       viewport pequeno — o brand não deve competir por espaço com
+       os filtros funcionais. */
+    flex-shrink: 0;
+    line-height: 1;
+    user-select: none;
+}
+.crm-v3-brand > i {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+/* Selects arredondados (pill) — set/2026.
+   Padrão consistente com o brand ao lado: border-radius: 999px em
+   tudo que fica na barra de filtros. Aumenta a altura levemente
+   (24→28px) para o texto respirar dentro do pill sem parecer
+   apertado. Padding lateral maior por conta da forma arredondada. */
 .crm-v3-select {
     font-size: var(--crm-font-sm);
-    height: 24px;
-    padding: 0 22px 0 7px;
+    height: 28px;
+    padding: 0 28px 0 14px;
     border: 1px solid var(--crm-border);
-    border-radius: var(--crm-radius-sm);
-    background: var(--crm-surface) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 6px center/14px no-repeat;
+    border-radius: 999px;
+    background: var(--crm-surface) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 10px center/14px no-repeat;
     color: var(--crm-text);
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
+    /* Transição suave no hover/focus. */
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.crm-v3-select:hover {
+    border-color: var(--crm-primary);
 }
 
 .crm-v3-select:focus-visible {
-    outline: 2px solid var(--crm-primary);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--crm-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+/* Estado "com valor selecionado" — se o filtro está ativo (option
+   não-vazia), o pill fica com fundo azul-claro para o executivo ver
+   rapidamente quais filtros estão em uso. Aplicado via JS no
+   updateFilterVisualState (opcional; sem essa classe o select
+   continua com o visual neutro). */
+.crm-v3-select.is-active {
+    background-color: rgba(79, 70, 229, 0.06);
+    border-color: rgba(79, 70, 229, 0.4);
+    color: var(--crm-primary);
+    font-weight: 600;
+}
+
+/* Botões dentro da barra de filtros do CRM v3 — set/2026.
+   Alinhamento visual com o pill dos selects/brand: mesmo raio 999px,
+   mesma altura 28px. NÃO altera o .crm-v3-btn global porque ele é
+   compartilhado com drawers, modais e composers (que preferem raio
+   médio). Escopo restrito ao filho direto de .crm-v3-header-actions. */
+.crm-v3-header-actions > .crm-v3-btn {
+    border-radius: 999px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0 14px;
+    font-size: var(--crm-font-sm);
+}
+.crm-v3-header-actions > .crm-v3-btn > i {
+    font-size: 11px;
 }
 
 .crm-v3-header-actions {

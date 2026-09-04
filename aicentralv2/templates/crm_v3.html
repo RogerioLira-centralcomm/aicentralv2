@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=47">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=48">
 {% endblock %}
 
 {% block content %}
@@ -62,6 +62,14 @@
   <div class="crm-v3-layout">
     <div class="crm-v3-main">
       <header class="crm-v3-header">
+        {# Brand à esquerda — set/2026. Torna a página autoidentificável
+           dentro do sistema (o ERP tem várias telas parecidas) e serve
+           de âncora visual pro início da barra de filtros. Não é link
+           porque a rota atual já é a raiz do CRM v3. #}
+        <span class="crm-v3-brand" aria-label="CRM">
+          <i class="fa-solid fa-users-line" aria-hidden="true"></i>
+          <span class="crm-v3-brand-label">CRM</span>
+        </span>
         <label class="sr-only" for="filtro-executivo">Filtrar por executivo</label>
         <select class="crm-v3-select" id="filtro-executivo" aria-label="Executivo">
           <option value="">Executivo: todos</option>

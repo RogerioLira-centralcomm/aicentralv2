@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=75">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=76">
 {% endblock %}
 
 {% block content %}
@@ -533,7 +533,7 @@
 
           <div class="crm-v3-sidebar-section">
             <div class="crm-v3-sidebar-section-title">Endereço</div>
-            <div class="crm-v3-info-grid" data-editable-scope="cliente">
+            <div class="crm-v3-info-grid crm-v3-info-grid-endereco" data-editable-scope="cliente">
               <div class="crm-v3-editable-row" data-field="cep" data-type="text" data-placeholder="Adicionar CEP">
                 <span class="crm-v3-info-label">CEP</span>
                 <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-cep">—</span>
@@ -542,7 +542,7 @@
                 <span class="crm-v3-info-label">Bairro</span>
                 <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-bairro">—</span>
               </div>
-              <div class="crm-v3-editable-row crm-v3-editable-row-block" data-field="logradouro" data-type="text" data-placeholder="Adicionar logradouro">
+              <div class="crm-v3-editable-row" data-field="logradouro" data-type="text" data-placeholder="Adicionar logradouro">
                 <span class="crm-v3-info-label">Logradouro</span>
                 <span class="crm-v3-info-value" data-editable-display id="crm-v3-info-logradouro">—</span>
               </div>
@@ -747,7 +747,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=52"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=53"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=14"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

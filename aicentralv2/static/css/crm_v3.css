@@ -3957,6 +3957,23 @@ img.crm-v3-avatar-mini {
     gap: 6px;
 }
 
+.crm-v3-info-grid-endereco .crm-v3-editable-row {
+    align-items: flex-start;
+}
+
+.crm-v3-info-grid-endereco .crm-v3-info-label {
+    flex: 0 0 7.25rem;
+    width: 7.25rem;
+    padding-top: 1px;
+}
+
+.crm-v3-info-grid-endereco .crm-v3-info-value {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
 .crm-v3-info-row {
     display: flex;
     justify-content: space-between;
@@ -4251,6 +4268,20 @@ img.crm-v3-avatar-mini {
     align-items: center;
     gap: 6px;
     margin-top: 6px;
+}
+
+#crm-v3-responsavel-avatar {
+    overflow: hidden;
+    padding: 0;
+}
+
+#crm-v3-responsavel-avatar img,
+#crm-v3-responsavel-avatar .crm-v3-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 50%;
 }
 
 .crm-v3-responsavel-info {

@@ -1452,7 +1452,7 @@
         var responsavelAvatar = $('#crm-v3-responsavel-avatar');
         var responsavelEmail = $('#crm-v3-responsavel-email');
         if (responsavelNome) responsavelNome.textContent = cliente.responsavel || '—';
-        if (responsavelAvatar) responsavelAvatar.textContent = avatarIniciais(cliente.responsavel);
+        fillResponsavelAvatar(responsavelAvatar, cliente);
         if (responsavelEmail) {
             // Prefere email real (tbl_contato_cliente.email do executivo).
             // Fallback: derivar de "nome.sobrenome@centralcomm.media" — só se
@@ -2473,6 +2473,30 @@
             if (n && nome && n === nome) return foto;
         }
         return '';
+    }
+
+    function fillResponsavelAvatar(el, cliente) {
+        if (!el) return;
+        var nome = (cliente && cliente.responsavel) || '';
+        var foto = fotoExecutivoAtividade({
+            executivo_id: cliente && cliente.executivo_id,
+            responsavel: nome,
+            responsavel_foto_url: cliente && cliente.responsavel_foto_url
+        });
+        el.replaceChildren();
+        if (foto) {
+            var img = document.createElement('img');
+            img.className = 'crm-v3-avatar-img';
+            img.alt = '';
+            img.src = foto;
+            img.addEventListener('error', function () {
+                el.replaceChildren();
+                el.textContent = nome ? avatarIniciais(nome) : '—';
+            });
+            el.appendChild(img);
+            return;
+        }
+        el.textContent = nome ? avatarIniciais(nome) : '—';
     }
 
     function execAvatarHtml(a) {

@@ -23,7 +23,12 @@
         buscaContato: '',
         buscaAtividade: '',
         paginaCliente: 1,
-        clientesPorPagina: 8,
+        // Set/2026: subimos de 8 → 40 clientes por página. O time
+        // pediu ver toda a base do executivo direto (~200 clientes)
+        // sem paginar manualmente. A coluna tem overflow-y:auto, então
+        // dá scroll suave e vem paginação só quando estoura ~40+ itens
+        // no filtro atual.
+        clientesPorPagina: 40,
         importRows: [],
         pendingObjetivoId: null,
         overlayTimer: null
@@ -470,6 +475,21 @@
             // Pill "arquivo" mostra somente Geladeira.
             if (state.filtroPill === 'arquivo') {
                 if (!isGeladeira) return false;
+            } else if (state.filtroPill === 'classif-ativo') {
+                // Set/2026: pill "Ativos" foca somente clientes com
+                // classificação Ativa (retenção). Geladeira nunca
+                // aparece aqui.
+                if (isGeladeira) return false;
+                if (classif !== 'ativo') return false;
+            } else if (state.filtroPill === 'classif-prospeccao') {
+                // Pill "Prospecção": só clientes em prospecção (funil de
+                // conversão). Aceita variações da string (prospecção
+                // com/sem cedilha, "prospeccao").
+                if (isGeladeira) return false;
+                var isProsp = classif === 'prospeccao'
+                    || classif === 'prospecção'
+                    || classif.indexOf('prospec') === 0;
+                if (!isProsp) return false;
             } else {
                 // Demais pills (todos/atrasado/sem-atividade) escondem Geladeira.
                 if (isGeladeira) return false;
@@ -598,14 +618,29 @@
             if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
             return true;
         });
-        var counts = { todos: 0, atrasado: 0, 'sem-atividade': 0, arquivo: 0 };
+        var counts = {
+            todos: 0,
+            'classif-ativo': 0,
+            'classif-prospeccao': 0,
+            atrasado: 0,
+            'sem-atividade': 0,
+            arquivo: 0
+        };
         base.forEach(function (c) {
-            var isGeladeira = String(c.classificacao_cliente || c.classificacao || '').toLowerCase() === 'geladeira';
+            var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
+            var isGeladeira = classif === 'geladeira';
             if (isGeladeira) {
                 counts.arquivo++;
                 return; // Geladeira não conta nas outras pills
             }
             counts.todos++;
+            if (classif === 'ativo') counts['classif-ativo']++;
+            // Aceita "prospecção", "prospeccao", "prospect..."
+            if (classif === 'prospeccao'
+                || classif === 'prospecção'
+                || classif.indexOf('prospec') === 0) {
+                counts['classif-prospeccao']++;
+            }
             if (c.status === 'atrasado') counts.atrasado++;
             if (c.status === 'sem-atividade') counts['sem-atividade']++;
         });
@@ -624,6 +659,11 @@
         if (label) label.textContent = state.paginaCliente + '/' + totalPaginas;
         if (prev) prev.disabled = state.paginaCliente <= 1;
         if (next) next.disabled = state.paginaCliente >= totalPaginas;
+        // Set/2026: com clientesPorPagina=40 a paginação some quase
+        // sempre. Escondemos o rodapé inteiro quando cabe em 1 página
+        // para dar mais espaço para a lista respirar.
+        var pager = document.getElementById('crm-v3-pager');
+        if (pager) pager.hidden = totalPaginas <= 1;
     }
 
     /* ------------------------------------------------------------------
@@ -1533,14 +1573,18 @@
 
         if (!state.clienteId) {
             container.innerHTML = '<div class="crm-v3-ativ-empty">Selecione um cliente.</div>';
-            renderSugestao();
             updateTabCounts();
             return;
         }
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-v3-ativ-empty">Nenhuma atividade registrada.</div>';
-            renderSugestao();
+            // Set/2026: em vez de mostrar só "Nenhuma atividade
+            // registrada", oferecemos 4 sugestões clicáveis para o
+            // usuário criar a primeira atividade em 1 clique. O template
+            // preenche o composer (título + tipo + data padrão) — não
+            // salva sozinho para o usuário ainda poder ajustar.
+            container.innerHTML = renderQuickAtividadesHTML();
+            bindQuickAtividades(container);
             updateTabCounts();
             return;
         }
@@ -1575,7 +1619,6 @@
 
         container.innerHTML = html;
         bindAtividadeEvents(container);
-        renderSugestao();
         updateTabCounts();
     }
 
@@ -1583,13 +1626,110 @@
     // da sidebar foi eliminada por ser redundante com a coluna central
     // (que é o foco do CRM v3). Nada mais renderiza uma mini-lista.
 
-    function renderSugestao() {
-        var el = $('#crm-v3-sugestao-texto');
-        if (!el) return;
-        var pendentes = state.atividades.filter(function (a) { return a.status !== 'concluida'; });
-        el.textContent = pendentes.length
-            ? 'Há ' + pendentes.length + ' atividade(s) pendente(s). Priorize o próximo contato e mantenha o cliente atualizado.'
-            : 'Sem atividades pendentes. Agende um contato para gerar novas oportunidades.';
+    // renderSugestao removida em set/2026 — a seção "Próximos passos
+    // sugeridos" foi removida da UI (repetia mensagens vazias). O
+    // empty state do composer agora oferece 4 sugestões clicáveis
+    // (renderQuickAtividadesHTML / bindQuickAtividades logo abaixo).
+
+    /* ------------------------------------------------------------------
+     * Sugestões rápidas de atividade (empty state)
+     * ------------------------------------------------------------------
+     * Quando o cliente não tem NENHUMA atividade cadastrada, mostramos 4
+     * cards clicáveis com os próximos passos mais comuns do funil
+     * comercial. Cada card, ao ser clicado, PRÉ-PREENCHE o composer
+     * (título, tipo, data) e foca o input — o usuário só ajusta e dá
+     * Enter para salvar. Não salva sozinho para preservar controle
+     * humano (o executivo pode ajustar o título antes de commitar).
+     * ------------------------------------------------------------------ */
+    var QUICK_ATIV_SUGGESTIONS = [
+        {
+            titulo: 'Ligar para apresentar propostas',
+            tipo: 'ligacao',
+            icon: 'fa-solid fa-phone',
+            hint: 'Hoje'
+        },
+        {
+            titulo: 'Enviar e-mail de acompanhamento',
+            tipo: 'atividade',
+            icon: 'fa-regular fa-envelope',
+            hint: 'Hoje'
+        },
+        {
+            titulo: 'Agendar reunião de descoberta',
+            tipo: 'reuniao',
+            icon: 'fa-solid fa-users',
+            hint: 'Esta semana',
+            daysAhead: 3
+        },
+        {
+            titulo: 'Preparar proposta comercial',
+            tipo: 'planejamento',
+            icon: 'fa-solid fa-diagram-project',
+            hint: 'Amanhã',
+            daysAhead: 1
+        }
+    ];
+
+    function renderQuickAtividadesHTML() {
+        var cards = QUICK_ATIV_SUGGESTIONS.map(function (s, i) {
+            return (
+                '<button type="button" class="crm-v3-quick-ativ" data-idx="' + i + '"' +
+                ' aria-label="' + escapeHtml(s.titulo) + '">' +
+                '<span class="crm-v3-quick-ativ-icon"><i class="' + s.icon + '" aria-hidden="true"></i></span>' +
+                '<span class="crm-v3-quick-ativ-body">' +
+                '<span class="crm-v3-quick-ativ-title">' + escapeHtml(s.titulo) + '</span>' +
+                '<span class="crm-v3-quick-ativ-hint">' + escapeHtml(s.hint) + '</span>' +
+                '</span>' +
+                '<i class="fa-solid fa-arrow-right crm-v3-quick-ativ-arrow" aria-hidden="true"></i>' +
+                '</button>'
+            );
+        }).join('');
+        return (
+            '<div class="crm-v3-ativ-empty-suggest">' +
+            '<div class="crm-v3-ativ-empty-heading">' +
+                '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
+                '<span>Sugestões rápidas — clique para começar</span>' +
+            '</div>' +
+            '<div class="crm-v3-quick-ativ-grid">' + cards + '</div>' +
+            '</div>'
+        );
+    }
+
+    function bindQuickAtividades(root) {
+        var titulo = $('#crm-v3-composer-titulo');
+        var tipoBtn = $('#crm-v3-composer-tipo');
+        var dataInput = $('#crm-v3-composer-data');
+        if (!titulo || !tipoBtn) return;
+        $$('.crm-v3-quick-ativ', root).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var idx = parseInt(btn.getAttribute('data-idx') || '0', 10);
+                var s = QUICK_ATIV_SUGGESTIONS[idx];
+                if (!s) return;
+                titulo.value = s.titulo;
+                // Sincroniza o botão de tipo (mesma sequência do composer).
+                var tipos = ['atividade', 'ligacao', 'reuniao', 'doc', 'planejamento'];
+                var tipoIdx = tipos.indexOf(s.tipo);
+                if (tipoIdx === -1) tipoIdx = 0;
+                tipoBtn.setAttribute('data-tipo', s.tipo);
+                tipoBtn.setAttribute('data-tipo-idx', String(tipoIdx));
+                var icons = {
+                    atividade: 'fa-regular fa-circle-check',
+                    ligacao: 'fa-solid fa-phone',
+                    reuniao: 'fa-solid fa-users',
+                    doc: 'fa-regular fa-file-lines',
+                    planejamento: 'fa-solid fa-diagram-project'
+                };
+                tipoBtn.innerHTML = '<i class="' + icons[s.tipo] + '" aria-hidden="true"></i>';
+                // Data sugerida (hoje + daysAhead).
+                if (dataInput) {
+                    var d = new Date();
+                    d.setDate(d.getDate() + (s.daysAhead || 0));
+                    dataInput.value = d.toISOString().slice(0, 10);
+                }
+                titulo.focus();
+                titulo.select();
+            });
+        });
     }
 
     function bindAtividadeEvents(container) {
@@ -3211,6 +3351,16 @@
                 var active = pill.getAttribute('data-filter') === 'todos';
                 pill.classList.toggle('is-active', active);
                 pill.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            // Persistir "limpar filtros" no localStorage: caso contrário
+            // o boot da próxima sessão restauraria o executivo/tipo/perfil
+            // antigos e o usuário teria que limpar de novo. Escolha
+            // explícita do usuário sempre ganha do auto-select (data-eu).
+            saveSession({
+                filtroPill: 'todos',
+                filtroExecutivo: '',
+                filtroTipo: '',
+                filtroPerfil: ''
             });
             renderClientes();
         });

@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=42">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=43">
 {% endblock %}
 
 {% block content %}
@@ -158,6 +158,19 @@
                 <span class="crm-v3-pill-label">Todos</span>
                 <span class="crm-v3-pill-count">0</span>
               </button>
+              {# Pills de classificação separam Ativo/Prospecção — set/2026:
+                 o time comercial precisa foco por estágio (Ativo =
+                 retenção, Prospecção = conversão). Antes ficava tudo
+                 misturado em "Todos" e só o chip visual no card
+                 diferenciava. #}
+              <button type="button" class="crm-v3-pill crm-v3-pill-classif crm-v3-pill-classif--ativo" data-filter="classif-ativo" aria-pressed="false" title="Somente clientes Ativos" aria-label="Ativos">
+                <span class="crm-v3-pill-label">Ativos</span>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
+              <button type="button" class="crm-v3-pill crm-v3-pill-classif crm-v3-pill-classif--prospeccao" data-filter="classif-prospeccao" aria-pressed="false" title="Somente clientes em Prospecção" aria-label="Prospecção">
+                <span class="crm-v3-pill-label">Prospecção</span>
+                <span class="crm-v3-pill-count">0</span>
+              </button>
               <button type="button" class="crm-v3-pill" data-filter="atrasado" aria-pressed="false" title="Atividades atrasadas" aria-label="Atrasados">
                 <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
                 <span class="crm-v3-pill-count">0</span>
@@ -184,7 +197,7 @@
           <div class="crm-v3-col-footer sticky bottom-0 bg-base-100 z-10">
             <span class="crm-v3-footer-label truncate" title="+ ATIVO (SEM CONTATO)">+ ATIVO (SEM CONTATO)</span>
             <span class="crm-v3-footer-count" id="crm-v3-sem-contato-count">0</span>
-            <div class="crm-v3-pagination">
+            <div class="crm-v3-pagination" id="crm-v3-pager" hidden>
               <span class="crm-v3-page-label" id="crm-v3-page-label">1/1</span>
               <button type="button" class="crm-v3-page-btn" id="crm-v3-page-prev" aria-label="Página anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
               <button type="button" class="crm-v3-page-btn" id="crm-v3-page-next" aria-label="Próxima página"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
@@ -335,13 +348,11 @@
               </section>
             </aside>
 
-              <section class="crm-v3-section crm-v3-section-sugestao" aria-labelledby="crm-sugestao-title">
-                <h3 class="crm-v3-section-title" id="crm-sugestao-title">Próximos passos sugeridos</h3>
-                <div class="crm-v3-sugestao" id="crm-v3-sugestao" role="status">
-                  <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
-                  <span id="crm-v3-sugestao-texto">Carregando sugestão…</span>
-                </div>
-              </section>
+              {# Set/2026: "Próximos passos sugeridos" foi removido a
+                 pedido do time — repetia mensagens vazias e disputava
+                 espaço com o composer de atividades e o painel de
+                 cotações. A ação "próximo passo" agora acontece no
+                 empty state do composer (sugestões rápidas em cards). #}
 
           </div>
         </section>
@@ -372,11 +383,10 @@
           <div class="crm-v3-col-body scroll-suave" id="crm-v3-lista-contatos" role="list">
             <!-- renderizado via crm_v3.js -->
           </div>
-
-          <div class="crm-v3-col-footer crm-v3-contatos-footer">
-            <span class="crm-v3-footer-label">Contato principal</span>
-            <span class="crm-v3-footer-hint" id="crm-v3-contato-principal-hint">marketing</span>
-          </div>
+          {# Set/2026: rodapé "Contato principal" removido — a
+             informação já aparece como badge (estrela) no próprio card
+             do contato principal. Ter uma linha extra no rodapé só
+             duplicava o dado e comia altura útil da lista. #}
         </aside>
 
       </div>
@@ -722,7 +732,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=17"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

@@ -579,6 +579,14 @@ button:hover > .crm-v3-menu-hint {
     transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+/* Set/2026: primeiro card da lista de contatos ganha um respiro no
+   topo (5px) para não colar no header — pedido do time comercial,
+   estava parecendo que o header e o primeiro card eram um único
+   componente. Usamos margin-top para não empurrar a borda visível. */
+#crm-v3-lista-contatos .crm-v3-contato-card:first-child {
+    margin-top: 5px;
+}
+
 .crm-v3-contato-card:hover {
     border-color: #cbd5e1;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -958,16 +966,36 @@ button:hover > .crm-v3-menu-hint {
 }
 
 /* ===== PILLS (filtros da lista de clientes) =========================
- * Pipedrive-style: apenas Todos tem label; as demais são ícones + count.
- * Layout com 1fr auto auto auto: Todos cresce, ícones ficam compactos.
+ * Set/2026: Além de "Todos" e as icônicas (Atrasado, Sem atividade,
+ * Arquivo), adicionamos as pills de classificação (Ativos/Prospecção)
+ * com label. Trocamos o grid rígido por flex-wrap para as 6 pills se
+ * ajustarem em 1-2 linhas conforme a largura da coluna.
  * ==================================================================== */
 .crm-v3-pills {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     margin-top: 8px;
     width: 100%;
-    overflow: hidden;
+}
+.crm-v3-pills .crm-v3-pill[data-filter="todos"] {
+    /* "Todos" sempre ocupa a linha inteira — é a pill primária e serve
+       de header visual para as pills de refino abaixo (Ativos/Prospec.
+       e icônicas). Assim o time comercial identifica em duas leituras
+       (base total + refino). */
+    flex: 1 1 100%;
+}
+/* Pills de classificação dividem a segunda linha meio a meio, sempre. */
+.crm-v3-pill-classif {
+    flex: 1 1 calc(50% - 2px);
+    min-width: 96px;
+}
+/* Icônicas ocupam a terceira linha (ou continuam na segunda quando
+   sobra espaço), com largura fixa compacta. */
+.crm-v3-pill[data-filter="atrasado"],
+.crm-v3-pill[data-filter="sem-atividade"],
+.crm-v3-pill[data-filter="arquivo"] {
+    flex: 0 0 auto;
 }
 
 .crm-v3-pill {
@@ -1000,10 +1028,77 @@ button:hover > .crm-v3-menu-hint {
     text-overflow: ellipsis;
 }
 
-/* Pills 2 a 4: só ícone + count (mais compactas) */
-.crm-v3-pill:not(:first-child) {
+/* Pills icônicas (Atrasado / Sem atividade / Arquivo): só ícone + count.
+   Ficam mais compactas para caber junto com as pills que têm label.
+   Set/2026: antes usávamos :not(:first-child), mas isso escondia o
+   label das novas pills de classificação (Ativos/Prospecção). Agora
+   selecionamos as pills icônicas explicitamente pelo data-filter. */
+.crm-v3-pill[data-filter="atrasado"],
+.crm-v3-pill[data-filter="sem-atividade"],
+.crm-v3-pill[data-filter="arquivo"] {
     padding: 0 8px;
     min-width: 44px;
+}
+
+/* Pills de classificação — Ativos (verde) e Prospecção (azul).
+   Diferem das icônicas porque MOSTRAM label (Ativos/Prospecção) e usam
+   cores semânticas do funil comercial:
+   - Ativos:      #dcfce7 fundo, #15803d texto → sucesso/retenção
+   - Prospecção:  #dbeafe fundo, #1d4ed8 texto → info/conversão
+
+   As pills ficam com fundo claro no estado padrão para não competir
+   com "Todos" (que é o primário azul), e viram sólidas quando ativas.
+*/
+.crm-v3-pill-classif {
+    padding: 0 10px;
+    min-width: 0;
+}
+.crm-v3-pill-classif--ativo {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #166534;
+}
+.crm-v3-pill-classif--ativo:hover {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #14532d;
+}
+.crm-v3-pill-classif--ativo.is-active {
+    background: #16a34a;
+    border-color: #15803d;
+    color: #fff;
+}
+.crm-v3-pill-classif--ativo .crm-v3-pill-count {
+    background: rgba(22, 101, 52, 0.14);
+    color: #166534;
+}
+.crm-v3-pill-classif--ativo.is-active .crm-v3-pill-count {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+
+.crm-v3-pill-classif--prospeccao {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+.crm-v3-pill-classif--prospeccao:hover {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    color: #1e3a8a;
+}
+.crm-v3-pill-classif--prospeccao.is-active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+.crm-v3-pill-classif--prospeccao .crm-v3-pill-count {
+    background: rgba(29, 78, 216, 0.14);
+    color: #1d4ed8;
+}
+.crm-v3-pill-classif--prospeccao.is-active .crm-v3-pill-count {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
 }
 
 .crm-v3-pill-count {
@@ -2194,6 +2289,108 @@ button:hover > .crm-v3-menu-hint {
     text-align: center;
     font-size: var(--crm-font-sm);
     color: var(--crm-text-subtle);
+}
+
+/* ===== SUGESTÕES RÁPIDAS DE ATIVIDADE (empty state) ==================
+   Set/2026: no lugar de "Nenhuma atividade registrada", oferecemos 4
+   cards clicáveis com os próximos passos comerciais mais comuns
+   (Ligar, E-mail, Reunião, Proposta). Clique pré-preenche o composer.
+   Layout: 2 colunas em telas médias/grandes, 1 coluna quando estreito
+   (usa auto-fit + minmax). Estética inspirada nos cards do Pipedrive:
+   ícone à esquerda, título com hint de prazo abaixo, seta à direita.
+   ==================================================================== */
+.crm-v3-ativ-empty-suggest {
+    padding: 8px 4px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.crm-v3-ativ-empty-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--crm-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0 4px;
+}
+.crm-v3-ativ-empty-heading i {
+    color: #ca8a04;
+    font-size: 13px;
+}
+.crm-v3-quick-ativ-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+}
+.crm-v3-quick-ativ {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--crm-border);
+    border-radius: 10px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+    color: var(--crm-text);
+    font: inherit;
+}
+.crm-v3-quick-ativ:hover {
+    border-color: var(--crm-primary);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.crm-v3-quick-ativ:active {
+    transform: translateY(1px);
+}
+.crm-v3-quick-ativ:focus-visible {
+    outline: 2px solid var(--crm-primary);
+    outline-offset: 2px;
+}
+.crm-v3-quick-ativ-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--crm-primary);
+    flex-shrink: 0;
+    font-size: 14px;
+}
+.crm-v3-quick-ativ-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+.crm-v3-quick-ativ-title {
+    font-size: var(--crm-font-sm);
+    font-weight: 600;
+    color: var(--crm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.crm-v3-quick-ativ-hint {
+    font-size: 11px;
+    color: var(--crm-text-subtle);
+    font-weight: 500;
+}
+.crm-v3-quick-ativ-arrow {
+    color: var(--crm-text-subtle);
+    font-size: 12px;
+    transition: transform 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+.crm-v3-quick-ativ:hover .crm-v3-quick-ativ-arrow {
+    color: var(--crm-primary);
+    transform: translateX(2px);
 }
 
 .crm-v3-date-group {

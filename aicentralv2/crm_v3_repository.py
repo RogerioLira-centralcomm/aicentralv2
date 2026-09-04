@@ -42,6 +42,7 @@ import os
 import re
 from datetime import date as _date, datetime as _datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
 
 
 def _db():
@@ -182,6 +183,13 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     vinculos_src = row.get("agencias_vinculadas") or []
+    lookup_ids = row.get("_agencia_lookup_ids")
+    if lookup_ids is None:
+        # tbl_agencia é lookup Sim/Não (ids 1/2 na base). Sem o id
+        # explícito do lookup, ainda descartamos colisão clássica
+        # quando existe outra agência no N:N.
+        lookup_ids = {1, 2}
+    vinculos_src = filtrar_vinculos_colisao_lookup(vinculos_src, lookup_ids)
     vinculos = []
     for v in vinculos_src:
         ag_id = v.get("id_agencia_cliente") or v.get("agencia_id") or ""
@@ -191,9 +199,15 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         # clientes sem vínculo real.
         if not ag_id:
             continue
+        if "agencia_key" in v or "agencia_display" in v:
+            eh_agencia = v.get("agencia_key") is True or str(
+                v.get("agencia_display") or ""
+            ).strip().lower() in ("sim", "s")
+            if not eh_agencia:
+                continue
         vinculos.append({
             "agencia_id": str(ag_id),
-            "is_principal": bool(v.get("is_principal")),
+            "is_principal": v.get("is_principal") is True or v.get("is_principal") == 1,
             "nome": (v.get("nome_fantasia") or v.get("razao_social") or v.get("nome") or "").strip(),
         })
     principal = next((v for v in vinculos if v.get("is_principal")), vinculos[0] if vinculos else None)
@@ -252,6 +266,43 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _stamp_atividade_badge(mapped: Dict[str, Any]) -> Dict[str, Any]:
+    """Preenche badge / proxima_atividade a partir de metrics.
+
+    Textos que o frontend (situacaoHtml) reconhece:
+    Sem atividade, Concluída, N dia(s) atrasado, Hoje, Amanhã, Em N dias.
+    """
+    metrics = mapped.get("metrics") or {}
+    proxima = metrics.get("proxima_atividade")
+    mapped["proxima_atividade"] = proxima
+    if not proxima:
+        ultimo = metrics.get("ultimo_contato") or ""
+        if ultimo and ultimo != "—":
+            mapped["badge"] = "Concluída"
+            mapped["badge_type"] = "success"
+        else:
+            mapped["badge"] = "Sem atividade"
+            mapped["badge_type"] = "danger"
+        return mapped
+    dias = int(proxima.get("dias") or 0)
+    if dias < 0:
+        d_abs = abs(dias)
+        mapped["badge"] = (
+            f"{d_abs} dia atrasado" if d_abs == 1 else f"{d_abs} dias atrasado"
+        )
+        mapped["badge_type"] = "warning"
+    elif dias == 0:
+        mapped["badge"] = "Hoje"
+        mapped["badge_type"] = "success"
+    elif dias == 1:
+        mapped["badge"] = "Amanhã"
+        mapped["badge_type"] = "info"
+    else:
+        mapped["badge"] = f"Em {dias} dias"
+        mapped["badge_type"] = "info"
+    return mapped
+
+
 class CrmV3Repository:
     """Superfície igual ao CrmTestStore, mas conectada ao Postgres."""
 
@@ -266,6 +317,17 @@ class CrmV3Repository:
         # confortável para a base atual; se crescer, movemos a paginação
         # para server-side via query params.
         page = _db().obter_clientes_paginado(page=1, per_page=1000) or {}
+        rows = page.get("clientes", []) or []
+        ids_lote = [r.get("id_cliente") for r in rows if r.get("id_cliente") is not None]
+        vinculos_lote = {}
+        try:
+            vinculos_lote = _db().listar_agencias_vinculadas_lote(ids_lote) or {}
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("aicentral.crm_v3").info(
+                "lote agencias_vinculadas falhou: %s: %s", type(e).__name__, e,
+            )
+            _rollback_if_failed("agencias_vinculadas lote")
         items = []
         _metrics_default = {
             "faturamento": 0.0, "pipeline": 0.0,
@@ -273,7 +335,12 @@ class CrmV3Repository:
             "contatos_total": 0, "tarefas_abertas": 0,
             "ultimo_contato": "—",
         }
-        for row in page.get("clientes", []):
+        for row in rows:
+            row = dict(row)
+            cid = row.get("id_cliente")
+            row["agencias_vinculadas"] = (
+                vinculos_lote.get(cid) or vinculos_lote.get(str(cid)) or []
+            )
             mapped = _map_cliente(row)
             # Blindagem (set/2026): se _metrics_for ou o LEFT JOIN de
             # agências vinculadas falharem para UM cliente específico
@@ -300,34 +367,7 @@ class CrmV3Repository:
                 mapped["metrics_error"] = f"{type(e).__name__}: {str(e)[:120]}"
 
             # Set/2026 — Badge estilo Pipedrive na lista de clientes.
-            # Deriva do `proxima_atividade` calculado em `_metrics_for`.
-            # O frontend (situacaoHtml em crm_v3.js) faz regex nesse texto
-            # para escolher a variante visual da bolinha; mantemos os
-            # padrões que ele espera: "N dia(s) atrasado", "Hoje",
-            # "Amanhã", "Em N dias", "Sem atividade".
-            proxima = mapped.get("metrics", {}).get("proxima_atividade")
-            mapped["proxima_atividade"] = proxima
-            if not proxima:
-                mapped["badge"] = "Sem atividade"
-                mapped["badge_type"] = "danger"
-            else:
-                dias = int(proxima.get("dias") or 0)
-                if dias < 0:
-                    d_abs = abs(dias)
-                    mapped["badge"] = (
-                        f"{d_abs} dia atrasado" if d_abs == 1
-                        else f"{d_abs} dias atrasado"
-                    )
-                    mapped["badge_type"] = "warning"
-                elif dias == 0:
-                    mapped["badge"] = "Hoje"
-                    mapped["badge_type"] = "success"
-                elif dias == 1:
-                    mapped["badge"] = "Amanhã"
-                    mapped["badge_type"] = "info"
-                else:
-                    mapped["badge"] = f"Em {dias} dias"
-                    mapped["badge_type"] = "info"
+            _stamp_atividade_badge(mapped)
 
             # Preencher clientes finais/ agência nome para o card
             if mapped["is_agencia"]:
@@ -393,11 +433,10 @@ class CrmV3Repository:
                 for r in rows:
                     if isinstance(r, dict):
                         cid = r.get("id_cliente")
-                        logo = r.get("logo_url") or r.get("favicon_url")
+                        logo = r.get("logo_url")
                         dom = r.get("dominio")
                     else:
-                        cid, logo, fav, dom = r[0], r[1], r[2], r[3]
-                        logo = logo or fav
+                        cid, logo, _fav, dom = r[0], r[1], r[2], r[3]
                     if cid is not None:
                         logos[str(cid)] = {"logo_url": logo, "dominio": dom}
                 for m in items:
@@ -545,6 +584,7 @@ class CrmV3Repository:
                 "contatos_total": 0, "tarefas_abertas": 0,
                 "ultimo_contato": "—",
             }
+        _stamp_atividade_badge(mapped)
         if mapped["is_agencia"]:
             try:
                 filhos = _db().listar_clientes_vinculados_agencia(cliente_id) or []

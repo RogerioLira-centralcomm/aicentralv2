@@ -209,8 +209,111 @@
         var badge = String(c.badge || '');
         var dias = proxima && proxima.dias != null ? Number(proxima.dias) : null;
         if ((dias != null && dias < 0) || /atrasad/i.test(badge)) return 'atrasado';
+        if (/conclu/i.test(badge)) return 'concluida';
         if (!proxima || /sem atividade/i.test(badge)) return 'sem-atividade';
         return 'agenda';
+    }
+
+    function isoDateOnly(raw) {
+        if (!raw) return '';
+        var s = String(raw);
+        return s.length >= 10 ? s.slice(0, 10) : s;
+    }
+
+    function diasAteIso(iso) {
+        if (!iso || iso.length < 10) return null;
+        var parts = iso.split('-');
+        if (parts.length < 3) return null;
+        var alvo = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        alvo.setHours(0, 0, 0, 0);
+        return Math.round((alvo.getTime() - hoje.getTime()) / 86400000);
+    }
+
+    /** Recalcula badge do card a partir das atividades em memória. */
+    function situacaoFromAtividades(atividades) {
+        var atrasadas = [];
+        var hojeList = [];
+        var futuras = [];
+        var temConcluida = false;
+        (atividades || []).forEach(function (a) {
+            if (!a) return;
+            var status = String(a.status || '').toLowerCase();
+            if (status === 'concluida') {
+                temConcluida = true;
+                return;
+            }
+            var iso = isoDateOnly(a.data_prazo || a.data);
+            var dias = diasAteIso(iso);
+            if (dias == null) return;
+            var reg = {
+                id: a.id,
+                data: iso,
+                titulo: (a.titulo || a.descricao || '').trim().slice(0, 120),
+                dias: dias
+            };
+            if (dias < 0) atrasadas.push(reg);
+            else if (dias === 0) hojeList.push(reg);
+            else futuras.push(reg);
+        });
+        var proxima = null;
+        if (atrasadas.length) {
+            proxima = atrasadas.reduce(function (m, r) { return r.dias < m.dias ? r : m; });
+        } else if (hojeList.length) {
+            proxima = hojeList[0];
+        } else if (futuras.length) {
+            proxima = futuras.reduce(function (m, r) { return r.dias < m.dias ? r : m; });
+        }
+        if (!proxima) {
+            return temConcluida
+                ? { badge: 'Concluída', badge_type: 'success', proxima_atividade: null }
+                : { badge: 'Sem atividade', badge_type: 'danger', proxima_atividade: null };
+        }
+        var d = proxima.dias;
+        var badge;
+        var badgeType;
+        if (d < 0) {
+            var abs = Math.abs(d);
+            badge = abs === 1 ? '1 dia atrasado' : abs + ' dias atrasado';
+            badgeType = 'warning';
+        } else if (d === 0) {
+            badge = 'Hoje';
+            badgeType = 'success';
+        } else if (d === 1) {
+            badge = 'Amanhã';
+            badgeType = 'info';
+        } else {
+            badge = 'Em ' + d + ' dias';
+            badgeType = 'info';
+        }
+        return { badge: badge, badge_type: badgeType, proxima_atividade: proxima };
+    }
+
+    function syncClienteSituacao(clienteId, atividades) {
+        if (!clienteId) return;
+        var sit = situacaoFromAtividades(atividades || state.atividades);
+        function patch(c) {
+            if (!c) return;
+            c.badge = sit.badge;
+            c.badge_type = sit.badge_type;
+            c.proxima_atividade = sit.proxima_atividade;
+            if (!c.metrics) c.metrics = {};
+            c.metrics.proxima_atividade = sit.proxima_atividade;
+        }
+        if (state.cliente && String(state.cliente.id) === String(clienteId)) {
+            patch(state.cliente);
+        }
+        var idx = (state.clientes || []).findIndex(function (c) {
+            return String(c.id) === String(clienteId);
+        });
+        if (idx !== -1) {
+            patch(state.clientes[idx]);
+            if (state.cliente && String(state.cliente.id) === String(clienteId)) {
+                state.cliente = state.clientes[idx];
+            }
+        }
+        renderClientes();
     }
 
     function bindLogoImgs(root) {
@@ -243,6 +346,10 @@
             icon = 'fa-solid fa-exclamation';
             variante = 'alert';
             title = 'Sem atividade agendada · marque um próximo passo';
+        } else if (/conclu/i.test(badge)) {
+            icon = 'fa-solid fa-check';
+            variante = 'ok';
+            title = 'Atividades em dia';
         } else if (/atrasad/i.test(badge)) {
             icon = 'fa-solid fa-exclamation';
             variante = 'atrasado';
@@ -302,31 +409,20 @@
         var tone = avatarTone(nome);
         var ini = avatarIniciais(nome);
         var bg = tone === 'primary' ? 'bg-primary text-primary-content' : 'bg-neutral text-neutral-content';
-        // Ordem de preferência (set/2026):
-        // 1) `webLogoUrl` passado direto: usado pela lista de clientes
-        //    (que recebe `c.web_logo_url` já resolvido no backend em
-        //    batch — evita depender do webInfoCache que só é populado
-        //    ao SELECIONAR o cliente).
-        // 2) `state.webInfoCache[clienteId]`: fallback para telas que
-        //    passam clienteId e já rodaram loadWebInfo (sidebar Info,
-        //    header do cliente selecionado).
-        // 3) Clearbit apex (`logo.clearbit.com/dominio`) quando temos
-        //    domínio mas não temos og:image scrapeado.
-        // 4) Sem nada → só iniciais (o <img hidden> não faz nada e
-        //    o <span> das iniciais fica visível).
-        var dominioClean = normalizarDominio(dominio);
+        // Ordem de preferência:
+        // 1) `webLogoUrl` / og:image do scrape
+        // 2) webInfoCache.logo_url
+        // Sem logo real: só iniciais. Não usar Clearbit/Google/DDG
+        // (globo genérico).
         var srcPrincipal = '';
         if (webLogoUrl) {
             srcPrincipal = webLogoUrl;
         }
-        if (!srcPrincipal && clienteId && state.webInfoCache && state.webInfoCache[clienteId]) {
-            var wi = state.webInfoCache[clienteId];
-            if (wi && wi.status === 'ok' && (wi.logo_url || wi.favicon_url)) {
-                srcPrincipal = wi.logo_url || wi.favicon_url;
+        if (!srcPrincipal && clienteId && state.webInfoCache) {
+            var wi = state.webInfoCache[clienteId] || state.webInfoCache[String(clienteId)];
+            if (wi && wi.status === 'ok' && wi.logo_url) {
+                srcPrincipal = wi.logo_url;
             }
-        }
-        if (!srcPrincipal && dominioClean) {
-            srcPrincipal = 'https://logo.clearbit.com/' + dominioClean;
         }
         var imgHtml = '';
         if (srcPrincipal) {
@@ -491,6 +587,7 @@
         if (!s) return '';
         // Remove protocolo, "www." e paths/queries/hashes.
         s = s.replace(/^[a-z]+:\/\//, '');
+        if (/^www(?!\.)/i.test(s)) s = 'www.' + s.slice(3);
         s = s.replace(/^www\./, '');
         s = s.split('/')[0].split('?')[0].split('#')[0];
         // Valida shape mínimo: precisa ter pelo menos um ponto e nenhum espaço.
@@ -513,6 +610,32 @@
         var cid = cliente && cliente.id;
         var wi = cid != null ? (state.webInfoCache[cid] || state.webInfoCache[String(cid)]) : null;
         return normalizarDominio(wi && wi.dominio);
+    }
+
+    /** Domínio visível no editor Web / cache — o que o executivo já vê. */
+    function dominioNaTela(cliente) {
+        var d = dominioConfirmado(cliente);
+        if (d) return d;
+        var confirmed = $('#crm-v3-site-confirmed-domain');
+        d = normalizarDominio(confirmed && confirmed.textContent);
+        if (d) return d;
+        var inp = $('#crm-v3-site-input');
+        d = normalizarDominio(inp && inp.value);
+        if (d) return d;
+        var hero = $('#crm-v3-web-domain span');
+        d = normalizarDominio(hero && hero.textContent);
+        if (d) return d;
+        return extrairDominioContato(cliente);
+    }
+
+    function logoRealDoCliente(cliente) {
+        if (cliente && cliente.web_logo_url) return cliente.web_logo_url;
+        var cid = cliente && cliente.id;
+        var wi = cid != null && state.webInfoCache
+            ? (state.webInfoCache[cid] || state.webInfoCache[String(cid)])
+            : null;
+        if (wi && wi.status === 'ok' && wi.logo_url) return wi.logo_url;
+        return '';
     }
 
     function dominioParaLogo(cliente) {
@@ -1059,14 +1182,7 @@
             title.title = cliente.nome;
         }
 
-        // ------------------------------------------------------------
-        // Avatar do cliente
-        // ------------------------------------------------------------
-        // 1) Se há e-mail em algum contato (preferindo o principal),
-        //    inferimos o domínio e tentamos carregar o logo via
-        //    Clearbit Logo API (gratuita, não requer key).
-        // 2) Se o Clearbit devolver 404 ou o cliente não tiver contato
-        //    com e-mail, mantemos o fallback de iniciais (existente).
+        // Avatar: og:image do scrape, senão iniciais. Sem globo/favicon.
         var av = $('#crm-v3-detail-avatar');
         var img = $('#crm-v3-detail-avatar-img');
         var iniciais = cliente.avatar || avatarIniciais(cliente.nome);
@@ -1083,37 +1199,24 @@
             // Com alt="" o broken image não mostra texto nenhum e o
             // fallback com iniciais fica limpo.
             img.alt = '';
-            // Prioriza site_url salvo; fallback = e-mail do contato principal.
-            var dominio = dominioParaLogo(cliente);
-            // Fase B (set/2026): antes de cair na cascata frágil de
-            // favicons (Clearbit / Google / DDG), tenta o logo canônico
-            // (og:image) que a aba Web já cacheou em cliente_web_info.
-            // Esse é o logo que o próprio cliente publica para redes
-            // sociais — muito mais confiável que favicon pixelado.
-            var webInfo = state.webInfoCache[cliente.id];
-            var logoCanonico = (webInfo && webInfo.status === 'ok')
-                ? (webInfo.logo_url || webInfo.favicon_url || '')
-                : '';
+            var logoCanonico = logoRealDoCliente(cliente) || '';
             if (logoCanonico) {
                 img.onload = function () {
                     if (!img.naturalWidth || !img.naturalHeight) {
-                        // Logo cacheado falhou por algum motivo (link
-                        // quebrou depois do scrape). Cai na cascata.
-                        _tentarCascataHeaderLogo(dominio, img, av);
+                        img.hidden = true;
+                        if (av) av.hidden = false;
                         return;
                     }
                     img.hidden = false;
                     if (av) av.hidden = true;
                 };
                 img.onerror = function () {
-                    _tentarCascataHeaderLogo(dominio, img, av);
+                    img.hidden = true;
+                    if (av) av.hidden = false;
                 };
                 img.src = logoCanonico;
-            } else if (dominio) {
-                _tentarCascataHeaderLogo(dominio, img, av);
             }
-            // Sem domínio → simplesmente mantém a imagem escondida e as
-            // iniciais visíveis (default acima).
+            // Sem og:image: iniciais. Sem cascata de favicon/globo.
         }
 
         // Meta — todos os campos aqui vêm da base real (backend).
@@ -1293,7 +1396,7 @@
         if (hint) {
             if (salvo) {
                 hint.className = 'crm-v3-site-hint crm-v3-site-hint-ok';
-                hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Site confirmado — logo aplicado nos cards e no header.';
+                hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Site confirmado.';
             } else if (inferido) {
                 hint.className = 'crm-v3-site-hint';
                 hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato: <strong>' + escapeHtml(inferido) + '</strong>. Confirme ou edite.';
@@ -1333,73 +1436,6 @@
         }
     }
 
-    /**
-     * Cascata de fontes de logo por domínio. Retorna a próxima URL a
-     * tentar quando a atual falhou; retorna null quando esgotou. A
-     * cascata é (set/2026, ordem por qualidade + cobertura):
-     *   1. logo.clearbit.com — melhor qualidade quando cobre; mas
-     *      cobertura ficou fraca depois do shutdown público (2023),
-     *      falha em muitos clientes locais.
-     *   2. Google Favicons s2 sz=128 — cobre praticamente qualquer
-     *      site que tenha favicon; qualidade média mas nunca falha.
-     *   3. DuckDuckGo icons — reserva se o Google também falhar.
-     * Quando todas falham o helper mostra iniciais.
-     *
-     * A Fase B (crawl do site) vai preencher `cliente.logo_url` com
-     * o og:image real, o que substitui essa cascata pelo logo oficial
-     * do site do cliente.
-     */
-    function _proximaLogoUrl(dominio, tentativaAtual) {
-        var d = normalizarDominio(dominio);
-        if (!d) return null;
-        switch (tentativaAtual) {
-            case 0: return 'https://logo.clearbit.com/' + d;
-            case 1: return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(d) + '&sz=128';
-            case 2: return 'https://icons.duckduckgo.com/ip3/' + d + '.ico';
-            default: return null;
-        }
-    }
-
-    /**
-     * Cascata para o avatar do header (Clearbit → Google → DDG).
-     *
-     * Fase B (set/2026): esse fluxo virou o *fallback* de última hora,
-     * usado só quando não temos web_info.logo_url em cache (og:image
-     * do próprio site do cliente). O caminho quente agora usa o logo
-     * canônico direto do scrape; essa cascata cobre casos onde a aba
-     * Web ainda não foi buscada.
-     *
-     * Extraído de dentro de updateDetailPanel para permitir reuso
-     * pelo hook "logo cacheado quebrou" (link do og:image expirou etc.).
-     */
-    function _tentarCascataHeaderLogo(dominio, img, av) {
-        if (!dominio || !img) return;
-        var tentativa = 0;
-        var tentar = function () {
-            var url = _proximaLogoUrl(dominio, tentativa);
-            if (!url) {
-                img.hidden = true;
-                if (av) av.hidden = false;
-                return;
-            }
-            img.onload = function () {
-                if (!img.naturalWidth || !img.naturalHeight) {
-                    tentativa++;
-                    tentar();
-                    return;
-                }
-                img.hidden = false;
-                if (av) av.hidden = true;
-            };
-            img.onerror = function () {
-                tentativa++;
-                tentar();
-            };
-            img.src = url;
-        };
-        tentar();
-    }
-
     function _atualizarPreviewSite(dominio, img, fallback, cliente) {
         var d = normalizarDominio(dominio);
         if (!d) { _mostrarSiteFallback(img, fallback, cliente); return; }
@@ -1407,48 +1443,22 @@
         fallback.textContent = (cliente && cliente.avatar) || avatarIniciais(cliente && cliente.nome || '');
         img.alt = '';
         img.hidden = true;
+        fallback.hidden = false;
 
-        var canonico = '';
-        if (cliente && cliente.web_logo_url) canonico = cliente.web_logo_url;
-        if (!canonico && cliente && state.webInfoCache) {
-            var wi = state.webInfoCache[cliente.id] || state.webInfoCache[String(cliente.id)];
-            if (wi && (wi.logo_url || wi.favicon_url)) canonico = wi.logo_url || wi.favicon_url;
-        }
-        if (canonico) {
-            img.onload = function () {
-                if (!img.naturalWidth) return;
-                img.hidden = false;
-                fallback.hidden = true;
-            };
-            img.onerror = function () { tentarCascata(); };
-            img.src = canonico;
+        var canonico = logoRealDoCliente(cliente);
+        if (!canonico) {
             return;
         }
-
-        var tentativa = 0;
-        function tentarCascata() {
-            var url = _proximaLogoUrl(d, tentativa);
-            if (!url) {
-                img.hidden = true;
-                fallback.hidden = false;
-                return;
-            }
-            img.onload = function () {
-                if (!img.naturalWidth || !img.naturalHeight) {
-                    tentativa++;
-                    tentarCascata();
-                    return;
-                }
-                img.hidden = false;
-                fallback.hidden = true;
-            };
-            img.onerror = function () {
-                tentativa++;
-                tentarCascata();
-            };
-            img.src = url;
-        }
-        tentarCascata();
+        img.onload = function () {
+            if (!img.naturalWidth) return;
+            img.hidden = false;
+            fallback.hidden = true;
+        };
+        img.onerror = function () {
+            img.hidden = true;
+            fallback.hidden = false;
+        };
+        img.src = canonico;
     }
 
     /* ================================================================
@@ -1479,7 +1489,7 @@
 
     function aplicarLogoLista(clienteId, info) {
         if (!clienteId || !info) return;
-        var logo = info.logo_url || info.favicon_url || '';
+        var logo = (info && info.logo_url) || '';
         var dominio = normalizarDominio(info.dominio);
         (state.clientes || []).forEach(function (c) {
             if (String(c.id) === String(clienteId)) {
@@ -1516,7 +1526,7 @@
                 updateTabBadgeWeb(info);
                 if (state.cliente) {
                     renderSiteEditor(state.cliente);
-                    if (info && (info.logo_url || info.favicon_url)) {
+                    if (info && info.logo_url) {
                         updateDetailPanel(state.cliente);
                         renderClientes();
                     }
@@ -1547,10 +1557,16 @@
         // Troca para estado de loading enquanto o Firecrawl roda (pode
         // levar até ~10s dependendo do site).
         setWebTabState('loading');
-        var dominio = dominioConfirmado(state.cliente);
+        var dominio = dominioNaTela(state.cliente);
         if (!dominio) {
-            var inp = $('#crm-v3-site-input');
-            dominio = normalizarDominio(inp && inp.value);
+            showToast('Informe o site nesta aba para buscar as informações.', true);
+            renderWebInfo(state.webInfoCache[cid] || state.webInfoCache[String(cid)] || null);
+            [btn, btnNow].forEach(function (b) {
+                if (!b) return;
+                b.disabled = false;
+            });
+            if (btn && origHTML) btn.innerHTML = origHTML;
+            return;
         }
         api('/clientes/' + encodeURIComponent(cid) + '/web-info/refresh', {
             method: 'POST',
@@ -1565,7 +1581,7 @@
             aplicarLogoLista(cid, info);
             if (state.cliente) {
                 renderSiteEditor(state.cliente);
-                if (info && (info.logo_url || info.favicon_url)) {
+                if (info && info.logo_url) {
                     updateDetailPanel(state.cliente);
                     renderClientes();
                 }
@@ -1633,27 +1649,33 @@
             if (spanD) spanD.textContent = d;
         }
 
-        // Logo do hero. Prioriza logo_url (og:image real); cai em
-        // favicon_url; por último, mostra ícone genérico de globo.
+        // Logo do hero: só og:image real. Sem globo/favicon genérico.
         var img = $('#crm-v3-web-logo-img');
         var fb = $('#crm-v3-web-logo-fallback');
-        if (img && fb) {
+        var wrapLogo = $('#crm-v3-web-logo-wrap');
+        if (img) {
             img.hidden = true;
-            fb.hidden = false;
             img.removeAttribute('src');
-            var logoSrc = info.logo_url || info.favicon_url || '';
-            if (logoSrc) {
-                img.onload = function () {
-                    if (!img.naturalWidth || !img.naturalHeight) return;
-                    img.hidden = false;
-                    fb.hidden = true;
-                };
-                img.onerror = function () {
+        }
+        if (fb) fb.hidden = true;
+        var logoSrc = (info && info.logo_url) || '';
+        if (wrapLogo) wrapLogo.hidden = !logoSrc;
+        if (logoSrc && img) {
+            img.onload = function () {
+                if (!img.naturalWidth || !img.naturalHeight) {
                     img.hidden = true;
-                    fb.hidden = false;
-                };
-                img.src = logoSrc;
-            }
+                    if (wrapLogo) wrapLogo.hidden = true;
+                    return;
+                }
+                img.hidden = false;
+                if (fb) fb.hidden = true;
+                if (wrapLogo) wrapLogo.hidden = false;
+            };
+            img.onerror = function () {
+                img.hidden = true;
+                if (wrapLogo) wrapLogo.hidden = true;
+            };
+            img.src = logoSrc;
         }
 
         // Sobre — meta description.
@@ -1936,7 +1958,9 @@
         // Se veio só array de ids, resolver pelo state.clientes
         if (!filhos.length && filhosIds.length && Array.isArray(state.clientes)) {
             filhos = filhosIds.map(function (id) {
-                return state.clientes.find(function (c) { return c.id === id; });
+                return state.clientes.find(function (c) {
+                    return String(c.id) === String(id);
+                });
             }).filter(Boolean);
         }
 
@@ -1946,7 +1970,9 @@
         var agenciaId = (principal && principal.agencia_id) || '';
         var agenciaNome = (principal && principal.nome) || '';
         if (!agenciaNome && agenciaId && Array.isArray(state.clientes)) {
-            var pai = state.clientes.find(function (c) { return c.id === agenciaId; });
+            var pai = state.clientes.find(function (c) {
+                return String(c.id) === String(agenciaId);
+            });
             if (pai) agenciaNome = pai.nome;
         }
 
@@ -2096,12 +2122,14 @@
             return;
         }
 
-        container.innerHTML = filtrados.map(function (c) {
-            var ativo = c.id === state.contatoId;
+        container.innerHTML = filtrados.map(function (c, idx) {
+            var ativo = String(c.id) === String(state.contatoId);
+            var expandirTodos = filtrados.length <= 5;
+            var expandido = expandirTodos || ativo || (!state.contatoId && idx === 0);
             var nomeExibido = (c.nome && String(c.nome).trim()) || (c.email ? String(c.email).split('@')[0] : 'Contato sem nome');
             var subLinha = [c.cargo, c.setor].filter(Boolean).join(' · ');
             return (
-                '<div class="crm-v3-contato-card' + (ativo ? ' crm-v3-contato-card-active is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
+                '<div class="crm-v3-contato-card' + (ativo ? ' crm-v3-contato-card-active' : '') + (expandido ? ' is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
                 '<div class="crm-v3-contato-main">' +
                 avatarHtml(nomeExibido, 'w-8 h-8') +
                 '<div class="crm-v3-contato-info min-w-0">' +
@@ -2113,31 +2141,147 @@
                 (subLinha ? '<div class="crm-v3-contato-cargo">' + escapeHtml(subLinha) + '</div>' : '') +
                 '</div>' +
                 '<div class="crm-v3-contato-actions">' +
-                '<button type="button" class="crm-v3-contato-edit crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" aria-label="Editar contato" data-contato-id="' + escapeHtml(c.id) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
-                '<button type="button" class="crm-v3-contato-toggle crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" aria-expanded="' + (ativo ? 'true' : 'false') + '" aria-label="Expandir contato"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+                '<button type="button" class="crm-v3-contato-toggle crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" aria-expanded="' + (expandido ? 'true' : 'false') + '" aria-label="' + (expandido ? 'Recolher contato' : 'Expandir contato') + '"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
                 '</div></div>' +
-                '<div class="crm-v3-contato-details">' +
-                (c.email ? (
-                    '<div class="crm-v3-contato-email-row"><i class="fa-regular fa-envelope crm-v3-contato-row-icon" aria-hidden="true"></i><span class="crm-v3-contato-row-text" title="' + escapeHtml(c.email) + '">' + escapeHtml(c.email) + '</span>' +
-                    '<button type="button" class="crm-v3-contato-copy crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button></div>'
-                ) : '') +
-                (c.telefone ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>' + escapeHtml(c.telefone) + '</span></button>' : '') +
-                (c.telefone_secundario ? '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>' + escapeHtml(c.telefone_secundario) + '</span></button>' : '') +
-                '</div></div>'
+                contatoDetailsHtml(c) +
+                '</div>'
             );
         }).join('');
 
         bindContatoEvents(container);
-        var contato = state.contatos.find(function (c) { return c.id === state.contatoId; });
+        var contato = state.contatos.find(function (c) { return String(c.id) === String(state.contatoId); });
         updateSidebarContato(contato);
+    }
+
+    function contatoDetailsHtml(c) {
+        var id = escapeHtml(c.id);
+        var rows = '';
+        if (c.email) {
+            rows +=
+                '<div class="crm-v3-contato-email-row">' +
+                '<i class="fa-regular fa-envelope crm-v3-contato-row-icon" aria-hidden="true"></i>' +
+                '<span class="crm-v3-contato-row-text" title="' + escapeHtml(c.email) + '">' + escapeHtml(c.email) + '</span>' +
+                '<button type="button" class="crm-v3-contato-copy crm-v3-icon-btn crm-v3-icon-btn-xs crm-v3-icon-btn-ghost" data-copy="' + escapeHtml(c.email) + '" aria-label="Copiar e-mail"><i class="fa-regular fa-copy"></i></button>' +
+                '</div>';
+        } else {
+            rows +=
+                '<button type="button" class="crm-v3-contato-quick-add" data-field="email" data-contato-id="' + id + '">' +
+                '<i class="fa-regular fa-envelope" aria-hidden="true"></i>' +
+                '+ Adicionar e-mail' +
+                '</button>';
+        }
+        if (c.telefone) {
+            rows +=
+                '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row">' +
+                '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i>' +
+                '<span>' + escapeHtml(c.telefone) + '</span>' +
+                '</button>';
+        } else {
+            rows +=
+                '<button type="button" class="crm-v3-contato-quick-add" data-field="telefone" data-contato-id="' + id + '">' +
+                '<i class="fa-solid fa-phone" aria-hidden="true"></i>' +
+                '+ Adicionar telefone' +
+                '</button>';
+        }
+        if (c.telefone_secundario) {
+            rows +=
+                '<button type="button" class="crm-v3-contato-phone-row crm-v3-contato-whats-row">' +
+                '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i>' +
+                '<span>' + escapeHtml(c.telefone_secundario) + '</span>' +
+                '</button>';
+        }
+        rows +=
+            '<div class="crm-v3-contato-details-foot">' +
+            '<button type="button" class="crm-v3-contato-edit" data-contato-id="' + id + '">' +
+            '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Editar ficha' +
+            '</button>' +
+            '</div>';
+        return '<div class="crm-v3-contato-details">' + rows + '</div>';
+    }
+
+    function patchContatoCampo(contatoId, field, value) {
+        var payload = {};
+        payload[field] = value;
+        return api('/contatos/' + encodeURIComponent(contatoId), {
+            method: 'PATCH',
+            body: payload
+        }).then(function (resp) {
+            var atualizado = (resp && resp.contato) || payload;
+            var idx = state.contatos.findIndex(function (c) { return String(c.id) === String(contatoId); });
+            if (idx >= 0) {
+                state.contatos[idx] = Object.assign({}, state.contatos[idx], atualizado);
+            }
+            showToast(field === 'email' ? 'E-mail salvo.' : 'Telefone salvo.');
+            renderContatos();
+            if (state.cliente) updateDetailPanel(state.cliente);
+        }).catch(function (err) {
+            showToast(err.message || 'Não foi possível salvar o contato.', true);
+            renderContatos();
+        });
+    }
+
+    function iniciarQuickAddContato(btn) {
+        var field = btn.getAttribute('data-field');
+        var contatoId = btn.getAttribute('data-contato-id');
+        if (!field || !contatoId) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'crm-v3-contato-quick-edit';
+        var icon = document.createElement('i');
+        icon.className = field === 'email' ? 'fa-regular fa-envelope crm-v3-contato-row-icon' : 'fa-solid fa-phone crm-v3-contato-row-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        var input = document.createElement('input');
+        input.className = 'crm-v3-contato-quick-input';
+        input.type = field === 'email' ? 'email' : 'tel';
+        input.placeholder = field === 'email' ? 'nome@empresa.com' : '(31) 99999-0000';
+        input.setAttribute('aria-label', field === 'email' ? 'E-mail do contato' : 'Telefone do contato');
+        wrap.appendChild(icon);
+        wrap.appendChild(input);
+        btn.replaceWith(wrap);
+        input.focus();
+
+        var done = false;
+        function finish(save) {
+            if (done) return;
+            done = true;
+            var val = String(input.value || '').trim();
+            if (!save || !val) {
+                renderContatos();
+                return;
+            }
+            if (field === 'email' && val.indexOf('@') === -1) {
+                showToast('Informe um e-mail válido.', true);
+                done = false;
+                return;
+            }
+            wrap.classList.add('is-saving');
+            patchContatoCampo(contatoId, field, val);
+        }
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                finish(true);
+            } else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                finish(false);
+            }
+        });
+        input.addEventListener('blur', function () { finish(true); });
     }
 
     function bindContatoEvents(container) {
         $$('.crm-v3-contato-card', container).forEach(function (card) {
             card.addEventListener('click', function (e) {
-                if (e.target.closest('.crm-v3-contato-toggle, .crm-v3-contato-edit, .crm-v3-contato-copy, .crm-v3-contato-phone-row, .crm-v3-contato-whats-row')) return;
+                if (e.target.closest('.crm-v3-contato-toggle, .crm-v3-contato-edit, .crm-v3-contato-copy, .crm-v3-contato-phone-row, .crm-v3-contato-whats-row, .crm-v3-contato-quick-add, .crm-v3-contato-quick-edit')) return;
                 selectContato(card.getAttribute('data-contato-id'));
             });
+            var main = card.querySelector('.crm-v3-contato-main');
+            if (main) {
+                main.addEventListener('dblclick', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openContatoModal(card.getAttribute('data-contato-id'));
+                });
+            }
         });
 
         $$('.crm-v3-contato-toggle', container).forEach(function (btn) {
@@ -2146,6 +2290,7 @@
                 var card = btn.closest('.crm-v3-contato-card');
                 var expanded = card.classList.toggle('is-expanded');
                 btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                btn.setAttribute('aria-label', expanded ? 'Recolher contato' : 'Expandir contato');
             });
         });
 
@@ -2153,6 +2298,13 @@
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 openContatoModal(btn.getAttribute('data-contato-id'));
+            });
+        });
+
+        $$('.crm-v3-contato-quick-add', container).forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                iniciarQuickAddContato(btn);
             });
         });
 
@@ -2574,6 +2726,7 @@
                     .then(function () {
                         a.status = novoStatus;
                         renderAtividades();
+                        syncClienteSituacao(state.clienteId, state.atividades);
                         showToast(novoStatus === 'concluida' ? 'Atividade concluída' : 'Atividade reaberta');
                     })
                     .catch(function (err) { showToast(err.message, true); });
@@ -2710,6 +2863,7 @@
             var placeholder = Object.assign({ id: tempId, _pending: true }, body);
             state.atividades.unshift(placeholder);
             renderAtividades();
+            syncClienteSituacao(state.clienteId, state.atividades);
             titulo.value = '';
             titulo.focus();
 
@@ -2725,11 +2879,13 @@
                     return loadAtividades(state.clienteId);
                 }
                 renderAtividades();
+                syncClienteSituacao(state.clienteId, state.atividades);
                 showToast('Atividade adicionada');
             }).catch(function (err) {
                 var idx = state.atividades.findIndex(function (a) { return a.id === tempId; });
                 if (idx !== -1) state.atividades.splice(idx, 1);
                 renderAtividades();
+                syncClienteSituacao(state.clienteId, state.atividades);
                 showToast(err.message || 'Falha ao criar atividade', true);
             });
         });
@@ -3275,6 +3431,7 @@
             if (state.clienteId !== clienteId) return;
             state.atividades = data.atividades || [];
             renderAtividades();
+            syncClienteSituacao(clienteId, state.atividades);
             if (state.cliente) updateDetailPanel(state.cliente);
         }).catch(function (err) { showToast(err.message, true); });
     }
@@ -3334,12 +3491,21 @@
             if (data && data.cliente) {
                 var prevSite = state.cliente && state.cliente.site_url;
                 var prevLogo = state.cliente && state.cliente.web_logo_url;
+                var prevBadge = state.cliente && state.cliente.badge;
+                var prevBadgeType = state.cliente && state.cliente.badge_type;
+                var prevProx = state.cliente && state.cliente.proxima_atividade;
                 state.cliente = Object.assign({}, state.cliente || {}, data.cliente);
                 if (!state.cliente.site_url && prevSite) state.cliente.site_url = prevSite;
                 if (!state.cliente.web_logo_url && prevLogo) state.cliente.web_logo_url = prevLogo;
+                if (!state.cliente.badge && prevBadge) {
+                    state.cliente.badge = prevBadge;
+                    state.cliente.badge_type = prevBadgeType;
+                    state.cliente.proxima_atividade = prevProx;
+                }
                 var idx = state.clientes.findIndex(function (c) { return String(c.id) === String(clienteId); });
                 if (idx !== -1) state.clientes[idx] = state.cliente;
                 updateDetailPanel(state.cliente);
+                renderClientes();
                 var cachedWeb = state.webInfoCache[String(clienteId)] || state.webInfoCache[clienteId];
                 if (cachedWeb !== undefined) renderWebInfo(cachedWeb);
             }
@@ -3991,18 +4157,17 @@
         ).toUpperCase() || '?';
         if (iniciaisEl) iniciaisEl.textContent = iniciais;
 
-        // Logo Clearbit — usa mesma lógica do dominioParaLogo, que já
-        // trata site_url e fallback pro email do contato principal.
+        // Logo real (og:image). Sem Clearbit/globo.
         if (img) {
             img.hidden = true;
             img.alt = '';
-            var dominio = typeof dominioParaLogo === 'function' ? dominioParaLogo(cliente) : null;
-            if (dominio) {
+            var logo = logoRealDoCliente(cliente);
+            if (logo) {
                 img.onload = function () {
                     if (img.naturalWidth > 0) img.hidden = false;
                 };
                 img.onerror = function () { img.hidden = true; };
-                img.src = 'https://logo.clearbit.com/' + dominio + '?size=64';
+                img.src = logo;
             }
         }
     }

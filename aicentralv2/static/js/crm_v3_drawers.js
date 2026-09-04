@@ -92,44 +92,48 @@
        ----------------------------------------------------------- */
 
     function openDrawerCliente(cliente) {
-        var frag = cloneTpl('cx-drawer-cliente-tpl');
-        if (!frag) { toast('Template do drawer não encontrado', true); return; }
+        try {
+            if (typeof cxDrawer === 'undefined' || typeof cxDrawer.open !== 'function') {
+                toast('Drawer indisponível. Recarregue a página.', true);
+                return;
+            }
+            var frag = cloneTpl('cx-drawer-cliente-tpl');
+            if (!frag) { toast('Template do drawer não encontrado', true); return; }
 
-        var wrapper = document.createElement('div');
-        wrapper.appendChild(frag);
-        var form = wrapper.querySelector('form');
-        fillForm(form, cliente || {});
+            var wrapper = document.createElement('div');
+            wrapper.appendChild(frag);
+            var form = wrapper.querySelector('form');
+            fillForm(form, cliente || {});
 
-        // Popula os selects com dados reais da base
-        // (tipos_cliente, estados, executivos) — o template só tem
-        // placeholders. Se os lookups ainda não carregaram, o helper
-        // volta a popular quando a promise resolver.
-        populateLookupSelects(wrapper, cliente);
+            populateLookupSelects(wrapper, cliente);
 
-        // Vínculos
-        renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
-        wrapper.querySelector('[data-drawer-action="add-agencia"]').addEventListener('click', function () {
-            addAgenciaRow(wrapper.querySelector('#cx-drawer-cliente-agencias'), '');
-        });
+            renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
+            var addBtn = wrapper.querySelector('[data-drawer-action="add-agencia"]');
+            if (addBtn) {
+                addBtn.addEventListener('click', function () {
+                    addAgenciaRow(wrapper.querySelector('#cx-drawer-cliente-agencias'), '');
+                });
+            }
 
-        cxDrawer.open({
-            title: cliente ? 'Editar cliente' : 'Novo cliente',
-            breadcrumb: 'CRM v3 · Cadastro',
-            size: 'lg',
-            contentEl: wrapper,
-            // Drawer sobreposto ao layout (não empurra o CRM). O backdrop
-            // dá o contraste visual sem mover as colunas.
-            split: false,
-            actions: [
-                { label: 'Cancelar', variant: 'ghost', close: true },
-                {
-                    label: cliente ? 'Salvar alterações' : 'Criar cliente',
-                    variant: 'primary',
-                    id: 'cx-drawer-cliente-submit',
-                    onClick: function (ev, id) { submitCliente(form, cliente, id); }
-                }
-            ]
-        });
+            cxDrawer.open({
+                title: cliente ? 'Editar cliente' : 'Novo cliente',
+                breadcrumb: 'CRM v3 · Cadastro',
+                size: 'lg',
+                contentEl: wrapper,
+                split: false,
+                actions: [
+                    { label: 'Cancelar', variant: 'ghost', close: true },
+                    {
+                        label: cliente ? 'Salvar alterações' : 'Criar cliente',
+                        variant: 'primary',
+                        id: 'cx-drawer-cliente-submit',
+                        onClick: function (ev, id) { submitCliente(form, cliente, id); }
+                    }
+                ]
+            });
+        } catch (err) {
+            toast((err && err.message) || 'Não foi possível abrir o cadastro do cliente.', true);
+        }
     }
 
     function submitCliente(form, cliente, drawerId) {
@@ -1246,13 +1250,13 @@
        Expose e integração
        ----------------------------------------------------------- */
 
-    window.crmV3Drawer = {
+    window.crmV3Drawer = Object.assign(window.crmV3Drawer || {}, {
         openCliente: openDrawerCliente,
         openAtividade: openDrawerAtividade,
         openContato: openDrawerContato,
         openCotacao: openDrawerCotacao,
         openSugestoes: openDrawerSugestoes,
-    };
+    });
 
     // Redireciona os botões existentes para usar drawer no lugar dos modais grandes.
     document.addEventListener('DOMContentLoaded', function () {
@@ -1272,7 +1276,8 @@
             var el = ev.target;
             if (!el) return;
 
-            if (el.classList && el.classList.contains('crm-v3-header-action-edit')) {
+            var editBtn = el.closest ? el.closest('.crm-v3-header-action-edit') : null;
+            if (editBtn) {
                 ev.stopImmediatePropagation();
                 ev.preventDefault();
                 var cliente = window.crmV3 && window.crmV3.state && window.crmV3.state.cliente;

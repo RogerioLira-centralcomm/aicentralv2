@@ -778,8 +778,7 @@ button:hover > .crm-v3-menu-hint {
     font-size: 12px;
 }
 
-.crm-v3-contato-toggle,
-.crm-v3-contato-edit {
+.crm-v3-contato-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -793,8 +792,7 @@ button:hover > .crm-v3-menu-hint {
     font-size: var(--crm-font-sm);
 }
 
-.crm-v3-contato-toggle:hover,
-.crm-v3-contato-edit:hover {
+.crm-v3-contato-toggle:hover {
     background: var(--crm-border-light);
     color: var(--crm-text);
 }
@@ -810,9 +808,86 @@ button:hover > .crm-v3-menu-hint {
     display: none;
 }
 
-.crm-v3-contato-card-active .crm-v3-contato-details,
 .crm-v3-contato-card.is-expanded .crm-v3-contato-details {
     display: block;
+}
+
+.crm-v3-contato-quick-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: var(--crm-text-subtle);
+    font: inherit;
+    font-size: 12px;
+    font-style: italic;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.crm-v3-contato-quick-add:hover {
+    color: var(--crm-primary);
+    font-style: normal;
+}
+.crm-v3-contato-quick-add > i {
+    width: 14px;
+    text-align: center;
+    opacity: 0.75;
+}
+.crm-v3-contato-quick-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.crm-v3-contato-quick-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--crm-primary);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    background: #fff;
+    color: var(--crm-text);
+}
+.crm-v3-contato-quick-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.12);
+}
+.crm-v3-contato-quick-edit.is-saving .crm-v3-contato-quick-input {
+    opacity: 0.65;
+}
+.crm-v3-contato-details-foot {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--crm-border-light);
+}
+.crm-v3-contato-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--crm-text-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.crm-v3-contato-edit:hover {
+    background: var(--crm-surface);
+    color: var(--crm-primary);
 }
 
 .crm-v3-contato-email-row {
@@ -1629,6 +1704,13 @@ button:hover > .crm-v3-menu-hint {
     background: #dbeafe;
     color: #1e3a8a;
     box-shadow: 0 0 0 1px #93c5fd;
+}
+
+/* Variante 'ok' — pendências concluídas, sem próxima agendada. */
+.crm-v3-sit--ok {
+    background: #dcfce7;
+    color: #166534;
+    box-shadow: 0 0 0 1px #86efac;
 }
 
 /* Sit dentro de um card selecionado (fundo verde-claro da linha) —
@@ -4986,6 +5068,12 @@ button:hover > .crm-v3-menu-hint {
     grid-template-columns: 88px 1fr;
     gap: 16px;
     align-items: center;
+}
+.crm-v3-web-hero:has(.crm-v3-web-hero-logo[hidden]) {
+    grid-template-columns: 1fr;
+}
+.crm-v3-web-hero-logo[hidden] {
+    display: none !important;
 }
 .crm-v3-web-hero-logo {
     position: relative;

@@ -52,6 +52,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -70,13 +73,12 @@ def _normalizar_dominio(raw: Optional[str]) -> str:
     if not raw:
         return ""
     s = str(raw).strip().lower()
-    # Remove protocolo (http/https).
     if "://" in s:
         s = s.split("://", 1)[1]
-    # Remove www.
+    if s.startswith("www") and not s.startswith("www."):
+        s = "www." + s[3:]
     if s.startswith("www."):
         s = s[4:]
-    # Remove path/query/hash.
     s = s.split("/")[0].split("?")[0].split("#")[0]
     return s.strip()
 
@@ -209,9 +211,6 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
         or ""
     )
     favicon = meta.get("favicon") or ""
-    # Fallback duro caso Firecrawl não devolva favicon.
-    if not favicon and dominio:
-        favicon = f"https://{dominio}/favicon.ico"
 
     titulo = (
         meta.get("ogSiteName")
@@ -237,6 +236,104 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
         "menu_links": menu_links,
         "dados_extras": None,  # Reservado para Fase C.
     }
+
+
+_LOGO_DIR = Path(__file__).resolve().parent / "static" / "uploads" / "clientes"
+_LOGO_MAX_BYTES = 8 * 1024 * 1024
+_LOGO_CT_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+}
+
+
+def _ext_logo(url: str, content_type: str) -> str:
+    ct = (content_type or "").split(";")[0].strip().lower()
+    if ct in _LOGO_CT_EXT:
+        return _LOGO_CT_EXT[ct]
+    path = urlparse(url or "").path.lower()
+    m = re.search(r"\.(png|jpe?g|webp|gif|svg|ico)(?:$|\?)", path)
+    if m:
+        ext = m.group(1)
+        return ".jpg" if ext in ("jpg", "jpeg") else f".{ext}"
+    return ".png"
+
+
+def _persistir_logo_cliente(cliente_id, url: Optional[str]) -> Optional[str]:
+    """Baixa o og:image e grava em static/uploads/clientes (igual audiências)."""
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("/static/uploads/clientes/"):
+        return raw
+    if not raw.startswith("http://") and not raw.startswith("https://"):
+        if raw.startswith("//"):
+            raw = "https:" + raw
+        else:
+            return None
+    try:
+        resp = requests.get(
+            raw,
+            timeout=20,
+            stream=True,
+            headers={"User-Agent": "CentralX-CRM/1.0"},
+        )
+        if resp.status_code // 100 != 2:
+            logger.info("logo download HTTP %s para %s", resp.status_code, raw[:120])
+            return None
+        _LOGO_DIR.mkdir(parents=True, exist_ok=True)
+        ext = _ext_logo(raw, resp.headers.get("Content-Type") or "")
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"cliente_{int(cliente_id)}_{ts}{ext}"
+        filepath = _LOGO_DIR / filename
+        total = 0
+        with open(filepath, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=8192):
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > _LOGO_MAX_BYTES:
+                    fh.close()
+                    try:
+                        filepath.unlink()
+                    except OSError:
+                        pass
+                    logger.info("logo %s excedeu %s bytes", raw[:80], _LOGO_MAX_BYTES)
+                    return None
+                fh.write(chunk)
+        if total < 32:
+            try:
+                filepath.unlink()
+            except OSError:
+                pass
+            return None
+        public = f"/static/uploads/clientes/{filename}"
+        logger.info("logo do cliente %s armazenado em %s", cliente_id, public)
+        return public
+    except Exception as e:
+        logger.info("falha ao persistir logo (%s): %s", type(e).__name__, e)
+        return None
+
+
+def _apagar_logo_local(url: Optional[str]) -> None:
+    raw = str(url or "")
+    marker = "/static/uploads/clientes/"
+    if marker not in raw:
+        return
+    name = raw.split(marker)[-1]
+    if not name or "/" in name or ".." in name:
+        return
+    path = _LOGO_DIR / name
+    try:
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        pass
 
 
 # ------------------------------------------------------------------
@@ -304,6 +401,17 @@ def refresh_web_info(cliente_id, dominio: str) -> Dict[str, Any]:
         return _upsert_erro(cliente_id, d, str(e))
 
     payload = _montar_registro(d, fc_data)
+    anterior = obter_web_info(cliente_id) or {}
+    local = _persistir_logo_cliente(cliente_id, payload.get("logo_url"))
+    if local:
+        antigo = anterior.get("logo_url") or ""
+        if antigo and antigo != local:
+            _apagar_logo_local(antigo)
+        payload["logo_url"] = local
+    elif str(anterior.get("logo_url") or "").startswith("/static/uploads/clientes/"):
+        payload["logo_url"] = anterior["logo_url"]
+    else:
+        payload["logo_url"] = None
     return _upsert_ok(cliente_id, d, payload)
 
 
@@ -392,6 +500,11 @@ def _row_para_dict(row) -> Dict[str, Any]:
         if v is None:
             return None
         return v.isoformat() if hasattr(v, "isoformat") else str(v)
+    if not isinstance(row, dict):
+        try:
+            row = dict(row)
+        except Exception:
+            return {}
     return {
         "id": row.get("id"),
         "id_cliente": row.get("id_cliente"),

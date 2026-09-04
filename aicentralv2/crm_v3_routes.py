@@ -5,7 +5,7 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 `@login_required_api` (retornam 401 JSON) para permitir chamadas fetch.
 """
 
-from flask import Blueprint, g, jsonify, render_template, request, session, url_for
+from flask import Blueprint, current_app, g, jsonify, render_template, request, session, url_for
 
 from .auth import admin_required_api, login_required, login_required_api
 from .crm_v3_helpers import parse_texto_contatos
@@ -605,37 +605,44 @@ def api_import_contatos(cliente_id):
 @login_required_api
 def api_web_info_get(cliente_id):
     from .crm_v3_web_scout import obter_web_info
-    cliente = store.get_cliente(cliente_id)
-    if not cliente:
-        return _err("Cliente não encontrado", 404)
-    info = obter_web_info(cliente_id)
-    # 200 mesmo sem cache: 404 fazia a aba Web tratar como
-    # "URL não confirmada" quando o site já existia em tbl_cliente
-    # ou só em cliente_web_info.
+    try:
+        info = obter_web_info(cliente_id)
+    except Exception:
+        current_app.logger.exception("web-info GET falhou para cliente %s", cliente_id)
+        info = None
+    # 200 mesmo sem cache: 404/500 quebrava a aba Web e o restante do CRM.
     return _ok(info, web_info=info)
 
 
 @bp.route("/api/clientes/<cliente_id>/web-info/refresh", methods=["POST"])
 @login_required_api
 def api_web_info_refresh(cliente_id):
-    from .crm_v3_web_scout import obter_web_info, refresh_web_info
-    cliente = store.get_cliente(cliente_id)
-    if not cliente:
-        return _err("Cliente não encontrado", 404)
+    from .crm_v3_web_scout import obter_web_info, refresh_web_info, _normalizar_dominio
+    cliente = {}
+    try:
+        cliente = store.get_cliente(cliente_id) or {}
+    except Exception:
+        current_app.logger.exception("web-info refresh: get_cliente falhou para %s", cliente_id)
+        cliente = {}
     data = request.get_json(silent=True) or {}
     cached = obter_web_info(cliente_id) or {}
-    dominio = (
+    dominio = _normalizar_dominio(
         data.get("dominio")
         or cliente.get("site_url")
         or cached.get("dominio")
         or ""
-    ).strip()
+    )
     if not dominio:
-        return _err("Domínio não informado — confirme o site do cliente na aba Web")
-    info = refresh_web_info(cliente_id, dominio)
-    # `refresh_web_info` sempre retorna um dict (mesmo em erro). Se
-    # status='erro' entregamos 200 com o payload — o frontend renderiza
-    # a mensagem no lugar dos dados. Reservamos 5xx só para bugs reais.
+        return _err("Informe o site nesta aba para buscar as informações.")
+    try:
+        info = refresh_web_info(cliente_id, dominio)
+    except Exception as e:
+        current_app.logger.exception("web-info refresh falhou para cliente %s", cliente_id)
+        info = {
+            "status": "erro",
+            "dominio": dominio,
+            "erro_mensagem": str(e)[:500] or "Falha ao buscar o site",
+        }
     return _ok(info, web_info=info)
 
 

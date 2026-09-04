@@ -17,6 +17,7 @@ import bcrypt
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
 import re
 import secrets
 
@@ -1473,12 +1474,13 @@ def obter_cliente_por_id(id_cliente):
         if not row:
             return None
         cliente = dict(row)
-        if not cliente.get('agencia_key'):
+        is_agencia = cliente.get("agencia_key") is True or str(
+            cliente.get("agencia_display") or ""
+        ).strip().lower() in ("sim", "s")
+        if not is_agencia:
             try:
                 cliente['agencias_vinculadas'] = listar_agencias_vinculadas_cliente(id_cliente)
             except Exception:
-                # Tabela N:N ausente ou transação abortada — detalhe do
-                # cliente ainda deve abrir; vínculos ficam vazios.
                 try:
                     conn.rollback()
                 except Exception:
@@ -1506,26 +1508,115 @@ def _cliente_id_eh_empresa_agencia(cursor, id_agencia_cliente):
     return cursor.fetchone() is not None
 
 
+_SQL_PERFIL_AGENCIA = """
+    (
+        COALESCE((ag_perfil.key IS TRUE), false)
+        OR LOWER(TRIM(COALESCE(ag_perfil.display, ''))) IN ('sim', 's')
+    )
+"""
+
+
+def _ids_lookup_tbl_agencia(cursor):
+    cursor.execute("SELECT id_agencia FROM tbl_agencia")
+    ids = set()
+    for r in cursor.fetchall():
+        val = r["id_agencia"] if isinstance(r, dict) else r[0]
+        try:
+            ids.add(int(val))
+        except (TypeError, ValueError):
+            pass
+    return ids
+
+
 def listar_agencias_vinculadas_cliente(id_cliente):
-    """Lista empresas-agência vinculadas a um cliente final."""
+    """Lista empresas-agência vinculadas a um cliente final.
+
+    Só retorna fichas com perfil de agência (tbl_agencia.key). Sem esse
+    filtro, um `id_agencia_cliente` igual ao lookup Sim/Não (id 1)
+    apontava para o cliente #1 da base (ADALA), mesmo com a agência
+    real gravada em outra linha de tbl_cliente_agencia.
+    """
     conn = get_db()
     with conn.cursor() as cursor:
-        cursor.execute('''
+        cursor.execute(f'''
             SELECT
                 ca.id,
                 ca.id_agencia_cliente,
                 ca.is_principal,
                 ag_cli.nome_fantasia,
                 ag_cli.razao_social,
-                ag_cli.cnpj
+                ag_cli.cnpj,
+                ag_perfil.key AS agencia_key,
+                ag_perfil.display AS agencia_display
             FROM tbl_cliente_agencia ca
             JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
+            LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = ag_cli.pk_id_tbl_agencia
             WHERE ca.id_cliente = %s
+              AND ca.id_agencia_cliente <> ca.id_cliente
+              AND {_SQL_PERFIL_AGENCIA.strip()}
             ORDER BY ca.is_principal DESC,
                      ag_cli.nome_fantasia ASC NULLS LAST,
                      ag_cli.razao_social ASC NULLS LAST
         ''', (id_cliente,))
-        return [dict(r) for r in cursor.fetchall()]
+        rows = [dict(r) for r in cursor.fetchall()]
+        try:
+            lookup_ids = _ids_lookup_tbl_agencia(cursor)
+        except Exception:
+            lookup_ids = set()
+        return filtrar_vinculos_colisao_lookup(rows, lookup_ids)
+
+
+def listar_agencias_vinculadas_lote(id_clientes):
+    """Mesmo recorte de listar_agencias_vinculadas_cliente, em lote.
+
+    Retorna {id_cliente: [vinculo, ...]}.
+    """
+    ids = []
+    for x in id_clientes or []:
+        try:
+            ids.append(int(x))
+        except (TypeError, ValueError):
+            pass
+    if not ids:
+        return {}
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(f'''
+            SELECT
+                ca.id_cliente,
+                ca.id,
+                ca.id_agencia_cliente,
+                ca.is_principal,
+                ag_cli.nome_fantasia,
+                ag_cli.razao_social,
+                ag_cli.cnpj,
+                ag_perfil.key AS agencia_key,
+                ag_perfil.display AS agencia_display
+            FROM tbl_cliente_agencia ca
+            JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
+            LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = ag_cli.pk_id_tbl_agencia
+            WHERE ca.id_cliente = ANY(%s)
+              AND ca.id_agencia_cliente <> ca.id_cliente
+              AND {_SQL_PERFIL_AGENCIA.strip()}
+            ORDER BY ca.id_cliente,
+                     ca.is_principal DESC,
+                     ag_cli.nome_fantasia ASC NULLS LAST
+        ''', (ids,))
+        grouped = {}
+        for r in cursor.fetchall():
+            row = dict(r)
+            cid = row.get("id_cliente")
+            grouped.setdefault(cid, []).append(row)
+        try:
+            lookup_ids = _ids_lookup_tbl_agencia(cursor)
+        except Exception:
+            lookup_ids = set()
+        out = {}
+        for cid, rows in grouped.items():
+            filtrados = filtrar_vinculos_colisao_lookup(rows, lookup_ids)
+            out[cid] = filtrados
+            out[str(cid)] = filtrados
+        return out
 
 
 def listar_clientes_vinculados_agencia(id_agencia_cliente):
@@ -1628,20 +1719,18 @@ def limpar_agencias_vinculadas_cliente(id_cliente):
 
 def obter_agencia_principal_cliente(id_cliente):
     """Retorna dados da agência principal vinculada ou None."""
-    conn = get_db()
-    with conn.cursor() as cursor:
-        cursor.execute('''
-            SELECT
-                ca.id_agencia_cliente,
-                ag_cli.nome_fantasia,
-                ag_cli.razao_social
-            FROM tbl_cliente_agencia ca
-            JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = ca.id_agencia_cliente
-            WHERE ca.id_cliente = %s AND ca.is_principal = TRUE
-            LIMIT 1
-        ''', (id_cliente,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    rows = listar_agencias_vinculadas_cliente(id_cliente)
+    if not rows:
+        return None
+    principal = next(
+        (r for r in rows if r.get("is_principal") is True or r.get("is_principal") == 1),
+        rows[0],
+    )
+    return {
+        "id_agencia_cliente": principal.get("id_agencia_cliente"),
+        "nome_fantasia": principal.get("nome_fantasia"),
+        "razao_social": principal.get("razao_social"),
+    }
 
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None,

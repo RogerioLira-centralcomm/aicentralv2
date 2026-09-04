@@ -92,3 +92,35 @@ def badge_daisy_class(badge_type: Optional[str]) -> str:
         "em-acompanhamento": "badge-info",
     }
     return mapping.get((badge_type or "").lower(), "badge-neutral")
+
+
+def filtrar_vinculos_colisao_lookup(vinculos, lookup_ids):
+    """Descarta FK que colidiu com o lookup Sim/Não de tbl_agencia.
+
+    `tbl_agencia.id_agencia` costuma ser 1/2 (Sim/Não). Quando esse
+    valor foi gravado em `tbl_cliente_agencia.id_agencia_cliente`, o
+    JOIN aponta para o cliente #1 da base (ADALA), mesmo com a
+    agência real em outra linha. Se existir ao menos um vínculo cujo
+    id não é do lookup, os ids do lookup são ignorados. Se o único
+    vínculo for ADALA de verdade (id 1), ele permanece.
+    """
+    lookup = set()
+    for x in lookup_ids or []:
+        try:
+            lookup.add(int(x))
+        except (TypeError, ValueError):
+            pass
+    if not lookup or not vinculos:
+        return list(vinculos or [])
+    claros = []
+    for v in vinculos:
+        raw = (v or {}).get("id_agencia_cliente")
+        if raw is None:
+            raw = (v or {}).get("agencia_id")
+        try:
+            aid = int(raw)
+        except (TypeError, ValueError):
+            aid = None
+        if aid is None or aid not in lookup:
+            claros.append(v)
+    return claros if claros else list(vinculos)

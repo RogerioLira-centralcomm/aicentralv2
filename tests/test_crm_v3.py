@@ -9,6 +9,7 @@ from aicentralv2.crm_v3_helpers import (
     normalizar_telefone,
     parse_texto_contatos,
     pluralizar_contatos,
+    filtrar_vinculos_colisao_lookup,
 )
 from aicentralv2.crm_v3_data import store
 from aicentralv2.crm_v3_routes import bp
@@ -707,6 +708,63 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(mapped["agencia_id"], "")
         self.assertEqual(mapped["agencia_nome"], "")
         self.assertEqual(mapped["agencias_vinculadas"], [])
+
+    def test_filtrar_vinculos_colisao_lookup_ignora_adala_quando_ha_agencia_real(self):
+        """id 1 no lookup Sim/Não não deve ganhar de DEZOITO no N:N."""
+        vinculos = [
+            {
+                "id_agencia_cliente": 1,
+                "is_principal": True,
+                "nome_fantasia": "ADALA E ADALA NEGOCIOS IMOBILIÁRIOS",
+                "agencia_key": True,
+            },
+            {
+                "id_agencia_cliente": 88,
+                "is_principal": False,
+                "nome_fantasia": "DEZOITO COMUNICACAO LTDA",
+                "agencia_key": True,
+            },
+        ]
+        out = filtrar_vinculos_colisao_lookup(vinculos, {1, 2})
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["id_agencia_cliente"], 88)
+        mapped = self.repo_mod._map_cliente({
+            "id_cliente": 293,
+            "nome_fantasia": "Cliente final",
+            "agencias_vinculadas": out,
+        })
+        self.assertEqual(mapped["agencia_id"], "88")
+        self.assertEqual(mapped["agencia_nome"], "DEZOITO COMUNICACAO LTDA")
+
+    def test_filtrar_vinculos_colisao_lookup_mantem_adala_se_for_a_unica(self):
+        vinculos = [{
+            "id_agencia_cliente": 1,
+            "is_principal": True,
+            "nome_fantasia": "ADALA E ADALA NEGOCIOS IMOBILIÁRIOS",
+        }]
+        out = filtrar_vinculos_colisao_lookup(vinculos, {1, 2})
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["id_agencia_cliente"], 1)
+
+    def test_stamp_atividade_badge_concluida_quando_nao_ha_pendente(self):
+        mapped = self.repo_mod._stamp_atividade_badge({
+            "metrics": {"proxima_atividade": None, "ultimo_contato": "Hoje"},
+        })
+        self.assertEqual(mapped["badge"], "Concluída")
+        self.assertIsNone(mapped["proxima_atividade"])
+
+    def test_stamp_atividade_badge_hoje(self):
+        mapped = self.repo_mod._stamp_atividade_badge({
+            "metrics": {
+                "proxima_atividade": {"id": 1, "data": "2026-09-04", "titulo": "Ligar", "dias": 0},
+            },
+        })
+        self.assertEqual(mapped["badge"], "Hoje")
+        self.assertEqual(mapped["proxima_atividade"]["dias"], 0)
+
+    def test_stamp_atividade_badge_sem_atividade(self):
+        mapped = self.repo_mod._stamp_atividade_badge({"metrics": {}})
+        self.assertEqual(mapped["badge"], "Sem atividade")
 
 
     def test_update_cliente_delega_para_atualizar_campos_cliente(self):

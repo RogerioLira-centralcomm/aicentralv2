@@ -662,6 +662,63 @@ def _call_openrouter(system_prompt: str, user_content: str, max_tokens: int = 10
     return _real_call(system_prompt, user_content, max_tokens=max_tokens, temperature=temperature)
 
 
+def _call_openrouter_multimodal(system_prompt: str, text_prompt: str, image_data_url: str,
+                                 max_tokens: int = 2000, temperature: float = 0.1):
+    """Chamada multimodal do OpenRouter (texto + imagem) para Gemini 2.5 Flash.
+
+    O helper regular (`_call_openrouter`) só aceita user_content string —
+    formato antigo do OpenAI. Para input multimodal, precisamos passar
+    `content` como array de parts com `type: 'image_url'`. Como a API
+    OpenRouter é compatível com OpenAI, o payload é idêntico.
+
+    `image_data_url` deve ser um data URL RFC 2397 completo, ex:
+        "data:image/png;base64,iVBORw0KGgoAAAANS..."
+    ou uma URL http/https pública. O modelo Gemini aceita ambos, mas
+    priorizamos data URL para não expor a imagem em CDN externo.
+
+    Escolha do modelo: mantemos `google/gemini-2.5-flash` (o mesmo
+    padrão do resto do CRM v3) por ser barato (~$0.075 / M tokens
+    input) e multimodal nativo. Alternativas mais precisas
+    (`google/gemini-2.5-pro`) custam ~15x mais.
+
+    Retorna a string bruta da resposta ou levanta a exceção original.
+    """
+    import requests as http_requests
+
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("OPENROUTER_API_KEY não configurada")
+
+    payload = {
+        "model": "google/gemini-2.5-flash",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": text_prompt},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            },
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    resp = http_requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://centralcomm.media",
+            "X-Title": "CentralComm AI - CRM v3 OCR",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=90,  # OCR de imagens grandes pode levar até ~30s
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
 @bp.route("/api/ia/melhorar-texto", methods=["POST"])
 @login_required_api
 def api_ia_melhorar_texto():
@@ -986,3 +1043,191 @@ def api_ia_extrair_contatos():
     # Fallback: usa o parser determinístico local
     contatos = parse_texto_contatos(texto)
     return _ok({"contatos": contatos, "source": "fallback"})
+
+
+# ---------------------------------------------------------------------------
+# OCR de contatos — Gemini 2.5 Flash multimodal
+# ---------------------------------------------------------------------------
+# Usada pelo modal "Importar contatos" quando o usuário arrasta / cola /
+# faz upload de um print (WhatsApp, LinkedIn, cartão de visita, e-mail
+# assinatura). O modelo Gemini 2.5 Flash é multimodal nativo e cobre bem
+# o custo/benefício (~$0.075/M input tokens). Se falhar (chave ausente,
+# imagem inválida, modelo saiu do ar), a rota devolve 4xx/5xx com a
+# mensagem real — o frontend renderiza o erro no modal e o usuário
+# pode cair de volta no fluxo "colar texto".
+#
+# Contrato:
+#   Request:
+#     multipart/form-data
+#       - file: arquivo de imagem (png/jpg/jpeg/webp/heic)
+#     OU
+#     application/json
+#       - image_base64: string (data URL ou base64 puro)
+#       - mime_type: string opcional (default image/png)
+#   Response 200:
+#     {
+#       success: true,
+#       data: { contatos: [{nome,email,telefone,cargo}, ...],
+#               source: "openrouter" | "fallback",
+#               raw_text: string  // texto do OCR bruto p/ usuário revisar }
+#     }
+# ---------------------------------------------------------------------------
+_OCR_MIMES_ACEITOS = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"}
+_OCR_TAMANHO_MAX_BYTES = 8 * 1024 * 1024  # 8 MB — limita custo e latência
+
+
+@bp.route("/api/ia/ocr-contatos", methods=["POST"])
+@login_required_api
+def api_ia_ocr_contatos():
+    """Extrai contatos de uma imagem (print, foto de cartão, assinatura)."""
+    import base64
+    import json as json_mod
+
+    if not _openrouter_available():
+        return _err(
+            "OpenRouter não configurado — o servidor não tem OPENROUTER_API_KEY. "
+            "Cole os contatos como texto no formato Nome;email;telefone;cargo.",
+            503,
+        )
+
+    # -------------------------------------------------------------
+    # 1) Coleta a imagem: multipart/form-data OU JSON com base64.
+    #    Preferimos multipart (menos overhead que base64 no wire),
+    #    mas aceitamos JSON para o caso do frontend usar clipboard
+    #    API (que já entrega Blob → base64 mais fácil).
+    # -------------------------------------------------------------
+    image_bytes: bytes = b""
+    mime_type: str = ""
+
+    if request.files and "file" in request.files:
+        f = request.files["file"]
+        image_bytes = f.read()
+        mime_type = (f.mimetype or "").lower() or "image/png"
+    else:
+        data = request.get_json(silent=True) or {}
+        b64 = (data.get("image_base64") or "").strip()
+        if not b64:
+            return _err("Envie um arquivo (multipart 'file') ou 'image_base64' (JSON)", 400)
+        # Aceita data URL completo (data:image/png;base64,XXXX) ou só o base64.
+        if b64.startswith("data:"):
+            try:
+                header, b64_payload = b64.split(",", 1)
+                mime_type = header.split(";")[0].replace("data:", "").strip().lower()
+            except ValueError:
+                return _err("Data URL inválido", 400)
+            b64 = b64_payload
+        try:
+            image_bytes = base64.b64decode(b64, validate=True)
+        except Exception:
+            return _err("Base64 inválido", 400)
+        if not mime_type:
+            mime_type = (data.get("mime_type") or "image/png").strip().lower()
+
+    if not image_bytes:
+        return _err("Imagem vazia", 400)
+    if len(image_bytes) > _OCR_TAMANHO_MAX_BYTES:
+        return _err(f"Imagem muito grande (máximo {_OCR_TAMANHO_MAX_BYTES // (1024*1024)} MB)", 400)
+    if mime_type not in _OCR_MIMES_ACEITOS:
+        return _err(f"Formato não suportado: {mime_type}. Use PNG, JPEG, WEBP ou HEIC.", 400)
+
+    # -------------------------------------------------------------
+    # 2) Monta o data URL e chama o Gemini 2.5 Flash.
+    # -------------------------------------------------------------
+    data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+    system_prompt = (
+        "Você é um extrator de contatos profissionais a partir de imagens. "
+        "A imagem pode ser: print de WhatsApp/Telegram, print de LinkedIn, foto "
+        "de cartão de visita, assinatura de e-mail, planilha, ou qualquer outra "
+        "fonte visual com informações de contato. "
+        "Extraia TODOS os contatos visíveis. Para cada contato retorne:\n"
+        "  - nome (obrigatório)\n"
+        "  - email (obrigatório se aparecer; senão string vazia)\n"
+        "  - telefone (formato brasileiro com DDD, ex: 11999999999; string vazia se ausente)\n"
+        "  - cargo (função/posição na empresa; string vazia se ausente)\n\n"
+        "REGRAS:\n"
+        "1. NÃO invente dados. Se algo não aparece na imagem, deixe string vazia.\n"
+        "2. Nomes soltos sem contexto de contato (ex: nome da empresa, título de post) "
+        "   NÃO contam como contato.\n"
+        "3. Se o telefone tiver +55, DDI ou espaços, normalize para dígitos com DDD "
+        "   (ex: '+55 (11) 99999-9999' -> '11999999999').\n"
+        "4. Se aparecerem múltiplos contatos, retorne todos.\n"
+        "5. Ignore rodapés de LGPD, disclaimer legais, endereços da empresa.\n\n"
+        "RETORNE APENAS JSON VÁLIDO, sem texto antes ou depois, sem markdown fences. "
+        'Formato: {"contatos":[{"nome":"","email":"","telefone":"","cargo":""}, ...]}. '
+        'Se nenhum contato for encontrado, retorne {"contatos":[]}.'
+    )
+    text_prompt = "Extraia os contatos desta imagem seguindo o formato JSON pedido."
+
+    try:
+        resp_raw = _call_openrouter_multimodal(
+            system_prompt=system_prompt,
+            text_prompt=text_prompt,
+            image_data_url=data_url,
+            max_tokens=3000,
+            temperature=0.1,
+        )
+    except Exception as e:
+        return _err(f"Falha ao chamar Gemini: {e}", 502)
+
+    # -------------------------------------------------------------
+    # 3) Parseia o JSON. Alguns modelos ainda envolvem em ```json...```
+    #    apesar do "sem markdown fences" — normalizamos aqui.
+    # -------------------------------------------------------------
+    resp_text = (resp_raw or "").strip()
+    if resp_text.startswith("```"):
+        # Remove primeira linha (```json) e último ```.
+        resp_text = resp_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+    try:
+        parsed = json_mod.loads(resp_text)
+    except Exception:
+        # A UI ainda mostra utilidade: passa o texto bruto pro usuário
+        # colar como está (fallback para o parser regex local).
+        return _ok({
+            "contatos": [],
+            "raw_text": resp_text,
+            "source": "openrouter-raw",
+            "message": "Não foi possível estruturar automaticamente. Revise o texto abaixo.",
+        })
+
+    contatos_raw = parsed.get("contatos") if isinstance(parsed, dict) else parsed
+    if not isinstance(contatos_raw, list):
+        return _ok({"contatos": [], "raw_text": resp_text, "source": "openrouter-empty"})
+
+    # -------------------------------------------------------------
+    # 4) Sanitiza cada contato: strip, lowercase de email, dígitos
+    #    puros no telefone. Descarta linhas sem nome.
+    # -------------------------------------------------------------
+    import re as _re
+    limpos = []
+    for c in contatos_raw:
+        if not isinstance(c, dict):
+            continue
+        nome = (c.get("nome") or "").strip()
+        if not nome:
+            continue
+        email = (c.get("email") or "").strip().lower()
+        telefone_raw = (c.get("telefone") or "").strip()
+        # Deixa só dígitos e remove código do país 55 duplicado se
+        # o modelo insistir em '5511...'. Ficamos com o formato que
+        # o crm_v3_helpers.parse_texto_contatos usa (DDD+numero).
+        telefone = _re.sub(r"\D+", "", telefone_raw)
+        if telefone.startswith("55") and len(telefone) > 11:
+            telefone = telefone[2:]
+        cargo = (c.get("cargo") or "").strip()
+        limpos.append({
+            "nome": nome,
+            "email": email,
+            "telefone": telefone,
+            "cargo": cargo,
+        })
+
+    return _ok({
+        "contatos": limpos,
+        "raw_text": resp_text,
+        "source": "openrouter",
+        "message": (
+            f"{len(limpos)} contato(s) reconhecido(s)." if limpos
+            else "Nenhum contato foi identificado na imagem."
+        ),
+    })

@@ -2184,42 +2184,89 @@
      * humano (o executivo pode ajustar o título antes de commitar).
      * ------------------------------------------------------------------ */
     var QUICK_ATIV_SUGGESTIONS = [
-        {
-            titulo: 'Ligar para apresentar propostas',
-            tipo: 'ligacao',
-            icon: 'fa-solid fa-phone',
-            hint: 'Hoje'
-        },
-        {
-            titulo: 'Enviar e-mail de acompanhamento',
-            tipo: 'atividade',
-            icon: 'fa-regular fa-envelope',
-            hint: 'Hoje'
-        },
-        {
-            titulo: 'Agendar reunião de descoberta',
-            tipo: 'reuniao',
-            icon: 'fa-solid fa-users',
-            hint: 'Esta semana',
-            daysAhead: 3
-        },
-        {
-            titulo: 'Preparar proposta comercial',
-            tipo: 'planejamento',
-            icon: 'fa-solid fa-diagram-project',
-            hint: 'Amanhã',
-            daysAhead: 1
-        }
+        // Ações padrão do funil comercial
+        { titulo: 'Ligar para apresentar propostas', tipo: 'ligacao', icon: 'fa-solid fa-phone', hint: 'Hoje' },
+        { titulo: 'Enviar e-mail de acompanhamento', tipo: 'atividade', icon: 'fa-regular fa-envelope', hint: 'Hoje' },
+        { titulo: 'Agendar reunião de descoberta', tipo: 'reuniao', icon: 'fa-solid fa-users', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Preparar proposta comercial', tipo: 'planejamento', icon: 'fa-solid fa-diagram-project', hint: 'Amanhã', daysAhead: 1 },
+        // Apresentações de parceiros/canais
+        { titulo: 'Apresentar Netflix', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Serasa', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Logan', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Uber', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar iFood', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar 99', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Amazon', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Disney', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar HBO', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
+        // Institucional CentralComm
+        { titulo: 'Apresentar a CentralComm', tipo: 'reuniao', icon: 'fa-solid fa-building', hint: 'Esta semana', daysAhead: 3 },
+        // Eventos e relacionamento
+        { titulo: 'Agendar café da manhã interativo', tipo: 'reuniao', icon: 'fa-solid fa-mug-hot', hint: 'Esta semana', daysAhead: 5 },
+        { titulo: 'Convidar para o Media Hacks Training 2026', tipo: 'atividade', icon: 'fa-solid fa-graduation-cap', hint: 'Este mês', daysAhead: 14 }
     ];
 
+    /**
+     * Normaliza string para comparação: lowercase, sem acentos, sem espaços extras.
+     */
+    function normalizarTitulo(str) {
+        return String(str || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Retorna sugestões filtradas: exclui as que já foram usadas pelo cliente atual.
+     * A comparação é feita pelo título base (sem {cliente}).
+     */
+    function getSuggestionsForClient() {
+        var atividades = state.atividades || [];
+        var usados = atividades.map(function (a) {
+            return normalizarTitulo(a.titulo);
+        });
+
+        var clienteNome = state.cliente ? state.cliente.nome : '';
+
+        return QUICK_ATIV_SUGGESTIONS.filter(function (s) {
+            // Título base para comparação (sem o nome do cliente)
+            var tituloBase = normalizarTitulo(s.titulo);
+            // Também verifica com nome do cliente anexado
+            var tituloComCliente = clienteNome
+                ? normalizarTitulo(s.titulo + ' - ' + clienteNome)
+                : tituloBase;
+
+            // Se qualquer variação já foi usada, filtra fora
+            var jaUsado = usados.some(function (usado) {
+                return usado.indexOf(tituloBase) !== -1 || usado === tituloComCliente;
+            });
+            return !jaUsado;
+        });
+    }
+
     function renderQuickAtividadesHTML() {
-        var cards = QUICK_ATIV_SUGGESTIONS.map(function (s, i) {
+        var sugestoes = getSuggestionsForClient();
+        var clienteNome = state.cliente ? state.cliente.nome : '';
+
+        if (!sugestoes.length) {
+            return ''; // Todas as sugestões já foram usadas
+        }
+
+        var cards = sugestoes.map(function (s, i) {
+            // Personaliza título com nome do cliente
+            var tituloDisplay = s.titulo;
+            if (clienteNome) {
+                tituloDisplay = s.titulo + ' - ' + clienteNome;
+            }
             return (
-                '<button type="button" class="crm-v3-quick-ativ" data-idx="' + i + '"' +
-                ' aria-label="' + escapeHtml(s.titulo) + '">' +
+                '<button type="button" class="crm-v3-quick-ativ" data-suggestion-titulo="' + escapeHtml(s.titulo) + '"' +
+                ' data-suggestion-tipo="' + escapeHtml(s.tipo) + '"' +
+                ' data-suggestion-days="' + (s.daysAhead || 0) + '"' +
+                ' aria-label="' + escapeHtml(tituloDisplay) + '">' +
                 '<span class="crm-v3-quick-ativ-icon"><i class="' + s.icon + '" aria-hidden="true"></i></span>' +
                 '<span class="crm-v3-quick-ativ-body">' +
-                '<span class="crm-v3-quick-ativ-title">' + escapeHtml(s.titulo) + '</span>' +
+                '<span class="crm-v3-quick-ativ-title">' + escapeHtml(tituloDisplay) + '</span>' +
                 '<span class="crm-v3-quick-ativ-hint">' + escapeHtml(s.hint) + '</span>' +
                 '</span>' +
                 '<i class="fa-solid fa-arrow-right crm-v3-quick-ativ-arrow" aria-hidden="true"></i>' +
@@ -2242,17 +2289,24 @@
         var tipoBtn = $('#crm-v3-composer-tipo');
         var dataInput = $('#crm-v3-composer-data');
         if (!titulo || !tipoBtn) return;
+
+        var clienteNome = state.cliente ? state.cliente.nome : '';
+
         $$('.crm-v3-quick-ativ', root).forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var idx = parseInt(btn.getAttribute('data-idx') || '0', 10);
-                var s = QUICK_ATIV_SUGGESTIONS[idx];
-                if (!s) return;
-                titulo.value = s.titulo;
+                var sTitulo = btn.getAttribute('data-suggestion-titulo') || '';
+                var sTipo = btn.getAttribute('data-suggestion-tipo') || 'atividade';
+                var sDays = parseInt(btn.getAttribute('data-suggestion-days') || '0', 10);
+
+                // Título personalizado com nome do cliente
+                var tituloFinal = clienteNome ? sTitulo + ' - ' + clienteNome : sTitulo;
+                titulo.value = tituloFinal;
+
                 // Sincroniza o botão de tipo (mesma sequência do composer).
                 var tipos = ['atividade', 'ligacao', 'reuniao', 'doc', 'planejamento'];
-                var tipoIdx = tipos.indexOf(s.tipo);
+                var tipoIdx = tipos.indexOf(sTipo);
                 if (tipoIdx === -1) tipoIdx = 0;
-                tipoBtn.setAttribute('data-tipo', s.tipo);
+                tipoBtn.setAttribute('data-tipo', sTipo);
                 tipoBtn.setAttribute('data-tipo-idx', String(tipoIdx));
                 var icons = {
                     atividade: 'fa-regular fa-circle-check',
@@ -2261,11 +2315,11 @@
                     doc: 'fa-regular fa-file-lines',
                     planejamento: 'fa-solid fa-diagram-project'
                 };
-                tipoBtn.innerHTML = '<i class="' + icons[s.tipo] + '" aria-hidden="true"></i>';
+                tipoBtn.innerHTML = '<i class="' + icons[sTipo] + '" aria-hidden="true"></i>';
                 // Data sugerida (hoje + daysAhead).
                 if (dataInput) {
                     var d = new Date();
-                    d.setDate(d.getDate() + (s.daysAhead || 0));
+                    d.setDate(d.getDate() + sDays);
                     dataInput.value = d.toISOString().slice(0, 10);
                 }
                 titulo.focus();
@@ -3297,8 +3351,241 @@
         state.importRows = [];
         var texto = $('#crm-v3-import-texto');
         if (texto) texto.value = '';
+        setImportDropzoneState('idle');
         setImportStep(1);
         openModal('crm-v3-modal-import');
+    }
+
+    /* ================================================================
+     * Importar contatos — Dropzone de IMAGEM + OCR (Gemini 2.5 Flash)
+     * ----------------------------------------------------------------
+     * Novo fluxo (set/2026): usuário arrasta / cola (⌘V) / faz upload
+     * de um print (WhatsApp, LinkedIn, cartão, assinatura de e-mail)
+     * e a IA extrai os contatos automaticamente. Cai direto no step 2
+     * (revisão) sem precisar formatar Nome;email;telefone;cargo à mão.
+     *
+     * Fontes de imagem suportadas:
+     *   1. Drag-and-drop → dragover/drop no #crm-v3-import-dropzone
+     *   2. Paste (⌘V) → listener no document quando o modal está open
+     *   3. Click → input file oculto (#crm-v3-import-file)
+     *   4. Keyboard (Enter/Space no dropzone) → mesma coisa que click
+     *
+     * A rota /crm-v3/api/ia/ocr-contatos aceita multipart/form-data
+     * (mais eficiente que base64 no wire). Se der erro, a mensagem
+     * vai pra #crm-v3-import-error e o usuário pode cair no
+     * fluxo tradicional (colar texto).
+     * ================================================================ */
+
+    // Troca o estado visual do dropzone: idle | loading | preview.
+    // Também escreve o texto contextual do preview (msg + count).
+    function setImportDropzoneState(estado, extras) {
+        var wrap = $('#crm-v3-import-dropzone');
+        if (!wrap) return;
+        wrap.dataset.dropzoneState = estado;
+        wrap.querySelectorAll('[data-dropzone-state]').forEach(function (bloco) {
+            bloco.hidden = (bloco.dataset.dropzoneState !== estado);
+        });
+        if (estado === 'preview' && extras) {
+            var imgEl = $('#crm-v3-import-preview-img');
+            if (imgEl && extras.previewUrl) imgEl.src = extras.previewUrl;
+            var msgEl = $('#crm-v3-import-preview-msg');
+            if (msgEl) msgEl.textContent = extras.msg || 'Imagem processada.';
+            var countEl = $('#crm-v3-import-preview-count');
+            if (countEl) countEl.textContent = extras.hint || '';
+        }
+    }
+
+    // Processa um File/Blob: valida, mostra loading, chama a rota OCR,
+    // popula state.importRows + textarea + vai pra step 2.
+    // Retorna Promise para permitir chained testing (não usado hoje).
+    function processarImagemImport(file) {
+        if (!file) return Promise.resolve();
+
+        // Validações rápidas no cliente pra não desperdiçar OCR.
+        var TIPOS_OK = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/heic', 'image/heif'];
+        var TAM_MAX_MB = 8;
+        if (TIPOS_OK.indexOf((file.type || '').toLowerCase()) === -1) {
+            showToast('Formato não suportado: ' + (file.type || 'desconhecido') + '. Use PNG, JPG, WEBP ou HEIC.', true);
+            return Promise.resolve();
+        }
+        if (file.size > TAM_MAX_MB * 1024 * 1024) {
+            showToast('Imagem muito grande (máx ' + TAM_MAX_MB + ' MB).', true);
+            return Promise.resolve();
+        }
+        if (!state.clienteId) {
+            showToast('Selecione um cliente antes de importar.', true);
+            return Promise.resolve();
+        }
+
+        // URL local (blob:) pra preview instantâneo — não usa base64.
+        var previewUrl = URL.createObjectURL(file);
+        setImportDropzoneState('loading');
+
+        // Limpa erros antigos.
+        var errEl = $('#crm-v3-import-error');
+        if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+        // multipart/form-data direto — o helper api() é JSON, então
+        // usamos fetch cru aqui (mesma URL base, mesmo login cookie).
+        var formData = new FormData();
+        formData.append('file', file, file.name || 'contatos.png');
+
+        return fetch(API_BASE + '/ia/ocr-contatos', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData,
+        }).then(function (resp) {
+            return resp.json().then(function (body) {
+                if (!resp.ok || (body && body.success === false)) {
+                    var msg = (body && body.error) || ('Erro HTTP ' + resp.status);
+                    throw new Error(msg);
+                }
+                return body;
+            });
+        }).then(function (body) {
+            var data = body.data || {};
+            var contatos = data.contatos || [];
+
+            // Preview + contagem.
+            setImportDropzoneState('preview', {
+                previewUrl: previewUrl,
+                msg: contatos.length
+                    ? contatos.length + ' contato(s) reconhecido(s) pela IA'
+                    : 'Nenhum contato reconhecido na imagem',
+                hint: 'Fonte: Gemini 2.5 Flash · revise abaixo antes de importar',
+            });
+
+            if (!contatos.length) {
+                // Se o modelo trouxe raw_text, joga no textarea pra
+                // dar chance do usuário limpar manualmente.
+                if (data.raw_text) {
+                    var ta = $('#crm-v3-import-texto');
+                    if (ta) ta.value = data.raw_text;
+                }
+                showToast(data.message || 'Nenhum contato reconhecido — tente colar como texto.', true);
+                return;
+            }
+
+            // Normaliza para o mesmo shape que o parse-texto usa.
+            state.importRows = contatos.map(function (c) {
+                return {
+                    nome: c.nome || '',
+                    email: c.email || '',
+                    telefone: c.telefone || '',
+                    cargo: c.cargo || '',
+                    principal: false,
+                };
+            });
+            renderImportTable();
+            setImportStep(2);
+            showToast(contatos.length + ' contato(s) reconhecido(s) pela IA — revise abaixo.');
+        }).catch(function (err) {
+            setImportDropzoneState('idle');
+            var el = $('#crm-v3-import-error');
+            if (el) {
+                el.textContent = 'IA falhou: ' + (err.message || 'erro desconhecido');
+                el.hidden = false;
+            }
+            showToast(err.message || 'Falha ao processar imagem', true);
+        });
+    }
+
+    // Bind único (chamado em initModals) para os handlers do dropzone.
+    function bindImportDropzone() {
+        var zone = $('#crm-v3-import-dropzone');
+        var fileInput = $('#crm-v3-import-file');
+        var resetBtn = $('#crm-v3-import-preview-reset');
+        if (!zone || !fileInput) return;
+
+        // Click no dropzone → abre file picker. Só no estado idle
+        // (evita reabrir picker durante loading / preview).
+        zone.addEventListener('click', function () {
+            if (zone.dataset.dropzoneState === 'idle') {
+                fileInput.click();
+            }
+        });
+        // Enter/Space no dropzone com foco → mesma coisa (a11y).
+        zone.addEventListener('keydown', function (ev) {
+            if ((ev.key === 'Enter' || ev.key === ' ') && zone.dataset.dropzoneState === 'idle') {
+                ev.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        // File picker → processa.
+        fileInput.addEventListener('change', function () {
+            var f = fileInput.files && fileInput.files[0];
+            if (f) processarImagemImport(f);
+            // Reset pra permitir o mesmo arquivo ser selecionado depois.
+            fileInput.value = '';
+        });
+
+        // Reset preview → volta pro idle. O user pode enviar outra
+        // imagem sem fechar o modal.
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                setImportDropzoneState('idle');
+                state.importRows = [];
+                var ta = $('#crm-v3-import-texto');
+                if (ta) ta.value = '';
+                var errEl = $('#crm-v3-import-error');
+                if (errEl) errEl.hidden = true;
+            });
+        }
+
+        // Drag-and-drop. Prevent default nos eventos globais também
+        // (senão o browser abre a imagem em uma nova aba se o usuário
+        // errar o dropzone).
+        ['dragover', 'dragenter'].forEach(function (evtName) {
+            zone.addEventListener(evtName, function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (zone.dataset.dropzoneState === 'idle') {
+                    zone.classList.add('is-drag-over');
+                }
+            });
+        });
+        ['dragleave', 'dragend'].forEach(function (evtName) {
+            zone.addEventListener(evtName, function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                zone.classList.remove('is-drag-over');
+            });
+        });
+        zone.addEventListener('drop', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            zone.classList.remove('is-drag-over');
+            if (zone.dataset.dropzoneState !== 'idle') return;
+            var dt = ev.dataTransfer;
+            var f = dt && dt.files && dt.files[0];
+            if (f) processarImagemImport(f);
+        });
+
+        // Paste no document quando o modal está aberto.
+        // Feito no document (não no zone) porque paste não bubble bem
+        // em elementos sem foco de input. Filtra pra só disparar
+        // quando o modal está open (visualmente relevante).
+        document.addEventListener('paste', function (ev) {
+            var dialog = $('#crm-v3-modal-import');
+            if (!dialog || !dialog.open) return;
+            // Se o foco está no textarea, deixa o paste normal (texto).
+            var alvo = document.activeElement;
+            if (alvo && alvo.tagName === 'TEXTAREA') return;
+            var items = ev.clipboardData && ev.clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                if (it.kind === 'file' && it.type.indexOf('image/') === 0) {
+                    var f = it.getAsFile();
+                    if (f) {
+                        ev.preventDefault();
+                        processarImagemImport(f);
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -3375,6 +3662,10 @@
                 closeModal(btn.getAttribute('data-close-modal'));
             });
         });
+
+        // Dropzone de imagem no modal "Importar contatos" — bind único.
+        // Drag-and-drop, paste (⌘V) e upload; OCR via Gemini 2.5 Flash.
+        bindImportDropzone();
 
         $$('.crm-v3-modal').forEach(function (dialog) {
             dialog.addEventListener('click', function (e) {

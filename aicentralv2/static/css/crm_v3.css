@@ -4194,6 +4194,14 @@ button:hover > .crm-v3-menu-hint {
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(79, 70, 229, 0.02));
     border-radius: 10px;
 }
+/* Fix (set/2026): sem !important, o `display: flex` acima ganha do
+   attr `hidden` (display: none) e o bloco aparece mesmo quando o JS
+   marcou hidden=true — foi o bug do "cliente selecionado + alerta
+   vermelho aparecendo juntos". Vale para .crm-v3-import-target-empty
+   também (regra abaixo). */
+.crm-v3-import-target-ok[hidden] {
+    display: none !important;
+}
 
 .crm-v3-import-target-avatar {
     position: relative;
@@ -4267,6 +4275,195 @@ button:hover > .crm-v3-menu-hint {
     border-radius: 10px;
     font-size: 12px;
     line-height: 1.35;
+}
+.crm-v3-import-target-empty[hidden] {
+    display: none !important;
+}
+
+/* =====================================================================
+   Modal "Importar contatos" — Dropzone de imagem (set/2026)
+   =====================================================================
+   Fluxo IA + OCR: usuário arrasta / cola (⌘V) / faz upload de um print
+   e o Gemini 2.5 Flash extrai os contatos. O dropzone tem 3 estados:
+     - idle: convite (ícone + texto de instrução)
+     - loading: spinner enquanto o OCR roda (5–15s típico)
+     - preview: mostra a imagem enviada + resultado + botão "Enviar outra"
+
+   O CSS controla só a aparência; o JS troca [data-dropzone-state] no
+   parent e cada bloco filho é exibido/ocultado via [hidden].
+   ================================================================== */
+
+.crm-v3-import-dropzone {
+    display: block;
+    position: relative;
+    margin-bottom: 12px;
+    border: 2px dashed var(--crm-border-light, #cbd5e1);
+    border-radius: 12px;
+    padding: 20px 16px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    /* Foco pelo teclado: seguir role="button". */
+    outline: none;
+}
+.crm-v3-import-dropzone:hover,
+.crm-v3-import-dropzone:focus-visible {
+    border-color: var(--crm-primary, #4f46e5);
+    background: #eef2ff;
+}
+/* Estado durante o drag-over (JS aplica .is-drag-over). */
+.crm-v3-import-dropzone.is-drag-over {
+    border-color: var(--crm-primary, #4f46e5);
+    border-style: solid;
+    background: #eef2ff;
+    /* Sinal visual claro pra usuário largar aqui. */
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+/* Estados de loading e preview desativam o cursor pointer — o click
+   nesses momentos não faz sentido (loading em curso ou imagem já
+   processada; o botão "Enviar outra" reseta). */
+.crm-v3-import-dropzone[data-dropzone-state="loading"],
+.crm-v3-import-dropzone[data-dropzone-state="preview"] {
+    cursor: default;
+}
+
+/* Estado idle — layout centralizado. */
+.crm-v3-import-dropzone-idle {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.crm-v3-import-dropzone-idle[hidden] {
+    display: none !important;
+}
+.crm-v3-import-dropzone-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #e0e7ff;
+    color: var(--crm-primary, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+.crm-v3-import-dropzone-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.crm-v3-import-dropzone-text strong {
+    font-size: 14px;
+    color: #0f172a;
+}
+.crm-v3-import-dropzone-text span {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.4;
+}
+.crm-v3-import-dropzone-text kbd {
+    display: inline-block;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-family: ui-monospace, "SF Mono", monospace;
+    color: #334155;
+    margin: 0 2px;
+}
+.crm-v3-import-dropzone-hint {
+    font-size: 11px !important;
+    color: #64748b !important;
+    margin-top: 2px;
+}
+
+/* Estado loading — spinner centralizado. */
+.crm-v3-import-dropzone-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 8px 0;
+}
+.crm-v3-import-dropzone-loading[hidden] {
+    display: none !important;
+}
+.crm-v3-import-dropzone-loading strong {
+    display: block;
+    font-size: 14px;
+    color: #0f172a;
+}
+.crm-v3-import-dropzone-loading span {
+    font-size: 12px;
+    color: #475569;
+}
+
+/* Estado preview — thumb da imagem + descrição. */
+.crm-v3-import-dropzone-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.crm-v3-import-dropzone-preview[hidden] {
+    display: none !important;
+}
+.crm-v3-import-dropzone-preview img {
+    flex-shrink: 0;
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+.crm-v3-import-dropzone-preview-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.crm-v3-import-dropzone-preview-body strong {
+    font-size: 13px;
+    color: #0f172a;
+}
+.crm-v3-import-dropzone-preview-actions {
+    margin-top: 4px;
+    display: flex;
+    gap: 8px;
+}
+/* Botão xs para caber no strip de ações do preview. */
+.crm-v3-btn-xs {
+    padding: 4px 10px;
+    font-size: 11px;
+    height: auto;
+    min-height: 0;
+    line-height: 1.4;
+}
+
+/* Divisor "ou cole em texto" entre as duas fontes. */
+.crm-v3-import-or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+.crm-v3-import-or::before,
+.crm-v3-import-or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
 }
 .crm-v3-import-target-empty i {
     font-size: 16px;

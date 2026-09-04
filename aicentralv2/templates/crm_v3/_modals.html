@@ -338,8 +338,65 @@
       <div class="step" data-step="3">Confirmar</div>
     </div>
     <div id="crm-v3-import-step-1">
-      <p class="text-xs text-base-content/70 mb-2">Cole uma lista no formato <code>Nome;email;telefone;cargo</code> — uma linha por contato.</p>
-      <textarea id="crm-v3-import-texto" class="textarea textarea-bordered w-full text-sm" rows="8" placeholder="João Silva;joao@empresa.com;11999999999;Gerente"></textarea>
+      {# Duas fontes de input:
+         1) Dropzone/paste/upload de IMAGEM (print de WhatsApp/LinkedIn,
+            cartão de visita, assinatura de e-mail) → OCR via Gemini 2.5
+            Flash multimodal na rota /crm-v3/api/ia/ocr-contatos.
+         2) Textarea tradicional para colar texto Nome;email;telefone;cargo.
+         Ambas alimentam o mesmo pipeline de revisão (step 2), então
+         qualquer combinação funciona. O usuário pode inclusive
+         complementar o texto com dados do print. #}
+
+      {# Fonte 1: imagem #}
+      <label class="text-xs text-base-content/70 mb-2 block font-medium">
+        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        Arraste um print, cole (⌘V) ou clique para enviar — a IA extrai os contatos.
+      </label>
+      <div class="crm-v3-import-dropzone" id="crm-v3-import-dropzone" tabindex="0" role="button" aria-label="Enviar imagem com contatos">
+        {# Estado padrão: convite pra dropar / colar / clicar #}
+        <div class="crm-v3-import-dropzone-idle" data-dropzone-state="idle">
+          <div class="crm-v3-import-dropzone-icon">
+            <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+          </div>
+          <div class="crm-v3-import-dropzone-text">
+            <strong>Arraste uma imagem aqui</strong>
+            <span>ou cole com <kbd>⌘V</kbd> · ou clique para selecionar</span>
+            <span class="crm-v3-import-dropzone-hint">Aceita PNG, JPG, WEBP, HEIC · até 8 MB · IA lê prints do WhatsApp, LinkedIn, cartões, assinaturas de e-mail</span>
+          </div>
+        </div>
+        {# Estado durante o OCR (spinner + mensagem) #}
+        <div class="crm-v3-import-dropzone-loading" data-dropzone-state="loading" hidden>
+          <span class="loading loading-spinner loading-md text-primary"></span>
+          <div>
+            <strong>Analisando imagem com Gemini 2.5 Flash…</strong>
+            <span>Isso costuma levar 5–15 segundos.</span>
+          </div>
+        </div>
+        {# Estado com imagem selecionada (preview + retry) #}
+        <div class="crm-v3-import-dropzone-preview" data-dropzone-state="preview" hidden>
+          <img id="crm-v3-import-preview-img" alt="Preview da imagem enviada" />
+          <div class="crm-v3-import-dropzone-preview-body">
+            <strong id="crm-v3-import-preview-msg">Imagem processada.</strong>
+            <span id="crm-v3-import-preview-count" class="text-xs"></span>
+            <div class="crm-v3-import-dropzone-preview-actions">
+              <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-xs" id="crm-v3-import-preview-reset">
+                <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
+                Enviar outra
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="crm-v3-import-file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" class="hidden" />
+
+      {# Divisor opcional #}
+      <div class="crm-v3-import-or">
+        <span>ou cole em texto</span>
+      </div>
+
+      {# Fonte 2: texto puro (comportamento original) #}
+      <p class="text-xs text-base-content/70 mb-2">Formato <code>Nome;email;telefone;cargo</code> — uma linha por contato.</p>
+      <textarea id="crm-v3-import-texto" class="textarea textarea-bordered w-full text-sm" rows="6" placeholder="João Silva;joao@empresa.com;11999999999;Gerente"></textarea>
       <div class="modal-action mt-4">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-import">Cancelar</button>
         <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-import-processar">

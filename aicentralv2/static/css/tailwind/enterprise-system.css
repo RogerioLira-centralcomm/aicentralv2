@@ -194,14 +194,16 @@
 }
 
 .cx-btn-secondary {
-  background: #f8fafc;
-  border-color: var(--cx-border);
-  color: var(--cx-text);
+  background: #fff;
+  border-color: var(--cx-border-strong, #cbd5e1);
+  color: #0f172a;
 }
 
 .cx-btn-secondary:hover,
 .cx-btn-ghost:hover {
   background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .cx-btn-outline {
@@ -216,8 +218,9 @@
 }
 
 .cx-btn-ghost {
-  background: transparent;
-  color: var(--cx-text-muted);
+  background: #fff;
+  border-color: var(--cx-border-strong, #cbd5e1);
+  color: #0f172a;
 }
 
 .cx-btn-sm {
@@ -700,6 +703,20 @@
   flex-wrap: wrap;
   position: sticky;
   bottom: 0;
+}
+
+/* DaisyUI `.btn-ghost` no rodapé: fundo carvão + texto escuro.
+   Força contraste mesmo se algum drawer ainda usar classes Daisy. */
+.cx-drawer-footer .btn-ghost,
+.cx-drawer-footer .btn:not(.btn-primary):not(.btn-error):not(.cx-btn-primary) {
+  background: #fff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.cx-drawer-footer .btn-ghost:hover,
+.cx-drawer-footer .btn:not(.btn-primary):not(.btn-error):not(.cx-btn-primary):hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 /* Modo split (opt-in explícito por drawer).

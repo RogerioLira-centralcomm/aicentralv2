@@ -609,24 +609,29 @@ def api_web_info_get(cliente_id):
     if not cliente:
         return _err("Cliente não encontrado", 404)
     info = obter_web_info(cliente_id)
-    if not info:
-        return _err("Sem informações do site — clique em Atualizar", 404)
+    # 200 mesmo sem cache: 404 fazia a aba Web tratar como
+    # "URL não confirmada" quando o site já existia em tbl_cliente
+    # ou só em cliente_web_info.
     return _ok(info, web_info=info)
 
 
 @bp.route("/api/clientes/<cliente_id>/web-info/refresh", methods=["POST"])
 @login_required_api
 def api_web_info_refresh(cliente_id):
-    from .crm_v3_web_scout import refresh_web_info
+    from .crm_v3_web_scout import obter_web_info, refresh_web_info
     cliente = store.get_cliente(cliente_id)
     if not cliente:
         return _err("Cliente não encontrado", 404)
     data = request.get_json(silent=True) or {}
-    # Prioridade: body.dominio → cliente.site_url (frontend já normaliza
-    # antes de salvar). Se nada, é 400 (não vale gastar Firecrawl à toa).
-    dominio = (data.get("dominio") or cliente.get("site_url") or "").strip()
+    cached = obter_web_info(cliente_id) or {}
+    dominio = (
+        data.get("dominio")
+        or cliente.get("site_url")
+        or cached.get("dominio")
+        or ""
+    ).strip()
     if not dominio:
-        return _err("Domínio não informado — configure o Site do cliente antes")
+        return _err("Domínio não informado — confirme o site do cliente na aba Web")
     info = refresh_web_info(cliente_id, dominio)
     # `refresh_web_info` sempre retorna um dict (mesmo em erro). Se
     # status='erro' entregamos 200 com o payload — o frontend renderiza
@@ -719,36 +724,88 @@ def _call_openrouter_multimodal(system_prompt: str, text_prompt: str, image_data
     return resp.json()["choices"][0]["message"]["content"]
 
 
+def _roteiro_fallback(titulo, tipo, cliente) -> str:
+    nome = (cliente or {}).get("nome") or "o cliente"
+    tipo_label = {
+        "ligacao": "ligação",
+        "reuniao": "reunião",
+        "email": "e-mail",
+        "whatsapp": "WhatsApp",
+        "doc": "documento",
+        "planejamento": "planejamento",
+    }.get((tipo or "").lower(), "atividade")
+    assunto = (titulo or f"esta {tipo_label}").strip()
+    return (
+        f"Objetivo: executar “{assunto}” com {nome}.\n\n"
+        "Roteiro:\n"
+        "- Abrir com contexto (por que estamos falando agora).\n"
+        "- Confirmar interesse e restrições (prazo, verba, aprovação).\n"
+        "- Apresentar o ponto combinado e checar objeções.\n"
+        "- Combinar um próximo passo com data.\n\n"
+        "Fechamento: registrar o resultado nesta atividade (combinado / bloqueio / recusa)."
+    )
+
+
+def _montar_roteiro(data: dict) -> dict:
+    """Gera roteiro de execução a partir do título/tipo + contexto do cliente."""
+    titulo = (data.get("titulo") or "").strip()
+    tipo = (data.get("tipo") or "atividade").strip()
+    descricao = (data.get("descricao") or data.get("texto") or "").strip()
+    cliente_id = data.get("cliente_id") or ""
+    cliente = store.get_cliente(cliente_id) if cliente_id else None
+
+    if _openrouter_available():
+        try:
+            nome = (cliente or {}).get("nome") or "cliente"
+            classif = (cliente or {}).get("classificacao_cliente") or "Prospecção"
+            user = (
+                f"Cliente: {nome}\n"
+                f"Classificação: {classif}\n"
+                f"Tipo da atividade: {tipo or 'atividade'}\n"
+                f"Título: {titulo or '(sem título)'}\n"
+            )
+            if descricao:
+                user += f"Notas do executivo:\n{descricao}\n"
+            system_prompt = (
+                "Você é um assistente de vendas da CentralComm (mídia).\n"
+                "Sua tarefa NÃO é enfeitar texto: é ajudar o executivo a EXECUTAR a atividade.\n"
+                "Escreva em português um roteiro curto (máx. 180 palavras) com exatamente estas seções:\n"
+                "Objetivo: (1 frase)\n"
+                "Roteiro: (3 a 6 bullets do que falar/perguntar)\n"
+                "Fechamento: (como registrar o resultado e o próximo passo)\n"
+                "Não invente números, prazos ou nomes que não estejam no contexto."
+            )
+            texto = _call_openrouter(system_prompt, user, max_tokens=450, temperature=0.4).strip()
+            return {"texto": texto, "source": "openrouter"}
+        except Exception:
+            pass
+    return {"texto": _roteiro_fallback(titulo, tipo, cliente), "source": "fallback"}
+
+
 @bp.route("/api/ia/melhorar-texto", methods=["POST"])
 @login_required_api
 def api_ia_melhorar_texto():
     data = request.get_json(silent=True) or {}
     texto = (data.get("descricao") or data.get("texto") or "").strip()
+    titulo = (data.get("titulo") or "").strip()
+    if not texto and not titulo:
+        return _err("Informe o título da atividade para gerar o roteiro", 400)
+    # Sem descrição: gera roteiro a partir do título (é o caso real do drawer).
     if not texto:
-        return _err("Envie um texto para melhorar", 400)
+        out = _montar_roteiro(data)
+        return _ok({"texto": out["texto"], "texto_melhorado": out["texto"], "source": out["source"]})
+    out = _montar_roteiro(data)
+    return _ok({"texto": out["texto"], "texto_melhorado": out["texto"], "source": out["source"]})
 
-    if _openrouter_available():
-        system_prompt = (
-            "Você é um assistente comercial. Receba o texto do executivo de vendas "
-            "sobre uma interação com cliente e:\n"
-            "1. Corrija erros de português\n"
-            "2. Amplie brevemente mantendo o sentido original\n"
-            "3. Mantenha tom profissional e objetivo\n"
-            "4. Não invente informações que não estão no texto original\n"
-            "Retorne apenas o texto melhorado, sem explicações."
-        )
-        try:
-            resultado = _call_openrouter(system_prompt, texto)
-            return _ok({"texto": resultado, "texto_melhorado": resultado, "source": "openrouter"})
-        except Exception:  # pragma: no cover — cai no fallback
-            pass
 
-    # Fallback determinístico: normaliza pontuação e adiciona call-to-action
-    aprimorado = texto.rstrip(".") + "."
-    aprimorado = aprimorado[:1].upper() + aprimorado[1:]
-    if "próximos passos" not in aprimorado.lower():
-        aprimorado += "\n\nPróximos passos: alinhar cronograma, confirmar orçamento e agendar retorno."
-    return _ok({"texto": aprimorado, "texto_melhorado": aprimorado, "source": "fallback"})
+@bp.route("/api/ia/gerar-roteiro", methods=["POST"])
+@login_required_api
+def api_ia_gerar_roteiro():
+    data = request.get_json(silent=True) or {}
+    if not (data.get("titulo") or data.get("descricao") or data.get("tipo")):
+        return _err("Informe o título da atividade para gerar o roteiro", 400)
+    out = _montar_roteiro(data)
+    return _ok({"texto": out["texto"], "descricao": out["texto"], "source": out["source"]})
 
 
 @bp.route("/api/ia/sugerir-atividade", methods=["POST"])

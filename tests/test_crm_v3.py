@@ -664,7 +664,50 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(self.repo.update_nota("1", {"texto": "x"}), (None, None))
         self.assertEqual(self.repo.delete_nota("1"), (False, None))
 
-    # ---- Cliente inline-edit (PATCH parcial) -------------------------
+    def test_map_cliente_vinculos_usam_id_agencia_cliente(self):
+        """GET /api/clientes/<id> quebrava com KeyError: 'id_cliente'.
+
+        `listar_agencias_vinculadas_cliente` devolve `id_agencia_cliente`,
+        não `id_cliente` (este último é o cliente-final, não a agência).
+        """
+        mapped = self.repo_mod._map_cliente({
+            "id_cliente": 293,
+            "nome_fantasia": "Cliente 293",
+            "agencias_vinculadas": [
+                {
+                    "id": 9,
+                    "id_agencia_cliente": 12,
+                    "is_principal": True,
+                    "nome_fantasia": "Agência Real",
+                },
+            ],
+        })
+        self.assertEqual(mapped["id"], "293")
+        self.assertEqual(mapped["agencia_id"], "12")
+        self.assertEqual(mapped["agencia_nome"], "Agência Real")
+        self.assertEqual(
+            mapped["agencias_vinculadas"],
+            [{"agencia_id": "12", "is_principal": True, "nome": "Agência Real"}],
+        )
+
+    def test_map_cliente_nao_usa_pk_id_tbl_agencia_como_vinculo(self):
+        """pk_id_tbl_agencia é lookup Sim/Não, não o id da agência-cliente.
+
+        JOIN antigo `tbl_cliente.id_cliente = pk_id_tbl_agencia` associava
+        ADALA (e outras fichas cujo id coincidia com o lookup) a clientes
+        finais sem vínculo real em tbl_cliente_agencia.
+        """
+        mapped = self.repo_mod._map_cliente({
+            "id_cliente": 400,
+            "nome_fantasia": "Cliente direto",
+            "pk_id_tbl_agencia": 1,
+            "agencia_nome": "ADALA E ADALA NEGOCIOS IMOBILIÁRIOS",
+            "agencias_vinculadas": [],
+        })
+        self.assertEqual(mapped["agencia_id"], "")
+        self.assertEqual(mapped["agencia_nome"], "")
+        self.assertEqual(mapped["agencias_vinculadas"], [])
+
 
     def test_update_cliente_delega_para_atualizar_campos_cliente(self):
         # Mockamos `get_cliente` para não descer no `_map_cliente`

@@ -171,12 +171,15 @@
     }
 
     function actionClass(variant) {
+        // cx-btn (design system) — não usar DaisyUI `.btn`, cujo
+        // `btn-ghost` herda --btn-color escuro e deixa "Cancelar"
+        // ilegível (texto escuro em fundo carvão).
         switch (variant) {
-            case 'primary': return 'btn btn-sm btn-primary';
-            case 'danger': return 'btn btn-sm btn-error';
-            case 'ghost': return 'btn btn-sm btn-ghost';
-            case 'outline': return 'btn btn-sm btn-outline';
-            default: return 'btn btn-sm';
+            case 'primary': return 'cx-btn cx-btn-sm cx-btn-primary';
+            case 'danger': return 'cx-btn cx-btn-sm cx-btn-danger';
+            case 'ghost': return 'cx-btn cx-btn-sm cx-btn-secondary';
+            case 'outline': return 'cx-btn cx-btn-sm cx-btn-outline';
+            default: return 'cx-btn cx-btn-sm cx-btn-secondary';
         }
     }
 

@@ -1455,8 +1455,6 @@ def obter_cliente_por_id(id_cliente):
                 c.pk_id_aux_estado as estado,
                 ag.display as agencia_display,
                 ag.key as agencia_key,
-                ag_cli.nome_fantasia AS agencia_nome,
-                ag_cli.razao_social  AS agencia_razao,
                 tc.display as tipo_cliente_display,
                 est.descricao as estado_nome,
                 est.sigla   as estado_sigla,
@@ -1469,7 +1467,6 @@ def obter_cliente_por_id(id_cliente):
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
             LEFT JOIN tbl_estado est ON c.pk_id_aux_estado = est.id_estado
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
-            LEFT JOIN tbl_cliente ag_cli ON ag_cli.id_cliente = c.pk_id_tbl_agencia
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
         row = cursor.fetchone()
@@ -1477,7 +1474,16 @@ def obter_cliente_por_id(id_cliente):
             return None
         cliente = dict(row)
         if not cliente.get('agencia_key'):
-            cliente['agencias_vinculadas'] = listar_agencias_vinculadas_cliente(id_cliente)
+            try:
+                cliente['agencias_vinculadas'] = listar_agencias_vinculadas_cliente(id_cliente)
+            except Exception:
+                # Tabela N:N ausente ou transação abortada — detalhe do
+                # cliente ainda deve abrir; vínculos ficam vazios.
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                cliente['agencias_vinculadas'] = []
         else:
             cliente['agencias_vinculadas'] = []
         return cliente

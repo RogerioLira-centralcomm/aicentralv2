@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=51">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=56">
 {% endblock %}
 
 {% block content %}
@@ -162,16 +162,7 @@
               <input type="search" id="crm-v3-busca" class="crm-v3-search" placeholder="Buscar cliente..." autocomplete="off" />
             </div>
             <div class="crm-v3-pills" role="group" aria-label="Filtrar clientes">
-              <button type="button" class="crm-v3-pill is-active" data-filter="todos" aria-pressed="true" title="Ativos + Prospecção (Geladeira fica em Arquivo)">
-                <span class="crm-v3-pill-label">Todos</span>
-                <span class="crm-v3-pill-count">0</span>
-              </button>
-              {# Pills de classificação separam Ativo/Prospecção — set/2026:
-                 o time comercial precisa foco por estágio (Ativo =
-                 retenção, Prospecção = conversão). Antes ficava tudo
-                 misturado em "Todos" e só o chip visual no card
-                 diferenciava. #}
-              <button type="button" class="crm-v3-pill crm-v3-pill-classif crm-v3-pill-classif--ativo" data-filter="classif-ativo" aria-pressed="false" title="Somente clientes Ativos" aria-label="Ativos">
+              <button type="button" class="crm-v3-pill crm-v3-pill-classif crm-v3-pill-classif--ativo is-active" data-filter="classif-ativo" aria-pressed="true" title="Somente clientes Ativos" aria-label="Ativos">
                 <span class="crm-v3-pill-label">Ativos</span>
                 <span class="crm-v3-pill-count">0</span>
               </button>
@@ -221,9 +212,7 @@
                  não requer chave). Fallback = iniciais quando o
                  domínio não tem logo indexado ou não há contato
                  com e-mail.
-                 Clicável (role=button): rola a sidebar até a seção
-                 "Site & logo" e foca o input, para o executivo ajustar
-                 o domínio quando o logo estiver errado. #}
+                 Clicável: abre a aba Web para ver/editar o site. #}
               <button type="button" class="crm-v3-detail-avatar" id="crm-v3-detail-avatar-wrap"
                       aria-label="Editar site e logo deste cliente"
                       title="Ajustar site e logo">
@@ -288,7 +277,7 @@
              "Cotações em aberto" quebrem em 2 linhas em vez de
              serem cortados com "Cotações em a…". Valor em cima,
              label abaixo, tudo alinhado ao início. #}
-          <div class="crm-v3-metrics-grid mx-2 mb-2" role="group" aria-label="Indicadores do cliente" id="crm-v3-metrics">
+          <div class="crm-v3-metrics-grid" role="group" aria-label="Indicadores do cliente" id="crm-v3-metrics">
             <div class="crm-v3-metric">
               <div class="crm-v3-metric-value" id="crm-metric-contatos">0</div>
               <div class="crm-v3-metric-label">Contatos</div>
@@ -669,51 +658,6 @@
             </div>
           </div>
 
-          {# Site & logo — movido para o final da aba Info em set/2026.
-             Motivo: é uma configuração de identidade visual usada com
-             baixa frequência (uma vez por cliente); ficar depois de
-             Endereço poluía o topo. Agora está por último e o header
-             tem atalho: clicar no avatar do cliente → scroll até aqui
-             e foca o input, para editar rápido quando o logo estiver
-             errado. #}
-          <div class="crm-v3-sidebar-section" id="crm-v3-site-logo-section">
-            <div class="crm-v3-sidebar-section-title">Site & logo</div>
-            <div class="crm-v3-site-editor" id="crm-v3-site-editor">
-              <div class="crm-v3-site-preview" id="crm-v3-site-preview" aria-live="polite">
-                <img id="crm-v3-site-logo-img" alt="" hidden />
-                <span class="crm-v3-site-logo-fallback" id="crm-v3-site-logo-fallback" aria-hidden="true">A</span>
-              </div>
-              <div class="crm-v3-site-fields">
-                <label class="crm-v3-site-label" for="crm-v3-site-input">Site do cliente</label>
-                <div class="crm-v3-site-input-wrap">
-                  <i class="fa-solid fa-globe crm-v3-site-input-icon" aria-hidden="true"></i>
-                  <input type="url" id="crm-v3-site-input" class="crm-v3-site-input"
-                         placeholder="ex.: cliente.com.br" autocomplete="off" spellcheck="false" />
-                </div>
-                <div class="crm-v3-site-hint" id="crm-v3-site-hint">
-                  <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
-                  Domínio detectado do contato principal aparece automaticamente.
-                </div>
-                <div class="crm-v3-site-actions">
-                  <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm"
-                          id="crm-v3-site-confirmar" disabled>
-                    <i class="fa-solid fa-check" aria-hidden="true"></i>
-                    Confirmar
-                  </button>
-                  <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm"
-                          id="crm-v3-site-limpar" hidden>
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                    Remover
-                  </button>
-                  <a class="crm-v3-site-open" id="crm-v3-site-open" href="#" target="_blank" rel="noopener" hidden>
-                    <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                    Abrir
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         {# Painel "Notas" removido em set/2026 — a listagem completa
@@ -731,28 +675,16 @@
           <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-objetivos-list"></div>
         </div>
 
-        {# Painel "Web" — Fase B (mínima) do plano macro.
-           Renderiza dados vindos de GET /crm-v3/api/clientes/<id>/web-info,
-           que consulta a tabela cliente_web_info (populada por scrape via
-           Firecrawl). Cinco estados possíveis, chaveados pela classe
-           .crm-v3-web-tab[data-state]:
-             - loading    → skeleton enquanto o fetch inicial roda.
-             - empty      → cliente sem site cadastrado; CTA leva para
-                            "Site & logo".
-             - no-cache   → tem site salvo mas ainda nunca scrapeamos;
-                            oferece botão "Buscar informações".
-             - ok         → renderiza hero (logo + título + descrição)
-                            e menu principal.
-             - error      → último scrape falhou; mostra erro_mensagem
-                            e botão "Tentar novamente".
-           O crm_v3.js controla a troca de estado. #}
+        {# Painel Web: cadastro do site + scrape (cliente_web_info).
+           Site & logo vive aqui (não mais na aba Info). Clique no
+           avatar do header abre esta aba. #}
         <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="web" aria-labelledby="tab-sidebar-web" hidden>
           <div class="crm-v3-web-tab" id="crm-v3-web-tab" data-state="loading">
 
             <div class="crm-v3-sidebar-panel-heading">
               <div>
-                <h2>Informações do site</h2>
-                <p id="crm-v3-web-atualizado">Extraído do site oficial do cliente</p>
+                <h2>Site do cliente</h2>
+                <p id="crm-v3-web-atualizado">Logo, domínio e informações extraídas da web</p>
               </div>
               <button type="button"
                       class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm"
@@ -762,7 +694,50 @@
               </button>
             </div>
 
-            {# Estado: loading. Skeleton leve enquanto o GET roda. #}
+            <div class="crm-v3-sidebar-section" id="crm-v3-site-logo-section">
+              <div class="crm-v3-sidebar-section-title">Site & logo</div>
+              <div class="crm-v3-site-editor" id="crm-v3-site-editor">
+                <div class="crm-v3-site-preview" id="crm-v3-site-preview" aria-live="polite">
+                  <img id="crm-v3-site-logo-img" alt="" hidden />
+                  <span class="crm-v3-site-logo-fallback" id="crm-v3-site-logo-fallback" aria-hidden="true">A</span>
+                </div>
+                <div class="crm-v3-site-fields">
+                  <label class="crm-v3-site-label" for="crm-v3-site-input">Site do cliente</label>
+                  <div class="crm-v3-site-confirmed" id="crm-v3-site-confirmed" hidden>
+                    <span class="crm-v3-site-confirmed-domain" id="crm-v3-site-confirmed-domain"></span>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" id="crm-v3-site-alterar">
+                      Alterar
+                    </button>
+                  </div>
+                  <div class="crm-v3-site-input-wrap">
+                    <i class="fa-solid fa-globe crm-v3-site-input-icon" aria-hidden="true"></i>
+                    <input type="url" id="crm-v3-site-input" class="crm-v3-site-input"
+                           placeholder="ex.: cliente.com.br" autocomplete="off" spellcheck="false" />
+                  </div>
+                  <div class="crm-v3-site-hint" id="crm-v3-site-hint">
+                    <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+                    Informe o domínio para aplicar o logo e buscar o site.
+                  </div>
+                  <div class="crm-v3-site-actions">
+                    <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm"
+                            id="crm-v3-site-confirmar" disabled>
+                      <i class="fa-solid fa-check" aria-hidden="true"></i>
+                      Confirmar
+                    </button>
+                    <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm"
+                            id="crm-v3-site-limpar" hidden>
+                      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                      Remover
+                    </button>
+                    <a class="crm-v3-site-open" id="crm-v3-site-open" href="#" target="_blank" rel="noopener" hidden>
+                      <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                      Abrir
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="crm-v3-sidebar-section" data-web-state="loading">
               <div class="crm-v3-web-skeleton">
                 <div class="crm-v3-web-skeleton-logo"></div>
@@ -771,15 +746,10 @@
               </div>
             </div>
 
-            {# Estado: empty — sem site cadastrado no cliente. #}
             <div class="crm-v3-sidebar-section" data-web-state="empty" hidden>
               <div class="crm-v3-web-msg crm-v3-web-msg-neutral">
                 <i class="fa-solid fa-globe" aria-hidden="true"></i>
-                <p>Este cliente ainda não tem site cadastrado.</p>
-                <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-web-goto-site">
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                  Cadastrar site
-                </button>
+                <p>Confirme o site acima para buscar título, descrição e páginas.</p>
               </div>
             </div>
 
@@ -861,7 +831,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=25"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=30"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=4"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

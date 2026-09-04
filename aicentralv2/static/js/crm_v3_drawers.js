@@ -593,7 +593,8 @@
         });
     }
 
-    function openDrawerAtividade(atividade, clienteId) {
+    function openDrawerAtividade(atividade, clienteId, opts) {
+        opts = opts || {};
         var frag = cloneTpl('cx-drawer-atividade-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
         var wrapper = document.createElement('div');
@@ -622,7 +623,7 @@
         });
 
         cxDrawer.open({
-            title: atividade ? 'Editar atividade' : 'Nova atividade',
+            title: (atividade && atividade.id) ? 'Editar atividade' : 'Nova atividade',
             breadcrumb: 'CRM v3 · Atividade',
             size: 'md',
             contentEl: wrapper,
@@ -631,12 +632,18 @@
             actions: [
                 { label: 'Cancelar', variant: 'ghost', close: true },
                 {
-                    label: atividade ? 'Salvar alterações' : 'Criar atividade',
+                    label: (atividade && atividade.id) ? 'Salvar alterações' : 'Criar atividade',
                     variant: 'primary',
                     onClick: function (ev, id) { submitAtividade(form, atividade, clienteId, id); }
                 }
             ]
         });
+
+        if (opts.gerarRoteiro) {
+            var roteiroBtn = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
+            var outEl = wrapper.querySelector('[data-ia-output]');
+            if (roteiroBtn) runIA(roteiroBtn, form, outEl, clienteId);
+        }
     }
 
     function submitAtividade(form, atividade, clienteId, drawerId) {
@@ -677,13 +684,16 @@
 
         apiFetch('/ia/' + action, { method: 'POST', body: payload }).then(function (res) {
             var data = res.data || res;
-            if (action === 'melhorar-texto') {
-                if (data && data.texto) {
+            if (action === 'melhorar-texto' || action === 'gerar-roteiro') {
+                var texto = (data && (data.texto || data.descricao || data.texto_melhorado)) || '';
+                if (texto) {
                     var desc = form.querySelector('[data-field="descricao"]');
-                    if (desc) desc.value = data.texto;
-                    output.textContent = 'Descrição atualizada com sugestão da IA.';
+                    if (desc) desc.value = texto;
+                    output.textContent = action === 'gerar-roteiro'
+                        ? 'Roteiro preenchido na descrição. Ajuste se precisar e salve a atividade.'
+                        : 'Roteiro atualizado na descrição.';
                 } else {
-                    output.textContent = 'Sem sugestões no momento.';
+                    output.textContent = 'A IA não devolveu roteiro. Tente de novo ou escreva na descrição.';
                 }
             } else if (action === 'sugerir-atividade') {
                 if (data) {
@@ -1161,6 +1171,77 @@
         });
     }
 
+    function openDrawerSugestoes(clienteId) {
+        var list = (window.crmV3 && typeof window.crmV3.getQuickSuggestions === 'function')
+            ? window.crmV3.getQuickSuggestions()
+            : [];
+        var wrap = document.createElement('div');
+        wrap.className = 'cx-sugestoes-drawer';
+        var items = list.map(function (s, i) {
+            return (
+                '<button type="button" class="cx-sugestao-row" data-idx="' + i + '">' +
+                '<span class="cx-sugestao-row-icon"><i class="' + (s.icon || 'fa-solid fa-circle') + '" aria-hidden="true"></i></span>' +
+                '<span class="cx-sugestao-row-body">' +
+                '<strong>' + escapeHtml(s.titulo) + '</strong>' +
+                '<span>' + escapeHtml(s.hint || '') + '</span>' +
+                '</span>' +
+                '<span class="cx-sugestao-row-cta">Criar com roteiro</span>' +
+                '</button>'
+            );
+        }).join('');
+        wrap.innerHTML = (
+            '<p class="cx-sugestoes-intro">Mesmas sugestões da coluna Atividades. Clique para abrir o formulário com o título pronto e a IA montar o roteiro de execução.</p>' +
+            (items
+                ? '<div class="cx-sugestoes-list">' + items + '</div>'
+                : '<p class="cx-sugestoes-empty">Nenhuma sugestão pendente neste cliente.</p>') +
+            '<button type="button" class="cx-drawer-ia-action" id="cx-sugestao-ia">' +
+            '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>' +
+            '<span>Pedir outra atividade à IA</span></button>'
+        );
+        $$('.cx-sugestao-row', wrap).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var idx = parseInt(btn.getAttribute('data-idx') || '0', 10);
+                var s = list[idx];
+                if (!s) return;
+                var d = new Date();
+                d.setDate(d.getDate() + (s.daysAhead || 0));
+                openDrawerAtividade({
+                    titulo: s.titulo,
+                    tipo: s.tipo,
+                    data: d.toISOString().slice(0, 10),
+                    status: 'pendente'
+                }, clienteId, { gerarRoteiro: true });
+            });
+        });
+        var iaBtn = wrap.querySelector('#cx-sugestao-ia');
+        if (iaBtn) {
+            iaBtn.addEventListener('click', function () {
+                iaBtn.disabled = true;
+                apiFetch('/ia/sugerir-atividade', { method: 'POST', body: { cliente_id: clienteId } })
+                    .then(function (res) {
+                        var data = res.data || res;
+                        openDrawerAtividade({
+                            titulo: data.titulo,
+                            descricao: data.descricao,
+                            tipo: data.tipo || 'atividade',
+                            data: data.data_sugerida,
+                            status: 'pendente'
+                        }, clienteId);
+                    })
+                    .catch(function (err) { toast(err.message, true); })
+                    .finally(function () { iaBtn.disabled = false; });
+            });
+        }
+        cxDrawer.open({
+            title: 'Sugestões de atividade',
+            breadcrumb: 'CRM v3 · Próximos passos',
+            size: 'md',
+            contentEl: wrap,
+            split: false,
+            actions: [{ label: 'Fechar', variant: 'ghost', close: true }]
+        });
+    }
+
     /* -----------------------------------------------------------
        Expose e integração
        ----------------------------------------------------------- */
@@ -1170,6 +1251,7 @@
         openAtividade: openDrawerAtividade,
         openContato: openDrawerContato,
         openCotacao: openDrawerCotacao,
+        openSugestoes: openDrawerSugestoes,
     };
 
     // Redireciona os botões existentes para usar drawer no lugar dos modais grandes.

@@ -136,6 +136,16 @@ def store_diagnostic() -> Dict[str, Any]:
 _CLASSIFICACOES = ("Prospecção", "Ativo", "Geladeira")
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Converte Decimal/str/int para float sem derrubar o GET do cliente."""
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
     """Converte um registro de `tbl_cliente` para o formato usado pelo v3 UI."""
     if not row:
@@ -171,6 +181,23 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "complemento": row.get("complemento") or "",
     }
 
+    vinculos_src = row.get("agencias_vinculadas") or []
+    vinculos = []
+    for v in vinculos_src:
+        ag_id = v.get("id_agencia_cliente") or v.get("agencia_id") or ""
+        # Não usar v["id_cliente"]: na tabela N:N esse campo (quando
+        # existe) é o cliente-final, não a agência. Usá-lo como
+        # fallback associava a agência errada (ex.: ADALA) em vários
+        # clientes sem vínculo real.
+        if not ag_id:
+            continue
+        vinculos.append({
+            "agencia_id": str(ag_id),
+            "is_principal": bool(v.get("is_principal")),
+            "nome": (v.get("nome_fantasia") or v.get("razao_social") or v.get("nome") or "").strip(),
+        })
+    principal = next((v for v in vinculos if v.get("is_principal")), vinculos[0] if vinculos else None)
+
     def _fmt_iso(dt):
         return dt.isoformat() if hasattr(dt, "isoformat") else (dt or None)
 
@@ -195,8 +222,8 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "uf": endereco["uf"],
         "estado_nome": row.get("estado_nome") or "",
         "endereco": endereco,
-        "bv_percentual": float(row.get("percentual") or 0),
-        "margem_cc": float(row.get("margem_cc") or 0),
+        "bv_percentual": _safe_float(row.get("percentual")),
+        "margem_cc": _safe_float(row.get("margem_cc")),
         "opera_midia": bool(row.get("opera_midia")),
         "demanda_dados": bool(row.get("demanda_dados")),
         "demanda_programatica_canais": bool(row.get("demanda_programatica_canais")),
@@ -216,16 +243,12 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         "data_cadastro": _fmt_iso(row.get("data_cadastro")),
         "data_modificacao": _fmt_iso(row.get("data_modificacao")),
         "status": row.get("status") if row.get("status") is not None else True,
-        "agencia_id": str(row.get("pk_id_tbl_agencia")) if row.get("pk_id_tbl_agencia") else "",
-        # Nome da agência quando esta ficha é de cliente-final vinculado a
-        # uma agência (usado na sidebar Info do CRM v3).
-        "agencia_nome": (
-            row.get("agencia_nome") or row.get("agencia_razao") or ""
-        ) if row.get("pk_id_tbl_agencia") and not is_agencia else "",
-        "agencias_vinculadas": [
-            {"agencia_id": str(v["id_cliente"]), "is_principal": bool(v.get("is_principal"))}
-            for v in (row.get("agencias_vinculadas") or [])
-        ],
+        "agencia_id": (principal["agencia_id"] if principal and not is_agencia else ""),
+        # Nome só vem de tbl_cliente_agencia (vínculo real). Nunca de
+        # pk_id_tbl_agencia, que é o lookup Sim/Não de "esta ficha é
+        # agência" — JOIN por esse id apontava para outro cliente (ADALA).
+        "agencia_nome": (principal.get("nome") or "") if principal and not is_agencia else "",
+        "agencias_vinculadas": vinculos,
     }
 
 
@@ -360,7 +383,7 @@ class CrmV3Repository:
                 conn = _db().get_db()
                 with conn.cursor() as cur:
                     cur.execute(
-                        "SELECT id_cliente, logo_url, dominio "
+                        "SELECT id_cliente, logo_url, favicon_url, dominio "
                         "FROM cliente_web_info "
                         "WHERE id_cliente = ANY(%s) AND status = 'ok'",
                         (ids_int,),
@@ -368,12 +391,13 @@ class CrmV3Repository:
                     rows = cur.fetchall()
                 logos = {}
                 for r in rows:
-                    # psycopg pode retornar tuple ou dict-row dependendo
-                    # do row_factory. Suportamos ambos.
                     if isinstance(r, dict):
-                        cid, logo, dom = r.get("id_cliente"), r.get("logo_url"), r.get("dominio")
+                        cid = r.get("id_cliente")
+                        logo = r.get("logo_url") or r.get("favicon_url")
+                        dom = r.get("dominio")
                     else:
-                        cid, logo, dom = r[0], r[1], r[2]
+                        cid, logo, fav, dom = r[0], r[1], r[2], r[3]
+                        logo = logo or fav
                     if cid is not None:
                         logos[str(cid)] = {"logo_url": logo, "dominio": dom}
                 for m in items:
@@ -506,19 +530,44 @@ class CrmV3Repository:
         if not row:
             return None
         mapped = _map_cliente(row)
-        mapped["metrics"] = self._metrics_for(cliente_id)
+        try:
+            mapped["metrics"] = self._metrics_for(cliente_id)
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("aicentral.crm_v3").warning(
+                "_metrics_for (detalhe) falhou para cliente %s: %s: %s",
+                cliente_id, type(e).__name__, e,
+            )
+            _rollback_if_failed("_metrics_for")
+            mapped["metrics"] = {
+                "faturamento": 0.0, "pipeline": 0.0,
+                "cotacoes_abertas": 0, "cotacoes_aprovadas": 0,
+                "contatos_total": 0, "tarefas_abertas": 0,
+                "ultimo_contato": "—",
+            }
         if mapped["is_agencia"]:
-            filhos = _db().listar_clientes_vinculados_agencia(cliente_id) or []
-            mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
-            mapped["clientes_finais_count"] = len(filhos)
-            mapped["clientes_finais"] = [
-                {
-                    "id": str(x["id_cliente"]),
-                    "nome": x.get("nome_fantasia") or x.get("razao_social"),
-                    "classificacao_cliente": x.get("classificacao_cliente"),
-                }
-                for x in filhos
-            ]
+            try:
+                filhos = _db().listar_clientes_vinculados_agencia(cliente_id) or []
+                mapped["clientes_finais_ids"] = [str(x["id_cliente"]) for x in filhos]
+                mapped["clientes_finais_count"] = len(filhos)
+                mapped["clientes_finais"] = [
+                    {
+                        "id": str(x["id_cliente"]),
+                        "nome": x.get("nome_fantasia") or x.get("razao_social"),
+                        "classificacao_cliente": x.get("classificacao_cliente"),
+                    }
+                    for x in filhos
+                ]
+            except Exception as e:  # noqa: BLE001
+                import logging
+                logging.getLogger("aicentral.crm_v3").warning(
+                    "listar_clientes_vinculados_agencia (detalhe) falhou para %s: %s: %s",
+                    cliente_id, type(e).__name__, e,
+                )
+                _rollback_if_failed("listar_clientes_vinculados_agencia")
+                mapped["clientes_finais_ids"] = []
+                mapped["clientes_finais_count"] = 0
+                mapped["clientes_finais"] = []
         return mapped
 
     def create_cliente(self, data: Dict[str, Any]) -> Dict[str, Any]:

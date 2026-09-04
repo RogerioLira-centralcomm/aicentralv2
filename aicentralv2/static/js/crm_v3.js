@@ -13,7 +13,8 @@
         objetivos: [],
         cotacoes: [],
         notas: [],
-        filtroPill: 'todos',
+        filtroPill: 'classif-ativo',
+        filtroSecundario: '',
         filtroExecutivo: '',
         filtroTipo: '',
         filtroPerfil: '',
@@ -201,6 +202,31 @@
      *   - Se cliente é geladeira / sem info, retorna string vazia
      *     (sem badge — comportamento igual ao Pipedrive).
      */
+    /** Situação comercial do card: atrasado | sem-atividade | agenda.
+     *  NÃO usar `c.status` (boolean da ficha tbl_cliente.status). */
+    function situacaoCliente(c) {
+        var proxima = c.proxima_atividade;
+        var badge = String(c.badge || '');
+        var dias = proxima && proxima.dias != null ? Number(proxima.dias) : null;
+        if ((dias != null && dias < 0) || /atrasad/i.test(badge)) return 'atrasado';
+        if (!proxima || /sem atividade/i.test(badge)) return 'sem-atividade';
+        return 'agenda';
+    }
+
+    function bindLogoImgs(root) {
+        $$('img[data-crm-logo]', root || document).forEach(function (img) {
+            function reveal() {
+                if (!img.naturalWidth) return;
+                img.hidden = false;
+                var ini = img.previousElementSibling;
+                if (ini) ini.style.display = 'none';
+            }
+            img.addEventListener('load', reveal);
+            img.addEventListener('error', function () { img.hidden = true; });
+            if (img.complete) reveal();
+        });
+    }
+
     function situacaoHtml(c) {
         var badge = c.badge || '';
         if (!badge) return '';
@@ -295,20 +321,18 @@
         }
         if (!srcPrincipal && clienteId && state.webInfoCache && state.webInfoCache[clienteId]) {
             var wi = state.webInfoCache[clienteId];
-            if (wi && wi.status === 'ok' && wi.logo_url) srcPrincipal = wi.logo_url;
+            if (wi && wi.status === 'ok' && (wi.logo_url || wi.favicon_url)) {
+                srcPrincipal = wi.logo_url || wi.favicon_url;
+            }
         }
         if (!srcPrincipal && dominioClean) {
             srcPrincipal = 'https://logo.clearbit.com/' + dominioClean;
         }
         var imgHtml = '';
         if (srcPrincipal) {
-            // Alt vazio: se a imagem falhar, o browser não mostra texto
-            // dentro do círculo (bug antigo do "ogo" vindo do alt).
             imgHtml =
-                '<img class="crm-v3-card-logo" alt="" hidden ' +
-                'src="' + escapeHtml(srcPrincipal) + '" ' +
-                'onload="if(this.naturalWidth){this.hidden=false;this.previousElementSibling&&(this.previousElementSibling.style.display=\'none\')}" ' +
-                'onerror="this.hidden=true" />';
+                '<img class="crm-v3-card-logo" alt="" hidden data-crm-logo="1" ' +
+                'src="' + escapeHtml(srcPrincipal) + '" />';
         }
         return (
             '<div class="avatar placeholder crm-v3-card-avatar">' +
@@ -483,8 +507,16 @@
      * Retorna string vazia se nenhuma fonte válida existir — nesse caso
      * o avatar mostra iniciais.
      */
-    function dominioParaLogo(cliente) {
+    function dominioConfirmado(cliente) {
         var salvo = normalizarDominio(cliente && cliente.site_url);
+        if (salvo) return salvo;
+        var cid = cliente && cliente.id;
+        var wi = cid != null ? (state.webInfoCache[cid] || state.webInfoCache[String(cid)]) : null;
+        return normalizarDominio(wi && wi.dominio);
+    }
+
+    function dominioParaLogo(cliente) {
+        var salvo = dominioConfirmado(cliente);
         if (salvo) return salvo;
         return extrairDominioContato(cliente);
     }
@@ -597,28 +629,22 @@
         var filtrados = state.clientes.filter(function (c) {
             var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
             var isGeladeira = classif === 'geladeira';
-            // Pill "arquivo" mostra somente Geladeira.
-            if (state.filtroPill === 'arquivo') {
+            var sitFiltro = state.filtroSecundario || '';
+            // Arquivo = Geladeira. Classificação Ativo/Prospecção não se aplica.
+            if (sitFiltro === 'arquivo') {
                 if (!isGeladeira) return false;
-            } else if (state.filtroPill === 'classif-ativo') {
-                // Set/2026: pill "Ativos" foca somente clientes com
-                // classificação Ativa (retenção). Geladeira nunca
-                // aparece aqui.
-                if (isGeladeira) return false;
-                if (classif !== 'ativo') return false;
-            } else if (state.filtroPill === 'classif-prospeccao') {
-                // Pill "Prospecção": só clientes em prospecção (funil de
-                // conversão). Aceita variações da string (prospecção
-                // com/sem cedilha, "prospeccao").
-                if (isGeladeira) return false;
-                var isProsp = classif === 'prospeccao'
-                    || classif === 'prospecção'
-                    || classif.indexOf('prospec') === 0;
-                if (!isProsp) return false;
             } else {
-                // Demais pills (todos/atrasado/sem-atividade) escondem Geladeira.
                 if (isGeladeira) return false;
-                if (state.filtroPill !== 'todos' && c.status !== state.filtroPill) return false;
+                if (state.filtroPill === 'classif-ativo') {
+                    if (classif !== 'ativo') return false;
+                } else if (state.filtroPill === 'classif-prospeccao') {
+                    var isProsp = classif === 'prospeccao'
+                        || classif === 'prospecção'
+                        || classif.indexOf('prospec') === 0;
+                    if (!isProsp) return false;
+                }
+                if (sitFiltro === 'atrasado' && situacaoCliente(c) !== 'atrasado') return false;
+                if (sitFiltro === 'sem-atividade' && situacaoCliente(c) !== 'sem-atividade') return false;
             }
             if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
             if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
@@ -656,7 +682,10 @@
             var classifSlug = classificacao.replace(/ç/g, 'c').replace(/ã/g, 'a');
             var isAgencia = !!c.is_agencia;
             var clientesFinaisCount = Number(c.clientes_finais_count || 0);
-            var agenciaNome = c.agencia_nome || '';
+            var agenciaNome = '';
+            var vinculos = Array.isArray(c.agencias_vinculadas) ? c.agencias_vinculadas : [];
+            var principal = vinculos.filter(function (v) { return v && v.is_principal; })[0] || vinculos[0];
+            if (principal) agenciaNome = principal.nome || '';
             var tipoCliente = String(c.tipo || c.categoria || c.tipo_label || '').toLowerCase();
             var perfilCliente = String(c.perfil || '').toLowerCase();
 
@@ -867,6 +896,7 @@
                 }
             });
         });
+        bindLogoImgs(container);
     }
 
     function updateTabCounts() {
@@ -895,7 +925,6 @@
             return true;
         });
         var counts = {
-            todos: 0,
             'classif-ativo': 0,
             'classif-prospeccao': 0,
             atrasado: 0,
@@ -907,18 +936,22 @@
             var isGeladeira = classif === 'geladeira';
             if (isGeladeira) {
                 counts.arquivo++;
-                return; // Geladeira não conta nas outras pills
+                return;
             }
-            counts.todos++;
-            if (classif === 'ativo') counts['classif-ativo']++;
-            // Aceita "prospecção", "prospeccao", "prospect..."
-            if (classif === 'prospeccao'
+            var isAtivo = classif === 'ativo';
+            var isProsp = classif === 'prospeccao'
                 || classif === 'prospecção'
-                || classif.indexOf('prospec') === 0) {
-                counts['classif-prospeccao']++;
+                || classif.indexOf('prospec') === 0;
+            if (isAtivo) counts['classif-ativo']++;
+            if (isProsp) counts['classif-prospeccao']++;
+            // Contagens secundárias no recorte da classificação ativa
+            // (Ativos ou Prospecção), para o número bater com a lista.
+            var noRecorte = (state.filtroPill === 'classif-prospeccao') ? isProsp : isAtivo;
+            if (noRecorte) {
+                var sit = situacaoCliente(c);
+                if (sit === 'atrasado') counts.atrasado++;
+                if (sit === 'sem-atividade') counts['sem-atividade']++;
             }
-            if (c.status === 'atrasado') counts.atrasado++;
-            if (c.status === 'sem-atividade') counts['sem-atividade']++;
         });
         $$('.crm-v3-pill').forEach(function (pill) {
             var f = pill.getAttribute('data-filter');
@@ -1058,7 +1091,9 @@
             // Esse é o logo que o próprio cliente publica para redes
             // sociais — muito mais confiável que favicon pixelado.
             var webInfo = state.webInfoCache[cliente.id];
-            var logoCanonico = (webInfo && webInfo.status === 'ok') ? (webInfo.logo_url || '') : '';
+            var logoCanonico = (webInfo && webInfo.status === 'ok')
+                ? (webInfo.logo_url || webInfo.favicon_url || '')
+                : '';
             if (logoCanonico) {
                 img.onload = function () {
                     if (!img.naturalWidth || !img.naturalHeight) {
@@ -1224,6 +1259,7 @@
      * header e cai em iniciais quando falha.
      */
     function renderSiteEditor(cliente) {
+        var editor = $('#crm-v3-site-editor');
         var input = $('#crm-v3-site-input');
         var hint = $('#crm-v3-site-hint');
         var confirmar = $('#crm-v3-site-confirmar');
@@ -1231,16 +1267,12 @@
         var openA = $('#crm-v3-site-open');
         var img = $('#crm-v3-site-logo-img');
         var fallback = $('#crm-v3-site-logo-fallback');
+        var confirmed = $('#crm-v3-site-confirmed');
+        var confirmedDom = $('#crm-v3-site-confirmed-domain');
         if (!input || !confirmar) return;
 
-        var salvo = normalizarDominio(cliente && cliente.site_url);
+        var salvo = dominioConfirmado(cliente);
         var inferido = extrairDominioContato(cliente);
-        // Set/2026: além do placeholder, AUTO-PREENCHE o input com o
-        // domínio inferido quando não há site salvo. Assim o usuário
-        // vê o valor concreto (não uma dica cinza) e basta clicar
-        // Confirmar. `data-auto-fill` marca o valor como sugerido,
-        // para o handler de Confirmar diferenciar "usuário digitou"
-        // de "sugestão auto-preenchida".
         var valorEfetivo = salvo || inferido || '';
         input.value = valorEfetivo;
         input.placeholder = inferido
@@ -1248,35 +1280,33 @@
             : 'ex.: cliente.com.br';
         if (!salvo && inferido) {
             input.dataset.autoFill = inferido;
-            // Sub-linha visual: seleciona o texto para o usuário
-            // sobrescrever facilmente se quiser mudar.
             input.classList.add('is-auto-fill');
         } else {
             delete input.dataset.autoFill;
             input.classList.remove('is-auto-fill');
         }
 
-        // Estado de hint inicial.
+        if (editor) editor.classList.toggle('is-confirmed', !!salvo);
+        if (confirmed) confirmed.hidden = !salvo;
+        if (confirmedDom) confirmedDom.textContent = salvo || '';
+
         if (hint) {
             if (salvo) {
                 hint.className = 'crm-v3-site-hint crm-v3-site-hint-ok';
-                hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Salvo — logo aplicado nos cards e no header.';
+                hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Site confirmado — logo aplicado nos cards e no header.';
             } else if (inferido) {
                 hint.className = 'crm-v3-site-hint';
-                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato principal preenchida: <strong>' + escapeHtml(inferido) + '</strong>. Clique em Confirmar ou edite antes.';
-                // Pré-carrega o preview com a sugestão sem digitar.
+                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Sugestão do contato: <strong>' + escapeHtml(inferido) + '</strong>. Confirme ou edite.';
                 _atualizarPreviewSite(inferido, img, fallback, cliente);
             } else {
                 hint.className = 'crm-v3-site-hint';
-                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Informe o site do cliente para buscar o logo automaticamente.';
+                hint.innerHTML = '<i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Informe o domínio para aplicar o logo e buscar o site.';
             }
         }
 
-        // Preview inicial com o valor salvo (se houver).
         if (salvo) _atualizarPreviewSite(salvo, img, fallback, cliente);
         else if (!inferido) _mostrarSiteFallback(img, fallback, cliente);
 
-        // Botões: habilitados de acordo com o estado.
         confirmar.disabled = !salvo && !inferido;
         confirmar.dataset.mode = salvo ? 'update' : 'create';
         if (limpar) limpar.hidden = !salvo;
@@ -1378,21 +1408,35 @@
         img.alt = '';
         img.hidden = true;
 
+        var canonico = '';
+        if (cliente && cliente.web_logo_url) canonico = cliente.web_logo_url;
+        if (!canonico && cliente && state.webInfoCache) {
+            var wi = state.webInfoCache[cliente.id] || state.webInfoCache[String(cliente.id)];
+            if (wi && (wi.logo_url || wi.favicon_url)) canonico = wi.logo_url || wi.favicon_url;
+        }
+        if (canonico) {
+            img.onload = function () {
+                if (!img.naturalWidth) return;
+                img.hidden = false;
+                fallback.hidden = true;
+            };
+            img.onerror = function () { tentarCascata(); };
+            img.src = canonico;
+            return;
+        }
+
         var tentativa = 0;
-        function tentar() {
+        function tentarCascata() {
             var url = _proximaLogoUrl(d, tentativa);
             if (!url) {
-                // Esgotou — mantém iniciais.
                 img.hidden = true;
                 fallback.hidden = false;
                 return;
             }
             img.onload = function () {
-                // Alguns providers devolvem 200 com imagem de 0x0 quando
-                // não tem cobertura. Descarta e passa para a próxima.
                 if (!img.naturalWidth || !img.naturalHeight) {
                     tentativa++;
-                    tentar();
+                    tentarCascata();
                     return;
                 }
                 img.hidden = false;
@@ -1400,11 +1444,11 @@
             };
             img.onerror = function () {
                 tentativa++;
-                tentar();
+                tentarCascata();
             };
             img.src = url;
         }
-        tentar();
+        tentarCascata();
     }
 
     /* ================================================================
@@ -1433,41 +1477,57 @@
      *      logo após o cliente ganhar site.
      * ================================================================ */
 
+    function aplicarLogoLista(clienteId, info) {
+        if (!clienteId || !info) return;
+        var logo = info.logo_url || info.favicon_url || '';
+        var dominio = normalizarDominio(info.dominio);
+        (state.clientes || []).forEach(function (c) {
+            if (String(c.id) === String(clienteId)) {
+                if (logo) c.web_logo_url = logo;
+                if (dominio && !c.site_url) c.site_url = dominio;
+            }
+        });
+        if (state.cliente && String(state.cliente.id) === String(clienteId)) {
+            if (logo) state.cliente.web_logo_url = logo;
+            if (dominio && !state.cliente.site_url) state.cliente.site_url = dominio;
+        }
+    }
+
     function loadWebInfo(clienteId) {
         if (!clienteId) return;
-        // Se já temos em cache (usuário já abriu esse cliente antes
-        // nesta sessão), não refaz o GET — evita flicker no tab.
-        if (state.webInfoCache[clienteId]) {
-            renderWebInfo(state.webInfoCache[clienteId]);
-            updateTabBadgeWeb(state.webInfoCache[clienteId]);
+        var cacheKey = String(clienteId);
+        if (Object.prototype.hasOwnProperty.call(state.webInfoCache, cacheKey)
+            || Object.prototype.hasOwnProperty.call(state.webInfoCache, clienteId)) {
+            var cached = Object.prototype.hasOwnProperty.call(state.webInfoCache, cacheKey)
+                ? state.webInfoCache[cacheKey]
+                : state.webInfoCache[clienteId];
+            renderWebInfo(cached);
+            updateTabBadgeWeb(cached);
+            if (state.cliente) renderSiteEditor(state.cliente);
             return;
         }
-        // GET pode retornar 404 (sem cache ainda) — não é erro, é
-        // um estado esperado que o renderWebInfo lida com "no-cache"
-        // ou "empty" dependendo se o cliente tem site_url.
         api('/clientes/' + encodeURIComponent(clienteId) + '/web-info')
             .then(function (data) {
-                if (state.clienteId !== clienteId) return; // trocou
+                if (String(state.clienteId) !== String(clienteId)) return;
                 var info = (data && data.web_info) || null;
-                state.webInfoCache[clienteId] = info;
+                state.webInfoCache[cacheKey] = info;
+                aplicarLogoLista(clienteId, info);
                 renderWebInfo(info);
                 updateTabBadgeWeb(info);
-                // Se o web-info trouxe logo canônico, força re-render
-                // do header para trocar Clearbit → og:image. Cards da
-                // coluna 1 também se atualizam.
-                if (info && info.logo_url && state.cliente) {
-                    updateDetailPanel(state.cliente);
-                    renderClientes();
+                if (state.cliente) {
+                    renderSiteEditor(state.cliente);
+                    if (info && (info.logo_url || info.favicon_url)) {
+                        updateDetailPanel(state.cliente);
+                        renderClientes();
+                    }
                 }
             })
             .catch(function () {
-                if (state.clienteId !== clienteId) return;
-                // 404 (sem cache) ou erro de rede: renderiza sem info
-                // — o render decide o estado por si (empty se sem site,
-                // no-cache se tem site salvo).
-                state.webInfoCache[clienteId] = null;
+                if (String(state.clienteId) !== String(clienteId)) return;
+                state.webInfoCache[cacheKey] = null;
                 renderWebInfo(null);
                 updateTabBadgeWeb(null);
+                if (state.cliente) renderSiteEditor(state.cliente);
             });
     }
 
@@ -1487,19 +1547,28 @@
         // Troca para estado de loading enquanto o Firecrawl roda (pode
         // levar até ~10s dependendo do site).
         setWebTabState('loading');
+        var dominio = dominioConfirmado(state.cliente);
+        if (!dominio) {
+            var inp = $('#crm-v3-site-input');
+            dominio = normalizarDominio(inp && inp.value);
+        }
         api('/clientes/' + encodeURIComponent(cid) + '/web-info/refresh', {
             method: 'POST',
-            body: {}
+            body: { dominio: dominio }
         }).then(function (data) {
             if (state.clienteId !== cid) return;
             var info = (data && data.web_info) || null;
+            state.webInfoCache[String(cid)] = info;
             state.webInfoCache[cid] = info;
             renderWebInfo(info);
             updateTabBadgeWeb(info);
-            // Re-render header + cards se logo mudou.
-            if (info && info.logo_url && state.cliente) {
-                updateDetailPanel(state.cliente);
-                renderClientes();
+            aplicarLogoLista(cid, info);
+            if (state.cliente) {
+                renderSiteEditor(state.cliente);
+                if (info && (info.logo_url || info.favicon_url)) {
+                    updateDetailPanel(state.cliente);
+                    renderClientes();
+                }
             }
             if (info && info.status === 'ok') {
                 showToast('Informações do site atualizadas.');
@@ -1529,7 +1598,7 @@
         // Sem info: decide entre "empty" (sem site) e "no-cache" (com site).
         if (!info) {
             var cliente = state.cliente;
-            if (cliente && cliente.site_url) {
+            if (dominioConfirmado(cliente)) {
                 setWebTabState('no-cache');
             } else {
                 setWebTabState('empty');
@@ -1658,24 +1727,6 @@
 
         var btnNow = $('#crm-v3-web-fetch-now');
         if (btnNow) btnNow.addEventListener('click', atualizarWebInfo);
-
-        // CTA "Cadastrar site" no estado empty — rola até a seção
-        // "Site & logo" da aba Info (que já tem input de site).
-        var btnGoto = $('#crm-v3-web-goto-site');
-        if (btnGoto) {
-            btnGoto.addEventListener('click', function () {
-                // Volta pro tab Info.
-                var tabInfo = document.getElementById('tab-sidebar-info');
-                if (tabInfo) tabInfo.click();
-                // Rola até a seção "Site & logo".
-                setTimeout(function () {
-                    var target = document.getElementById('crm-v3-site-logo-section');
-                    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    var input = document.getElementById('crm-v3-site-input');
-                    if (input) setTimeout(function () { input.focus(); }, 400);
-                }, 100);
-            });
-        }
     }
 
 
@@ -1716,6 +1767,19 @@
             }
         });
 
+        var alterar = $('#crm-v3-site-alterar');
+        if (alterar) {
+            alterar.addEventListener('click', function () {
+                var editor = $('#crm-v3-site-editor');
+                var confirmed = $('#crm-v3-site-confirmed');
+                if (editor) editor.classList.remove('is-confirmed');
+                if (confirmed) confirmed.hidden = true;
+                confirmar.disabled = !normalizarDominio(input.value);
+                input.focus();
+                input.select();
+            });
+        }
+
         confirmar.addEventListener('click', function () {
             if (!state.clienteId) return;
             var dominio = normalizarDominio(input.value);
@@ -1732,25 +1796,20 @@
             }).then(function () {
                 // Atualiza o estado local + propaga em todos os pontos
                 // da página (header, cards, sidebar Info).
-                var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
+                var idx = state.clientes.findIndex(function (c) { return String(c.id) === String(state.clienteId); });
                 if (idx >= 0) state.clientes[idx].site_url = dominio;
-                if (hint) {
-                    hint.className = 'crm-v3-site-hint crm-v3-site-hint-ok';
-                    hint.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Site salvo — logo aplicado no header e nos cards.';
+                if (state.cliente) state.cliente.site_url = dominio;
+                var cliente = state.cliente || state.clientes[idx];
+                if (cliente) {
+                    renderSiteEditor(cliente);
+                    updateDetailPanel(cliente);
                 }
-                if (limpar) limpar.hidden = false;
-                // Reaproveita a rotina padrão do detail panel para
-                // atualizar o avatar do header (mesma fonte de verdade).
-                var cliente = state.clientes[idx];
-                if (cliente) updateDetailPanel(cliente);
-                // Re-render dos cards da coluna 1 para o logo aparecer lá.
                 renderClientes();
                 showToast('Site do cliente atualizado.');
-                // Fase B (set/2026): dispara scrape do Firecrawl em
-                // background para popular a aba Web + trocar o logo
-                // Clearbit por og:image canônico. Invalida qualquer
-                // cache antigo primeiro (o domínio mudou).
-                if (state.webInfoCache) delete state.webInfoCache[state.clienteId];
+                if (state.webInfoCache) {
+                    delete state.webInfoCache[state.clienteId];
+                    delete state.webInfoCache[String(state.clienteId)];
+                }
                 if (typeof atualizarWebInfo === 'function') {
                     atualizarWebInfo();
                 }
@@ -1771,10 +1830,25 @@
                     method: 'PATCH',
                     body: { site_url: '' }
                 }).then(function () {
-                    var idx = state.clientes.findIndex(function (c) { return c.id === state.clienteId; });
-                    if (idx >= 0) state.clientes[idx].site_url = '';
-                    var cliente = state.clientes[idx];
-                    if (cliente) updateDetailPanel(cliente);
+                    var idx = state.clientes.findIndex(function (c) { return String(c.id) === String(state.clienteId); });
+                    if (idx >= 0) {
+                        state.clientes[idx].site_url = '';
+                        state.clientes[idx].web_logo_url = '';
+                    }
+                    if (state.cliente) {
+                        state.cliente.site_url = '';
+                        state.cliente.web_logo_url = '';
+                    }
+                    if (state.webInfoCache) {
+                        delete state.webInfoCache[state.clienteId];
+                        delete state.webInfoCache[String(state.clienteId)];
+                    }
+                    var cliente = state.cliente || state.clientes[idx];
+                    if (cliente) {
+                        renderSiteEditor(cliente);
+                        updateDetailPanel(cliente);
+                        renderWebInfo(null);
+                    }
                     renderClientes();
                     showToast('Site removido.');
                 }).catch(function (err) {
@@ -1809,76 +1883,25 @@
         if (!avatar) return;
         avatar.addEventListener('click', function (ev) {
             ev.preventDefault();
-            // Precisa de um cliente selecionado — sem isso não faz sentido.
             if (!state.clienteId) return;
-
-            // 1) Ativa a aba "Info" (usa o mesmo mecanismo dos botões
-            //    role=tab que o CRM v3 usa em outros pontos).
-            var tabInfo = document.querySelector('[data-panel-group="sidebar"][data-panel="info"]');
-            var btnInfo = document.querySelector('[role="tab"][data-tab="info"]');
-            if (btnInfo && btnInfo.getAttribute('aria-selected') !== 'true') {
-                btnInfo.click();
-            }
-
+            var btnWeb = document.getElementById('tab-sidebar-web')
+                || document.querySelector('[role="tab"][data-tab="web"]');
+            if (btnWeb) btnWeb.click();
             var target = $('#crm-v3-site-logo-section');
-            if (!target) return;
-
-            // O container que ROLA é `.crm-v3-sidebar-body` (o
-            // `#crm-v3-sidebar` externo tem `overflow: hidden`).
-            // Fallback: sobe pelos ancestrais buscando um elemento
-            // com scroll vertical real.
-            var scroller = target.closest('.crm-v3-sidebar-body')
-                || document.querySelector('.crm-v3-sidebar-body');
-            if (!scroller) {
-                // Fallback defensivo: percorre ancestrais e pega o
-                // primeiro com overflow-y auto/scroll.
-                var el = target.parentElement;
-                while (el && el !== document.body) {
-                    var oy = getComputedStyle(el).overflowY;
-                    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
-                        scroller = el;
-                        break;
-                    }
-                    el = el.parentElement;
-                }
+            if (target) {
+                target.classList.remove('crm-v3-site-logo-flash');
+                void target.offsetWidth;
+                target.classList.add('crm-v3-site-logo-flash');
+                var scroller = target.closest('.crm-v3-sidebar-panel-wrap')
+                    || document.querySelector('.crm-v3-sidebar-panel-wrap');
+                if (scroller && scroller.scrollTo) scroller.scrollTo({ top: 0, behavior: 'smooth' });
             }
-
-            // 2) Scroll — prioriza o container da sidebar; fallback é o
-            //    scrollIntoView padrão (funciona em qualquer container).
-            try {
-                if (scroller && typeof scroller.scrollTo === 'function') {
-                    // Offset relativo ao container real (soma dos offsets
-                    // de todos os pais até o scroller).
-                    var top = 0, node = target;
-                    while (node && node !== scroller) {
-                        top += node.offsetTop || 0;
-                        node = node.offsetParent;
-                    }
-                    scroller.scrollTo({ top: Math.max(0, top - 12), behavior: 'smooth' });
-                } else {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            } catch (_) {
-                // Ambientes sem suporte a scrollTo com options:
-                if (target.scrollIntoView) target.scrollIntoView();
+            if (!dominioConfirmado(state.cliente)) {
+                setTimeout(function () {
+                    var input = $('#crm-v3-site-input');
+                    if (input) input.focus();
+                }, 200);
             }
-
-            // 3) Flash visual para o usuário perceber onde caiu.
-            target.classList.remove('crm-v3-site-logo-flash');
-            // Trick de reflow para reiniciar a animação se clicar de novo.
-            // eslint-disable-next-line no-unused-expressions
-            void target.offsetWidth;
-            target.classList.add('crm-v3-site-logo-flash');
-
-            // 4) Foco no input após o scroll assentar. 600ms é folgado —
-            //    animações do Chrome/Firefox terminam em ~400ms.
-            setTimeout(function () {
-                var input = $('#crm-v3-site-input');
-                if (input) {
-                    input.focus();
-                    input.select();
-                }
-            }, 600);
         });
     }
 
@@ -1918,10 +1941,11 @@
         }
 
         var isAgencia = !!cliente.is_agencia;
-        var agenciaId = cliente.agencia_id;
-        var agenciaNome = cliente.agencia_nome;
-        // Resolver por id se não veio nome
-        if (agenciaId && !agenciaNome && Array.isArray(state.clientes)) {
+        var vinculos = Array.isArray(cliente.agencias_vinculadas) ? cliente.agencias_vinculadas : [];
+        var principal = vinculos.filter(function (v) { return v && v.is_principal; })[0] || vinculos[0];
+        var agenciaId = (principal && principal.agencia_id) || '';
+        var agenciaNome = (principal && principal.nome) || '';
+        if (!agenciaNome && agenciaId && Array.isArray(state.clientes)) {
             var pai = state.clientes.find(function (c) { return c.id === agenciaId; });
             if (pai) agenciaNome = pai.nome;
         }
@@ -2229,7 +2253,9 @@
                 ativIconHtml(a.tipo) +
                 '<div class="crm-v3-ativ-content">' +
                     '<div class="crm-v3-ativ-titulo" data-editable="titulo" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.titulo) + '</div>' +
-                    (a.descricao ? '<div class="crm-v3-ativ-desc" data-editable="descricao" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.descricao) + '</div>' : '') +
+                    (a.descricao && normalizarTitulo(a.descricao) !== normalizarTitulo(a.titulo)
+                        ? '<div class="crm-v3-ativ-desc" data-editable="descricao" data-atividade-id="' + escapeHtml(a.id) + '">' + escapeHtml(a.descricao) + '</div>'
+                        : '') +
                 '</div>' +
                 (quando ? '<span class="crm-v3-ativ-when" title="' + escapeHtml(quando) + '">' + escapeHtml(quando) + '</span>' : '') +
                 (responsavel ? '<div class="crm-v3-avatar-mini crm-v3-ativ-owner" title="' + escapeHtml(responsavel) + '">' + escapeHtml(avatarIniciais(responsavel)) + '</div>' : '') +
@@ -2330,26 +2356,24 @@
      * humano (o executivo pode ajustar o título antes de commitar).
      * ------------------------------------------------------------------ */
     var QUICK_ATIV_SUGGESTIONS = [
-        // Ações padrão do funil comercial
-        { titulo: 'Ligar para apresentar propostas', tipo: 'ligacao', icon: 'fa-solid fa-phone', hint: 'Hoje' },
-        { titulo: 'Enviar e-mail de acompanhamento', tipo: 'atividade', icon: 'fa-regular fa-envelope', hint: 'Hoje' },
-        { titulo: 'Agendar reunião de descoberta', tipo: 'reuniao', icon: 'fa-solid fa-users', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Preparar proposta comercial', tipo: 'planejamento', icon: 'fa-solid fa-diagram-project', hint: 'Amanhã', daysAhead: 1 },
-        // Apresentações de parceiros/canais
-        { titulo: 'Apresentar Netflix', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Serasa', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Logan', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Uber', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar iFood', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar 99', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Amazon', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Disney', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar HBO', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Esta semana', daysAhead: 3 },
-        // Institucional CentralComm
-        { titulo: 'Apresentar a CentralComm', tipo: 'reuniao', icon: 'fa-solid fa-building', hint: 'Esta semana', daysAhead: 3 },
-        // Eventos e relacionamento
-        { titulo: 'Agendar café da manhã interativo', tipo: 'reuniao', icon: 'fa-solid fa-mug-hot', hint: 'Esta semana', daysAhead: 5 },
-        { titulo: 'Convidar para o Media Hacks Training 2026', tipo: 'atividade', icon: 'fa-solid fa-graduation-cap', hint: 'Este mês', daysAhead: 14 }
+        // Canais / marcas — uma linha cada, título curto (o cliente já está selecionado)
+        { titulo: 'Apresentar Netflix', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Serasa', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Logan', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Uber', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar iFood', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar 99', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Amazon', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Disney', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar HBO', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar a CentralComm', tipo: 'reuniao', icon: 'fa-solid fa-building', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Agendar café da manhã interativo', tipo: 'reuniao', icon: 'fa-solid fa-mug-hot', hint: 'Evento · esta semana', daysAhead: 5 },
+        { titulo: 'Convidar para o Media Hacks Training 2026', tipo: 'atividade', icon: 'fa-solid fa-graduation-cap', hint: 'Convite · este mês', daysAhead: 14 },
+        // Funil — no fim, para não esconder as marcas depois da 1ª atividade
+        { titulo: 'Ligar para apresentar propostas', tipo: 'ligacao', icon: 'fa-solid fa-phone', hint: 'Ligação · hoje' },
+        { titulo: 'Enviar e-mail de acompanhamento', tipo: 'atividade', icon: 'fa-regular fa-envelope', hint: 'E-mail · hoje' },
+        { titulo: 'Agendar reunião de descoberta', tipo: 'reuniao', icon: 'fa-solid fa-users', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Preparar proposta comercial', tipo: 'planejamento', icon: 'fa-solid fa-diagram-project', hint: 'Planejamento · amanhã', daysAhead: 1 }
     ];
 
     /**
@@ -2368,26 +2392,15 @@
      * A comparação é feita pelo título base (sem {cliente}).
      */
     function getSuggestionsForClient() {
-        var atividades = state.atividades || [];
-        var usados = atividades.map(function (a) {
-            return normalizarTitulo(a.titulo);
+        var usados = (state.atividades || []).map(function (a) {
+            return normalizarTitulo((a.titulo || '') + ' ' + (a.descricao || ''));
         });
 
-        var clienteNome = state.cliente ? state.cliente.nome : '';
-
         return QUICK_ATIV_SUGGESTIONS.filter(function (s) {
-            // Título base para comparação (sem o nome do cliente)
             var tituloBase = normalizarTitulo(s.titulo);
-            // Também verifica com nome do cliente anexado
-            var tituloComCliente = clienteNome
-                ? normalizarTitulo(s.titulo + ' - ' + clienteNome)
-                : tituloBase;
-
-            // Se qualquer variação já foi usada, filtra fora
-            var jaUsado = usados.some(function (usado) {
-                return usado.indexOf(tituloBase) !== -1 || usado === tituloComCliente;
+            return !usados.some(function (usado) {
+                return usado.indexOf(tituloBase) !== -1;
             });
-            return !jaUsado;
         });
     }
 
@@ -2399,16 +2412,13 @@
      *   - false (empty state): heading grande "Sugestões rápidas — clique
      *     para começar" com ícone, mostra TODAS as sugestões disponíveis.
      *   - true (rodapé da coluna quando o cliente já tem atividades):
-     *     heading pequeno "Próximos passos", limita a 4 sugestões para
-     *     não poluir. O objetivo é sempre lembrar o executivo do próximo
-     *     touchpoint possível — "sempre teremos o que fazer com um
-     *     cliente" (set/2026).
+     *     heading pequeno "Próximos passos", lista em uma coluna as
+     *     sugestões ainda não usadas (marcas + eventos + funil).
      */
     function renderQuickAtividadesHTML(opts) {
         opts = opts || {};
         var compact = !!opts.compact;
         var sugestoes = getSuggestionsForClient();
-        var clienteNome = state.cliente ? state.cliente.nome : '';
 
         if (!sugestoes.length) {
             // Filtro removeu tudo (raro — só quando o cliente fez
@@ -2426,40 +2436,45 @@
             );
         }
 
-        // Limite: 4 no modo compacto (não competir com atividades reais);
-        // todas no empty state (é a única coisa na tela, então destaque).
-        if (compact) sugestoes = sugestoes.slice(0, 4);
+        var VISIVEIS = 5;
+        var total = sugestoes.length;
+        var visiveis = sugestoes.slice(0, VISIVEIS);
+        var resto = Math.max(0, total - visiveis.length);
 
-        var cards = sugestoes.map(function (s) {
-            var tituloDisplay = s.titulo;
-            if (clienteNome) {
-                tituloDisplay = s.titulo + ' - ' + clienteNome;
-            }
+        var cards = visiveis.map(function (s) {
             return (
                 '<button type="button" class="crm-v3-quick-ativ" data-suggestion-titulo="' + escapeHtml(s.titulo) + '"' +
                 ' data-suggestion-tipo="' + escapeHtml(s.tipo) + '"' +
                 ' data-suggestion-days="' + (s.daysAhead || 0) + '"' +
-                ' aria-label="' + escapeHtml(tituloDisplay) + '">' +
+                ' title="' + escapeHtml(s.titulo) + '"' +
+                ' aria-label="' + escapeHtml(s.titulo) + '">' +
                 '<span class="crm-v3-quick-ativ-icon"><i class="' + s.icon + '" aria-hidden="true"></i></span>' +
                 '<span class="crm-v3-quick-ativ-body">' +
-                '<span class="crm-v3-quick-ativ-title">' + escapeHtml(tituloDisplay) + '</span>' +
+                '<span class="crm-v3-quick-ativ-title">' + escapeHtml(s.titulo) + '</span>' +
                 '<span class="crm-v3-quick-ativ-hint">' + escapeHtml(s.hint) + '</span>' +
                 '</span>' +
                 '<i class="fa-solid fa-arrow-right crm-v3-quick-ativ-arrow" aria-hidden="true"></i>' +
                 '</button>'
             );
         }).join('');
+        var more = resto
+            ? '<button type="button" class="crm-v3-quick-ativ-more" data-open-sugestoes="1">' +
+              'Ver mais ' + resto + ' sugestões' +
+              '</button>'
+            : '<button type="button" class="crm-v3-quick-ativ-more" data-open-sugestoes="1">' +
+              'Ver todas as sugestões' +
+              '</button>';
 
         if (compact) {
-            // Rodapé discreto: separador + heading pequeno + grid 2 colunas.
             return (
                 '<div class="crm-v3-ativ-empty-suggest is-compact">' +
                 '<div class="crm-v3-ativ-empty-heading is-compact">' +
                     '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
                     '<span>Próximos passos sugeridos</span>' +
-                    '<span class="crm-v3-quick-ativ-count">' + sugestoes.length + '</span>' +
+                    '<span class="crm-v3-quick-ativ-count">' + total + '</span>' +
                 '</div>' +
                 '<div class="crm-v3-quick-ativ-grid is-compact">' + cards + '</div>' +
+                more +
                 '</div>'
             );
         }
@@ -2468,30 +2483,48 @@
             '<div class="crm-v3-ativ-empty-suggest">' +
             '<div class="crm-v3-ativ-empty-heading">' +
                 '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
-                '<span>Sugestões rápidas — clique para começar</span>' +
+                '<span>Próximos passos sugeridos</span>' +
             '</div>' +
             '<div class="crm-v3-quick-ativ-grid">' + cards + '</div>' +
+            more +
             '</div>'
         );
     }
 
     function bindQuickAtividades(root) {
+        $$('[data-open-sugestoes]', root).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (window.crmV3Drawer && typeof window.crmV3Drawer.openSugestoes === 'function') {
+                    window.crmV3Drawer.openSugestoes(state.clienteId);
+                }
+            });
+        });
+
         var titulo = $('#crm-v3-composer-titulo');
         var tipoBtn = $('#crm-v3-composer-tipo');
         var dataInput = $('#crm-v3-composer-data');
         if (!titulo || !tipoBtn) return;
-
-        var clienteNome = state.cliente ? state.cliente.nome : '';
 
         $$('.crm-v3-quick-ativ', root).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var sTitulo = btn.getAttribute('data-suggestion-titulo') || '';
                 var sTipo = btn.getAttribute('data-suggestion-tipo') || 'atividade';
                 var sDays = parseInt(btn.getAttribute('data-suggestion-days') || '0', 10);
+                var d = new Date();
+                d.setDate(d.getDate() + sDays);
+                var dataISO = d.toISOString().slice(0, 10);
 
-                // Título personalizado com nome do cliente
-                var tituloFinal = clienteNome ? sTitulo + ' - ' + clienteNome : sTitulo;
-                titulo.value = tituloFinal;
+                if (window.crmV3Drawer && typeof window.crmV3Drawer.openAtividade === 'function') {
+                    window.crmV3Drawer.openAtividade({
+                        titulo: sTitulo,
+                        tipo: sTipo,
+                        data: dataISO,
+                        status: 'pendente'
+                    }, state.clienteId, { gerarRoteiro: true });
+                    return;
+                }
+
+                titulo.value = sTitulo;
 
                 // Sincroniza o botão de tipo (mesma sequência do composer).
                 var tipos = ['atividade', 'ligacao', 'reuniao', 'doc', 'planejamento'];
@@ -3299,13 +3332,16 @@
         api('/clientes/' + encodeURIComponent(clienteId)).then(function (data) {
             if (state.clienteId !== clienteId) return; // trocou enquanto carregava
             if (data && data.cliente) {
-                // Merge: preserva campos do listing (métricas agregadas) e
-                // sobrescreve com os campos ricos do detalhe.
+                var prevSite = state.cliente && state.cliente.site_url;
+                var prevLogo = state.cliente && state.cliente.web_logo_url;
                 state.cliente = Object.assign({}, state.cliente || {}, data.cliente);
-                // Atualiza também na lista para próximos re-renders.
-                var idx = state.clientes.findIndex(function (c) { return c.id === clienteId; });
+                if (!state.cliente.site_url && prevSite) state.cliente.site_url = prevSite;
+                if (!state.cliente.web_logo_url && prevLogo) state.cliente.web_logo_url = prevLogo;
+                var idx = state.clientes.findIndex(function (c) { return String(c.id) === String(clienteId); });
                 if (idx !== -1) state.clientes[idx] = state.cliente;
                 updateDetailPanel(state.cliente);
+                var cachedWeb = state.webInfoCache[String(clienteId)] || state.webInfoCache[clienteId];
+                if (cachedWeb !== undefined) renderWebInfo(cachedWeb);
             }
         }).catch(function () { /* já temos um cliente base do listing */ });
         loadContatos(clienteId);
@@ -4403,6 +4439,16 @@
     function restoreFiltros() {
         var sess = loadSession();
         if (sess.filtroPill) state.filtroPill = sess.filtroPill;
+        if (sess.filtroSecundario != null) state.filtroSecundario = sess.filtroSecundario;
+        // Sessões antigas gravavam atrasado/sem-atividade/arquivo em filtroPill.
+        if (state.filtroPill === 'todos') state.filtroPill = 'classif-ativo';
+        if (state.filtroPill === 'atrasado' || state.filtroPill === 'sem-atividade' || state.filtroPill === 'arquivo') {
+            state.filtroSecundario = state.filtroPill;
+            state.filtroPill = 'classif-ativo';
+        }
+        if (state.filtroPill !== 'classif-ativo' && state.filtroPill !== 'classif-prospeccao') {
+            state.filtroPill = 'classif-ativo';
+        }
         if (sess.filtroTipo != null) state.filtroTipo = sess.filtroTipo;
         if (sess.filtroPerfil != null) state.filtroPerfil = sess.filtroPerfil;
 
@@ -4440,7 +4486,11 @@
         if (tipo && state.filtroTipo) tipo.value = state.filtroTipo;
         if (perfil && state.filtroPerfil) perfil.value = state.filtroPerfil;
         $$('.crm-v3-pill').forEach(function (p) {
-            var active = p.getAttribute('data-filter') === state.filtroPill;
+            var f = p.getAttribute('data-filter');
+            var isClassif = f === 'classif-ativo' || f === 'classif-prospeccao';
+            var active = isClassif
+                ? (f === state.filtroPill && state.filtroSecundario !== 'arquivo')
+                : (f === state.filtroSecundario);
             p.classList.toggle('is-active', active);
             p.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
@@ -4449,16 +4499,23 @@
     function initFilters() {
         $$('.crm-v3-pill').forEach(function (pill) {
             pill.addEventListener('click', function () {
-                $$('.crm-v3-pill').forEach(function (p) {
-                    p.classList.remove('is-active');
-                    p.setAttribute('aria-pressed', 'false');
-                });
-                pill.classList.add('is-active');
-                pill.setAttribute('aria-pressed', 'true');
-                state.filtroPill = pill.getAttribute('data-filter') || 'todos';
+                var f = pill.getAttribute('data-filter') || 'classif-ativo';
+                var isClassif = f === 'classif-ativo' || f === 'classif-prospeccao';
+                if (isClassif) {
+                    state.filtroPill = f;
+                    if (state.filtroSecundario === 'arquivo') state.filtroSecundario = '';
+                } else if (state.filtroSecundario === f) {
+                    state.filtroSecundario = '';
+                } else {
+                    state.filtroSecundario = f;
+                }
                 state.paginaCliente = 1;
+                syncFiltrosParaDom();
                 renderClientes();
-                saveSession({ filtroPill: state.filtroPill });
+                saveSession({
+                    filtroPill: state.filtroPill,
+                    filtroSecundario: state.filtroSecundario
+                });
             });
         });
 
@@ -4522,7 +4579,8 @@
 
         var limpar = $('#crm-v3-btn-limpar-filtros');
         if (limpar) limpar.addEventListener('click', function () {
-            state.filtroPill = 'todos';
+            state.filtroPill = 'classif-ativo';
+            state.filtroSecundario = '';
             state.filtroExecutivo = '';
             state.filtroTipo = '';
             state.filtroPerfil = '';
@@ -4532,17 +4590,14 @@
             $('#filtro-executivo').value = '';
             $('#filtro-tipo').value = '';
             $('#filtro-perfil').value = '';
-            $$('.crm-v3-pill').forEach(function (pill) {
-                var active = pill.getAttribute('data-filter') === 'todos';
-                pill.classList.toggle('is-active', active);
-                pill.setAttribute('aria-pressed', active ? 'true' : 'false');
-            });
+            syncFiltrosParaDom();
             // Persistir "limpar filtros" no localStorage: caso contrário
             // o boot da próxima sessão restauraria o executivo/tipo/perfil
             // antigos e o usuário teria que limpar de novo. Escolha
             // explícita do usuário sempre ganha do auto-select (data-eu).
             saveSession({
-                filtroPill: 'todos',
+                filtroPill: 'classif-ativo',
+                filtroSecundario: '',
                 filtroExecutivo: '',
                 filtroTipo: '',
                 filtroPerfil: ''
@@ -4938,6 +4993,7 @@
             if (clienteIdParaSelecionar) state.clienteId = clienteIdParaSelecionar;
             return loadClientes();
         },
+        getQuickSuggestions: getSuggestionsForClient,
         reloadAtividades: function () {
             if (!state.clienteId) return Promise.resolve();
             return loadAtividades(state.clienteId);

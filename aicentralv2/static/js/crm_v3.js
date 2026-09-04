@@ -31,7 +31,17 @@
         clientesPorPagina: 40,
         importRows: [],
         pendingObjetivoId: null,
-        overlayTimer: null
+        overlayTimer: null,
+        // Cache do web-info por cliente. Chave = clienteId, valor =
+        // registro do endpoint /web-info. Guardamos aqui para:
+        //   (1) evitar refetch quando o usuário alterna entre tabs
+        //       Info/Obj/Web do mesmo cliente;
+        //   (2) usar o `logo_url` (og:image real) no header/cards no
+        //       lugar da cascata frágil de favicons (Clearbit/Google).
+        // Invalidação: qualquer POST /web-info/refresh substitui a
+        // entrada. Trocar de cliente na coluna 1 não invalida (o
+        // dicionário é por clienteId).
+        webInfoCache: {}
     };
 
     /* ------------------------------------------------------------------
@@ -230,21 +240,32 @@
         return (nome || '?').slice(0, 2).toUpperCase();
     }
 
-    function avatarHtml(nome, sizeClass, dominio) {
+    function avatarHtml(nome, sizeClass, dominio, clienteId) {
         sizeClass = sizeClass || 'w-7 h-7';
         var tone = avatarTone(nome);
         var ini = avatarIniciais(nome);
         var bg = tone === 'primary' ? 'bg-primary text-primary-content' : 'bg-neutral text-neutral-content';
-        // Se recebermos um domínio, emitimos um <img> que fica hidden
-        // por default e só aparece se o Clearbit carregar de fato
-        // (onload). Se der 404 (onerror), some e as iniciais permanecem.
-        // Alt vazio para não vazar texto dentro do círculo.
+        // Fase B (set/2026): se o clienteId foi passado e temos o
+        // web_info em cache com logo_url canônico (og:image real do
+        // site), usamos ele como fonte primária no <img>. Fallback
+        // permanece Clearbit (caso o link do og:image tenha quebrado
+        // desde o scrape ou o cache ainda não foi carregado).
         var dominioClean = normalizarDominio(dominio);
+        var srcPrincipal = '';
+        if (clienteId && state.webInfoCache && state.webInfoCache[clienteId]) {
+            var wi = state.webInfoCache[clienteId];
+            if (wi && wi.status === 'ok' && wi.logo_url) srcPrincipal = wi.logo_url;
+        }
+        if (!srcPrincipal && dominioClean) {
+            srcPrincipal = 'https://logo.clearbit.com/' + dominioClean;
+        }
         var imgHtml = '';
-        if (dominioClean) {
+        if (srcPrincipal) {
+            // Alt vazio: se a imagem falhar, o browser não mostra texto
+            // dentro do círculo (bug antigo do "ogo" vindo do alt).
             imgHtml =
                 '<img class="crm-v3-card-logo" alt="" hidden ' +
-                'src="https://logo.clearbit.com/' + escapeHtml(dominioClean) + '" ' +
+                'src="' + escapeHtml(srcPrincipal) + '" ' +
                 'onload="if(this.naturalWidth){this.hidden=false;this.previousElementSibling&&(this.previousElementSibling.style.display=\'none\')}" ' +
                 'onerror="this.hidden=true" />';
         }
@@ -643,7 +664,7 @@
                 ' data-status="' + escapeHtml(c.status) + '"' +
                 ' data-classificacao="' + escapeHtml(classificacao) + '"' +
                 ' aria-current="' + (ativo ? 'page' : 'false') + '">' +
-                avatarHtml(c.nome, 'w-7 h-7', c.site_url) +
+                avatarHtml(c.nome, 'w-7 h-7', c.site_url, c.id) +
                 '<div class="crm-v3-cliente-info min-w-0 flex-1">' +
                 '<div class="crm-v3-cliente-headline">' +
                 (icones.length ? '<span class="crm-v3-cliente-icones">' + icones.join('') + '</span>' : '') +
@@ -892,36 +913,30 @@
             img.alt = '';
             // Prioriza site_url salvo; fallback = e-mail do contato principal.
             var dominio = dominioParaLogo(cliente);
-            if (dominio) {
-                // Cascata Clearbit → Google Favicons → DuckDuckGo (mesma
-                // lógica da preview em Site & logo). Antes usávamos só
-                // Clearbit e caía em iniciais para clientes fora do
-                // catálogo global (a maioria dos nossos). Ver
-                // `_proximaLogoUrl` para o rationale completo.
-                var tentativa = 0;
-                var tentarHeader = function () {
-                    var url = _proximaLogoUrl(dominio, tentativa);
-                    if (!url) {
-                        img.hidden = true;
-                        if (av) av.hidden = false;
+            // Fase B (set/2026): antes de cair na cascata frágil de
+            // favicons (Clearbit / Google / DDG), tenta o logo canônico
+            // (og:image) que a aba Web já cacheou em cliente_web_info.
+            // Esse é o logo que o próprio cliente publica para redes
+            // sociais — muito mais confiável que favicon pixelado.
+            var webInfo = state.webInfoCache[cliente.id];
+            var logoCanonico = (webInfo && webInfo.status === 'ok') ? (webInfo.logo_url || '') : '';
+            if (logoCanonico) {
+                img.onload = function () {
+                    if (!img.naturalWidth || !img.naturalHeight) {
+                        // Logo cacheado falhou por algum motivo (link
+                        // quebrou depois do scrape). Cai na cascata.
+                        _tentarCascataHeaderLogo(dominio, img, av);
                         return;
                     }
-                    img.onload = function () {
-                        if (!img.naturalWidth || !img.naturalHeight) {
-                            tentativa++;
-                            tentarHeader();
-                            return;
-                        }
-                        img.hidden = false;
-                        if (av) av.hidden = true;
-                    };
-                    img.onerror = function () {
-                        tentativa++;
-                        tentarHeader();
-                    };
-                    img.src = url;
+                    img.hidden = false;
+                    if (av) av.hidden = true;
                 };
-                tentarHeader();
+                img.onerror = function () {
+                    _tentarCascataHeaderLogo(dominio, img, av);
+                };
+                img.src = logoCanonico;
+            } else if (dominio) {
+                _tentarCascataHeaderLogo(dominio, img, av);
             }
             // Sem domínio → simplesmente mantém a imagem escondida e as
             // iniciais visíveis (default acima).
@@ -1176,6 +1191,46 @@
         }
     }
 
+    /**
+     * Cascata para o avatar do header (Clearbit → Google → DDG).
+     *
+     * Fase B (set/2026): esse fluxo virou o *fallback* de última hora,
+     * usado só quando não temos web_info.logo_url em cache (og:image
+     * do próprio site do cliente). O caminho quente agora usa o logo
+     * canônico direto do scrape; essa cascata cobre casos onde a aba
+     * Web ainda não foi buscada.
+     *
+     * Extraído de dentro de updateDetailPanel para permitir reuso
+     * pelo hook "logo cacheado quebrou" (link do og:image expirou etc.).
+     */
+    function _tentarCascataHeaderLogo(dominio, img, av) {
+        if (!dominio || !img) return;
+        var tentativa = 0;
+        var tentar = function () {
+            var url = _proximaLogoUrl(dominio, tentativa);
+            if (!url) {
+                img.hidden = true;
+                if (av) av.hidden = false;
+                return;
+            }
+            img.onload = function () {
+                if (!img.naturalWidth || !img.naturalHeight) {
+                    tentativa++;
+                    tentar();
+                    return;
+                }
+                img.hidden = false;
+                if (av) av.hidden = true;
+            };
+            img.onerror = function () {
+                tentativa++;
+                tentar();
+            };
+            img.src = url;
+        };
+        tentar();
+    }
+
     function _atualizarPreviewSite(dominio, img, fallback, cliente) {
         var d = normalizarDominio(dominio);
         if (!d) { _mostrarSiteFallback(img, fallback, cliente); return; }
@@ -1212,6 +1267,278 @@
         }
         tentar();
     }
+
+    /* ================================================================
+     * Aba Web — Fase B (set/2026)
+     * ----------------------------------------------------------------
+     * Consome os endpoints `/crm-v3/api/clientes/<id>/web-info` (GET
+     * e /refresh POST) que servem dados da tabela `cliente_web_info`,
+     * populada por scrape do site do cliente via Firecrawl. Objetivo:
+     * substituir a cascata frágil de favicons genéricos (Clearbit /
+     * Google / DDG) — que devolvia globos azuis para clientes fora
+     * do catálogo global — por og:image real do próprio site do
+     * cliente, além de mostrar título, descrição e menu principal
+     * numa aba dedicada da sidebar.
+     *
+     * Fluxo:
+     *   1. selectCliente() dispara loadWebInfo(id) em paralelo com
+     *      os outros loads (contatos, atividades, cotações, notas).
+     *   2. Resposta é guardada em state.webInfoCache[clienteId].
+     *   3. renderWebInfo() é chamado tanto pelo load quanto quando
+     *      o usuário clica no tab Web (bindTabWeb).
+     *   4. updateDetailPanel usa webInfoCache[id].logo_url como
+     *      primeira tentativa para o avatar do header — só cai na
+     *      cascata favicon se web_info não tem logo canônico.
+     *   5. Confirmar site em "Site & logo" (bindSiteEditor) dispara
+     *      atualizarWebInfo() automaticamente para popular o cache
+     *      logo após o cliente ganhar site.
+     * ================================================================ */
+
+    function loadWebInfo(clienteId) {
+        if (!clienteId) return;
+        // Se já temos em cache (usuário já abriu esse cliente antes
+        // nesta sessão), não refaz o GET — evita flicker no tab.
+        if (state.webInfoCache[clienteId]) {
+            renderWebInfo(state.webInfoCache[clienteId]);
+            updateTabBadgeWeb(state.webInfoCache[clienteId]);
+            return;
+        }
+        // GET pode retornar 404 (sem cache ainda) — não é erro, é
+        // um estado esperado que o renderWebInfo lida com "no-cache"
+        // ou "empty" dependendo se o cliente tem site_url.
+        api('/clientes/' + encodeURIComponent(clienteId) + '/web-info')
+            .then(function (data) {
+                if (state.clienteId !== clienteId) return; // trocou
+                var info = (data && data.web_info) || null;
+                state.webInfoCache[clienteId] = info;
+                renderWebInfo(info);
+                updateTabBadgeWeb(info);
+                // Se o web-info trouxe logo canônico, força re-render
+                // do header para trocar Clearbit → og:image. Cards da
+                // coluna 1 também se atualizam.
+                if (info && info.logo_url && state.cliente) {
+                    updateDetailPanel(state.cliente);
+                    renderClientes();
+                }
+            })
+            .catch(function () {
+                if (state.clienteId !== clienteId) return;
+                // 404 (sem cache) ou erro de rede: renderiza sem info
+                // — o render decide o estado por si (empty se sem site,
+                // no-cache se tem site salvo).
+                state.webInfoCache[clienteId] = null;
+                renderWebInfo(null);
+                updateTabBadgeWeb(null);
+            });
+    }
+
+    function atualizarWebInfo() {
+        var cid = state.clienteId;
+        if (!cid) return;
+        var btn = $('#crm-v3-web-refresh');
+        var btnNow = $('#crm-v3-web-fetch-now');
+        var origHTML = btn ? btn.innerHTML : '';
+        [btn, btnNow].forEach(function (b) {
+            if (!b) return;
+            b.disabled = true;
+        });
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Buscando…';
+        }
+        // Troca para estado de loading enquanto o Firecrawl roda (pode
+        // levar até ~10s dependendo do site).
+        setWebTabState('loading');
+        api('/clientes/' + encodeURIComponent(cid) + '/web-info/refresh', {
+            method: 'POST',
+            body: {}
+        }).then(function (data) {
+            if (state.clienteId !== cid) return;
+            var info = (data && data.web_info) || null;
+            state.webInfoCache[cid] = info;
+            renderWebInfo(info);
+            updateTabBadgeWeb(info);
+            // Re-render header + cards se logo mudou.
+            if (info && info.logo_url && state.cliente) {
+                updateDetailPanel(state.cliente);
+                renderClientes();
+            }
+            if (info && info.status === 'ok') {
+                showToast('Informações do site atualizadas.');
+            } else if (info && info.status === 'erro') {
+                showToast('Não foi possível ler o site — ' + (info.erro_mensagem || 'erro desconhecido'), true);
+            }
+        }).catch(function (err) {
+            showToast(err.message || 'Falha ao atualizar informações do site.', true);
+            // Restaura estado anterior (o cache não muda em caso de erro).
+            renderWebInfo(state.webInfoCache[cid] || null);
+        }).finally(function () {
+            [btn, btnNow].forEach(function (b) {
+                if (!b) return;
+                b.disabled = false;
+            });
+            if (btn && origHTML) btn.innerHTML = origHTML;
+        });
+    }
+
+    // Renderiza o painel Web baseado no info retornado pela API.
+    // Estados possíveis (setados via data-state no wrap):
+    //   loading, empty, no-cache, ok, error.
+    function renderWebInfo(info) {
+        var wrap = $('#crm-v3-web-tab');
+        if (!wrap) return;
+
+        // Sem info: decide entre "empty" (sem site) e "no-cache" (com site).
+        if (!info) {
+            var cliente = state.cliente;
+            if (cliente && cliente.site_url) {
+                setWebTabState('no-cache');
+            } else {
+                setWebTabState('empty');
+            }
+            return;
+        }
+
+        // Info com status = erro.
+        if (info.status === 'erro') {
+            setWebTabState('error');
+            var errEl = $('#crm-v3-web-error-msg');
+            if (errEl) errEl.textContent = info.erro_mensagem || 'Erro desconhecido';
+            return;
+        }
+
+        // Info com status = ok — popula hero, sobre e menu.
+        setWebTabState('ok');
+
+        // Título (fallback: domínio se o site não publicou <title>).
+        var titleEl = $('#crm-v3-web-title');
+        if (titleEl) {
+            titleEl.textContent = info.titulo || info.dominio || '—';
+            titleEl.title = info.titulo || '';
+        }
+
+        // Domínio clicável (target=_blank).
+        var domEl = $('#crm-v3-web-domain');
+        if (domEl) {
+            var d = info.dominio || '';
+            domEl.href = d ? 'https://' + d : '#';
+            var spanD = domEl.querySelector('span');
+            if (spanD) spanD.textContent = d;
+        }
+
+        // Logo do hero. Prioriza logo_url (og:image real); cai em
+        // favicon_url; por último, mostra ícone genérico de globo.
+        var img = $('#crm-v3-web-logo-img');
+        var fb = $('#crm-v3-web-logo-fallback');
+        if (img && fb) {
+            img.hidden = true;
+            fb.hidden = false;
+            img.removeAttribute('src');
+            var logoSrc = info.logo_url || info.favicon_url || '';
+            if (logoSrc) {
+                img.onload = function () {
+                    if (!img.naturalWidth || !img.naturalHeight) return;
+                    img.hidden = false;
+                    fb.hidden = true;
+                };
+                img.onerror = function () {
+                    img.hidden = true;
+                    fb.hidden = false;
+                };
+                img.src = logoSrc;
+            }
+        }
+
+        // Sobre — meta description.
+        var descEl = $('#crm-v3-web-descricao');
+        if (descEl) {
+            descEl.textContent = info.descricao || 'Sem descrição disponível no site.';
+        }
+
+        // Menu principal — chips clicáveis.
+        var menuSec = $('#crm-v3-web-menu-section');
+        var menuWrap = $('#crm-v3-web-menu-links');
+        var links = Array.isArray(info.menu_links) ? info.menu_links : [];
+        if (menuSec && menuWrap) {
+            if (links.length === 0) {
+                menuSec.hidden = true;
+            } else {
+                menuSec.hidden = false;
+                menuWrap.innerHTML = links.map(function (link) {
+                    return '<a class="crm-v3-web-link" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener">' +
+                        '<span class="crm-v3-web-link-label">' + escapeHtml(link.label || link.url) + '</span>' +
+                        '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>' +
+                        '</a>';
+                }).join('');
+            }
+        }
+
+        // Timestamp da atualização — humaniza para "há X".
+        var atualEl = $('#crm-v3-web-atualizado');
+        if (atualEl) {
+            var quando = info.atualizado_em ? formatarHaTempo(info.atualizado_em) : '';
+            atualEl.textContent = quando
+                ? 'Atualizado ' + quando + ' — do site oficial do cliente'
+                : 'Extraído do site oficial do cliente';
+            if (info.atualizado_em) atualEl.title = info.atualizado_em;
+        }
+    }
+
+    // Atualiza o data-state no wrap e sincroniza a visibilidade dos
+    // blocos filhos. Cada bloco tem data-web-state="..." — mostramos
+    // só os que casam com o estado atual (permite múltiplos blocos
+    // no mesmo estado, útil para o "ok" que tem hero + sobre + menu).
+    function setWebTabState(estado) {
+        var wrap = $('#crm-v3-web-tab');
+        if (!wrap) return;
+        wrap.dataset.state = estado;
+        wrap.querySelectorAll('[data-web-state]').forEach(function (bloco) {
+            bloco.hidden = (bloco.dataset.webState !== estado);
+        });
+    }
+
+    // Atualiza o badge no botão do tab Web indicando o status do
+    // último scrape. Verde = ok, amarelo = erro, cinza = vazio.
+    function updateTabBadgeWeb(info) {
+        var badge = document.querySelector('[data-tab-badge="web"]');
+        if (!badge) return;
+        badge.classList.remove('is-ok', 'is-error', 'is-empty');
+        if (!info) {
+            badge.hidden = true;
+            return;
+        }
+        badge.hidden = false;
+        if (info.status === 'ok') badge.classList.add('is-ok');
+        else if (info.status === 'erro') badge.classList.add('is-error');
+        else badge.classList.add('is-empty');
+    }
+
+    // Liga os botões do painel Web. Chamado uma vez no boot.
+    function bindTabWeb() {
+        var btnRefresh = $('#crm-v3-web-refresh');
+        if (btnRefresh) btnRefresh.addEventListener('click', atualizarWebInfo);
+
+        var btnNow = $('#crm-v3-web-fetch-now');
+        if (btnNow) btnNow.addEventListener('click', atualizarWebInfo);
+
+        // CTA "Cadastrar site" no estado empty — rola até a seção
+        // "Site & logo" da aba Info (que já tem input de site).
+        var btnGoto = $('#crm-v3-web-goto-site');
+        if (btnGoto) {
+            btnGoto.addEventListener('click', function () {
+                // Volta pro tab Info.
+                var tabInfo = document.getElementById('tab-sidebar-info');
+                if (tabInfo) tabInfo.click();
+                // Rola até a seção "Site & logo".
+                setTimeout(function () {
+                    var target = document.getElementById('crm-v3-site-logo-section');
+                    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    var input = document.getElementById('crm-v3-site-input');
+                    if (input) setTimeout(function () { input.focus(); }, 400);
+                }, 100);
+            });
+        }
+    }
+
 
     // Bind único (event delegation) do editor de site. Chamado uma vez
     // no boot; opera sobre o cliente atual em `state.clienteId`.
@@ -1280,6 +1607,14 @@
                 // Re-render dos cards da coluna 1 para o logo aparecer lá.
                 renderClientes();
                 showToast('Site do cliente atualizado.');
+                // Fase B (set/2026): dispara scrape do Firecrawl em
+                // background para popular a aba Web + trocar o logo
+                // Clearbit por og:image canônico. Invalida qualquer
+                // cache antigo primeiro (o domínio mudou).
+                if (state.webInfoCache) delete state.webInfoCache[state.clienteId];
+                if (typeof atualizarWebInfo === 'function') {
+                    atualizarWebInfo();
+                }
             }).catch(function (err) {
                 showToast(err.message || 'Falha ao salvar site.', true);
             }).finally(function () {
@@ -2609,6 +2944,13 @@
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
         loadNotas(clienteId);
+        // Fase B (set/2026): dispara em paralelo o fetch do web-info
+        // cacheado. Se não houver cache no backend (nunca scrapeamos),
+        // o GET retorna 404 e renderWebInfo mostra o CTA "Buscar
+        // informações". Um logo canônico já em cache é aplicado no
+        // header do cliente automaticamente (via updateDetailPanel
+        // que checa state.webInfoCache).
+        loadWebInfo(clienteId);
         saveSession({ lastClientId: clienteId });
     }
 
@@ -3636,6 +3978,10 @@
         // Editor de "Site & logo" da sidebar Info — binda uma vez;
         // opera sobre state.clienteId em cada interação.
         bindSiteEditor();
+
+        // Fase B (set/2026): liga botões da aba Web da sidebar
+        // (Atualizar, Buscar informações, Cadastrar site).
+        bindTabWeb();
 
         // Avatar do header vira atalho para editar site/logo: clica no
         // avatar → sidebar rola até "Site & logo" e foca o input.

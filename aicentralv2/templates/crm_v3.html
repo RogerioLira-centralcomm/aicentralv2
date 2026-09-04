@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=43">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=44">
 {% endblock %}
 
 {% block content %}
@@ -408,6 +408,22 @@
           <span>Obj.</span>
           <span class="crm-v3-tab-count" data-tab-count="objetivos">0</span>
         </button>
+        {# Aba "Web" — Fase B do plano macro (set/2026).
+           Extrai og:image + metadata do site via Firecrawl e cacheia
+           em cliente_web_info. Substitui a cascata frágil de favicons
+           (Clearbit/Google/DDG) por logo canônico do próprio site.
+
+           O ícone tem 3 estados:
+             - is-empty (cinza): sem domínio cadastrado no cliente.
+             - is-ok (verde): scrape bem-sucedido em cache.
+             - is-error (amarelo): último scrape falhou.
+           O JS aplica a classe em bindTabWeb baseado no status
+           retornado por GET /web-info. #}
+        <button type="button" role="tab" class="crm-v3-tab" data-tab="web" aria-selected="false" id="tab-sidebar-web" title="Informações do site">
+          <i class="fas fa-globe" aria-hidden="true"></i>
+          <span>Web</span>
+          <span class="crm-v3-tab-badge" data-tab-badge="web" hidden></span>
+        </button>
         {# Aba "Atividades" removida da sidebar em set/2026:
            era redundante com a coluna central de atividades, que já
            é o foco principal da tela. #}
@@ -707,6 +723,111 @@
           <div class="crm-v3-sidebar-section" id="crm-v3-sidebar-objetivos-list"></div>
         </div>
 
+        {# Painel "Web" — Fase B (mínima) do plano macro.
+           Renderiza dados vindos de GET /crm-v3/api/clientes/<id>/web-info,
+           que consulta a tabela cliente_web_info (populada por scrape via
+           Firecrawl). Cinco estados possíveis, chaveados pela classe
+           .crm-v3-web-tab[data-state]:
+             - loading    → skeleton enquanto o fetch inicial roda.
+             - empty      → cliente sem site cadastrado; CTA leva para
+                            "Site & logo".
+             - no-cache   → tem site salvo mas ainda nunca scrapeamos;
+                            oferece botão "Buscar informações".
+             - ok         → renderiza hero (logo + título + descrição)
+                            e menu principal.
+             - error      → último scrape falhou; mostra erro_mensagem
+                            e botão "Tentar novamente".
+           O crm_v3.js controla a troca de estado. #}
+        <div class="crm-v3-tab-panel" role="tabpanel" data-panel-group="sidebar" data-panel="web" aria-labelledby="tab-sidebar-web" hidden>
+          <div class="crm-v3-web-tab" id="crm-v3-web-tab" data-state="loading">
+
+            <div class="crm-v3-sidebar-panel-heading">
+              <div>
+                <h2>Informações do site</h2>
+                <p id="crm-v3-web-atualizado">Extraído do site oficial do cliente</p>
+              </div>
+              <button type="button"
+                      class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm"
+                      id="crm-v3-web-refresh"
+                      title="Buscar novamente do site">
+                <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+              </button>
+            </div>
+
+            {# Estado: loading. Skeleton leve enquanto o GET roda. #}
+            <div class="crm-v3-sidebar-section" data-web-state="loading">
+              <div class="crm-v3-web-skeleton">
+                <div class="crm-v3-web-skeleton-logo"></div>
+                <div class="crm-v3-web-skeleton-line"></div>
+                <div class="crm-v3-web-skeleton-line crm-v3-web-skeleton-line-short"></div>
+              </div>
+            </div>
+
+            {# Estado: empty — sem site cadastrado no cliente. #}
+            <div class="crm-v3-sidebar-section" data-web-state="empty" hidden>
+              <div class="crm-v3-web-msg crm-v3-web-msg-neutral">
+                <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                <p>Este cliente ainda não tem site cadastrado.</p>
+                <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-web-goto-site">
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                  Cadastrar site
+                </button>
+              </div>
+            </div>
+
+            {# Estado: no-cache — tem site salvo mas nunca scrapeamos. #}
+            <div class="crm-v3-sidebar-section" data-web-state="no-cache" hidden>
+              <div class="crm-v3-web-msg crm-v3-web-msg-neutral">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <p>Ainda não buscamos informações deste site.</p>
+                <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-web-fetch-now">
+                  <i class="fa-solid fa-download" aria-hidden="true"></i>
+                  Buscar informações
+                </button>
+              </div>
+            </div>
+
+            {# Estado: error — último scrape falhou. #}
+            <div class="crm-v3-sidebar-section" data-web-state="error" hidden>
+              <div class="crm-v3-web-msg crm-v3-web-msg-error">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                <p><strong>Não foi possível ler o site.</strong></p>
+                <p class="crm-v3-web-error-detail" id="crm-v3-web-error-msg"></p>
+              </div>
+            </div>
+
+            {# Estado: ok — dados do scrape. #}
+            <div class="crm-v3-sidebar-section" data-web-state="ok" hidden>
+              <div class="crm-v3-web-hero">
+                <div class="crm-v3-web-hero-logo" id="crm-v3-web-logo-wrap">
+                  <span class="crm-v3-web-hero-logo-fallback" id="crm-v3-web-logo-fallback">
+                    <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                  </span>
+                  <img id="crm-v3-web-logo-img" alt="" hidden />
+                </div>
+                <div class="crm-v3-web-hero-info">
+                  <h3 class="crm-v3-web-title" id="crm-v3-web-title">—</h3>
+                  <a class="crm-v3-web-domain" id="crm-v3-web-domain" href="#" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                    <span>—</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="crm-v3-sidebar-section" data-web-state="ok" hidden>
+              <div class="crm-v3-sidebar-section-title">Sobre</div>
+              <p class="crm-v3-web-descricao" id="crm-v3-web-descricao">—</p>
+            </div>
+
+            <div class="crm-v3-sidebar-section" data-web-state="ok" hidden id="crm-v3-web-menu-section">
+              <div class="crm-v3-sidebar-section-title">Páginas do site</div>
+              <div class="crm-v3-web-links" id="crm-v3-web-menu-links"></div>
+            </div>
+
+          </div>
+        </div>
+
         {# Painel "Atividades" da sidebar removido em set/2026 — a
            coluna central de atividades é o foco principal do CRM v3;
            duplicar a listagem na sidebar só confundia o time. #}
@@ -732,7 +853,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=18"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=19"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=3"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=1"></script>
 {% endblock %}

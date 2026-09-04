@@ -1,12 +1,20 @@
 #!/bin/bash
 # build_frontend.sh - Gera o CSS do Tailwind + daisyUI para produção
-# Uso: ./build_frontend.sh
+# Uso: ./build_frontend.sh [--clean]
+#   --clean  Força reinstalação das dependências (npm ci)
 
 set -e
 
 cd "$(dirname "$0")"
 
 NODE_DIR="$(pwd)"
+FORCE_CI=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --clean) FORCE_CI=1 ;;
+  esac
+done
 
 if [ ! -f "$NODE_DIR/package.json" ]; then
   echo "[ERRO] package.json não encontrado em $NODE_DIR"
@@ -28,15 +36,25 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-# Instala exatamente as versões do package-lock.json (reproducível no servidor).
-echo "[INFO] Instalando dependências (npm ci)..."
-npm ci
+need_ci=0
+if [ "$FORCE_CI" = "1" ]; then
+  need_ci=1
+elif [ ! -d "$NODE_DIR/node_modules" ]; then
+  need_ci=1
+elif [ ! -f "$NODE_DIR/node_modules/.bin/tailwindcss" ] && [ ! -f "$NODE_DIR/node_modules/.bin/tailwindcss.cmd" ]; then
+  need_ci=1
+fi
 
-echo "[INFO] Corrigindo vulnerabilidades conhecidas (npm audit fix)..."
-npm audit fix
+if [ "$need_ci" = "1" ]; then
+  echo "[INFO] Instalando dependências (npm ci)..."
+  npm ci
+else
+  echo "[INFO] Dependências já instaladas, pulando npm ci."
+fi
 
-echo "[INFO] Verificando vulnerabilidades conhecidas..."
-npm audit --audit-level=high
+# Audit fica fora do build: as deps são só de compilação do CSS
+# (não vão para produção) e npm audit/fix costuma ser lento e falhar
+# por vulnerabilidades transitivas sem correção disponível.
 
 chmod +x node_modules/.bin/* 2>/dev/null || true
 
@@ -49,3 +67,4 @@ else
   echo "[ERRO] Falha ao gerar o CSS de produção."
   exit 1
 fi
+

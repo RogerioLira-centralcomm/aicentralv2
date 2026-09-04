@@ -7063,7 +7063,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 breakdown = db.calcular_breakdown_linha_cotacao(
                     cotacao,
                     data,
-                    imposto_percentual=float(app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
                 )
             except ValueError as calc_err:
                 return jsonify({'error': str(calc_err)}), 400
@@ -7200,7 +7199,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 breakdown = db.calcular_breakdown_linha_cotacao(
                     cotacao,
                     data,
-                    imposto_percentual=float(app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
+                    imposto_percentual=db.resolver_imposto_percentual_cotacao(cotacao, linha=linha),
                 )
             except ValueError as calc_err:
                 return jsonify({'error': str(calc_err)}), 400
@@ -9912,7 +9911,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return '0,00'
                 return f'{pct:.2f}'.replace('.', ',')
 
-            imp_cfg = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
+            imp_cfg = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 17))
 
             def _mcc_cadastro_display(raw):
                 """Retorna o valor bruto do cadastro do cliente em formato BR (ex.: '25,00').

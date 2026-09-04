@@ -310,9 +310,17 @@ function handleFileSelect(event) {
   }
 }
 
+function impostoCotacaoDescricao() {
+  if (impostoPercentualCotacao !== null && !isNaN(impostoPercentualCotacao)) {
+    return 'Imposto da cotação (' + impostoPercentualCotacao.toFixed(2).replace('.', ',') + '%).';
+  }
+  return 'Imposto da cotação.';
+}
+
 // Status que permitem edição (definido no início para uso em uploadAnexos)
 var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho'];
 var statusAtualCotacaoInicial = '{{ cotacao.status if cotacao else "Rascunho" }}';
+var impostoPercentualCotacao = {{ cotacao.imposto_percentual|float if cotacao and cotacao.imposto_percentual is not none else 'null' }};
 
 // Função de Upload de Anexos - definida no início
 async function uploadAnexos(files) {
@@ -1920,7 +1928,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       '<td class="py-2 px-3 font-mono tabular-nums text-gray-900">' +
       pctFmt(j.imp) +
       '</td>' +
-      '<td class="py-2 px-3 text-gray-600">Constante de ambiente (imposto).</td></tr>'
+      '<td class="py-2 px-3 text-gray-600">' + escHtml(impostoCotacaoDescricao()) + '</td></tr>'
   );
 
   html.push('</tbody></table></div>');
@@ -2165,7 +2173,7 @@ function calcularVolumeEdit() {
 {% set _pa = cotacao.agencia_percentual|float if (cotacao and cotacao.agencia_percentual) else 0 %}
 {% set _pp = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
 {% set fator_liquido = ((1 - _pa / 100) * (1 - _pp / 100)) if (_pa or _pp) else 1 %}
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}">
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
 
   <style>
     .tab-nav-item { border-bottom:2px solid transparent; }
@@ -2185,6 +2193,9 @@ function calcularVolumeEdit() {
           <h1 class="text-xs font-semibold text-gray-800 leading-tight truncate">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
           {% if cotacao %}
           <span class="text-[10px] font-mono font-semibold text-gray-700 bg-gray-100 px-1 py-0.5 rounded flex-shrink-0">{{ cotacao.numero_cotacao }}</span>
+          {% if cotacao and cotacao.imposto_percentual is not none %}
+          <span class="text-[9px] text-gray-500 bg-gray-50 border border-gray-200 px-1 py-0.5 rounded flex-shrink-0" title="Percentual de imposto usado nesta cotação">Imp {{ '%.2f'|format(cotacao.imposto_percentual|float)|replace('.', ',') }}%</span>
+          {% endif %}
           {% endif %}
         </div>
       </div>

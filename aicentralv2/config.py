@@ -85,12 +85,12 @@ class Config:
 	_PI_PLT_DV360_RAW = os.getenv('PI_PLATAFORMA_DV360_ID', '').strip()
 	PI_PLATAFORMA_DV360_ID = int(_PI_PLT_DV360_RAW) if _PI_PLT_DV360_RAW.isdigit() else None
 
-	# Imposto (%) usado no cálculo de preço unitário — cotações teste cálculo; ex.: 15 ou 15.5
-	_PI_IMP_RAW = os.getenv('PI_IMPOSTO_PERCENTUAL', os.getenv('IMPOSTO_PERCENTUAL', '15')).strip()
+	# Imposto (%) usado no cálculo de preço unitário — cotações teste cálculo; ex.: 17 ou 17.5
+	_PI_IMP_RAW = os.getenv('PI_IMPOSTO_PERCENTUAL', os.getenv('IMPOSTO_PERCENTUAL', '17')).strip()
 	try:
 		PI_IMPOSTO_PERCENTUAL = float(_PI_IMP_RAW.replace(',', '.'))
 	except ValueError:
-		PI_IMPOSTO_PERCENTUAL = 15.0
+		PI_IMPOSTO_PERCENTUAL = 17.0
 
 	# Desvio aceitável (%) default das zonas de andamento do PI; .env DESVIO_ACEITAVEL.
 	_PI_DESVIO_RAW = os.getenv('DESVIO_ACEITAVEL', '5').strip()

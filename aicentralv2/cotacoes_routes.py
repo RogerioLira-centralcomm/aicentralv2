@@ -373,7 +373,6 @@ def _recalcular_e_montar_breakdown(cotacao, data):
         payload_extra = db.calcular_breakdown_linha_cotacao(
             cotacao,
             data,
-            imposto_percentual=float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15)),
         )
         return payload_extra, None, None
     except ValueError as err:
@@ -516,7 +515,6 @@ def _recalcular_itens_cotacao_intermediario(cotacao_id):
     if not cotacao:
         return 0
 
-    imposto = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
     recalculados = 0
 
     for linha in db.obter_linhas_cotacao(cotacao_id) or []:
@@ -524,6 +522,7 @@ def _recalcular_itens_cotacao_intermediario(cotacao_id):
         if not payload:
             continue
         try:
+            imposto = db.resolver_imposto_percentual_cotacao(cotacao, linha=linha)
             breakdown = db.calcular_breakdown_linha_cotacao(
                 cotacao, payload, imposto_percentual=imposto
             )
@@ -539,6 +538,7 @@ def _recalcular_itens_cotacao_intermediario(cotacao_id):
         if not payload:
             continue
         try:
+            imposto = db.resolver_imposto_percentual_cotacao(cotacao, linha=aud)
             breakdown = db.calcular_breakdown_linha_cotacao(
                 cotacao, payload, imposto_percentual=imposto
             )
@@ -1155,7 +1155,7 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         if not cotacao:
             return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
 
-        imp = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
+        imp = db.resolver_imposto_percentual_cotacao(cotacao)
 
         mcc_arg = request.args.get('margem_cc')
         mcc_override = _parse_float_br(mcc_arg) if mcc_arg not in (None, '') else None

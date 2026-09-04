@@ -7528,6 +7528,26 @@ def criar_tabela_cotacoes():
             cursor.execute(
                 "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS plataforma_campanha VARCHAR(120)"
             )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS imposto_percentual NUMERIC(5, 2)"
+            )
+            cursor.execute('''
+                UPDATE cadu_cotacoes c
+                SET imposto_percentual = sub.pct
+                FROM (
+                    SELECT cotacao_id, ROUND(AVG(perc_impostos::numeric) * 100, 2) AS pct
+                    FROM cadu_cotacao_linhas
+                    WHERE perc_impostos IS NOT NULL
+                      AND COALESCE(is_header, false) = false
+                      AND COALESCE(is_subtotal, false) = false
+                    GROUP BY cotacao_id
+                ) sub
+                WHERE c.id = sub.cotacao_id
+                  AND c.imposto_percentual IS NULL
+            ''')
+            cursor.execute(
+                "UPDATE cadu_cotacoes SET imposto_percentual = 15.00 WHERE imposto_percentual IS NULL"
+            )
             cursor.execute('''
                 DO $$
                 BEGIN
@@ -7560,6 +7580,7 @@ def criar_tabela_cotacoes():
             conn.commit()
             return True
     except Exception as e:
+        conn.rollback()
         raise e
 
 
@@ -7802,6 +7823,9 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             params = [numero_cotacao, client_id, nome_campanha, periodo_inicio]
             
             # Adicionar campos opcionais
+            if kwargs.get('imposto_percentual') is None:
+                kwargs['imposto_percentual'] = obter_imposto_percentual_config()
+
             campos_opcionais = [
                 'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id',
                 'responsavel_comercial', 'briefing_id', 'tipo_peca',
@@ -7812,7 +7836,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'id_parceiro', 'parceiro_user_id',
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
-                'plataforma_campanha',
+                'plataforma_campanha', 'imposto_percentual',
             ]
             
             for campo in campos_opcionais:
@@ -11681,10 +11705,13 @@ def obter_descricao_objetivo_campanha(id_objetivo):
         return None
 
 
-def reconciliar_linhas_financeiras_cotacao(cotacao, linhas=None, aplicar=False, imposto_percentual=15):
+def reconciliar_linhas_financeiras_cotacao(cotacao, linhas=None, aplicar=False, imposto_percentual=None):
     """Recalcula linhas de cotação com campos financeiros vazios quando há base suficiente."""
     if not cotacao:
         return {'atualizadas': 0, 'sem_base': [], 'erros': []}
+
+    if imposto_percentual is None:
+        imposto_percentual = resolver_imposto_percentual_cotacao(cotacao)
 
     cotacao_id = cotacao.get('id')
     if linhas is None and cotacao_id:
@@ -12331,6 +12358,16 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         'obs_financeiro': None,
         'obs_operacao': f'PI gerado automaticamente da cotação #{cotacao_id}',
         'cotacao_id': cotacao_id,
+        'perc_margem_cc': perc_margem_cc_pi or None,
+        'perc_tech_fee': perc_tech_fee_pi or None,
+        'perc_com_vendas': perc_com_vendas_pi or None,
+        'perc_pl_incentivos': perc_pl_incentivos_pi or None,
+        'perc_impostos': perc_impostos_pi or None,
+        'val_margem_cc': val_margem_cc_pi,
+        'val_tech_fee': val_tech_fee_pi,
+        'val_com_vendas': val_com_vendas_pi,
+        'val_pl_incentivos': val_pl_incentivos_pi,
+        'val_impostos': val_impostos_pi,
     }
 
     id_pi = criar_cadu_pi(data)
@@ -13142,6 +13179,53 @@ def obter_incentivo_fracao_por_cliente_volume(cliente_id, volume):
         raise e
 
 
+IMPOSTO_PERCENTUAL_PADRAO = 17.0
+
+
+def obter_imposto_percentual_config():
+    """Retorna PI_IMPOSTO_PERCENTUAL da config Flask ou fallback quando fora de app context."""
+    try:
+        return float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', IMPOSTO_PERCENTUAL_PADRAO))
+    except RuntimeError:
+        return IMPOSTO_PERCENTUAL_PADRAO
+
+
+def _fracao_para_percentual_imposto(valor):
+    """Converte perc_impostos armazenado (fração 0.15 ou percentual 15) para percentual de cálculo."""
+    if valor in (None, ''):
+        return None
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    if v <= 1:
+        return round(v * 100, 4)
+    return round(v, 4)
+
+
+def resolver_imposto_percentual_cotacao(cotacao, linha=None, config_default=None):
+    """Resolve o percentual de imposto a usar em recálculos de uma cotação.
+
+    Prioridade: perc_impostos da linha/audiência → snapshot da cotação → config global.
+    """
+    if linha and linha.get('perc_impostos') not in (None, ''):
+        pct_linha = _fracao_para_percentual_imposto(linha.get('perc_impostos'))
+        if pct_linha is not None:
+            return pct_linha
+    if cotacao and cotacao.get('imposto_percentual') not in (None, ''):
+        try:
+            snap = float(cotacao['imposto_percentual'])
+            if snap > 0:
+                return snap
+        except (TypeError, ValueError):
+            pass
+    if config_default is None:
+        config_default = obter_imposto_percentual_config()
+    return float(config_default)
+
+
 def calcular_preco_unitario_teste_calculo(
     *,
     valor_unitario_tabela,
@@ -13247,7 +13331,7 @@ def calcular_preco_unitario_teste_calculo(
     try:
         imp_pct = float(imposto_percentual_externo)
     except (TypeError, ValueError):
-        imp_pct = 15.0
+        imp_pct = obter_imposto_percentual_config()
     imp = imp_pct / 100.0 if imp_pct > 1 else imp_pct
 
     soma = (mcc or 0) + (com or 0) + (inc or 0) + (imp or 0) + (parc or 0)
@@ -13464,12 +13548,14 @@ def calcular_totais_financeiros_cotacao(linhas=None, audiencias=None):
     }
 
 
-def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=15):
+def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
     """Calcula campos financeiros canônicos de uma linha de cotação.
 
     Centraliza investimento bruto/líquido, percentuais e valores derivados para
     evitar que rotas diferentes persistam campos financeiros vazios.
     """
+    if imposto_percentual is None:
+        imposto_percentual = resolver_imposto_percentual_cotacao(cotacao, linha=data)
     if not cotacao:
         raise ValueError('Cotação não encontrada')
     if not isinstance(data, dict):

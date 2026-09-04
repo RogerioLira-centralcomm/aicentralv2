@@ -581,6 +581,60 @@ def api_import_contatos(cliente_id):
 
 
 # =============================================================================
+# Web Scout — Fase B do plano macro (set/2026)
+# -----------------------------------------------------------------------------
+# Extrai og:image + metadata do site oficial do cliente via Firecrawl e
+# cacheia em `cliente_web_info` (migration create_cliente_web_info.sql).
+# Substitui a cascata frágil de favicons (Clearbit/Google/DDG) que
+# retornava globos genéricos para clientes fora do catálogo global.
+#
+# - GET /api/clientes/<id>/web-info:
+#       Só lê do cache. Retorna 404 se ainda não há registro (frontend
+#       deve exibir estado "sem dados" e oferecer botão Atualizar).
+# - POST /api/clientes/<id>/web-info/refresh:
+#       Faz o scrape agora (síncrono, timeout 30s) e retorna o novo
+#       registro. Body opcional `{ "dominio": "cliente.com.br" }` — se
+#       ausente, deriva de `cliente.site_url` (fallback nos contatos
+#       na Fase C). Nunca lança 500: falhas do Firecrawl viram
+#       registros com `status: 'erro'` + `erro_mensagem`, permitindo
+#       à UI mostrar o motivo real (timeout, 403, domínio inválido).
+# =============================================================================
+
+
+@bp.route("/api/clientes/<cliente_id>/web-info")
+@login_required_api
+def api_web_info_get(cliente_id):
+    from .crm_v3_web_scout import obter_web_info
+    cliente = store.get_cliente(cliente_id)
+    if not cliente:
+        return _err("Cliente não encontrado", 404)
+    info = obter_web_info(cliente_id)
+    if not info:
+        return _err("Sem informações do site — clique em Atualizar", 404)
+    return _ok(info, web_info=info)
+
+
+@bp.route("/api/clientes/<cliente_id>/web-info/refresh", methods=["POST"])
+@login_required_api
+def api_web_info_refresh(cliente_id):
+    from .crm_v3_web_scout import refresh_web_info
+    cliente = store.get_cliente(cliente_id)
+    if not cliente:
+        return _err("Cliente não encontrado", 404)
+    data = request.get_json(silent=True) or {}
+    # Prioridade: body.dominio → cliente.site_url (frontend já normaliza
+    # antes de salvar). Se nada, é 400 (não vale gastar Firecrawl à toa).
+    dominio = (data.get("dominio") or cliente.get("site_url") or "").strip()
+    if not dominio:
+        return _err("Domínio não informado — configure o Site do cliente antes")
+    info = refresh_web_info(cliente_id, dominio)
+    # `refresh_web_info` sempre retorna um dict (mesmo em erro). Se
+    # status='erro' entregamos 200 com o payload — o frontend renderiza
+    # a mensagem no lugar dos dados. Reservamos 5xx só para bugs reais.
+    return _ok(info, web_info=info)
+
+
+# =============================================================================
 # IA — Fase 3
 # -----------------------------------------------------------------------------
 # Rotas /crm-v3/api/ia/* usam OpenRouter (Gemini) via `_call_openrouter` do

@@ -1,6 +1,7 @@
 """Contratos de segurança e comportamento básico do Agente CentralX."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from flask import Flask
@@ -43,6 +44,16 @@ class AgentContractsTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(item["responsible"], "Executiva Central")
         self.assertEqual(item["url"], "/crm-v3/#cliente=1843")
+
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_assigned_tool_search_passes_executive_filter(self, mock_store):
+        mock_store.return_value.search_clientes.return_value = []
+        commercial.buscar_cliente(
+            "COPASA", _viewer_user_id=33, _allow_global=False
+        )
+        mock_store.return_value.search_clientes.assert_called_once_with(
+            "COPASA", 10, executivo_id=33
+        )
 
     def test_context_only_completes_matching_entity_type(self):
         args = _contextual_arguments(
@@ -114,8 +125,110 @@ class AgentApiSecurityTest(unittest.TestCase):
         response = self.client.get("/api/agent/bootstrap?module=crm&screen=clientes")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()["data"]
-        self.assertIn("commercial.read.global", data["capabilities"])
+        self.assertIn("commercial.read.assigned", data["capabilities"])
+        self.assertNotIn("commercial.read.global", data["capabilities"])
         self.assertTrue(data["csrf_token"])
+
+    @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
+    def test_admin_bootstrap_includes_global_commercial_access(self, _mock_list):
+        with self.client.session_transaction() as session:
+            session["user_id"] = 10
+            session["is_centralcomm"] = True
+            session["user_type"] = "admin"
+        data = self.client.get("/api/agent/bootstrap").get_json()["data"]
+        self.assertIn("commercial.read.global", data["capabilities"])
+        self.assertIn("commercial.write.global", data["capabilities"])
+
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_commercial_search_forces_assigned_scope_for_regular_user(self, mock_store):
+        mock_store.return_value.search_clientes.return_value = []
+        mock_store.return_value.search_cotacoes.return_value = []
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="client")
+        response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["scope"], "mine")
+        mock_store.return_value.search_clientes.assert_called_once_with(
+            "acme", 8, executivo_id=10
+        )
+        mock_store.return_value.search_cotacoes.assert_called_once_with(
+            "acme", 8, executivo_id=10
+        )
+
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_commercial_search_all_is_available_to_admin(self, mock_store):
+        mock_store.return_value.search_clientes.return_value = []
+        mock_store.return_value.search_cotacoes.return_value = []
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="admin")
+        response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
+        self.assertEqual(response.get_json()["data"]["scope"], "all")
+        mock_store.return_value.search_clientes.assert_called_once_with(
+            "acme", 8, executivo_id=None
+        )
+
+    @patch("aicentralv2.agent.routes.build_insights")
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_client_update_requires_owner_and_csrf(self, mock_store, mock_insights):
+        store = mock_store.return_value
+        store.get_cliente.return_value = {
+            "id": "7", "nome": "Acme", "executivo_id": "10"
+        }
+        store.update_cliente.return_value = {
+            "id": "7", "nome": "Acme Nova", "executivo_id": "10"
+        }
+        store.list_contatos.return_value = []
+        store.list_atividades.return_value = []
+        store.list_cotacoes.return_value = []
+        mock_insights.return_value = {"entity": None, "alerts": [], "prompts": []}
+        with self.client.session_transaction() as session:
+            session.update(
+                user_id=10,
+                is_centralcomm=True,
+                user_type="client",
+                agent_csrf_token="token",
+            )
+        denied = self.client.patch(
+            "/api/agent/commercial/clients/7", json={"nome": "Acme Nova"}
+        )
+        self.assertEqual(denied.status_code, 403)
+        updated = self.client.patch(
+            "/api/agent/commercial/clients/7",
+            json={"nome": "Acme Nova", "campo_perigoso": "ignorado"},
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        store.update_cliente.assert_called_once_with("7", {"nome": "Acme Nova"})
+
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_regular_user_cannot_open_unassigned_client(self, mock_store):
+        mock_store.return_value.get_cliente.return_value = {
+            "id": "7", "nome": "Acme", "executivo_id": "99"
+        }
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="client")
+        response = self.client.get("/api/agent/commercial/record/cliente/7")
+        self.assertEqual(response.status_code, 404)
+
+    @patch("aicentralv2.agent.routes.build_insights")
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_quote_record_returns_client_and_detail_url(self, mock_store, mock_insights):
+        store = mock_store.return_value
+        store.get_cotacao.return_value = {
+            "id": "91",
+            "titulo": "Campanha",
+            "cliente_id": "7",
+            "executivo_id": "10",
+        }
+        store.get_cliente.return_value = {"id": "7", "nome": "Acme"}
+        mock_insights.return_value = {"entity": None, "alerts": [], "prompts": []}
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="client")
+        response = self.client.get("/api/agent/commercial/record/cotacao/91")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertEqual(data["client"]["nome"], "Acme")
+        self.assertEqual(data["url"], "/cotacoes/91/detalhes")
 
     @patch("aicentralv2.agent.routes.build_insights")
     @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
@@ -153,6 +266,36 @@ class AgentInsightsTest(unittest.TestCase):
         ids = {item["id"] for item in data["alerts"]}
         self.assertIn("overdue_activities", ids)
         self.assertIn("open_campaigns", ids)
+
+    @patch("aicentralv2.agent.insights.get_store")
+    def test_quote_insights_recommend_follow_up(self, mock_store):
+        from aicentralv2.agent.insights import build_insights
+        mock_store.return_value.get_cotacao.return_value = {
+            "id": "91",
+            "titulo": "Campanha",
+            "status_label": "Enviada",
+            "objetivo": "Conversão",
+        }
+        data = build_insights({
+            "entity_type": "cotacao",
+            "entity_id": "91",
+            "entity_label": "Campanha",
+        })
+        self.assertEqual(data["entity"]["type"], "cotacao")
+        self.assertIn("quote_follow_up", {item["id"] for item in data["alerts"]})
+
+
+class AgentWorkspaceContractTest(unittest.TestCase):
+    def test_workspace_contains_search_record_and_sync_contracts(self):
+        root = Path(__file__).resolve().parents[1]
+        shell = (root / "aicentralv2/templates/agent/shell.html").read_text()
+        agent_js = (root / "aicentralv2/static/js/agent/agent.js").read_text()
+        crm_js = (root / "aicentralv2/static/js/crm_v3.js").read_text()
+        self.assertIn("cx-agent-commercial-query", shell)
+        self.assertIn("cx-agent-record-body", shell)
+        self.assertIn("centralx:entity-updated", agent_js)
+        self.assertIn("centralx:entity-updated", crm_js)
+        self.assertIn("commercial/record", agent_js)
 
 
 if __name__ == "__main__":

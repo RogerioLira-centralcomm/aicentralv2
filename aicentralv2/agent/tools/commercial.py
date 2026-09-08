@@ -36,15 +36,35 @@ def _client_item(item):
     }
 
 
-def buscar_cliente(query, limit=10, **_):
-    clients = get_store().search_clientes(query, min(limit, MAX_RESULTS))
+def _client_allowed(client, viewer_user_id=None, allow_global=False):
+    if allow_global or viewer_user_id is None:
+        return True
+    return str(client.get("executivo_id") or "") == str(viewer_user_id)
+
+
+def _quote_allowed(quote, viewer_user_id=None, allow_global=False):
+    if allow_global or viewer_user_id is None:
+        return True
+    return str(quote.get("executivo_id") or "") == str(viewer_user_id)
+
+
+def buscar_cliente(
+    query, limit=10, _viewer_user_id=None, _allow_global=False, **_
+):
+    clients = get_store().search_clientes(
+        query,
+        min(limit, MAX_RESULTS),
+        executivo_id=None if _allow_global else _viewer_user_id,
+    )
     items = [_client_item(item) for item in clients]
     return _ok(items, f"{len(items)} cliente(s) encontrado(s)", items)
 
 
-def consultar_cliente(cliente_id, **_):
+def consultar_cliente(
+    cliente_id, _viewer_user_id=None, _allow_global=False, **_
+):
     client = get_store().get_cliente(str(cliente_id))
-    if not client:
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
         return _error("Cliente não encontrado ou indisponível.")
     item = _client_item(client)
     item.update({
@@ -54,8 +74,14 @@ def consultar_cliente(cliente_id, **_):
     return _ok(item, item["title"], [item], [{"label": "Abrir cliente", "url": item["url"]}])
 
 
-def listar_contatos(cliente_id, limit=20, **_):
-    contacts = get_store().list_contatos(str(cliente_id))
+def listar_contatos(
+    cliente_id, limit=20, _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Cliente não encontrado ou indisponível.")
+    contacts = store.list_contatos(str(cliente_id))
     if contacts is None:
         return _error("Cliente não encontrado ou indisponível.")
     items = [{
@@ -69,8 +95,15 @@ def listar_contatos(cliente_id, limit=20, **_):
     return _ok(items, f"{len(items)} contato(s)", items)
 
 
-def listar_atividades(cliente_id, limit=20, status=None, **_):
-    activities = get_store().list_atividades(str(cliente_id))
+def listar_atividades(
+    cliente_id, limit=20, status=None,
+    _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Cliente não encontrado ou indisponível.")
+    activities = store.list_atividades(str(cliente_id))
     if activities is None:
         return _error("Cliente não encontrado ou indisponível.")
     if status:
@@ -84,10 +117,22 @@ def listar_atividades(cliente_id, limit=20, status=None, **_):
     return _ok(items, f"{len(items)} atividade(s)", items)
 
 
-def listar_cotacoes(cliente_id, limit=20, status=None, **_):
-    quotes = get_store().list_cotacoes(str(cliente_id))
+def listar_cotacoes(
+    cliente_id, limit=20, status=None,
+    _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Cliente não encontrado ou indisponível.")
+    quotes = store.list_cotacoes(str(cliente_id))
     if quotes is None:
         return _error("Cliente não encontrado ou indisponível.")
+    if not _allow_global and _viewer_user_id is not None:
+        quotes = [
+            quote for quote in quotes
+            if _quote_allowed(quote, _viewer_user_id, False)
+        ]
     if status:
         wanted = status.casefold()
         quotes = [q for q in quotes if wanted in str(q.get("status_label") or q.get("status") or "").casefold()]
@@ -101,9 +146,11 @@ def listar_cotacoes(cliente_id, limit=20, status=None, **_):
     return _ok(items, f"{len(items)} cotação(ões)", items)
 
 
-def consultar_cotacao(cotacao_id, **_):
+def consultar_cotacao(
+    cotacao_id, _viewer_user_id=None, _allow_global=False, **_
+):
     quote = get_store().get_cotacao(str(cotacao_id))
-    if not quote:
+    if not quote or not _quote_allowed(quote, _viewer_user_id, _allow_global):
         return _error("Cotação não encontrada ou indisponível.")
     item = {
         "id": quote.get("id"),

@@ -20,7 +20,7 @@
       navegador mesmo quando `npm run build` é rodado sem apontar para
       enterprise-system.css. Auto-contido, ordem depois do output.css.
     -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=11">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=13">
 
     <script>
     function setCookie(name, value, days) {
@@ -1239,7 +1239,7 @@
     <script src="{{ url_for('static', filename='js/cx_ui.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=2"></script>
     {% if is_centralcomm_user %}
-    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=5"></script>
     {% endif %}
 
     {% block scripts %}{% endblock %}

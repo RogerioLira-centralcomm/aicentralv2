@@ -898,6 +898,26 @@ class CrmTestStore:
     def list_clientes(self):
         return [self._enrich_cliente(c) for c in self.clientes]
 
+    def search_clientes(self, query, limit=20, executivo_id=None):
+        term = str(query or "").strip().casefold()
+        if not term:
+            return []
+        items = [
+            item for item in self.list_clientes()
+            if term in " ".join([
+                str(item.get("nome") or ""),
+                str(item.get("razao_social") or ""),
+                str(item.get("cnpj") or ""),
+            ]).casefold()
+        ]
+        if executivo_id is not None:
+            items = [
+                item for item in items
+                if not item.get("executivo_id")
+                or str(item.get("executivo_id")) == str(executivo_id)
+            ]
+        return items[:max(1, min(int(limit or 20), 20))]
+
     def list_lookups(self):
         """Paridade com CrmV3Repository.list_lookups — retorna dicts
         estáticos de dev. Executivos são derivados dos responsáveis
@@ -1306,10 +1326,43 @@ class CrmTestStore:
                     return True, cliente_id
         return False, None
 
-    def list_cotacoes(self, cliente_id):
+    def list_cotacoes(self, cliente_id, include_vinculados=True):
         if not self.get_cliente(cliente_id):
             return None
         return list(self.cotacoes.get(cliente_id, []))
+
+    def get_cotacao(self, cotacao_id):
+        for items in self.cotacoes.values():
+            for quote in items:
+                if str(quote.get("id")) == str(cotacao_id):
+                    return dict(quote)
+        return None
+
+    def search_cotacoes(self, query, limit=20, executivo_id=None):
+        term = str(query or "").strip().casefold()
+        if not term:
+            return []
+        clients = {str(item["id"]): item for item in self.list_clientes()}
+        found = []
+        for cliente_id, items in self.cotacoes.items():
+            client = clients.get(str(cliente_id), {})
+            for quote in items:
+                candidate = dict(quote)
+                candidate.setdefault("cliente_id", str(cliente_id))
+                candidate.setdefault("cliente_nome", client.get("nome") or "")
+                if executivo_id is not None:
+                    owner = candidate.get("executivo_id") or client.get("executivo_id")
+                    if owner and str(owner) != str(executivo_id):
+                        continue
+                haystack = " ".join([
+                    str(candidate.get("numero_cotacao") or ""),
+                    str(candidate.get("titulo") or ""),
+                    str(candidate.get("nome_campanha") or ""),
+                    str(candidate.get("cliente_nome") or ""),
+                ]).casefold()
+                if term in haystack:
+                    found.append(candidate)
+        return found[:max(1, min(int(limit or 20), 20))]
 
     def get_incentivo_agencia(self, cliente_id):
         """Mock: sem cadastro de incentivos PI."""

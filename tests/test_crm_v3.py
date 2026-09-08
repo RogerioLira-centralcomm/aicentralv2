@@ -725,6 +725,21 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
     def tearDown(self):
         self.repo_mod._db = self._orig_db
 
+    def test_search_clientes_aplica_filtro_do_executivo(self):
+        self.db.obter_clientes_paginado.return_value = {"clientes": []}
+        self.repo.search_clientes("Acme", limit=8, executivo_id=77)
+        kwargs = self.db.obter_clientes_paginado.call_args.kwargs
+        self.assertEqual(kwargs["filtros"]["search"], "Acme")
+        self.assertEqual(kwargs["filtros"]["executivo_id"], 77)
+
+    def test_search_cotacoes_aplica_filtro_e_limite(self):
+        cursor = self.db.get_db.return_value.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = []
+        self.repo.search_cotacoes("COT-26", limit=8, executivo_id=77)
+        sql, params = cursor.execute.call_args.args
+        self.assertIn("c.responsavel_comercial = %s", sql)
+        self.assertEqual(params[-2:], [77, 8])
+
     # ---- Atividades --------------------------------------------------
 
     def test_map_atividade_converte_data_iso(self):

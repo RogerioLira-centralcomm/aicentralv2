@@ -1944,6 +1944,358 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-agent-messages { scroll-behavior: auto; }
 }
 
+/* Agente CentralX — workspace comercial sincronizado com o CRM */
+@media (min-width: 1100px) {
+  .cx-agent-dock:not(.is-minimized) {
+    width: min(72rem, calc(100vw - 2rem));
+  }
+}
+
+.cx-agent-commercial-search {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--agent-line);
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.cx-agent-commercial-search > label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid #ccd8d8;
+  border-radius: 0.65rem;
+  padding: 0.58rem 0.7rem;
+  background: #f8faf9;
+  color: #718384;
+}
+
+.cx-agent-commercial-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--agent-ink);
+  font-size: 0.82rem;
+}
+
+.cx-agent-commercial-search kbd {
+  border: 1px solid #d4dddd;
+  border-radius: 0.3rem;
+  padding: 0.08rem 0.3rem;
+  background: #fff;
+  color: #7c8b8c;
+  font: inherit;
+  font-size: 0.65rem;
+}
+
+.cx-agent-commercial-search select {
+  border: 1px solid #ccd8d8;
+  border-radius: 0.65rem;
+  padding: 0.45rem 1.8rem 0.45rem 0.65rem;
+  background: #fff;
+  color: var(--agent-ink);
+  font-size: 0.75rem;
+}
+
+.cx-agent-commercial-results {
+  position: absolute;
+  top: calc(100% - 0.2rem);
+  right: 0.75rem;
+  left: 0.75rem;
+  max-height: min(32rem, 65vh);
+  overflow-y: auto;
+  border: 1px solid #cfdbda;
+  border-radius: 0.75rem;
+  padding: 0.45rem;
+  background: #fff;
+  box-shadow: 0 20px 45px rgba(20, 48, 50, 0.18);
+}
+
+.cx-agent-commercial-results[hidden] { display: none; }
+.cx-agent-commercial-results section + section { border-top: 1px solid var(--agent-line); margin-top: 0.4rem; padding-top: 0.4rem; }
+.cx-agent-commercial-results h3 {
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  color: #758687;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cx-agent-commercial-results button,
+.cx-agent-record-list button,
+.cx-agent-record-insights button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.6rem;
+  background: transparent;
+  color: var(--agent-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-agent-commercial-results button:hover,
+.cx-agent-commercial-results button:focus-visible,
+.cx-agent-record-list button:hover,
+.cx-agent-record-insights button:hover {
+  background: #edf4f3;
+}
+
+.cx-agent-commercial-results button > i,
+.cx-agent-record-list button > i,
+.cx-agent-record-list > div > i {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.45rem;
+  background: #e7f0ef;
+  color: var(--agent-teal);
+}
+
+.cx-agent-commercial-results button span,
+.cx-agent-record-list button span,
+.cx-agent-record-list > div span,
+.cx-agent-record-insights button span {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.cx-agent-commercial-results small,
+.cx-agent-record-list small,
+.cx-agent-record-insights small {
+  overflow: hidden;
+  color: #748485;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-agent-commercial-empty {
+  margin: 0;
+  padding: 1rem;
+  color: #6d7e7f;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.cx-agent-workspace-columns {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(20rem, 0.88fr) minmax(26rem, 1.12fr);
+}
+
+.cx-agent-conversation-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--agent-line);
+  background: #fff;
+}
+
+.cx-agent-record {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: #f4f7f6;
+}
+
+.cx-agent-record-head {
+  display: flex;
+  min-height: 4.2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--agent-line);
+  padding: 0.75rem 1rem;
+  background: #fff;
+}
+
+.cx-agent-record-head > div { display: grid; min-width: 0; }
+.cx-agent-record-head span { color: #748485; font-size: 0.68rem; }
+.cx-agent-record-head strong { overflow: hidden; color: var(--agent-ink); font-size: 0.92rem; text-overflow: ellipsis; white-space: nowrap; }
+.cx-agent-record-head a { color: var(--agent-teal); font-size: 0.72rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+
+.cx-agent-record-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.cx-agent-record-empty,
+.cx-agent-record-loading {
+  display: grid;
+  min-height: 16rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.55rem;
+  color: #718283;
+  text-align: center;
+}
+
+.cx-agent-record-empty > i { font-size: 1.7rem; color: var(--agent-teal); }
+.cx-agent-record-empty strong { color: var(--agent-ink); }
+.cx-agent-record-empty p { max-width: 28rem; margin: 0; font-size: 0.78rem; line-height: 1.5; }
+.cx-agent-record-empty.is-error strong { color: #b42318; }
+
+.cx-agent-record-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid var(--agent-line);
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  background: #fff;
+}
+
+.cx-agent-record-avatar {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: var(--agent-teal);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.cx-agent-record-avatar.is-quote { background: #355d75; font-size: 1rem; }
+.cx-agent-record-identity > div { display: grid; min-width: 0; }
+.cx-agent-record-identity strong { color: var(--agent-ink); }
+.cx-agent-record-identity span { color: #728283; font-size: 0.72rem; }
+
+.cx-agent-record-metrics,
+.cx-agent-record-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.cx-agent-record-metrics > div,
+.cx-agent-record-details > div {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  border: 1px solid var(--agent-line);
+  border-radius: 0.6rem;
+  padding: 0.65rem;
+  background: #fff;
+}
+
+.cx-agent-record-metrics span,
+.cx-agent-record-details span { color: #788888; font-size: 0.65rem; }
+.cx-agent-record-metrics strong,
+.cx-agent-record-details strong { color: var(--agent-ink); font-size: 0.76rem; line-height: 1.35; }
+
+.cx-agent-record-section {
+  margin-top: 0.8rem;
+  border: 1px solid var(--agent-line);
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  background: #fff;
+}
+
+.cx-agent-record-section h3 {
+  margin: 0 0 0.65rem;
+  color: var(--agent-ink);
+  font-size: 0.77rem;
+}
+
+.cx-agent-record-insights,
+.cx-agent-record-list { display: grid; gap: 0.35rem; }
+.cx-agent-record-insights button { background: #f6f9f8; }
+.cx-agent-record-insights button > i { color: var(--agent-teal); }
+.cx-agent-record-list > div { display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem; }
+.cx-agent-record-list > p { margin: 0; color: #758586; font-size: 0.74rem; }
+
+.cx-agent-client-form { display: grid; gap: 0.65rem; }
+.cx-agent-client-form > label,
+.cx-agent-form-row label { display: grid; gap: 0.25rem; color: #617374; font-size: 0.68rem; }
+.cx-agent-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.cx-agent-client-form input,
+.cx-agent-client-form select,
+.cx-agent-client-form textarea {
+  width: 100%;
+  border: 1px solid #ccd8d8;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  background: #fff;
+  color: var(--agent-ink);
+  font-size: 0.78rem;
+}
+.cx-agent-client-form textarea { min-height: 4.5rem; resize: vertical; }
+.cx-agent-client-signals { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; }
+.cx-agent-client-signals label { color: #526667; font-size: 0.7rem; }
+.cx-agent-record-save,
+.cx-agent-record-client-link {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--agent-teal);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cx-agent-record-save:disabled { cursor: wait; opacity: 0.6; }
+.cx-agent-record-client-link { width: 100%; margin-top: 0.8rem; }
+.cx-agent-mobile-switch { display: none; }
+
+@media (max-width: 1099px) {
+  .cx-agent-dock:not(.is-minimized) { width: min(40rem, 100vw); }
+  .cx-agent-mobile-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--agent-line);
+    padding: 0.4rem;
+    background: #fff;
+  }
+  .cx-agent-mobile-switch button {
+    border: 0;
+    border-radius: 0.45rem;
+    padding: 0.45rem;
+    background: transparent;
+    color: #687a7b;
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+  .cx-agent-mobile-switch button.is-active { background: #e9f1f0; color: var(--agent-teal); }
+  .cx-agent-workspace-columns { display: block; position: relative; }
+  .cx-agent-conversation-column,
+  .cx-agent-record { position: absolute; inset: 0; border: 0; }
+  .cx-agent-workspace:not([data-active-view="record"]) .cx-agent-record { display: none; }
+  .cx-agent-workspace[data-active-view="record"] .cx-agent-conversation-column { display: none; }
+}
+
+@media (max-width: 640px) {
+  .cx-agent-commercial-search { grid-template-columns: 1fr; }
+  .cx-agent-commercial-search select { width: 100%; }
+  .cx-agent-commercial-search kbd { display: none; }
+  .cx-agent-record-metrics { grid-template-columns: 1fr 1fr; }
+  .cx-agent-record-details { grid-template-columns: 1fr; }
+}
+
 /* Agente CentralX — conversa editorial e composer multimodal */
 .cx-agent-dock {
   --agent-ink: #163033;
@@ -2576,6 +2928,190 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-agent-messages { padding-inline: 0.85rem; }
   .cx-agent-composer-wrap { padding: 0.65rem 0.65rem 0.45rem; }
   .cx-agent-model-label { display: none; }
+}
+
+/* Agente CentralX — presença enterprise, progresso e controles móveis */
+.cx-agent-dock:not(.is-minimized) {
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.cx-agent-thinking {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  color: var(--agent-ink);
+}
+.cx-agent-thinking > i {
+  position: relative;
+  width: 1.75rem;
+  height: 0.3rem;
+  flex: 0 0 auto;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  background: #d8e4e3;
+  overflow: hidden;
+}
+.cx-agent-thinking > i::after {
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: var(--agent-teal);
+  content: "";
+  animation: cx-agent-thinking 1.15s ease-in-out infinite;
+}
+.cx-agent-thinking strong,
+.cx-agent-thinking small { display: block; }
+.cx-agent-thinking strong { font-size: 0.78rem; }
+.cx-agent-thinking small {
+  margin-top: 0.12rem;
+  color: var(--cx-text-muted);
+  font-size: 0.67rem;
+  line-height: 1.45;
+}
+.cx-agent-progressive-text { white-space: pre-wrap; }
+.cx-agent-progressive-cursor {
+  display: inline-block;
+  width: 0.12rem;
+  height: 1em;
+  margin-left: 0.15rem;
+  transform: translateY(0.12rem);
+  border-radius: 999px;
+  background: var(--agent-teal);
+  animation: cx-agent-cursor 0.7s steps(2, jump-none) infinite;
+}
+
+@keyframes cx-agent-thinking {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(220%); }
+}
+@keyframes cx-agent-cursor {
+  50% { opacity: 0; }
+}
+
+.cx-agent-scope-trigger { display: none; }
+.cx-agent-bottom-sheet {
+  width: min(31rem, calc(100vw - 1rem));
+  max-width: none;
+  margin: auto auto 0.5rem;
+  border: 0;
+  border-radius: 1rem;
+  padding: 0;
+  background: #fff;
+  color: var(--agent-ink);
+  box-shadow: 0 -18px 60px rgba(13, 43, 45, 0.22);
+}
+.cx-agent-bottom-sheet::backdrop {
+  background: rgba(15, 35, 36, 0.46);
+  backdrop-filter: blur(2px);
+}
+.cx-agent-bottom-sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.55rem auto 0;
+  border-radius: 999px;
+  background: #c9d3d3;
+}
+.cx-agent-bottom-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+}
+.cx-agent-bottom-sheet header div { display: grid; gap: 0.12rem; }
+.cx-agent-bottom-sheet header strong { font-size: 0.95rem; }
+.cx-agent-bottom-sheet header span { color: var(--cx-text-muted); font-size: 0.72rem; }
+.cx-agent-bottom-sheet header button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0.65rem;
+  background: var(--agent-mist);
+  color: var(--agent-ink);
+}
+.cx-agent-bottom-sheet-options {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+}
+.cx-agent-bottom-sheet-options > button {
+  display: grid;
+  min-height: 4rem;
+  grid-template-columns: 1.8rem minmax(0, 1fr) 1rem;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--agent-line);
+  border-radius: 0.75rem;
+  padding: 0.7rem;
+  background: #fff;
+  color: var(--agent-ink);
+  text-align: left;
+}
+.cx-agent-bottom-sheet-options > button > span { display: grid; gap: 0.12rem; }
+.cx-agent-bottom-sheet-options small { color: var(--cx-text-muted); font-size: 0.68rem; }
+.cx-agent-bottom-sheet-options > button > i:last-child { visibility: hidden; color: var(--agent-teal); }
+.cx-agent-bottom-sheet-options > button.is-selected {
+  border-color: #82a4a3;
+  background: #edf4f3;
+}
+.cx-agent-bottom-sheet-options > button.is-selected > i:last-child { visibility: visible; }
+
+@media (max-width: 640px) {
+  .cx-agent-dock:not(.is-minimized) {
+    width: 100vw;
+    max-width: none;
+    border: 0;
+  }
+  .cx-agent-commercial-search select { display: none; }
+  .cx-agent-scope-trigger:not([hidden]) {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border: 1px solid #ccd8d8;
+    border-radius: 0.65rem;
+    padding: 0 0.75rem;
+    background: #fff;
+    color: var(--agent-ink);
+    font-size: 0.75rem;
+  }
+  .cx-agent-header { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+  .cx-agent-icon-btn,
+  .cx-agent-tool-btn,
+  .cx-agent-send {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .cx-agent-mobile-switch button,
+  .cx-agent-tab,
+  .cx-agent-filter-btn,
+  .cx-agent-record-save,
+  .cx-agent-record-client-link {
+    min-height: 2.75rem;
+  }
+  .cx-agent-action,
+  .cx-agent-suggestion,
+  .cx-agent-prompt,
+  .cx-agent-insight,
+  .cx-agent-commercial-results button {
+    min-height: 3.25rem;
+  }
+  .cx-agent-composer-wrap {
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+  }
+  .cx-agent-message-body { font-size: 0.84rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-agent-thinking > i::after,
+  .cx-agent-progressive-cursor { animation: none; }
 }
 
 @media (min-width: 1200px) {

@@ -8877,4 +8877,18 @@ async function recalcularValorTotalCotacao() {
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=1"></script>
+{% if cotacao %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (!window.CentralXAgent) return;
+  window.CentralXAgent.setContext({
+    module: 'comercial',
+    screen: 'cotacao',
+    entity_type: 'cotacao',
+    entity_id: {{ cotacao.id|tojson }},
+    entity_label: {{ (cotacao.numero_cotacao or cotacao.nome_campanha or 'Cotação')|tojson }}
+  });
+});
+</script>
+{% endif %}
 {% endblock %}

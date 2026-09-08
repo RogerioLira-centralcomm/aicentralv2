@@ -7,8 +7,13 @@ from functools import wraps
 from flask import jsonify, request, session
 
 
-CAPABILITIES = {
+ASSIGNED_CAPABILITIES = {
+    "commercial.read.assigned",
+    "commercial.write.assigned",
+}
+GLOBAL_CAPABILITIES = {
     "commercial.read.global",
+    "commercial.write.global",
 }
 
 
@@ -42,5 +47,12 @@ def agent_csrf_required(view):
     return wrapped
 
 
+def has_global_commercial_access():
+    return session.get("user_type") in {"admin", "superadmin"}
+
+
 def public_capabilities():
-    return sorted(CAPABILITIES)
+    capabilities = set(ASSIGNED_CAPABILITIES)
+    if has_global_commercial_access():
+        capabilities.update(GLOBAL_CAPABILITIES)
+    return sorted(capabilities)

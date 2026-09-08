@@ -16,7 +16,7 @@ class Tool:
     handler: object
     properties: dict
     required: tuple
-    capability: str = "commercial.read.global"
+    capability: str = "commercial.read.assigned"
     operation_type: str = "read"
     confirmation_required: bool = False
 

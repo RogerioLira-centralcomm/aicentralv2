@@ -21,23 +21,47 @@
   </header>
 
   <div id="cx-agent-workspace" class="cx-agent-workspace">
-    <button type="button" id="cx-agent-entity" class="cx-agent-entity">
+    <div class="cx-agent-commercial-search">
+      <label for="cx-agent-commercial-query">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="cx-agent-commercial-query" type="search" autocomplete="off"
+               placeholder="Buscar cliente, campanha ou cotação">
+        <kbd>⌘ K</kbd>
+      </label>
+      <select id="cx-agent-commercial-scope" aria-label="Escopo da busca" hidden>
+        <option value="mine">Meus registros</option>
+        <option value="all">Toda a Centralcomm</option>
+      </select>
+      <button type="button" id="cx-agent-scope-trigger" class="cx-agent-scope-trigger" hidden>
+        <span>Meus registros</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </button>
+      <div id="cx-agent-commercial-results" class="cx-agent-commercial-results" hidden></div>
+    </div>
+
+    <div class="cx-agent-mobile-switch" role="tablist" aria-label="Área do workspace">
+      <button type="button" class="is-active" data-agent-view="conversation" aria-selected="true">Agente</button>
+      <button type="button" data-agent-view="record" aria-selected="false">CRM</button>
+    </div>
+
+    <div class="cx-agent-workspace-columns">
+      <div class="cx-agent-conversation-column">
+        <button type="button" id="cx-agent-entity" class="cx-agent-entity">
       <span class="cx-agent-entity-icon" aria-hidden="true"><i class="fa-regular fa-building"></i></span>
       <span class="cx-agent-entity-copy">
         <strong id="cx-agent-context-label">Nenhum registro na tela</strong>
         <span id="cx-agent-context-type">Busque no chat ou abra um cliente</span>
       </span>
       <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-    </button>
+        </button>
 
-    <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
+        <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
       <button type="button" class="cx-agent-tab is-active" role="tab" aria-selected="true" aria-controls="cx-agent-panel-chat" data-agent-tab="chat">Chat</button>
       <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-actions" data-agent-tab="actions">Ações</button>
       <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-suggestions" data-agent-tab="suggestions">Sugestões</button>
       <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-history" data-agent-tab="history">Histórico</button>
-    </nav>
+        </nav>
 
-    <div class="cx-agent-panels">
+        <div class="cx-agent-panels">
       <section id="cx-agent-panel-chat" class="cx-agent-panel is-active" role="tabpanel" data-agent-panel="chat">
         <div id="cx-agent-messages" class="cx-agent-messages" aria-live="polite">
           <div class="cx-agent-welcome">
@@ -109,6 +133,27 @@
         </div>
         <div id="cx-agent-history" class="cx-agent-history"></div>
       </section>
+        </div>
+      </div>
+
+      <aside id="cx-agent-record" class="cx-agent-record" aria-label="Registro CRM">
+        <header class="cx-agent-record-head">
+          <div>
+            <span>Registro CRM</span>
+            <strong id="cx-agent-record-title">Selecione um cliente ou cotação</strong>
+          </div>
+          <a id="cx-agent-record-open" href="/crm-v3/" hidden>
+            Abrir completo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+        </header>
+        <div id="cx-agent-record-body" class="cx-agent-record-body" aria-live="polite">
+          <div class="cx-agent-record-empty">
+            <i class="fa-regular fa-address-card" aria-hidden="true"></i>
+            <strong>O contexto comercial aparece aqui</strong>
+            <p>Busque pelo nome, campanha ou número da cotação para começar.</p>
+          </div>
+        </div>
+      </aside>
     </div>
   </div>
 
@@ -153,4 +198,29 @@
       <span>Agente CentralX <small>v1.0.0</small></span>
     </footer>
   </section>
+
+  <dialog id="cx-agent-scope-sheet" class="cx-agent-bottom-sheet" aria-labelledby="cx-agent-scope-sheet-title">
+    <div class="cx-agent-bottom-sheet-handle" aria-hidden="true"></div>
+    <header>
+      <div>
+        <strong id="cx-agent-scope-sheet-title">Onde buscar</strong>
+        <span>Escolha o alcance desta pesquisa.</span>
+      </div>
+      <button type="button" data-scope-sheet-close aria-label="Fechar opções">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="cx-agent-bottom-sheet-options">
+      <button type="button" data-commercial-scope="mine">
+        <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
+        <span><strong>Meus registros</strong><small>Clientes e cotações sob sua responsabilidade.</small></span>
+        <i class="fa-solid fa-check" aria-hidden="true"></i>
+      </button>
+      <button type="button" data-commercial-scope="all">
+        <i class="fa-solid fa-building" aria-hidden="true"></i>
+        <span><strong>Toda a Centralcomm</strong><small>Busca global disponível para administradores.</small></span>
+        <i class="fa-solid fa-check" aria-hidden="true"></i>
+      </button>
+    </div>
+  </dialog>
 </aside>

@@ -471,17 +471,60 @@ class CrmV3Repository:
         )
         return items
 
-    def search_clientes(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def search_clientes(
+        self, query: str, limit: int = 20, executivo_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Busca paginada para consumidores server-side, sem carregar toda a base."""
         term = (query or "").strip()
         if not term:
             return []
+        filtros = {"search": term}
+        if executivo_id:
+            filtros["executivo_id"] = int(executivo_id)
         page = _db().obter_clientes_paginado(
             page=1,
             per_page=max(1, min(int(limit or 20), 20)),
-            filtros={"search": term},
+            filtros=filtros,
         ) or {}
         return [_map_cliente(dict(row)) for row in (page.get("clientes") or [])]
+
+    def search_cotacoes(
+        self, query: str, limit: int = 20, executivo_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Busca comercial rasa por número, campanha ou cliente."""
+        term = (query or "").strip()
+        if not term:
+            return []
+        conn = _db().get_db()
+        sql = """
+            SELECT c.*, cli.nome_fantasia AS cliente_nome,
+                   cont.nome_completo AS contato_nome,
+                   vend.nome_completo AS vendedor_nome,
+                   c.status AS status_descricao
+              FROM cadu_cotacoes c
+              LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.client_id
+              LEFT JOIN tbl_contato_cliente cont
+                ON cont.id_contato_cliente = c.client_user_id
+              LEFT JOIN tbl_contato_cliente vend
+                ON vend.id_contato_cliente = c.responsavel_comercial
+             WHERE c.deleted_at IS NULL
+               AND (
+                    unaccent(COALESCE(c.numero_cotacao, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(c.nome_campanha, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(cli.nome_fantasia, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(cli.razao_social, '')) ILIKE unaccent(%s)
+               )
+        """
+        params: List[Any] = [f"%{term}%"] * 4
+        if executivo_id:
+            sql += " AND c.responsavel_comercial = %s"
+            params.append(int(executivo_id))
+        sql += " ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC LIMIT %s"
+        params.append(max(1, min(int(limit or 20), 20)))
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall() or []
+        return [self._map_cotacao(dict(row)) for row in rows]
 
     def list_lookups(self) -> Dict[str, Any]:
         """Consolida todos os combos "de dominio" usados pela UI (drawers,
@@ -1621,6 +1664,11 @@ class CrmV3Repository:
             "objetivo": row.get("objetivo_campanha") or "",
             "plataformas": plataformas,
             "vendedor_nome": row.get("vendedor_nome") or "",
+            "executivo_id": (
+                str(row.get("responsavel_comercial"))
+                if row.get("responsavel_comercial")
+                else ""
+            ),
             "contato_nome": row.get("contato_nome") or "",
             "origem": row.get("origem") or "proprio",
             "cliente_nome": row.get("cliente_nome") or "",

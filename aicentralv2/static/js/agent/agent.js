@@ -20,7 +20,14 @@
     historyFilter: 'all',
     prefs: loadPrefs(),
     controller: null,
-    lastFocus: null
+    lastFocus: null,
+    capabilities: [],
+    commercialController: null,
+    commercialTimer: null,
+    loadingTimer: null,
+    record: null,
+    recordKey: '',
+    activeView: 'conversation'
   };
 
   var els = {
@@ -58,8 +65,23 @@
     extractSize: document.getElementById('cx-agent-extract-size'),
     prefHistory: document.getElementById('cx-agent-pref-history'),
     prefContext: document.getElementById('cx-agent-pref-context'),
-    prefNotify: document.getElementById('cx-agent-pref-notify')
+    prefNotify: document.getElementById('cx-agent-pref-notify'),
+    commercialQuery: document.getElementById('cx-agent-commercial-query'),
+    commercialScope: document.getElementById('cx-agent-commercial-scope'),
+    scopeTrigger: document.getElementById('cx-agent-scope-trigger'),
+    scopeSheet: document.getElementById('cx-agent-scope-sheet'),
+    commercialResults: document.getElementById('cx-agent-commercial-results'),
+    record: document.getElementById('cx-agent-record'),
+    recordTitle: document.getElementById('cx-agent-record-title'),
+    recordOpen: document.getElementById('cx-agent-record-open'),
+    recordBody: document.getElementById('cx-agent-record-body')
   };
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char];
+    });
+  }
 
   function loadPrefs() {
     try {
@@ -143,6 +165,13 @@
     return null;
   }
 
+  function commercialContext() {
+    var ctx = outgoingContext();
+    var type = String(ctx.entity_type || '').toLowerCase();
+    return ['cliente', 'client', 'cotacao', 'quote'].indexOf(type) >= 0 && ctx.entity_id
+      ? ctx : null;
+  }
+
   function updateContext() {
     var ctx = outgoingContext();
     var hasEntity = Boolean(ctx.entity_id && ctx.entity_label);
@@ -157,6 +186,7 @@
       );
     }
     renderActions();
+    loadCommercialRecord();
   }
 
   function openEntity() {
@@ -168,6 +198,279 @@
     }
     switchTab('chat');
     els.input.focus();
+  }
+
+  function switchWorkspaceView(name) {
+    state.activeView = name === 'record' ? 'record' : 'conversation';
+    els.workspace.dataset.activeView = state.activeView;
+    dock.querySelectorAll('[data-agent-view]').forEach(function (button) {
+      var active = button.dataset.agentView === state.activeView;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+  }
+
+  function setRecordEmpty(message) {
+    state.record = null;
+    els.recordTitle.textContent = 'Selecione um cliente ou cotação';
+    els.recordOpen.hidden = true;
+    els.recordBody.innerHTML =
+      '<div class="cx-agent-record-empty">' +
+      '<i class="fa-regular fa-address-card" aria-hidden="true"></i>' +
+      '<strong>O contexto comercial aparece aqui</strong>' +
+      '<p>' + escapeHtml(message || 'Busque pelo nome, campanha ou número da cotação para começar.') + '</p>' +
+      '</div>';
+  }
+
+  function commercialMeta(label, value) {
+    if (!value) return '';
+    return '<div><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>';
+  }
+
+  function renderRecordInsights(insights) {
+    var alerts = (insights && insights.alerts) || [];
+    if (!alerts.length) return '';
+    return '<section class="cx-agent-record-section"><h3>Próximas ações</h3><div class="cx-agent-record-insights">' +
+      alerts.slice(0, 3).map(function (item) {
+        return '<button type="button" data-record-prompt="' + escapeHtml(item.prompt || '') + '">' +
+          '<i class="fa-solid ' + escapeHtml(item.icon || 'fa-lightbulb') + '"></i>' +
+          '<span><strong>' + escapeHtml(item.title) + '</strong><small>' + escapeHtml(item.body) + '</small></span>' +
+          '</button>';
+      }).join('') + '</div></section>';
+  }
+
+  function renderClientRecord(data) {
+    var client = data.record || {};
+    var contacts = data.contacts || [];
+    var quotes = data.quotes || [];
+    var classifications = ['Prospecção', 'Ativo', 'Geladeira'];
+    return '' +
+      '<div class="cx-agent-record-identity">' +
+        '<span class="cx-agent-record-avatar">' + escapeHtml((client.nome || 'CL').slice(0, 2).toUpperCase()) + '</span>' +
+        '<div><strong>' + escapeHtml(client.nome || 'Cliente') + '</strong><span>' +
+          escapeHtml([client.tipo_label, client.cidade, client.uf].filter(Boolean).join(' · ')) +
+        '</span></div>' +
+      '</div>' +
+      '<div class="cx-agent-record-metrics">' +
+        commercialMeta('Responsável', client.responsavel || 'Não atribuído') +
+        commercialMeta('Classificação', client.classificacao || 'Prospecção') +
+        commercialMeta('Cotações', String(quotes.length)) +
+      '</div>' +
+      renderRecordInsights(data.insights) +
+      '<section class="cx-agent-record-section"><h3>Dados do cliente</h3>' +
+        '<form id="cx-agent-client-form" class="cx-agent-client-form">' +
+          '<label><span>Nome fantasia</span><input name="nome" value="' + escapeHtml(client.nome || '') + '" required maxlength="200"></label>' +
+          '<label><span>Razão social</span><input name="razao_social" value="' + escapeHtml(client.razao_social || '') + '" maxlength="200"></label>' +
+          '<div class="cx-agent-form-row">' +
+            '<label><span>Classificação</span><select name="classificacao_cliente">' +
+              classifications.map(function (item) {
+                return '<option' + (item === client.classificacao ? ' selected' : '') + '>' + escapeHtml(item) + '</option>';
+              }).join('') +
+            '</select></label>' +
+            '<label><span>CNPJ</span><input name="cnpj" value="' + escapeHtml(client.cnpj || '') + '" maxlength="18"></label>' +
+          '</div>' +
+          '<label><span>Site</span><input name="site_url" value="' + escapeHtml(client.site_url || '') + '" maxlength="500" placeholder="https://"></label>' +
+          '<label><span>Nota do executivo</span><textarea name="nota_executivo" maxlength="4000">' + escapeHtml(client.nota_executivo || '') + '</textarea></label>' +
+          '<div class="cx-agent-client-signals">' +
+            '<label><input type="checkbox" name="opera_midia"' + (client.opera_midia ? ' checked' : '') + '> Opera mídia</label>' +
+            '<label><input type="checkbox" name="demanda_dados"' + (client.demanda_dados ? ' checked' : '') + '> Demanda dados</label>' +
+            '<label><input type="checkbox" name="demanda_programatica_canais"' + (client.demanda_programatica_canais ? ' checked' : '') + '> Programática/canais</label>' +
+          '</div>' +
+          '<button class="cx-agent-record-save" type="submit"><i class="fa-solid fa-check"></i> Salvar alterações</button>' +
+        '</form>' +
+      '</section>' +
+      '<section class="cx-agent-record-section"><h3>Contatos recentes</h3><div class="cx-agent-record-list">' +
+        (contacts.length ? contacts.map(function (item) {
+          return '<div><i class="fa-regular fa-user"></i><span><strong>' + escapeHtml(item.nome || 'Contato') +
+            '</strong><small>' + escapeHtml(item.cargo || item.email || '') + '</small></span></div>';
+        }).join('') : '<p>Nenhum contato cadastrado.</p>') +
+      '</div></section>' +
+      '<section class="cx-agent-record-section"><h3>Cotações recentes</h3><div class="cx-agent-record-list">' +
+        (quotes.length ? quotes.map(function (item) {
+          return '<button type="button" data-select-record="cotacao" data-record-id="' + escapeHtml(item.id) +
+            '" data-record-label="' + escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') + '">' +
+            '<i class="fa-regular fa-file-lines"></i><span><strong>' + escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') +
+            '</strong><small>' + escapeHtml([item.status_label, item.valor].filter(Boolean).join(' · ')) + '</small></span></button>';
+        }).join('') : '<p>Nenhuma cotação cadastrada.</p>') +
+      '</div></section>';
+  }
+
+  function renderQuoteRecord(data) {
+    var quote = data.record || {};
+    var client = data.client || {};
+    return '' +
+      '<div class="cx-agent-record-identity">' +
+        '<span class="cx-agent-record-avatar is-quote"><i class="fa-regular fa-file-lines"></i></span>' +
+        '<div><strong>' + escapeHtml(quote.titulo || quote.numero_cotacao || 'Cotação') + '</strong>' +
+        '<span>' + escapeHtml(quote.numero_cotacao || '') + '</span></div>' +
+      '</div>' +
+      '<div class="cx-agent-record-metrics">' +
+        commercialMeta('Status', quote.status_label || quote.status) +
+        commercialMeta('Valor', quote.valor) +
+        commercialMeta('Responsável', quote.vendedor_nome || 'Não atribuído') +
+      '</div>' +
+      renderRecordInsights(data.insights) +
+      '<section class="cx-agent-record-section"><h3>Resumo da cotação</h3><div class="cx-agent-record-details">' +
+        commercialMeta('Cliente', client.nome || quote.cliente_nome) +
+        commercialMeta('Período', [quote.periodo_inicio, quote.periodo_fim].filter(Boolean).join(' a ')) +
+        commercialMeta('Objetivo', quote.objetivo) +
+        commercialMeta('Plataformas', (quote.plataformas || []).join(', ')) +
+      '</div></section>' +
+      (client.id ? '<button type="button" class="cx-agent-record-client-link" data-select-record="cliente" data-record-id="' +
+        escapeHtml(client.id) + '" data-record-label="' + escapeHtml(client.nome || 'Cliente') +
+        '"><i class="fa-regular fa-building"></i> Ver cliente no painel</button>' : '');
+  }
+
+  function renderCommercialRecord(data) {
+    state.record = data;
+    var record = data.record || {};
+    els.recordTitle.textContent = record.nome || record.titulo || record.numero_cotacao || 'Registro';
+    els.recordOpen.href = data.url || '/crm-v3/';
+    els.recordOpen.hidden = false;
+    els.recordBody.innerHTML = data.type === 'cliente' ? renderClientRecord(data) : renderQuoteRecord(data);
+  }
+
+  function loadCommercialRecord(force) {
+    var ctx = outgoingContext();
+    var type = String(ctx.entity_type || '').toLowerCase();
+    if (!ctx.entity_id || ['cliente', 'client', 'cotacao', 'quote'].indexOf(type) === -1) {
+      state.recordKey = '';
+      setRecordEmpty();
+      return Promise.resolve();
+    }
+    var key = type + ':' + ctx.entity_id;
+    if (!force && key === state.recordKey && state.record) return Promise.resolve();
+    state.recordKey = key;
+    els.recordTitle.textContent = 'Carregando registro...';
+    els.recordOpen.hidden = true;
+    els.recordBody.innerHTML = '<div class="cx-agent-record-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Sincronizando com o CRM...</span></div>';
+    return api('/api/agent/commercial/record/' + encodeURIComponent(type) + '/' + encodeURIComponent(ctx.entity_id))
+      .then(function (payload) { renderCommercialRecord(payload.data || {}); })
+      .catch(function (error) {
+        state.record = null;
+        els.recordBody.innerHTML = '<div class="cx-agent-record-empty is-error"><strong>Registro indisponível</strong><p>' +
+          escapeHtml(error.message) + '</p></div>';
+      });
+  }
+
+  function selectCommercialRecord(type, id, label) {
+    window.CentralXAgent.setContext({
+      module: type === 'cotacao' ? 'comercial' : 'crm',
+      screen: type === 'cotacao' ? 'cotacao' : 'cliente_detalhe',
+      entity_type: type,
+      entity_id: String(id || ''),
+      entity_label: String(label || '')
+    });
+    els.commercialResults.hidden = true;
+    els.commercialQuery.value = '';
+    switchWorkspaceView('record');
+  }
+
+  function renderCommercialResults(data) {
+    var clients = data.clients || [];
+    var quotes = data.quotes || [];
+    if (!clients.length && !quotes.length) {
+      els.commercialResults.innerHTML = '<p class="cx-agent-commercial-empty">Nenhum cliente ou cotação encontrado.</p>';
+      els.commercialResults.hidden = false;
+      return;
+    }
+    var groups = [];
+    if (clients.length) {
+      groups.push('<section><h3>Clientes</h3>' + clients.map(function (item) {
+        return '<button type="button" data-search-record="cliente" data-record-id="' + escapeHtml(item.id) +
+          '" data-record-label="' + escapeHtml(item.nome || 'Cliente') + '"><i class="fa-regular fa-building"></i>' +
+          '<span><strong>' + escapeHtml(item.nome || 'Cliente') + '</strong><small>' +
+          escapeHtml([item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')) + '</small></span></button>';
+      }).join('') + '</section>');
+    }
+    if (quotes.length) {
+      groups.push('<section><h3>Cotações</h3>' + quotes.map(function (item) {
+        return '<button type="button" data-search-record="cotacao" data-record-id="' + escapeHtml(item.id) +
+          '" data-record-label="' + escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') +
+          '"><i class="fa-regular fa-file-lines"></i><span><strong>' +
+          escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') + '</strong><small>' +
+          escapeHtml([item.cliente_nome, item.status_label, item.valor].filter(Boolean).join(' · ')) + '</small></span></button>';
+      }).join('') + '</section>');
+    }
+    els.commercialResults.innerHTML = groups.join('');
+    els.commercialResults.hidden = false;
+  }
+
+  function searchCommercial() {
+    var query = els.commercialQuery.value.trim();
+    clearTimeout(state.commercialTimer);
+    if (state.commercialController) state.commercialController.abort();
+    if (query.length < 2) {
+      els.commercialResults.hidden = true;
+      return;
+    }
+    state.commercialTimer = setTimeout(function () {
+      state.commercialController = new AbortController();
+      var params = new URLSearchParams({
+        q: query,
+        scope: els.commercialScope.value || 'mine',
+        limit: '8'
+      });
+      api('/api/agent/commercial/search?' + params.toString(), {
+        signal: state.commercialController.signal
+      }).then(function (payload) {
+        renderCommercialResults(payload.data || {});
+      }).catch(function (error) {
+        if (error.name !== 'AbortError') {
+          els.commercialResults.innerHTML = '<p class="cx-agent-commercial-empty">' + escapeHtml(error.message) + '</p>';
+          els.commercialResults.hidden = false;
+        }
+      });
+    }, 240);
+  }
+
+  function syncCommercialScope(value) {
+    var scope = value === 'all' ? 'all' : 'mine';
+    els.commercialScope.value = scope;
+    els.scopeTrigger.querySelector('span').textContent =
+      scope === 'all' ? 'Toda a Centralcomm' : 'Meus registros';
+    els.scopeSheet.querySelectorAll('[data-commercial-scope]').forEach(function (button) {
+      var selected = button.dataset.commercialScope === scope;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+  }
+
+  function saveClientRecord(form) {
+    var ctx = outgoingContext();
+    var data = new FormData(form);
+    var payload = {
+      nome: data.get('nome'),
+      razao_social: data.get('razao_social'),
+      cnpj: data.get('cnpj'),
+      classificacao_cliente: data.get('classificacao_cliente'),
+      site_url: data.get('site_url'),
+      nota_executivo: data.get('nota_executivo'),
+      opera_midia: data.has('opera_midia'),
+      demanda_dados: data.has('demanda_dados'),
+      demanda_programatica_canais: data.has('demanda_programatica_canais')
+    };
+    var submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    return api('/api/agent/commercial/clients/' + encodeURIComponent(ctx.entity_id), {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }).then(function (response) {
+      renderCommercialRecord(response.data || {});
+      var updated = response.data && response.data.record;
+      if (updated) {
+        state.context.entity_label = updated.nome || state.context.entity_label;
+        updateContext();
+      }
+      window.dispatchEvent(new CustomEvent('centralx:entity-updated', {
+        detail: { entity_type: 'cliente', entity_id: String(ctx.entity_id) }
+      }));
+      showComposerFeedback('Cliente atualizado no CRM.', false);
+    }).catch(function (error) {
+      showComposerFeedback(error.message, true);
+    }).finally(function () {
+      if (submit.isConnected) submit.disabled = false;
+    });
   }
 
   function setOpen(open) {
@@ -323,8 +626,8 @@
     });
     els.suggestions.replaceChildren();
     var alerts = data.alerts || [];
-    if (!clientContext()) {
-      els.suggestions.appendChild(empty('Abra um cliente para ver alertas.'));
+    if (!commercialContext()) {
+      els.suggestions.appendChild(empty('Abra um cliente ou cotação para ver alertas.'));
     } else if (alerts.length) {
       els.suggestions.appendChild(heading('Sugestões para você'));
       alerts.forEach(function (item) {
@@ -334,7 +637,7 @@
         els.suggestions.appendChild(btn);
       });
     } else {
-      els.suggestions.appendChild(empty('Nenhum alerta para este cliente agora.'));
+      els.suggestions.appendChild(empty('Nenhuma próxima ação recomendada agora.'));
     }
     if (state.suggestions.length) {
       els.suggestions.appendChild(heading('Perguntas comuns'));
@@ -360,6 +663,11 @@
       .then(function (payload) {
         var data = payload.data || {};
         state.csrf = data.csrf_token || '';
+        state.capabilities = data.capabilities || [];
+        els.commercialScope.hidden = state.capabilities.indexOf('commercial.read.global') === -1;
+        els.scopeTrigger.hidden = els.commercialScope.hidden;
+        if (els.commercialScope.hidden) els.commercialScope.value = 'mine';
+        syncCommercialScope(els.commercialScope.value);
         state.bootstrapped = true;
         els.userName.textContent = (data.user && data.user.name) || 'tudo bem?';
         var model = data.model || 'openai/gpt-4o-mini';
@@ -581,6 +889,27 @@
     });
   }
 
+  function addAssistantMessageExtras(wrapper, body, content, display) {
+    renderAttachmentSummary(body, display && display.attachments);
+    renderDisplay(body, display);
+    var actions = document.createElement('div');
+    actions.className = 'cx-agent-message-actions';
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'cx-agent-message-action';
+    copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar';
+    copy.addEventListener('click', function () {
+      copyText(String(content || '')).then(function () {
+        copy.textContent = 'Copiado';
+        setTimeout(function () { copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar'; }, 1200);
+      }).catch(function () {
+        copy.textContent = 'Não foi possível copiar';
+      });
+    });
+    actions.appendChild(copy);
+    wrapper.appendChild(actions);
+  }
+
   function appendMessage(role, content, display, extraClass) {
     var welcome = els.messages.querySelector('.cx-agent-welcome');
     if (welcome) welcome.hidden = true;
@@ -591,29 +920,80 @@
     if (role === 'assistant' && !extraClass) body.appendChild(renderMarkdown(content));
     else body.textContent = content || '';
     wrapper.appendChild(body);
-    renderAttachmentSummary(body, display && display.attachments);
-    renderDisplay(body, display);
     if (role === 'assistant' && !extraClass) {
-      var actions = document.createElement('div');
-      actions.className = 'cx-agent-message-actions';
-      var copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'cx-agent-message-action';
-      copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar';
-      copy.addEventListener('click', function () {
-        copyText(String(content || '')).then(function () {
-          copy.textContent = 'Copiado';
-          setTimeout(function () { copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar'; }, 1200);
-        }).catch(function () {
-          copy.textContent = 'Não foi possível copiar';
-        });
-      });
-      actions.appendChild(copy);
-      wrapper.appendChild(actions);
+      addAssistantMessageExtras(wrapper, body, content, display);
+    } else {
+      renderAttachmentSummary(body, display && display.attachments);
+      renderDisplay(body, display);
     }
     els.messages.appendChild(wrapper);
     els.messages.scrollTop = els.messages.scrollHeight;
     return wrapper;
+  }
+
+  function appendProgressiveMessage(content, display) {
+    var text = String(content || '');
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || text.length < 24) {
+      appendMessage('assistant', text, display);
+      return Promise.resolve();
+    }
+    var wrapper = appendMessage('assistant', '', null, 'is-progressive');
+    var body = wrapper.querySelector('.cx-agent-message-body');
+    var visual = document.createElement('span');
+    visual.className = 'cx-agent-progressive-text';
+    visual.setAttribute('aria-hidden', 'true');
+    var cursor = document.createElement('i');
+    cursor.className = 'cx-agent-progressive-cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+    body.setAttribute('aria-label', text);
+    body.append(visual, cursor);
+    var chunkSize = Math.max(2, Math.ceil(text.length / 95));
+    var position = 0;
+    return new Promise(function (resolve) {
+      function reveal() {
+        position = Math.min(text.length, position + chunkSize);
+        visual.textContent = text.slice(0, position);
+        els.messages.scrollTop = els.messages.scrollHeight;
+        if (position < text.length) {
+          window.setTimeout(reveal, 18);
+          return;
+        }
+        wrapper.classList.remove('is-progressive');
+        body.removeAttribute('aria-label');
+        body.replaceChildren(renderMarkdown(text));
+        addAssistantMessageExtras(wrapper, body, text, display);
+        els.messages.scrollTop = els.messages.scrollHeight;
+        resolve();
+      }
+      reveal();
+    });
+  }
+
+  function appendLoadingProgress() {
+    var steps = [
+      ['Consultando dados', 'Buscando informações comerciais e contexto da conversa.'],
+      ['Organizando contexto', 'Relacionando cliente, cotação e histórico recente.'],
+      ['Preparando resposta', 'Estruturando uma resposta prática para você.']
+    ];
+    var node = appendMessage('assistant', '', null, 'is-loading');
+    var body = node.querySelector('.cx-agent-message-body');
+    var index = 0;
+    function renderStep() {
+      var step = steps[Math.min(index, steps.length - 1)];
+      body.innerHTML = '<span class="cx-agent-thinking"><i aria-hidden="true"></i><span><strong>' +
+        escapeHtml(step[0]) + '</strong><small>' + escapeHtml(step[1]) + '</small></span></span>';
+      index += 1;
+    }
+    renderStep();
+    state.loadingTimer = window.setInterval(renderStep, 1350);
+    return node;
+  }
+
+  function clearLoadingProgress(node) {
+    window.clearInterval(state.loadingTimer);
+    state.loadingTimer = null;
+    if (node) node.remove();
   }
 
   function safeInternalUrl(url) {
@@ -960,8 +1340,9 @@
     showComposerFeedback('');
     resizeInput();
     setSending(true);
+    setStatus('Analisando...', true);
     var extracting = showExtract(outgoingAttachments);
-    var loading = extracting ? null : appendMessage('assistant', 'Consultando informações…', null, 'is-loading');
+    var loading = extracting ? null : appendLoadingProgress();
     state.controller = new AbortController();
     ensureConversation().then(function (id) {
       return api('/api/agent/conversations/' + encodeURIComponent(id) + '/messages', {
@@ -976,12 +1357,12 @@
         })
       });
     }).then(function (payload) {
-      if (loading) loading.remove();
+      clearLoadingProgress(loading);
       hideExtract();
       var message = payload.data.message;
-      appendMessage('assistant', message.content, message.display);
+      return appendProgressiveMessage(message.content, message.display);
     }).catch(function (error) {
-      if (loading) loading.remove();
+      clearLoadingProgress(loading);
       hideExtract();
       var errorMessage = error.name === 'AbortError' ? 'Consulta cancelada.' : error.message;
       if (error.requestId) errorMessage += '\n\nReferência técnica: `' + error.requestId + '`';
@@ -989,6 +1370,7 @@
     }).finally(function () {
       state.controller = null;
       setSending(false);
+      setStatus('Online', true);
       els.input.disabled = false;
       els.input.focus();
     });
@@ -1014,6 +1396,88 @@
   els.settings.addEventListener('click', function () { showSettings(true); });
   els.settingsBack.addEventListener('click', function () { showSettings(false); });
   els.entity.addEventListener('click', openEntity);
+  els.commercialQuery.addEventListener('input', searchCommercial);
+  els.commercialScope.addEventListener('change', function () {
+    syncCommercialScope(els.commercialScope.value);
+    searchCommercial();
+  });
+  els.scopeTrigger.addEventListener('click', function () {
+    syncCommercialScope(els.commercialScope.value);
+    els.scopeSheet.showModal();
+  });
+  els.scopeSheet.querySelector('[data-scope-sheet-close]').addEventListener('click', function () {
+    els.scopeSheet.close();
+  });
+  els.scopeSheet.querySelectorAll('[data-commercial-scope]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      syncCommercialScope(button.dataset.commercialScope);
+      els.scopeSheet.close();
+      searchCommercial();
+      els.commercialQuery.focus();
+    });
+  });
+  els.commercialQuery.addEventListener('keydown', function (event) {
+    if (event.key === 'ArrowDown') {
+      var first = els.commercialResults.querySelector('button');
+      if (first) {
+        event.preventDefault();
+        first.focus();
+      }
+    } else if (event.key === 'Enter') {
+      var match = els.commercialResults.querySelector('button');
+      if (match) {
+        event.preventDefault();
+        match.click();
+      }
+    }
+  });
+  els.commercialResults.addEventListener('click', function (event) {
+    var button = event.target.closest('[data-search-record]');
+    if (button) {
+      selectCommercialRecord(
+        button.dataset.searchRecord,
+        button.dataset.recordId,
+        button.dataset.recordLabel
+      );
+    }
+  });
+  els.recordBody.addEventListener('click', function (event) {
+    var selector = event.target.closest('[data-select-record]');
+    if (selector) {
+      selectCommercialRecord(
+        selector.dataset.selectRecord,
+        selector.dataset.recordId,
+        selector.dataset.recordLabel
+      );
+      return;
+    }
+    var prompt = event.target.closest('[data-record-prompt]');
+    if (prompt) {
+      switchWorkspaceView('conversation');
+      usePrompt(prompt.dataset.recordPrompt);
+    }
+  });
+  els.recordBody.addEventListener('submit', function (event) {
+    var form = event.target.closest('#cx-agent-client-form');
+    if (!form) return;
+    event.preventDefault();
+    var run = function () { saveClientRecord(form); };
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        title: 'Salvar alterações do cliente',
+        message: 'Os dados serão atualizados no CRM para toda a equipe.',
+        confirmText: 'Salvar alterações',
+        onConfirm: run
+      });
+    } else {
+      run();
+    }
+  });
+  dock.querySelectorAll('[data-agent-view]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      switchWorkspaceView(button.dataset.agentView);
+    });
+  });
   dock.querySelector('.cx-agent-header').addEventListener('click', function (event) {
     if (dock.classList.contains('is-minimized') && !event.target.closest('button')) minimize();
   });
@@ -1063,13 +1527,36 @@
     });
   });
   document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && els.scopeSheet.open) {
+      els.scopeSheet.close();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      setOpen(true);
+      els.commercialQuery.focus();
+      els.commercialQuery.select();
+      return;
+    }
     if (event.key === 'Escape' && dock.classList.contains('is-open')) {
-      if (!els.settingsPanel.hidden) showSettings(false);
+      if (!els.commercialResults.hidden) els.commercialResults.hidden = true;
+      else if (!els.settingsPanel.hidden) showSettings(false);
       else setOpen(false);
     }
   });
   window.addEventListener('centralx:contextchange', function (event) {
     window.CentralXAgent.setContext((event && event.detail) || {});
+  });
+  window.addEventListener('centralx:entity-updated', function (event) {
+    var detail = (event && event.detail) || {};
+    var ctx = outgoingContext();
+    if (
+      String(detail.entity_type || '').toLowerCase() === String(ctx.entity_type || '').toLowerCase()
+      && String(detail.entity_id || '') === String(ctx.entity_id || '')
+    ) {
+      loadCommercialRecord(true);
+      loadInsights();
+    }
   });
   els.attach.addEventListener('click', function () { els.fileInput.click(); });
   els.fileInput.addEventListener('change', function () { addFiles(els.fileInput.files); });

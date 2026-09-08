@@ -66,10 +66,74 @@ def build_insights(context):
     label = str(context.get("entity_label") or "").strip()
     empty = {"entity": None, "alerts": [], "prompts": prompts}
 
-    if entity_type not in {"cliente", "client"} or not entity_id:
+    if not entity_id:
         return empty
 
     store = get_store()
+    if entity_type in {"cotacao", "quote"}:
+        quote = store.get_cotacao(entity_id)
+        if not quote:
+            return empty
+        status = str(
+            quote.get("status_label") or quote.get("status") or ""
+        ).casefold()
+        entity = {
+            "id": str(quote.get("id") or entity_id),
+            "label": quote.get("titulo") or quote.get("numero_cotacao") or label or "Cotação",
+            "type": "cotacao",
+            "url": f"/cotacoes/{entity_id}/detalhes",
+        }
+        alerts = []
+        if "rascunho" in status or not status:
+            alerts.append({
+                "id": "complete_quote",
+                "tone": "warn",
+                "icon": "fa-pen-ruler",
+                "title": "Concluir proposta.",
+                "body": "Revise briefing, formatos e valores antes do envio.",
+                "prompt": "Analise esta cotação e liste o que falta para concluir a proposta.",
+            })
+        elif "enviad" in status or "análise" in status or "analise" in status:
+            alerts.append({
+                "id": "quote_follow_up",
+                "tone": "warn",
+                "icon": "fa-phone",
+                "title": "Planejar follow-up.",
+                "body": "A proposta foi enviada e precisa de uma próxima ação comercial.",
+                "prompt": "Sugira um follow-up objetivo para esta cotação.",
+            })
+        elif "aprovad" in status:
+            alerts.append({
+                "id": "quote_approved",
+                "tone": "info",
+                "icon": "fa-circle-check",
+                "title": "Preparar operação.",
+                "body": "Confirme materiais, responsáveis e próximos marcos da campanha.",
+                "prompt": "Liste os próximos passos operacionais desta cotação aprovada.",
+            })
+        elif any(term in status for term in ("rejeit", "perdid", "cancel")):
+            alerts.append({
+                "id": "quote_lost",
+                "tone": "info",
+                "icon": "fa-rotate",
+                "title": "Registrar aprendizado.",
+                "body": "Documente o motivo e identifique uma oportunidade futura.",
+                "prompt": "Ajude a registrar o aprendizado e uma próxima oportunidade para esta cotação.",
+            })
+        if not quote.get("objetivo"):
+            alerts.append({
+                "id": "missing_objective",
+                "tone": "warn",
+                "icon": "fa-bullseye",
+                "title": "Objetivo não informado.",
+                "body": "Defina o resultado esperado para orientar proposta e mensuração.",
+                "prompt": "Sugira perguntas para definir o objetivo desta cotação.",
+            })
+        return {"entity": entity, "alerts": alerts, "prompts": prompts}
+
+    if entity_type not in {"cliente", "client"}:
+        return empty
+
     client = store.get_cliente(str(entity_id))
     if not client:
         return empty
@@ -102,6 +166,15 @@ def build_insights(context):
             "title": f"{count} {noun} em atraso.",
             "body": f"Este cliente possui {count} {noun} sem atualização.",
             "prompt": "Liste as atividades em atraso deste cliente.",
+        })
+    if not activities:
+        alerts.append({
+            "id": "first_contact",
+            "tone": "warn",
+            "icon": "fa-calendar-plus",
+            "title": "Planejar primeiro contato.",
+            "body": "O cliente ainda não possui atividade comercial registrada.",
+            "prompt": "Sugira uma primeira abordagem e uma atividade para este cliente.",
         })
 
     quotes = store.list_cotacoes(str(entity_id)) or []

@@ -148,7 +148,9 @@ def run(
                     raw_arguments = function.get("arguments") or "{}"
                     arguments = json.loads(raw_arguments) if isinstance(raw_arguments, str) else raw_arguments
                     arguments = _contextual_arguments(name, arguments, context)
-                    result, clean, duration_ms = execute_tool(name, arguments, capabilities)
+                    result, clean, duration_ms = execute_tool(
+                        name, arguments, capabilities, viewer_user_id=user_id
+                    )
                     started_result = result
                     storage.record_tool_call(
                         conversation_id, user_message_id, name, clean, result,

@@ -4645,6 +4645,11 @@
                     closeModal('crm-v3-modal-cliente');
                     showToast(clienteId ? 'Cliente atualizado' : 'Cliente criado');
                     state.clienteId = (data.cliente && data.cliente.id) || clienteId;
+                    if (state.clienteId) {
+                        window.dispatchEvent(new CustomEvent('centralx:entity-updated', {
+                            detail: { entity_type: 'cliente', entity_id: String(state.clienteId) }
+                        }));
+                    }
                     return loadClientes();
                 }).catch(function (err) { showToast(err.message, true); })
                     .finally(function () { setBtnLoading(btn, false); });
@@ -5509,6 +5514,27 @@
     initButtons();
     initInfoEditable();
     bindClientesListDelegation();
+    window.addEventListener('centralx:entity-updated', function (event) {
+        var detail = (event && event.detail) || {};
+        var type = String(detail.entity_type || '').toLowerCase();
+        var id = String(detail.entity_id || '');
+        if (type === 'cliente' && id && String(state.clienteId || '') === id) {
+            api('/clientes/' + encodeURIComponent(id)).then(function (data) {
+                if (!data || !data.cliente || String(state.clienteId || '') !== id) return;
+                state.cliente = Object.assign({}, state.cliente || {}, data.cliente);
+                var index = state.clientes.findIndex(function (item) { return String(item.id) === id; });
+                if (index >= 0) state.clientes[index] = Object.assign({}, state.clientes[index], data.cliente);
+                renderClientes();
+                updateDetailPanel(state.cliente);
+            }).catch(function () {});
+        }
+        if (type === 'cotacao' && state.clienteId) loadCotacoes(state.clienteId);
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && state.clienteId) loadCotacoes(state.clienteId);
+    });
+
     showOverlay('Carregando CRM…');
     loadClientes().finally(hideOverlay);
 

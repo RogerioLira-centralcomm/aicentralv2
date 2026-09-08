@@ -19,6 +19,13 @@
         return Array.prototype.slice.call((root || document).querySelectorAll(sel));
     }
 
+    function notifyEntityUpdated(type, id) {
+        if (!id) return;
+        window.dispatchEvent(new CustomEvent('centralx:entity-updated', {
+            detail: { entity_type: type, entity_id: String(id) }
+        }));
+    }
+
     function cloneTpl(id) {
         var tpl = document.getElementById(id);
         if (!tpl || !tpl.content) return null;
@@ -255,6 +262,7 @@
             toast(isEdit ? 'Cliente atualizado' : 'Cliente criado');
             cxDrawer.close(drawerId);
             var novoId = (data.cliente && data.cliente.id) || (cliente && cliente.id);
+            notifyEntityUpdated('cliente', novoId);
             if (window.crmV3 && typeof window.crmV3.reloadClientes === 'function') {
                 window.crmV3.reloadClientes(novoId);
             }
@@ -887,6 +895,7 @@
             : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
         req.then(function () {
             toast(isEdit ? 'Atividade atualizada' : 'Atividade criada');
+            notifyEntityUpdated('cliente', clienteId);
             cxDrawer.close(drawerId);
             if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
                 window.crmV3.reloadAtividades();
@@ -1229,6 +1238,7 @@
                             : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/contatos', { method: 'POST', body: payload });
                         req.then(function () {
                             toast(isEdit ? 'Contato atualizado' : 'Contato criado');
+                            notifyEntityUpdated('cliente', clienteId);
                             cxDrawer.close(id);
                             if (window.crmV3 && typeof window.crmV3.reloadClientes === 'function') {
                                 window.crmV3.reloadClientes();
@@ -1288,6 +1298,8 @@
 
         req.then(function (resp) {
             toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
+            var updatedQuoteId = (resp.cotacao && resp.cotacao.id) || (cotacao && cotacao.id);
+            notifyEntityUpdated('cotacao', updatedQuoteId);
             cxDrawer.close(drawerId);
             if (window.crmV3 && typeof window.crmV3.reloadCotacoes === 'function') {
                 window.crmV3.reloadCotacoes();

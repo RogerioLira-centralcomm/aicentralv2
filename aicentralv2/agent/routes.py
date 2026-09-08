@@ -7,6 +7,7 @@ import uuid
 
 from flask import current_app, jsonify, request, session
 
+from ..crm_v3_repository import get_store
 from ..services.openrouter_service import DEFAULT_CHAT_MODEL
 from . import bp, storage
 from .insights import build_insights, suggestion_prompts
@@ -14,6 +15,7 @@ from .permissions import (
     agent_csrf_required,
     agent_internal_required_api,
     get_or_create_csrf_token,
+    has_global_commercial_access,
     public_capabilities,
 )
 from .services.orchestrator import AgentOrchestratorError, run
@@ -30,6 +32,19 @@ ATTACHMENT_LIMITS = {
     "text/plain": 1024 * 1024,
     "text/csv": 1024 * 1024,
     "application/json": 1024 * 1024,
+}
+CLIENT_EDITABLE_FIELDS = {
+    "nome",
+    "nome_fantasia",
+    "razao_social",
+    "cnpj",
+    "classificacao_cliente",
+    "site_url",
+    "nota_executivo",
+    "observacoes_comerciais_adicionais",
+    "opera_midia",
+    "demanda_dados",
+    "demanda_programatica_canais",
 }
 
 
@@ -125,6 +140,94 @@ def _conversation_payload(row):
     }
 
 
+def _requested_global_scope():
+    return (
+        str(request.args.get("scope") or "").casefold() == "all"
+        and has_global_commercial_access()
+    )
+
+
+def _client_allowed(client):
+    return bool(
+        client
+        and (
+            has_global_commercial_access()
+            or str(client.get("executivo_id") or "") == str(session["user_id"])
+        )
+    )
+
+
+def _quote_allowed(quote):
+    return bool(
+        quote
+        and (
+            has_global_commercial_access()
+            or str(quote.get("executivo_id") or "") == str(session["user_id"])
+        )
+    )
+
+
+def _commercial_client_payload(store, client):
+    client_id = str(client["id"])
+    contacts = store.list_contatos(client_id) or []
+    activities = store.list_atividades(client_id) or []
+    quotes = store.list_cotacoes(client_id, include_vinculados=False) or []
+    if not has_global_commercial_access():
+        quotes = [quote for quote in quotes if _quote_allowed(quote)]
+    context = {
+        "module": "crm",
+        "screen": "cliente_detalhe",
+        "entity_type": "cliente",
+        "entity_id": client_id,
+        "entity_label": client.get("nome") or "Cliente",
+    }
+    return {
+        "type": "cliente",
+        "record": client,
+        "contacts": contacts[:5],
+        "activities": activities[:5],
+        "quotes": quotes[:8],
+        "insights": build_insights(context),
+        "can_edit": True,
+        "url": f"/crm-v3/#cliente={client_id}",
+    }
+
+
+def _commercial_quote_payload(store, quote):
+    client_id = str(quote.get("cliente_id") or "")
+    client = store.get_cliente(client_id) if client_id else None
+    context = {
+        "module": "comercial",
+        "screen": "cotacao",
+        "entity_type": "cotacao",
+        "entity_id": str(quote["id"]),
+        "entity_label": quote.get("titulo") or quote.get("numero_cotacao") or "Cotação",
+    }
+    return {
+        "type": "cotacao",
+        "record": quote,
+        "client": client,
+        "insights": build_insights(context),
+        "can_edit": False,
+        "url": f"/cotacoes/{quote['id']}/detalhes",
+    }
+
+
+def _authorized_insights(context):
+    entity_type = str(context.get("entity_type") or "").casefold()
+    entity_id = str(context.get("entity_id") or "")
+    if not entity_id or entity_type not in {"cliente", "client", "cotacao", "quote"}:
+        return build_insights(context)
+    store = get_store()
+    if entity_type in {"cliente", "client"} and entity_id:
+        if not _client_allowed(store.get_cliente(entity_id)):
+            return {"entity": None, "alerts": [], "prompts": _suggestions({})}
+    if entity_type in {"cotacao", "quote"} and entity_id:
+        if not _quote_allowed(store.get_cotacao(entity_id)):
+            return {"entity": None, "alerts": [], "prompts": _suggestions({})}
+    return build_insights(context)
+
+
 @bp.get("/bootstrap")
 @agent_internal_required_api
 def bootstrap():
@@ -149,7 +252,7 @@ def bootstrap():
             "context": context,
             "active_conversation": active,
             "suggestions": _suggestions(context),
-            "insights": build_insights(context),
+            "insights": _authorized_insights(context),
         },
     })
 
@@ -302,11 +405,100 @@ def suggestions():
 def insights():
     context = _context(request.args)
     try:
-        data = build_insights(context)
+        data = _authorized_insights(context)
     except Exception:
         current_app.logger.exception("Falha ao montar insights do agente")
         data = {"entity": None, "alerts": [], "prompts": _suggestions(context)}
     return jsonify({"success": True, "data": data})
+
+
+@bp.get("/commercial/search")
+@agent_internal_required_api
+def commercial_search():
+    query = str(request.args.get("q") or "").strip()
+    if len(query) < 2:
+        return jsonify({
+            "success": True,
+            "data": {"clients": [], "quotes": [], "scope": "mine"},
+        })
+    kind = str(request.args.get("kind") or "all").casefold()
+    if kind not in {"all", "clients", "quotes"}:
+        return jsonify({"success": False, "error": "Tipo de busca inválido."}), 400
+    limit = max(1, min(request.args.get("limit", 8, type=int) or 8, 20))
+    global_scope = _requested_global_scope()
+    executive_id = None if global_scope else session["user_id"]
+    store = get_store()
+    clients = (
+        store.search_clientes(query, limit, executivo_id=executive_id)
+        if kind in {"all", "clients"}
+        else []
+    )
+    quotes = (
+        store.search_cotacoes(query, limit, executivo_id=executive_id)
+        if kind in {"all", "quotes"}
+        else []
+    )
+    return jsonify({
+        "success": True,
+        "data": {
+            "clients": clients,
+            "quotes": quotes,
+            "scope": "all" if global_scope else "mine",
+        },
+    })
+
+
+@bp.get("/commercial/record/<entity_type>/<entity_id>")
+@agent_internal_required_api
+def commercial_record(entity_type, entity_id):
+    store = get_store()
+    entity_type = str(entity_type).casefold()
+    if entity_type in {"cliente", "client"}:
+        client = store.get_cliente(str(entity_id))
+        if not _client_allowed(client):
+            return jsonify({"success": False, "error": "Cliente não encontrado."}), 404
+        return jsonify({
+            "success": True,
+            "data": _commercial_client_payload(store, client),
+        })
+    if entity_type in {"cotacao", "quote"}:
+        quote = store.get_cotacao(str(entity_id))
+        if not _quote_allowed(quote):
+            return jsonify({"success": False, "error": "Cotação não encontrada."}), 404
+        return jsonify({
+            "success": True,
+            "data": _commercial_quote_payload(store, quote),
+        })
+    return jsonify({"success": False, "error": "Tipo de registro inválido."}), 400
+
+
+@bp.patch("/commercial/clients/<cliente_id>")
+@agent_internal_required_api
+@agent_csrf_required
+def commercial_update_client(cliente_id):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not _client_allowed(client):
+        return jsonify({"success": False, "error": "Cliente não encontrado."}), 404
+    raw = request.get_json(silent=True)
+    if not isinstance(raw, dict):
+        return jsonify({"success": False, "error": "Corpo JSON inválido."}), 400
+    payload = {
+        key: value for key, value in raw.items()
+        if key in CLIENT_EDITABLE_FIELDS
+    }
+    if not payload:
+        return jsonify({"success": False, "error": "Nenhum campo editável informado."}), 400
+    try:
+        updated = store.update_cliente(str(cliente_id), payload)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    if not updated:
+        return jsonify({"success": False, "error": "Cliente não encontrado."}), 404
+    return jsonify({
+        "success": True,
+        "data": _commercial_client_payload(store, updated),
+    })
 
 
 @bp.errorhandler(storage.AgentStorageUnavailable)

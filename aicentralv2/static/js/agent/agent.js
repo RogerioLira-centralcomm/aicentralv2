@@ -197,16 +197,18 @@
   function updateContext() {
     var ctx = outgoingContext();
     var hasEntity = Boolean(ctx.entity_id);
-    els.contextLabel.textContent = hasEntity ? ctx.entity_label : 'Nenhum registro na tela';
-    els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque ou peça detalhes ao agente';
-    els.entity.classList.toggle('is-empty', !hasEntity);
-    var icon = els.entity.querySelector('.cx-agent-entity-icon i');
-    if (icon) {
-      icon.className = 'fa-regular ' + (
-        String(ctx.entity_type || '').toLowerCase() === 'contato' ? 'fa-user' :
-        String(ctx.entity_type || '').toLowerCase() === 'campanha' ? 'fa-bullhorn' :
-        ['cotacao', 'pi'].indexOf(String(ctx.entity_type || '').toLowerCase()) >= 0 ? 'fa-file-lines' : 'fa-building'
-      );
+    if (els.entity) {
+      els.contextLabel.textContent = hasEntity ? ctx.entity_label : 'Nenhum registro na tela';
+      els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque ou peça detalhes ao agente';
+      els.entity.classList.toggle('is-empty', !hasEntity);
+      var icon = els.entity.querySelector('.cx-agent-entity-icon i');
+      if (icon) {
+        icon.className = 'fa-regular ' + (
+          String(ctx.entity_type || '').toLowerCase() === 'contato' ? 'fa-user' :
+          String(ctx.entity_type || '').toLowerCase() === 'campanha' ? 'fa-bullhorn' :
+          ['cotacao', 'pi'].indexOf(String(ctx.entity_type || '').toLowerCase()) >= 0 ? 'fa-file-lines' : 'fa-building'
+        );
+      }
     }
     renderActions();
     if (state.contextWallOpen) loadCommercialRecord();
@@ -932,7 +934,8 @@
     if (/^(mailto:|tel:)/i.test(href) || safeInternalUrl(href)) return href;
     try {
       var parsed = new URL(href);
-      return ['http:', 'https:'].indexOf(parsed.protocol) >= 0 ? parsed.href : '';
+      if (parsed.protocol !== 'https:' || parsed.origin !== 'https://ai.centralcomm.media') return '';
+      return parsed.href;
     } catch (_error) {
       return '';
     }
@@ -1221,8 +1224,24 @@
       results.className = 'cx-agent-results';
       var items = group.items || [];
       items.slice(0, 8).forEach(function (item) {
+        var selectable = item.type && item.id;
         var card = document.createElement('div');
         card.className = 'cx-agent-result';
+        if (selectable) {
+          card.classList.add('is-selectable');
+          card.setAttribute('role', 'button');
+          card.tabIndex = 0;
+          card.setAttribute('aria-label', 'Ver contexto de ' + (item.title || 'registro'));
+          card.addEventListener('click', function () {
+            selectCommercialRecord(item.type, item.id, item.title || 'Registro');
+          });
+          card.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              selectCommercialRecord(item.type, item.id, item.title || 'Registro');
+            }
+          });
+        }
         var title = document.createElement('strong');
         title.textContent = item.title || 'Resultado';
         card.appendChild(title);
@@ -1263,7 +1282,8 @@
           copy.type = 'button';
           copy.setAttribute('aria-label', entry.label);
           copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
-          copy.addEventListener('click', function () {
+          copy.addEventListener('click', function (event) {
+            event.stopPropagation();
             copyText(entry.value).then(function () {
               copy.classList.add('is-copied');
               window.setTimeout(function () { copy.classList.remove('is-copied'); }, 900);
@@ -1272,6 +1292,12 @@
           contactLine.append(text, copy);
           card.appendChild(contactLine);
         });
+        if (selectable) {
+          var contextHint = document.createElement('span');
+          contextHint.className = 'cx-agent-result-context';
+          contextHint.innerHTML = 'Ver contexto <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
+          card.appendChild(contextHint);
+        }
         results.appendChild(card);
       });
       var more = (group.links && group.links[0]) || (items.length > 8 ? { url: (items[0] || {}).url, label: 'Ver todas' } : null);
@@ -1714,7 +1740,7 @@
   els.minimize.addEventListener('click', minimize);
   els.settings.addEventListener('click', function () { showSettings(true); });
   els.settingsBack.addEventListener('click', function () { showSettings(false); });
-  els.entity.addEventListener('click', openEntity);
+  if (els.entity) els.entity.addEventListener('click', openEntity);
   els.recordClose.addEventListener('click', closeContextWall);
   els.commercialQuery.addEventListener('input', searchCommercial);
   els.commercialScope.addEventListener('change', function () {

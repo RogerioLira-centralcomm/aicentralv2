@@ -2,8 +2,39 @@
 
 from ...crm_v3_repository import get_store
 from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
+from ...pi_operacao_service import PiOperacaoService
 
 MAX_RESULTS = 20
+
+
+def _number(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _percentage(value, total):
+    value = _number(value)
+    total = _number(total)
+    if value is None or not total:
+        return None
+    return round((value / total) * 100, 2)
+
+
+def _serializable(value):
+    if isinstance(value, dict):
+        return {key: _serializable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_serializable(item) for item in value]
+    number = _number(value)
+    if value is not None and not isinstance(value, (str, bool)) and number is not None:
+        return number
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
 
 
 def _ok(data, title, items=None, links=None, focus=None, confirmation=None):
@@ -37,6 +68,7 @@ def _error(message, code="not_found"):
 
 def _client_item(item):
     return {
+        "type": "cliente",
         "id": item.get("id"),
         "title": item.get("nome") or "Cliente sem nome",
         "subtitle": " · ".join(filter(None, [
@@ -131,6 +163,7 @@ def listar_contatos(
     if contacts is None:
         return _error("Cliente não encontrado ou indisponível.")
     items = [{
+        "type": "contato",
         "id": item.get("id"),
         "title": item.get("nome") or "Contato sem nome",
         "subtitle": item.get("cargo") or item.get("email") or "",
@@ -152,6 +185,7 @@ def buscar_contato(
         executivo_id=None if _allow_global else _viewer_user_id,
     ) if search else []
     items = [{
+        "type": "contato",
         "id": item.get("id"),
         "title": item.get("nome") or "Contato sem nome",
         "subtitle": " · ".join(filter(None, [item.get("cargo"), item.get("setor"), item.get("cliente_nome")])),
@@ -176,6 +210,7 @@ def consultar_contato(
     if not contact or not _client_allowed(client, _viewer_user_id, _allow_global):
         return _error("Contato não encontrado ou indisponível.")
     item = {
+        "type": "contato",
         "id": contact.get("id"),
         "title": contact.get("nome") or "Contato",
         "subtitle": " · ".join(filter(None, [contact.get("cargo"), contact.get("setor")])),
@@ -237,6 +272,7 @@ def listar_cotacoes(
         wanted = status.casefold()
         quotes = [q for q in quotes if wanted in str(q.get("status_label") or q.get("status") or "").casefold()]
     items = [{
+        "type": "cotacao",
         "id": item.get("id"),
         "title": item.get("titulo") or item.get("numero_cotacao") or "Cotação",
         "subtitle": " · ".join(filter(None, [item.get("status_label"), item.get("valor")])),
@@ -253,6 +289,7 @@ def consultar_cotacao(
     if not quote or not _quote_allowed(quote, _viewer_user_id, _allow_global):
         return _error("Cotação não encontrada ou indisponível.")
     item = {
+        "type": "cotacao",
         "id": quote.get("id"),
         "title": quote.get("titulo") or quote.get("numero_cotacao") or "Cotação",
         "subtitle": " · ".join(filter(None, [quote.get("status_label"), quote.get("valor")])),
@@ -273,10 +310,19 @@ def consultar_cotacao(
 
 def _pi_item(item):
     return {
+        "type": "pi",
         "id": item.get("id_pi"),
         "title": item.get("titulo_pi") or item.get("codigo_pi_cc") or f"PI {item.get('id_pi')}",
         "subtitle": " · ".join(filter(None, [item.get("cliente_nome"), item.get("sub_status_descricao")])),
         "code": item.get("codigo_pi_cc") or item.get("codigo_pi_ag") or "",
+        "client": item.get("cliente_nome") or "",
+        "status": item.get("sub_status_descricao") or "",
+        "value": _number(item.get("vr_bruto_pi")),
+        "responsible": item.get("responsavel_comercial_nome") or "",
+        "period": " a ".join(filter(None, [
+            str(item.get("periodo_inicio") or ""),
+            str(item.get("periodo_fim") or ""),
+        ])),
         "url": f"/cadu_pi/editar/{item.get('id_pi')}",
     }
 
@@ -299,8 +345,6 @@ def consultar_pi(pi_id, **_):
     item = _pi_item(raw)
     item.update({
         "client_id": raw.get("id_cliente") or "",
-        "value": raw.get("vr_bruto_pi"),
-        "period": " a ".join(filter(None, [str(raw.get("periodo_inicio") or ""), str(raw.get("periodo_fim") or "")])),
     })
     return _ok(
         item,
@@ -311,11 +355,48 @@ def consultar_pi(pi_id, **_):
     )
 
 
+def listar_pis_cliente(
+    cliente_id, limit=10, _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Cliente não encontrado ou indisponível.")
+    rows = PiOperacaoRepository().listar_pis_cliente(
+        str(cliente_id), min(limit, MAX_RESULTS)
+    )
+    items = []
+    for row in rows:
+        enriched = dict(row)
+        enriched.setdefault("cliente_nome", client.get("nome") or "")
+        items.append(_pi_item(enriched))
+    return _ok(items, f"{len(items)} PI(s) deste cliente", items)
+
+
 def _campaign_item(item):
+    contracted = _number(item.get("obj_contratados"))
+    achieved = _number(item.get("totalizador_atingido"))
     return {
+        "type": "campanha",
         "id": item.get("id_campanha"),
         "title": item.get("nome_campanha") or f"Campanha {item.get('id_campanha')}",
         "subtitle": " · ".join(filter(None, [item.get("cliente_nome"), item.get("status_descricao"), item.get("plataforma_nome")])),
+        "pi_id": item.get("id_pi") or "",
+        "client": item.get("cliente_nome") or "",
+        "status": item.get("status_descricao") or "",
+        "platform": item.get("plataforma_nome") or "",
+        "responsible": item.get("responsavel_operacao_nome") or "",
+        "contracted": contracted,
+        "achieved": achieved,
+        "delivery_percent": _percentage(achieved, contracted),
+        "spent": _number(item.get("totalizador_gasto")),
+        "budget": _number(item.get("custo_midia_orcado")),
+        "value": _number(item.get("valor_plataforma")),
+        "period": " a ".join(filter(None, [
+            str(item.get("periodo_inicio") or ""),
+            str(item.get("periodo_fim") or ""),
+        ])),
+        "dashboard": item.get("link_dash") or "",
         "url": f"/campanhas-pi/{item.get('id_campanha')}",
     }
 
@@ -339,11 +420,6 @@ def consultar_campanha(campanha_id, **_):
     except LookupError:
         return _error("Campanha não encontrada ou indisponível.")
     item = _campaign_item(raw)
-    item.update({
-        "pi_id": raw.get("id_pi") or "",
-        "platform": raw.get("plataforma_nome") or "",
-        "dashboard": raw.get("link_dash") or "",
-    })
     return _ok(
         item,
         item["title"],
@@ -351,6 +427,96 @@ def consultar_campanha(campanha_id, **_):
         [{"label": "Abrir campanha", "url": item["url"]}],
         _focus("campanha", item["id"], item["title"], "operacao", "campanha"),
     )
+
+
+def listar_campanhas_pi(pi_id, limit=20, **_):
+    repository = PiOperacaoRepository()
+    try:
+        pi = repository.obter_pi(str(pi_id))
+    except PiNaoEncontradoError:
+        return _error("PI não encontrado ou indisponível.")
+    rows = repository.listar_campanhas(str(pi_id))
+    items = []
+    for row in rows[:min(limit, MAX_RESULTS)]:
+        enriched = dict(row)
+        enriched.setdefault("cliente_nome", pi.get("cliente_nome") or "")
+        items.append(_campaign_item(enriched))
+    return _ok(items, f"{len(items)} campanha(s) deste PI", items)
+
+
+def consultar_operacao_pi(pi_id, **_):
+    try:
+        state = PiOperacaoService().estado_completo(str(pi_id))
+    except PiNaoEncontradoError:
+        return _error("PI não encontrado ou indisponível.")
+    pi = _pi_item(state.get("pi") or {})
+    data = {
+        "pi": pi,
+        "summary": _serializable(state.get("resumo") or {}),
+        "sla": _serializable(state.get("sla") or {}),
+        "health": _serializable(state.get("saude") or {}),
+        "timeline": _serializable(state.get("timeline") or []),
+        "operational_checklist": _serializable(
+            state.get("checklist_operacional") or {}
+        ),
+        "recommendations": _serializable(state.get("recomendacoes") or []),
+    }
+    return _ok(
+        data,
+        f"Operação do {pi['title']}",
+        [pi],
+        [{"label": "Abrir PI", "url": pi["url"]}],
+        _focus("pi", pi["id"], pi["title"], "operacao", "pi"),
+    )
+
+
+def resumir_operacao(**_):
+    raw = PiOperacaoRepository().resumo_operacao()
+    pis_por_status = [{
+        "status": item.get("status_descricao") or "Sem status",
+        "count": int(item.get("total_pis") or 0),
+        "gross_value": _number(item.get("valor_bruto")) or 0,
+    } for item in raw.get("pis_por_status", [])]
+    campanhas_por_status = [{
+        "status": item.get("status_descricao") or "Sem status",
+        "count": int(item.get("total_campanhas") or 0),
+        "contracted": _number(item.get("objetivo_contratado")) or 0,
+        "achieved": _number(item.get("objetivo_atingido")) or 0,
+        "spent": _number(item.get("total_gasto")) or 0,
+        "budget": _number(item.get("custo_orcado")) or 0,
+        "delivery_percent": _percentage(
+            item.get("objetivo_atingido"),
+            item.get("objetivo_contratado"),
+        ),
+    } for item in raw.get("campanhas_por_status", [])]
+    plataformas = [{
+        "platform": item.get("plataforma") or "Sem plataforma",
+        "count": int(item.get("total_campanhas") or 0),
+    } for item in raw.get("campanhas_por_plataforma", [])]
+    data = {
+        "total_pis": sum(item["count"] for item in pis_por_status),
+        "gross_value": round(sum(item["gross_value"] for item in pis_por_status), 2),
+        "total_campaigns": sum(item["count"] for item in campanhas_por_status),
+        "pis_by_status": pis_por_status,
+        "campaigns_by_status": campanhas_por_status,
+        "campaigns_by_platform": plataformas,
+    }
+    display = [
+        {
+            "title": item["status"],
+            "subtitle": f'{item["count"]} PI(s)',
+            "value": item["gross_value"],
+        }
+        for item in pis_por_status
+    ] + [
+        {
+            "title": item["status"],
+            "subtitle": f'{item["count"]} campanha(s)',
+            "delivery_percent": item["delivery_percent"],
+        }
+        for item in campanhas_por_status
+    ]
+    return _ok(data, "Resumo da operação", display)
 
 
 def preparar_alteracao_contato(

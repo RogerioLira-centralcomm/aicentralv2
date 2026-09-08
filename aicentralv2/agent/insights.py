@@ -22,7 +22,19 @@ def suggestion_prompts(context):
         return [
             {"label": "Quais cotações estão abertas?", "prompt": "Liste as cotações abertas deste cliente.", "icon": "fa-magnifying-glass"},
             {"label": "Mostrar histórico de atividades", "prompt": "Liste as atividades deste cliente.", "icon": "fa-magnifying-glass"},
-            {"label": "Listar PIs deste cliente", "prompt": "Liste as cotações e campanhas deste cliente.", "icon": "fa-magnifying-glass"},
+            {"label": "Listar PIs deste cliente", "prompt": "Liste os PIs deste cliente.", "icon": "fa-receipt"},
+        ]
+    if entity_type == "pi":
+        return [
+            {"label": "Resumir este PI", "prompt": "Consulte este PI e resuma status, valor, período e responsável.", "icon": "fa-receipt"},
+            {"label": "Listar campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega, gasto e orçamento.", "icon": "fa-bullhorn"},
+            {"label": "Analisar operação", "prompt": "Analise a situação operacional deste PI e destaque riscos nos números das campanhas.", "icon": "fa-chart-line"},
+        ]
+    if entity_type in {"campanha", "campaign"}:
+        return [
+            {"label": "Consultar campanha", "prompt": "Consulte esta campanha e resuma seus indicadores operacionais.", "icon": "fa-bullhorn"},
+            {"label": "Analisar entrega", "prompt": "Compare objetivo, entrega, gasto e orçamento desta campanha.", "icon": "fa-chart-line"},
+            {"label": "Consultar o PI", "prompt": "Consulte o PI relacionado a esta campanha.", "icon": "fa-receipt"},
         ]
     if entity_type in {"cotacao", "quote"} or screen == "pipeline":
         return [
@@ -35,6 +47,7 @@ def suggestion_prompts(context):
         {"label": "Buscar um cliente", "prompt": "Busque um cliente pelo nome.", "icon": "fa-magnifying-glass"},
         {"label": "Consultar contatos", "prompt": "Quero listar os contatos de um cliente.", "icon": "fa-address-book"},
         {"label": "Consultar cotações", "prompt": "Quero listar as cotações de um cliente.", "icon": "fa-file-invoice-dollar"},
+        {"label": "Resumo da operação", "prompt": "Mostre os números consolidados atuais de PIs e campanhas.", "icon": "fa-chart-line"},
         {"label": "Analisar documento", "prompt": "Vou anexar um documento. Faça uma análise estruturada dos pontos principais.", "icon": "fa-file-lines"},
     ]
 

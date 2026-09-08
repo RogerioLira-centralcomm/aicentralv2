@@ -8,13 +8,25 @@ from flask import Flask
 
 from aicentralv2.agent import bp
 from aicentralv2.agent.context_records import build_context_record, safe_context_url
-from aicentralv2.agent.services.orchestrator import _contextual_arguments
+from aicentralv2.agent.services.orchestrator import _contextual_arguments, _sanitize_markdown_links
 from aicentralv2.agent.tools import commercial
 from aicentralv2.agent.tools.registry import TOOLS, ToolValidationError, get_tool, validate_arguments
 from aicentralv2.services.openrouter_service import OpenRouterError, chat_completion
 
 
 class AgentContractsTest(unittest.TestCase):
+    def test_assistant_links_only_allow_centralx_domain(self):
+        content = (
+            "[Cliente interno](/crm-v3/#cliente=237) "
+            "[Cliente CentralX](https://ai.centralcomm.media/clientes/237) "
+            "[Link inventado](https://example.com/clientes/237)"
+        )
+        sanitized = _sanitize_markdown_links(content)
+        self.assertIn("[Cliente interno](/crm-v3/#cliente=237)", sanitized)
+        self.assertIn("[Cliente CentralX](https://ai.centralcomm.media/clientes/237)", sanitized)
+        self.assertNotIn("example.com", sanitized)
+        self.assertIn("Link inventado", sanitized)
+
     def test_registry_rejects_unknown_and_extra_arguments(self):
         with self.assertRaises(ToolValidationError):
             get_tool("executar_sql")
@@ -28,10 +40,14 @@ class AgentContractsTest(unittest.TestCase):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
     def test_registry_contains_only_allowlisted_read_tools(self):
-        self.assertEqual(len(TOOLS), 13)
+        self.assertEqual(len(TOOLS), 17)
         self.assertIn("consultar_contato", TOOLS)
         self.assertIn("consultar_pi", TOOLS)
         self.assertIn("consultar_campanha", TOOLS)
+        self.assertIn("listar_pis_cliente", TOOLS)
+        self.assertIn("listar_campanhas_pi", TOOLS)
+        self.assertIn("consultar_operacao_pi", TOOLS)
+        self.assertIn("resumir_operacao", TOOLS)
         self.assertIn("preparar_alteracao_contato", TOOLS)
         self.assertTrue(all(tool.operation_type == "read" for tool in TOOLS.values()))
         self.assertTrue(all(not tool.confirmation_required for tool in TOOLS.values()))
@@ -75,6 +91,20 @@ class AgentContractsTest(unittest.TestCase):
             )["pi_id"],
             "72",
         )
+        self.assertEqual(
+            _contextual_arguments(
+                "listar_pis_cliente", {},
+                {"entity_type": "cliente", "entity_id": "1843"},
+            )["cliente_id"],
+            "1843",
+        )
+        self.assertEqual(
+            _contextual_arguments(
+                "listar_campanhas_pi", {},
+                {"entity_type": "pi", "entity_id": "72"},
+            )["pi_id"],
+            "72",
+        )
 
     @patch("aicentralv2.agent.tools.commercial.get_store")
     def test_search_focuses_only_one_exact_result(self, mock_store):
@@ -85,6 +115,91 @@ class AgentContractsTest(unittest.TestCase):
         partial = commercial.buscar_cliente("Acm")
         self.assertEqual(exact["context_focus"]["entity_id"], "7")
         self.assertNotIn("context_focus", partial)
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    def test_operational_summary_exposes_real_counts_and_delivery(self, repository):
+        repository.return_value.resumo_operacao.return_value = {
+            "pis_por_status": [{
+                "status_descricao": "Em andamento",
+                "total_pis": 3,
+                "valor_bruto": 150000,
+            }],
+            "campanhas_por_status": [{
+                "status_descricao": "Ativa",
+                "total_campanhas": 5,
+                "objetivo_contratado": 1000,
+                "objetivo_atingido": 640,
+                "total_gasto": 32000,
+                "custo_orcado": 50000,
+            }],
+            "campanhas_por_plataforma": [{
+                "plataforma": "DV360",
+                "total_campanhas": 5,
+            }],
+        }
+        result = commercial.resumir_operacao()
+        self.assertTrue(result["success"])
+        self.assertEqual(result["data"]["total_pis"], 3)
+        self.assertEqual(result["data"]["total_campaigns"], 5)
+        self.assertEqual(
+            result["data"]["campaigns_by_status"][0]["delivery_percent"], 64.0
+        )
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_lists_pis_from_client_context(self, store, repository):
+        store.return_value.get_cliente.return_value = {"id": "7", "nome": "Acme"}
+        repository.return_value.listar_pis_cliente.return_value = [{
+            "id_pi": 20,
+            "titulo_pi": "PI Acme",
+            "sub_status_descricao": "Em andamento",
+            "vr_bruto_pi": 50000,
+        }]
+        result = commercial.listar_pis_cliente("7")
+        self.assertEqual(result["data"][0]["type"], "pi")
+        self.assertEqual(result["data"][0]["client"], "Acme")
+        self.assertEqual(result["data"][0]["value"], 50000.0)
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    def test_lists_campaigns_with_operational_metrics(self, repository):
+        repository.return_value.obter_pi.return_value = {
+            "id_pi": 20, "cliente_nome": "Acme"
+        }
+        repository.return_value.listar_campanhas.return_value = [{
+            "id_campanha": 30,
+            "id_pi": 20,
+            "nome_campanha": "Always on",
+            "obj_contratados": 1000,
+            "totalizador_atingido": 750,
+            "totalizador_gasto": 30000,
+            "custo_midia_orcado": 40000,
+        }]
+        result = commercial.listar_campanhas_pi("20")
+        self.assertEqual(result["data"][0]["type"], "campanha")
+        self.assertEqual(result["data"][0]["delivery_percent"], 75.0)
+        self.assertEqual(result["data"][0]["spent"], 30000.0)
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoService")
+    def test_operational_pi_exposes_sla_checklist_and_health(self, service):
+        service.return_value.estado_completo.return_value = {
+            "pi": {"id_pi": 20, "titulo_pi": "PI Acme"},
+            "resumo": {"total_campanhas": 2},
+            "sla": {"status": "no_prazo"},
+            "saude": {"status": "atencao"},
+            "timeline": [{"codigo": "campanha_iniciada", "concluida": True}],
+            "checklist_operacional": {
+                "progresso": {"concluidos": 4, "total": 10, "percentual": 40}
+            },
+            "recomendacoes": [{"titulo": "Validar criativos"}],
+        }
+        result = commercial.consultar_operacao_pi("20")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["data"]["summary"]["total_campanhas"], 2.0)
+        self.assertEqual(
+            result["data"]["operational_checklist"]["progresso"]["percentual"],
+            40.0,
+        )
+        self.assertEqual(result["context_focus"]["entity_type"], "pi")
 
     @patch.dict("os.environ", {}, clear=True)
     def test_openrouter_key_is_resolved_lazily(self):

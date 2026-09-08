@@ -61,6 +61,15 @@ def _facts(*items):
     return [item for item in items if item]
 
 
+def _percentage(value, total):
+    try:
+        if value in (None, "") or total in (None, "") or float(total) == 0:
+            return ""
+        return f"{(float(value) / float(total)) * 100:.1f}%"
+    except (TypeError, ValueError):
+        return ""
+
+
 def _entity(entity_type, entity_id, title, subtitle="", url="", **extra):
     item = {
         "type": entity_type,
@@ -422,6 +431,13 @@ def _campaign_context(store, pi_repo, campaign):
             _fact("Responsável", campaign.get("responsavel_operacao_nome")),
             _fact("Valor", campaign.get("valor_plataforma")),
             _fact("Custo orçado", campaign.get("custo_midia_orcado")),
+            _fact("Objetivo contratado", campaign.get("obj_contratados")),
+            _fact("Objetivo atingido", campaign.get("totalizador_atingido")),
+            _fact("Entrega", _percentage(
+                campaign.get("totalizador_atingido"),
+                campaign.get("obj_contratados"),
+            )),
+            _fact("Total gasto", campaign.get("totalizador_gasto")),
             _fact("Período", " a ".join(filter(None, [str(campaign.get("periodo_inicio") or ""), str(campaign.get("periodo_fim") or "")]))),
         ),
         relations,

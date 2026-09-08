@@ -155,20 +155,24 @@ class PiOperacaoRepository:
                 """
                 SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
                        p.id_cliente, p.cotacao_id, p.vr_bruto_pi,
-                       p.periodo_inicio, p.periodo_fim,
+                       p.id_sub_status_pi, p.periodo_inicio, p.periodo_fim,
                        cli.nome_fantasia AS cliente_nome,
-                       ss.display AS sub_status_descricao
+                       ss.display AS sub_status_descricao,
+                       resp.nome_completo AS responsavel_comercial_nome
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = p.id_resp_comercial
                  WHERE CAST(p.id_pi AS TEXT) ILIKE %s
                     OR COALESCE(p.codigo_pi_cc, '') ILIKE %s
                     OR COALESCE(p.codigo_pi_ag, '') ILIKE %s
                     OR COALESCE(p.titulo_pi, '') ILIKE %s
+                    OR COALESCE(cli.nome_fantasia, '') ILIKE %s
                  ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
                  LIMIT %s
                 """,
-                tuple([f"%{termo}%"] * 4)
+                tuple([f"%{termo}%"] * 5)
                 + (max(1, min(int(limite or 8), 20)),),
             )
             return [dict(row) for row in cursor.fetchall()]
@@ -182,27 +186,82 @@ class PiOperacaoRepository:
                 """
                 SELECT c.id_campanha, c.id_pi, c.id_cliente, c.nome_campanha,
                        c.link_dash, c.valor_plataforma, c.custo_midia_orcado,
-                       c.periodo_inicio, c.periodo_fim,
+                       c.obj_contratados, c.totalizador_atingido,
+                       c.totalizador_gasto, c.periodo_inicio, c.periodo_fim,
                        st.descricao AS status_descricao,
                        plt.descricao AS plataforma_nome,
-                       cli.nome_fantasia AS cliente_nome
+                       cli.nome_fantasia AS cliente_nome,
+                       resp.nome_completo AS responsavel_operacao_nome,
+                       p.codigo_pi_cc, p.codigo_pi_ag
                   FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi p ON p.id_pi = c.id_pi
                   LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
                   LEFT JOIN cadu_pi_camp_plataforma plt
                          ON plt.id_plataforma = c.id_plataforma
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.id_cliente
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = c.id_responsavel_operacao
                  WHERE CAST(c.id_campanha AS TEXT) ILIKE %s
                     OR COALESCE(c.nome_campanha, '') ILIKE %s
+                    OR CAST(c.id_pi AS TEXT) ILIKE %s
+                    OR COALESCE(p.codigo_pi_cc, '') ILIKE %s
+                    OR COALESCE(p.codigo_pi_ag, '') ILIKE %s
+                    OR COALESCE(cli.nome_fantasia, '') ILIKE %s
                  ORDER BY c.updated_at DESC NULLS LAST, c.id_campanha DESC
                  LIMIT %s
                 """,
-                (
-                    f"%{termo}%",
-                    f"%{termo}%",
-                    max(1, min(int(limite or 8), 20)),
-                ),
+                tuple([f"%{termo}%"] * 6)
+                + (max(1, min(int(limite or 8), 20)),),
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def resumo_operacao(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id_sub_status_pi,
+                       COALESCE(ss.display, 'Sem status') AS status_descricao,
+                       COUNT(*) AS total_pis,
+                       COALESCE(SUM(p.vr_bruto_pi), 0) AS valor_bruto
+                  FROM cadu_pi p
+                  LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                 GROUP BY p.id_sub_status_pi, ss.display
+                 ORDER BY p.id_sub_status_pi
+                """
+            )
+            pi_status = [dict(row) for row in cursor.fetchall()]
+            cursor.execute(
+                """
+                SELECT COALESCE(st.descricao, 'Sem status') AS status_descricao,
+                       COUNT(*) AS total_campanhas,
+                       COALESCE(SUM(c.obj_contratados), 0) AS objetivo_contratado,
+                       COALESCE(SUM(c.totalizador_atingido), 0) AS objetivo_atingido,
+                       COALESCE(SUM(c.totalizador_gasto), 0) AS total_gasto,
+                       COALESCE(SUM(c.custo_midia_orcado), 0) AS custo_orcado
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
+                 GROUP BY c.id_status, st.descricao
+                 ORDER BY c.id_status
+                """
+            )
+            campanha_status = [dict(row) for row in cursor.fetchall()]
+            cursor.execute(
+                """
+                SELECT COALESCE(plt.descricao, 'Sem plataforma') AS plataforma,
+                       COUNT(*) AS total_campanhas
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi_camp_plataforma plt
+                         ON plt.id_plataforma = c.id_plataforma
+                 GROUP BY c.id_plataforma, plt.descricao
+                 ORDER BY COUNT(*) DESC, plt.descricao
+                """
+            )
+            plataformas = [dict(row) for row in cursor.fetchall()]
+        return {
+            "pis_por_status": pi_status,
+            "campanhas_por_status": campanha_status,
+            "campanhas_por_plataforma": plataformas,
+        }
 
     def validar_campanhas(self, id_pi, ids_campanha):
         ids = sorted({int(item) for item in ids_campanha})

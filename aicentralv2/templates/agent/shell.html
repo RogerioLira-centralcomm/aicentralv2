@@ -1,13 +1,19 @@
 <aside id="cx-agent-dock" class="cx-agent-dock" aria-label="Agente CentralX" aria-hidden="true">
   <header class="cx-agent-header">
     <div class="cx-agent-brand">
-      <span class="cx-agent-brand-icon" aria-hidden="true"><i class="fa-solid fa-sparkles"></i></span>
+      <span class="cx-agent-brand-icon" aria-hidden="true">
+        <img src="{{ url_for('static', filename='images/agent-centralx.png') }}" alt="">
+      </span>
       <div>
         <strong>Agente CentralX</strong>
         <span id="cx-agent-status" class="cx-agent-status"><i class="cx-agent-status-dot" aria-hidden="true"></i> Online</span>
       </div>
     </div>
     <div class="cx-agent-header-actions">
+      <button type="button" id="cx-agent-new-conversation" class="cx-agent-new-btn" aria-label="Começar nova conversa" title="Começar nova conversa">
+        <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+        <span>Nova conversa</span>
+      </button>
       <button type="button" id="cx-agent-settings" class="cx-agent-icon-btn" aria-label="Configurações do agente">
         <i class="fa-solid fa-gear" aria-hidden="true"></i>
       </button>
@@ -45,15 +51,6 @@
 
     <div class="cx-agent-workspace-columns">
       <div class="cx-agent-conversation-column">
-        <button type="button" id="cx-agent-entity" class="cx-agent-entity">
-      <span class="cx-agent-entity-icon" aria-hidden="true"><i class="fa-regular fa-building"></i></span>
-      <span class="cx-agent-entity-copy">
-        <strong id="cx-agent-context-label">Nenhum registro na tela</strong>
-        <span id="cx-agent-context-type">Busque no chat ou abra um cliente</span>
-      </span>
-      <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-        </button>
-
         <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
       <button type="button" class="cx-agent-tab is-active" role="tab" aria-selected="true" aria-controls="cx-agent-panel-chat" data-agent-tab="chat">Chat</button>
       <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-actions" data-agent-tab="actions">Ações</button>
@@ -127,9 +124,6 @@
             <input type="search" id="cx-agent-history-query" placeholder="Buscar nas conversas..." autocomplete="off">
           </label>
           <button type="button" id="cx-agent-history-filter" class="cx-agent-filter-btn" aria-label="Filtrar histórico">Todos</button>
-        </div>
-        <div class="cx-agent-history-actions">
-          <button type="button" id="cx-agent-new-conversation" class="cx-agent-link-btn">Nova conversa</button>
         </div>
         <div id="cx-agent-history" class="cx-agent-history"></div>
       </section>

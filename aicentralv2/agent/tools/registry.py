@@ -91,6 +91,11 @@ TOOLS = {
             commercial.consultar_pi, {"pi_id": ID}, ("pi_id",),
         ),
         Tool(
+            "listar_pis_cliente", "Lista os PIs vinculados a um cliente.",
+            commercial.listar_pis_cliente,
+            {"cliente_id": ID, "limit": LIMIT}, ("cliente_id",),
+        ),
+        Tool(
             "buscar_campanha", "Busca campanhas operacionais por ID ou nome.",
             commercial.buscar_campanha,
             {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
@@ -99,6 +104,22 @@ TOOLS = {
         Tool(
             "consultar_campanha", "Consulta uma campanha operacional específica por ID.",
             commercial.consultar_campanha, {"campanha_id": ID}, ("campanha_id",),
+        ),
+        Tool(
+            "listar_campanhas_pi",
+            "Lista as campanhas vinculadas a um PI, incluindo plataforma, responsável, objetivo, entrega, gasto e orçamento.",
+            commercial.listar_campanhas_pi,
+            {"pi_id": ID, "limit": LIMIT}, ("pi_id",),
+        ),
+        Tool(
+            "consultar_operacao_pi",
+            "Consulta o estado operacional completo de um PI: resumo, SLA, saúde, timeline, checklist e recomendações.",
+            commercial.consultar_operacao_pi, {"pi_id": ID}, ("pi_id",),
+        ),
+        Tool(
+            "resumir_operacao",
+            "Consulta números consolidados da operação: PIs e valores por status, campanhas por status e plataforma, objetivos, entrega, gasto e orçamento.",
+            commercial.resumir_operacao, {}, (),
         ),
         Tool(
             "preparar_alteracao_contato",

@@ -849,7 +849,7 @@
                 </div>
                 {% if is_centralcomm_user %}
                 <button type="button" id="cx-agent-trigger" class="erp-nav-trigger cx-agent-trigger" aria-label="Abrir Agente CentralX" aria-controls="cx-agent-dock" aria-expanded="false" title="Agente CentralX">
-                    <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                    <img src="{{ url_for('static', filename='images/agent-centralx.png') }}" alt="" aria-hidden="true">
                     <span class="hidden xl:inline">Agente</span>
                 </button>
                 {% endif %}

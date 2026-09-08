@@ -24,9 +24,12 @@ FILES = [
     ROOT / "aicentralv2/static/js/crm_v3.js",
     ROOT / "aicentralv2/static/js/cadu_pi_list.js",
     ROOT / "aicentralv2/static/js/cadu_pi_operacao.js",
+    ROOT / "aicentralv2/static/js/cotacao_detalhes.js",
 ]
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)
+CLASS_LIST_CALL = re.compile(r"""classList\.(?:add|remove|toggle|contains)\((.*?)\)""", re.DOTALL)
+QUOTED_TOKEN = re.compile(r"""(['"])([^'"]+)\1""")
 FORBIDDEN = re.compile(
     r"^(?:"
     r"modal(?:-(?:box|action|backdrop|compact|bottom|middle|open))?|"
@@ -52,6 +55,12 @@ def violations(path: Path) -> list[tuple[int, str]]:
         line = source.count("\n", 0, match.start()) + 1
         for token in re.split(r"\s+", match.group(2).strip()):
             if token and not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
+                found.append((line, token))
+    for match in CLASS_LIST_CALL.finditer(source):
+        line = source.count("\n", 0, match.start()) + 1
+        for quoted in QUOTED_TOKEN.finditer(match.group(1)):
+            token = quoted.group(2)
+            if not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
                 found.append((line, token))
     return found
 

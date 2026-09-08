@@ -112,6 +112,52 @@ body:has(.cot-op-page) {
   background: #f8fafc;
 }
 
+.cot-op-table-wrap .cot-items-table {
+  min-width: 1230px;
+  table-layout: fixed;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cot-op-table-wrap .cot-items-table th,
+.cot-op-table-wrap .cot-items-table td,
+.cot-op-table-wrap .cot-items-table tbody td > * {
+  min-width: 0 !important;
+  padding: 0.5rem 0.625rem !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.cot-op-table-wrap .cot-items-table th:nth-child(1) { width: 88px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(2) { width: 220px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(3) { width: 140px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(4) { width: 70px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(5) { width: 112px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(6) { width: 112px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(7) { width: 100px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(8) { width: 125px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(9) { width: 125px; }
+.cot-op-table-wrap .cot-items-table th:nth-child(10) { width: 140px; }
+
+.cot-op-table-wrap .cot-items-table tbody tr {
+  height: auto;
+}
+
+.cot-op-table-wrap .cot-items-table--legacy {
+  min-width: 940px;
+}
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(1) { width: 90px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(2) { width: 250px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(3) { width: 70px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(4) { width: 115px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(5) { width: 80px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(6) { width: 120px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(7) { width: 100px; }
+.cot-op-table-wrap .cot-items-table--legacy th:nth-child(8) { width: 125px; }
+
 .cot-op-sidebar {
   position: sticky;
   top: calc(var(--erp-topbar-h) + 72px);

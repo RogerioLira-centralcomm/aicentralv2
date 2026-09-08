@@ -2874,6 +2874,9 @@ dialog.cx-modal-shell::backdrop {
 .cx-progress::-webkit-progress-bar { background: var(--cx-border); }
 .cx-progress::-webkit-progress-value { background: currentColor; }
 .cx-progress::-moz-progress-bar { background: currentColor; }
+.cx-progress-success { color: var(--cx-success); }
+.cx-progress-warning { color: var(--cx-warning); }
+.cx-progress-danger { color: var(--cx-danger); }
 
 .cx-join {
   display: inline-flex;

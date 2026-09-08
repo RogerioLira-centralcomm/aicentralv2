@@ -941,7 +941,7 @@
 
     function setBtnLoading(btn, loading) {
         if (!btn) return;
-        btn.classList.toggle('loading', loading);
+        btn.classList.toggle('is-loading', loading);
         btn.disabled = loading;
         var spin = btn.querySelector('.crm-v3-btn-loading');
         if (spin) spin.hidden = !loading;

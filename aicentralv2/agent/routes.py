@@ -9,6 +9,7 @@ from flask import current_app, jsonify, request, session
 
 from ..services.openrouter_service import DEFAULT_CHAT_MODEL
 from . import bp, storage
+from .insights import build_insights, suggestion_prompts
 from .permissions import (
     agent_csrf_required,
     agent_internal_required_api,
@@ -47,28 +48,7 @@ def _context(raw=None):
 
 
 def _suggestions(context):
-    entity_type = (context.get("entity_type") or "").casefold()
-    screen = (context.get("screen") or "").casefold()
-    if entity_type in {"cliente", "client"}:
-        return [
-            {"label": "Ver contatos deste cliente", "prompt": "Liste os contatos deste cliente.", "icon": "fa-address-book"},
-            {"label": "Ver atividades recentes", "prompt": "Liste as atividades deste cliente.", "icon": "fa-calendar-check"},
-            {"label": "Ver cotações", "prompt": "Liste as cotações deste cliente.", "icon": "fa-file-invoice-dollar"},
-            {"label": "Preparar follow-up", "prompt": "Com base no contexto que eu fornecer, redija uma mensagem de follow-up profissional.", "icon": "fa-pen"},
-        ]
-    if entity_type in {"cotacao", "quote"} or screen == "pipeline":
-        return [
-            {"label": "Consultar esta cotação", "prompt": "Consulte os detalhes desta cotação.", "icon": "fa-file-invoice"},
-            {"label": "Buscar um cliente", "prompt": "Quero buscar um cliente.", "icon": "fa-magnifying-glass"},
-            {"label": "Ver cotações de um cliente", "prompt": "Liste as cotações de um cliente.", "icon": "fa-chart-column"},
-            {"label": "Analisar proposta", "prompt": "Vou anexar uma proposta. Resuma escopo, valores, riscos e próximos passos.", "icon": "fa-file-lines"},
-        ]
-    return [
-        {"label": "Buscar um cliente", "prompt": "Busque um cliente pelo nome.", "icon": "fa-magnifying-glass"},
-        {"label": "Consultar contatos", "prompt": "Quero listar os contatos de um cliente.", "icon": "fa-address-book"},
-        {"label": "Consultar cotações", "prompt": "Quero listar as cotações de um cliente.", "icon": "fa-file-invoice-dollar"},
-        {"label": "Analisar documento", "prompt": "Vou anexar um documento. Faça uma análise estruturada dos pontos principais.", "icon": "fa-file-lines"},
-    ]
+    return suggestion_prompts(context)
 
 
 def _valid_signature(mime, raw):
@@ -169,6 +149,7 @@ def bootstrap():
             "context": context,
             "active_conversation": active,
             "suggestions": _suggestions(context),
+            "insights": build_insights(context),
         },
     })
 
@@ -314,6 +295,18 @@ def history():
 def suggestions():
     context = _context(request.args)
     return jsonify({"success": True, "data": _suggestions(context)})
+
+
+@bp.get("/insights")
+@agent_internal_required_api
+def insights():
+    context = _context(request.args)
+    try:
+        data = build_insights(context)
+    except Exception:
+        current_app.logger.exception("Falha ao montar insights do agente")
+        data = {"entity": None, "alerts": [], "prompts": _suggestions(context)}
+    return jsonify({"success": True, "data": data})
 
 
 @bp.errorhandler(storage.AgentStorageUnavailable)

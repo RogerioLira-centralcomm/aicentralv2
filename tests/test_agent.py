@@ -117,6 +117,43 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertIn("commercial.read.global", data["capabilities"])
         self.assertTrue(data["csrf_token"])
 
+    @patch("aicentralv2.agent.routes.build_insights")
+    @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
+    def test_insights_endpoint_requires_internal_user(self, _mock_list, mock_insights):
+        mock_insights.return_value = {"entity": None, "alerts": [], "prompts": []}
+        with self.client.session_transaction() as session:
+            session["user_id"] = 10
+            session["is_centralcomm"] = True
+        response = self.client.get("/api/agent/insights")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["alerts"], [])
+
+
+class AgentInsightsTest(unittest.TestCase):
+    def test_insights_without_entity_have_prompts_only(self):
+        from aicentralv2.agent.insights import build_insights
+        data = build_insights({})
+        self.assertIsNone(data["entity"])
+        self.assertEqual(data["alerts"], [])
+        self.assertTrue(data["prompts"])
+
+    @patch("aicentralv2.agent.insights.get_store")
+    def test_insights_for_client_include_overdue_and_open_quotes(self, mock_store):
+        from aicentralv2.agent.insights import build_insights
+        store = mock_store.return_value
+        store.get_cliente.return_value = {"id": "1843", "nome": "COPASA MG"}
+        store.list_atividades.return_value = [
+            {"status": "pendente", "data_prazo": "2020-01-01", "titulo": "Follow-up"},
+        ]
+        store.list_cotacoes.return_value = [
+            {"status": "enviada", "status_label": "Enviada", "titulo": "Campanha", "data": "01/01/2026"},
+        ]
+        data = build_insights({"entity_type": "cliente", "entity_id": "1843", "entity_label": "COPASA MG"})
+        self.assertEqual(data["entity"]["label"], "COPASA MG")
+        ids = {item["id"] for item in data["alerts"]}
+        self.assertIn("overdue_activities", ids)
+        self.assertIn("open_campaigns", ids)
+
 
 if __name__ == "__main__":
     unittest.main()

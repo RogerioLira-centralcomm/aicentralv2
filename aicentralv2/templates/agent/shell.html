@@ -4,10 +4,13 @@
       <span class="cx-agent-brand-icon" aria-hidden="true"><i class="fa-solid fa-sparkles"></i></span>
       <div>
         <strong>Agente CentralX</strong>
-        <span id="cx-agent-status">Pronto para ajudar</span>
+        <span id="cx-agent-status" class="cx-agent-status"><i class="cx-agent-status-dot" aria-hidden="true"></i> Online</span>
       </div>
     </div>
     <div class="cx-agent-header-actions">
+      <button type="button" id="cx-agent-settings" class="cx-agent-icon-btn" aria-label="Configurações do agente">
+        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+      </button>
       <button type="button" id="cx-agent-minimize" class="cx-agent-icon-btn" aria-label="Minimizar agente">
         <i class="fa-solid fa-minus" aria-hidden="true"></i>
       </button>
@@ -17,78 +20,137 @@
     </div>
   </header>
 
-  <div id="cx-agent-context" class="cx-agent-context" hidden>
-    <i class="fa-regular fa-window-maximize" aria-hidden="true"></i>
-    <div>
-      <span>Contexto atual</span>
-      <strong id="cx-agent-context-label">CentralX</strong>
+  <div id="cx-agent-workspace" class="cx-agent-workspace">
+    <button type="button" id="cx-agent-entity" class="cx-agent-entity">
+      <span class="cx-agent-entity-icon" aria-hidden="true"><i class="fa-regular fa-building"></i></span>
+      <span class="cx-agent-entity-copy">
+        <strong id="cx-agent-context-label">Nenhum registro na tela</strong>
+        <span id="cx-agent-context-type">Busque no chat ou abra um cliente</span>
+      </span>
+      <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+    </button>
+
+    <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
+      <button type="button" class="cx-agent-tab is-active" role="tab" aria-selected="true" aria-controls="cx-agent-panel-chat" data-agent-tab="chat">Chat</button>
+      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-actions" data-agent-tab="actions">Ações</button>
+      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-suggestions" data-agent-tab="suggestions">Sugestões</button>
+      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-history" data-agent-tab="history">Histórico</button>
+    </nav>
+
+    <div class="cx-agent-panels">
+      <section id="cx-agent-panel-chat" class="cx-agent-panel is-active" role="tabpanel" data-agent-panel="chat">
+        <div id="cx-agent-messages" class="cx-agent-messages" aria-live="polite">
+          <div class="cx-agent-welcome">
+            <div class="cx-agent-welcome-mark" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <h2>Como posso ajudar, <span id="cx-agent-user-name">hoje?</span></h2>
+            <p>Converse livremente ou consulte dados comerciais do CentralX.</p>
+            <div id="cx-agent-quick-prompts" class="cx-agent-quick-prompts"></div>
+          </div>
+        </div>
+        <div id="cx-agent-extract" class="cx-agent-extract" hidden>
+          <div class="cx-agent-extract-file">
+            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+            <div>
+              <strong id="cx-agent-extract-name">arquivo.pdf</strong>
+              <span id="cx-agent-extract-size"></span>
+            </div>
+          </div>
+          <p class="cx-agent-extract-copy">Arquivo recebido. Vou extrair as informações principais e já te mostro um resumo.</p>
+          <div class="cx-agent-extract-progress">
+            <span>Extraindo informações…</span>
+            <div class="cx-agent-extract-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60">
+              <i></i>
+            </div>
+          </div>
+          <p class="cx-agent-extract-tip">O agente lê PDF, imagem ou texto para puxar cliente, valores, campanhas e período.</p>
+        </div>
+        <div class="cx-agent-composer-wrap">
+          <form id="cx-agent-composer" class="cx-agent-composer">
+            <div id="cx-agent-attachments" class="cx-agent-attachments" aria-live="polite" hidden></div>
+            <label class="sr-only" for="cx-agent-input">Mensagem para o Agente CentralX</label>
+            <textarea id="cx-agent-input" rows="1" maxlength="12000" placeholder="Pergunte ao CentralX..."></textarea>
+            <div class="cx-agent-composer-tools">
+              <input id="cx-agent-file-input" class="sr-only" type="file" multiple
+                     accept="image/png,image/jpeg,image/webp,application/pdf,text/plain,text/csv,application/json">
+              <button type="button" id="cx-agent-attach" class="cx-agent-tool-btn" aria-label="Anexar arquivos" title="Anexar imagens, PDF ou texto">
+                <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+              </button>
+              <span id="cx-agent-model-label" class="cx-agent-model-label" hidden>GPT-4o mini</span>
+              <span id="cx-agent-character-count" class="cx-agent-character-count" hidden>0 / 12.000</span>
+              <button type="submit" id="cx-agent-send" class="cx-agent-send" aria-label="Enviar mensagem">
+                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+              </button>
+            </div>
+          </form>
+          <p id="cx-agent-composer-feedback" class="cx-agent-composer-feedback" role="status" hidden></p>
+        </div>
+      </section>
+
+      <section id="cx-agent-panel-actions" class="cx-agent-panel" role="tabpanel" data-agent-panel="actions" hidden>
+        <div id="cx-agent-actions" class="cx-agent-action-list"></div>
+      </section>
+
+      <section id="cx-agent-panel-suggestions" class="cx-agent-panel" role="tabpanel" data-agent-panel="suggestions" hidden>
+        <div id="cx-agent-suggestions" class="cx-agent-suggestion-list"></div>
+      </section>
+
+      <section id="cx-agent-panel-history" class="cx-agent-panel" role="tabpanel" data-agent-panel="history" hidden>
+        <div class="cx-agent-history-toolbar">
+          <label class="cx-agent-history-search">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="cx-agent-history-query" placeholder="Buscar nas conversas..." autocomplete="off">
+          </label>
+          <button type="button" id="cx-agent-history-filter" class="cx-agent-filter-btn" aria-label="Filtrar histórico">Todos</button>
+        </div>
+        <div class="cx-agent-history-actions">
+          <button type="button" id="cx-agent-new-conversation" class="cx-agent-link-btn">Nova conversa</button>
+        </div>
+        <div id="cx-agent-history" class="cx-agent-history"></div>
+      </section>
     </div>
   </div>
 
-  <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
-    <button type="button" class="cx-agent-tab is-active" role="tab" aria-selected="true" aria-controls="cx-agent-panel-chat" data-agent-tab="chat">Chat</button>
-    <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-actions" data-agent-tab="actions">Ações</button>
-    <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-suggestions" data-agent-tab="suggestions">Sugestões</button>
-    <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-history" data-agent-tab="history">Histórico</button>
-  </nav>
-
-  <div class="cx-agent-panels">
-    <section id="cx-agent-panel-chat" class="cx-agent-panel is-active" role="tabpanel" data-agent-panel="chat">
-      <div id="cx-agent-messages" class="cx-agent-messages" aria-live="polite">
-        <div class="cx-agent-welcome">
-          <div class="cx-agent-welcome-mark" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <h2>Como posso ajudar, <span id="cx-agent-user-name">hoje?</span></h2>
-          <p>Converse livremente ou consulte dados comerciais do CentralX.</p>
-          <div id="cx-agent-quick-prompts" class="cx-agent-quick-prompts"></div>
-        </div>
-      </div>
-      <div class="cx-agent-composer-wrap">
-        <form id="cx-agent-composer" class="cx-agent-composer">
-          <div id="cx-agent-attachments" class="cx-agent-attachments" aria-live="polite" hidden></div>
-          <label class="sr-only" for="cx-agent-input">Mensagem para o Agente CentralX</label>
-          <textarea id="cx-agent-input" rows="1" maxlength="12000" placeholder="Pergunte, analise ou anexe um documento…"></textarea>
-          <div class="cx-agent-composer-tools">
-            <input id="cx-agent-file-input" class="sr-only" type="file" multiple
-                   accept="image/png,image/jpeg,image/webp,application/pdf,text/plain,text/csv,application/json">
-            <button type="button" id="cx-agent-attach" class="cx-agent-tool-btn" aria-label="Anexar arquivos" title="Anexar imagens, PDF ou texto">
-              <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
-            </button>
-            <span id="cx-agent-model-label" class="cx-agent-model-label">GPT-4o mini</span>
-            <span id="cx-agent-character-count" class="cx-agent-character-count">0 / 12.000</span>
-            <button type="submit" id="cx-agent-send" class="cx-agent-send" aria-label="Enviar mensagem">
-              <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
-            </button>
-          </div>
-        </form>
-        <p id="cx-agent-composer-feedback" class="cx-agent-composer-feedback" role="status" hidden></p>
-        <p class="cx-agent-disclaimer">A IA pode cometer erros. Confirme informações importantes.</p>
-      </div>
-    </section>
-
-    <section id="cx-agent-panel-actions" class="cx-agent-panel" role="tabpanel" data-agent-panel="actions" hidden>
-      <div class="cx-agent-section-head">
-        <h2>Ações de consulta</h2>
-        <p>Atalhos adequados ao contexto atual.</p>
-      </div>
-      <div id="cx-agent-actions" class="cx-agent-action-list"></div>
-    </section>
-
-    <section id="cx-agent-panel-suggestions" class="cx-agent-panel" role="tabpanel" data-agent-panel="suggestions" hidden>
-      <div class="cx-agent-section-head">
-        <h2>Sugestões</h2>
-        <p>Perguntas recomendadas para a tela atual.</p>
-      </div>
-      <div id="cx-agent-suggestions" class="cx-agent-suggestion-list"></div>
-    </section>
-
-    <section id="cx-agent-panel-history" class="cx-agent-panel" role="tabpanel" data-agent-panel="history" hidden>
-      <div class="cx-agent-section-head">
-        <h2>Histórico</h2>
-        <button type="button" id="cx-agent-new-conversation" class="cx-btn cx-btn-sm cx-btn-secondary">Nova conversa</button>
-      </div>
-      <div id="cx-agent-history" class="cx-agent-history"></div>
-    </section>
-  </div>
+  <section id="cx-agent-settings-panel" class="cx-agent-settings" hidden>
+    <div class="cx-agent-settings-head">
+      <button type="button" id="cx-agent-settings-back" class="cx-agent-icon-btn" aria-label="Voltar">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+      </button>
+      <h2>Configurações</h2>
+    </div>
+    <div class="cx-agent-settings-body">
+      <label class="cx-agent-settings-field">
+        <span>Modelo de IA</span>
+        <select id="cx-agent-model-select" disabled>
+          <option value="">Padrão</option>
+        </select>
+      </label>
+      <label class="cx-agent-toggle">
+        <span>
+          <strong>Salvar histórico de conversas</strong>
+          <em>Suas conversas ficam salvas no seu perfil.</em>
+        </span>
+        <input type="checkbox" id="cx-agent-pref-history" checked>
+      </label>
+      <label class="cx-agent-toggle">
+        <span>
+          <strong>Usar contexto da página</strong>
+          <em>Permitir que o agente use a tela atual como contexto.</em>
+        </span>
+        <input type="checkbox" id="cx-agent-pref-context" checked>
+      </label>
+      <label class="cx-agent-toggle">
+        <span>
+          <strong>Notificações</strong>
+          <em>Receber alertas de sugestões importantes.</em>
+        </span>
+        <input type="checkbox" id="cx-agent-pref-notify" checked>
+      </label>
+    </div>
+    <footer class="cx-agent-settings-foot">
+      <span>Sobre</span>
+      <span>Agente CentralX <small>v1.0.0</small></span>
+    </footer>
+  </section>
 </aside>

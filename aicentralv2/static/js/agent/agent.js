@@ -5,26 +5,36 @@
   var trigger = document.getElementById('cx-agent-trigger');
   if (!dock || !trigger) return;
 
+  var PREFS_KEY = 'centralx_agent_prefs';
+  var defaultPrefs = { saveHistory: true, usePageContext: true, notifications: true };
+
   var state = {
     bootstrapped: false,
     csrf: '',
     conversationId: sessionStorage.getItem('centralx_agent_conversation_id') || '',
     context: readBodyContext(),
     suggestions: [],
+    insights: { entity: null, alerts: [], prompts: [] },
     attachments: [],
+    conversations: [],
+    historyFilter: 'all',
+    prefs: loadPrefs(),
     controller: null,
     lastFocus: null
   };
 
   var els = {
     status: document.getElementById('cx-agent-status'),
-    context: document.getElementById('cx-agent-context'),
+    entity: document.getElementById('cx-agent-entity'),
     contextLabel: document.getElementById('cx-agent-context-label'),
+    contextType: document.getElementById('cx-agent-context-type'),
     messages: document.getElementById('cx-agent-messages'),
     prompts: document.getElementById('cx-agent-quick-prompts'),
     actions: document.getElementById('cx-agent-actions'),
     suggestions: document.getElementById('cx-agent-suggestions'),
     history: document.getElementById('cx-agent-history'),
+    historyQuery: document.getElementById('cx-agent-history-query'),
+    historyFilter: document.getElementById('cx-agent-history-filter'),
     input: document.getElementById('cx-agent-input'),
     composer: document.getElementById('cx-agent-composer'),
     send: document.getElementById('cx-agent-send'),
@@ -34,11 +44,35 @@
     feedback: document.getElementById('cx-agent-composer-feedback'),
     characterCount: document.getElementById('cx-agent-character-count'),
     modelLabel: document.getElementById('cx-agent-model-label'),
+    modelSelect: document.getElementById('cx-agent-model-select'),
     userName: document.getElementById('cx-agent-user-name'),
     close: document.getElementById('cx-agent-close'),
     minimize: document.getElementById('cx-agent-minimize'),
-    newConversation: document.getElementById('cx-agent-new-conversation')
+    settings: document.getElementById('cx-agent-settings'),
+    settingsPanel: document.getElementById('cx-agent-settings-panel'),
+    settingsBack: document.getElementById('cx-agent-settings-back'),
+    workspace: document.getElementById('cx-agent-workspace'),
+    newConversation: document.getElementById('cx-agent-new-conversation'),
+    extract: document.getElementById('cx-agent-extract'),
+    extractName: document.getElementById('cx-agent-extract-name'),
+    extractSize: document.getElementById('cx-agent-extract-size'),
+    prefHistory: document.getElementById('cx-agent-pref-history'),
+    prefContext: document.getElementById('cx-agent-pref-context'),
+    prefNotify: document.getElementById('cx-agent-pref-notify')
   };
+
+  function loadPrefs() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+      return Object.assign({}, defaultPrefs, raw);
+    } catch (error) {
+      return Object.assign({}, defaultPrefs);
+    }
+  }
+
+  function savePrefs() {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(state.prefs));
+  }
 
   function readBodyContext() {
     var data = document.body.dataset;
@@ -48,6 +82,17 @@
       entity_type: data.cxEntityType || '',
       entity_id: data.cxEntityId || '',
       entity_label: data.cxEntityLabel || ''
+    };
+  }
+
+  function outgoingContext() {
+    if (state.prefs.usePageContext) return Object.assign({}, state.context);
+    return {
+      module: state.context.module || '',
+      screen: state.context.screen || '',
+      entity_type: '',
+      entity_id: '',
+      entity_label: ''
     };
   }
 
@@ -80,16 +125,49 @@
     });
   }
 
-  function setStatus(text) {
-    els.status.textContent = text;
+  function setStatus(text, online) {
+    var isOnline = online !== false && text !== 'Indisponível';
+    els.status.classList.toggle('is-offline', !isOnline);
+    els.status.innerHTML = '<i class="cx-agent-status-dot" aria-hidden="true"></i> ' + (isOnline ? (text || 'Online') : text);
+  }
+
+  function entityTypeLabel(type) {
+    var map = { cliente: 'Cliente', client: 'Cliente', cotacao: 'Cotação', quote: 'Cotação', pi: 'PI' };
+    return map[String(type || '').toLowerCase()] || 'Registro';
+  }
+
+  function clientContext() {
+    var ctx = outgoingContext();
+    var type = String(ctx.entity_type || '').toLowerCase();
+    if ((type === 'cliente' || type === 'client') && ctx.entity_id) return ctx;
+    return null;
   }
 
   function updateContext() {
-    var label = state.context.entity_label ||
-      [state.context.module, state.context.screen].filter(Boolean).join(' · ') ||
-      'CentralX';
-    els.contextLabel.textContent = label;
-    els.context.hidden = !label;
+    var ctx = outgoingContext();
+    var hasEntity = Boolean(ctx.entity_id && ctx.entity_label);
+    els.contextLabel.textContent = hasEntity ? ctx.entity_label : 'Nenhum registro na tela';
+    els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque no chat ou abra um cliente';
+    els.entity.classList.toggle('is-empty', !hasEntity);
+    var icon = els.entity.querySelector('.cx-agent-entity-icon i');
+    if (icon) {
+      icon.className = 'fa-regular ' + (
+        String(ctx.entity_type || '').toLowerCase() === 'cotacao' ? 'fa-file-lines' :
+        String(ctx.entity_type || '').toLowerCase() === 'pi' ? 'fa-file-lines' : 'fa-building'
+      );
+    }
+    renderActions();
+  }
+
+  function openEntity() {
+    var ctx = outgoingContext();
+    var type = String(ctx.entity_type || '').toLowerCase();
+    if ((type === 'cliente' || type === 'client') && ctx.entity_id) {
+      window.location.href = '/crm-v3/#cliente=' + encodeURIComponent(ctx.entity_id);
+      return;
+    }
+    switchTab('chat');
+    els.input.focus();
   }
 
   function setOpen(open) {
@@ -101,9 +179,11 @@
       trigger.setAttribute('aria-expanded', 'true');
       bootstrap().finally(function () { els.input.focus(); });
     } else {
-      dock.classList.remove('is-open', 'is-minimized');
+      dock.classList.remove('is-open', 'is-minimized', 'is-settings');
       dock.setAttribute('aria-hidden', 'true');
       trigger.setAttribute('aria-expanded', 'false');
+      els.settingsPanel.hidden = true;
+      els.workspace.hidden = false;
       if (state.lastFocus && state.lastFocus.focus) state.lastFocus.focus();
     }
   }
@@ -114,6 +194,12 @@
     dock.setAttribute('aria-hidden', 'false');
     els.minimize.setAttribute('aria-label', minimized ? 'Restaurar agente' : 'Minimizar agente');
     els.minimize.querySelector('i').className = minimized ? 'fa-solid fa-up-right-and-down-left-from-center' : 'fa-solid fa-minus';
+  }
+
+  function showSettings(open) {
+    dock.classList.toggle('is-settings', open);
+    els.settingsPanel.hidden = !open;
+    els.workspace.hidden = open;
   }
 
   function switchTab(name) {
@@ -129,19 +215,30 @@
       panel.hidden = !active;
     });
     if (name === 'history') loadHistory();
-    if (name === 'suggestions') loadSuggestions();
+    if (name === 'suggestions') loadInsights();
+    if (name === 'actions') renderActions();
   }
 
-  function button(label, icon, className, onClick) {
+  function rowButton(label, icon, className, onClick, extra) {
     var item = document.createElement('button');
     item.type = 'button';
     item.className = className;
     var glyph = document.createElement('i');
     glyph.className = 'fa-solid ' + (icon || 'fa-arrow-right');
     glyph.setAttribute('aria-hidden', 'true');
-    var text = document.createElement('span');
-    text.textContent = label;
-    item.append(glyph, text);
+    var copy = document.createElement('span');
+    var title = document.createElement('strong');
+    title.textContent = label;
+    copy.appendChild(title);
+    if (extra) {
+      var body = document.createElement('em');
+      body.textContent = extra;
+      copy.appendChild(body);
+    }
+    var chevron = document.createElement('i');
+    chevron.className = 'fa-solid fa-chevron-right';
+    chevron.setAttribute('aria-hidden', 'true');
+    item.append(glyph, copy, chevron);
     item.addEventListener('click', onClick);
     return item;
   }
@@ -153,41 +250,19 @@
     els.input.focus();
   }
 
-  function renderSuggestions(items) {
-    state.suggestions = items || [];
-    els.prompts.replaceChildren();
-    els.suggestions.replaceChildren();
-    state.suggestions.forEach(function (item) {
-      els.prompts.appendChild(button(item.label, item.icon, 'cx-agent-prompt', function () {
-        usePrompt(item.prompt);
-      }));
-      els.suggestions.appendChild(button(item.label, item.icon, 'cx-agent-suggestion', function () {
-        usePrompt(item.prompt);
-      }));
-    });
-    if (!state.suggestions.length) {
-      els.suggestions.appendChild(empty('Nenhuma sugestão para este contexto.'));
+  function goCrm(prompt) {
+    var client = clientContext();
+    if (client) {
+      window.location.href = '/crm-v3/#cliente=' + encodeURIComponent(client.entity_id);
     }
-    renderActions();
+    usePrompt(prompt);
   }
 
-  function renderActions() {
-    var items = [
-      { label: 'Buscar cliente', prompt: 'Busque um cliente pelo nome.', icon: 'fa-magnifying-glass' },
-      { label: 'Listar contatos', prompt: 'Liste os contatos de um cliente.', icon: 'fa-address-book' },
-      { label: 'Consultar atividades', prompt: 'Liste as atividades de um cliente.', icon: 'fa-calendar-check' },
-      { label: 'Consultar cotações', prompt: 'Liste as cotações de um cliente.', icon: 'fa-file-invoice-dollar' },
-      { label: 'Analisar um documento', prompt: 'Vou anexar um documento. Analise, resuma e destaque riscos e próximos passos.', icon: 'fa-file-lines' },
-      { label: 'Organizar em tabela', prompt: 'Organize as informações abaixo em uma tabela clara e comparável:', icon: 'fa-table' },
-      { label: 'Redigir e-mail', prompt: 'Redija um e-mail profissional, objetivo e cordial sobre:', icon: 'fa-envelope' },
-      { label: 'Criar plano de ação', prompt: 'Transforme o contexto abaixo em um plano de ação com responsáveis, prioridades e prazos:', icon: 'fa-list-check' }
-    ];
-    els.actions.replaceChildren();
-    items.forEach(function (item) {
-      els.actions.appendChild(button(item.label, item.icon, 'cx-agent-action', function () {
-        usePrompt(item.prompt);
-      }));
-    });
+  function heading(text) {
+    var node = document.createElement('h3');
+    node.className = 'cx-agent-group-title';
+    node.textContent = text;
+    return node;
   }
 
   function empty(text) {
@@ -197,28 +272,114 @@
     return node;
   }
 
+  function renderActions() {
+    var client = clientContext();
+    els.actions.replaceChildren();
+    if (!client) {
+      els.actions.appendChild(heading('Ações mais utilizadas'));
+      [
+        { label: 'Buscar cliente', prompt: 'Busque um cliente pelo nome.', icon: 'fa-magnifying-glass' },
+        { label: 'Analisar um documento', prompt: 'Vou anexar um documento. Analise, resuma e destaque riscos e próximos passos.', icon: 'fa-file-lines' }
+      ].forEach(function (item) {
+        els.actions.appendChild(rowButton(item.label, item.icon, 'cx-agent-action', function () { usePrompt(item.prompt); }));
+      });
+      return;
+    }
+    var name = client.entity_label || 'este cliente';
+    els.actions.appendChild(heading('Ações mais utilizadas'));
+    [
+      { label: 'Adicionar contato', icon: 'fa-user-plus', prompt: 'Quero criar um contato neste cliente: ' + name + '.' },
+      { label: 'Criar atividade', icon: 'fa-calendar-plus', prompt: 'Quero criar uma atividade para ' + name + '.' },
+      { label: 'Registrar observação', icon: 'fa-sticky-note', prompt: 'Quero registrar uma observação neste cliente: ' + name + '.' },
+      { label: 'Criar cotação', icon: 'fa-file-invoice', prompt: 'Quero criar uma cotação para ' + name + '.' },
+      { label: 'Atualizar follow-up', icon: 'fa-clock-rotate-left', prompt: 'Com base neste cliente, redija um follow-up profissional para ' + name + '.' }
+    ].forEach(function (item) {
+      els.actions.appendChild(rowButton(item.label, item.icon, 'cx-agent-action', function () { goCrm(item.prompt); }));
+    });
+    els.actions.appendChild(heading('Outras ações'));
+    [
+      { label: 'Listar contatos', icon: 'fa-users', prompt: 'Liste os contatos deste cliente.' },
+      { label: 'Listar cotações', icon: 'fa-file-lines', prompt: 'Liste as cotações deste cliente.' },
+      { label: 'Ver histórico do cliente', icon: 'fa-clock-rotate-left', prompt: 'Liste as atividades deste cliente.' }
+    ].forEach(function (item) {
+      els.actions.appendChild(rowButton(item.label, item.icon, 'cx-agent-action', function () { usePrompt(item.prompt); }));
+    });
+  }
+
+  function renderSuggestions(payload) {
+    var data = payload || {};
+    var prompts = data.prompts || data;
+    if (Array.isArray(payload)) {
+      prompts = payload;
+      data = { alerts: [], prompts: payload };
+    }
+    state.suggestions = prompts || [];
+    state.insights = data.entity || data.alerts ? data : state.insights;
+    els.prompts.replaceChildren();
+    state.suggestions.slice(0, 4).forEach(function (item) {
+      els.prompts.appendChild(rowButton(item.label, item.icon || 'fa-magnifying-glass', 'cx-agent-prompt', function () {
+        usePrompt(item.prompt);
+      }));
+    });
+    els.suggestions.replaceChildren();
+    var alerts = data.alerts || [];
+    if (!clientContext()) {
+      els.suggestions.appendChild(empty('Abra um cliente para ver alertas.'));
+    } else if (alerts.length) {
+      els.suggestions.appendChild(heading('Sugestões para você'));
+      alerts.forEach(function (item) {
+        var btn = rowButton(item.title, item.icon || 'fa-lightbulb', 'cx-agent-insight is-' + (item.tone || 'info'), function () {
+          usePrompt(item.prompt);
+        }, item.body);
+        els.suggestions.appendChild(btn);
+      });
+    } else {
+      els.suggestions.appendChild(empty('Nenhum alerta para este cliente agora.'));
+    }
+    if (state.suggestions.length) {
+      els.suggestions.appendChild(heading('Perguntas comuns'));
+      state.suggestions.forEach(function (item) {
+        els.suggestions.appendChild(rowButton(item.label, item.icon || 'fa-magnifying-glass', 'cx-agent-suggestion', function () {
+          usePrompt(item.prompt);
+        }));
+      });
+    }
+    renderActions();
+  }
+
+  function applyPrefsUi() {
+    els.prefHistory.checked = state.prefs.saveHistory !== false;
+    els.prefContext.checked = state.prefs.usePageContext !== false;
+    els.prefNotify.checked = state.prefs.notifications !== false;
+  }
+
   function bootstrap(force) {
     if (state.bootstrapped && !force) return Promise.resolve();
-    setStatus('Conectando...');
-    return api('/api/agent/bootstrap?' + contextQuery(state.context))
+    setStatus('Conectando...', true);
+    return api('/api/agent/bootstrap?' + contextQuery(outgoingContext()))
       .then(function (payload) {
         var data = payload.data || {};
         state.csrf = data.csrf_token || '';
         state.bootstrapped = true;
         els.userName.textContent = (data.user && data.user.name) || 'tudo bem?';
-        if (data.model) {
-          els.modelLabel.textContent = data.model === 'openai/gpt-4o-mini' ? 'GPT-4o mini' : data.model.split('/').pop();
-        }
-        renderSuggestions(data.suggestions || []);
+        var model = data.model || 'openai/gpt-4o-mini';
+        var modelName = model === 'openai/gpt-4o-mini' ? 'Padrão (OpenRouter)' : model.split('/').pop();
+        els.modelLabel.textContent = modelName;
+        els.modelSelect.replaceChildren();
+        var option = document.createElement('option');
+        option.value = model;
+        option.textContent = modelName;
+        els.modelSelect.appendChild(option);
+        renderSuggestions(data.insights || { prompts: data.suggestions || [], alerts: [] });
         if (data.active_conversation) {
           state.conversationId = String(data.active_conversation.id);
           sessionStorage.setItem('centralx_agent_conversation_id', state.conversationId);
           return loadConversation(state.conversationId);
         }
-        setStatus('Pronto para ajudar');
+        setStatus('Online', true);
       })
       .catch(function (error) {
-        setStatus('Indisponível');
+        setStatus('Indisponível', false);
         appendMessage('assistant', error.message || 'Agente temporariamente indisponível.');
       });
   }
@@ -227,7 +388,7 @@
     if (state.conversationId) return Promise.resolve(state.conversationId);
     return api('/api/agent/conversations', {
       method: 'POST',
-      body: JSON.stringify({ context: state.context })
+      body: JSON.stringify({ context: outgoingContext() })
     }).then(function (payload) {
       state.conversationId = String(payload.data.id);
       sessionStorage.setItem('centralx_agent_conversation_id', state.conversationId);
@@ -307,9 +468,9 @@
 
       var headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
       if (headingMatch) {
-        var heading = document.createElement('h' + headingMatch[1].length);
-        appendInline(heading, headingMatch[2]);
-        root.appendChild(heading);
+        var headingEl = document.createElement('h' + headingMatch[1].length);
+        appendInline(headingEl, headingMatch[2]);
+        root.appendChild(headingEl);
         i += 1;
         continue;
       }
@@ -459,36 +620,55 @@
     return typeof url === 'string' && /^\/(?!\/)[a-zA-Z0-9/_?#=&.%+-]*$/.test(url);
   }
 
+  function looksOpen(text) {
+    var value = String(text || '').toLowerCase();
+    return /andamento|abert|enviad|rascunho|aprovad/.test(value);
+  }
+
   function renderDisplay(parent, display) {
     var groups = display && Array.isArray(display.results) ? display.results : [];
     groups.forEach(function (group) {
       var results = document.createElement('div');
       results.className = 'cx-agent-results';
-      if (group.title) {
-        var heading = document.createElement('strong');
-        heading.textContent = group.title;
-        results.appendChild(heading);
-      }
-      (group.items || []).slice(0, 20).forEach(function (item) {
+      var items = group.items || [];
+      items.slice(0, 8).forEach(function (item) {
         var card = document.createElement('div');
         card.className = 'cx-agent-result';
         var title = document.createElement('strong');
         title.textContent = item.title || 'Resultado';
         card.appendChild(title);
-        var details = [item.subtitle, item.responsible ? 'Responsável: ' + item.responsible : ''].filter(Boolean);
-        details.forEach(function (value) {
+        if (item.subtitle || item.period || item.status) {
+          var meta = document.createElement('span');
+          var status = item.status || item.subtitle || '';
+          meta.className = 'cx-agent-result-meta';
+          if (looksOpen(status)) {
+            var dot = document.createElement('i');
+            dot.className = 'cx-agent-live-dot';
+            meta.appendChild(dot);
+            meta.appendChild(document.createTextNode('Em andamento'));
+          } else {
+            meta.textContent = item.subtitle || '';
+          }
+          card.appendChild(meta);
+        }
+        if (item.period) {
+          var period = document.createElement('span');
+          period.textContent = item.period;
+          card.appendChild(period);
+        } else if (item.responsible) {
           var line = document.createElement('span');
-          line.textContent = value;
+          line.textContent = item.responsible;
           card.appendChild(line);
-        });
-        if (safeInternalUrl(item.url)) {
-          var link = document.createElement('a');
-          link.href = item.url;
-          link.textContent = 'Abrir registro';
-          card.appendChild(link);
         }
         results.appendChild(card);
       });
+      var more = (group.links && group.links[0]) || (items.length > 8 ? { url: (items[0] || {}).url, label: 'Ver todas' } : null);
+      if (more && safeInternalUrl(more.url || (items[0] || {}).url)) {
+        var link = document.createElement('a');
+        link.href = more.url || items[0].url;
+        link.textContent = (more.label || 'Ver todas') + ' →';
+        results.appendChild(link);
+      }
       parent.appendChild(results);
     });
   }
@@ -500,46 +680,117 @@
         (payload.data.messages || []).forEach(function (message) {
           appendMessage(message.role, message.content, message.display);
         });
-        setStatus('Pronto para ajudar');
+        setStatus('Online', true);
       })
       .catch(function () {
         state.conversationId = '';
         sessionStorage.removeItem('centralx_agent_conversation_id');
         clearConversationView();
-        setStatus('Pronto para ajudar');
+        setStatus('Online', true);
       });
   }
 
-  function loadHistory() {
-    els.history.replaceChildren(empty('Carregando histórico...'));
-    api('/api/agent/history?page=1').then(function (payload) {
-      els.history.replaceChildren();
-      (payload.data || []).forEach(function (conversation) {
-        var item = document.createElement('button');
-        item.type = 'button';
+  function dayLabel(iso) {
+    if (!iso) return 'Anteriores';
+    var date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'Anteriores';
+    var today = new Date();
+    var startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var startThat = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var diff = Math.round((startToday - startThat) / 86400000);
+    if (diff === 0) return 'Hoje';
+    if (diff === 1) return 'Ontem';
+    return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  }
+
+  function renderHistory() {
+    els.history.replaceChildren();
+    if (!state.prefs.saveHistory) {
+      els.history.appendChild(empty('O histórico está oculto nas configurações.'));
+      return;
+    }
+    var query = (els.historyQuery.value || '').trim().toLowerCase();
+    var items = state.conversations.filter(function (conversation) {
+      var hay = ((conversation.title || '') + ' ' + (conversation.context && conversation.context.entity_label || '')).toLowerCase();
+      return !query || hay.indexOf(query) !== -1;
+    });
+    if (!items.length) {
+      els.history.appendChild(empty(query ? 'Nenhuma conversa encontrada.' : 'Nenhuma conversa ainda.'));
+      return;
+    }
+    var groups = [];
+    items.forEach(function (conversation) {
+      var label = dayLabel(conversation.updated_at || conversation.created_at);
+      var last = groups[groups.length - 1];
+      if (!last || last.label !== label) {
+        last = { label: label, items: [] };
+        groups.push(last);
+      }
+      last.items.push(conversation);
+    });
+    groups.forEach(function (group) {
+      els.history.appendChild(heading(group.label));
+      group.items.forEach(function (conversation) {
+        var item = document.createElement('div');
         item.className = 'cx-agent-history-item';
+        var open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'cx-agent-history-main';
+        var glyph = document.createElement('i');
+        glyph.className = 'fa-regular fa-comments';
+        var copy = document.createElement('span');
         var title = document.createElement('strong');
         title.textContent = conversation.title || 'Nova conversa';
-        var date = document.createElement('span');
-        date.textContent = conversation.updated_at ? new Date(conversation.updated_at).toLocaleString('pt-BR') : '';
-        item.append(title, date);
-        item.addEventListener('click', function () {
+        var meta = document.createElement('em');
+        var when = conversation.updated_at ? new Date(conversation.updated_at) : null;
+        meta.textContent = (conversation.context && conversation.context.entity_label) || 'Conversa';
+        copy.append(title, meta);
+        var time = document.createElement('time');
+        time.textContent = when && !Number.isNaN(when.getTime())
+          ? when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        open.append(glyph, copy, time);
+        open.addEventListener('click', function () {
           state.conversationId = String(conversation.id);
           sessionStorage.setItem('centralx_agent_conversation_id', state.conversationId);
           loadConversation(state.conversationId).then(function () { switchTab('chat'); });
         });
+        var menu = document.createElement('button');
+        menu.type = 'button';
+        menu.className = 'cx-agent-icon-btn';
+        menu.setAttribute('aria-label', 'Abrir conversa');
+        menu.innerHTML = '<i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>';
+        menu.addEventListener('click', function () { open.click(); });
+        item.append(open, menu);
         els.history.appendChild(item);
       });
-      if (!(payload.data || []).length) els.history.appendChild(empty('Nenhuma conversa ainda.'));
+    });
+  }
+
+  function loadHistory() {
+    if (!state.prefs.saveHistory) {
+      renderHistory();
+      return;
+    }
+    els.history.replaceChildren(empty('Carregando histórico...'));
+    api('/api/agent/history?page=1').then(function (payload) {
+      state.conversations = payload.data || [];
+      renderHistory();
     }).catch(function (error) {
       els.history.replaceChildren(empty(error.message));
     });
   }
 
+  function loadInsights() {
+    api('/api/agent/insights?' + contextQuery(outgoingContext())).then(function (payload) {
+      renderSuggestions(payload.data || {});
+    }).catch(function () {
+      renderSuggestions({ alerts: [], prompts: state.suggestions });
+    });
+  }
+
   function loadSuggestions() {
-    api('/api/agent/suggestions?' + contextQuery(state.context)).then(function (payload) {
-      renderSuggestions(payload.data || []);
-    }).catch(function () {});
+    loadInsights();
   }
 
   function showComposerFeedback(message, isError) {
@@ -661,7 +912,27 @@
   function resizeInput() {
     els.input.style.height = 'auto';
     els.input.style.height = Math.min(Math.round(window.innerHeight * 0.38), els.input.scrollHeight) + 'px';
-    els.characterCount.textContent = els.input.value.length.toLocaleString('pt-BR') + ' / 12.000';
+    if (els.characterCount) {
+      els.characterCount.textContent = els.input.value.length.toLocaleString('pt-BR') + ' / 12.000';
+    }
+  }
+
+  function showExtract(files) {
+    var extractable = (files || []).find(function (file) {
+      return file.mime === 'application/pdf' || String(file.mime || '').indexOf('image/') === 0;
+    });
+    if (!extractable) {
+      els.extract.hidden = true;
+      return false;
+    }
+    els.extractName.textContent = extractable.name;
+    els.extractSize.textContent = humanSize(extractable.size);
+    els.extract.hidden = false;
+    return true;
+  }
+
+  function hideExtract() {
+    els.extract.hidden = true;
   }
 
   function setSending(sending) {
@@ -670,8 +941,8 @@
     els.fileInput.disabled = sending;
     els.send.disabled = false;
     els.send.setAttribute('aria-label', sending ? 'Cancelar consulta' : 'Enviar mensagem');
-    els.send.querySelector('i').className = sending ? 'fa-solid fa-stop' : 'fa-solid fa-arrow-up';
-    setStatus(sending ? 'Analisando...' : 'Pronto para ajudar');
+    els.send.querySelector('i').className = sending ? 'fa-solid fa-stop' : 'fa-solid fa-paper-plane';
+    setStatus(sending ? 'Analisando…' : 'Online', true);
   }
 
   function sendMessage() {
@@ -689,7 +960,8 @@
     showComposerFeedback('');
     resizeInput();
     setSending(true);
-    var loading = appendMessage('assistant', 'Consultando informações…', null, 'is-loading');
+    var extracting = showExtract(outgoingAttachments);
+    var loading = extracting ? null : appendMessage('assistant', 'Consultando informações…', null, 'is-loading');
     state.controller = new AbortController();
     ensureConversation().then(function (id) {
       return api('/api/agent/conversations/' + encodeURIComponent(id) + '/messages', {
@@ -697,18 +969,20 @@
         signal: state.controller.signal,
         body: JSON.stringify({
           message: content,
-          context: state.context,
+          context: outgoingContext(),
           attachments: outgoingAttachments.map(function (file) {
             return { name: file.name, mime: file.mime, size: file.size, data: file.data };
           })
         })
       });
     }).then(function (payload) {
-      loading.remove();
+      if (loading) loading.remove();
+      hideExtract();
       var message = payload.data.message;
       appendMessage('assistant', message.content, message.display);
     }).catch(function (error) {
-      loading.remove();
+      if (loading) loading.remove();
+      hideExtract();
       var errorMessage = error.name === 'AbortError' ? 'Consulta cancelada.' : error.message;
       if (error.requestId) errorMessage += '\n\nReferência técnica: `' + error.requestId + '`';
       appendMessage('assistant', errorMessage);
@@ -729,7 +1003,7 @@
         state.context[key] = String(state.context[key] || '').slice(0, key === 'entity_label' ? 200 : 80);
       });
       updateContext();
-      if (state.bootstrapped) loadSuggestions();
+      if (state.bootstrapped) loadInsights();
     },
     getContext: function () { return Object.assign({}, state.context); }
   };
@@ -737,6 +1011,9 @@
   trigger.addEventListener('click', function () { setOpen(true); });
   els.close.addEventListener('click', function () { setOpen(false); });
   els.minimize.addEventListener('click', minimize);
+  els.settings.addEventListener('click', function () { showSettings(true); });
+  els.settingsBack.addEventListener('click', function () { showSettings(false); });
+  els.entity.addEventListener('click', openEntity);
   dock.querySelector('.cx-agent-header').addEventListener('click', function (event) {
     if (dock.classList.contains('is-minimized') && !event.target.closest('button')) minimize();
   });
@@ -769,8 +1046,27 @@
     switchTab('chat');
     els.input.focus();
   });
+  els.historyQuery.addEventListener('input', renderHistory);
+  els.historyFilter.addEventListener('click', function () {
+    state.historyFilter = state.historyFilter === 'all' ? 'all' : 'all';
+    els.historyFilter.textContent = 'Todos';
+    renderHistory();
+  });
+  [els.prefHistory, els.prefContext, els.prefNotify].forEach(function (input) {
+    input.addEventListener('change', function () {
+      state.prefs.saveHistory = els.prefHistory.checked;
+      state.prefs.usePageContext = els.prefContext.checked;
+      state.prefs.notifications = els.prefNotify.checked;
+      savePrefs();
+      updateContext();
+      if (state.bootstrapped) loadInsights();
+    });
+  });
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && dock.classList.contains('is-open')) setOpen(false);
+    if (event.key === 'Escape' && dock.classList.contains('is-open')) {
+      if (!els.settingsPanel.hidden) showSettings(false);
+      else setOpen(false);
+    }
   });
   window.addEventListener('centralx:contextchange', function (event) {
     window.CentralXAgent.setContext((event && event.detail) || {});
@@ -791,6 +1087,7 @@
     });
   });
 
+  applyPrefsUi();
   updateContext();
   renderActions();
   resizeInput();

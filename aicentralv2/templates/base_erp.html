@@ -17,7 +17,7 @@
       navegador mesmo quando `npm run build` é rodado sem apontar para
       enterprise-system.css. Auto-contido, ordem depois do output.css.
     -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=9">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=10">
 
     <script>
     function setCookie(name, value, days) {
@@ -439,6 +439,113 @@
             gap: 0.5rem;
             pointer-events: none;
         }
+        #toast-container:popover-open {
+            position: fixed !important;
+            inset: 1rem 1rem auto auto !important;
+            margin: 0 !important;
+        }
+        dialog.toast-stack-modal {
+            width: 100vw !important;
+            max-width: none !important;
+            height: 100vh !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            pointer-events: none !important;
+        }
+        dialog.toast-stack-modal::backdrop {
+            background: transparent !important;
+            pointer-events: none !important;
+        }
+        .erp-confirm-dialog {
+            width: min(29rem, calc(100vw - 2rem));
+            max-width: none;
+            border: 0;
+            border-radius: 0.875rem;
+            padding: 0;
+            background: transparent;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+        }
+        .erp-confirm-dialog::backdrop {
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(2px);
+        }
+        .erp-confirm-surface {
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.875rem;
+            background: #fff;
+            color: #1f2937;
+        }
+        .erp-confirm-content {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 0.75rem;
+            padding: 1.25rem;
+        }
+        .erp-confirm-icon {
+            display: inline-flex;
+            width: 2.25rem;
+            height: 2.25rem;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .erp-confirm-icon.is-danger { background: #fee2e2; color: #b91c1c; }
+        .erp-confirm-icon.is-warning { background: #fef3c7; color: #b45309; }
+        .erp-confirm-icon.is-success { background: #dcfce7; color: #15803d; }
+        .erp-confirm-copy h2 { margin: 0 0 0.35rem; font-size: 0.9375rem; font-weight: 700; }
+        .erp-confirm-message { color: #475569; font-size: 0.8125rem; line-height: 1.55; }
+        .erp-confirm-detail { margin-top: 0.75rem; color: #334155; font-size: 0.8125rem; }
+        .erp-confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+        }
+        .erp-confirm-button {
+            min-height: 2.25rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            background: #fff;
+            padding: 0.45rem 0.9rem;
+            color: #334155;
+            font-size: 0.8125rem;
+            font-weight: 650;
+        }
+        .erp-confirm-button:hover { background: #f1f5f9; }
+        .erp-confirm-button:focus-visible { outline: 2px solid var(--erp-primary); outline-offset: 2px; }
+        .erp-confirm-button.is-primary { border-color: var(--erp-primary); background: var(--erp-primary); color: #fff; }
+        .erp-confirm-button.is-danger { border-color: #dc2626; background: #dc2626; color: #fff; }
+        .erp-confirm-button.is-warning { border-color: #d97706; background: #d97706; color: #fff; }
+        .erp-confirm-button.is-success { border-color: #15803d; background: #15803d; color: #fff; }
+        .erp-confirm-button.is-primary:hover,
+        .erp-confirm-button.is-danger:hover,
+        .erp-confirm-button.is-warning:hover,
+        .erp-confirm-button.is-success:hover { filter: brightness(0.94); }
+
+        /* Compatibilidade dos formulários DaisyUI ao usar o shell ERP. */
+        html[data-theme="centralcomm"] body.cx-erp-shell select:not(:disabled) {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            opacity: 1 !important;
+            background-color: #fff !important;
+        }
+        html[data-theme="centralcomm"] body.cx-erp-shell select.select:not(:disabled):not([multiple]),
+        html[data-theme="centralcomm"] body.cx-erp-shell select[class*="select-"]:not(:disabled):not([multiple]) {
+            appearance: auto !important;
+            -webkit-appearance: menulist !important;
+            background-image: none !important;
+            padding-right: 2.75rem !important;
+        }
         @media (min-width: 900px) {
             .erp-sidebar { display: none; }
             .erp-main { margin-left: 0; }
@@ -462,6 +569,9 @@
         .cx-erp-shell .pi-page-sticky {
             top: var(--erp-topbar-h);
         }
+        .cx-erp-shell .erp-content-sticky {
+            top: var(--erp-topbar-h) !important;
+        }
     </style>
     {% block styles %}{% endblock %}
 </head>
@@ -471,7 +581,8 @@
       data-cx-entity-type="{{ cx_page_context.entity_type|e }}"
       data-cx-entity-id="{{ cx_page_context.entity_id|e }}"
       data-cx-entity-label="{{ cx_page_context.entity_label|e }}">
-    <div id="toast-container" aria-live="polite"></div>
+    <div id="toast-container" popover="manual" aria-live="polite"></div>
+    <dialog id="toast-stack-modal" class="toast-stack-modal" aria-label="Notificações"></dialog>
     <div id="erp-backdrop" class="erp-backdrop" aria-hidden="true"></div>
 
     {% set erp_nav = [
@@ -481,32 +592,35 @@
         {'section': 'Comercial', 'items': [
             {'group': 'CRM', 'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
             {'group': 'CRM', 'label': 'CRM', 'endpoint': 'crm_v3.crm_v3', 'url': url_for('crm_v3.crm_v3'), 'icon': 'fa-address-book', 'central_only': true},
-            {'group': 'CRM', 'label': 'CRM (legado)', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-clock-rotate-left', 'central_only': true, 'admin_only': true},
-            {'group': 'CRM', 'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
+            {'group': 'CRM', 'label': 'CRM (legado)', 'endpoint': 'crm.index', 'match_prefix': 'crm.', 'url': url_for('crm.index'), 'icon': 'fa-clock-rotate-left', 'central_only': true, 'admin_only': true},
+            {'group': 'CRM', 'label': 'Leads', 'endpoint': 'leads_list', 'match_endpoints': ['leads_analise'], 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
             {'group': 'CRM', 'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
-            {'group': 'Propostas', 'label': 'Briefings', 'endpoint': 'briefing_list', 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
+            {'group': 'Propostas', 'label': 'Briefings', 'endpoint': 'briefing_list', 'match_endpoints': ['briefing_create', 'briefing_edit'], 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
             {'group': 'Propostas', 'label': 'Cotações', 'endpoint': 'crm_pipeline', 'match_prefix': 'cotacoes.', 'url': url_for('crm_pipeline'), 'icon': 'fa-file-invoice-dollar'},
-            {'group': 'Entrada de PI', 'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'},
+            {'group': 'Entrada de PI', 'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 2}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'},
             {'group': 'Entrada de PI', 'label': 'PI recebido', 'endpoint': 'cadu_pi_novo', 'url': url_for('cadu_pi_novo'), 'icon': 'fa-inbox'}
         ]},
         {'section': 'Operação', 'items': [
-            {'group': 'Campanhas', 'label': 'Acompanhamento', 'endpoint': 'campanhas_pi_lista', 'url': url_for('campanhas_pi_lista'), 'icon': 'fa-list-check'},
+            {'group': 'Campanhas', 'label': 'Acompanhamento', 'endpoint': 'campanhas_pi_lista', 'exclude_args': ['view'], 'url': url_for('campanhas_pi_lista'), 'icon': 'fa-list-check'},
             {'group': 'Campanhas', 'label': 'Campanhas', 'endpoint': 'campanhas_pi', 'url': url_for('campanhas_pi'), 'icon': 'fa-chart-simple'},
-            {'group': 'Pedidos de inserção', 'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
-            {'group': 'Pedidos de inserção', 'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'}
+            {'group': 'Campanhas', 'label': 'Diários geral', 'endpoint': 'campanhas_pi_lista', 'match_args': {'view': 'diarios'}, 'url': url_for('campanhas_pi_lista', view='diarios'), 'icon': 'fa-calendar-days'},
+            {'group': 'Pedidos de inserção', 'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 3}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
+            {'group': 'Pedidos de inserção', 'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 1}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'},
+            {'group': 'Pedidos de inserção', 'label': 'PI em faturamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'operacao'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao'), 'icon': 'fa-file-circle-check'}
         ]},
         {'section': 'Financeiro', 'items': [
-            {'group': 'Receitas e faturamento', 'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
+            {'group': 'Receitas e faturamento', 'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'faturamento'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
             {'group': 'Receitas e faturamento', 'label': 'Incentivos', 'endpoint': 'financeiro.relatorio_incentivos', 'url': url_for('financeiro.relatorio_incentivos'), 'icon': 'fa-percent'},
-            {'group': 'Receitas e faturamento', 'label': 'NF emitida', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
-            {'group': 'Despesas', 'label': 'Meus reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'}
+            {'group': 'Receitas e faturamento', 'label': 'NF emitida', 'endpoint': 'cadu_pi_lista', 'match_args': {'origem': 'nf_emitida'}, 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
+            {'group': 'Despesas', 'label': 'Meus reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'},
+            {'group': 'Despesas', 'label': 'Gestão de reembolsos', 'endpoint': 'financeiro.gestao_reembolsos', 'url': url_for('financeiro.gestao_reembolsos'), 'icon': 'fa-money-check-dollar', 'finance_admin_only': true}
         ]},
         {'section': 'Cadu', 'items': [
-            {'group': 'Audiências', 'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
-            {'group': 'Audiências', 'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
+            {'group': 'Audiências', 'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'match_endpoints': ['cadu_audiencia_nova', 'cadu_audiencia_editar', 'cadu_audiencia_detalhes'], 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
+            {'group': 'Audiências', 'label': 'Categorias', 'endpoint': 'cadu_categorias', 'match_endpoints': ['cadu_categorias_novo', 'cadu_categorias_editar', 'cadu_categorias_detalhes'], 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
             {'group': 'Audiências', 'label': 'Interesses', 'endpoint': 'interesse_produto_listar', 'url': url_for('interesse_produto_listar'), 'icon': 'fa-star'},
             {'group': 'Audiências', 'label': 'Nova audiência', 'endpoint': 'up_audiencia', 'url': url_for('up_audiencia'), 'icon': 'fa-upload'},
-            {'group': 'Audiências', 'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
+            {'group': 'Audiências', 'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'match_endpoints': ['cadu_subcategorias_novo', 'cadu_subcategorias_editar', 'cadu_subcategorias_detalhes'], 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
             {'group': 'Administração', 'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true},
             {'group': 'Administração', 'label': 'Métricas da plataforma', 'endpoint': 'admin_metrics_dashboard', 'url': url_for('admin_metrics_dashboard'), 'icon': 'fa-gauge-high'}
         ]}
@@ -531,13 +645,13 @@
         {'group': 'Mídia e PI', 'label': 'Incentivos', 'endpoint': 'incentivos_lista', 'url': url_for('incentivos_lista'), 'icon': 'fa-percent'},
         {'group': 'Mídia e PI', 'label': 'Plataformas de campanha', 'endpoint': 'plataformas_campanha', 'url': url_for('plataformas_campanha'), 'icon': 'fa-bullhorn'},
         {'group': 'Operação e legado', 'label': 'Comissões', 'endpoint': 'cadu_pi_com_vendas_lista', 'url': url_for('cadu_pi_com_vendas_lista'), 'icon': 'fa-hand-holding-dollar'},
-        {'group': 'Operação e legado', 'label': 'Cotações (legado)', 'endpoint': 'cotacoes_list', 'url': url_for('cotacoes_list'), 'icon': 'fa-file-invoice'},
-        {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
+        {'group': 'Operação e legado', 'label': 'Cotações (legado)', 'endpoint': 'cotacoes_list', 'match_endpoints': ['cotacao_nova', 'cotacao_editar', 'cotacao_detalhes'], 'url': url_for('cotacoes_list'), 'icon': 'fa-file-invoice'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'match_prefix': 'intelligence.', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
         {'group': 'Sistema e diagnóstico', 'label': 'KPIs (legado)', 'endpoint': 'parametros.lista_old_kpi', 'url': url_for('parametros.lista_old_kpi'), 'icon': 'fa-chart-line'},
         {'group': 'Sistema e diagnóstico', 'label': 'Logs de auditoria', 'endpoint': 'logs_auditoria', 'url': url_for('logs_auditoria'), 'icon': 'fa-clipboard-list'},
         {'group': 'Sistema e diagnóstico', 'label': 'Migrations do banco', 'endpoint': 'admin_migrations.page', 'url': url_for('admin_migrations.page'), 'icon': 'fa-database', 'superadmin_only': true},
         {'group': 'Sistema e diagnóstico', 'label': 'Teste Brevo', 'endpoint': 'brevo_test.formulario_teste_brevo', 'url': url_for('brevo_test.formulario_teste_brevo'), 'icon': 'fa-envelope-open-text'},
-        {'group': 'Sistema e diagnóstico', 'label': 'Testes DV360', 'endpoint': 'parametros.testes_dv', 'url': url_for('parametros.testes_dv'), 'icon': 'fa-vial'}
+        {'group': 'Sistema e diagnóstico', 'label': 'Testes DV360', 'endpoint': 'parametros.testes_dv', 'match_endpoints': ['parametros.testes_dv_legado', 'dv360_pages.diagnostico'], 'url': url_for('parametros.testes_dv'), 'icon': 'fa-vial'}
     ] %}
 
     <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal">
@@ -565,12 +679,13 @@
                         {% for item in group['items'] %}
                             {% if (not item.get('central_only', false) or is_centralcomm_user)
                                   and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
-                                  and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                  and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin')
+                                  and (not item.get('finance_admin_only', false) or session.get('is_finance_admin')) %}
                                 {% if item.get('group') and item.get('group') != mobile_group.value %}
                                     <div class="erp-nav-subsection">{{ item.get('group') }}</div>
                                     {% set mobile_group.value = item.get('group') %}
                                 {% endif %}
-                                {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                {% set is_active = is_erp_nav_item_active(item) %}
                                 <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
                                     <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
                                     <span>{{ item['label'] }}</span>
@@ -589,7 +704,7 @@
                                 <div class="erp-nav-subsection">{{ item.get('group') }}</div>
                                 {% set mobile_param_group.value = item.get('group') %}
                             {% endif %}
-                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                            {% set is_active = is_erp_nav_item_active(item) %}
                             <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
                                 <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i><span>{{ item['label'] }}</span>
                             </a>
@@ -634,7 +749,11 @@
                               and (not group.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
                             {% set group_active = namespace(value=false) %}
                             {% for item in group['items'] %}
-                                {% if (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                {% if (not item.get('central_only', false) or is_centralcomm_user)
+                                      and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
+                                      and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin')
+                                      and (not item.get('finance_admin_only', false) or session.get('is_finance_admin'))
+                                      and is_erp_nav_item_active(item) %}
                                     {% set group_active.value = true %}
                                 {% endif %}
                             {% endfor %}
@@ -648,12 +767,13 @@
                                     {% for item in group['items'] %}
                                         {% if (not item.get('central_only', false) or is_centralcomm_user)
                                               and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
-                                              and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                              and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin')
+                                              and (not item.get('finance_admin_only', false) or session.get('is_finance_admin')) %}
                                             {% if item.get('group') and item.get('group') != desktop_group.value %}
                                                 <div class="erp-nav-menu-section">{{ item.get('group') }}</div>
                                                 {% set desktop_group.value = item.get('group') %}
                                             {% endif %}
-                                            {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
+                                            {% set is_active = is_erp_nav_item_active(item) %}
                                             <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
                                                 <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
                                                 <span>{{ item['label'] }}</span>
@@ -669,7 +789,7 @@
                            acender visualmente o trigger do dropdown. #}
                         {% set param_active = namespace(value=false) %}
                         {% for item in parametros_items %}
-                            {% if request.endpoint == item.get('endpoint') %}
+                            {% if is_erp_nav_item_active(item) %}
                                 {% set param_active.value = true %}
                             {% endif %}
                         {% endfor %}
@@ -686,7 +806,7 @@
                                             <div class="erp-nav-menu-section">{{ item.get('group') }}</div>
                                             {% set desktop_param_group.value = item.get('group') %}
                                         {% endif %}
-                                        {% set is_active = (request.endpoint == item.get('endpoint')) %}
+                                        {% set is_active = is_erp_nav_item_active(item) %}
                                         <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
                                             <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i>{{ item['label'] }}
                                         </a>
@@ -741,6 +861,25 @@
     {% if is_centralcomm_user %}
         {% include 'agent/shell.html' %}
     {% endif %}
+
+    <dialog id="globalConfirmDialog" class="erp-confirm-dialog" aria-labelledby="gcTitle" aria-describedby="gcMessage">
+        <div class="erp-confirm-surface">
+            <div class="erp-confirm-content">
+                <div id="gcIconWrap" class="erp-confirm-icon" aria-hidden="true">
+                    <i id="gcIcon" class="fas fa-circle-info"></i>
+                </div>
+                <div class="erp-confirm-copy">
+                    <h2 id="gcTitle">Confirmar ação</h2>
+                    <div id="gcMessage" class="erp-confirm-message"></div>
+                    <div id="gcDetail" class="erp-confirm-detail" hidden></div>
+                </div>
+            </div>
+            <div class="erp-confirm-actions">
+                <button id="gcCancelBtn" type="button" class="erp-confirm-button">Cancelar</button>
+                <button id="gcConfirmBtn" type="button" class="erp-confirm-button is-primary">Confirmar</button>
+            </div>
+        </div>
+    </dialog>
 
     <dialog id="modal-meu-perfil" class="rounded-2xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/40">
         <div class="w-[min(100vw-2rem,32rem)]">
@@ -920,10 +1059,41 @@
         s.textContent = '@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}';
         document.head.appendChild(s);
     })();
+    function toastBlockingDialogs() {
+        return Array.prototype.slice.call(document.querySelectorAll('dialog[open]')).filter(function (dialog) {
+            return dialog.id !== 'toast-stack-modal';
+        });
+    }
+    function toastStripPopoverHost(container) {
+        if (typeof container.hidePopover === 'function') {
+            try {
+                if (container.matches && container.matches(':popover-open')) container.hidePopover();
+            } catch (_) { /* sem suporte completo a popover */ }
+        }
+        container.removeAttribute('popover');
+    }
+    function toastRestorePopoverHost(container) {
+        if (!container.hasAttribute('popover')) container.setAttribute('popover', 'manual');
+    }
+    document.addEventListener('close', function (event) {
+        var dialog = event.target;
+        if (!dialog || dialog.nodeName !== 'DIALOG' || dialog.id === 'toast-stack-modal') return;
+        var stackModal = document.getElementById('toast-stack-modal');
+        var container = document.getElementById('toast-container');
+        if (!stackModal || !container || toastBlockingDialogs().length > 0) return;
+        if (container.parentNode !== stackModal || !stackModal.open) return;
+        document.body.appendChild(container);
+        try { stackModal.close(); } catch (_) { /* já fechado */ }
+        toastRestorePopoverHost(container);
+        if (container.children.length && typeof container.showPopover === 'function') {
+            try { container.showPopover(); } catch (_) { /* navegador sem popover */ }
+        }
+    }, true);
     window.showToast = function(msg, type, duration) {
         type = type || 'info';
         duration = duration || 3500;
         var container = document.getElementById('toast-container');
+        var stackModal = document.getElementById('toast-stack-modal');
         var colors = {
             success: 'background:#dcfce7;color:#15803d;border-color:#86efac',
             error: 'background:#fee2e2;color:#991b1b;border-color:#fca5a5',
@@ -932,29 +1102,134 @@
         };
         var icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
         if (!container) return;
+        var blocking = toastBlockingDialogs();
+        if (blocking.length > 0 && stackModal) {
+            toastStripPopoverHost(container);
+            if (container.parentNode !== stackModal) stackModal.appendChild(container);
+            if (!stackModal.open) {
+                try { stackModal.showModal(); } catch (_) { /* top layer indisponível */ }
+            }
+        } else {
+            if (stackModal && container.parentNode === stackModal) document.body.appendChild(container);
+            if (stackModal && stackModal.open) {
+                try { stackModal.close(); } catch (_) { /* já fechado */ }
+            }
+            toastRestorePopoverHost(container);
+        }
         var toast = document.createElement('div');
         toast.style.cssText = (colors[type] || colors.info) + ';border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:100%;animation:toastIn .25s ease';
         toast.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '"></i><span></span>';
         toast.querySelector('span').textContent = msg;
         container.appendChild(toast);
+        if (blocking.length === 0 && typeof container.showPopover === 'function') {
+            try { container.showPopover(); } catch (_) { /* navegador sem popover */ }
+        }
         setTimeout(function () {
             toast.style.animation = 'toastOut .2s ease forwards';
-            setTimeout(function () { toast.remove(); }, 200);
+            setTimeout(function () {
+                toast.remove();
+                if (container.children.length) return;
+                if (typeof container.hidePopover === 'function' && container.hasAttribute('popover')) {
+                    try {
+                        if (container.matches && container.matches(':popover-open')) container.hidePopover();
+                    } catch (_) { /* navegador sem popover */ }
+                }
+                if (stackModal && stackModal.open) {
+                    try { stackModal.close(); } catch (_) { /* já fechado */ }
+                }
+                if (stackModal && container.parentNode === stackModal) document.body.appendChild(container);
+                toastRestorePopoverHost(container);
+            }, 200);
         }, duration);
     };
 
+    var activeConfirmCleanup = null;
     window.showConfirm = function(opts) {
         opts = opts || {};
-        if (window.confirm(opts.message || opts.title || 'Confirma?') && typeof opts.onConfirm === 'function') {
-            opts.onConfirm();
+        var dialog = document.getElementById('globalConfirmDialog');
+        if (!dialog || typeof dialog.showModal !== 'function') {
+            window.showToast('Não foi possível abrir a confirmação.', 'error');
+            return;
         }
+        if (activeConfirmCleanup) activeConfirmCleanup();
+        var theme = ['danger', 'warning', 'success'].indexOf(opts.theme) >= 0 ? opts.theme : 'primary';
+        var icons = {
+            danger: 'fa-triangle-exclamation',
+            warning: 'fa-circle-exclamation',
+            success: 'fa-circle-check',
+            primary: 'fa-circle-info'
+        };
+        var title = document.getElementById('gcTitle');
+        var message = document.getElementById('gcMessage');
+        var detail = document.getElementById('gcDetail');
+        var iconWrap = document.getElementById('gcIconWrap');
+        var icon = document.getElementById('gcIcon');
+        var confirmButton = document.getElementById('gcConfirmBtn');
+        var cancelButton = document.getElementById('gcCancelBtn');
+        title.textContent = opts.title || 'Confirmar ação';
+        message.innerHTML = opts.message || 'Deseja continuar?';
+        detail.innerHTML = opts.detail || '';
+        detail.hidden = !opts.detail;
+        iconWrap.className = 'erp-confirm-icon' + (theme === 'primary' ? '' : ' is-' + theme);
+        icon.className = 'fas ' + icons[theme];
+        confirmButton.textContent = opts.confirmText || 'Confirmar';
+        confirmButton.className = 'erp-confirm-button is-' + theme;
+        cancelButton.textContent = opts.cancelText || 'Cancelar';
+
+        var settled = false;
+        function cleanup() {
+            confirmButton.removeEventListener('click', confirmAction);
+            cancelButton.removeEventListener('click', cancelAction);
+            dialog.removeEventListener('cancel', cancelEvent);
+            dialog.removeEventListener('click', backdropAction);
+            activeConfirmCleanup = null;
+        }
+        function finish(confirmed) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (dialog.open) dialog.close(confirmed ? 'confirm' : 'cancel');
+            if (confirmed && typeof opts.onConfirm === 'function') opts.onConfirm();
+            if (!confirmed && typeof opts.onCancel === 'function') opts.onCancel();
+        }
+        function confirmAction() { finish(true); }
+        function cancelAction() { finish(false); }
+        function cancelEvent(event) {
+            event.preventDefault();
+            finish(false);
+        }
+        function backdropAction(event) {
+            if (event.target === dialog) finish(false);
+        }
+        activeConfirmCleanup = cleanup;
+        confirmButton.addEventListener('click', confirmAction);
+        cancelButton.addEventListener('click', cancelAction);
+        dialog.addEventListener('cancel', cancelEvent);
+        dialog.addEventListener('click', backdropAction);
+        if (!dialog.open) dialog.showModal();
+    };
+
+    window.getScrollBehavior = function () {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    };
+    window.scrollIntoViewSuave = function (element, options) {
+        if (!element) return;
+        element.scrollIntoView(Object.assign({
+            behavior: window.getScrollBehavior(),
+            block: 'nearest'
+        }, options || {}));
+    };
+    window.scrollToSuave = function (options) {
+        window.scrollTo(Object.assign({
+            behavior: window.getScrollBehavior()
+        }, options || {}));
     };
     </script>
 
     <!-- cxDrawer: componente global do design system enterprise -->
     <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=2"></script>
     {% if is_centralcomm_user %}
-    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=3"></script>
     {% endif %}
 
     {% block scripts %}{% endblock %}

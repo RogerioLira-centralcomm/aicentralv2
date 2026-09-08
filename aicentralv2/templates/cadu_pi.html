@@ -134,7 +134,7 @@
     {% if messages %}
       <div class="mb-2 space-y-1">
         {% for category, message in messages %}
-          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
             <span class="text-[10px]">{{ message }}</span>
           </div>
         {% endfor %}
@@ -144,9 +144,9 @@
 
   <div class="bg-white rounded border border-gray-200">
     {% if (visao_por_agencia|default(false) and agencias_grupo) or (not visao_por_agencia|default(false) and pis) %}
-      <div class="overflow-x-auto">
+      <div class="cx-table-scroll">
       {% if visao_por_agencia|default(false) %}
-      <table class="table table-xs w-full pi-list-table">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-agency">
         <thead class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider">
           <tr>
             <th class="font-semibold py-2 px-2" style="width: 240px;">Agência</th>
@@ -181,7 +181,7 @@
           <tr class="collapse-ag-row hidden" id="ag-pis-{{ ag.id_agencia }}">
             <td colspan="6" class="p-0">
               <div class="bg-gray-50/80 border-t border-gray-200 py-2 px-3">
-                <table class="w-full text-[10px]">
+                <table class="cx-table cx-table-dense w-full pi-list-table-nested">
                   <thead>
                     <tr class="text-gray-500 uppercase">
                       <th class="text-left py-1 px-2 font-medium">Código PI</th>
@@ -250,7 +250,7 @@
         </tbody>
       </table>
       {% else %}
-      <table class="table table-xs w-full pi-list-table">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail">
         <thead class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider">
           {% if sub_status_atual|string == '1' %}
           <tr>
@@ -528,9 +528,9 @@
                 {% elif origem_lista == 'nf_emitida' %}
               <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
                       class="nf-status-btn inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
-                        {% if pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
-                        {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
-                        {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
+ {% if pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
+ {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
+ {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
                       title="Alterar status de pagamento">
                 <i class="fa-solid fa-file-invoice text-[8px]"></i>
                 {{ pi.nf_status_descricao or 'Ver' }}
@@ -538,10 +538,10 @@
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
-                        {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
-                        {% elif pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
-                        {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
-                        {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
+ {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
+ {% elif pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
+ {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
+ {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
                       title="Ver / Editar Nota Fiscal">
                 <i class="fa-solid fa-file-invoice text-[8px]"></i>
                 {{ pi.nf_status_descricao or 'Ver' }}
@@ -724,8 +724,8 @@
 </div>
 
 <!-- Modal visualizar campanha (lista de PIs) -->
-<dialog id="modal_ver_campanha" class="modal">
-  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+<dialog id="modal_ver_campanha" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
       <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
       <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
@@ -814,30 +814,30 @@
       </section>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/40 backdrop-blur-sm"><button>close</button></form>
 </dialog>
 
 <!-- Modal de confirmação -->
-<dialog id="modal_confirm" class="modal">
-  <div class="modal-box max-w-xs p-4">
+<dialog id="modal_confirm" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs p-4">
     <h3 class="font-bold text-[11px]" id="modal_confirm_title">Confirmar</h3>
     <p class="py-3 text-[10px]" id="modal_confirm_msg"></p>
-    <div class="modal-action">
+    <div class="cx-modal-actions">
       <form method="dialog">
-        <button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button>
+        <button class="cx-btn cx-btn-ghost cx-btn-xs text-[10px]">Cancelar</button>
       </form>
-      <button class="btn btn-primary btn-xs text-[10px]" id="modal_confirm_btn" onclick="">Confirmar</button>
+      <button class="cx-btn cx-btn-primary cx-btn-xs text-[10px]" id="modal_confirm_btn" onclick="">Confirmar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- Modal Nota Fiscal -->
-<dialog id="modal_nf" class="modal">
-  <div class="modal-box max-w-md p-3 max-h-[90vh] overflow-y-auto">
+<dialog id="modal_nf" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md p-3 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-bold text-[11px]" id="modal_nf_title">Nota Fiscal</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-xs btn-circle">✕</button></form>
+      <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon">✕</button></form>
     </div>
     <input type="hidden" id="nf_id_pi">
     <input type="hidden" id="nf_id">
@@ -865,28 +865,28 @@
     <div class="grid grid-cols-2 gap-2">
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Número da Nota <span class="text-red-500">*</span></label>
-        <input type="text" id="nf_numero_nota" class="input input-bordered input-xs w-full text-[10px]" placeholder="Nº nota" required>
+        <input type="text" id="nf_numero_nota" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nº nota" required>
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor do serviço <span class="text-red-500">*</span></label>
-        <input type="text" id="nf_valor" class="input input-bordered input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
+        <input type="text" id="nf_valor" class="cx-input cx-input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor líquido NF</label>
-        <input type="text" id="nf_valor_liquido" class="input input-bordered input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal">
+        <input type="text" id="nf_valor_liquido" class="cx-input cx-input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal">
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Data Emissão <span class="text-red-500">*</span></label>
-        <input type="date" id="nf_data_emissao" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
+        <input type="date" id="nf_data_emissao" class="cx-input cx-input-xs w-full text-[10px]" onclick="this.showPicker()" required>
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto previsto <span class="text-red-500">*</span></label>
-        <input type="date" id="nf_data_pagamento" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
+        <input type="date" id="nf_data_pagamento" class="cx-input cx-input-xs w-full text-[10px]" onclick="this.showPicker()" required>
         <p class="text-[9px] text-gray-400 mt-0.5">Sugerido: emissão + 30 dias (editável)</p>
       </div>
       <div>
         <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Nº RPS/DPS</label>
-        <input type="text" id="nf_numero_rps" class="input input-bordered input-xs w-full text-[10px]" placeholder="RPS/DPS">
+        <input type="text" id="nf_numero_rps" class="cx-input cx-input-xs w-full text-[10px]" placeholder="RPS/DPS">
       </div>
     </div>
     <div class="border-t border-gray-200 pt-2 mt-2">
@@ -894,29 +894,29 @@
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">ISSQN</label>
-          <input type="text" id="nf_valor_issqn" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+          <input type="text" id="nf_valor_issqn" class="cx-input cx-input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">PIS</label>
-          <input type="text" id="nf_valor_pis" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+          <input type="text" id="nf_valor_pis" class="cx-input cx-input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">COFINS</label>
-          <input type="text" id="nf_valor_cofins" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+          <input type="text" id="nf_valor_cofins" class="cx-input cx-input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">IRRF</label>
-          <input type="text" id="nf_valor_irrf" class="input input-bordered input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
+          <input type="text" id="nf_valor_irrf" class="cx-input cx-input-xs w-full text-[10px]" data-mask="real" inputmode="decimal">
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Alíq. ISSQN (%)</label>
-          <input type="text" id="nf_aliquota_issqn" class="input input-bordered input-xs w-full text-[10px]" inputmode="decimal">
+          <input type="text" id="nf_aliquota_issqn" class="cx-input cx-input-xs w-full text-[10px]" inputmode="decimal">
         </div>
       </div>
     </div>
     <div class="mt-2">
       <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Discriminação / descrição</label>
-      <textarea id="nf_discriminacao" rows="3" class="textarea textarea-bordered textarea-xs w-full text-[10px]"></textarea>
+      <textarea id="nf_discriminacao" rows="3" class="cx-textarea cx-textarea-sm w-full text-[10px]"></textarea>
     </div>
     <div id="nf_pdf_link_wrapper" class="hidden mt-2">
       <a id="nf_pdf_download_link" href="#" target="_blank"
@@ -929,7 +929,7 @@
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto realizado</label>
-          <input type="date" id="nf_data_pagamento_realizado" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()">
+          <input type="date" id="nf_data_pagamento_realizado" class="cx-input cx-input-xs w-full text-[10px]" onclick="this.showPicker()">
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Status</label>
@@ -942,20 +942,20 @@
         </div>
       </div>
     </div>
-    <div class="modal-action mt-3">
-      <form method="dialog"><button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button></form>
-      <button class="btn btn-primary btn-xs text-[10px]" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
+    <div class="cx-modal-actions mt-3">
+      <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-xs text-[10px]">Cancelar</button></form>
+      <button class="cx-btn cx-btn-primary cx-btn-xs text-[10px]" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- Modal Spedy — emissão de teste NFS-e -->
-<dialog id="modal_spedy" class="modal">
-  <div class="modal-box max-w-md p-4">
+<dialog id="modal_spedy" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md p-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-bold text-[11px]" id="modal_spedy_title">Emitir NFS-e via Spedy</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-xs btn-circle" id="modal_spedy_close_btn">✕</button></form>
+      <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon" id="modal_spedy_close_btn">✕</button></form>
     </div>
     <input type="hidden" id="spedy_id_pi">
     <input type="hidden" id="spedy_nf_id">
@@ -1000,7 +1000,7 @@
       </div>
 
       <label class="flex items-start gap-1.5 cursor-pointer mb-2 px-1">
-        <input type="checkbox" id="spedy_confirm_entendido" class="checkbox checkbox-xs checkbox-primary mt-0.5"
+        <input type="checkbox" id="spedy_confirm_entendido" class="cx-checkbox cx-checkbox-sm mt-0.5"
                onchange="toggleBotaoConfirmarSpedy()">
         <span class="text-[10px] text-gray-700 leading-relaxed">
           Entendo que a NFS-e será gerada, o status do PI será alterado para <strong>NF Emitida</strong> após a autorização
@@ -1008,9 +1008,9 @@
         </span>
       </label>
 
-      <div class="modal-action mt-2">
-        <form method="dialog"><button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button></form>
-        <button class="btn btn-primary btn-xs text-[10px] bg-violet-600 hover:bg-violet-700 border-violet-600 opacity-50 cursor-not-allowed"
+      <div class="cx-modal-actions mt-2">
+        <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-xs text-[10px]">Cancelar</button></form>
+        <button class="cx-btn cx-btn-primary cx-btn-xs text-[10px] bg-violet-600 hover:bg-violet-700 border-violet-600 opacity-50 cursor-not-allowed"
                 id="btn_spedy_confirmar" disabled onclick="confirmarEmissaoSpedy()">
           Gerar NFS-e e alterar status
         </button>
@@ -1044,20 +1044,20 @@
           O status do PI foi atualizado para <strong>NF Emitida</strong>. Nenhum e-mail foi enviado ao cliente.
         </p>
       </div>
-      <div class="modal-action mt-2">
-        <button class="btn btn-primary btn-xs text-[10px]" onclick="fecharModalSpedy(true)">Fechar e atualizar</button>
+      <div class="cx-modal-actions mt-2">
+        <button class="cx-btn cx-btn-primary cx-btn-xs text-[10px]" onclick="fecharModalSpedy(true)">Fechar e atualizar</button>
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- Modal Alterar Status NF -->
-<dialog id="modal_alterar_status_nf" class="modal">
-  <div class="modal-box max-w-md">
+<dialog id="modal_alterar_status_nf" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-bold text-lg">Alterar Status de Pagamento</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+      <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-sm cx-btn-icon">✕</button></form>
     </div>
     <input type="hidden" id="alt_nf_id_pi">
     <input type="hidden" id="alt_nf_id">
@@ -1089,24 +1089,24 @@
       </div>
       <div>
         <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Previsto</label>
-        <input type="date" id="alt_data_pagamento_previsto" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+        <input type="date" id="alt_data_pagamento_previsto" class="cx-input cx-input-sm w-full" onclick="this.showPicker()">
       </div>
       <div id="alt_data_pgto_realizado_wrapper" class="hidden">
         <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Realizado</label>
-        <input type="date" id="alt_data_pagamento_realizado" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+        <input type="date" id="alt_data_pagamento_realizado" class="cx-input cx-input-sm w-full" onclick="this.showPicker()">
       </div>
     </div>
-    <div class="modal-action">
-      <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
-      <button class="btn btn-primary btn-sm" onclick="salvarAlteracaoStatusNf()">Salvar</button>
+    <div class="cx-modal-actions">
+      <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-sm">Cancelar</button></form>
+      <button class="cx-btn cx-btn-primary cx-btn-sm" onclick="salvarAlteracaoStatusNf()">Salvar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ==================== MODAL ANDAMENTO (Lifecycle: Metas & Limites / Inserir Resultados) ==================== -->
-<dialog id="modal_andamento" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-gray-50 p-0 rounded-lg shadow-2xl overflow-hidden">
+<dialog id="modal_andamento" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-xl w-11/12 max-w-5xl bg-gray-50 p-0 rounded-lg shadow-2xl overflow-hidden">
     <!-- Header -->
     <div class="px-5 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
       <div class="min-w-0">
@@ -1332,7 +1332,7 @@
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/40"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/40"><button>close</button></form>
 </dialog>
 
 {% if origem_lista == 'faturamento' %}

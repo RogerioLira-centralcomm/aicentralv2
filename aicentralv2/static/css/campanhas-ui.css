@@ -150,6 +150,32 @@
 .cx-cell-empty.empty-zero { color: #9ca3af; }
 
 /* PI list — link vs expand */
+.pi-list-table {
+  table-layout: fixed;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pi-list-table-agency { min-width: 44rem; }
+.pi-list-table-detail { min-width: 68rem; }
+.pi-list-table-nested {
+  min-width: 48rem;
+  font-size: 12px;
+}
+.pi-list-table th,
+.pi-list-table td,
+.pi-list-table td *,
+.pi-list-table-nested th,
+.pi-list-table-nested td,
+.pi-list-table-nested td * {
+  font-size: 12px !important;
+}
+.pi-list-table td:nth-child(2) .truncate,
+.pi-list-table td:nth-child(3) .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
 .pi-code-link {
   font-family: ui-monospace, monospace;
   font-size: 12px; font-weight: 700; color: #4f46e5;
@@ -404,8 +430,8 @@
 }
 .camp-form-status[data-type="success"] { border-left-color: #2f9b62; background: #effaf3; color: #176447; }
 .camp-form-status[data-type="error"] { border-left-color: #c74435; background: #fff3f1; color: #9f2f25; }
-#diarios-geral, #modal_diarios .modal-box { border-color: #dfe5e7; box-shadow: 0 4px 18px rgba(15,47,49,.06); }
-#diarios-geral > div:first-child, #modal_diarios .modal-box > div:first-child {
+#diarios-geral, #modal_diarios .cx-modal-panel { border-color: #dfe5e7; box-shadow: 0 4px 18px rgba(15,47,49,.06); }
+#diarios-geral > div:first-child, #modal_diarios .cx-modal-panel > div:first-child {
   background: #f7faf9 !important; color: #263b3d;
 }
 #tabelaDiariosMassa thead th, #tabela_diarios thead th {

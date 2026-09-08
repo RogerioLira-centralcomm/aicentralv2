@@ -15,12 +15,15 @@ FILES = [
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes_legado.html",
     ROOT / "aicentralv2/templates/cadu_pi.html",
     ROOT / "aicentralv2/templates/cadu_pi_form.html",
+    ROOT / "aicentralv2/templates/partials/nf_import.html",
     ROOT / "aicentralv2/templates/cadu_leads.html",
     ROOT / "aicentralv2/templates/clientes.html",
     ROOT / "aicentralv2/templates/modal_busca_cliente.html",
     ROOT / "aicentralv2/templates/crm_v3/_modals.html",
     ROOT / "aicentralv2/static/js/leads.js",
     ROOT / "aicentralv2/static/js/crm_v3.js",
+    ROOT / "aicentralv2/static/js/cadu_pi_list.js",
+    ROOT / "aicentralv2/static/js/cadu_pi_operacao.js",
 ]
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)

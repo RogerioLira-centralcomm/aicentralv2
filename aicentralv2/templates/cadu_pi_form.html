@@ -1379,8 +1379,8 @@
 </script>
 
 {% if modo == 'editar' and pi %}
-<dialog id="modal_links_destino" class="modal">
-  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_links_destino" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-lg shadow-2xl">
     <!-- Header -->
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between rounded-t-lg">
       <div class="flex items-center gap-1.5">
@@ -1388,7 +1388,7 @@
         <h3 class="font-semibold text-[11px] text-gray-800">Links de Direcionamento</h3>
         <span id="modal_badge_count" class="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full bg-purple-600 text-white">0</span>
       </div>
-      <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost text-gray-400 hover:text-gray-600">✕</button></form>
+      <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost text-gray-400 hover:text-gray-600">✕</button></form>
     </div>
 
     <!-- Formulario inline -->
@@ -1425,12 +1425,12 @@
       <button type="button" onclick="document.getElementById('modal_links_destino').close()" class="px-3 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Fechar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <!-- Modal confirmacao excluir -->
-<dialog id="modal_confirmar_excluir_link" class="modal">
-  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_confirmar_excluir_link" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs bg-white p-0 rounded-lg shadow-2xl">
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
       <h3 class="font-semibold text-[11px] text-gray-800">Confirmar exclusão</h3>
     </div>
@@ -1443,12 +1443,12 @@
       <button type="button" id="btn_confirmar_excluir_link" class="px-2 py-1 text-[10px] rounded text-white bg-red-600 hover:bg-red-700">Excluir</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <!-- Modal confirmacao enviar producao -->
-<dialog id="modal_confirmar_producao" class="modal">
-  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_confirmar_producao" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs bg-white p-0 rounded-lg shadow-2xl">
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
       <h3 class="font-semibold text-[11px] text-gray-800">Enviar para Operação</h3>
     </div>
@@ -1461,12 +1461,12 @@
       <button type="button" id="btn_confirmar_producao" class="px-2 py-1 text-[10px] rounded text-white bg-orange-500 hover:bg-orange-600">Confirmar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <!-- Modal confirmacao iniciar campanhas -->
-<dialog id="modal_confirmar_andamento" class="modal">
-  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_confirmar_andamento" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs bg-white p-0 rounded-lg shadow-2xl">
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
       <h3 class="font-semibold text-[11px] text-gray-800">Iniciar todas as campanhas</h3>
     </div>
@@ -1483,12 +1483,12 @@
       <button type="button" id="btn_confirmar_andamento" class="px-2 py-1 text-[10px] rounded text-white bg-green-600 hover:bg-green-700">Confirmar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <!-- Modal confirmacao cancelar PI -->
-<dialog id="modal_confirmar_cancelar_pi" class="modal">
-  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_confirmar_cancelar_pi" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs bg-white p-0 rounded-lg shadow-2xl">
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
       <h3 class="font-semibold text-[11px] text-gray-800">Cancelar PI</h3>
     </div>
@@ -1505,12 +1505,12 @@
       <button type="button" id="btn_confirmar_cancelar_pi" class="px-2 py-1 text-[10px] rounded text-white bg-red-600 hover:bg-red-700">Confirmar cancelamento</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <!-- Modal confirmacao enviar financeiro -->
-<dialog id="modal_confirmar_financeiro" class="modal">
-  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+<dialog id="modal_confirmar_financeiro" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-xs bg-white p-0 rounded-lg shadow-2xl">
     <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
       <h3 class="font-semibold text-[11px] text-gray-800">Enviar para Financeiro</h3>
     </div>
@@ -1527,7 +1527,7 @@
       <button type="button" id="btn_confirmar_financeiro" class="px-2 py-1 text-[10px] rounded text-white bg-amber-500 hover:bg-amber-600">Confirmar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <script>
@@ -1809,8 +1809,8 @@
 <style>
   #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
 </style>
-<dialog id="modal_nova_campanha" class="modal">
-  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+<dialog id="modal_nova_campanha" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
       <h3 class="font-semibold text-[10px] text-white">Operação: <span id="modal_camp_title_text" class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
       <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
@@ -1946,7 +1946,7 @@
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/40 backdrop-blur-sm"><button>close</button></form>
 </dialog>
 <script>
 (function() {
@@ -2229,8 +2229,8 @@
 </script>
 {% endif %}
 
-<dialog id="modal_ver_campanha" class="modal">
-  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+<dialog id="modal_ver_campanha" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
     <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
       <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
       <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
@@ -2308,7 +2308,7 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/40 backdrop-blur-sm"><button>close</button></form>
 </dialog>
 
 {% if modo == 'editar' and pi %}
@@ -2509,8 +2509,8 @@ function abrirViewCampanha(c) {
 {% endif %}
 
 <!-- Modal Criar Novo Cliente (PI) -->
-<dialog id="modal_novo_cliente_pi" class="modal">
-  <div class="modal-box w-10/12 max-w-4xl bg-white p-0 rounded-lg max-h-none overflow-visible">
+<dialog id="modal_novo_cliente_pi" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-lg w-10/12 max-w-4xl bg-white p-0 rounded-lg max-h-none overflow-visible">
     <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-[11px] text-gray-800" id="ncpi_modal_title">Novo Cliente</h3>
       <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="p-1 hover:bg-gray-200 rounded transition-colors">
@@ -2523,7 +2523,7 @@ function abrirViewCampanha(c) {
         <input type="hidden" id="ncpi_contexto" value="cliente">
 
         <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
-          <div class="form-control col-span-1 md:col-span-2">
+          <div class="cx-field col-span-1 md:col-span-2">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Pessoa*</label>
             <div class="flex gap-0">
               <label id="ncpi_label_pj" class="cursor-pointer flex items-center justify-center gap-1 px-2 py-1 border-2 rounded-l-lg text-[10px] font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncpiTogglePessoa('J')">
@@ -2536,22 +2536,22 @@ function abrirViewCampanha(c) {
               </label>
             </div>
           </div>
-          <div class="form-control col-span-1 md:col-span-2">
+          <div class="cx-field col-span-1 md:col-span-2">
             <label id="ncpi_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ</label>
             <input id="ncpi_cnpj" name="cnpj" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
           </div>
-          <div class="form-control col-span-1 md:col-span-4">
+          <div class="cx-field col-span-1 md:col-span-4">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nome Fantasia*</label>
             <input id="ncpi_nome_fantasia" name="nome_fantasia" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
           </div>
-          <div id="ncpi_razao_fields" class="form-control col-span-1 md:col-span-4">
+          <div id="ncpi_razao_fields" class="cx-field col-span-1 md:col-span-4">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Razão Social*</label>
             <input id="ncpi_razao_social" name="razao_social" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
           </div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
-          <div id="ncpi_tipo_fields" class="form-control col-span-1 md:col-span-2">
+          <div id="ncpi_tipo_fields" class="cx-field col-span-1 md:col-span-2">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Tipo*</label>
             <select id="ncpi_tipo_cliente" name="id_tipo_cliente" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -2560,7 +2560,7 @@ function abrirViewCampanha(c) {
               {% endfor %}
             </select>
           </div>
-          <div class="form-control col-span-1 md:col-span-5">
+          <div class="cx-field col-span-1 md:col-span-5">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas*</label>
             <select id="ncpi_vendas" name="vendas_central_comm" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -2569,7 +2569,7 @@ function abrirViewCampanha(c) {
               {% endfor %}
             </select>
           </div>
-          <div id="ncpi_agencia_fields" class="form-control col-span-1 md:col-span-3">
+          <div id="ncpi_agencia_fields" class="cx-field col-span-1 md:col-span-3">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Agência*</label>
             <select id="ncpi_agencia" name="pk_id_tbl_agencia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -2578,18 +2578,18 @@ function abrirViewCampanha(c) {
               {% endfor %}
             </select>
           </div>
-          <div id="ncpi_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
+          <div id="ncpi_percentual_fields" class="cx-field col-span-1 md:col-span-2" style="display:none;">
             <label id="ncpi_percentual_label" class="text-[10px] font-medium text-gray-600 mb-0.5">Percentual*</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="ncpiMascaraPercentual(this)">
           </div>
         </div>
 
         <div id="ncpi_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Estadual</label>
             <input name="inscricao_estadual" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Municipal</label>
             <input name="inscricao_municipal" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
           </div>
@@ -2610,11 +2610,11 @@ function abrirViewCampanha(c) {
         <div class="border-t border-gray-200 pt-2 mt-2">
           <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2">Endereço</h4>
           <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">CEP</label>
               <input id="ncpi_cep" name="cep" oninput="ncpiMascaraCep(this)" onkeydown="ncpiBuscarCep(event)" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">UF</label>
               <select id="ncpi_estado" name="pk_id_aux_estado" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">UF</option>
@@ -2623,25 +2623,25 @@ function abrirViewCampanha(c) {
                 {% endfor %}
               </select>
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">Cidade</label>
               <input id="ncpi_cidade" name="cidade" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">Bairro</label>
               <input id="ncpi_bairro" name="bairro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
-            <div class="form-control col-span-3">
+            <div class="cx-field col-span-3">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">Logradouro</label>
               <input id="ncpi_logradouro" name="logradouro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
           </div>
           <div class="grid grid-cols-4 gap-2 mt-2">
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nº</label>
               <input name="numero" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
-            <div class="form-control col-span-3">
+            <div class="cx-field col-span-3">
               <label class="text-[10px] font-medium text-gray-600 mb-0.5">Complemento</label>
               <input name="complemento" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
@@ -2659,7 +2659,7 @@ function abrirViewCampanha(c) {
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>

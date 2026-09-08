@@ -59,10 +59,10 @@
           <input type="search" id="mig-search-input" placeholder="Buscar migration" autocomplete="off">
         </label>
         <div class="mig-filters" role="group" aria-label="Filtrar migrations">
-          <button type="button" class="mig-filter is-active" data-filter="all">Todas <span id="mig-count-all">0</span></button>
-          <button type="button" class="mig-filter" data-filter="pending">Pendentes <span id="mig-count-pending">0</span></button>
-          <button type="button" class="mig-filter" data-filter="applied">Aplicadas <span id="mig-count-applied">0</span></button>
-          <button type="button" class="mig-filter" data-filter="readonly">Somente leitura <span id="mig-count-readonly">0</span></button>
+          <button type="button" class="mig-filter is-active" data-filter="all" aria-pressed="true">Todas <span id="mig-count-all">0</span></button>
+          <button type="button" class="mig-filter" data-filter="pending" aria-pressed="false">Pendentes <span id="mig-count-pending">0</span></button>
+          <button type="button" class="mig-filter" data-filter="applied" aria-pressed="false">Aplicadas <span id="mig-count-applied">0</span></button>
+          <button type="button" class="mig-filter" data-filter="readonly" aria-pressed="false">Somente leitura <span id="mig-count-readonly">0</span></button>
         </div>
       </div>
       <table class="mig-table" role="grid" aria-label="Lista de migrations">
@@ -225,6 +225,19 @@
   .mig-env-done { color: #16a34a; font-weight: 700; }
   .mig-env-pending { color: #d97706; font-weight: 700; }
 
+  .mig-order-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 16px;
+    border-left: 4px solid #d97706;
+    background: #fffbeb;
+    color: #713f12;
+  }
+  .mig-order-note > i { margin-top: 3px; color: #b45309; }
+  .mig-order-note strong { display: block; font-size: 13px; }
+  .mig-order-note p { margin: 3px 0 0; max-width: 900px; color: #854d0e; font-size: 12px; line-height: 1.5; }
+
   .mig-table-wrap {
     background: #fff;
     border: 1px solid var(--cx-border, #e5e7eb);
@@ -232,6 +245,47 @@
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
+  .mig-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--cx-border, #e5e7eb);
+  }
+  .mig-search {
+    display: flex;
+    width: min(320px, 100%);
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--cx-border, #d1d5db);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #6b7280;
+  }
+  .mig-search:focus-within { border-color: var(--cx-brand, #2563eb); box-shadow: 0 0 0 2px rgba(37,99,235,.12); }
+  .mig-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--cx-text, #111827); font-size: 13px; }
+  .mig-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+  .mig-filter {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    padding: 6px 9px;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mig-filter:hover { background: #f3f4f6; }
+  .mig-filter:focus-visible, .mig-btn:focus-visible, .mig-name-btn:focus-visible { outline: 2px solid var(--cx-brand, #2563eb); outline-offset: 2px; }
+  .mig-filter.is-active { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+  .mig-filter span { min-width: 20px; border-radius: 999px; background: rgba(100,116,139,.12); padding: 1px 6px; text-align: center; font-size: 10px; }
+  .mig-group-row td { padding: 9px 16px !important; background: #f8fafc; color: #334155; font-size: 12px; font-weight: 700; }
+  .mig-group-row i { width: 16px; margin-right: 5px; color: #64748b; text-align: center; }
   .mig-table {
     width: 100%;
     border-collapse: collapse;
@@ -403,6 +457,33 @@
   }
   .mig-toast.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
   .mig-toast.is-error { background: #7f1d1d; }
+
+  .mig-confirm-dialog {
+    width: min(460px, calc(100vw - 28px));
+    max-width: none;
+    border: 0;
+    border-radius: 14px;
+    padding: 0;
+    background: transparent;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+  }
+  .mig-confirm-dialog::backdrop { background: rgba(15, 23, 42, .58); backdrop-filter: blur(2px); }
+  .mig-confirm-surface { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; margin: 0; background: #fff; padding: 20px; color: #1f2937; }
+  .mig-confirm-icon { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; }
+  .mig-confirm-surface h2 { margin: 1px 0 5px; font-size: 15px; }
+  .mig-confirm-surface p { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.5; }
+  .mig-confirm-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 8px; margin-top: 5px; }
+
+  @media (max-width: 760px) {
+    .mig-page { padding: 12px 8px 28px; }
+    .mig-head, .mig-toolbar { align-items: stretch; flex-direction: column; }
+    .mig-filters { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; }
+    .mig-table-wrap { overflow-x: auto; }
+    .mig-table { min-width: 850px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mig-btn, .mig-toast { transition: none; }
+  }
 </style>
 
 <div id="mig-toast" class="mig-toast" role="status" aria-live="polite"></div>
@@ -435,7 +516,35 @@
   var $  = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
-  var state = { items: [], busy: false };
+  var state = { items: [], busy: false, filter: 'all', query: '' };
+
+  function esc(value) {
+    var node = document.createElement('span');
+    node.textContent = value == null ? '' : String(value);
+    return node.innerHTML;
+  }
+
+  function groupFor(item) {
+    if (!item.runnable) return 'readonly';
+    if (item.ok === false) return 'failed';
+    if (item.ok === true) return 'applied';
+    return 'pending';
+  }
+
+  function groupMeta(group) {
+    return {
+      failed: { label: 'Falharam — revisar antes de executar novamente', icon: 'fa-triangle-exclamation' },
+      pending: { label: 'Pendentes para aplicar', icon: 'fa-clock' },
+      applied: { label: 'Aplicadas', icon: 'fa-circle-check' },
+      readonly: { label: 'Utilitários e arquivos somente leitura', icon: 'fa-lock' }
+    }[group];
+  }
+
+  function findRow(name) {
+    return $$('[data-name]').find(function (row) {
+      return row.getAttribute('data-name') === name;
+    });
+  }
 
   function toast(msg, isError) {
     var el = $('#mig-toast');
@@ -485,54 +594,90 @@
 
   function renderTable(payload) {
     var tbody = $('#mig-tbody');
-    var items = state.items = payload.items || [];
-    $('#mig-env-dir').textContent   = payload.migrations_dir || '—';
-    $('#mig-env-py').textContent    = payload.python || '—';
+    if (payload) {
+      state.items = payload.items || [];
+      $('#mig-env-dir').textContent = payload.migrations_dir || '—';
+      $('#mig-env-py').textContent = payload.python || '—';
+    }
+    var items = state.items;
+    var done = items.filter(function (item) { return item.ok === true; }).length;
+    var pending = items.filter(function (item) {
+      return item.runnable && item.ok !== true;
+    }).length;
+    var readonly = items.filter(function (item) { return !item.runnable; }).length;
     $('#mig-env-total').textContent = String(items.length);
-    var done    = items.filter(function (i) { return i.ok === true; }).length;
-    var pending = items.filter(function (i) { return i.runnable && i.ok !== true; }).length;
-    $('#mig-env-done').textContent    = String(done);
+    $('#mig-env-done').textContent = String(done);
     $('#mig-env-pending').textContent = String(pending);
+    $('#mig-count-all').textContent = String(items.length);
+    $('#mig-count-pending').textContent = String(pending);
+    $('#mig-count-applied').textContent = String(done);
+    $('#mig-count-readonly').textContent = String(readonly);
 
-    if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="mig-empty">Nenhuma migration encontrada em <code>migrations/</code>.</td></tr>';
+    var filtered = items.filter(function (item) {
+      var group = groupFor(item);
+      var matchesFilter = state.filter === 'all'
+        || (state.filter === 'pending' && (group === 'pending' || group === 'failed'))
+        || state.filter === group;
+      var matchesQuery = !state.query
+        || String(item.name || '').toLowerCase().indexOf(state.query) !== -1;
+      return matchesFilter && matchesQuery;
+    }).sort(function (a, b) {
+      var rank = { failed: 0, pending: 1, applied: 2, readonly: 3 };
+      var groupDiff = rank[groupFor(a)] - rank[groupFor(b)];
+      return groupDiff || String(a.name).localeCompare(String(b.name), 'pt-BR');
+    });
+
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="mig-empty">Nenhuma migration corresponde ao filtro atual.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = items.map(function (item) {
+    var currentGroup = null;
+    var rows = [];
+    filtered.forEach(function (item) {
+      var group = groupFor(item);
+      if (group !== currentGroup) {
+        var meta = groupMeta(group);
+        rows.push(
+          '<tr class="mig-group-row"><td colspan="5"><i class="fa-solid ' +
+          meta.icon + '" aria-hidden="true"></i>' + esc(meta.label) + '</td></tr>'
+        );
+        currentGroup = group;
+      }
       var isApplied = item.ok === true;
       var canRun    = item.runnable;
       var forceId   = 'mig-force-' + item.name.replace(/[^a-z0-9]/gi, '_');
       var runBtnHtml = canRun
-        ? '<button type="button" class="mig-btn ' + (isApplied ? 'mig-btn-danger' : '') + '" data-run="' + item.name + '">' +
+        ? '<button type="button" class="mig-btn ' + (isApplied ? 'mig-btn-danger' : '') + '" data-run="' + esc(item.name) + '">' +
             '<i class="fa-solid fa-play" aria-hidden="true"></i>' +
             '<span>' + (isApplied ? 'Reexecutar' : 'Rodar') + '</span>' +
           '</button>'
         : '';
       var markBtnHtml = (canRun && !isApplied)
-        ? '<button type="button" class="mig-btn mig-btn-ghost mig-btn-sm" data-mark="' + item.name + '" title="Marcar como já aplicada (não executa)">' +
+        ? '<button type="button" class="mig-btn mig-btn-ghost mig-btn-sm" data-mark="' + esc(item.name) + '" title="Marcar como já aplicada (não executa)">' +
             '<i class="fa-solid fa-check-double" aria-hidden="true"></i>' +
             '<span>Marcar aplicada</span>' +
           '</button>'
         : '';
       var forceHtml = (canRun && isApplied)
-        ? '<label class="mig-force-label" for="' + forceId + '"><input id="' + forceId + '" type="checkbox" data-force="' + item.name + '" /> forçar</label>'
+        ? '<label class="mig-force-label" for="' + forceId + '"><input id="' + forceId + '" type="checkbox" data-force="' + esc(item.name) + '" /> forçar</label>'
         : '';
-      return (
-        '<tr data-name="' + item.name + '">' +
+      rows.push(
+        '<tr data-name="' + esc(item.name) + '">' +
           '<td>' +
             '<div class="mig-name">' +
               '<i class="fa-regular fa-file-code" aria-hidden="true"></i>' +
-              '<button type="button" class="mig-name-btn" data-preview="' + item.name + '" title="Ver conteúdo">' + item.name + '</button>' +
+              '<button type="button" class="mig-name-btn" data-preview="' + esc(item.name) + '" title="Ver conteúdo">' + esc(item.name) + '</button>' +
             '</div>' +
           '</td>' +
           '<td>' + typeBadge(item) + '</td>' +
           '<td>' + statusBadge(item) + '</td>' +
-          '<td>' + fmtDate(item.executed_at) + (item.executed_by ? ' <small class="text-muted">' + item.executed_by + '</small>' : '') + '</td>' +
+          '<td>' + esc(fmtDate(item.executed_at)) + (item.executed_by ? ' <small class="text-muted">' + esc(item.executed_by) + '</small>' : '') + '</td>' +
           '<td><div class="mig-actions">' + forceHtml + markBtnHtml + runBtnHtml + '</div></td>' +
         '</tr>'
       );
-    }).join('');
+    });
+    tbody.innerHTML = rows.join('');
   }
 
   function loadList() {
@@ -563,7 +708,7 @@
   function runMigration(name, force) {
     if (state.busy) return;
     state.busy = true;
-    var row = document.querySelector('[data-name="' + name + '"]');
+    var row = findRow(name);
     var btn = row && row.querySelector('[data-run]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span>Executando…</span>'; }
 
@@ -603,6 +748,50 @@
       .catch(function (err) { toast(err.message, true); });
   }
 
+  var confirmationResolve = null;
+  function askConfirmation(options) {
+    var dialog = $('#mig-confirm-dialog');
+    if (!dialog) {
+      toast('Não foi possível abrir a confirmação.', true);
+      return Promise.resolve(false);
+    }
+    options = options || {};
+    $('#mig-confirm-title').textContent = options.title || 'Confirmar migration';
+    $('#mig-confirm-message').textContent = options.message || '';
+    var accept = $('#mig-confirm-accept');
+    accept.textContent = options.confirmText || 'Confirmar';
+    accept.className = 'mig-btn' + (options.danger ? ' mig-btn-danger' : '');
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+    return new Promise(function (resolve) {
+      confirmationResolve = resolve;
+    });
+  }
+
+  function markApplied(name, button) {
+    button.disabled = true;
+    fetch(API.mark, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          toast('Migration marcada como aplicada');
+          loadList();
+        } else {
+          toast((data && data.error) || 'Falha ao marcar', true);
+          button.disabled = false;
+        }
+      })
+      .catch(function (err) {
+        toast(err.message || 'Erro ao marcar migration', true);
+        button.disabled = false;
+      });
+  }
+
   // Event delegation na tabela — evita bind por linha, funciona depois de rerender.
   document.addEventListener('click', function (ev) {
     var t = ev.target.closest('[data-run]');
@@ -615,11 +804,18 @@
         ? 'Reexecutar "' + name + '"? Isso vai rodar novamente e pode aplicar alterações duplicadas se a migration não for idempotente.'
         : 'Executar "' + name + '"?';
       if (item && item.ok === true && !force) {
-        msg = '"' + name + '" já foi aplicada em ' + fmtDate(item.executed_at) + '. Marque "forçar" antes de reexecutar.';
-        alert(msg);
+        toast('Esta migration já foi aplicada. Marque “forçar” para reexecutar.', true);
+        if (forceInput) forceInput.focus();
         return;
       }
-      if (window.confirm(msg)) runMigration(name, force);
+      askConfirmation({
+        title: force ? 'Reexecutar migration' : 'Executar migration',
+        message: msg,
+        confirmText: force ? 'Reexecutar' : 'Executar',
+        danger: force
+      }).then(function (confirmed) {
+        if (confirmed) runMigration(name, force);
+      });
       return;
     }
     var p = ev.target.closest('[data-preview]');
@@ -627,24 +823,41 @@
     var m = ev.target.closest('[data-mark]');
     if (m) {
       var mname = m.getAttribute('data-mark');
-      if (!window.confirm('Marcar "' + mname + '" como já aplicada? Isso apenas registra no histórico, sem executar SQL/runner. Use quando o schema já está aplicado na base.')) return;
-      m.disabled = true;
-      fetch(API.mark, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: mname })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (d && d.success) { toast('Marcada como aplicada'); loadList(); }
-          else toast((d && d.error) || 'Falha ao marcar', true);
-        })
-        .catch(function (err) { toast(err.message || 'Erro', true); });
+      askConfirmation({
+        title: 'Marcar como aplicada',
+        message: 'Registrar "' + mname + '" como aplicada sem executar o arquivo? Use somente quando o schema já estiver atualizado.',
+        confirmText: 'Marcar aplicada'
+      }).then(function (confirmed) {
+        if (confirmed) markApplied(mname, m);
+      });
     }
   });
 
   $('#mig-refresh').addEventListener('click', loadList);
+  $('#mig-search-input').addEventListener('input', function (event) {
+    state.query = event.target.value.trim().toLowerCase();
+    renderTable();
+  });
+  $$('.mig-filter').forEach(function (button) {
+    button.addEventListener('click', function () {
+      state.filter = button.getAttribute('data-filter') || 'all';
+      $$('.mig-filter').forEach(function (item) {
+        var active = item === button;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      renderTable();
+    });
+  });
+  var confirmDialog = $('#mig-confirm-dialog');
+  if (confirmDialog) {
+    confirmDialog.addEventListener('close', function () {
+      if (!confirmationResolve) return;
+      var resolve = confirmationResolve;
+      confirmationResolve = null;
+      resolve(confirmDialog.returnValue === 'confirm');
+    });
+  }
   var closeBtn = $('#mig-console-close');
   if (closeBtn) closeBtn.addEventListener('click', function () { $('#mig-console').hidden = true; });
 

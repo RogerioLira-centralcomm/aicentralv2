@@ -1,0 +1,38 @@
+<footer class="pi-list-summary" aria-label="Resumo da lista filtrada">
+  <p class="pi-list-summary__count">
+    {% if lista_financeira and pi_footer_totais.modo_contagem == 'agencia' %}
+    <strong>{{ pi_footer_totais.total_entidades }}</strong>
+    agência{% if pi_footer_totais.total_entidades != 1 %}s{% endif %}{% if pi_footer_totais.com_incentivo %} com incentivo{% endif %}
+    <span aria-hidden="true">·</span>
+    <strong>{{ pi_footer_totais.total_pis }}</strong> PIs
+    {% elif lista_financeira %}
+    <strong>{{ pi_footer_totais.total_entidades }}</strong>
+    cliente{% if pi_footer_totais.total_entidades != 1 %}s{% endif %}
+    <span aria-hidden="true">·</span>
+    <strong>{{ pi_footer_totais.total_pis }}</strong> PIs
+    {% else %}
+    <strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}
+    {% endif %}
+    <span aria-hidden="true">·</span>
+    <strong>{{ pi_footer_totais.total_campanhas }}</strong>
+    campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}
+    {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('id_agencia') or filtros.get('tipo_entidade') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('ano_ref_comp') or filtros.get('search') %}
+    <span class="pi-list-summary__filtered"><i class="fa-solid fa-filter" aria-hidden="true"></i>Resultado filtrado</span>
+    {% endif %}
+  </p>
+
+  <dl class="pi-list-summary__values">
+    <div>
+      <dt>Investimento de mídia</dt>
+      <dd>{% if pi_footer_totais.valor_midia %}{{ pi_footer_totais.valor_midia|format_brl }}{% else %}R$ 0,00{% endif %}</dd>
+    </div>
+    <div class="is-net">
+      <dt>Valor líquido</dt>
+      <dd>{% if pi_footer_totais.valor_liquido %}{{ pi_footer_totais.valor_liquido|format_brl }}{% else %}R$ 0,00{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Valor bruto</dt>
+      <dd>{% if pi_footer_totais.valor_bruto %}{{ pi_footer_totais.valor_bruto|format_brl }}{% else %}R$ 0,00{% endif %}</dd>
+    </div>
+  </dl>
+</footer>

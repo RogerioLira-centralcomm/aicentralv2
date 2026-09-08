@@ -1,0 +1,40 @@
+<thead>
+  {% if sub_status_atual|string == '1' %}
+  <tr>
+    <th>PI e referência</th>
+    <th>Cliente e título</th>
+    <th>Agência / parceiro</th>
+    <th class="text-right">Valor bruto</th>
+    <th class="text-right">Valor líquido</th>
+    <th><span class="sr-only">Ações</span></th>
+  </tr>
+  {% elif sub_status_atual|string == '2' %}
+  <tr class="pi-config-head">
+    <th>PI</th>
+    <th>Cliente e relacionamento</th>
+    <th>Responsável</th>
+    <th>Veiculação</th>
+    <th>Estrutura</th>
+    <th>Financeiro</th>
+    <th>Status</th>
+    <th class="text-center">Ações</th>
+  </tr>
+  {% else %}
+  <tr>
+    <th>PI e título</th>
+    <th>Cliente</th>
+    <th>Agência / parceiro</th>
+    <th>Responsável</th>
+    <th class="text-center">Período</th>
+    <th class="text-center">Campanhas</th>
+    {% if sub_status_atual|string == '3' %}
+    <th class="text-right">Custo de mídia</th>
+    {% endif %}
+    <th class="text-right">Valor líquido</th>
+    <th><span class="sr-only">Ações</span></th>
+    {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
+    <th class="text-center">Nota fiscal</th>
+    {% endif %}
+  </tr>
+  {% endif %}
+</thead>

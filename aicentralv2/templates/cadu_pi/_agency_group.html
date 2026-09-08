@@ -1,0 +1,93 @@
+<table class="cx-table cx-table-dense pi-list-table pi-list-table-agency">
+  <thead>
+    <tr>
+      <th>Agência</th>
+      <th class="text-center">PIs</th>
+      <th class="text-center">Campanhas</th>
+      <th class="text-right">Valor bruto</th>
+      <th class="text-right">Valor líquido</th>
+      <th><span class="sr-only">Ações</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ag in agencias_grupo %}
+    <tr class="agencia-row">
+      <td><strong>{{ ag.agencia_nome }}</strong></td>
+      <td class="text-center">
+        <button type="button" onclick="toggleAgenciaPis({{ ag.id_agencia }}, event)"
+                class="pi-expand-chip" aria-expanded="false" aria-controls="ag-pis-{{ ag.id_agencia }}">
+          {{ ag.total_pis }} PI{% if ag.total_pis != 1 %}s{% endif %}
+          <i class="fa-solid fa-chevron-down chevron-ag" id="chevron-ag-{{ ag.id_agencia }}" aria-hidden="true"></i>
+        </button>
+      </td>
+      <td class="text-center">{{ ag.total_campanhas }}</td>
+      <td class="text-right tabular-nums">{{ ag.valor_bruto|format_brl }}</td>
+      <td class="text-right tabular-nums pi-net-value">{{ ag.valor_liquido|format_brl }}</td>
+      <td></td>
+    </tr>
+    <tr class="collapse-ag-row hidden" id="ag-pis-{{ ag.id_agencia }}">
+      <td colspan="6">
+        <div class="pi-agency-detail">
+          <table class="cx-table cx-table-dense pi-list-table-nested">
+            <thead>
+              <tr>
+                <th>PI</th>
+                <th>Executivo</th>
+                <th class="text-center">Período</th>
+                <th class="text-center">Campanhas</th>
+                <th class="text-right">Líquido</th>
+                {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
+                <th class="text-center">Nota fiscal</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for pi in ag.pis %}
+              {% set pi_info = {
+                'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
+                'titulo': pi.titulo_pi or '',
+                'cliente': pi.cliente_nome or '',
+                'cnpj': pi.cliente_cnpj or '',
+                'mesRef': pi.mes_ref_comp or '',
+                'valorLiquido': pi.valor_liquido or ''
+              } %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}</a>
+                  {% if pi.get('mes_ref_comp') %}
+                  <span class="pi-cell-meta">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ pi.get('resp_comercial_nome') or 'Não informado' }}</td>
+                <td class="text-center">
+                  {% if pi.get('periodo_inicio') %}
+                  {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+                  {% else %}Não informado{% endif %}
+                </td>
+                <td class="text-center">{{ pi.get('total_campanhas', 0) }}</td>
+                <td class="text-right tabular-nums pi-net-value">{% if pi.get('valor_liquido') %}{{ pi.valor_liquido|format_brl }}{% else %}Não informado{% endif %}</td>
+                {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
+                <td class="text-center" onclick="event.stopPropagation()">
+                  {% if pi.get('nf_id') %}
+                  <button type="button" onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
+                          class="cx-btn cx-btn-sm cx-btn-outline" title="Ver nota fiscal">
+                    <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>{{ pi.nf_status_descricao or 'Ver NF' }}
+                  </button>
+                  {% elif origem_lista == 'faturamento' %}
+                  <button type="button" onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                          class="cx-btn cx-btn-sm cx-btn-outline" title="Importar nota fiscal">
+                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>Importar
+                  </button>
+                  {% else %}—{% endif %}
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

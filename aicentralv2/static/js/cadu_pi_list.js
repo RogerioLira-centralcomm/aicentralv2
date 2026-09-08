@@ -11,6 +11,243 @@
   let loadedCampanhas = {};
   window.todasExpandidas = false;
   let currentPiSidebar = null;
+  let filterDebounceTimer = null;
+  let clientDebounceTimer = null;
+  let subStatusAtual = new URLSearchParams(window.location.search).get('id_sub_status_pi') || '';
+  let visaoComercial = new URLSearchParams(window.location.search).get('visao') || '';
+  const origemLista = new URLSearchParams(window.location.search).get('origem') || '';
+
+  function setFilterFeedback(message) {
+    const feedback = document.querySelector('[data-filter-feedback]');
+    if (feedback) feedback.textContent = message || '';
+  }
+
+  function activeFilterEntries() {
+    const params = new URLSearchParams(window.location.search);
+    const labels = {
+      resp_comercial: 'Executivo',
+      id_cliente: 'Cliente',
+      tipo_entidade: 'Entidade',
+      mes_ref_comp: 'Mês',
+      ano_ref_comp: 'Ano',
+      busca: 'Busca',
+      nf_status: 'Status da NF',
+    };
+    return Object.keys(labels)
+      .filter(function (key) { return params.get(key); })
+      .map(function (key) { return { key: key, label: labels[key], value: params.get(key) }; });
+  }
+
+  function renderActiveFilters() {
+    const wrap = document.querySelector('[data-active-filters]');
+    const list = document.querySelector('[data-active-filter-list]');
+    const count = document.querySelector('[data-filter-count]');
+    const entries = activeFilterEntries();
+    if (count) {
+      count.hidden = entries.length === 0;
+      count.textContent = String(entries.length);
+      count.setAttribute('aria-label', entries.length + ' filtros ativos');
+    }
+    if (!wrap || !list) return;
+    wrap.hidden = entries.length === 0;
+    list.innerHTML = entries.map(function (entry) {
+      const value = entry.key === 'id_cliente'
+        ? ((document.getElementById('filtro_cliente_busca') || {}).value || entry.value)
+        : entry.value;
+      return '<button type="button" class="pi-active-filter" data-remove-filter="' + entry.key + '">' +
+        '<span>' + entry.label + ': ' + value + '</span><i class="fa-solid fa-xmark" aria-hidden="true"></i>' +
+        '<span class="sr-only">Remover filtro</span></button>';
+    }).join('');
+  }
+
+  function buildFilterParams() {
+    const params = new URLSearchParams();
+    const exec = (document.getElementById('filtro_executivo') || {}).value || '';
+    const mes = (document.getElementById('filtro_mes_ref') || {}).value || '';
+    const busca = ((document.getElementById('filtro_busca') || {}).value || '').trim();
+    const ano = (document.getElementById('filtro_ano_ref') || {}).value || '';
+    const tipoEntidade = (document.getElementById('filtro_tipo_entidade') || {}).value || '';
+    const clienteId = (document.getElementById('filtro_cliente_id') || {}).value || '';
+
+    setCookie('cc_filtro_exec', exec, 30);
+    if (origemLista === 'faturamento' || origemLista === 'nf_emitida') {
+      setCookie('cc_pi_origem_lista', origemLista, 30);
+      setCookie('cc_filtro_mes_' + origemLista, mes, 30);
+      setCookie('cc_filtro_ano_' + origemLista, ano, 30);
+      setCookie('cc_filtro_tipo_entidade_' + origemLista, tipoEntidade, 30);
+    } else {
+      setCookie('cc_filtro_mes', mes, 30);
+      if (origemLista === 'operacao') setCookie('cc_pi_origem_lista', 'operacao', 30);
+    }
+
+    if (exec) params.set('resp_comercial', exec);
+    if (tipoEntidade) params.set('tipo_entidade', tipoEntidade);
+    else if (clienteId) params.set('id_cliente', clienteId);
+    if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
+    if (visaoComercial) params.set('visao', visaoComercial);
+    let mesVal = mes;
+    if (mesVal && ano && mesVal.split('/')[1] !== ano) mesVal = '';
+    if (mesVal) params.set('mes_ref_comp', mesVal);
+    else if (ano) params.set('ano_ref_comp', ano);
+    if (busca) params.set('busca', busca);
+    if (origemLista) params.set('origem', origemLista);
+    if (origemLista === 'nf_emitida') {
+      const nfStatus = new URLSearchParams(window.location.search).get('nf_status');
+      if (nfStatus) params.set('nf_status', nfStatus);
+    }
+    params.set('_f', '1');
+    return params;
+  }
+
+  window.aplicarFiltros = function () {
+    setFilterFeedback('Aplicando…');
+    const params = buildFilterParams();
+    window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
+  };
+
+  window.debounceAplicarFiltros = function () {
+    clearTimeout(filterDebounceTimer);
+    setFilterFeedback('Aguardando…');
+    filterDebounceTimer = setTimeout(window.aplicarFiltros, 500);
+  };
+
+  window.filtrarVisaoComercial = function (visao) {
+    subStatusAtual = '2';
+    visaoComercial = visao || '';
+    window.aplicarFiltros();
+  };
+
+  window.filtrarSubStatus = function (key) {
+    subStatusAtual = subStatusAtual === key ? '' : key;
+    window.aplicarFiltros();
+  };
+
+  window.filtrarNfStatus = function (status) {
+    const params = new URLSearchParams(window.location.search);
+    if (status) params.set('nf_status', status);
+    else params.delete('nf_status');
+    params.set('origem', 'nf_emitida');
+    window.location.href = '/cadu_pi?' + params.toString();
+  };
+
+  window.filtrarMesesPorAno = function () {
+    const year = document.getElementById('filtro_ano_ref');
+    const month = document.getElementById('filtro_mes_ref');
+    if (!year || !month) return;
+    Array.prototype.forEach.call(month.options, function (option) {
+      option.hidden = Boolean(year.value && option.value && option.value.split('/')[1] !== year.value);
+      if (option.hidden && option.selected) month.value = '';
+    });
+  };
+
+  function selectClientFilter(id, name) {
+    document.getElementById('filtro_cliente_id').value = id;
+    document.getElementById('filtro_cliente_busca').value = name;
+    document.getElementById('resultados_clientes_filtro').classList.add('hidden');
+    document.getElementById('btn_limpar_cliente').classList.remove('hidden');
+    window.aplicarFiltros();
+  }
+
+  window.buscarClientesFiltro = function (term) {
+    clearTimeout(clientDebounceTimer);
+    const results = document.getElementById('resultados_clientes_filtro');
+    if (!results) return;
+    if ((term || '').trim().length < 2) {
+      results.classList.add('hidden');
+      return;
+    }
+    results.innerHTML = '<span class="pi-client-results__state">Buscando clientes…</span>';
+    results.classList.remove('hidden');
+    clientDebounceTimer = setTimeout(function () {
+      fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: term, razao: term }),
+      })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          const clients = data.success && Array.isArray(data.clientes) ? data.clientes : [];
+          if (!clients.length) {
+            results.innerHTML = '<span class="pi-client-results__state">Nenhum cliente encontrado</span>';
+            return;
+          }
+          results.innerHTML = '';
+          clients.forEach(function (client) {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'pi-client-option';
+            option.setAttribute('role', 'option');
+            option.innerHTML = '<strong></strong><span></span>';
+            option.querySelector('strong').textContent = client.nome_fantasia || client.razao_social || 'Cliente';
+            option.querySelector('span').textContent = client.razao_social || '';
+            option.addEventListener('click', function () {
+              selectClientFilter(client.id_cliente || client.pk_id_tbl_cliente, client.nome_fantasia || client.razao_social || '');
+            });
+            results.appendChild(option);
+          });
+        })
+        .catch(function () {
+          results.innerHTML = '<span class="pi-client-results__state is-error">Não foi possível buscar clientes. Tente novamente.</span>';
+        });
+    }, 300);
+  };
+
+  window.selecionarClienteFiltro = selectClientFilter;
+
+  window.limparFiltroCliente = function () {
+    document.getElementById('filtro_cliente_id').value = '';
+    document.getElementById('filtro_cliente_busca').value = '';
+    document.getElementById('btn_limpar_cliente').classList.add('hidden');
+    window.aplicarFiltros();
+  };
+
+  function restoreFilters() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('_restored')) return;
+    const exec = getCookie('cc_filtro_exec');
+    const month = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+      ? (getCookie('cc_filtro_mes_' + origemLista) || getCookie('cc_filtro_mes'))
+      : getCookie('cc_filtro_mes');
+    const year = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+      ? (getCookie('cc_filtro_ano_' + origemLista) || getCookie('cc_filtro_ano')) : '';
+    const entity = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
+      ? getCookie('cc_filtro_tipo_entidade_' + origemLista) : '';
+    const restored = new URLSearchParams(params);
+    let changed = false;
+
+    [['resp_comercial', exec], ['tipo_entidade', entity]].forEach(function (entry) {
+      if (entry[1] && !params.has(entry[0])) {
+        restored.set(entry[0], entry[1]);
+        changed = true;
+      }
+    });
+    if (year && !params.has('ano_ref_comp') && !params.has('mes_ref_comp')) {
+      const yearSelect = document.getElementById('filtro_ano_ref');
+      if (yearSelect && Array.prototype.some.call(yearSelect.options, function (option) { return option.value === year; })) {
+        restored.set('ano_ref_comp', year);
+        changed = true;
+      }
+    }
+    if (month && !params.has('mes_ref_comp') && !restored.has('ano_ref_comp')) {
+      const monthSelect = document.getElementById('filtro_mes_ref');
+      const matching = monthSelect && Array.prototype.find.call(monthSelect.options, function (option) {
+        return option.value === month || parseInt(option.value, 10) === parseInt(month, 10);
+      });
+      if (matching && (!year || matching.value.split('/')[1] === year)) {
+        restored.set('mes_ref_comp', matching.value);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    if (visaoComercial && !restored.has('visao')) restored.set('visao', visaoComercial);
+    if (origemLista && !restored.has('origem')) restored.set('origem', origemLista);
+    else if (!restored.has('origem') && subStatusAtual === '4') {
+      const savedOrigin = getCookie('cc_pi_origem_lista');
+      if (['faturamento', 'operacao', 'nf_emitida'].indexOf(savedOrigin) !== -1) restored.set('origem', savedOrigin);
+    }
+    restored.set('_restored', '1');
+    window.location.href = '/cadu_pi?' + restored.toString();
+  }
 
   function siglaMetricaPreco(nomeObjetivo, modalidade) {
     if (modalidade === 'cpm') return 'CPM';
@@ -95,36 +332,34 @@
 
     const linkCount = (c.googled_pi_princ ? 1 : 0) + (c.link_dash ? 1 : 0);
 
-    return '<tr class="hover:bg-slate-100 cursor-pointer transition-colors" data-plataforma-id="' + platId + '" data-plataforma-nome="' + platNome + '" data-camp-payload="' + payload + '" title="Ver detalhes da campanha">' +
-      '<td class="text-left"><span class="text-xs font-semibold text-gray-800 truncate block">' + (c.nome_campanha || '—') + '</span>' +
-      '<span class="block text-[11px] text-gray-400 truncate">' + (c.status_nome || '') + '</span></td>' +
-      '<td class="text-center platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
+    return '<tr class="pi-campaign-row" data-plataforma-id="' + platId + '" data-plataforma-nome="' + platNome + '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
+      '<td data-label="Campanha"><span class="pi-campaign-name">' + (c.nome_campanha || 'Campanha sem nome') + '</span>' +
+      '<span class="pi-campaign-status">' + (c.status_nome || 'Status não informado') + '</span></td>' +
+      '<td data-label="Plataforma" class="platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
       '<span class="link-count-badge' + (linkCount === 0 ? ' empty' : '') + '">L' + linkCount + '</span></div>' +
-      '<div class="text-[10px] text-gray-400 mt-0.5 truncate">' + (c.plataforma_nome || '') + '</div></td>' +
-      '<td class="text-center text-[11px] text-gray-600">' + celPeriodo + '</td>' +
-      '<td class="text-right">' + celCustos + '</td>' +
-      '<td class="text-right">' + celObjetivo + '</td>' +
-      '<td class="text-right">' + celMidia + '</td>' +
+      '<span class="pi-campaign-platform">' + (c.plataforma_nome || 'Não informado') + '</span></td>' +
+      '<td data-label="Período">' + celPeriodo + '</td>' +
+      '<td data-label="Custos unitários">' + celCustos + '</td>' +
+      '<td data-label="Entrega">' + celObjetivo + '</td>' +
+      '<td data-label="Custo de mídia">' + celMidia + '</td>' +
       '</tr>';
   }
 
   window.toggleCampanhas = function (idPi, event) {
     if (event && event.stopPropagation) event.stopPropagation();
     const row = document.getElementById('camp-collapse-' + idPi);
-    const piRow = document.getElementById('pi-' + idPi);
     const chevron = document.getElementById('chevron-' + idPi);
     if (!row) return;
 
     const isHidden = row.classList.contains('hidden');
     row.classList.toggle('hidden');
     if (chevron) chevron.classList.toggle('open', isHidden);
-    if (piRow) {
-      piRow.classList.toggle('pi-row-sticky-expanded', isHidden);
-      if (isHidden) {
-        piRow.style.top = UI.getPiStickyTop() + 'px';
-      } else {
-        piRow.style.top = '';
-      }
+    const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', String(isHidden));
+      const count = toggle.getAttribute('data-campaign-count') || '';
+      const label = toggle.querySelector('[data-campaign-toggle-label]');
+      if (label) label.textContent = isHidden ? 'Ocultar campanhas' : ('Mostrar ' + count + ' campanha' + (count === '1' ? '' : 's'));
     }
 
     if (isHidden && !loadedCampanhas[idPi]) {
@@ -150,7 +385,7 @@
               } catch (err) { console.error(err); }
             });
           }
-          let html = '<table class="camp-table w-full"><colgroup>' +
+          let html = '<table class="camp-table"><colgroup>' +
             '<col style="width:22%"><col style="width:12%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:18%">' +
             '</colgroup><thead><tr>' +
             '<th class="text-left">Campanha</th><th class="text-center">Plataforma</th><th class="text-center">Período</th>' +
@@ -168,9 +403,19 @@
         })
         .catch(function () {
           const container = document.getElementById('camp-content-' + idPi);
-          container.innerHTML = '<div class="text-center py-3 text-[11px] text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
+          if (!container) return;
+          container.innerHTML = '<div class="pi-campaign-error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+            '<span>Não foi possível carregar as campanhas.</span>' +
+            '<button type="button" class="cx-btn cx-btn-sm cx-btn-outline" onclick="retryCampanhas(' + idPi + ')">Tentar novamente</button></div>';
         });
     }
+  };
+
+  window.retryCampanhas = function (idPi) {
+    loadedCampanhas[idPi] = false;
+    const row = document.getElementById('camp-collapse-' + idPi);
+    if (row) row.classList.add('hidden');
+    window.toggleCampanhas(idPi, { stopPropagation: function () {} });
   };
 
   window.toggleAgenciaPis = function (idAgencia, event) {
@@ -181,6 +426,8 @@
     const isHidden = row.classList.contains('hidden');
     row.classList.toggle('hidden');
     if (chevron) chevron.classList.toggle('open', isHidden);
+    const toggle = document.querySelector('[aria-controls="ag-pis-' + idAgencia + '"]');
+    if (toggle) toggle.setAttribute('aria-expanded', String(isHidden));
   };
 
   window.toggleTodasCampanhas = function () {
@@ -194,8 +441,10 @@
     });
     const label = document.getElementById('label_expandir_todas');
     const icon = document.getElementById('icon_expandir_todas');
+    const button = document.getElementById('btn_expandir_todas');
     if (label) label.textContent = window.todasExpandidas ? 'Recolher todas' : 'Expandir todas';
-    if (icon) icon.className = (window.todasExpandidas ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down') + ' text-[9px]';
+    if (icon) icon.className = window.todasExpandidas ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down';
+    if (button) button.setAttribute('aria-expanded', String(window.todasExpandidas));
   };
 
   /* ==================== SIDEBAR PI ==================== */
@@ -414,7 +663,26 @@
     },
   };
 
+  function assignMobileCellLabels() {
+    document.querySelectorAll('.pi-list-table-detail').forEach(function (table) {
+      const labels = Array.prototype.map.call(table.querySelectorAll(':scope > thead th'), function (header) {
+        return (header.textContent || '').trim() || 'Ações';
+      });
+      table.querySelectorAll(':scope > tbody > .pi-row').forEach(function (row) {
+        Array.prototype.forEach.call(row.children, function (cell, index) {
+          if (cell.tagName === 'TD' && !cell.hasAttribute('data-label')) {
+            cell.setAttribute('data-label', labels[index] || 'Informação');
+          }
+        });
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    restoreFilters();
+    window.filtrarMesesPorAno();
+    renderActiveFilters();
+    assignMobileCellLabels();
     UI.updatePiStickyTop();
     window.addEventListener('resize', UI.updatePiStickyTop);
     document.addEventListener('keydown', function (e) {
@@ -424,6 +692,54 @@
       btn.addEventListener('click', function () {
         switchPiSidebarTab(btn.getAttribute('data-tab'));
       });
+    });
+    const filterToggle = document.getElementById('pi-filter-toggle');
+    const filterPanel = document.getElementById('pi-filter-panel');
+    if (filterToggle && filterPanel) {
+      filterToggle.addEventListener('click', function () {
+        const open = filterToggle.getAttribute('aria-expanded') !== 'true';
+        filterToggle.setAttribute('aria-expanded', String(open));
+        filterPanel.classList.toggle('is-open', open);
+      });
+    }
+    const search = document.getElementById('filtro_busca');
+    if (search) search.addEventListener('input', window.debounceAplicarFiltros);
+    ['filtro_executivo', 'filtro_tipo_entidade', 'filtro_mes_ref'].forEach(function (id) {
+      const field = document.getElementById(id);
+      if (field) field.addEventListener('change', window.aplicarFiltros);
+    });
+    const year = document.getElementById('filtro_ano_ref');
+    if (year) year.addEventListener('change', function () {
+      window.filtrarMesesPorAno();
+      window.aplicarFiltros();
+    });
+    const clientSearch = document.getElementById('filtro_cliente_busca');
+    if (clientSearch) {
+      clientSearch.addEventListener('input', function () { window.buscarClientesFiltro(clientSearch.value); });
+      clientSearch.addEventListener('focus', function () { window.buscarClientesFiltro(clientSearch.value); });
+    }
+    const clearClient = document.getElementById('btn_limpar_cliente');
+    if (clearClient) clearClient.addEventListener('click', window.limparFiltroCliente);
+    document.querySelectorAll('[data-remove-filter]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const params = new URLSearchParams(window.location.search);
+        params.delete(button.getAttribute('data-remove-filter'));
+        params.set('_f', '1');
+        window.location.href = '/cadu_pi?' + params.toString();
+      });
+    });
+    document.addEventListener('click', function (event) {
+      const results = document.getElementById('resultados_clientes_filtro');
+      if (results && clientSearch && !results.contains(event.target) && event.target !== clientSearch) {
+        results.classList.add('hidden');
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      const row = event.target.closest('.pi-campaign-row');
+      if (row && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        row.click();
+      }
     });
     document.querySelectorAll('[data-campanha-ids]').forEach(function (el) {
       try {

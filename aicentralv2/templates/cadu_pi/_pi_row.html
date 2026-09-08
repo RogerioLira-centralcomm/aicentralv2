@@ -1,0 +1,34 @@
+{% macro campaign_toggle(pi, compact=false) -%}
+{% set count = pi.get('total_campanhas', 0) %}
+{% if count > 0 %}
+<button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
+        class="pi-expand-chip{% if compact %} is-compact{% endif %}"
+        data-campaign-toggle="{{ pi.id_pi }}" data-campaign-count="{{ count }}"
+        aria-expanded="false" aria-controls="camp-collapse-{{ pi.id_pi }}">
+  <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+  <span data-campaign-toggle-label>Mostrar {{ count }} campanha{% if count != 1 %}s{% endif %}</span>
+  <i class="fa-solid fa-chevron-down chevron-camp" id="chevron-{{ pi.id_pi }}" aria-hidden="true"></i>
+</button>
+{% else %}
+<span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem campanhas</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro executive(pi, compact=false) -%}
+{% set parts = (pi.get('resp_comercial_nome') or '').split(' ') %}
+{% set initials = ((parts[0][0:1] if parts and parts[0] else '') ~ (parts[-1][0:1] if parts|length > 1 and parts[-1] else ''))|upper %}
+{% if pi.get('resp_comercial_nome') %}
+<div class="pi-executive{% if compact %} is-compact{% endif %}">
+  <span class="exec-avatar" title="{{ pi.resp_comercial_nome }}">
+    {% if pi.get('resp_comercial_foto_url') %}
+    <img src="{{ pi.resp_comercial_foto_url }}" alt="">
+    {% else %}
+    {{ initials or '?' }}
+    {% endif %}
+  </span>
+  <span>{{ pi.resp_comercial_nome if not compact else pi.resp_comercial_nome.split(' ')[0] }}</span>
+</div>
+{% else %}
+<span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem responsável</span>
+{% endif %}
+{%- endmacro %}

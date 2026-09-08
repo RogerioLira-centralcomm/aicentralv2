@@ -30,7 +30,11 @@ class FakeRepository:
                 "id": index,
                 "job_id": 90 + index,
                 "asset_url": f"/asset-{index}.png",
+                "asset_type": "image",
                 "status": "approved",
+                "campaign_id": 30,
+                "format_template_id": 7,
+                "aspect_ratio": "4:1",
             }
             for index in range(1, 5)
         ]
@@ -40,6 +44,7 @@ class FakeRepository:
             "name_pt": "Leaderboard",
             "aspect_ratio": "4:1",
             "default_size": "728x90",
+            "media_type": "image",
             "screen_context_template": "Portal editorial em desktop",
             "background_guidance": "Conteúdo editorial ao redor",
             "placement_spec": {
@@ -54,7 +59,20 @@ class FakeRepository:
                 "trigger": "none",
                 "transition_ms": 0,
             },
+            "default_viewer_profile_id": 1,
         }
+        self.viewer_profiles = [
+            {
+                "id": 1, "slug": "g1", "name": "G1",
+                "viewer_kind": "portal", "palette": {}, "shell_spec": {},
+                "disclaimer": "Simulação sem afiliação",
+            },
+            {
+                "id": 2, "slug": "netflix", "name": "Netflix",
+                "viewer_kind": "tv", "palette": {}, "shell_spec": {},
+                "disclaimer": "Simulação sem afiliação",
+            },
+        ]
 
     def create_client(self, data):
         self.clients.append(data)
@@ -67,6 +85,14 @@ class FakeRepository:
 
     def update_format_modeling(self, format_id, data):
         self.format_data.update(data)
+
+    def list_viewer_profiles(self):
+        return [dict(item) for item in self.viewer_profiles]
+
+    def get_viewer_profile(self, profile_id):
+        return next(
+            dict(item) for item in self.viewer_profiles if item["id"] == profile_id
+        )
 
     def get_client(self, client_id):
         return {
@@ -199,7 +225,13 @@ class FakeRepository:
 
     def list_campaign_assets(self, campaign_id):
         return [
-            {**asset, "campaign_id": campaign_id, "asset_type": "image"}
+            {
+                **asset,
+                "campaign_id": campaign_id,
+                "asset_type": "image",
+                "placement_spec": self.format_data["placement_spec"],
+                "default_viewer_profile_id": 1,
+            }
             for asset in self.assets
         ]
 
@@ -207,7 +239,8 @@ class FakeRepository:
         self.reordered = (campaign_id, asset_ids)
 
     def create_public_collection(
-        self, campaign_id, token, title, description, asset_ids, created_by
+        self, campaign_id, token, title, description, asset_ids,
+        viewer_profiles, created_by
     ):
         self.public_collection = {
             "campaign_id": campaign_id,
@@ -215,6 +248,7 @@ class FakeRepository:
             "title": title,
             "description": description,
             "asset_ids": asset_ids,
+            "viewer_profiles": viewer_profiles,
             "created_by": created_by,
         }
         return {"id": 77, "token": token}
@@ -341,6 +375,13 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["payload"]["status"], "ready_for_higgsfield")
         self.assertEqual(len(result["payload"]["image_inputs"]), 4)
 
+    def test_prepara_complemento_animado_de_tres_segundos(self):
+        result = self.service.prepare_display_motion(1, created_by=9)
+        self.assertEqual(result["payload"]["duration_seconds"], 3)
+        self.assertEqual(result["payload"]["source_asset_id"], 1)
+        self.assertEqual(len(result["payload"]["image_inputs"]), 1)
+        self.assertEqual(self.repo.jobs[-1]["args"][3], "display_motion_payload")
+
     def test_link_publico_usa_token_criptografico_e_preserva_ordem(self):
         result = self.service.create_public_collection(
             30, {"title": "Apresentação", "asset_ids": [4, 2, 1]}, created_by=9
@@ -349,6 +390,29 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertRegex(token, r"^[A-Za-z0-9_-]{40,}$")
         self.assertEqual(self.repo.public_collection["asset_ids"], [4, 2, 1])
         self.assertEqual(result["asset_count"], 3)
+
+    def test_link_publico_persiste_ambiente_por_criativo(self):
+        self.service.create_public_collection(
+            30,
+            {
+                "title": "Apresentação",
+                "asset_ids": [1, 2],
+                "viewer_profiles": {"1": 1},
+            },
+        )
+        self.assertEqual(self.repo.public_collection["viewer_profiles"], {1: 1})
+
+    def test_ambiente_incompativel_com_formato_e_rejeitado(self):
+        with self.assertRaisesRegex(ValueError, "não corresponde"):
+            self.service.update_format_modeling(
+                7,
+                {
+                    "safe_area": {},
+                    "placement_spec": self.repo.format_data["placement_spec"],
+                    "behavior_spec": self.repo.format_data["behavior_spec"],
+                    "default_viewer_profile_id": 2,
+                },
+            )
 
     def test_reordenacao_rejeita_assets_duplicados(self):
         with self.assertRaisesRegex(ValueError, "duplicados"):
@@ -367,6 +431,65 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["slot"], 2)
         self.assertIsNone(self.repo.format_jobs[0]["client_id"])
         self.assertIn("Keep the advertising slot empty", self.repo.format_jobs[0]["prompt"])
+
+    def test_prompt_de_quatro_variacoes_preserva_um_unico_sistema(self):
+        prompt = self.service.build_format_mockup_prompt(
+            self.repo.format_data,
+            self.repo.get_client(10),
+            "full_mockup",
+            "four_horizontal",
+            "Four product states with the same card.",
+            True,
+        )
+        self.assertIn("exactly FOUR identical devices", prompt)
+        self.assertIn("Do not redesign the format", prompt)
+        self.assertIn("not a free-form campaign poster", prompt)
+
+    def test_prompt_multiformato_muda_mecanica_sem_mudar_campanha(self):
+        prompt = self.service.build_format_mockup_prompt(
+            self.repo.format_data,
+            self.repo.get_client(10),
+            "full_mockup",
+            "multi_format_board",
+            "360, carousel, masterplan hotspots and drag comparison.",
+        )
+        normalized = " ".join(prompt.split())
+        self.assertIn("DIFFERENT interactive advertising format", normalized)
+        self.assertIn("campaign design must not", normalized)
+        self.assertIn("exactly FOUR advertising mockups", normalized)
+        self.assertIn("Do not default every format to a smartphone", normalized)
+
+    def test_formato_interativo_forca_quatro_variacoes(self):
+        self.repo.format_data["behavior_spec"]["type"] = "drag"
+        self.service.generate_format_mockup(
+            7,
+            {
+                "slot": "1",
+                "reference_type": "full_mockup",
+                "presentation_mode": "single",
+            },
+            [],
+        )
+        self.assertIn(
+            "exactly FOUR identical devices",
+            self.repo.format_jobs[-1]["prompt"],
+        )
+
+    def test_prompt_escolhe_ambiente_nativo_do_placement(self):
+        portal_prompt = self.service.build_format_mockup_prompt(
+            self.repo.format_data
+        )
+        self.assertIn("editorial portal shell", portal_prompt)
+        self.assertIn("Do not place the portal ad inside a smartphone", portal_prompt)
+
+        tv_format = dict(self.repo.format_data)
+        tv_format["placement_spec"] = {
+            **self.repo.format_data["placement_spec"],
+            "context": "streaming",
+        }
+        tv_prompt = self.service.build_format_mockup_prompt(tv_format)
+        self.assertIn("CTV PRESENTATION", tv_prompt)
+        self.assertIn("not inside a phone", tv_prompt)
 
     def test_refinamento_usa_mockup_anterior_como_referencia(self):
         parent = self.service.generate_format_mockup(
@@ -441,10 +564,21 @@ class CreativeGenerationContractTest(unittest.TestCase):
     def test_image_api_usa_modelo_e_duas_referencias(self):
         http = FakeHttp()
         client = CreativeGenerationClient(http=http)
-        result = client.generate_image("prompt", ["ref1", "ref2"], "16:9")
+        references = [
+            "data:image/png;base64,cmVmMQ==",
+            "data:image/png;base64,cmVmMg==",
+        ]
+        result = client.generate_image("prompt", references, "16:9")
         self.assertEqual(http.payload["model"], "openai/gpt-image-2")
-        self.assertEqual(http.payload["input_references"], ["ref1", "ref2"])
-        self.assertEqual(http.payload["resolution"], "2K")
+        self.assertEqual(
+            http.payload["input_references"],
+            [
+                {"type": "image_url", "image_url": {"url": references[0]}},
+                {"type": "image_url", "image_url": {"url": references[1]}},
+            ],
+        )
+        self.assertEqual(http.payload["size"], "2K")
+        self.assertNotIn("resolution", http.payload)
         self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
 
@@ -545,6 +679,20 @@ class CreativeFilesContractTest(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS cx_format_modeling_jobs",
             studio_migration,
         )
+        viewer_migration = (
+            root / "migrations" / "add_creative_viewer_profiles.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS cx_creative_viewer_profiles",
+            viewer_migration,
+        )
+        self.assertIn("default_viewer_profile_id", viewer_migration)
+        self.assertIn("viewer_profile_id", viewer_migration)
+        viewer_seed = (
+            root / "scripts" / "seed_creative_viewer_profiles.py"
+        ).read_text(encoding="utf-8")
+        for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max"):
+            self.assertIn(f'"slug": "{slug}"', viewer_seed)
 
 
 if __name__ == "__main__":

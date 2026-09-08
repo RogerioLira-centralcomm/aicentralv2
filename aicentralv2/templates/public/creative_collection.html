@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ collection.title }} | Centralcomm</title>
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
@@ -60,9 +60,37 @@
             </div>
           </header>
 
-          <div class="pv-portal">
-            <div class="pv-portal-bar"><i></i><i></i><i></i><span>visualização no ambiente de mídia</span></div>
-            <div class="pv-portal-content">
+          {% set palette = asset.viewer_palette or {} %}
+          <div class="pv-environment is-{{ asset.viewer_kind or 'portal' }}"
+               data-viewer="{{ asset.viewer_slug or 'automatico' }}"
+               style="--viewer-primary: {{ palette.primary or '#1e4d4f' }}; --viewer-secondary: {{ palette.secondary or '#183436' }}; --viewer-canvas: {{ palette.canvas or '#edf2f1' }}; --viewer-surface: {{ palette.surface or '#ffffff' }}; --viewer-text: {{ palette.text or '#183436' }}">
+            <div class="pv-environment-label">
+              <span>
+                {% if asset.viewer_logo_asset_ref %}
+                  <img src="{{ asset.viewer_logo_asset_ref }}" alt="">
+                {% endif %}
+                <strong>{{ asset.viewer_name or 'Ambiente automático' }}</strong>
+              </span>
+              <small>{{ asset.viewer_disclaimer or 'Simulação de ambiente · sem afiliação com o veículo' }}</small>
+            </div>
+            {% if asset.viewer_kind == 'tv' %}
+              <div class="pv-tv-shell" aria-hidden="true">
+                <header>
+                  {% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}
+                  <nav><span>Início</span><span>Séries</span><span>Filmes</span><span>Minha lista</span></nav>
+                  <i class="fa-regular fa-user"></i>
+                </header>
+                <div class="pv-tv-hero"><small>Conteúdo em destaque</small><strong>Experiência de marca em tela grande</strong></div>
+              </div>
+            {% else %}
+              <div class="pv-portal-shell" aria-hidden="true">
+                <div class="pv-portal-network"><span>notícias</span><span>ao vivo</span><span>conta</span></div>
+                <header><i class="fa-solid fa-bars"></i>{% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}<i class="fa-solid fa-magnifying-glass"></i></header>
+                <nav><span>Últimas</span><span>Brasil</span><span>Economia</span><span>Mundo</span></nav>
+                <div class="pv-portal-ticker"><b>Agora</b><span>Ambiente editorial demonstrativo</span></div>
+              </div>
+            {% endif %}
+            <div class="pv-environment-content">
               <div class="pv-editorial"><b></b><span></span><span></span><span></span></div>
               <div class="pv-media-frame">
                 {% if asset.asset_type == 'video' %}
@@ -102,6 +130,9 @@
               </div>
               <div class="pv-editorial right"><b></b><span></span><span></span></div>
             </div>
+            {% if asset.viewer_kind == 'tv' %}
+              <div class="pv-tv-rail" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+            {% endif %}
           </div>
 
           <footer class="pv-piece-foot">
@@ -119,6 +150,6 @@
     <span>Apresentação preparada pela Centralcomm</span>
     <span>Conteúdo somente para visualização</span>
   </footer>
-  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}?v=2"></script>
 </body>
 </html>

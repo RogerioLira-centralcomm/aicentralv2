@@ -7,6 +7,7 @@
     clients: '/parametros/api/clients',
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
+    viewerProfiles: '/parametros/api/viewer-profiles',
   };
   const MOCKUPS = {
     portal: { label: 'Portal', icon: 'fa-desktop' },
@@ -25,6 +26,8 @@
     campaignAssets: [],
     publicLinks: [],
     formatJobs: [],
+    viewerProfiles: [],
+    selectedViewerProfileId: null,
     placementDraft: null,
     originalPlacement: null,
     locks: new Set(),
@@ -101,8 +104,8 @@
   async function loadBaseData() {
     setPageError('');
     try {
-      [state.formats, state.clients, state.campaigns] = await Promise.all([
-        api(API.formats), api(API.clients), api(API.campaigns),
+      [state.formats, state.clients, state.campaigns, state.viewerProfiles] = await Promise.all([
+        api(API.formats), api(API.clients), api(API.campaigns), api(API.viewerProfiles),
       ]);
       renderClientOptions();
       renderCampaignOptions();
@@ -383,6 +386,9 @@
           <div class="mc-inspector-actions">
             <button class="mc-icon-btn" type="button" data-action="asset-left" title="Mover à esquerda" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-left"></i></button>
             <button class="mc-icon-btn" type="button" data-action="asset-right" title="Mover à direita" ${index === state.campaignAssets.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
+            ${asset.status === 'approved' && ['image', 'mockup'].includes(asset.asset_type)
+              ? '<button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-action="prepare-display-motion"><i class="fa-solid fa-film"></i> Animar 3s</button>'
+              : ''}
             <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="save-asset-meta">Salvar</button>
             <button class="mc-icon-btn" type="button" data-action="delete-plan-asset" title="Excluir criativo"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -403,6 +409,26 @@
             ${link.is_active ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="copy-public-link" data-public-url="${escapeHtml(link.public_url)}">Copiar</button><button class="cx-btn cx-btn-danger cx-btn-sm" type="button" data-action="revoke-public-link" data-link-id="${link.id}">Revogar</button>` : ''}
           </div>
         </div>`).join('')}` : '';
+  }
+
+  function renderShareEnvironments() {
+    const root = $('#mcShareEnvironmentList');
+    if (!root) return;
+    root.innerHTML = state.campaignAssets.map((asset) => {
+      const context = asset.placement_spec?.context || 'portal';
+      const profiles = viewerProfilesFor(context);
+      const automatic = state.viewerProfiles.find((profile) => (
+        String(profile.id) === String(asset.default_viewer_profile_id)
+      ));
+      return `
+        <label class="mc-share-environment">
+          <span><strong>${escapeHtml(asset.title || asset.format_name || `Criativo ${asset.id}`)}</strong><small>${escapeHtml(asset.default_size || context)}</small></span>
+          <select class="cx-select" data-share-asset="${asset.id}">
+            <option value="auto">Automático${automatic ? ` · ${escapeHtml(automatic.name)}` : ''}</option>
+            ${profiles.map((profile) => `<option value="${profile.id}">${escapeHtml(profile.name)}</option>`).join('')}
+          </select>
+        </label>`;
+    }).join('');
   }
 
   async function persistAssetOrder() {
@@ -540,6 +566,101 @@
     return JSON.parse(JSON.stringify(Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback));
   }
 
+  function viewerProfilesFor(context) {
+    const kind = context === 'tv' ? 'tv' : 'portal';
+    return state.viewerProfiles.filter((profile) => profile.viewer_kind === kind);
+  }
+
+  function activeViewerProfile(format, placement) {
+    const compatible = viewerProfilesFor(placement.context);
+    let profile = compatible.find((item) => (
+      String(item.id) === String(state.selectedViewerProfileId)
+    ));
+    if (!profile) {
+      profile = compatible.find((item) => (
+        String(item.id) === String(format.default_viewer_profile_id)
+      )) || compatible[0] || null;
+    }
+    state.selectedViewerProfileId = profile?.id || null;
+    return profile;
+  }
+
+  function safeViewerColor(value, fallback) {
+    return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback;
+  }
+
+  function viewerLogo(profile) {
+    return profile?.logo_asset_ref
+      ? `<img src="${escapeHtml(profile.logo_asset_ref)}" alt="">`
+      : `<strong>${escapeHtml(profile?.name || 'Mídia')}</strong>`;
+  }
+
+  function renderViewerShell(profile) {
+    const shell = $('#mcViewerShell');
+    const frame = $('#mcDeviceFrame');
+    if (!shell || !frame) return;
+    if (!profile) {
+      shell.innerHTML = '<div class="mc-viewer-missing">Cadastre um ambiente compatível.</div>';
+      return;
+    }
+    const palette = profile.palette || {};
+    frame.dataset.viewer = profile.slug;
+    frame.style.setProperty('--viewer-primary', safeViewerColor(palette.primary, '#1e4d4f'));
+    frame.style.setProperty('--viewer-secondary', safeViewerColor(palette.secondary, '#173436'));
+    frame.style.setProperty('--viewer-surface', safeViewerColor(palette.surface, '#ffffff'));
+    frame.style.setProperty('--viewer-canvas', safeViewerColor(palette.canvas, '#edf2f1'));
+    frame.style.setProperty('--viewer-text', safeViewerColor(palette.text, '#1f2937'));
+    const nav = Array.isArray(profile.shell_spec?.nav) ? profile.shell_spec.nav.slice(0, 5) : [];
+    const navHtml = nav.map((item) => `<span>${escapeHtml(item)}</span>`).join('');
+    if (profile.viewer_kind === 'tv') {
+      shell.innerHTML = `
+        <div class="mc-tv-backdrop"></div>
+        <header class="mc-tv-nav">${viewerLogo(profile)}<nav>${navHtml}</nav><i class="fa-regular fa-user"></i></header>
+        <section class="mc-tv-hero">
+          <span>Conteúdo em destaque</span>
+          <strong>Uma história para continuar assistindo</strong>
+          <small>Prévia ilustrativa do ambiente de streaming.</small>
+        </section>
+        <div class="mc-tv-rail" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+        <div class="mc-tv-controls"><i class="fa-solid fa-play"></i><span></span><i class="fa-solid fa-volume-high"></i></div>`;
+    } else {
+      shell.innerHTML = `
+        <div class="mc-portal-network"><span>notícias</span><span>ao vivo</span><span>conta</span></div>
+        <header class="mc-portal-masthead"><i class="fa-solid fa-bars"></i>${viewerLogo(profile)}<i class="fa-solid fa-magnifying-glass"></i></header>
+        <nav class="mc-portal-nav">${navHtml}</nav>
+        <div class="mc-portal-ticker"><b>Agora</b><span>Informação atualizada em um ambiente editorial simulado</span></div>
+        <section class="mc-portal-grid" aria-hidden="true">
+          <div class="mc-portal-lead"><small>Conteúdo editorial</small><strong>Manchete demonstrativa para contextualizar o inventário</strong><span></span></div>
+          <div class="mc-portal-stack"><b></b><span></span><b></b><span></span></div>
+          <aside><strong>Mais lidas</strong><span></span><span></span><span></span></aside>
+        </section>`;
+    }
+    $('#mcViewerDisclaimer').textContent = profile.disclaimer
+      || 'Simulação de ambiente · sem afiliação com o veículo';
+  }
+
+  function renderViewerToolbar(format, placement, profile) {
+    const root = $('#mcViewerToolbar');
+    if (!root) return;
+    const profiles = viewerProfilesFor(placement.context);
+    root.innerHTML = `
+      <span>Visualizar em</span>
+      <div>${profiles.map((item) => `
+        <button type="button" data-viewer-profile="${item.id}"
+                class="${profile && String(item.id) === String(profile.id) ? 'is-active' : ''}"
+                aria-pressed="${profile && String(item.id) === String(profile.id)}">
+          ${viewerLogo(item)}<span>${escapeHtml(item.name)}</span>
+        </button>`).join('')}</div>`;
+  }
+
+  function adCreativeHtml(format) {
+    const reference = (format.references || [])[0];
+    const visual = reference
+      ? `<img class="mc-ad-reference" src="${escapeHtml(reference.asset_url)}" alt="">`
+      : '';
+    return `${visual}<span class="mc-ad-demo-layer">${behaviorDemo(format.behavior_spec)}</span><small id="mcAdSlotSize"></small>`;
+  }
+
   function behaviorDemo(spec = {}) {
     const type = spec.type || 'static';
     if (type === 'hotspot') return '<span class="mc-demo-hotspot">+</span><span class="mc-demo-copy">Descubra detalhes</span>';
@@ -565,11 +686,14 @@
     $('#mcStageMetrics').innerHTML = `<span>${escapeHtml(placement.context)}</span><strong>${escapeHtml(format.default_size || format.aspect_ratio || '')}</strong>`;
     $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(placement.context)}`;
     $('#mcDeviceFrame').style.aspectRatio = `${Number(placement.viewport.width) || 1280} / ${Number(placement.viewport.height) || 800}`;
+    const profile = activeViewerProfile(format, placement);
+    renderViewerToolbar(format, placement, profile);
+    renderViewerShell(profile);
     $('#mcAdSlot').style.left = `${slot.x}%`;
     $('#mcAdSlot').style.top = `${slot.y}%`;
     $('#mcAdSlot').style.width = `${slot.width}%`;
     $('#mcAdSlot').style.height = `${slot.height}%`;
-    $('#mcAdSlotContent').innerHTML = `${behaviorDemo(format.behavior_spec)}<small id="mcAdSlotSize"></small>`;
+    $('#mcAdSlotContent').innerHTML = adCreativeHtml(format);
     $('#mcAdSlotSize').textContent = `${Math.round(slot.width)}% × ${Math.round(slot.height)}%`;
     $('#mcResetPlacement').disabled = false;
     syncPlacementFields();
@@ -585,6 +709,9 @@
     if (form.elements.context) form.elements.context.value = placement.context;
     if (form.elements.viewport_width) form.elements.viewport_width.value = placement.viewport.width;
     if (form.elements.viewport_height) form.elements.viewport_height.value = placement.viewport.height;
+    if (form.elements.default_viewer_profile_id && state.selectedViewerProfileId) {
+      form.elements.default_viewer_profile_id.value = state.selectedViewerProfileId;
+    }
   }
 
   function formatJobCard(job) {
@@ -631,6 +758,11 @@
             <option value="contain">Conter</option><option value="cover">Cobrir</option><option value="fill">Preencher</option>
           </select></label>
         </div>
+        <label class="cx-field"><span class="cx-label">Ambiente padrão</span>
+          <select class="cx-select" name="default_viewer_profile_id">
+            ${state.viewerProfiles.map((profile) => `<option value="${profile.id}" data-viewer-kind="${profile.viewer_kind}">${escapeHtml(profile.name)} · ${profile.viewer_kind === 'tv' ? 'TV' : 'Portal'}</option>`).join('')}
+          </select>
+        </label>
         <div class="mc-field-pair">
           <label class="cx-field"><span class="cx-label">Viewport L</span><input class="cx-input" name="viewport_width" type="number" min="240" max="7680"></label>
           <label class="cx-field"><span class="cx-label">Viewport A</span><input class="cx-input" name="viewport_height" type="number" min="240" max="4320"></label>
@@ -665,7 +797,13 @@
             <option value="">Marca neutra</option>
             ${state.clients.map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('')}
           </select></label>
-          <label class="cx-field"><span class="cx-label">Direção adicional</span><textarea class="cx-textarea" name="instructions" rows="3" placeholder="Descreva acabamento, clima ou ajustes desejados"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Composição</span><select class="cx-select" name="presentation_mode">
+            <option value="single" ${format.media_type !== 'video' && format.behavior_spec?.type === 'static' ? 'selected' : ''}>Um mockup</option>
+            <option value="four_horizontal" ${format.media_type === 'video' || format.behavior_spec?.type !== 'static' ? 'selected' : ''}>Quatro estados horizontais</option>
+            <option value="multi_format_board">Quatro formatos da mesma campanha</option>
+          </select></label>
+          <span class="cx-help">O mockup usa o ambiente nativo modelado: portal, CTV/streaming ou mobile. Interativos e vídeos começam com quatro variações; qualquer estático aprovado pode receber animação de 3 segundos.</span>
+          <label class="cx-field"><span class="cx-label">Conteúdo e variações</span><textarea class="cx-textarea" name="instructions" rows="5" placeholder="Informe headline, CTA, perguntas, produtos ou os quatro formatos. Marca, dispositivos e direção visual serão preservados."></textarea></label>
           <label class="mc-reference-upload">
             <input name="references" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
             <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
@@ -688,6 +826,7 @@
     const behavior = format.behavior_spec || { type: 'static', trigger: 'none', transition_ms: 0 };
     const form = $('#mcFormatModelForm');
     form.elements.fit.value = placement.fit || 'contain';
+    form.elements.default_viewer_profile_id.value = state.selectedViewerProfileId || format.default_viewer_profile_id || '';
     form.elements.behavior_type.value = behavior.type || 'static';
     form.elements.behavior_trigger.value = behavior.trigger || 'none';
     syncPlacementFields();
@@ -937,6 +1076,7 @@
       const format = state.formats.find((item) => String(item.id) === libraryRow.dataset.libraryFormat);
       if (format) {
         state.selectedFormatId = format.id;
+        state.selectedViewerProfileId = null;
         state.placementDraft = clonePlacement(format);
         state.originalPlacement = clonePlacement(format);
         renderLibrary();
@@ -948,6 +1088,17 @@
           renderLibraryDetail(format);
         } catch (error) { toast(error.message, 'error'); }
       }
+      return;
+    }
+    const viewerButton = event.target.closest('[data-viewer-profile]');
+    if (viewerButton) {
+      state.selectedViewerProfileId = Number(viewerButton.dataset.viewerProfile);
+      const form = $('#mcFormatModelForm');
+      if (form?.elements.default_viewer_profile_id) {
+        form.elements.default_viewer_profile_id.value = state.selectedViewerProfileId;
+      }
+      const format = selectedLibraryFormat();
+      if (format) renderFormatStage(format, true);
       return;
     }
     const detailTab = event.target.closest('[data-studio-detail-tab]');
@@ -1142,6 +1293,16 @@
         toast(error.message, 'error');
         await refreshCampaign();
       }
+    } else if (action === 'prepare-display-motion') {
+      const holder = button.closest('[data-plan-asset-id]');
+      try {
+        await withLock(`display-motion-${holder.dataset.planAssetId}`, button, () => api(
+          `/parametros/api/assets/${holder.dataset.planAssetId}/display-motion/prepare`,
+          { method: 'POST', body: '{}' },
+        ));
+        await refreshCampaign();
+        toast('Complemento animado de 3 segundos preparado para o Higgsfield.', 'success');
+      } catch (error) { toast(error.message, 'error'); }
     } else if (action === 'save-asset-meta') {
       const holder = button.closest('[data-plan-asset-id]');
       try {
@@ -1213,10 +1374,13 @@
     setupPlacementInteraction();
     $('#mcLibraryDetail').addEventListener('input', (event) => {
       const form = event.target.closest('#mcFormatModelForm');
+      if (event.target.matches('[name="default_viewer_profile_id"]')) {
+        state.selectedViewerProfileId = Number(event.target.value) || null;
+      }
       if (form && (
         event.target.matches('[name^="slot_"]')
         || event.target.matches('[name^="viewport_"]')
-        || event.target.matches('[name="context"], [name="fit"], [name="behavior_type"], [name="behavior_trigger"]')
+        || event.target.matches('[name="context"], [name="fit"], [name="behavior_type"], [name="behavior_trigger"], [name="default_viewer_profile_id"]')
       )) updatePlacementFromForm(form);
     });
     $('#mcResetPlacement').addEventListener('click', () => {
@@ -1235,6 +1399,7 @@
         return;
       }
       $('#mcShareForm [name="title"]').value = state.campaign?.name || '';
+      renderShareEnvironments();
       $('#mcShareDialog').showModal();
     });
     $('#mcGenerateAllPrompts').addEventListener('click', (event) => {
@@ -1290,9 +1455,17 @@
       const button = $('button[type="submit"]', form);
       await withLock('create-public-link', button, async () => {
         try {
+          const payload = Object.fromEntries(new FormData(form));
+          payload.asset_ids = state.campaignAssets.map((asset) => asset.id);
+          payload.viewer_profiles = {};
+          $$('[data-share-asset]', form).forEach((select) => {
+            if (select.value !== 'auto') {
+              payload.viewer_profiles[select.dataset.shareAsset] = Number(select.value);
+            }
+          });
           const created = await api(`${API.campaigns}/${state.campaign.id}/public-collections`, {
             method: 'POST',
-            body: JSON.stringify(Object.fromEntries(new FormData(form))),
+            body: JSON.stringify(payload),
           });
           $('#mcShareDialog').close();
           form.reset();

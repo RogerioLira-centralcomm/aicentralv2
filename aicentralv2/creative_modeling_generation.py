@@ -58,6 +58,26 @@ def _usage_cost(usage):
     return None
 
 
+def _image_reference(value):
+    """Normaliza URLs/data URLs para o contrato ContentPartImage do OpenRouter."""
+    if isinstance(value, str) and value.startswith(("https://", "http://", "data:image/")):
+        return {"type": "image_url", "image_url": {"url": value}}
+    if isinstance(value, dict):
+        image_url = value.get("image_url")
+        if isinstance(image_url, str):
+            return {"type": "image_url", "image_url": {"url": image_url}}
+        if (
+            value.get("type") == "image_url"
+            and isinstance(image_url, dict)
+            and isinstance(image_url.get("url"), str)
+        ):
+            return {
+                "type": "image_url",
+                "image_url": {"url": image_url["url"]},
+            }
+    raise ValueError("Referência de imagem inválida.")
+
+
 class CreativeGenerationClient:
     def __init__(self, text_callable=None, http=None):
         self.text_callable = text_callable or chat_completion
@@ -120,9 +140,10 @@ class CreativeGenerationClient:
         resolution="2K",
         background="opaque",
     ):
-        references = list(input_references or [])
-        if len(references) > 2:
+        raw_references = list(input_references or [])
+        if len(raw_references) > 2:
             raise ValueError("Use no máximo duas imagens de referência.")
+        references = [_image_reference(item) for item in raw_references]
         key = os.getenv("OPENROUTER_API_KEY", "").strip()
         if not key:
             raise OpenRouterError("OpenRouter não está configurado.")
@@ -132,9 +153,8 @@ class CreativeGenerationClient:
             "aspect_ratio": aspect_ratio,
             "quality": quality,
             "output_format": output_format,
-            "resolution": resolution,
+            "size": resolution,
             "background": background,
-            "n": 1,
         }
         if references:
             payload["input_references"] = references
@@ -185,4 +205,25 @@ def build_higgsfield_payload(job_id, script, assets, aspect_ratio, duration):
             {"position": index, "asset_url": asset["asset_url"]}
             for index, asset in enumerate(assets, start=1)
         ],
+    }
+
+
+def build_display_motion_payload(job_id, asset, aspect_ratio):
+    if asset.get("asset_type") not in ("image", "mockup"):
+        raise ValueError("A animação de display exige uma imagem estática.")
+    return {
+        "external_job_id": str(job_id),
+        "status": "ready_for_higgsfield",
+        "mode": "image_to_video",
+        "aspect_ratio": aspect_ratio or "16:9",
+        "duration_seconds": 3,
+        "script": (
+            "Animate this approved advertising creative for exactly 3 seconds. "
+            "Preserve its layout, typography, brand colors, logo, product, CTA and "
+            "advertising-format mechanism. Use restrained premium motion only: subtle "
+            "depth, parallax, light movement and a clear interaction cue. Do not add, "
+            "remove, rewrite or crop any content. End on the complete static keyframe."
+        ),
+        "image_inputs": [{"position": 1, "asset_url": asset["asset_url"]}],
+        "source_asset_id": asset["id"],
     }

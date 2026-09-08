@@ -11,6 +11,7 @@ from .creative_modeling_generation import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_TEXT_MODEL,
     CreativeGenerationClient,
+    build_display_motion_payload,
     build_higgsfield_payload,
 )
 from .creative_modeling_repository import (
@@ -18,6 +19,7 @@ from .creative_modeling_repository import (
     CreativeNotFoundError,
 )
 from .creative_modeling_storage import CreativeAssetStorage
+from .creative_modeling_prompts import compose_format_mockup_prompt
 
 
 MOCKUPS = {
@@ -48,6 +50,8 @@ BEHAVIOR_TYPES = {
 BEHAVIOR_TRIGGERS = {
     "none", "hover_tap", "click", "drag_vertical", "drag_horizontal", "view"
 }
+VIEWER_KINDS = {"portal", "tv"}
+VIEWER_PALETTE_KEYS = {"primary", "secondary", "surface", "canvas", "text"}
 
 
 def _text(value, field, required=False, max_length=None):
@@ -169,6 +173,57 @@ def _behavior_spec(value):
     }
 
 
+def _viewer_profile_data(value):
+    if not isinstance(value, dict):
+        raise ValueError("Ambiente de mídia inválido.")
+    slug = _text(value.get("slug"), "Slug do ambiente", required=True, max_length=50)
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
+        raise ValueError("Slug do ambiente inválido.")
+    viewer_kind = value.get("viewer_kind")
+    if viewer_kind not in VIEWER_KINDS:
+        raise ValueError("Tipo de ambiente inválido.")
+    palette = value.get("palette") or {}
+    shell = value.get("shell_spec") or {}
+    if not isinstance(palette, dict) or not isinstance(shell, dict):
+        raise ValueError("Configuração do ambiente inválida.")
+    safe_palette = {
+        key: _color(raw, f"Cor {key}")
+        for key, raw in palette.items()
+        if key in VIEWER_PALETTE_KEYS and raw not in (None, "")
+    }
+    nav = shell.get("nav") or []
+    if not isinstance(nav, list) or len(nav) > 8:
+        raise ValueError("Navegação do ambiente inválida.")
+    safe_shell = {
+        key: _text(raw, f"Configuração {key}", max_length=50)
+        for key, raw in shell.items()
+        if key in {"masthead", "density", "headline_style"} and raw is not None
+    }
+    safe_shell["nav"] = [
+        _text(item, "Item de navegação", required=True, max_length=40)
+        for item in nav
+    ]
+    logo = _text(value.get("logo_asset_ref"), "Logo do ambiente", max_length=255)
+    if logo and not re.fullmatch(
+        r"/static/images/creative-viewers/[a-z0-9.-]+", logo
+    ):
+        raise ValueError("Logo do ambiente inválido.")
+    return {
+        **value,
+        "slug": slug,
+        "viewer_kind": viewer_kind,
+        "palette": safe_palette,
+        "shell_spec": safe_shell,
+        "logo_asset_ref": logo,
+        "disclaimer": _text(
+            value.get("disclaimer"),
+            "Aviso do ambiente",
+            required=True,
+            max_length=200,
+        ),
+    }
+
+
 class CreativeModelingService:
     def __init__(self, repository=None, generator=None, storage=None):
         self.repository = repository or CreativeModelingRepository()
@@ -178,6 +233,12 @@ class CreativeModelingService:
     def list_formats(self):
         return _serialize(self.repository.list_formats())
 
+    def list_viewer_profiles(self):
+        return _serialize([
+            _viewer_profile_data(profile)
+            for profile in self.repository.list_viewer_profiles()
+        ])
+
     def update_format_modeling(self, format_id, payload):
         if not isinstance(payload, dict):
             raise ValueError("Corpo JSON inválido.")
@@ -186,6 +247,24 @@ class CreativeModelingService:
         safe_area = payload.get("safe_area") or {}
         if not isinstance(safe_area, dict):
             raise ValueError("Área segura deve ser um objeto JSON.")
+        placement_spec = _placement_spec(
+            payload.get("placement_spec") or current.get("placement_spec") or {}
+        )
+        viewer_profile_id = payload.get(
+            "default_viewer_profile_id", current.get("default_viewer_profile_id")
+        )
+        if viewer_profile_id not in (None, ""):
+            viewer_profile_id = _integer(viewer_profile_id, "Ambiente de mídia")
+            profile = _viewer_profile_data(
+                self.repository.get_viewer_profile(viewer_profile_id)
+            )
+            expected_kind = "tv" if placement_spec["context"] == "tv" else "portal"
+            if profile["viewer_kind"] != expected_kind:
+                raise ValueError(
+                    "O ambiente escolhido não corresponde ao contexto do formato."
+                )
+        else:
+            viewer_profile_id = None
         data = {
             "safe_area": safe_area,
             "responsive_rules": _text(
@@ -203,12 +282,11 @@ class CreativeModelingService:
                 "Orientação de conteúdo",
                 max_length=8000,
             ),
-            "placement_spec": _placement_spec(
-                payload.get("placement_spec") or current.get("placement_spec") or {}
-            ),
+            "placement_spec": placement_spec,
             "behavior_spec": _behavior_spec(
                 payload.get("behavior_spec") or current.get("behavior_spec") or {}
             ),
+            "default_viewer_profile_id": viewer_profile_id,
         }
         self.repository.update_format_modeling(format_id, data)
         return {"id": format_id}
@@ -746,60 +824,56 @@ class CreativeModelingService:
         )
         return {"job_id": job_id, "payload": payload}
 
+    def prepare_display_motion(self, asset_id, created_by=None):
+        asset_id = _integer(asset_id, "Asset")
+        assets = self.repository.get_assets([asset_id], approved_only=True)
+        if len(assets) != 1:
+            raise ValueError("A imagem estática precisa estar aprovada.")
+        asset = assets[0]
+        if asset.get("asset_type") not in ("image", "mockup"):
+            raise ValueError("A animação de display exige uma imagem estática.")
+        if not asset.get("campaign_id") or not asset.get("format_template_id"):
+            raise ValueError("O asset precisa estar vinculado a campanha e formato.")
+        job_id = self.repository.create_generation_job(
+            asset["campaign_id"],
+            asset.get("step_id"),
+            asset["format_template_id"],
+            "display_motion_payload",
+            "higgsfield",
+            "higgsfield-pending-configuration",
+            Decimal("0"),
+            prompt=(
+                "Complemento animado de 3 segundos criado após aprovação "
+                "do keyframe estático."
+            ),
+            created_by=created_by,
+        )
+        payload = build_display_motion_payload(
+            job_id, asset, asset.get("aspect_ratio")
+        )
+        self.repository.link_video_assets(job_id, assets)
+        self.repository.complete_generation_job(
+            job_id, Decimal("0"), payload, "ready_for_higgsfield"
+        )
+        return {"job_id": job_id, "payload": payload}
+
     @staticmethod
-    def build_format_mockup_prompt(format_data, client=None, reference_type="full_mockup"):
-        placement = format_data.get("placement_spec") or {}
-        slot = placement.get("slot") or {}
-        context = placement.get("context") or "portal"
-        viewport = placement.get("viewport") or {}
-        lines = [
-            "Create a premium, photorealistic advertising placement mockup.",
-            f"Placement context: {context}.",
-            (
-                "Technical viewport: "
-                f"{viewport.get('width', 1280)} by {viewport.get('height', 800)}."
-            ),
-            (
-                "Reserved advertising slot: "
-                f"x {slot.get('x', 0)}%, y {slot.get('y', 0)}%, "
-                f"width {slot.get('width', 100)}%, height {slot.get('height', 100)}%."
-            ),
-            f"Creative format: {format_data.get('name_pt') or ''}.",
-            f"Output aspect ratio: {format_data.get('aspect_ratio') or '16:9'}.",
-            f"Interaction behavior: {(format_data.get('behavior_spec') or {}).get('type', 'static')}.",
-            "Keep the placement boundaries clear and compositionally credible.",
-            "Do not reproduce third-party platform logos or proprietary interfaces.",
-        ]
-        if format_data.get("screen_context_template"):
-            lines.append(f"Environment guidance: {format_data['screen_context_template']}.")
-        if format_data.get("background_guidance"):
-            lines.append(f"Background guidance: {format_data['background_guidance']}.")
-        if reference_type == "background":
-            lines.extend(
-                [
-                    "Generate the environment only.",
-                    "Keep the advertising slot empty, neutral, and clearly reserved.",
-                    "Do not place a finished advertisement inside the slot.",
-                ]
-            )
-        else:
-            lines.append("Generate a complete example advertisement inside the reserved slot.")
-            if client:
-                lines.extend(
-                    [
-                        f"Advertiser: {client.get('name') or ''}.",
-                        f"Sector: {client.get('sector') or ''}.",
-                        f"Brand tone: {client.get('tone_of_voice') or ''}.",
-                        f"Primary color: {client.get('primary_color') or ''}.",
-                        f"Secondary color: {client.get('secondary_color') or ''}.",
-                    ]
-                )
-            else:
-                lines.append(
-                    "Use a fictional neutral brand with no recognizable logo or trademark."
-                )
-        lines.append("High detail, production-ready art direction, 2K quality.")
-        return "\n".join(lines)
+    def build_format_mockup_prompt(
+        format_data,
+        client=None,
+        reference_type="full_mockup",
+        presentation_mode="single",
+        campaign_content=None,
+        has_references=False,
+    ):
+        return compose_format_mockup_prompt(
+            format_data,
+            client,
+            reference_type,
+            presentation_mode,
+            campaign_content,
+            has_references,
+        )
 
     def list_format_modeling_jobs(self, format_id):
         format_id = _integer(format_id, "Formato")
@@ -890,16 +964,35 @@ class CreativeModelingService:
                         saved["asset_path"], saved["mime_type"]
                     )
                 )
-            prompt = self.build_format_mockup_prompt(
-                format_data, client, reference_type
+            presentation_mode = payload.get("presentation_mode", "single")
+            if presentation_mode not in (
+                "single", "four_horizontal", "multi_format_board"
+            ):
+                raise ValueError("Modo de apresentação inválido.")
+            behavior = format_data.get("behavior_spec") or {}
+            requires_variations = (
+                format_data.get("media_type") == "video"
+                or behavior.get("type") not in (None, "", "static")
             )
+            if (
+                reference_type == "full_mockup"
+                and presentation_mode == "single"
+                and requires_variations
+            ):
+                presentation_mode = "four_horizontal"
             instructions = _text(
                 payload.get("instructions"),
                 "Direção adicional",
                 max_length=4000,
             )
-            if instructions:
-                prompt += f"\nAdditional art direction: {instructions}"
+            prompt = self.build_format_mockup_prompt(
+                format_data,
+                client,
+                reference_type,
+                presentation_mode,
+                instructions,
+                bool(data_urls),
+            )
             return self._run_format_modeling(
                 format_data,
                 client,
@@ -1082,6 +1175,28 @@ class CreativeModelingService:
             raise ValueError("asset_ids deve ser uma lista.")
         if not asset_ids:
             raise ValueError("Adicione ao menos um criativo antes de compartilhar.")
+        available = {asset["id"]: asset for asset in assets}
+        requested_profiles = payload.get("viewer_profiles") or {}
+        if not isinstance(requested_profiles, dict):
+            raise ValueError("viewer_profiles deve ser um objeto.")
+        viewer_profiles = {}
+        for raw_asset_id, raw_profile_id in requested_profiles.items():
+            asset_id = _integer(raw_asset_id, "Asset")
+            if asset_id not in asset_ids or asset_id not in available:
+                raise ValueError("Ambiente informado para um asset inválido.")
+            if raw_profile_id in (None, "", "auto"):
+                continue
+            profile_id = _integer(raw_profile_id, "Ambiente de mídia")
+            profile = _viewer_profile_data(
+                self.repository.get_viewer_profile(profile_id)
+            )
+            placement = available[asset_id].get("placement_spec") or {}
+            expected_kind = "tv" if placement.get("context") == "tv" else "portal"
+            if profile["viewer_kind"] != expected_kind:
+                raise ValueError(
+                    "O ambiente escolhido não corresponde ao formato do criativo."
+                )
+            viewer_profiles[asset_id] = profile_id
         title = _text(
             payload.get("title"),
             "Título da apresentação",
@@ -1098,6 +1213,7 @@ class CreativeModelingService:
             title,
             description,
             asset_ids,
+            viewer_profiles,
             created_by,
         )
         return {
@@ -1124,7 +1240,31 @@ class CreativeModelingService:
         token = _text(token, "Token", required=True, max_length=100)
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,100}", token):
             raise CreativeNotFoundError("Apresentação não encontrada ou revogada.")
-        return _serialize(self.repository.get_public_collection(token))
+        collection = self.repository.get_public_collection(token)
+        for asset in collection.get("assets") or []:
+            if not asset.get("viewer_profile_id"):
+                continue
+            profile = _viewer_profile_data(
+                {
+                    "id": asset.get("viewer_profile_id"),
+                    "slug": asset.get("viewer_slug"),
+                    "name": asset.get("viewer_name"),
+                    "viewer_kind": asset.get("viewer_kind"),
+                    "logo_asset_ref": asset.get("viewer_logo_asset_ref"),
+                    "palette": asset.get("viewer_palette"),
+                    "shell_spec": asset.get("viewer_shell_spec"),
+                    "disclaimer": asset.get("viewer_disclaimer"),
+                }
+            )
+            asset.update({
+                "viewer_slug": profile["slug"],
+                "viewer_kind": profile["viewer_kind"],
+                "viewer_logo_asset_ref": profile["logo_asset_ref"],
+                "viewer_palette": profile["palette"],
+                "viewer_shell_spec": profile["shell_spec"],
+                "viewer_disclaimer": profile["disclaimer"],
+            })
+        return _serialize(collection)
 
     def public_collection_asset(self, token, asset_id):
         token = _text(token, "Token", required=True, max_length=100)

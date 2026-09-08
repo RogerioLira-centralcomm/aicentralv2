@@ -1,0 +1,229 @@
+"""Blocos determinísticos para prompts de mockups de formatos publicitários."""
+
+MASTER_RENDER_RULES = """You are a senior advertising art director specialized in
+premium digital media, rich media advertising, programmatic media formats,
+mobile advertising, luxury branding and client-presentation mockups.
+
+Create a CLIENT-PRESENTATION MOCKUP of the supplied interactive advertising format.
+This is not a free-form campaign poster. The creative must clearly preserve the
+structure, hierarchy and interaction model of the advertising format.
+
+VISUAL PRESENTATION STANDARD
+- Photorealistic, high-resolution advertising mockup.
+- Physically correct device and screen proportions; never stretch or deform them.
+- Premium studio presentation, controlled light and realistic soft shadows.
+- Keep the advertising creative fully contained inside its placement.
+- Do not add browser chrome or external UI unless the placement explicitly requires it.
+- Use a large photographic area, few words, clear CTA and legible typography.
+- Use consistent margins and realistic interaction cues.
+- The static image must immediately explain how the interaction works.
+- Avoid generic SaaS language, excessive cards and decorative UI.
+- Do not show price unless explicitly requested."""
+
+
+DEVICE_PRESENTATION_RULES = {
+    "celular": """DEVICE PRESENTATION
+- Use a realistic current-generation premium smartphone, perfectly front-facing.
+- Preserve a mobile advertising area close to 1:2 / 300x600.
+- Pure white studio background with a subtle shadow below the device.
+- Do not crop, tilt, squash, widen or overlap the smartphone.""",
+    "tablet": """DEVICE PRESENTATION
+- Use one realistic premium tablet in landscape orientation.
+- Keep the device front-facing, fully visible and physically proportional.
+- Use a clean white studio background and restrained product shadow.""",
+    "portal": """PLACEMENT PRESENTATION
+- Use a deterministic desktop editorial portal shell around the advertising slot.
+- Preserve a credible header, compact navigation, editorial grid and content rhythm.
+- The portal is context only; the advertising unit remains the visual subject.
+- Show the ad installed in its real reserved position inside the page.
+- Do not place the portal ad inside a smartphone or isolated device frame.
+- Do not copy a complete third-party page or real editorial content.""",
+    "tv": """CTV PRESENTATION
+- Use a physically correct 16:9 television or streaming interface.
+- Preserve cinematic safe areas, a restrained navigation layer and content rail.
+- Keep the advertising experience readable from a living-room viewing distance.
+- Show the ad integrated into the CTV or streaming experience, not inside a phone.
+- Do not turn the result into a poster detached from the CTV interface.""",
+}
+
+
+FOUR_VARIATION_BOARD = """VARIATION PRESENTATION
+Create ONE wide client-presentation image containing exactly FOUR identical devices
+arranged horizontally in one row. All devices must have identical dimensions, angle,
+vertical alignment, lighting and shadows. Leave equal spacing. Do not crop or overlap
+any device. Keep exactly the same campaign design and interaction mechanism across all
+four states. Only the supplied content or revealed scene may change."""
+
+MULTI_FORMAT_BOARD = """MULTI-FORMAT PRESENTATION
+Create ONE wide client-presentation board containing exactly FOUR advertising mockups.
+Use the native presentation environment required by each placement: editorial portal
+for desktop/display inventory, a 16:9 television or streaming shell for CTV inventory,
+and a smartphone only for formats explicitly modeled as mobile. If all four formats
+share one channel, repeat that same native environment consistently. If the board
+compares channels, each mockup may use its corresponding native environment while
+keeping one shared brand system, typography, lighting and art direction.
+Each mockup demonstrates a DIFFERENT interactive advertising format from the same
+campaign. The interaction mechanism may change between mockups, but the campaign
+design must not. Make each mechanism immediately understandable:
+1. immersive 360-degree or panoramic discovery
+2. fixed-card or carousel selection
+3. architectural image with premium clickable hotspots
+4. drag-to-compare or pull-to-reveal interaction
+Do not create four unrelated campaign styles. Do not merge the four mechanisms into
+one screen. Do not default every format to a smartphone. Label each format through its
+interaction cue, not through technical UI."""
+
+
+FORMAT_MECHANISM_RULES = {
+    "quiz": """FORMAT MECHANISM: INTERACTIVE QUIZ
+Show one concise question, two to four comfortable answer targets and a progress
+indicator. The answers must clearly look tappable. Keep the quiz inside the fixed
+advertising unit. Do not turn it into a dashboard, form builder or landing page.""",
+    "reveal": """FORMAT MECHANISM: PULL TO REVEAL
+Represent the interaction in progress. A tactile foreground layer must be visibly
+dragged to reveal a second visual layer. Show realistic material, overlap, edge,
+shadow, directional cue and partial reveal. Do not render a simple static poster.""",
+    "hotspot": """FORMAT MECHANISM: INTERACTIVE HOTSPOTS
+Place restrained circular markers directly over one hero image. Connect each marker
+to a short translucent label with a fine line. Keep the result premium and clearly
+interactive. Do not turn it into a map application or dashboard.""",
+    "flip": """FORMAT MECHANISM: FIXED PRODUCT CARD / FLIP
+Keep one clearly bounded central card at exactly the same size and position. Show a
+subtle front/back or carousel cue. Product photography, name and requested information
+belong inside the card. Do not transform the card into a free-form layout.""",
+    "compare": """FORMAT MECHANISM: DRAG COMPARISON
+Show two aligned image states divided by one clear draggable handle. Preserve the
+same framing on both sides and make the comparison interaction understandable.""",
+    "video": """FORMAT MECHANISM: INTERACTIVE VIDEO
+Show one primary video area with a restrained play/progress affordance and one clear
+CTA. Avoid controls or navigation unrelated to the advertising unit.""",
+    "static": """FORMAT MECHANISM: FIXED ADVERTISING UNIT
+Respect the exact placement geometry, safe area, hierarchy and outer frame. Do not
+expand the unit into a landing page.""",
+}
+
+
+STRICT_NEGATIVE_RULES = """STRICT NEGATIVE RULES
+Do not:
+- distort, crop or invent another device design
+- use a smartphone when the placement context is portal, display, CTV or streaming
+- change device size or campaign layout between variations
+- transform the ad into a landing page, dashboard, chart or free-form poster
+- add prices unless explicitly requested
+- add fake browser UI, excessive cards, excessive copy or arbitrary icons
+- add unrelated brand elements or navigation
+- change the interaction mechanism
+- ignore the supplied structural reference
+
+The objective is to demonstrate the advertising FORMAT to a client, not merely to
+generate an attractive campaign image."""
+
+
+def _value(data, key, fallback=""):
+    value = data.get(key) if isinstance(data, dict) else None
+    return value if value not in (None, "") else fallback
+
+
+def compose_format_mockup_prompt(
+    format_data,
+    client=None,
+    reference_type="full_mockup",
+    presentation_mode="single",
+    campaign_content=None,
+    has_references=False,
+):
+    """Monta um prompt por camadas, sem templates livres vindos do cliente."""
+    placement = format_data.get("placement_spec") or {}
+    viewport = placement.get("viewport") or {}
+    slot = placement.get("slot") or {}
+    context = placement.get("context") or "portal"
+    presentation_context = {
+        "ctv": "tv",
+        "streaming": "tv",
+        "smart_tv": "tv",
+        "mobile": "celular",
+        "display": "portal",
+        "desktop": "portal",
+    }.get(context, context)
+    behavior = (format_data.get("behavior_spec") or {}).get("type") or "static"
+
+    sections = [
+        MASTER_RENDER_RULES,
+        DEVICE_PRESENTATION_RULES.get(
+            presentation_context, DEVICE_PRESENTATION_RULES["portal"]
+        ),
+    ]
+    if presentation_mode == "four_horizontal":
+        sections.append(FOUR_VARIATION_BOARD)
+    elif presentation_mode == "multi_format_board":
+        sections.append(MULTI_FORMAT_BOARD)
+    sections.extend(
+        [
+            "\n".join(
+                [
+                    "FORMAT TEMPLATE",
+                    f"Name: {_value(format_data, 'name_pt', 'Advertising format')}",
+                    f"Mechanic: {_value(format_data, 'mechanic', behavior)}",
+                    f"Context: {context}",
+                    (
+                        "Technical viewport: "
+                        f"{viewport.get('width', 1280)}x{viewport.get('height', 800)}"
+                    ),
+                    (
+                        "Reserved slot: "
+                        f"x {slot.get('x', 0)}%, y {slot.get('y', 0)}%, "
+                        f"width {slot.get('width', 100)}%, "
+                        f"height {slot.get('height', 100)}%"
+                    ),
+                    f"Output aspect ratio: {_value(format_data, 'aspect_ratio', '16:9')}",
+                    f"Safe area: {_value(format_data, 'safe_area', {})}",
+                    f"Responsive rules: {_value(format_data, 'responsive_rules')}",
+                    f"Background guidance: {_value(format_data, 'background_guidance')}",
+                    f"Foreground guidance: {_value(format_data, 'foreground_guidance')}",
+                ]
+            ),
+            FORMAT_MECHANISM_RULES.get(behavior, FORMAT_MECHANISM_RULES["static"]),
+        ]
+    )
+
+    if reference_type == "background":
+        sections.append(
+            "OUTPUT SCOPE\nGenerate the environment only. Keep the advertising slot "
+            "empty, neutral and clearly reserved. Do not place a finished ad in it."
+        )
+    elif client:
+        sections.append(
+            "\n".join(
+                [
+                    "BRAND CONTEXT",
+                    f"Brand: {_value(client, 'name')}",
+                    f"Sector: {_value(client, 'sector')}",
+                    f"Voice: {_value(client, 'tone_of_voice')}",
+                    f"Primary color: {_value(client, 'primary_color')}",
+                    f"Secondary color: {_value(client, 'secondary_color')}",
+                    (
+                        "Price policy: show price only when explicitly requested."
+                        if client.get("price_policy") == "show_price"
+                        else "Price policy: do not show price."
+                    ),
+                ]
+            )
+        )
+    else:
+        sections.append(
+            "BRAND CONTEXT\nUse a fictional neutral brand with no recognizable "
+            "logo, trademark, price or unsupported claim."
+        )
+
+    if campaign_content:
+        sections.append(f"CAMPAIGN CONTENT AND VARIATIONS\n{campaign_content}")
+    if has_references:
+        sections.append(
+            "STRUCTURAL REFERENCE RULES\nUse input references only as the structural "
+            "advertising-format template. Preserve proportions, hierarchy, card/slot "
+            "dimensions, header and CTA locations, outer-frame relationship and the "
+            "interaction metaphor. Replace only campaign, colors, photography and copy. "
+            "Do not redesign the format."
+        )
+    sections.append(STRICT_NEGATIVE_RULES)
+    return "\n\n".join(section.strip() for section in sections if section)

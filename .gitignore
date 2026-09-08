@@ -49,6 +49,7 @@ logs/
 
 # Cache
 .cache/
+.firecrawl/
 *.pid
 
 # Uploads

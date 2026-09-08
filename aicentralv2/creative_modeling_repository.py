@@ -49,6 +49,7 @@ class CreativeModelingRepository:
                        f.layers, f.required_fields, f.optional_fields,
                        f.forbidden_elements, f.use_cases_by_market, f.status,
                        f.placement_spec, f.behavior_spec,
+                       f.default_viewer_profile_id,
                        COALESCE(cat.slug, 'programatica') AS category,
                        ch.slug AS channel, ch.name AS channel_name,
                        ch.screen_context_template, ch.partner_primary_color,
@@ -68,6 +69,35 @@ class CreativeModelingRepository:
                 """
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def list_viewer_profiles(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, slug, name, viewer_kind, source_url, logo_asset_ref,
+                       palette, shell_spec, disclaimer
+                  FROM cx_creative_viewer_profiles
+                 WHERE is_active = TRUE
+                 ORDER BY viewer_kind, name
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_viewer_profile(self, profile_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, slug, name, viewer_kind, source_url, logo_asset_ref,
+                       palette, shell_spec, disclaimer
+                  FROM cx_creative_viewer_profiles
+                 WHERE id = %s AND is_active = TRUE
+                """,
+                (profile_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Ambiente de mídia não encontrado.")
+        return dict(row)
 
     def get_format(self, format_id):
         with self.conn.cursor() as cursor:
@@ -99,7 +129,8 @@ class CreativeModelingRepository:
                        background_guidance = %s,
                        foreground_guidance = %s,
                        placement_spec = %s,
-                       behavior_spec = %s
+                       behavior_spec = %s,
+                       default_viewer_profile_id = %s
                  WHERE id = %s
                 RETURNING id
                 """,
@@ -110,6 +141,7 @@ class CreativeModelingRepository:
                     data.get("foreground_guidance"),
                     Json(data.get("placement_spec") or {}),
                     Json(data.get("behavior_spec") or {}),
+                    data.get("default_viewer_profile_id"),
                     format_id,
                 ),
             )
@@ -910,9 +942,15 @@ class CreativeModelingRepository:
         with self.conn.cursor() as cursor:
             query = """
                 SELECT a.id, a.job_id, a.step_id, a.asset_type, a.asset_url,
-                       a.status, a.metadata, j.campaign_id
+                       a.status, a.metadata, j.campaign_id,
+                       COALESCE(j.format_template_id, s.format_template_id)
+                           AS format_template_id,
+                       f.aspect_ratio, f.media_type, f.mechanic
                   FROM cx_generated_assets a
                   JOIN cx_generation_jobs j ON j.id = a.job_id
+                  LEFT JOIN cx_variation_steps s ON s.id = a.step_id
+                  LEFT JOIN cx_format_templates f
+                    ON f.id = COALESCE(j.format_template_id, s.format_template_id)
                  WHERE a.id = ANY(%s)
             """
             if approved_only:
@@ -1235,6 +1273,7 @@ class CreativeModelingRepository:
                        v.label AS variation_label, s.position AS step_position,
                        f.id AS format_template_id, f.name_pt AS format_name,
                        f.mechanic, f.media_type, f.aspect_ratio, f.default_size,
+                       f.placement_spec, f.default_viewer_profile_id,
                        ch.name AS channel_name
                   FROM cx_generated_assets a
                   JOIN cx_generation_jobs j ON j.id = a.job_id
@@ -1324,7 +1363,8 @@ class CreativeModelingRepository:
             return dict(row)
 
     def create_public_collection(
-        self, campaign_id, token, title, description, asset_ids, created_by
+        self, campaign_id, token, title, description, asset_ids,
+        viewer_profiles, created_by
     ):
         with self._write() as cursor:
             cursor.execute(
@@ -1364,11 +1404,14 @@ class CreativeModelingRepository:
                 cursor.execute(
                     """
                     INSERT INTO cx_public_collection_assets (
-                        collection_id, asset_id, position
+                        collection_id, asset_id, position, viewer_profile_id
                     )
-                    VALUES (%s, %s, %s)
+                    VALUES (%s, %s, %s, %s)
                     """,
-                    (collection["id"], asset_id, position),
+                    (
+                        collection["id"], asset_id, position,
+                        viewer_profiles.get(asset_id),
+                    ),
                 )
             return collection
 
@@ -1428,7 +1471,13 @@ class CreativeModelingRepository:
                        a.status, ca.position, j.prompt, j.script_text,
                        f.name_pt AS format_name, f.mechanic, f.media_type,
                        f.aspect_ratio, f.default_size, ch.name AS channel_name,
-                       v.label AS variation_label, s.position AS step_position
+                       v.label AS variation_label, s.position AS step_position,
+                       vp.id AS viewer_profile_id, vp.slug AS viewer_slug,
+                       vp.name AS viewer_name, vp.viewer_kind,
+                       vp.logo_asset_ref AS viewer_logo_asset_ref,
+                       vp.palette AS viewer_palette,
+                       vp.shell_spec AS viewer_shell_spec,
+                       vp.disclaimer AS viewer_disclaimer
                   FROM cx_public_collection_assets ca
                   JOIN cx_generated_assets a ON a.id = ca.asset_id
                   JOIN cx_generation_jobs j ON j.id = a.job_id
@@ -1437,6 +1486,22 @@ class CreativeModelingRepository:
                   LEFT JOIN cx_format_templates f
                     ON f.id = COALESCE(j.format_template_id, s.format_template_id)
                   LEFT JOIN cx_channels ch ON ch.id = f.channel_id
+                  LEFT JOIN cx_creative_viewer_profiles vp
+                    ON vp.id = COALESCE(
+                        ca.viewer_profile_id,
+                        f.default_viewer_profile_id,
+                        (
+                            SELECT fallback.id
+                              FROM cx_creative_viewer_profiles fallback
+                             WHERE fallback.slug = CASE
+                                 WHEN f.placement_spec->>'context' = 'tv'
+                                 THEN 'netflix'
+                                 ELSE 'g1'
+                             END
+                               AND fallback.is_active = TRUE
+                             LIMIT 1
+                        )
+                    )
                  WHERE ca.collection_id = %s
                  ORDER BY ca.position
                 """,

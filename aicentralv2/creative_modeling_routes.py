@@ -70,6 +70,11 @@ def api_formats():
 
 
 @admin_required_api
+def api_viewer_profiles():
+    return _execute(lambda: _ok(_service().list_viewer_profiles()))
+
+
+@admin_required_api
 def api_update_format(format_id):
     return _execute(
         lambda: _ok(_service().update_format_modeling(format_id, _json()))
@@ -280,6 +285,16 @@ def api_promote_asset(asset_id):
 
 
 @admin_required_api
+def api_prepare_display_motion(asset_id):
+    return _execute(
+        lambda: _ok(
+            _service().prepare_display_motion(asset_id, session.get("user_id")),
+            201,
+        )
+    )
+
+
+@admin_required_api
 def api_history():
     return _execute(
         lambda: _ok(_service().history(request.args.get("campaign_id")))
@@ -424,6 +439,11 @@ def register_creative_modeling_routes(blueprint):
         "/api/formats", endpoint="creative_formats", view_func=api_formats
     )
     blueprint.add_url_rule(
+        "/api/viewer-profiles",
+        endpoint="creative_viewer_profiles",
+        view_func=api_viewer_profiles,
+    )
+    blueprint.add_url_rule(
         "/api/formats/<int:format_id>",
         endpoint="creative_update_format",
         view_func=api_update_format,
@@ -551,6 +571,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/assets/<int:asset_id>/promote",
         endpoint="creative_promote_asset",
         view_func=api_promote_asset,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/assets/<int:asset_id>/display-motion/prepare",
+        endpoint="creative_prepare_display_motion",
+        view_func=api_prepare_display_motion,
         methods=["POST"],
     )
     blueprint.add_url_rule(

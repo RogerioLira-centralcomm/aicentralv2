@@ -253,6 +253,178 @@ h2 {
   padding: clamp(1rem, 3vw, 3rem);
 }
 
+.pv-environment {
+  min-height: 24rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--viewer-primary) 22%, #cbd8d8);
+  border-radius: 0.8rem;
+  background: var(--viewer-canvas);
+  color: var(--viewer-text);
+}
+
+.pv-environment-label {
+  display: flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.8rem;
+  background: #fff;
+  color: #536667;
+  font-size: 0.7rem;
+}
+
+.pv-environment-label > span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pv-environment-label img {
+  width: auto;
+  max-width: 5.5rem;
+  height: 1.5rem;
+  border-radius: 0.2rem;
+  padding: 0.15rem;
+  background: var(--viewer-secondary);
+  object-fit: contain;
+}
+
+.pv-environment-label small { text-align: right; }
+
+.pv-portal-shell header,
+.pv-tv-shell header {
+  display: flex;
+  align-items: center;
+}
+
+.pv-portal-network {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0.3rem 1rem;
+  background: color-mix(in srgb, var(--viewer-secondary) 90%, black);
+  color: #fff;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.pv-portal-shell header {
+  min-height: 3.4rem;
+  justify-content: space-between;
+  padding: 0.55rem clamp(1rem, 3vw, 2.5rem);
+  background: var(--viewer-primary);
+  color: #fff;
+}
+
+.pv-portal-shell header img {
+  width: auto;
+  max-width: 7rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.pv-portal-shell nav,
+.pv-tv-shell nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 2vw, 1.6rem);
+}
+
+.pv-portal-shell nav {
+  min-height: 2rem;
+  justify-content: center;
+  background: var(--viewer-surface);
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pv-portal-ticker {
+  display: flex;
+  gap: 0.6rem;
+  border-top: 1px solid color-mix(in srgb, var(--viewer-primary) 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--viewer-primary) 16%, transparent);
+  padding: 0.4rem clamp(1rem, 3vw, 2.5rem);
+  background: var(--viewer-surface);
+  font-size: 0.65rem;
+}
+
+.pv-portal-ticker b { color: var(--viewer-primary); text-transform: uppercase; }
+
+.pv-environment-content {
+  display: grid;
+  min-height: 20rem;
+  grid-template-columns: minmax(5rem, 0.7fr) minmax(15rem, 2.8fr) minmax(5rem, 0.7fr);
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 2rem);
+  padding: clamp(1rem, 3vw, 3rem);
+}
+
+.pv-environment.is-tv {
+  position: relative;
+  min-height: 30rem;
+  background:
+    radial-gradient(circle at 25% 20%, color-mix(in srgb, var(--viewer-primary) 30%, transparent), transparent 30%),
+    linear-gradient(135deg, var(--viewer-canvas), color-mix(in srgb, var(--viewer-secondary) 35%, black));
+  color: #fff;
+}
+
+.pv-tv-shell header {
+  position: relative;
+  z-index: 2;
+  min-height: 3.5rem;
+  gap: 2rem;
+  padding: 0.8rem 1.4rem;
+}
+
+.pv-tv-shell header img { width: auto; max-width: 6rem; height: 1.65rem; object-fit: contain; }
+.pv-tv-shell header i { margin-left: auto; }
+.pv-tv-shell nav { font-size: 0.68rem; }
+
+.pv-tv-hero {
+  display: grid;
+  max-width: 18rem;
+  gap: 0.25rem;
+  padding: 1rem 1.4rem 0;
+}
+
+.pv-tv-hero strong { font-size: clamp(1.2rem, 3vw, 2rem); line-height: 1; }
+.pv-tv-hero small { color: color-mix(in srgb, #fff 68%, transparent); }
+
+.pv-environment.is-tv .pv-environment-content {
+  position: relative;
+  z-index: 2;
+  min-height: 17rem;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: min(72%, 48rem);
+  margin-inline: auto;
+  padding-block: 1rem;
+}
+
+.pv-environment.is-tv .pv-editorial { display: none; }
+
+.pv-tv-rail {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.55rem;
+  padding: 0 1.4rem 1.2rem;
+}
+
+.pv-tv-rail b {
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.28rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--viewer-primary) 75%, #fff), var(--viewer-secondary));
+}
+
+.pv-tv-rail b:first-child {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .pv-editorial { display: grid; gap: 0.6rem; }
 .pv-editorial b, .pv-editorial span {
   display: block;
@@ -471,6 +643,11 @@ h2 {
   .pv-piece-head, .pv-piece-foot { display: grid; }
   .pv-tags { justify-content: flex-start; }
   .pv-portal-content { grid-template-columns: 1fr; padding: 0.75rem; }
+  .pv-environment-label { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+  .pv-environment-label small { text-align: left; }
+  .pv-environment-content { grid-template-columns: 1fr; padding: 0.75rem; }
+  .pv-tv-shell nav { display: none; }
+  .pv-environment.is-tv .pv-environment-content { max-width: 100%; }
   .pv-editorial { display: none; }
   .pv-player { grid-template-columns: auto 1fr auto; }
   .pv-player time, .pv-player [data-video-action="fullscreen"] { display: none; }

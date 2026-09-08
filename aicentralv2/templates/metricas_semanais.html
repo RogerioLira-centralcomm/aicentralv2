@@ -1,4 +1,6 @@
-{% extends "base_tailwind.html" %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Operação{% endblock %}
+{% block page_subtitle %}Campanhas e acompanhamento{% endblock %}
 
 {% block title %}Dashboard Gerencial Comercial{% endblock %}
 
@@ -40,9 +42,10 @@
 
     @media print {
         body, html { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        .navbar, .drawer-side, .drawer-toggle, footer, .btm-nav,
+        .navbar, .drawer-side, .drawer-toggle, .erp-topbar, .erp-sidebar, .erp-backdrop,
+        #cx-agent-dock, .cx-agent-trigger, footer, .btm-nav,
         #btnGerarPDF, .dropdown, label[for="main-drawer"] { display: none !important; }
-        .drawer-content { margin-left: 0 !important; padding: 0 !important; }
+        .drawer-content, .erp-main-content { margin-left: 0 !important; padding: 0 !important; }
         #dashboardContainer { max-width: 100% !important; padding: 10px !important; }
         .chart-container { height: 200px !important; break-inside: avoid; }
         .chart-container-lg { height: 240px !important; break-inside: avoid; }

@@ -1,4 +1,6 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
@@ -505,7 +507,7 @@ function calcularVolumeEdit() {
   </div>
 
   <!-- ==================== HEADER COMPACTO (estilo CRM) ==================== -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40 erp-content-sticky" style="max-height: 66px;">
     <div class="flex items-center justify-between gap-4">
       <!-- Voltar + Título + Código -->
       <div class="flex items-center gap-3 min-w-0">

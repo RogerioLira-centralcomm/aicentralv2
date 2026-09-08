@@ -654,7 +654,7 @@
         {'group': 'Sistema e diagnóstico', 'label': 'Testes DV360', 'endpoint': 'parametros.testes_dv', 'match_endpoints': ['parametros.testes_dv_legado', 'dv360_pages.diagnostico'], 'url': url_for('parametros.testes_dv'), 'icon': 'fa-vial'}
     ] %}
 
-    <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal">
+    <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal" aria-hidden="true" inert>
         <div class="erp-sidebar-inner">
             <div class="erp-brand">
                 <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX">
@@ -930,12 +930,20 @@
         body.classList.add('fouc-ready');
 
         function closeSidebar() {
-            if (sidebar) sidebar.classList.remove('is-open');
+            if (sidebar) {
+                sidebar.classList.remove('is-open');
+                sidebar.setAttribute('aria-hidden', 'true');
+                sidebar.setAttribute('inert', '');
+            }
             if (backdrop) backdrop.classList.remove('is-open');
             if (toggle) toggle.setAttribute('aria-expanded', 'false');
         }
         function openSidebar() {
-            if (sidebar) sidebar.classList.add('is-open');
+            if (sidebar) {
+                sidebar.classList.add('is-open');
+                sidebar.setAttribute('aria-hidden', 'false');
+                sidebar.removeAttribute('inert');
+            }
             if (backdrop) backdrop.classList.add('is-open');
             if (toggle) toggle.setAttribute('aria-expanded', 'true');
         }

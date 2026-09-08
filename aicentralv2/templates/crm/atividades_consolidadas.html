@@ -1,4 +1,6 @@
-{% extends "base_tailwind.html" %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Clientes, propostas e relacionamento{% endblock %}
 {% block title %}Atividades consolidadas — CRM{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}">

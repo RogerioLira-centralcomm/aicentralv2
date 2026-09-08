@@ -14,6 +14,30 @@ import os
 mail = Mail()
 
 
+def is_erp_nav_item_active(item):
+    """Compara endpoint e query string declarados pelo item da navbar ERP."""
+    from flask import request
+
+    endpoint = request.endpoint or ""
+    endpoint_match = (
+        endpoint == item.get("endpoint")
+        or endpoint in item.get("match_endpoints", [])
+        or (
+            item.get("match_prefix")
+            and endpoint.startswith(item["match_prefix"])
+        )
+    )
+    if not endpoint_match:
+        return False
+    for key, expected in item.get("match_args", {}).items():
+        if request.args.get(key) != str(expected):
+            return False
+    for key in item.get("exclude_args", []):
+        if request.args.get(key) not in (None, ""):
+            return False
+    return True
+
+
 def create_app(config_class=Config):
     """
     Cria e configura a aplicação Flask
@@ -125,6 +149,7 @@ def create_app(config_class=Config):
             is_centralcomm_user=is_cc_user,
             perfil_contato=perfil_contato,
             cx_page_context=resolve_page_context(),
+            is_erp_nav_item_active=is_erp_nav_item_active,
         )
 
     # Registrar teardown (fechar conexão)

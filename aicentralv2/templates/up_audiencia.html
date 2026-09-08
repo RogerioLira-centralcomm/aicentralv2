@@ -1,4 +1,6 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Cadu{% endblock %}
+{% block page_subtitle %}Audiências e cadastros{% endblock %}
 
 {% block title %}Analisador de Audiência - CentralComm AI{% endblock %}
 
@@ -261,7 +263,7 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
 </div>
 
 <!-- Loading Overlay -->
-<div class="fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-50 hidden" id="loadingOverlay">
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-[100] hidden" id="loadingOverlay">
   <div class="card bg-base-100 shadow-lg p-4 text-center">
     <span class="loading loading-spinner loading-md text-primary"></span>
     <p class="text-sm mt-2">Processando...</p>

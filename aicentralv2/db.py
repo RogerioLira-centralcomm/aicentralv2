@@ -7943,30 +7943,118 @@ def obter_cotacoes_filtradas(
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            query = '''
+            def _columns(table_name):
+                cursor.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = %s
+                    """,
+                    (table_name,),
+                )
+                return {row["column_name"] for row in cursor.fetchall()}
+
+            cotacao_cols = _columns("cadu_cotacoes")
+            linha_cols = _columns("cadu_cotacao_linhas")
+            audiencia_cols = _columns("cadu_cotacao_audiencias")
+            anexo_cols = _columns("cadu_cotacao_anexos")
+            contato_cols = _columns("tbl_contato_cliente")
+            status_cols = _columns("cadu_cotacoes_status")
+
+            linha_where = ["l.cotacao_id = c.id"]
+            if "is_deleted" in linha_cols:
+                linha_where.append("COALESCE(l.is_deleted, FALSE) = FALSE")
+            if "is_subtotal" in linha_cols:
+                linha_where.append("COALESCE(l.is_subtotal, FALSE) = FALSE")
+            if "is_header" in linha_cols:
+                linha_where.append("COALESCE(l.is_header, FALSE) = FALSE")
+            linha_where_sql = " AND ".join(linha_where)
+
+            total_linhas_expr = (
+                f"(SELECT COUNT(*) FROM cadu_cotacao_linhas l WHERE {linha_where_sql})"
+                if linha_cols else "0"
+            )
+            total_audiencias_expr = (
+                "(SELECT COUNT(*) FROM cadu_cotacao_audiencias a WHERE a.cotacao_id = c.id)"
+                if audiencia_cols else "0"
+            )
+            if anexo_cols:
+                anexo_where = ["an.cotacao_id = c.id"]
+                if "is_deleted" in anexo_cols:
+                    anexo_where.append("COALESCE(an.is_deleted, FALSE) = FALSE")
+                elif "deleted_at" in anexo_cols:
+                    anexo_where.append("an.deleted_at IS NULL")
+                total_anexos_expr = (
+                    "(SELECT COUNT(*) FROM cadu_cotacao_anexos an WHERE "
+                    + " AND ".join(anexo_where)
+                    + ")"
+                )
+            else:
+                total_anexos_expr = "0"
+
+            bruto_linhas_expr = (
+                f"(SELECT COALESCE(SUM(COALESCE(l.investimento_bruto, 0)), 0) "
+                f"FROM cadu_cotacao_linhas l WHERE {linha_where_sql})"
+                if "investimento_bruto" in linha_cols else "0"
+            )
+            liquido_linhas_expr = (
+                f"(SELECT COALESCE(SUM(COALESCE(l.investimento_liquido, 0)), 0) "
+                f"FROM cadu_cotacao_linhas l WHERE {linha_where_sql})"
+                if "investimento_liquido" in linha_cols else "0"
+            )
+            if "investimento_sugerido" in audiencia_cols:
+                audiencia_where = ["a.cotacao_id = c.id"]
+                if "incluido_proposta" in audiencia_cols:
+                    audiencia_where.append("COALESCE(a.incluido_proposta, TRUE) = TRUE")
+                audiencia_valor_expr = (
+                    "(SELECT COALESCE(SUM(COALESCE(a.investimento_sugerido, 0)), 0) "
+                    "FROM cadu_cotacao_audiencias a WHERE "
+                    + " AND ".join(audiencia_where)
+                    + ")"
+                )
+            else:
+                audiencia_valor_expr = "0"
+
+            status_join = ""
+            if {"id", "descricao"}.issubset(status_cols):
+                status_join = (
+                    "LEFT JOIN cadu_cotacoes_status st "
+                    "ON BTRIM(c.status::text) = st.id::text"
+                )
+                status_expr = (
+                    "COALESCE(st.descricao, NULLIF(BTRIM(c.status::text), ''), 'Rascunho')"
+                )
+            else:
+                status_expr = "COALESCE(NULLIF(BTRIM(c.status::text), ''), 'Rascunho')"
+
+            foto_expr = "resp.foto_url" if "foto_url" in contato_cols else "NULL"
+            query = f'''
                 SELECT 
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
-                    resp.foto_url as responsavel_foto_url,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) as total_linhas,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id AND (is_deleted IS NULL OR is_deleted = FALSE)), 0) as total_anexos,
-                    COALESCE((SELECT SUM(COALESCE(investimento_bruto, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) 
-                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id AND incluido_proposta = true), 0) as valor_total_bruto,
-                    COALESCE((SELECT SUM(COALESCE(investimento_liquido, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) 
-                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id AND incluido_proposta = true), 0) as valor_total_liquido
+                    {foto_expr} as responsavel_foto_url,
+                    {status_expr} as status_display,
+                    {total_linhas_expr} as total_linhas,
+                    {total_audiencias_expr} as total_audiencias,
+                    {total_anexos_expr} as total_anexos,
+                    ({bruto_linhas_expr}) + ({audiencia_valor_expr}) as valor_total_bruto,
+                    ({liquido_linhas_expr}) + ({audiencia_valor_expr}) as valor_total_liquido
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
-                WHERE c.deleted_at IS NULL
+                {status_join}
+                WHERE {'c.deleted_at IS NULL' if 'deleted_at' in cotacao_cols else 'TRUE'}
             '''
             params = []
 
             if apenas_teste_calculo:
-                query += ' AND c.origem = %s'
-                params.append(ORIGEM_TESTE_CALCULO)
-            elif excluir_teste_calculo:
+                if "origem" in cotacao_cols:
+                    query += ' AND c.origem = %s'
+                    params.append(ORIGEM_TESTE_CALCULO)
+                else:
+                    query += " AND FALSE"
+            elif excluir_teste_calculo and "origem" in cotacao_cols:
                 query += ' AND (c.origem IS DISTINCT FROM %s)'
                 params.append(ORIGEM_TESTE_CALCULO)
             
@@ -7978,34 +8066,35 @@ def obter_cotacoes_filtradas(
                 query += ' AND c.responsavel_comercial = %s'
                 params.append(responsavel_id)
             
-            if mes:
+            if mes and "created_at" in cotacao_cols:
                 query += ' AND EXTRACT(MONTH FROM c.created_at) = %s'
                 params.append(int(mes))
             
             if busca:
-                query += ' AND (unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(c.nome_campanha) ILIKE unaccent(%s) OR c.numero_cotacao ILIKE %s)'
+                query += ' AND (cli.nome_fantasia ILIKE %s OR c.nome_campanha ILIKE %s OR c.numero_cotacao ILIKE %s)'
                 busca_param = f'%{busca}%'
                 params.extend([busca_param, busca_param, busca_param])
             
             if status:
                 if status == 'Rascunho':
-                    query += " AND (c.status = 'Rascunho' OR c.status = 'Pendente' OR c.status IS NULL)"
+                    query += f" AND ({status_expr} IN ('Rascunho', 'Pendente') OR c.status IS NULL)"
                 else:
-                    query += ' AND c.status = %s'
+                    query += f' AND {status_expr} = %s'
                     params.append(status)
             
             # Ordenar: Enviadas primeiro (prioridade), depois por data de período
-            query += '''
+            query += f'''
                 ORDER BY 
-                    CASE WHEN c.status = 'Enviada' THEN 0 ELSE 1 END,
+                    CASE WHEN {status_expr} = 'Enviada' THEN 0 ELSE 1 END,
                     c.periodo_inicio DESC NULLS LAST,
                     c.created_at DESC
             '''
             
             cursor.execute(query, params)
             return cursor.fetchall()
-    except Exception as e:
-        raise e
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def obter_cotacao_por_id(cotacao_id):

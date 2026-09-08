@@ -594,18 +594,33 @@ def cotacoes_list():
             excluir_teste_calculo=False,
             apenas_teste_calculo=False,
         )
+        cotacoes = [dict(cotacao) for cotacao in (cotacoes or [])]
         vendedores = db.obter_vendedores_centralcomm()
         return render_template(
             'cadu_cotacoes.html',
-            cotacoes=cotacoes or [],
+            cotacoes=cotacoes,
             cliente_filtro=cliente_info,
             vendedores=vendedores,
             now=datetime.now,
         )
     except Exception as e:
         current_app.logger.error(f"cotacoes_list: {e}", exc_info=True)
+        try:
+            db.get_db().rollback()
+        except Exception:
+            current_app.logger.warning(
+                "cotacoes_list: não foi possível reverter a transação",
+                exc_info=True,
+            )
         flash('Erro ao carregar cotações.', 'error')
-        vendedores = db.obter_vendedores_centralcomm()
+        try:
+            vendedores = db.obter_vendedores_centralcomm()
+        except Exception:
+            current_app.logger.error(
+                "cotacoes_list: falha ao carregar vendedores no fallback",
+                exc_info=True,
+            )
+            vendedores = []
         return render_template(
             'cadu_cotacoes.html',
             cotacoes=[],

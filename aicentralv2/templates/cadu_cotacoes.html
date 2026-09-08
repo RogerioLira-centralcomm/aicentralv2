@@ -96,7 +96,8 @@
         {% for cotacao in cotacoes %}
         {% set hoje = now().date() %}
         {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
-        {% set status_enviada = cotacao.status == 'Enviada' %}
+        {% set status_display = cotacao.status_display or cotacao.status or 'Rascunho' %}
+        {% set status_enviada = status_display == 'Enviada' %}
         {% set sem_responsavel = not cotacao.responsavel_nome %}
         {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
 

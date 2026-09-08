@@ -1,4 +1,6 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Financeiro{% endblock %}
+{% block page_subtitle %}Faturamento e reembolsos{% endblock %}
 
 {% block title %}Notas Fiscais - CentralComm AI{% endblock %}
 
@@ -6,7 +8,7 @@
 
 {% block content %}
 <div class="max-w-full mx-auto px-2">
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40 erp-content-sticky" style="max-height: 66px;">
     <div class="flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <h1 class="text-lg font-semibold text-gray-800">Notas Fiscais</h1>

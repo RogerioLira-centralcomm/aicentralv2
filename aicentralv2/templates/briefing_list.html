@@ -1,11 +1,13 @@
-{% extends "base_tailwind.html" %}
+{% extends 'base_erp.html' %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Clientes, propostas e relacionamento{% endblock %}
 
 {% block title %}Gestão de Briefings{% endblock %}
 
 {% block content %}
 <div class="max-w-full mx-auto px-1 overflow-x-hidden">
     <!-- Header Compacto - Estilo CRM -->
-    <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+    <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40 erp-content-sticky">
         <div class="flex items-center justify-between gap-2">
             <!-- Título -->
             <div class="flex items-center gap-2 flex-shrink-0">

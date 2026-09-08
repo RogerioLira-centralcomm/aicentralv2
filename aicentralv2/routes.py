@@ -4797,6 +4797,7 @@ def init_routes(app):
                                  cliente_selecionado=cliente_selecionado,
                                  projeto_selecionado=projeto_selecionado,
                                  stats=stats,
+                                 ano_atual=datetime.now().year,
                                  filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': str(filtros.get('responsavel_id', '')) if filtros.get('responsavel_id') else responsavel_id, 'mes': mes, 'ano': ano})
         except Exception as e:
             import traceback

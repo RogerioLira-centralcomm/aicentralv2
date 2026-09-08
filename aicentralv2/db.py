@@ -11487,6 +11487,7 @@ def obter_cadu_pi_lista(filtros=None):
                     cli.cnpj as cliente_cnpj,
                     cli_ag.nome_fantasia as agencia_nome,
                     cli_parc.nome_fantasia as parceiro_nome,
+                    pt.descricao as pi_tipo_descricao,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome,
@@ -11502,6 +11503,7 @@ def obter_cadu_pi_lista(filtros=None):
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
                 LEFT JOIN tbl_cliente cli_parc ON p."Id_parc_reg" = cli_parc.id_cliente
+                LEFT JOIN cadu_pi_tipo pt ON p.id_pi_tipo = pt.id
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente

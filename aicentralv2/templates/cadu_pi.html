@@ -1,9 +1,13 @@
 {% extends 'base_erp.html' %}
 
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Gestão comercial e operacional de PIs{% endblock %}
+
 {% block title %}PIs - CentralComm AI{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=1">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -11,10 +15,11 @@
 {% set lista_financeira = origem_lista in ['faturamento', 'nf_emitida'] %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-1">
-  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40 erp-content-sticky pi-filter-sticky">
-    <div class="flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
+<div class="pi-page">
+  <div class="pi-list-toolbar erp-content-sticky pi-filter-sticky">
+    <div class="pi-list-toolbar-inner">
+      <div class="pi-list-heading">
+        <div class="pi-list-title-row">
         <h1 class="text-sm font-semibold text-gray-800">{% if origem_lista == 'faturamento' %}Faturamento{% else %}PIs{% endif %}</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
         {% set menu_sub_status = request.args.get('id_sub_status_pi', '') %}
@@ -54,10 +59,21 @@
           <span id="label_expandir_todas">Expandir todas</span>
         </button>
         {% endif %}
+        </div>
+        <p class="pi-list-subtitle">
+          {% if menu_sub_status == '2' and visao_comercial|default('') != 'cancelados' %}
+          PIs recebidos em preparação para configuração das campanhas.
+          {% elif origem_lista == 'faturamento' %}
+          PIs encaminhados para conferência e faturamento.
+          {% else %}
+          Consulte responsáveis, períodos, campanhas e valores dos PIs.
+          {% endif %}
+        </p>
       </div>
 
-      <form id="filtros_form" class="flex items-center gap-2">
+      <form id="filtros_form" class="pi-list-filters" aria-label="Filtros da lista de PIs">
         <select name="resp_comercial" id="filtro_executivo" onchange="aplicarFiltros()"
+                aria-label="Executivo"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
           <option value="">Todos executivos</option>
           {% for v in vendedores %}
@@ -70,6 +86,7 @@
         {% if lista_financeira %}
         {% set tipo_entidade = filtros.get('tipo_entidade', '') %}
         <select name="tipo_entidade" id="filtro_tipo_entidade" onchange="aplicarFiltros();"
+                aria-label="Tipo de entidade"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 100px;">
           <option value="" {% if not tipo_entidade %}selected{% endif %}>Todos</option>
           <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Clientes</option>
@@ -80,6 +97,7 @@
         <div class="relative">
           <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
           <input type="text" id="filtro_cliente_busca"
+                 aria-label="Cliente"
                  value="{{ filtros.get('cliente_nome', '') }}"
                  placeholder="Buscar cliente..."
                  autocomplete="off"
@@ -98,6 +116,7 @@
 
         {% if lista_financeira %}
         <select name="ano_ref_comp" id="filtro_ano_ref" onchange="filtrarMesesPorAno(); aplicarFiltros();"
+                aria-label="Ano de referência"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
           <option value="">Todos anos</option>
           {% for a in anos_ref %}
@@ -108,6 +127,7 @@
         {% endif %}
 
         <select name="mes_ref_comp" id="filtro_mes_ref" onchange="aplicarFiltros()"
+                aria-label="Mês de referência"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 90px;">
           <option value="">Todos meses</option>
           {% for m in meses_ref %}
@@ -117,6 +137,7 @@
 
         <div class="relative">
           <input type="text" name="busca" id="filtro_busca"
+                 aria-label="Buscar PI"
                  value="{{ filtros.get('search', '') }}"
                  placeholder="{% if lista_financeira and filtros.get('tipo_entidade') == 'cliente' %}Buscar cliente...{% elif lista_financeira and filtros.get('tipo_entidade') in ['agencia', 'agencia_incentivo'] %}Buscar agência...{% else %}Buscar...{% endif %}"
                  class="text-[10px] bg-gray-50 border border-gray-200 rounded pl-6 pr-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
@@ -125,6 +146,11 @@
           <i class="fa-solid fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px]"></i>
         </div>
 
+        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}"
+           class="pi-filter-clear" title="Limpar filtros">
+          <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+          <span>Limpar</span>
+        </a>
       </form>
 
     </div>
@@ -261,6 +287,17 @@
             <th class="font-semibold text-right px-2" style="width: 120px;">Valor Líquido</th>
             <th class="font-semibold text-center px-2" style="width: 36px;"></th>
           </tr>
+          {% elif sub_status_atual|string == '2' %}
+          <tr class="pi-config-head">
+            <th>PI</th>
+            <th>Cliente e relacionamento</th>
+            <th>Responsável</th>
+            <th>Veiculação</th>
+            <th>Estrutura</th>
+            <th>Financeiro</th>
+            <th>Status</th>
+            <th class="text-center">Ações</th>
+          </tr>
           {% else %}
           <tr>
             <th class="font-semibold py-2 px-2" style="width: 72px;">Código PI</th>
@@ -337,6 +374,108 @@
                       class="text-gray-400 hover:text-indigo-600 p-0.5" title="Dados complementares">
                 <i class="fa-solid fa-circle-info text-[11px]"></i>
               </button>
+            </td>
+          {% elif sub_status_atual|string == '2' %}
+            {% set exec_parts = (pi.get('resp_comercial_nome') or '').split(' ') %}
+            {% set exec_ini = ((exec_parts[0][0:1] if exec_parts and exec_parts[0] else '') ~ (exec_parts[-1][0:1] if exec_parts|length > 1 and exec_parts[-1] else ''))|upper %}
+            <td class="pi-config-primary">
+              <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
+                {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
+              </a>
+              {% if pi.get('titulo_pi') %}
+              <span class="pi-config-title" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
+              {% endif %}
+              <div class="pi-config-meta">
+                {% if pi.get('mes_ref_comp') %}
+                <span><i class="fa-regular fa-calendar" aria-hidden="true"></i>{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                {% endif %}
+                <span>#{{ pi.id_pi }}</span>
+              </div>
+            </td>
+            <td>
+              <strong class="pi-config-client">{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
+              {% if pi.get('agencia_nome') %}
+              <span class="pi-config-relation"><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>
+              {% endif %}
+              {% if pi.get('parceiro_nome') %}
+              <span class="pi-config-relation"><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if pi.get('resp_comercial_nome') %}
+              <div class="pi-config-exec">
+                <span class="exec-avatar" title="{{ pi.resp_comercial_nome }}">
+                  {% if pi.get('resp_comercial_foto_url') %}
+                  <img src="{{ pi.resp_comercial_foto_url }}" alt="">
+                  {% else %}
+                  {{ exec_ini or '?' }}
+                  {% endif %}
+                </span>
+                <span>{{ pi.resp_comercial_nome }}</span>
+              </div>
+              {% else %}
+              <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem responsável</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if pi.get('periodo_inicio') %}
+              <strong class="pi-config-date">
+                {{ pi.periodo_inicio.strftime('%d/%m/%Y') }}
+                {% if pi.get('periodo_fim') %}<span>até {{ pi.periodo_fim.strftime('%d/%m/%Y') }}</span>{% endif %}
+              </strong>
+              {% if pi.get('periodo_fim') %}
+              <span class="pi-config-muted">{{ (pi.periodo_fim - pi.periodo_inicio).days }} dias</span>
+              {% endif %}
+              {% else %}
+              <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="pi-config-type">{{ pi.get('pi_tipo_descricao') or 'Tipo não informado' }}</span>
+              <div class="pi-config-structure">
+                {% if pi.get('total_campanhas', 0) > 0 %}
+                <button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)" class="pi-expand-chip" title="Expandir campanhas">
+                  <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+                  {{ pi.get('total_campanhas', 0) }} campanha{% if pi.get('total_campanhas', 0) != 1 %}s{% endif %}
+                  <i class="fa-solid fa-chevron-down chevron-camp" id="chevron-{{ pi.id_pi }}" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem campanhas</span>
+                {% endif %}
+                {% if pi.get('total_links', 0) > 0 %}
+                <span class="pi-config-muted"><i class="fa-solid fa-link" aria-hidden="true"></i>{{ pi.total_links }} link{% if pi.total_links != 1 %}s{% endif %}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <span class="pi-config-money-label">Bruto</span>
+              {% if pi.get('valor_bruto') %}
+              <strong class="pi-config-money">{{ pi.valor_bruto|format_brl }}</strong>
+              {% else %}
+              <span class="pi-config-pending">Pendente</span>
+              {% endif %}
+              <span class="pi-config-money-label">Líquido</span>
+              {% if pi.get('valor_liquido') %}
+              <strong class="pi-config-money is-net">{{ pi.valor_liquido|format_brl }}</strong>
+              {% else %}
+              <span class="pi-config-pending">Pendente</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="pi-config-status">{{ pi.get('sub_status_descricao') or pi.get('status_descricao') or 'Em configuração' }}</span>
+              {% if pi.get('status_descricao') and pi.get('status_descricao') != pi.get('sub_status_descricao') %}
+              <span class="pi-config-muted">{{ pi.status_descricao }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="pi-config-actions">
+                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-outline" title="Editar PI" aria-label="Editar PI">
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </a>
+                <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Dados complementares" aria-label="Dados complementares">
+                  <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                </button>
+              </div>
             </td>
           {% else %}
             {% set exec_parts = (pi.get('resp_comercial_nome') or '').split(' ') %}

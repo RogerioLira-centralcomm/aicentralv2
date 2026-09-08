@@ -4,103 +4,35 @@
 
 {% block title %}Clientes - CentralComm AI{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=1">
+{% endblock %}
+
 {% block content %}
-<style>
-  /* Badges de categoria ABC */
-  .badge-cat-a { background-color: #10b981; color: white; }
-  .badge-cat-b { background-color: #6b7280; color: white; }
-  .badge-cat-c { background-color: #9ca3af; color: white; }
-
-  /* Tab styles */
-  .tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
-  .modal-tab-content.hidden { display: none; }
-
-  /* Selects: garantir que o texto nunca fique truncado */
-  select {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  #form_cliente select,
-  #form_contato select {
-    min-width: 0;
-  }
-
-  .clientes-lista-scroll {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
-  }
-
-  .clientes-lista-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .clientes-lista-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .clientes-lista-scroll::-webkit-scrollbar-thumb {
-    background: #d1d5db;
-    border-radius: 999px;
-  }
-
-  .clientes-lista-scroll::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-  }
-
-  .clientes-table {
-    min-width: 56rem;
-    table-layout: fixed;
-  }
-  .clientes-table th,
-  .clientes-table td,
-  .clientes-table td * {
-    font-size: 0.75rem !important;
-  }
-  .clientes-table th:first-child { width: 32%; }
-  .clientes-table td:first-child {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .clientes-table th:not(:first-child) { width: 9.7%; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .clientes-lista-scroll {
-      scroll-behavior: auto !important;
-    }
-  }
-
-  /* Modal de cliente: sem scroll horizontal */
-  #modal_cliente .cx-modal-panel {
-    overflow-x: hidden !important;
-  }
-  #modal_cliente .modal-cliente-body {
-    overflow-x: hidden !important;
-  }
-  #modal_cliente .modal-cliente-body * {
-    max-width: 100%;
-  }
-</style>
-
-<div class="max-w-full mx-auto px-1">
-  <!-- Header Compacto estilo CRM -->
-  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40 erp-content-sticky">
-    <div class="flex items-center justify-between gap-2">
-      <!-- Título -->
-      <div class="flex items-center gap-2">
-        <h1 class="text-sm font-semibold text-gray-800">Clientes</h1>
-        {% if total %}<span class="text-xs text-gray-500">({{ total }})</span>{% endif %}
+<div class="clientes-page">
+  <header class="clientes-page-header">
+    <div>
+      <div class="clientes-page-title-row">
+        <h1>Clientes</h1>
+        {% if total is not none %}<span class="clientes-total">{{ total }}</span>{% endif %}
       </div>
+      <p>Gerencie clientes, agências, responsáveis e indicadores comerciais.</p>
+    </div>
+    <div class="clientes-page-actions">
+      <button type="button" onclick="recategorizarABC()" class="cx-btn cx-btn-secondary cx-btn-sm">
+        <i class="fas fa-tags" aria-hidden="true"></i>Recalcular categorias
+      </button>
+      <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-primary cx-btn-sm">
+        <i class="fas fa-plus" aria-hidden="true"></i>Novo cliente
+      </button>
+    </div>
+  </header>
 
-      <!-- Filtros Inline -->
-      <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-2">
-        <!-- Executivo -->
-        <select name="executivo_id" onchange="salvarFiltrosClientes(); this.form.submit()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px; max-width: 240px;">
+  <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="clientes-filters" aria-label="Filtros de clientes">
+    <div class="clientes-filter-main">
+      <div class="cx-field clientes-filter-executivo">
+        <label for="clientes-executivo" class="cx-label">Executivo</label>
+        <select id="clientes-executivo" name="executivo_id" class="cx-select">
           <option value="">Todos executivos</option>
           {% for vendedor in vendedores_cc %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
@@ -108,84 +40,65 @@
             </option>
           {% endfor %}
         </select>
+      </div>
 
-        <!-- Busca -->
-        <input type="text" name="search" value="{{ filtros.get('search', '') }}" placeholder="Buscar cliente..."
-               onkeydown="if(event.key==='Enter'){salvarFiltrosClientes(); this.form.submit();}"
-               class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
-
-        <!-- Hidden fields para manter filtros -->
-        <input type="hidden" name="status" id="status_filter" value="{{ request.args.get('status', 'ativo') }}">
-        <input type="hidden" name="categoria" id="categoria_filter" value="{{ request.args.get('categoria', '') }}">
-        <input type="hidden" name="agencia" id="agencia_filter" value="{{ request.args.get('agencia', 'nao') }}">
-
-        <!-- Status Icons -->
-        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
-          <button type="button" onclick="filtrarStatus('ativo')"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}"
-                  title="Ativos">
-            <i class="fa-solid fa-circle-check text-xs text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
-          </button>
-          <button type="button" onclick="filtrarStatus('inativo')"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}"
-                  title="Inativos">
-            <i class="fa-solid fa-circle-xmark text-xs text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
-          </button>
-          <button type="button" onclick="filtrarStatus('todos')"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}"
-                  title="Todos">
-            <i class="fa-solid fa-list text-xs text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
-          </button>
+      <div class="cx-field clientes-filter-search">
+        <label for="clientes-search" class="cx-label">Buscar</label>
+        <div class="clientes-search-box">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input id="clientes-search" type="search" name="search" value="{{ filtros.get('search', '') }}" placeholder="Nome, razão social ou documento" class="cx-input">
         </div>
-
-        <!-- Categoria ABC -->
-        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
-          <button type="button" onclick="filtrarCategoria('')"
-                  class="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}"
-                  title="Todas categorias">∀</button>
-          <button type="button" onclick="filtrarCategoria('A')"
-                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-                  title="Categoria A">A</button>
-          <button type="button" onclick="filtrarCategoria('B')"
-                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-                  title="Categoria B">B</button>
-          <button type="button" onclick="filtrarCategoria('C')"
-                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-                  title="Categoria C">C</button>
-        </div>
-
-        <!-- Agência toggle: Clientes / Agências / Todos -->
-        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
-          {% set agencia_val = request.args.get('agencia', 'nao') %}
-          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='nao') }}"
-             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-             title="Clientes">
-            <i class="fa-solid fa-user text-xs"></i>
-          </a>
-          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='sim') }}"
-             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-             title="Agências">
-            <i class="fa-solid fa-building text-xs"></i>
-          </a>
-          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='todos') }}"
-             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
-             title="Todos">
-            <i class="fa-solid fa-list text-xs"></i>
-          </a>
-        </div>
-      </form>
-
-      <!-- Botões -->
-      <div class="flex gap-1.5">
-        <button onclick="recategorizarABC()" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
-          <i class="fas fa-tags mr-1"></i>ABC
-        </button>
-        <button onclick="abrirModalNovo()" class="px-2 py-1 text-xs bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Novo
-        </button>
       </div>
     </div>
-  </div>
+
+    <input type="hidden" name="status" id="status_filter" value="{{ request.args.get('status', 'ativo') }}">
+    <input type="hidden" name="categoria" id="categoria_filter" value="{{ request.args.get('categoria', '') }}">
+    <input type="hidden" name="agencia" id="agencia_filter" value="{{ request.args.get('agencia', 'nao') }}">
+
+    <div class="clientes-filter-groups">
+      <fieldset class="clientes-filter-group">
+        <legend>Status</legend>
+        <div class="clientes-segmented">
+          <button type="button" onclick="filtrarStatus('ativo')" class="{% if request.args.get('status', 'ativo') == 'ativo' %}is-active{% endif %}" aria-pressed="{{ 'true' if request.args.get('status', 'ativo') == 'ativo' else 'false' }}">
+            Ativos
+          </button>
+          <button type="button" onclick="filtrarStatus('inativo')" class="{% if request.args.get('status') == 'inativo' %}is-active{% endif %}" aria-pressed="{{ 'true' if request.args.get('status') == 'inativo' else 'false' }}">
+            Inativos
+          </button>
+          <button type="button" onclick="filtrarStatus('todos')" class="{% if request.args.get('status') == 'todos' %}is-active{% endif %}" aria-pressed="{{ 'true' if request.args.get('status') == 'todos' else 'false' }}">
+            Todos
+          </button>
+        </div>
+      </fieldset>
+
+      <fieldset class="clientes-filter-group">
+        <legend>Categoria ABC</legend>
+        <div class="clientes-segmented clientes-segmented-abc">
+          <button type="button" onclick="filtrarCategoria('')" class="{% if not request.args.get('categoria') %}is-active{% endif %}" aria-pressed="{{ 'true' if not request.args.get('categoria') else 'false' }}">Todas</button>
+          {% for categoria in ['A', 'B', 'C'] %}
+          <button type="button" onclick="filtrarCategoria('{{ categoria }}')" class="{% if request.args.get('categoria') == categoria %}is-active is-{{ categoria|lower }}{% endif %}" aria-pressed="{{ 'true' if request.args.get('categoria') == categoria else 'false' }}">{{ categoria }}</button>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      {% set agencia_val = request.args.get('agencia', 'nao') %}
+      <fieldset class="clientes-filter-group">
+        <legend>Perfil</legend>
+        <div class="clientes-segmented">
+          <button type="button" onclick="filtrarAgencia('nao')" class="{% if agencia_val == 'nao' %}is-active{% endif %}" aria-pressed="{{ 'true' if agencia_val == 'nao' else 'false' }}">Clientes</button>
+          <button type="button" onclick="filtrarAgencia('sim')" class="{% if agencia_val == 'sim' %}is-active{% endif %}" aria-pressed="{{ 'true' if agencia_val == 'sim' else 'false' }}">Agências</button>
+          <button type="button" onclick="filtrarAgencia('todos')" class="{% if agencia_val == 'todos' %}is-active{% endif %}" aria-pressed="{{ 'true' if agencia_val == 'todos' else 'false' }}">Todos</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="clientes-filter-actions">
+      <a href="{{ url_for('clientes', status='ativo', agencia='nao') }}" class="cx-btn cx-btn-ghost cx-btn-sm">Limpar</a>
+      <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">
+        <i class="fa-solid fa-filter" aria-hidden="true"></i>Aplicar filtros
+      </button>
+    </div>
+  </form>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -202,60 +115,65 @@
   <!-- Tabela de Clientes -->
   <div class="cx-table-wrap">
     {% if clientes %}
+      <div class="clientes-table-hint">
+        <i class="fa-solid fa-arrows-left-right mr-1" aria-hidden="true"></i>
+        Deslize horizontalmente para ver todos os indicadores.
+      </div>
       <div class="cx-table-scroll clientes-lista-scroll">
         <table class="cx-table cx-table-dense clientes-table" id="tabela_clientes">
-          <thead class="bg-gray-100">
+          <caption class="sr-only">Lista de clientes e indicadores comerciais</caption>
+          <thead>
             <tr>
-              <th class="text-left py-1.5 px-2 text-xs font-medium text-gray-600 uppercase">Nome</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Tipo</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-16">Cotações</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Aprovação</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-16">Briefings</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Aceite</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-14">Usuários</th>
-              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-12">Cat.</th>
+              <th class="text-left">Cliente</th>
+              <th class="text-center">Tipo</th>
+              <th class="text-center">Cotações no mês</th>
+              <th class="text-center">Aprovação</th>
+              <th class="text-center">Briefings no mês</th>
+              <th class="text-center">Aceite</th>
+              <th class="text-center">Usuários</th>
+              <th class="text-center">Categoria</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
+          <tbody>
             {% for cliente in clientes %}
-            <tr class="hover:bg-gray-50 transition-colors">
-              <td class="py-1.5 px-2">
+            <tr>
+              <td>
                 <div>
                   <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;"
-                     class="font-medium text-xs text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
+                     class="cliente-name">
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
-                {% if cliente.razao_social %}
-                <div class="text-xs text-gray-400">{{ cliente.razao_social }}</div>
+                {% if cliente.razao_social and cliente.razao_social != cliente.nome_fantasia %}
+                <div class="cliente-meta">{{ cliente.razao_social }}</div>
                 {% endif %}
                 {% if not filtros.get('executivo_id') and cliente.executivo_nome %}
-                <div class="text-xs text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
+                <div class="cliente-meta"><i class="fas fa-user-tie mr-1" aria-hidden="true"></i>{{ cliente.executivo_nome }}</div>
                 {% endif %}
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="text-xs text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
+              <td class="text-center">
+                <span>{{ cliente.tipo_cliente_display or '-' }}</span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="font-medium text-xs text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
+              <td class="text-center">
+                <span class="font-medium">{{ cliente.cotacoes_mes or 0 }}</span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="text-xs {% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+              <td class="text-center">
+                <span class="{% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.cotacoes_aprovadas_mes or 0 }}/{{ cliente.cotacoes_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="font-medium text-xs text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
+              <td class="text-center">
+                <span class="font-medium">{{ cliente.briefings_mes or 0 }}</span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="text-xs {% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+              <td class="text-center">
+                <span class="{% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.briefings_aceitos_mes or 0 }}/{{ cliente.briefings_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
-                <span class="text-xs px-1.5 py-0 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
+              <td class="text-center">
+                <span class="cx-badge cx-badge-muted">{{ cliente.total_usuarios or 0 }}</span>
               </td>
-              <td class="text-center py-1.5 px-1.5">
+              <td class="text-center">
                 {% set cat = cliente.categoria_abc or 'C' %}
                 <span class="cx-badge badge-cat-{{ cat|lower }}" title="Categoria {{ cat }}">
                   {{ cat }}
@@ -269,40 +187,38 @@
 
       <!-- Paginação -->
       {% if pages > 1 %}
-      <div class="flex justify-center items-center gap-1.5 p-2 border-t border-gray-200">
-        {% if page > 1 %}
-          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">
-            <i class="fas fa-chevron-left"></i>
-          </a>
-        {% endif %}
-
-        {% for p in range(1, pages + 1) %}
-          {% if p == page %}
-            <span class="px-2 py-0.5 text-xs bg-gray-800 text-white rounded">{{ p }}</span>
-          {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
-          {% elif p == page - 3 or p == page + 3 %}
-            <span class="px-1.5 text-xs text-gray-400">...</span>
+      <nav class="cx-pagination clientes-pagination" aria-label="Paginação de clientes">
+        <span class="clientes-pagination-summary">Página {{ page }} de {{ pages }}</span>
+        <div class="clientes-pagination-pages">
+          {% if page > 1 %}
+            <a href="{{ url_for('clientes', page=page-1, **filtros) }}" aria-label="Página anterior">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
+            </a>
           {% endif %}
-        {% endfor %}
-
-        {% if page < pages %}
-          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">
-            <i class="fas fa-chevron-right"></i>
-          </a>
-        {% endif %}
-
-        <span class="text-xs text-gray-500 ml-3">
-          Página {{ page }} de {{ pages }}
-        </span>
-      </div>
+          {% for p in range(1, pages + 1) %}
+            {% if p == page %}
+              <span class="is-current" aria-current="page">{{ p }}</span>
+            {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+              <a href="{{ url_for('clientes', page=p, **filtros) }}" aria-label="Página {{ p }}">{{ p }}</a>
+            {% elif p == page - 3 or p == page + 3 %}
+              <span aria-hidden="true">…</span>
+            {% endif %}
+          {% endfor %}
+          {% if page < pages %}
+            <a href="{{ url_for('clientes', page=page+1, **filtros) }}" aria-label="Próxima página">
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </a>
+          {% endif %}
+        </div>
+      </nav>
       {% endif %}
     {% else %}
-      <div class="text-center py-8">
-        <i class="fas fa-users text-3xl text-gray-300 mb-3"></i>
-        <p class="text-xs text-gray-500 mb-3">Nenhum cliente encontrado.</p>
-        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
-          <i class="fas fa-plus mr-1"></i>Cadastrar Cliente
+      <div class="cx-empty-state">
+        <i class="fas fa-users" aria-hidden="true"></i>
+        <h2>Nenhum cliente encontrado</h2>
+        <p>Revise os filtros aplicados ou cadastre um novo cliente.</p>
+        <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-primary cx-btn-sm">
+          <i class="fas fa-plus" aria-hidden="true"></i>Cadastrar cliente
         </button>
       </div>
     {% endif %}
@@ -310,6 +226,22 @@
 </div>
 
 <script>
+  function escapeHtml(valor) {
+    const elemento = document.createElement('div');
+    elemento.textContent = String(valor ?? '');
+    return elemento.innerHTML;
+  }
+
+  function confirmarAcaoCliente(opcoes) {
+    return new Promise(resolve => {
+      showConfirm({
+        ...opcoes,
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
+    });
+  }
+
   // Filtros
   function salvarFiltrosClientes() {
     const form = document.getElementById('filtros_form');
@@ -344,7 +276,11 @@
 
   (function restoreClientesFilters() {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('_restored')) return;
+    if (params.has('_restored')) {
+      params.delete('_restored');
+      const cleanedQuery = params.toString();
+      window.history.replaceState({}, '', '{{ url_for("clientes") }}' + (cleanedQuery ? '?' + cleanedQuery : ''));
+    }
     const cExec = getCookie('cc_filtro_exec');
     const cSearch = getCookie('cli_search');
     const cStatus = getCookie('cli_status');
@@ -358,16 +294,22 @@
     if (cCat && !params.has('categoria')) { rp.set('categoria', cCat); needsRedirect = true; }
     if (!params.has('agencia')) { rp.set('agencia', cAg || 'nao'); needsRedirect = true; }
     if (!needsRedirect) return;
-    rp.set('_restored', '1');
     window.location.href = '{{ url_for("clientes") }}?' + rp.toString();
   })();
 
   // Recategorizar ABC
-  async function recategorizarABC() {
-    if (!confirm('Deseja recategorizar todos os clientes conforme regras ABC?\n\nA: aprovações >= R$200k/mês\nB: ativo, < R$200k\nC: sem briefings/cotações')) {
-      return;
-    }
+  function recategorizarABC() {
+    showConfirm({
+      title: 'Recalcular categorias ABC',
+      message: 'Deseja recalcular as categorias de todos os clientes?',
+      detail: '<strong>A</strong>: aprovações a partir de R$ 200 mil/mês<br><strong>B</strong>: cliente ativo abaixo de R$ 200 mil/mês<br><strong>C</strong>: sem briefings ou cotações',
+      confirmText: 'Recalcular',
+      theme: 'warning',
+      onConfirm: executarRecategorizacaoABC
+    });
+  }
 
+  async function executarRecategorizacaoABC() {
     try {
       const response = await fetch('/admin/clientes/recategorizar', {
         method: 'POST',
@@ -389,39 +331,39 @@
 </script>
 
 <!-- Modal de Cliente -->
-<dialog id="modal_cliente" class="cx-modal-shell modal-cliente-dialog">
-  <div class="cx-modal-panel cx-modal-panel-md modal-cliente-box w-full max-w-2xl bg-white p-0 rounded-lg">
-    <!-- Header fixo -->
-    <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-xs text-gray-800" id="modal_title">Novo Cliente</h3>
-      <button onclick="modal_cliente.close()" class="p-1 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-xs text-gray-500"></i>
+<dialog id="modal_cliente" class="cx-modal-shell modal-cliente-dialog" aria-labelledby="modal_title">
+  <div class="cx-modal-panel modal-cliente-box">
+    <div class="modal-cliente-header">
+      <h3 id="modal_title">Novo cliente</h3>
+      <button type="button" onclick="modal_cliente.close()" class="modal-cliente-close" aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
 
     <!-- Tabs -->
-    <div id="tabs_container" class="flex border-b border-gray-200 px-2 bg-gray-50" style="display:none;">
-      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
-        <i class="fas fa-edit mr-0.5"></i>Editar
+    <div id="tabs_container" class="modal-cliente-tabs" role="tablist" aria-label="Seções do cliente" style="display:none;">
+      <button type="button" class="tab-btn tab-active" role="tab" aria-selected="true" data-tab="editar" onclick="trocarAba('editar')">
+        <i class="fas fa-edit mr-1" aria-hidden="true"></i>Editar
       </button>
-      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
-        <i class="fas fa-info-circle mr-0.5"></i>Detalhes
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="detalhes" onclick="trocarAba('detalhes')">
+        <i class="fas fa-info-circle mr-1" aria-hidden="true"></i>Detalhes
       </button>
-      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
-        <i class="fas fa-address-book mr-0.5"></i>Contatos
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="contatos" onclick="trocarAba('contatos')">
+        <i class="fas fa-address-book mr-1" aria-hidden="true"></i>Contatos
       </button>
-      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
-        <i class="fas fa-file-contract mr-0.5"></i>Assinaturas
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="contratos" onclick="trocarAba('contratos')">
+        <i class="fas fa-file-contract mr-1" aria-hidden="true"></i>Assinaturas
       </button>
     </div>
 
     <!-- Conteúdo -->
-    <div class="p-3 modal-cliente-body">
+    <div class="modal-cliente-body">
       <!-- Conteúdo Editar -->
       <form id="form_cliente" method="post" class="modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
 
-        <!-- Linha 1: Pessoa + CNPJ + Nome -->
+        <fieldset class="cliente-form-section">
+          <legend>Identificação</legend>
         <div class="grid grid-cols-6 gap-1.5 mb-1.5">
           <div id="status_toggle_container" class="cx-field col-span-1" style="display:none;">
             <label class="text-xs font-medium text-gray-500">Status</label>
@@ -462,8 +404,10 @@
           <label class="text-xs font-medium text-gray-500">Razão Social*</label>
           <input id="input_razao_social" name="razao_social" required class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social completa">
         </div>
+        </fieldset>
 
-        <!-- Linha 3: Tipo + Classificação + Executivo -->
+        <fieldset class="cliente-form-section">
+          <legend>Perfil comercial</legend>
         <div class="grid grid-cols-3 gap-1.5 mb-1.5">
           <div id="tipo_cliente_fields" class="cx-field">
             <label class="text-xs font-medium text-gray-500">Tipo*</label>
@@ -558,9 +502,10 @@
           <div id="agencias-vinculadas-lista" class="flex flex-wrap gap-1 mt-1"></div>
           <div id="agencias-vinculadas-hidden"></div>
         </div>
+        </fieldset>
 
-        <!-- Linha 6: Endereço -->
-        <div class="border-t border-gray-100 pt-1.5">
+        <fieldset class="cliente-form-section">
+          <legend>Endereço</legend>
           <div class="grid grid-cols-6 gap-1.5 mb-1.5">
             <div class="cx-field">
               <label class="text-xs font-medium text-gray-500">CEP</label>
@@ -596,20 +541,20 @@
               <input id="complemento" name="complemento" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
           </div>
-        </div>
+        </fieldset>
 
         <!-- Hidden field para pessoa física -->
         <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
         <!-- Botões do Form -->
         <div class="flex justify-between pt-1.5 border-t border-gray-200 mt-1.5">
-          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700">
-            <i class="fas fa-trash-alt mr-0.5"></i>Excluir
+          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="cx-btn cx-btn-danger cx-btn-sm">
+            <i class="fas fa-trash-alt" aria-hidden="true"></i>Excluir cliente
           </button>
           <div class="flex gap-2 ml-auto">
-            <button type="button" onclick="modal_cliente.close()" class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800">Cancelar</button>
-            <button type="submit" class="px-2 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
-              <i class="fas fa-save mr-0.5"></i><span id="btn_submit_text">Cadastrar</span>
+            <button type="button" onclick="modal_cliente.close()" class="cx-btn cx-btn-ghost cx-btn-sm">Cancelar</button>
+            <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">
+              <i class="fas fa-save" aria-hidden="true"></i><span id="btn_submit_text">Cadastrar cliente</span>
             </button>
           </div>
         </div>
@@ -617,27 +562,27 @@
 
       <!-- Conteúdo Detalhes -->
       <div id="detalhes_aba_content" class="modal-tab-content hidden" data-tab="detalhes">
-        <div class="bg-gray-50 rounded p-2 mb-1.5">
+        <div class="cliente-tab-panel mb-3">
           <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
-            <i class="fas fa-info-circle mr-0.5"></i>Informações Principais
+            <i class="fas fa-info-circle mr-1" aria-hidden="true"></i>Informações principais
           </h4>
           <div id="info_principais_aba" class="grid grid-cols-2 gap-1.5 text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
 
-        <div id="endereco_section_aba" class="bg-gray-50 rounded p-2 mb-1.5" style="display:none;">
+        <div id="endereco_section_aba" class="cliente-tab-panel mb-3" style="display:none;">
           <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
-            <i class="fas fa-map-marker-alt mr-0.5"></i>Endereço
+            <i class="fas fa-map-marker-alt mr-1" aria-hidden="true"></i>Endereço
           </h4>
           <div id="info_endereco_aba" class="grid grid-cols-2 gap-1.5 text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
 
-        <div id="agencias_vinculadas_section_aba" class="bg-gray-50 rounded p-2" style="display:none;">
+        <div id="agencias_vinculadas_section_aba" class="cliente-tab-panel" style="display:none;">
           <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
-            <i class="fas fa-building mr-0.5"></i>Agências vinculadas
+            <i class="fas fa-building mr-1" aria-hidden="true"></i>Agências vinculadas
           </h4>
           <div id="agencias_vinculadas_lista_aba" class="text-xs"></div>
         </div>
@@ -645,14 +590,14 @@
 
       <!-- Conteúdo Contatos -->
       <div id="contatos_aba_content" class="modal-tab-content hidden" data-tab="contatos">
-        <div class="flex justify-between items-center mb-1">
-          <h4 class="text-xs font-medium text-gray-700">Contatos Vinculados</h4>
-          <button type="button" onclick="abrirModalNovoContato()" class="px-1.5 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
-            <i class="fas fa-plus mr-0.5"></i>Novo
+        <div class="cliente-tab-header">
+          <h4>Contatos vinculados</h4>
+          <button type="button" onclick="abrirModalNovoContato()" class="cx-btn cx-btn-primary cx-btn-sm">
+            <i class="fas fa-plus" aria-hidden="true"></i>Novo contato
           </button>
         </div>
 
-        <div class="bg-gray-50 rounded p-1.5">
+        <div class="cliente-tab-panel">
           <div id="lista_contatos_aba" class="space-y-0.5">
             <!-- Conteúdo via JavaScript -->
           </div>
@@ -661,14 +606,14 @@
 
       <!-- Conteúdo Contratos -->
       <div id="contratos_aba_content" class="modal-tab-content hidden" data-tab="contratos">
-        <div class="flex justify-between items-center mb-1">
-          <h4 class="text-xs font-medium text-gray-700">Assinaturas do Cliente</h4>
-          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-1.5 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
-            <i class="fas fa-gift mr-0.5"></i>Criar Plano Beta
+        <div class="cliente-tab-header">
+          <h4>Assinaturas do cliente</h4>
+          <button type="button" onclick="criarPlanoBetaTesterAba()" class="cx-btn cx-btn-primary cx-btn-sm">
+            <i class="fas fa-gift" aria-hidden="true"></i>Criar plano Beta
           </button>
         </div>
 
-        <div class="bg-gray-50 rounded p-1.5">
+        <div class="cliente-tab-panel">
           <div id="lista_contratos_aba" class="text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
@@ -690,14 +635,14 @@
     </form>
 
     <h3 class="font-bold text-sm mb-3">
-      <span id="detalhes_title">Detalhes do Cliente</span>
+      <span id="detalhes_title">Detalhes do cliente</span>
     </h3>
 
     <div id="detalhes_content" class="space-y-3">
       <!-- Informações Principais -->
       <div class="bg-slate-100/50 rounded-lg p-3">
         <h4 class="text-xs font-semibold mb-2 flex items-center">
-          <i class="fas fa-info-circle mr-1 text-[#1e4d4f]"></i>Informações Principais
+          <i class="fas fa-info-circle mr-1 text-[#1e4d4f]"></i>Informações principais
         </h4>
         <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
@@ -735,7 +680,7 @@
     <div class="cx-modal-actions mt-4">
       <button type="button" onclick="modal_detalhes.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Fechar</button>
       <button type="button" onclick="editarClienteDoModal()" class="cx-btn cx-btn-xs bg-gray-800 text-white border-gray-800 hover:bg-gray-700 text-xs">
-        <i class="fas fa-edit mr-1"></i>Editar Cliente
+        <i class="fas fa-edit mr-1"></i>Editar cliente
       </button>
     </div>
   </div>
@@ -751,7 +696,7 @@
       <button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
     </form>
 
-    <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo Contato</h3>
+    <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo contato</h3>
 
     <form id="form_contato" class="space-y-2" autocomplete="off">
       <input type="hidden" id="contato_id" name="contato_id" value="">
@@ -837,7 +782,7 @@
       <div class="cx-modal-actions mt-2 pt-2 border-t">
         <button type="button" onclick="modal_contato.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Cancelar</button>
         <button type="submit" class="cx-btn text-white cx-btn-xs text-xs" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar Contato</span>
+          <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar contato</span>
         </button>
       </div>
     </form>
@@ -1006,9 +951,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Função para abrir modal para novo cliente
 function abrirModalNovo() {
   document.getElementById('form_cliente').reset();
-  document.getElementById('modal_title').textContent = 'Novo Cliente';
+  document.getElementById('modal_title').textContent = 'Novo cliente';
   document.getElementById('cliente_id').value = '';
-  document.getElementById('btn_submit_text').textContent = 'Cadastrar';
+  document.getElementById('btn_submit_text').textContent = 'Cadastrar cliente';
   _ultimoCepBuscado = '';
 
   // Resetar para Pessoa Jurídica
@@ -1079,7 +1024,7 @@ async function abrirModalEditar(clienteId) {
     // Preencher o formulário
     document.getElementById('modal_title').textContent = cliente.nome_fantasia || cliente.razao_social;
     document.getElementById('cliente_id').value = clienteId;
-    document.getElementById('btn_submit_text').textContent = 'Atualizar';
+    document.getElementById('btn_submit_text').textContent = 'Salvar alterações';
 
     // Tipo de pessoa
     const pessoaRadio = document.querySelector(`input[name="pessoa"][value="${cliente.pessoa}"]`);
@@ -1778,10 +1723,15 @@ function editarClienteDoModal() {
   }
 }
 
-function criarPlanoBetaTester(clienteId) {
-  if (!confirm('Deseja criar um Plano Beta Tester para este cliente?\n\nDetalhes do plano:\n- 100.000 tokens/mês\n- 50 imagens/mês\n- 10 usuários\n- Válido por 3 meses')) {
-    return;
-  }
+async function criarPlanoBetaTester(clienteId) {
+  const confirmado = await confirmarAcaoCliente({
+    title: 'Criar plano Beta Tester',
+    message: 'Deseja criar um plano Beta Tester para este cliente?',
+    detail: '100.000 tokens/mês<br>50 imagens/mês<br>10 usuários<br>Validade de 3 meses',
+    confirmText: 'Criar plano',
+    theme: 'primary'
+  });
+  if (!confirmado) return;
 
   fetch(`/api/cliente/${clienteId}/criar-plano-beta`, {
     method: 'POST',
@@ -1905,13 +1855,7 @@ function trocarAba(aba) {
   document.querySelectorAll('#tabs_container .tab-btn').forEach(btn => {
     const isActive = btn.dataset.tab === aba;
     btn.classList.toggle('tab-active', isActive);
-    if (isActive) {
-      btn.style.borderBottomColor = '#374151';
-      btn.style.color = '#1f2937';
-    } else {
-      btn.style.borderBottomColor = 'transparent';
-      btn.style.color = '#4b5563';
-    }
+    btn.setAttribute('aria-selected', String(isActive));
   });
 
   // Mostrar/ocultar conteúdos
@@ -2188,7 +2132,7 @@ function abrirModalNovoContato() {
 
     // Atualizar título e botão
     document.getElementById('contato_modal_title').textContent = 'Novo Contato';
-    document.getElementById('contato_btn_text').textContent = 'Criar Contato';
+    document.getElementById('contato_btn_text').textContent = 'Criar contato';
 
     // Ocultar campo telefone em novo contato
     document.getElementById('contato_telefone_container').classList.add('hidden');
@@ -2336,7 +2280,7 @@ async function abrirModalEditarContato(contatoId) {
     }
 
     // Atualizar título e botão
-    document.getElementById('contato_modal_title').textContent = 'Editar Contato';
+    document.getElementById('contato_modal_title').textContent = 'Editar contato';
     document.getElementById('contato_btn_text').textContent = 'Atualizar Contato';
 
     // Configurar foto do contato (preview + upload)
@@ -2564,7 +2508,14 @@ async function excluirCliente() {
   const clienteId = document.getElementById('cliente_id').value;
   if (!clienteId) return;
 
-  if (!confirm('Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita!')) return;
+  const confirmado = await confirmarAcaoCliente({
+    title: 'Excluir cliente',
+    message: 'Tem certeza que deseja excluir este cliente?',
+    detail: 'Esta ação é permanente e não poderá ser desfeita.',
+    confirmText: 'Excluir cliente',
+    theme: 'danger'
+  });
+  if (!confirmado) return;
 
   try {
     const response = await fetch(`/api/cliente/${clienteId}/excluir`, {
@@ -2589,7 +2540,14 @@ async function excluirCliente() {
 
 // Função para deletar contato
 async function deletarContato(contatoId, clienteId, nomeContato) {
-  if (!confirm(`Tem certeza que deseja deletar o contato "${nomeContato}"? Esta ação não pode ser desfeita!`)) return;
+  const confirmado = await confirmarAcaoCliente({
+    title: 'Excluir contato',
+    message: `Deseja excluir o contato <strong>${escapeHtml(nomeContato)}</strong>?`,
+    detail: 'Esta ação não poderá ser desfeita.',
+    confirmText: 'Excluir contato',
+    theme: 'danger'
+  });
+  if (!confirmado) return;
 
   try {
     const response = await fetch(`/api/contato/${contatoId}/deletar`, {
@@ -2602,7 +2560,13 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
       showToast(result.message, 'success');
       await carregarContatosAba(clienteId);
     } else if (result.has_vinculos) {
-      const inativar = confirm(`${result.message}\n\nDeseja inativar o contato?`);
+      const inativar = await confirmarAcaoCliente({
+        title: 'Contato com vínculos',
+        message: escapeHtml(result.message),
+        detail: 'O contato não pode ser excluído, mas pode ser inativado.',
+        confirmText: 'Inativar contato',
+        theme: 'warning'
+      });
       if (inativar) {
         const resp = await fetch(`/api/contato/${contatoId}/toggle-status`, { method: 'POST' });
         const res = await resp.json();
@@ -2703,7 +2667,14 @@ async function enviarConviteContato(contatoId, email, nomeContato) {
     showToast('Este endereço de e-mail não é válido. Corrija o cadastro do contato antes de enviar.', 'warning');
     return;
   }
-  if (!confirm(`Enviar convite para ${nomeContato} (${emailTrim})?`)) return;
+  const confirmado = await confirmarAcaoCliente({
+    title: 'Enviar convite',
+    message: `Enviar convite para <strong>${escapeHtml(nomeContato)}</strong>?`,
+    detail: escapeHtml(emailTrim),
+    confirmText: 'Enviar convite',
+    theme: 'primary'
+  });
+  if (!confirmado) return;
 
   const clienteId = document.getElementById('cliente_id').value;
 

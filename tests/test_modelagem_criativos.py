@@ -729,6 +729,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertLess(deploy.index(migration_call), normal_start)
         self.assertLess(deploy.index(seed_call), normal_start)
         self.assertLess(normal_start, deploy.index(verify_call))
+        verifier = (
+            root / "scripts" / "verify_creative_viewer_apis.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("sys.path.insert(0, str(ROOT))", verifier)
+        self.assertLess(
+            verifier.index("sys.path.insert"),
+            verifier.index("from run import app"),
+        )
 
 
 if __name__ == "__main__":

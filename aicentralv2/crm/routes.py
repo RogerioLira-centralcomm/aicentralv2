@@ -565,7 +565,7 @@ def api_cliente_status_completo(cliente_id):
                                 THEN REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ',', '.')::numeric
                             WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
                                 THEN REPLACE(REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '.', ''), ',', '.')::numeric
-                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{{1,2}}$'
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+[.][0-9]{{1,2}}$'
                                 THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.]', '', 'g')::numeric
                             WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g'), '') IS NOT NULL
                                 THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g')::numeric

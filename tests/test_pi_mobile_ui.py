@@ -73,6 +73,36 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertNotIn("window.alert(", operation_js + campaign_js)
         self.assertNotIn("window.confirm(", operation_js + campaign_js)
 
+    def test_sidebar_oferece_navegacao_circular_entre_pi_e_campanhas(self):
+        sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
+        operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
+
+        self.assertIn('id="pi-route-pi"', sidebar)
+        self.assertIn('id="pi-route-campaigns"', sidebar)
+        self.assertIn('id="pi-route-prev"', sidebar)
+        self.assertIn('id="pi-route-next"', sidebar)
+        self.assertIn("function renderRouteMap(", operation_js)
+        self.assertIn("% campaigns.length", operation_js)
+
+    def test_sidebar_desktop_usa_rolagem_unica_e_mobile_preserva_drawer(self):
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+
+        self.assertIn(".pi-op-sidebar { position: static;", css)
+        self.assertIn(".pi-op-sidebar__scroll { min-width: 0; max-height: none; overflow: visible;", css)
+        self.assertIn("overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;", css)
+        self.assertIn(".pi-op-layout:has(> .pi-op-sidebar)", css)
+
+    def test_envio_de_email_expoe_destinatarios_e_exige_modal(self):
+        sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
+        operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+
+        self.assertIn('id="pi-confirm-details"', sidebar)
+        self.assertIn("details: recipients", operation_js)
+        self.assertIn("Revise quem receberá esta comunicação", operation_js)
+        self.assertIn("pi-op-email-actions", operation_js)
+        self.assertIn(".pi-confirm-dialog.is-email .pi-confirm-dialog__actions { justify-content: flex-start; }", css)
+
 
 if __name__ == "__main__":
     unittest.main()

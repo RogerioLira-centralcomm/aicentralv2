@@ -81,6 +81,26 @@
     if (confirmDialog.open) confirmDialog.close('cancel');
     document.getElementById('pi-confirm-title').textContent = options.title || 'Confirmar ação';
     document.getElementById('pi-confirm-message').textContent = options.message || '';
+    var details = document.getElementById('pi-confirm-details');
+    var detailItems = list(options.details);
+    confirmDialog.classList.toggle('is-email', options.kind === 'email');
+    if (details) {
+      details.replaceChildren();
+      details.hidden = !detailItems.length;
+      detailItems.forEach(function (item) {
+        var row = document.createElement('div');
+        var identity = document.createElement('span');
+        var name = document.createElement('strong');
+        var email = document.createElement('small');
+        var role = document.createElement('em');
+        name.textContent = item.nome_completo || item.nome || item.email || 'Contato';
+        email.textContent = item.email || 'Sem e-mail';
+        role.textContent = String(item.papel || item.role || '').replace('_', ' ') || 'Destinatário';
+        identity.append(name, email);
+        row.append(identity, role);
+        details.appendChild(row);
+      });
+    }
     var accept = document.getElementById('pi-confirm-accept');
     accept.textContent = options.confirmText || 'Confirmar';
     accept.className = 'pi-op-btn ' + (options.danger ? 'pi-op-btn--danger' : 'pi-op-btn--primary');
@@ -285,25 +305,64 @@
       : '<div class="pi-op-state">Nenhuma campanha vinculada ao PI.</div>';
   }
 
-  function renderRelatedCampaigns(data) {
-    var target = document.getElementById('pi-related-campaigns');
+  function renderRouteMap(data) {
+    var target = document.getElementById('pi-route-campaigns');
     if (!target) return;
-    var back = document.getElementById('pi-related-back');
-    if (back) back.href = piDetailUrl();
-    var campaigns = list(data.campanhas_relacionadas);
+    var piLink = document.getElementById('pi-route-pi');
+    var position = document.getElementById('pi-route-position');
+    var cycle = document.getElementById('pi-route-cycle');
+    var previous = document.getElementById('pi-route-prev');
+    var next = document.getElementById('pi-route-next');
+    if (piLink) {
+      piLink.href = piDetailUrl();
+      piLink.classList.toggle('is-current', !campaignId);
+      if (!campaignId) piLink.setAttribute('aria-current', 'page');
+      else piLink.removeAttribute('aria-current');
+    }
+    var campaigns = list(data.campanhas_relacionadas).length
+      ? list(data.campanhas_relacionadas)
+      : list(data.campanhas).map(function (item) {
+          return {
+            id_campanha: item.id_campanha,
+            nome: item.nome_campanha || item.nome,
+            plataforma: item.plataforma_nome || item.plataforma,
+            atual: Number(item.id_campanha) === campaignId
+          };
+        });
     target.className = '';
     target.innerHTML = campaigns.length
-      ? '<div class="pi-op-related__list">' + campaigns.map(function (campaign) {
+      ? '<div class="pi-op-route-map__list">' + campaigns.map(function (campaign) {
           var current = Boolean(campaign.atual) ||
             Number(campaign.id_campanha) === campaignId;
-          return '<a class="pi-op-related__item' + (current ? ' is-current' : '') +
+          return '<a class="pi-op-route-map__item' + (current ? ' is-current' : '') +
             '" href="' + esc(campaignDetailUrl(campaign.id_campanha)) + '"' +
             (current ? ' aria-current="page"' : '') + '><span>' +
             esc(campaign.nome || ('Campanha ' + campaign.id_campanha)) +
-            '</span><small>' + esc(current ? 'Atual' : (campaign.plataforma || 'Abrir')) +
-            '</small></a>';
+            '</span><small>' + esc(campaign.plataforma || 'Abrir campanha') +
+            '</small><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>';
         }).join('') + '</div>'
-      : '<div class="pi-op-state">Nenhuma outra campanha neste PI.</div>';
+      : '<div class="pi-op-state">Este PI ainda não possui campanhas.</div>';
+    if (position) {
+      var currentIndex = campaigns.findIndex(function (item) {
+        return Boolean(item.atual) || Number(item.id_campanha) === campaignId;
+      });
+      position.textContent = currentIndex >= 0
+        ? (currentIndex + 1) + ' de ' + campaigns.length
+        : campaigns.length + (campaigns.length === 1 ? ' campanha' : ' campanhas');
+    }
+    if (!cycle || !previous || !next) return;
+    var index = campaigns.findIndex(function (item) {
+      return Boolean(item.atual) || Number(item.id_campanha) === campaignId;
+    });
+    cycle.hidden = index < 0 || campaigns.length < 2;
+    if (!cycle.hidden) {
+      var previousCampaign = campaigns[(index - 1 + campaigns.length) % campaigns.length];
+      var nextCampaign = campaigns[(index + 1) % campaigns.length];
+      previous.href = campaignDetailUrl(previousCampaign.id_campanha);
+      previous.title = previousCampaign.nome || 'Campanha anterior';
+      next.href = campaignDetailUrl(nextCampaign.id_campanha);
+      next.title = nextCampaign.nome || 'Próxima campanha';
+    }
   }
 
   function renderTimeline(data) {
@@ -453,16 +512,19 @@
     if (!piId) return;
     try {
       operationData = await request(stateUrl);
+      if (campaignId && operationData.campanha) {
+        selectedCampaign = operationData.campanha;
+      }
       renderRecommendation(operationData);
       renderChecklist(operationData);
-      renderRelatedCampaigns(operationData);
+      renderRouteMap(operationData);
       renderTimeline(operationData);
       renderRecipients(operationData);
     } catch (error) {
       var target = document.getElementById('pi-operation-recommendation');
       if (target) target.innerHTML = errorHtml(error.message);
       renderChecklist({});
-      renderRelatedCampaigns({});
+      renderRouteMap({});
       renderTimeline({});
       renderRecipients({ recipient_error: error.message });
     }
@@ -513,6 +575,16 @@
     }
   }
 
+  function scrollSidebarTo(element) {
+    if (!element) return;
+    var behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    if (window.innerWidth <= 1050 && sidebarScroll) {
+      sidebarScroll.scrollTo({ top: element.offsetTop - 12, behavior: behavior });
+      return;
+    }
+    element.scrollIntoView({ block: 'start', behavior: behavior });
+  }
+
   function decodePayload(encoded) {
     try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch (_) { return null; }
   }
@@ -544,7 +616,7 @@
         '<button type="button" class="' + buttonClass('email') + '" data-context-action="email">Preparar e-mail</button>' +
       '</div>';
     panel.hidden = false;
-    sidebarScroll.scrollTo({ top: panel.offsetTop - 12, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    scrollSidebarTo(panel);
     document.querySelectorAll('#pi_campanhas_container details').forEach(function (details) {
       details.classList.toggle('pi-op-campaign-selected', details.textContent.indexOf(campaign.nome_campanha || '\0') !== -1);
     });
@@ -579,7 +651,7 @@
     }
     if (action === 'email') {
       var communications = document.getElementById('pi-communications-panel');
-      if (communications) sidebarScroll.scrollTo({ top: communications.offsetTop - 12, behavior: 'smooth' });
+      scrollSidebarTo(communications);
       if (!communicationCatalog.length) notify('Nenhuma comunicação disponível para esta etapa.', 'warning');
     }
   }
@@ -595,6 +667,15 @@
     };
   }
 
+  function recipientLabel(item) {
+    var name = item.nome_completo || item.nome || item.email || 'Contato';
+    var email = item.email && item.email !== name ? item.email : '';
+    return '<li><span><strong>' + esc(name) + '</strong>' +
+      (email ? '<small>' + esc(email) + '</small>' : '') +
+      '</span><em>' + esc(String(item.papel || item.role || 'destinatário').replace('_', ' ')) +
+      '</em></li>';
+  }
+
   async function previewEmail(type, campaignId, draft) {
     var target = document.getElementById('pi-context-content');
     try {
@@ -608,8 +689,8 @@
         emailPreviewData = data;
         var recipients = list(data.destinatarios);
         var audience = recipients.length
-          ? '<div class="pi-op-email-audience"><strong>Destinatários: ' + esc(recipients.length) + '</strong><br>' +
-            recipients.map(function (item) { return esc(item.nome_completo || item.email); }).join(', ') + '</div>'
+          ? '<div class="pi-op-email-audience"><strong>Para quem será enviado</strong>' +
+            '<ul>' + recipients.map(recipientLabel).join('') + '</ul></div>'
           : '<div class="pi-op-error">Selecione ao menos um destinatário antes de enviar.</div>';
         target.innerHTML = '<div class="pi-op-stack">' +
           '<label for="pi-email-subject"><strong>Assunto</strong></label>' +
@@ -621,7 +702,7 @@
             ? '<iframe class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" srcdoc="' + esc(data.html) + '"></iframe>'
             : '<div class="pi-op-email-preview">' + esc(data.corpo_texto || data.corpo || data.preview || 'Preview sem conteúdo.') + '</div>') +
           (!readOnly
-            ? '<div class="pi-op-context-actions">' +
+            ? '<div class="pi-op-context-actions pi-op-email-actions">' +
                 '<button type="button" class="pi-op-btn pi-op-btn--secondary" data-refresh-email="' + esc(type) + '">Atualizar prévia</button>' +
                 '<button type="button" class="pi-op-btn pi-op-btn--primary" data-send-email="' + esc(type) + '">Enviar e-mail</button>' +
               '</div>'
@@ -639,9 +720,10 @@
     }
     var confirmed = await confirmAction({
       title: 'Enviar comunicação',
-      message: 'Enviar este e-mail para ' + recipients.length +
-        (recipients.length === 1 ? ' destinatário?' : ' destinatários?'),
-      confirmText: 'Enviar e-mail'
+      message: 'Revise quem receberá esta comunicação. O envio não poderá ser desfeito.',
+      details: recipients,
+      kind: 'email',
+      confirmText: recipients.length === 1 ? 'Enviar para 1 pessoa' : 'Enviar para ' + recipients.length + ' pessoas'
     });
     if (!confirmed) return;
     setBusy(button, true, 'Enviando…');

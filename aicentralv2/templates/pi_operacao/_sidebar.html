@@ -12,7 +12,32 @@
   </div>
   <div id="pi-sidebar-scroll" class="pi-op-sidebar__scroll">
     <div id="pi-operation-feedback" class="pi-op-feedback" role="status" aria-live="polite" hidden></div>
-    {% if operacao_modo|default('pi') != 'campanha' %}
+
+    <nav class="pi-op-route-map" aria-labelledby="pi-route-map-title">
+      <div class="pi-op-route-map__head">
+        <span>
+          <i class="fa-solid fa-route" aria-hidden="true"></i>
+          <strong id="pi-route-map-title">PI e campanhas</strong>
+        </span>
+        <small id="pi-route-position"></small>
+      </div>
+      <a id="pi-route-pi" class="pi-op-route-map__pi" href="/cadu_pi/editar/{{ pi.id_pi if pi else '' }}">
+        <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+        <span><small>PI de origem</small><strong>{{ pi.codigo_pi_cc or pi.titulo_pi or ('PI ' ~ pi.id_pi) if pi else 'Abrir PI' }}</strong></span>
+      </a>
+      <div id="pi-route-campaigns" class="pi-op-route-map__campaigns" aria-live="polite">
+        <span class="pi-op-state">Carregando campanhas…</span>
+      </div>
+      <div id="pi-route-cycle" class="pi-op-route-map__cycle" hidden>
+        <a id="pi-route-prev" href="#" aria-label="Campanha anterior">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Anterior</span>
+        </a>
+        <a id="pi-route-next" href="#" aria-label="Próxima campanha">
+          <span>Próxima</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </a>
+      </div>
+    </nav>
+
     <section id="pi-context-panel" class="pi-op-panel pi-op-context" hidden aria-labelledby="pi-context-title">
       <div class="pi-op-panel__title">
         <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
@@ -20,7 +45,6 @@
       </div>
       <div id="pi-context-content"></div>
     </section>
-    {% endif %}
 
     <section class="pi-op-panel pi-op-workflow" aria-labelledby="pi-checklist-title">
       <div class="pi-op-panel__title pi-op-panel__title--actions">
@@ -52,19 +76,8 @@
         </div>
         <div id="pi-checklist-campaigns" class="pi-op-state">Nenhuma campanha disponível.</div>
       </div>
-      {% if operacao_modo|default('pi') == 'campanha' %}
-      <nav class="pi-op-related" aria-labelledby="pi-related-title">
-        <div class="pi-op-checklist-group__head">
-          <h4 id="pi-related-title">Campanhas deste PI</h4>
-          <a id="pi-related-back" class="pi-op-related__back" href="/cadu_pi/editar/{{ pi.id_pi if pi else '' }}">Voltar ao PI</a>
-        </div>
-        <p class="pi-op-section-help">Alterne de campanha sem perder o vínculo com o PI.</p>
-        <div id="pi-related-campaigns" class="pi-op-state">Carregando campanhas…</div>
-      </nav>
-      {% endif %}
     </section>
 
-    {% if operacao_modo|default('pi') != 'campanha' %}
     <section id="pi-communications-panel" class="pi-op-panel" aria-labelledby="pi-communications-title">
       <div class="pi-op-panel__title">
         <i class="fa-regular fa-envelope" aria-hidden="true"></i>
@@ -90,6 +103,7 @@
       </form>
     </section>
 
+    {% if operacao_modo|default('pi') != 'campanha' %}
     <section class="pi-op-panel" aria-labelledby="pi-timeline-title">
       <div class="pi-op-panel__title">
         <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
@@ -125,6 +139,7 @@
     <div>
       <h2 id="pi-confirm-title">Confirmar ação</h2>
       <p id="pi-confirm-message"></p>
+      <div id="pi-confirm-details" class="pi-confirm-dialog__details" hidden></div>
     </div>
     <div class="pi-confirm-dialog__actions">
       <button type="submit" value="cancel" class="pi-op-btn pi-op-btn--secondary">Voltar</button>

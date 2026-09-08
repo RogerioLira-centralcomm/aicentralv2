@@ -20552,7 +20552,7 @@ def obter_relatorio_incentivos_agencias(
     id_status_pi / id_sub_status_pi são opcionais (não aplicados por padrão).
     """
     conn = get_db()
-    parse_bruto = _parse_vr_bruto_pi_sql('p')
+    parse_liquido = _parse_valor_monetario_col_sql('p.vr_liquido_pi')
     _ = tipo_entidade  # legado; relatório sempre usa cadu_pi_incentivos
 
     agg_where = [
@@ -20597,19 +20597,19 @@ def obter_relatorio_incentivos_agencias(
                     cli.razao_social AS agencia_razao,
                     {cols},
                     COALESCE(agg.total_pis, 0) AS total_pis,
-                    COALESCE(agg.volume_bruto, 0) AS volume_bruto
+                    COALESCE(agg.volume_liquido, 0) AS volume_liquido
                 FROM cadu_pi_incentivos i
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
                 LEFT JOIN (
                     SELECT
                         p.id_cliente,
                         COUNT(p.id_pi) AS total_pis,
-                        SUM({parse_bruto}) AS volume_bruto
+                        SUM({parse_liquido}) AS volume_liquido
                     FROM cadu_pi p
                     WHERE {agg_where_sql}
                     GROUP BY p.id_cliente
                 ) agg ON agg.id_cliente = i.cliente_id
-                ORDER BY COALESCE(agg.volume_bruto, 0) DESC, i.cliente_id ASC NULLS LAST
+                ORDER BY COALESCE(agg.volume_liquido, 0) DESC, i.cliente_id ASC NULLS LAST
                 ''',
                 tuple(agg_params),
             )
@@ -20620,7 +20620,7 @@ def obter_relatorio_incentivos_agencias(
 
     resultado = []
     for row in rows:
-        volume = float(row.get('volume_bruto') or 0)
+        volume = float(row.get('volume_liquido') or 0)
         cliente_id = row.get('cliente_id')
         faixa_info = obter_faixa_incentivo_por_volume(volume)
         perc_frac = obter_incentivo_fracao_por_cliente_volume(cliente_id, volume) or 0.0
@@ -20645,7 +20645,7 @@ def obter_relatorio_incentivos_agencias(
             'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
             'agencia_razao': row.get('agencia_razao'),
             'total_pis': int(row.get('total_pis') or 0),
-            'volume_bruto': volume,
+            'volume_liquido': volume,
             'faixa_atual': faixa_info['faixa_label'],
             'faixa_key': faixa_info['faixa_key'],
             'perc_atual': perc_atual,

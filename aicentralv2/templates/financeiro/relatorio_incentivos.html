@@ -78,8 +78,8 @@
       <div class="text-lg font-semibold text-gray-800">{{ totais.total_pis }}</div>
     </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
-      <div class="text-xs text-gray-500 uppercase">Volume bruto</div>
-      <div class="text-lg font-semibold text-gray-800">{{ fmt_moeda(totais.volume_bruto) }}</div>
+      <div class="text-xs text-gray-500 uppercase">Volume líquido</div>
+      <div class="text-lg font-semibold text-gray-800">{{ fmt_moeda(totais.volume_liquido) }}</div>
     </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
       <div class="text-xs text-gray-500 uppercase">Incentivo provisionado</div>
@@ -96,8 +96,9 @@
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">
                 Cliente / entidade
               </th>
+              <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">ID cadastro</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">PIs</th>
-              <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Volume bruto</th>
+              <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Volume líquido</th>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Faixa atual</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">% atual</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Provisionado</th>
@@ -110,9 +111,9 @@
             <tr class="hover:bg-gray-50 transition-colors relatorio-row" data-cliente-id="{{ linha.cliente_id or '' }}">
               <td class="py-2 px-2 sticky left-0 bg-white z-10 border-r border-gray-100">
                 <span class="font-medium text-gray-800">{{ linha.agencia_nome }}</span>
-                {% if linha.cliente_id %}
-                <span class="block text-[10px] text-gray-400 font-mono">#{{ linha.cliente_id }}</span>
-                {% endif %}
+              </td>
+              <td class="py-2 px-2 text-right text-gray-600 font-mono">
+                {% if linha.cliente_id %}#{{ linha.cliente_id }}{% else %}—{% endif %}
               </td>
               <td class="py-2 px-2 text-right text-gray-600">
                 {% if linha.total_pis > 0 %}
@@ -128,7 +129,7 @@
                 0
                 {% endif %}
               </td>
-              <td class="py-2 px-2 text-right text-gray-800">{{ fmt_moeda(linha.volume_bruto) }}</td>
+              <td class="py-2 px-2 text-right text-gray-800">{{ fmt_moeda(linha.volume_liquido) }}</td>
               <td class="py-2 px-2 text-gray-600">{{ linha.faixa_atual }}</td>
               <td class="py-2 px-2 text-right text-gray-600">{{ fmt_pct(linha.perc_atual) }}</td>
               <td class="py-2 px-2 text-right font-medium text-green-700">{{ fmt_moeda(linha.incentivo_provisionado) }}</td>
@@ -152,8 +153,9 @@
           <tfoot class="bg-gray-50 border-t border-gray-200 font-medium">
             <tr>
               <td class="py-2 px-2 sticky left-0 bg-gray-50 z-10">Total</td>
+              <td class="py-2 px-2"></td>
               <td class="py-2 px-2 text-right">{{ totais.total_pis }}</td>
-              <td class="py-2 px-2 text-right">{{ fmt_moeda(totais.volume_bruto) }}</td>
+              <td class="py-2 px-2 text-right">{{ fmt_moeda(totais.volume_liquido) }}</td>
               <td class="py-2 px-2" colspan="2"></td>
               <td class="py-2 px-2 text-right text-green-700">{{ fmt_moeda(totais.incentivo_provisionado) }}</td>
               <td class="py-2 px-2" colspan="2"></td>

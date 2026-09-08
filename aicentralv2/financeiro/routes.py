@@ -225,34 +225,42 @@ def gestao_reembolsos():
     return render_template('financeiro/gestao.html')
 
 
+def _ano_ref_relatorio_incentivos():
+    """Normaliza o ano do relatório; sem parâmetro, prioriza 2026."""
+    if 'ano' not in request.args:
+        return 26
+    ano_raw = request.args.get('ano', '').strip()
+    if not ano_raw:
+        return None
+    try:
+        ano_int = int(ano_raw)
+        return ano_int % 100 if ano_int > 100 else ano_int
+    except ValueError:
+        return None
+
+
 @bp.route('/relatorio-incentivos')
 @login_required
 def relatorio_incentivos():
     """Relatório por cliente_id incentivado — volume de PIs, faixa e pagamentos."""
     mes_ref_comp = request.args.get('mes_ref_comp', '').strip() or None
-    ano_raw = request.args.get('ano', '').strip()
-    ano_ref = None
-    if ano_raw:
-        try:
-            ano_int = int(ano_raw)
-            ano_ref = ano_int % 100 if ano_int > 100 else ano_int
-        except ValueError:
-            pass
+    ano_ref = _ano_ref_relatorio_incentivos()
 
     linhas = main_db.obter_relatorio_incentivos_agencias(
         ano_ref=ano_ref,
         mes_ref_comp=mes_ref_comp,
+        id_sub_status_pi=4,
     )
     totais = {
         'total_pis': sum(l['total_pis'] for l in linhas),
-        'volume_bruto': sum(l['volume_bruto'] for l in linhas),
+        'volume_liquido': sum(l['volume_liquido'] for l in linhas),
         'incentivo_provisionado': sum(l['incentivo_provisionado'] for l in linhas),
         'total_entidades': len(linhas),
         'modo_contagem': 'cliente_id',
         'com_incentivo': True,
     }
-    anos_disponiveis = main_db.obter_anos_ref_pi()
-    meses_ref = main_db.obter_meses_ref_pi()
+    anos_disponiveis = main_db.obter_anos_ref_pi(id_sub_status_pi=4)
+    meses_ref = main_db.obter_meses_ref_pi(id_sub_status_pi=4)
     ano_ref_str = f'{ano_ref:02d}' if ano_ref is not None else None
     return render_template(
         'financeiro/relatorio_incentivos.html',
@@ -277,19 +285,13 @@ def api_relatorio_incentivos_pis():
         return jsonify({'success': False, 'message': 'Agência sem incentivo cadastrado.'}), 404
 
     mes_ref_comp = request.args.get('mes_ref_comp', '').strip() or None
-    ano_raw = request.args.get('ano', '').strip()
-    ano_ref = None
-    if ano_raw:
-        try:
-            ano_int = int(ano_raw)
-            ano_ref = ano_int % 100 if ano_int > 100 else ano_int
-        except ValueError:
-            pass
+    ano_ref = _ano_ref_relatorio_incentivos()
 
     rows = main_db.obter_pis_relatorio_incentivo_agencia(
         cliente_id=cliente_id,
         ano_ref=ano_ref,
         mes_ref_comp=mes_ref_comp,
+        id_sub_status_pi=4,
     )
     cli = main_db.obter_cliente_por_id(cliente_id) or {}
     entidade_nome = cli.get('nome_fantasia') or cli.get('razao_social') or '—'

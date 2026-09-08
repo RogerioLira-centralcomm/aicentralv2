@@ -460,6 +460,83 @@
   gap: 1rem;
 }
 
+.mc-brand-form {
+  overflow: hidden;
+}
+
+.mc-brand-import {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid #bed1cf;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background:
+    linear-gradient(115deg, rgba(30, 77, 79, 0.08), rgba(255, 255, 255, 0) 58%),
+    #f7faf9;
+}
+
+.mc-brand-import-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mc-brand-import-copy p {
+  max-width: 46rem;
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.mc-brand-import-icon {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: #183436;
+  color: #fff;
+}
+
+.mc-brand-import-fields {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.mc-brand-analyze-button {
+  min-height: 2.5rem;
+  white-space: nowrap;
+}
+
+.mc-brand-use-image {
+  min-height: 0;
+  font-size: 0.72rem;
+}
+
+.mc-brand-analysis-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  border-top: 1px solid #dce7e5;
+  padding-top: 0.75rem;
+  color: #46605f;
+  font-size: 0.72rem;
+}
+
+.mc-brand-analysis-summary strong {
+  color: #183436;
+}
+
+.mc-brand-analysis-summary a {
+  color: #1e4d4f;
+  font-weight: 700;
+}
+
 .mc-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1137,6 +1214,12 @@
   .mc-two-column,
   .mc-library-layout {
     grid-template-columns: 1fr;
+  }
+  .mc-brand-import-fields {
+    grid-template-columns: 1fr;
+  }
+  .mc-brand-analyze-button {
+    width: 100%;
   }
   .mc-header,
   .mc-workspace-head,

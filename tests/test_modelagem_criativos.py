@@ -1,6 +1,7 @@
 """Testes isolados da Modelagem de Criativos, sem PostgreSQL ou APIs reais."""
 
 import base64
+from io import BytesIO
 import json
 import tempfile
 import unittest
@@ -9,7 +10,9 @@ from unittest.mock import Mock, patch
 
 from flask import Blueprint, Flask
 from jinja2 import Environment
+from werkzeug.datastructures import FileStorage
 
+from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
 from aicentralv2.creative_modeling_generation import (
     CreativeGenerationClient,
     build_higgsfield_payload,
@@ -162,6 +165,13 @@ class FakeRepository:
             "logo_upload_path": None,
             "primary_color": "#1E4D4F",
             "secondary_color": "#F3B71B",
+            "website_url": "https://example.com",
+            "brand_profile": {
+                "brand_summary": "Soluções seguras para morar bem.",
+                "target_audience": "Famílias buscando o primeiro imóvel.",
+                "ad_segments": ["Primeiro imóvel", "Investimento"],
+                "creative_guidelines": "Arquitetura real, luz natural e pouco texto.",
+            },
             "step": {
                 "id": step_id,
                 "position": 1,
@@ -323,6 +333,69 @@ class FakeStorage:
         pass
 
 
+class CreativeBrandAnalyzerTest(unittest.TestCase):
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=(
+            {
+                "source_url": "https://marca.com.br",
+                "title": "Marca",
+                "logo_url": "https://marca.com.br/logo.svg",
+            },
+            {"logo_url": "https://marca.com.br/logo.svg"},
+        ),
+    )
+    def test_cruza_site_imagem_e_normaliza_resultado(self, _evidence):
+        captured = {}
+
+        def llm(messages, **kwargs):
+            captured["messages"] = messages
+            captured["model"] = kwargs["model"]
+            return {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "name": "Marca",
+                            "sector": "Varejo",
+                            "brand_summary": "Produtos para o dia a dia.",
+                            "tone_of_voice": "Direto e acolhedor",
+                            "primary_color": "#123abc",
+                            "secondary_color": "#fedcba",
+                            "target_audience": "Famílias urbanas.",
+                            "ad_segments": ["Economia", "Conveniência"],
+                            "creative_guidelines": "Produto em uso real.",
+                            "campaign_opportunities": ["Datas sazonais"],
+                            "confidence": {
+                                "identity": 0.9,
+                                "audience": 0.7,
+                                "visual": 0.8,
+                            },
+                            "sources": ["https://marca.com.br"],
+                        }
+                    )
+                },
+                "model": kwargs["model"],
+            }
+
+        image = FileStorage(
+            stream=BytesIO(b"fake-image-content" * 4),
+            filename="referencia.png",
+            content_type="image/png",
+        )
+        result = CreativeBrandAnalyzer(llm=llm).analyze("marca.com.br", image)
+
+        self.assertEqual(captured["model"], "perplexity/sonar-pro")
+        self.assertEqual(result["primary_color"], "#123ABC")
+        self.assertEqual(result["logo_url"], "https://marca.com.br/logo.svg")
+        self.assertEqual(result["analysis_metadata"]["source_types"], ["url", "image"])
+        user_content = captured["messages"][1]["content"]
+        self.assertEqual(user_content[1]["type"], "image_url")
+
+    def test_bloqueia_url_local(self):
+        with self.assertRaisesRegex(ValueError, "site público"):
+            CreativeBrandAnalyzer(llm=Mock()).analyze("http://127.0.0.1")
+
+
 class CreativeServiceTest(unittest.TestCase):
     def setUp(self):
         self.repo = FakeRepository()
@@ -345,11 +418,35 @@ class CreativeServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RRGGBB"):
             self.service.create_client({"name": "Inválido", "primary_color": "azul"})
 
+    def test_cliente_salva_base_enriquecida(self):
+        self.service.create_client(
+            {
+                "name": "Cliente",
+                "website_url": "https://example.com",
+                "brand_summary": "Marca premium.",
+                "target_audience": "Adultos urbanos.",
+                "ad_segments": ["Conveniência", "Qualidade"],
+                "creative_guidelines": "Fotografia editorial.",
+                "campaign_opportunities": ["Lançamento"],
+                "analysis_metadata": {"model": "perplexity/sonar-pro"},
+            }
+        )
+        saved = self.repo.clients[0]
+        self.assertEqual(saved["website_url"], "https://example.com")
+        self.assertEqual(
+            saved["brand_profile"]["ad_segments"], ["Conveniência", "Qualidade"]
+        )
+        self.assertEqual(
+            saved["analysis_metadata"]["model"], "perplexity/sonar-pro"
+        )
+
     def test_prompt_deterministico_contem_variacao_e_identidades(self):
         context = self.repo.get_step_context(8)
         prompt = self.service.build_prompt(context, context["step"], 2)
         self.assertIn("[VARIAÇÃO A — STEP 1]", prompt)
         self.assertIn("Cor primária da marca: #1E4D4F", prompt)
+        self.assertIn("Público-alvo: Famílias buscando o primeiro imóvel.", prompt)
+        self.assertIn("Segmentos/ângulos recomendados: Primeiro imóvel", prompt)
         self.assertIn("Cor de contexto do parceiro: #E50914", prompt)
 
     @patch.dict("os.environ", {"CREATIVE_PROMPT_ESTIMATED_COST_USD": "0.02"})
@@ -632,6 +729,33 @@ class CreativeRoutesTest(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.get_json()["success"])
 
+    def test_api_analisa_site_e_imagem(self):
+        service = Mock()
+        service.analyze_brand.return_value = {
+            "name": "Marca",
+            "target_audience": "Famílias urbanas",
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/clients/analyze-brand",
+                data={
+                    "website_url": "https://marca.com.br",
+                    "image": (BytesIO(b"image-data"), "marca.png"),
+                },
+                content_type="multipart/form-data",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["name"], "Marca")
+        args = service.analyze_brand.call_args.args
+        self.assertEqual(args[0], "https://marca.com.br")
+        self.assertEqual(args[1].filename, "marca.png")
+
 
 class CreativeFilesContractTest(unittest.TestCase):
     def test_templates_sao_jinja_valido_e_usam_design_system(self):
@@ -652,8 +776,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=5", page)
-        self.assertIn("modelagem_criativos.js') }}?v=5", page)
+        self.assertIn("modelagem_criativos.css') }}?v=6", page)
+        self.assertIn("modelagem_criativos.js') }}?v=6", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
         self.assertIn('id="mcGeneratorFormatList"', generator)
@@ -675,6 +799,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mcFormatStage", library)
         self.assertIn("mcAdSlot", library)
         self.assertIn("mcLibraryDetail", library)
+        clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
+        self.assertIn('id="mcAnalyzeBrand"', clients)
+        self.assertIn('name="target_audience"', clients)
 
     def test_migration_cobre_custos_referencias_iab_e_video(self):
         root = Path(__file__).resolve().parents[1]
@@ -692,6 +819,8 @@ class CreativeFilesContractTest(unittest.TestCase):
             "cx_public_collection_assets",
         ):
             self.assertIn(f"CREATE TABLE IF NOT EXISTS {table}", migration)
+        self.assertIn("brand_profile JSONB", migration)
+        self.assertIn("analysis_metadata JSONB", migration)
         seed = (root / "scripts" / "seed_creative_formats.py").read_text(
             encoding="utf-8"
         )

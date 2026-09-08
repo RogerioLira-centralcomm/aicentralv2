@@ -154,6 +154,7 @@ class CreativeModelingRepository:
                 """
                 SELECT id, name, sector, tone_of_voice, logo_url,
                        logo_upload_path, primary_color, secondary_color,
+                       website_url, brand_profile, analysis_metadata,
                        price_policy, created_at
                   FROM cx_clients
                  ORDER BY created_at DESC, id DESC
@@ -167,6 +168,7 @@ class CreativeModelingRepository:
                 """
                 SELECT id, name, sector, tone_of_voice, logo_url,
                        logo_upload_path, primary_color, secondary_color,
+                       website_url, brand_profile, analysis_metadata,
                        price_policy, created_at
                   FROM cx_clients
                  WHERE id = %s
@@ -184,9 +186,10 @@ class CreativeModelingRepository:
                 """
                 INSERT INTO cx_clients (
                     name, sector, tone_of_voice, logo_url, primary_color,
-                    secondary_color, price_policy
+                    secondary_color, website_url, brand_profile,
+                    analysis_metadata, price_policy
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -196,6 +199,9 @@ class CreativeModelingRepository:
                     data.get("logo_url"),
                     data.get("primary_color"),
                     data.get("secondary_color"),
+                    data.get("website_url"),
+                    Json(data.get("brand_profile") or {}),
+                    Json(data.get("analysis_metadata") or {}),
                     data["price_policy"],
                 ),
             )
@@ -305,6 +311,8 @@ class CreativeModelingRepository:
                        cl.logo_upload_path AS client_logo_upload_path,
                        cl.primary_color AS client_primary_color,
                        cl.secondary_color AS client_secondary_color,
+                       cl.website_url AS client_website_url,
+                       cl.brand_profile AS client_brand_profile,
                        cl.price_policy AS client_price_policy
                   FROM cx_campaigns c
                   JOIN cx_clients cl ON cl.id = c.client_id
@@ -364,6 +372,8 @@ class CreativeModelingRepository:
             "logo_upload_path": result.pop("client_logo_upload_path"),
             "primary_color": result.pop("client_primary_color"),
             "secondary_color": result.pop("client_secondary_color"),
+            "website_url": result.pop("client_website_url"),
+            "brand_profile": result.pop("client_brand_profile") or {},
             "price_policy": result.pop("client_price_policy"),
         }
         for variation in variations:
@@ -572,7 +582,8 @@ class CreativeModelingRepository:
                        c.budget_usd, c.reserved_usd, c.spent_usd,
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
-                       cl.primary_color, cl.secondary_color
+                       cl.primary_color, cl.secondary_color,
+                       cl.website_url, cl.brand_profile
                   FROM cx_campaign_variations v
                   JOIN cx_campaigns c ON c.id = v.campaign_id
                   JOIN cx_clients cl ON cl.id = c.client_id

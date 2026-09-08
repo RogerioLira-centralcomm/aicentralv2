@@ -140,6 +140,18 @@ def api_clients():
 
 
 @admin_required_api
+def api_analyze_client_brand():
+    return _execute(
+        lambda: _ok(
+            _service().analyze_brand(
+                request.form.get("website_url"),
+                request.files.get("image"),
+            )
+        )
+    )
+
+
+@admin_required_api
 def api_delete_client(cid):
     def execute():
         service = _service()
@@ -483,6 +495,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_clients",
         view_func=api_clients,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/clients/analyze-brand",
+        endpoint="creative_analyze_client_brand",
+        view_func=api_analyze_client_brand,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/clients/<int:cid>",

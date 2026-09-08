@@ -5,6 +5,7 @@
   const API = {
     formats: '/parametros/api/formats',
     clients: '/parametros/api/clients',
+    analyzeBrand: '/parametros/api/clients/analyze-brand',
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
     viewerProfiles: '/parametros/api/viewer-profiles',
@@ -31,6 +32,7 @@
     generatorFormatId: null,
     placementDraft: null,
     originalPlacement: null,
+    brandAnalysis: null,
     locks: new Set(),
   };
 
@@ -169,6 +171,7 @@
           ${client.secondary_color ? `<span class="mc-swatch" style="background:${escapeHtml(client.secondary_color)}" title="${escapeHtml(client.secondary_color)}"></span>` : ''}
         </div>
         <div><strong>Tom de voz</strong><p>${escapeHtml(client.tone_of_voice || 'Não informado')}</p></div>
+        ${client.brand_profile?.target_audience ? `<div><strong>Público prioritário</strong><p>${escapeHtml(client.brand_profile.target_audience)}</p></div>` : ''}
       </div>`;
   }
 
@@ -942,7 +945,7 @@
     root.innerHTML = state.clients.map((client) => {
       const logo = client.logo_upload_path || client.logo_url;
       return `<tr>
-        <td><strong>${escapeHtml(client.name)}</strong><br><span class="mc-section-note">${escapeHtml(client.sector || 'Sem setor')}</span></td>
+        <td><strong>${escapeHtml(client.name)}</strong><br><span class="mc-section-note">${escapeHtml(client.sector || 'Sem setor')}</span>${client.analysis_metadata?.model ? '<br><span class="cx-badge cx-badge-info">Perfil analisado</span>' : ''}</td>
         <td><span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.primary_color || '#ffffff')}"></span> <span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.secondary_color || '#ffffff')}"></span></td>
         <td>${logo ? `<img src="${escapeHtml(logo)}" alt="" style="width:40px;height:32px;object-fit:contain">` : '<span class="cx-badge cx-badge-muted">Sem logo</span>'}</td>
         <td><div class="mc-inspector-actions"><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button><button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button></div></td>
@@ -950,19 +953,110 @@
     }).join('') || '<tr><td colspan="4">Cadastre o primeiro perfil de marca.</td></tr>';
   }
 
+  function lines(value) {
+    return String(value || '').split('\n').map((item) => item.trim()).filter(Boolean);
+  }
+
+  function setFormValue(form, name, value) {
+    if (value === null || value === undefined) return;
+    const field = form.elements[name];
+    if (field) field.value = value;
+  }
+
+  function renderBrandAnalysisSummary(data) {
+    const root = $('#mcBrandAnalysisSummary');
+    const confidence = data.confidence || {};
+    const percentages = [
+      ['Identidade', confidence.identity],
+      ['Público', confidence.audience],
+      ['Visual', confidence.visual],
+    ].filter(([, value]) => Number.isFinite(Number(value)));
+    const sources = (data.sources || []).slice(0, 3);
+    root.innerHTML = `
+      <strong>Leitura concluída.</strong>
+      ${percentages.map(([label, value]) => `<span class="cx-badge cx-badge-muted">${escapeHtml(label)} ${Math.round(Number(value) * 100)}%</span>`).join('')}
+      ${sources.length ? `<span>Fontes: ${sources.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${index + 1}</a>`).join(', ')}</span>` : ''}
+      <span>Revise os campos antes de salvar.</span>`;
+    root.classList.remove('hidden');
+  }
+
+  async function analyzeBrand(event) {
+    const button = event.currentTarget;
+    const form = $('#mcClientForm');
+    const websiteUrl = form.elements.website_url.value.trim();
+    const image = form.elements.brand_image.files[0];
+    if (!websiteUrl && !image) {
+      toast('Informe o site ou envie uma imagem de referência.', 'warning');
+      form.elements.website_url.focus();
+      return;
+    }
+    await withLock('analyze-brand', button, async () => {
+      const body = new FormData();
+      if (websiteUrl) body.append('website_url', websiteUrl);
+      if (image) body.append('image', image);
+      $('#mcClientFormStatus').textContent = 'Lendo site, identidade e oportunidades…';
+      try {
+        const data = await api(API.analyzeBrand, { method: 'POST', body });
+        state.brandAnalysis = data;
+        [
+          'name', 'sector', 'website_url', 'logo_url', 'primary_color',
+          'secondary_color', 'tone_of_voice', 'brand_summary',
+          'target_audience', 'creative_guidelines',
+        ].forEach((name) => setFormValue(form, name, data[name]));
+        setFormValue(form, 'ad_segments_text', (data.ad_segments || []).join('\n'));
+        setFormValue(
+          form,
+          'campaign_opportunities_text',
+          (data.campaign_opportunities || []).join('\n'),
+        );
+        renderBrandAnalysisSummary(data);
+        $('#mcClientFormStatus').textContent = '';
+        toast('Leitura da marca concluída. Revise as sugestões.', 'success');
+      } catch (error) {
+        $('#mcClientFormStatus').textContent = error.message;
+        toast(error.message, 'error');
+      }
+    });
+  }
+
   async function createClient(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const button = $('button[type="submit"]', form);
     await withLock('create-client', button, async () => {
-      const data = Object.fromEntries(new FormData(form));
-      data.show_price = new FormData(form).has('show_price');
+      const formData = new FormData(form);
+      const data = {
+        name: formData.get('name'),
+        sector: formData.get('sector'),
+        website_url: formData.get('website_url'),
+        logo_url: formData.get('logo_url'),
+        primary_color: formData.get('primary_color'),
+        secondary_color: formData.get('secondary_color'),
+        tone_of_voice: formData.get('tone_of_voice'),
+        brand_summary: formData.get('brand_summary'),
+        target_audience: formData.get('target_audience'),
+        ad_segments: lines(formData.get('ad_segments_text')),
+        creative_guidelines: formData.get('creative_guidelines'),
+        campaign_opportunities: lines(formData.get('campaign_opportunities_text')),
+        analysis_metadata: state.brandAnalysis?.analysis_metadata || {},
+        show_price: formData.has('show_price'),
+      };
       try {
-        await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
+        const created = await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
+        const image = form.elements.brand_image.files[0];
+        if (image && formData.has('use_image_as_logo')) {
+          const logoBody = new FormData();
+          logoBody.append('logo', image);
+          await api(`${API.clients}/${created.id}/logo`, { method: 'POST', body: logoBody });
+        }
         state.clients = await api(API.clients);
         renderClients();
         renderClientOptions();
         form.reset();
+        state.brandAnalysis = null;
+        $('#mcBrandAnalysisSummary').classList.add('hidden');
+        $('#mcBrandAnalysisSummary').innerHTML = '';
+        $('#mcClientFormStatus').textContent = '';
         toast('Perfil de marca salvo.', 'success');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
@@ -1499,6 +1593,7 @@
     });
     $('#mcCampaignForm').addEventListener('submit', createCampaign);
     $('#mcClientForm').addEventListener('submit', createClient);
+    $('#mcAnalyzeBrand').addEventListener('click', analyzeBrand);
     $('#mcCampaignClient').addEventListener('change', () => {
       renderClientPreview();
       renderGeneratorSummary();

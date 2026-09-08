@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 
+from .creative_brand_analysis import CreativeBrandAnalyzer
 from .creative_modeling_generation import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_TEXT_MODEL,
@@ -96,6 +97,19 @@ def _color(value, field):
     if value and not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
         raise ValueError(f"{field} deve usar o formato #RRGGBB.")
     return value
+
+
+def _text_list(value, field, max_items=8, item_length=500):
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"{field} deve ser uma lista.")
+    if len(value) > max_items:
+        raise ValueError(f"{field} deve ter no máximo {max_items} itens.")
+    return [
+        _text(item, field, required=True, max_length=item_length)
+        for item in value
+    ]
 
 
 def _money(value, field="Orçamento"):
@@ -225,10 +239,13 @@ def _viewer_profile_data(value):
 
 
 class CreativeModelingService:
-    def __init__(self, repository=None, generator=None, storage=None):
+    def __init__(
+        self, repository=None, generator=None, storage=None, brand_analyzer=None
+    ):
         self.repository = repository or CreativeModelingRepository()
         self.generator = generator or CreativeGenerationClient()
         self.storage = storage or CreativeAssetStorage()
+        self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
 
     def list_formats(self):
         return _serialize(self.repository.list_formats())
@@ -302,6 +319,47 @@ class CreativeModelingService:
         logo_url = _text(payload.get("logo_url"), "URL do logo", max_length=2000)
         if logo_url and not logo_url.lower().startswith(("http://", "https://")):
             raise ValueError("URL do logo deve começar com http:// ou https://.")
+        website_url = _text(
+            payload.get("website_url"), "Site da marca", max_length=2000
+        )
+        if website_url and not website_url.lower().startswith(("http://", "https://")):
+            raise ValueError("Site da marca deve começar com http:// ou https://.")
+        brand_profile = {
+            "brand_summary": _text(
+                payload.get("brand_summary"), "Resumo da marca", max_length=4000
+            ),
+            "target_audience": _text(
+                payload.get("target_audience"), "Público-alvo", max_length=4000
+            ),
+            "ad_segments": _text_list(
+                payload.get("ad_segments"), "Segmentos de anúncios", max_items=8
+            ),
+            "creative_guidelines": _text(
+                payload.get("creative_guidelines"),
+                "Direção criativa",
+                max_length=4000,
+            ),
+            "campaign_opportunities": _text_list(
+                payload.get("campaign_opportunities"),
+                "Oportunidades de campanha",
+                max_items=6,
+            ),
+        }
+        analysis_metadata = payload.get("analysis_metadata") or {}
+        if not isinstance(analysis_metadata, dict):
+            raise ValueError("Metadados da análise inválidos.")
+        analysis_metadata = {
+            key: analysis_metadata.get(key)
+            for key in (
+                "model",
+                "analyzed_at",
+                "source_types",
+                "firecrawl_available",
+                "confidence",
+                "sources",
+            )
+            if analysis_metadata.get(key) is not None
+        }
         data = {
             "name": _text(
                 payload.get("name"), "Nome do cliente", required=True, max_length=150
@@ -311,6 +369,7 @@ class CreativeModelingService:
                 payload.get("tone_of_voice"), "Tom de voz", max_length=4000
             ),
             "logo_url": logo_url,
+            "website_url": website_url,
             "primary_color": _color(
                 payload.get("primary_color"), "Cor primária"
             ),
@@ -320,8 +379,13 @@ class CreativeModelingService:
             "price_policy": (
                 "show_price" if payload.get("show_price") is True else "hide_price"
             ),
+            "brand_profile": brand_profile,
+            "analysis_metadata": analysis_metadata,
         }
         return {"id": self.repository.create_client(data)}
+
+    def analyze_brand(self, website_url=None, image=None):
+        return _serialize(self.brand_analyzer.analyze(website_url, image))
 
     def delete_client(self, client_id):
         client_id = _integer(client_id, "Cliente")
@@ -424,6 +488,7 @@ class CreativeModelingService:
         client_name = context.get("client_name") or ""
         client_sector = context.get("client_sector") or ""
         logo_ref = context.get("logo_upload_path") or context.get("logo_url")
+        brand_profile = context.get("brand_profile") or {}
         mockup_desc = MOCKUPS[step["mockup"]]
 
         lines = [
@@ -442,6 +507,19 @@ class CreativeModelingService:
             lines.append(f"Cor primária da marca: {context['primary_color']}")
         if context.get("secondary_color"):
             lines.append(f"Cor secundária da marca: {context['secondary_color']}")
+        if brand_profile.get("brand_summary"):
+            lines.append(f"Posicionamento: {brand_profile['brand_summary']}")
+        if brand_profile.get("target_audience"):
+            lines.append(f"Público-alvo: {brand_profile['target_audience']}")
+        if brand_profile.get("ad_segments"):
+            lines.append(
+                "Segmentos/ângulos recomendados: "
+                + " | ".join(brand_profile["ad_segments"])
+            )
+        if brand_profile.get("creative_guidelines"):
+            lines.append(
+                f"Direção criativa: {brand_profile['creative_guidelines']}"
+            )
 
         lines.extend(
             [
@@ -575,6 +653,8 @@ class CreativeModelingService:
                 "logo": context.get("logo_upload_path") or context.get("logo_url"),
                 "primary_color": context.get("primary_color"),
                 "secondary_color": context.get("secondary_color"),
+                "website_url": context.get("website_url"),
+                "profile": context.get("brand_profile") or {},
             },
             "partner_identity": {
                 "name": step.get("channel_name"),

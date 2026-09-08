@@ -1,9 +1,37 @@
 <div class="mc-two-column mc-clients-layout">
-  <form class="cx-section mc-form" id="mcClientForm">
+  <form class="cx-section mc-form mc-brand-form" id="mcClientForm">
     <div class="cx-section-header">
-      <div><h2>Novo perfil de marca</h2><p>Identidade usada nos prompts e peças.</p></div>
+      <div><h2>Base da marca</h2><p>Importe evidências, revise a leitura e salve o perfil usado nos criativos.</p></div>
     </div>
     <div class="cx-section-body mc-form-grid">
+      <section class="mc-brand-import mc-span-2" aria-labelledby="mcBrandImportTitle">
+        <div class="mc-brand-import-copy">
+          <span class="mc-brand-import-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
+          <div>
+            <strong id="mcBrandImportTitle">Entender marca automaticamente</strong>
+            <p>Informe o site e, se ajudar, envie uma logo ou peça. Cruzamos identidade, público e caminhos de campanha.</p>
+          </div>
+        </div>
+        <div class="mc-brand-import-fields">
+          <label class="cx-field">
+            <span class="cx-label">Site da marca</span>
+            <input class="cx-input" name="website_url" type="url" placeholder="https://marca.com.br">
+          </label>
+          <label class="cx-field">
+            <span class="cx-label">Logo ou peça de referência</span>
+            <input class="cx-input" name="brand_image" type="file" accept=".png,.jpg,.jpeg,.webp">
+          </label>
+          <button class="cx-btn cx-btn-secondary mc-brand-analyze-button" id="mcAnalyzeBrand" type="button">
+            <i class="fa-solid fa-sparkles" aria-hidden="true"></i> Analisar marca
+          </button>
+        </div>
+        <label class="mc-check mc-brand-use-image">
+          <input type="checkbox" name="use_image_as_logo">
+          <span>Usar a imagem enviada como logo deste perfil</span>
+        </label>
+        <div class="mc-brand-analysis-summary hidden" id="mcBrandAnalysisSummary" aria-live="polite"></div>
+      </section>
+
       <label class="cx-field mc-span-2">
         <span class="cx-label">Nome</span>
         <input class="cx-input" name="name" maxlength="150" required>
@@ -27,6 +55,26 @@
       <label class="cx-field mc-span-2">
         <span class="cx-label">Tom de voz</span>
         <textarea class="cx-textarea" name="tone_of_voice" maxlength="4000" placeholder="Ex.: seguro, humano e direto"></textarea>
+      </label>
+      <label class="cx-field mc-span-2">
+        <span class="cx-label">Posicionamento da marca</span>
+        <textarea class="cx-textarea" name="brand_summary" maxlength="4000" placeholder="Proposta de valor, produtos e diferenciais que devem aparecer nos criativos."></textarea>
+      </label>
+      <label class="cx-field mc-span-2">
+        <span class="cx-label">Público-alvo</span>
+        <textarea class="cx-textarea" name="target_audience" maxlength="4000" placeholder="Quem queremos atingir, principais dores, desejos e gatilhos."></textarea>
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Segmentos e ângulos de anúncio</span>
+        <textarea class="cx-textarea" name="ad_segments_text" maxlength="4000" placeholder="Um segmento ou abordagem por linha"></textarea>
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Oportunidades de campanha</span>
+        <textarea class="cx-textarea" name="campaign_opportunities_text" maxlength="3000" placeholder="Uma oportunidade por linha"></textarea>
+      </label>
+      <label class="cx-field mc-span-2">
+        <span class="cx-label">Direção criativa</span>
+        <textarea class="cx-textarea" name="creative_guidelines" maxlength="4000" placeholder="Estilo visual, tipos de imagem, hierarquia e cuidados com a marca."></textarea>
       </label>
       <label class="mc-check mc-span-2">
         <input type="checkbox" name="show_price">

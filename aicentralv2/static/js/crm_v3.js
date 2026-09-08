@@ -3221,62 +3221,41 @@
 
     function cotacaoCardAberta(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
-        var numero = c.numero_cotacao || '';
         var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
-        var plataformas = Array.isArray(c.plataformas) ? c.plataformas : [];
-        var objetivo = c.objetivo || '';
         var statusLabel = c.status_label || c.status_canonico || c.status || '';
-        var plataformasHtml = plataformas.length
-            ? '<div class="crm-v3-cotacao-plataformas">' +
-                plataformas.slice(0, 4).map(function (p) {
-                    return '<span class="crm-v3-cotacao-plataforma">' + escapeHtml(p) + '</span>';
-                }).join('') +
-                (plataformas.length > 4 ? '<span class="crm-v3-cotacao-plataforma crm-v3-cotacao-plataforma-more">+' + (plataformas.length - 4) + '</span>' : '') +
-              '</div>'
-            : '';
-        // Badge de vínculo: mostra se cotação é de cliente vinculado (agência/final)
-        var origemBadge = '';
+        var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
+        var origem = '';
         if (c.origem === 'vinculado' && c.cliente_nome) {
-            origemBadge = '<span class="crm-v3-cotacao-origem" title="Cotação de cliente vinculado: ' + escapeHtml(c.cliente_nome) + '">' +
+            origem = '<span class="crm-v3-cotacao-origem" title="Cliente vinculado: ' + escapeHtml(c.cliente_nome) + '">' +
                 '<i class="fas fa-link" aria-hidden="true"></i> ' + escapeHtml(c.cliente_nome) +
             '</span>';
         }
         return (
-            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta' + (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') + '" data-cotacao-id="' + escapeHtml(c.id) + '">' +
-            origemBadge +
-            '<div class="crm-v3-cotacao-topline">' +
-                (numero ? '<span class="crm-v3-cotacao-numero">' + escapeHtml(numero) + '</span>' : '') +
+            '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta crm-v3-cotacao-detalhes' +
+                (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') +
+                '" data-cotacao-id="' + escapeHtml(c.id) + '" aria-label="Abrir cotação ' + escapeHtml(titulo) + '">' +
+            '<span class="crm-v3-cotacao-compact-head">' +
+                '<span class="crm-v3-cotacao-titulo">' + escapeHtml(titulo) + '</span>' +
+                (valor ? '<span class="crm-v3-cotacao-valor">' + escapeHtml(valor) + '</span>' : '') +
+            '</span>' +
+            '<span class="crm-v3-cotacao-compact-meta">' +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
                     '<i class="' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
                     escapeHtml(statusLabel) +
                 '</span>' +
-                '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" aria-label="Abrir detalhes da cotação" title="Abrir detalhes">' +
-                    '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>' +
-                '</button>' +
-            '</div>' +
-            '<button type="button" class="crm-v3-cotacao-titulo crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '">' +
-                escapeHtml(titulo) +
-            '</button>' +
-            (objetivo ? '<div class="crm-v3-cotacao-objetivo"><i class="fa-solid fa-bullseye" aria-hidden="true"></i>' + escapeHtml(objetivo) + '</div>' : '') +
-            plataformasHtml +
-            '<div class="crm-v3-cotacao-rodape">' +
-                '<span class="crm-v3-cotacao-valor">' + escapeHtml(c.valor) + '</span>' +
                 (periodo ? '<span class="crm-v3-cotacao-data">' + escapeHtml(periodo) + '</span>' : '') +
-            '</div>' +
-            '</article>'
+                origem +
+            '</span>' +
+            '</button>'
         );
     }
 
     function cotacaoLinhaHistorico(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
-        var numero = c.numero_cotacao || '';
         var statusLabel = c.status_label || c.status_canonico || c.status || '';
         var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
-        // Metadata compacta em uma linha só, separada por bullets. Cada item
-        // é opcional (o `filter(Boolean)` evita "· ·" quando algum campo vem
-        // vazio do backend).
-        var meta = [numero, statusLabel, periodo].filter(Boolean).join(' · ');
+        var meta = [statusLabel, periodo].filter(Boolean).join(' · ');
         // Badge de vínculo para cotações de clientes vinculados
         var origemLabel = '';
         if (c.origem === 'vinculado' && c.cliente_nome) {
@@ -3414,8 +3393,10 @@
                 ev.preventDefault();
                 var id = btn.getAttribute('data-cotacao-id');
                 if (!id) return;
-                var cot = state.cotacoes.find(function (c) { return c.id === id; });
-                if (cot) openCotacaoModal(cot);
+                var cot = state.cotacoes.find(function (c) { return String(c.id) === String(id); });
+                if (cot && window.crmV3Drawer && typeof window.crmV3Drawer.openCotacao === 'function') {
+                    window.crmV3Drawer.openCotacao(cot, state.clienteId);
+                }
             });
         });
     }
@@ -3428,7 +3409,6 @@
      */
     function cotacaoCardAprovada(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
-        var numero = c.numero_cotacao || '';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
         var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
         var origemPill = '';
@@ -3438,21 +3418,19 @@
                 '</span>';
         }
         return (
-            '<article class="crm-v3-cotacao-card crm-v3-cotacao-card-aprovada crm-v3-cotacao-detalhes"' +
+            '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aprovada crm-v3-cotacao-detalhes"' +
                 ' data-cotacao-id="' + escapeHtml(c.id) + '"' +
-                ' role="button" tabindex="0"' +
-                ' title="Ver detalhes da cotação aprovada">' +
+                ' aria-label="Abrir cotação aprovada ' + escapeHtml(titulo) + '">' +
             '<div class="crm-v3-cotacao-aprovada-topline">' +
                 '<i class="fa-solid fa-circle-check crm-v3-cotacao-aprovada-icon" aria-hidden="true"></i>' +
                 '<span class="crm-v3-cotacao-aprovada-titulo">' + escapeHtml(titulo) + '</span>' +
                 (valor ? '<span class="crm-v3-cotacao-aprovada-valor">' + escapeHtml(valor) + '</span>' : '') +
             '</div>' +
             '<div class="crm-v3-cotacao-aprovada-meta">' +
-                (numero ? '<span>' + escapeHtml(numero) + '</span>' : '') +
                 (periodo ? '<span>' + escapeHtml(periodo) + '</span>' : '') +
                 origemPill +
             '</div>' +
-            '</article>'
+            '</button>'
         );
     }
 
@@ -4180,36 +4158,6 @@
         }).finally(function () { btn.disabled = false; });
     }
 
-    function openCotacaoModal(cotacao) {
-        var form = $('#crm-v3-form-cotacao');
-        if (form) form.reset();
-        $('#crm-v3-cotacao-id').value = cotacao ? cotacao.id : '';
-        $('#crm-v3-modal-cotacao-title').textContent = cotacao ? 'Editar cotação' : 'Nova cotação';
-        var inicio = $('#crm-v3-cotacao-inicio');
-        var fim = $('#crm-v3-cotacao-fim');
-        if (inicio) inicio.value = cotacao ? dataParaInput(cotacao.periodo_inicio || cotacao.data) : new Date().toISOString().slice(0, 10);
-        if (fim) fim.value = cotacao ? dataParaInput(cotacao.periodo_fim) : '';
-        var objetivoInput = $('#crm-v3-cotacao-objetivo');
-        var plataformasInput = $('#crm-v3-cotacao-plataformas');
-        var responsavelSelect = $('#crm-v3-cotacao-responsavel');
-        if (cotacao) {
-            $('#crm-v3-cotacao-titulo').value = cotacao.nome_campanha || cotacao.titulo || '';
-            $('#crm-v3-cotacao-valor').value = cotacao.valor_total || cotacao.valor || '';
-            $('#crm-v3-cotacao-status').value = cotacao.status || 'rascunho';
-            if (objetivoInput) objetivoInput.value = cotacao.objetivo || '';
-            if (plataformasInput) plataformasInput.value = Array.isArray(cotacao.plataformas) ? cotacao.plataformas.join(', ') : (cotacao.plataformas || '');
-            if (responsavelSelect) responsavelSelect.value = cotacao.responsavel_id || cotacao.executivo_id || '';
-        } else {
-            if (objetivoInput) objetivoInput.value = '';
-            if (plataformasInput) plataformasInput.value = '';
-            // Nova cotação: pré-preencher executivo do filtro atual
-            if (responsavelSelect && state.filtroExecutivo) {
-                responsavelSelect.value = state.filtroExecutivo;
-            }
-        }
-        openModal('crm-v3-modal-cotacao');
-    }
-
     function openNotaModal(nota) {
         var form = $('#crm-v3-form-nota');
         if (!form) return;
@@ -4738,56 +4686,6 @@
             });
         }
 
-        var formCotacao = $('#crm-v3-form-cotacao');
-        if (formCotacao) {
-            formCotacao.addEventListener('submit', function (e) {
-                e.preventDefault();
-                var btn = $('#crm-v3-cotacao-submit');
-                var cotacaoId = $('#crm-v3-cotacao-id').value;
-                var status = $('#crm-v3-cotacao-status').value;
-                var titulo = $('#crm-v3-cotacao-titulo').value;
-                var valor = $('#crm-v3-cotacao-valor').value;
-                var inicio = $('#crm-v3-cotacao-inicio').value;
-                var objetivo = ($('#crm-v3-cotacao-objetivo') || {}).value || '';
-                var plataformasRaw = ($('#crm-v3-cotacao-plataformas') || {}).value || '';
-                var plataformas = plataformasRaw
-                    .split(',')
-                    .map(function (p) { return p.trim(); })
-                    .filter(function (p) { return p.length > 0; });
-                var body = {
-                    titulo: titulo,
-                    nome_campanha: titulo,
-                    valor: valor,
-                    valor_total: valor,
-                    status: status,
-                    status_label: {
-                        rascunho: 'Rascunho',
-                        enviada: 'Enviada',
-                        aprovada: 'Aprovada',
-                        rejeitada: 'Rejeitada',
-                        expirada: 'Expirada',
-                        'em-acompanhamento': 'Em Acompanhamento'
-                    }[status],
-                    data: inicio,
-                    periodo_inicio: inicio,
-                    periodo_fim: $('#crm-v3-cotacao-fim').value,
-                    objetivo: objetivo,
-                    plataformas: plataformas
-                };
-                setBtnLoading(btn, true);
-                var req = cotacaoId
-                    ? api('/cotacoes/' + encodeURIComponent(cotacaoId), { method: 'PATCH', body: body })
-                    : api('/clientes/' + encodeURIComponent(state.clienteId) + '/cotacoes', { method: 'POST', body: body });
-                req
-                    .then(function () {
-                        closeModal('crm-v3-modal-cotacao');
-                        showToast(cotacaoId ? 'Cotação atualizada' : 'Cotação criada');
-                        return loadCotacoes(state.clienteId);
-                    }).catch(function (err) { showToast(err.message, true); })
-                    .finally(function () { setBtnLoading(btn, false); });
-            });
-        }
-
         var formNota = $('#crm-v3-form-nota');
         if (formNota) {
             formNota.addEventListener('submit', function (e) {
@@ -5170,7 +5068,13 @@
         var criarObjetivosIA = $('#crm-v3-objetivos-ia-create');
         if (criarObjetivosIA) criarObjetivosIA.addEventListener('click', function () { criarObjetivosIASugeridos(criarObjetivosIA); });
         var novaCotacao = $('#crm-v3-btn-nova-cotacao');
-        if (novaCotacao) novaCotacao.addEventListener('click', function () { openCotacaoModal(null); });
+        if (novaCotacao) {
+            novaCotacao.addEventListener('click', function () {
+                if (window.crmV3Drawer && typeof window.crmV3Drawer.openCotacao === 'function') {
+                    window.crmV3Drawer.openCotacao(null, state.clienteId);
+                }
+            });
+        }
         // Handler do botão "Nova nota" removido em set/2026: a criação
         // "Seguindo" continua funcional via pill de status no header.
 
@@ -5527,8 +5431,48 @@
         if (isMobileCrm()) setMobileView('list');
     }
 
+    function initContextSidebar() {
+        var sidebar = $('#crm-v3-sidebar');
+        var openButton = $('#crm-v3-context-open');
+        var closeButton = $('#crm-v3-context-close');
+        var overlay = $('#crm-v3-context-overlay');
+        var drawerMq = window.matchMedia('(max-width: 1400px)');
+        if (!sidebar || !openButton || !closeButton || !overlay) return;
+
+        function usesDrawer() {
+            return drawerMq.matches && !isMobileCrm();
+        }
+
+        function setOpen(open) {
+            var drawer = usesDrawer();
+            var next = drawer && open;
+            sidebar.classList.toggle('is-context-open', next);
+            sidebar.setAttribute('aria-hidden', drawer && !next ? 'true' : 'false');
+            openButton.setAttribute('aria-expanded', next ? 'true' : 'false');
+            overlay.hidden = !next;
+            if (next) closeButton.focus();
+        }
+
+        openButton.addEventListener('click', function () { setOpen(true); });
+        closeButton.addEventListener('click', function () { setOpen(false); });
+        overlay.addEventListener('click', function () { setOpen(false); });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && sidebar.classList.contains('is-context-open')) {
+                setOpen(false);
+                openButton.focus();
+            }
+        });
+        var sync = function () { setOpen(false); };
+        if (drawerMq.addEventListener) drawerMq.addEventListener('change', sync);
+        else if (drawerMq.addListener) drawerMq.addListener(sync);
+        if (CRM_MOBILE_MQ.addEventListener) CRM_MOBILE_MQ.addEventListener('change', sync);
+        else if (CRM_MOBILE_MQ.addListener) CRM_MOBILE_MQ.addListener(sync);
+        setOpen(false);
+    }
+
     initModals();
     initMobileNav();
+    initContextSidebar();
     initTabs('sidebar');
     // Restaura filtros do localStorage antes de bindar handlers para não
     // disparar renders extras — o `syncFiltrosParaDom` só ajusta valores

@@ -303,6 +303,28 @@ def api_agencia_clientes(agencia_id):
     return _ok(filhos, clientes=filhos, total=len(filhos))
 
 
+@bp.route(
+    "/api/agencias/<agencia_id>/clientes/<cliente_id>",
+    methods=["POST", "DELETE"],
+)
+@login_required_api
+def api_agencia_cliente_vinculo(agencia_id, cliente_id):
+    """Inclui ou retira um cliente final da carteira da agência."""
+    try:
+        payload = store.set_agencia_cliente_vinculo(
+            agencia_id, cliente_id, request.method == "POST"
+        )
+        return _ok(
+            payload,
+            agencia=payload["agencia"],
+            cliente=payload["cliente"],
+            clientes=payload["clientes"],
+            total=len(payload["clientes"]),
+        )
+    except ValueError as e:
+        return _err(str(e))
+
+
 @bp.route("/api/cep/<cep>")
 @login_required_api
 def api_cep(cep):

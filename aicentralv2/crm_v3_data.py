@@ -1160,6 +1160,51 @@ class CrmTestStore:
                 cf.append(cliente_id)
                 ag["clientes_finais_ids"] = cf
 
+    def set_agencia_cliente_vinculo(self, agencia_id, cliente_id, ativo):
+        agencia = self.get_cliente(agencia_id)
+        if not agencia:
+            raise ValueError("Agência não encontrada")
+        if not agencia.get("is_agencia"):
+            raise ValueError("A empresa informada não possui perfil de agência")
+
+        cliente = self.get_cliente(cliente_id)
+        if not cliente:
+            raise ValueError("Cliente não encontrado")
+        if cliente.get("is_agencia"):
+            raise ValueError("Uma agência não pode ser adicionada como cliente final")
+
+        vinculos = [
+            {
+                "agencia_id": str(v.get("agencia_id")),
+                "is_principal": bool(v.get("is_principal")),
+            }
+            for v in (cliente.get("agencias_vinculadas") or [])
+            if v.get("agencia_id")
+        ]
+        existe = any(str(v["agencia_id"]) == str(agencia_id) for v in vinculos)
+        if ativo and not existe:
+            vinculos.append({
+                "agencia_id": str(agencia_id),
+                "is_principal": not vinculos,
+            })
+        elif not ativo and existe:
+            vinculos = [
+                v for v in vinculos
+                if str(v["agencia_id"]) != str(agencia_id)
+            ]
+        if vinculos and not any(v["is_principal"] for v in vinculos):
+            vinculos[0]["is_principal"] = True
+
+        atualizado = self.update_cliente(
+            cliente_id, {"agencias_vinculadas": vinculos}
+        )
+        agencia_atualizada = self.get_cliente(agencia_id)
+        return {
+            "agencia": agencia_atualizada,
+            "cliente": atualizado,
+            "clientes": (agencia_atualizada or {}).get("clientes_finais") or [],
+        }
+
     def list_contatos(self, cliente_id):
         if not self.get_cliente(cliente_id):
             return None

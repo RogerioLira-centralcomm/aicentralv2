@@ -753,6 +753,67 @@ class CrmV3Repository:
             _db().salvar_agencias_vinculadas_cliente(cliente_id, agencia_ids, principal)
         return self.get_cliente(cliente_id)
 
+    def set_agencia_cliente_vinculo(
+        self, agencia_id: str, cliente_id: str, ativo: bool
+    ) -> Dict[str, Any]:
+        """Adiciona ou remove um cliente final da carteira de uma agência.
+
+        A gravação continua sendo feita pelo replace transacional existente,
+        mas a operação preserva as outras agências do cliente. Se a agência
+        principal for removida, o primeiro vínculo restante assume esse papel.
+        """
+        agencia = self.get_cliente(agencia_id)
+        if not agencia:
+            raise ValueError("Agência não encontrada")
+        if not agencia.get("is_agencia"):
+            raise ValueError("A empresa informada não possui perfil de agência")
+
+        cliente = self.get_cliente(cliente_id)
+        if not cliente:
+            raise ValueError("Cliente não encontrado")
+        if cliente.get("is_agencia"):
+            raise ValueError("Uma agência não pode ser adicionada como cliente final")
+        if str(agencia_id) == str(cliente_id):
+            raise ValueError("A agência não pode ser vinculada a si mesma")
+
+        vinculos = []
+        for item in cliente.get("agencias_vinculadas") or []:
+            aid = item.get("agencia_id") or item.get("id_agencia_cliente")
+            if not aid:
+                continue
+            vinculos.append({
+                "agencia_id": str(aid),
+                "is_principal": bool(item.get("is_principal")),
+            })
+
+        existe = any(str(v["agencia_id"]) == str(agencia_id) for v in vinculos)
+        if ativo and not existe:
+            vinculos.append({
+                "agencia_id": str(agencia_id),
+                "is_principal": not vinculos,
+            })
+        elif not ativo and existe:
+            vinculos = [
+                v for v in vinculos
+                if str(v["agencia_id"]) != str(agencia_id)
+            ]
+
+        if vinculos and not any(v["is_principal"] for v in vinculos):
+            vinculos[0]["is_principal"] = True
+
+        atualizado = self.update_cliente(
+            cliente_id, {"agencias_vinculadas": vinculos}
+        )
+        if not atualizado:
+            raise ValueError("Cliente não encontrado")
+
+        agencia_atualizada = self.get_cliente(agencia_id) or agencia
+        return {
+            "agencia": agencia_atualizada,
+            "cliente": atualizado,
+            "clientes": agencia_atualizada.get("clientes_finais") or [],
+        }
+
     # ---------------- Contatos ------------------------------------------------
 
     def list_contatos(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
@@ -1552,6 +1613,12 @@ class CrmV3Repository:
                 payload["agencia_id"] = int(agencia_raw)
             except (TypeError, ValueError):
                 raise ValueError("agencia_id inválido")
+        responsavel_raw = data.get("responsavel_comercial")
+        if responsavel_raw not in (None, ""):
+            try:
+                payload["responsavel_comercial"] = int(responsavel_raw)
+            except (TypeError, ValueError):
+                raise ValueError("responsavel_comercial inválido")
         return payload
 
     def create_cotacao(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:

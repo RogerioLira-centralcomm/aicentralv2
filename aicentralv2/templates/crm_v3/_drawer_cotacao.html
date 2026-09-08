@@ -1,31 +1,16 @@
-{# Drawer — Nova cotação (Caminho A).
-
-   Espelha apenas a Seção 1 do formulário /cotacoes/nova + o campo mínimo
-   `periodo_inicio` (obrigatório no server) e um `objetivo_campanha` curto
-   (opcional). O objetivo aqui é criar o cabeçalho da cotação em
-   `cadu_cotacoes` para que o usuário siga a montagem completa em
-   `/cotacoes/<id>/detalhes` (linhas/audiências/preço/comissões).
-
-   Dois botões de submit:
-   - "Salvar rascunho": cria a cotação e mantém o CRM v3 aberto.
-   - "Salvar e montar cotação": cria a cotação e redireciona para /cotacoes/<id>/detalhes.
-
-   O select "Responsável comercial" é populado pelo JS a partir de
-   `window.CRM_V3_CONTEXT.executivos`.
-#}
+{# Drawer unificado de cotação: criação, consulta e edição do cabeçalho. #}
 <template id="cx-drawer-cotacao-tpl">
-  <form id="cx-drawer-cotacao-form" data-drawer-form="cotacao">
-    <input type="hidden" name="id" data-field="id" />
+  <form id="cx-drawer-cotacao-form" class="cx-cotacao-editor" data-drawer-form="cotacao">
+    <input type="hidden" name="id" data-field="id">
+    <input type="hidden" name="agencia_id" data-field="agencia_id" id="cx-cot-agencia-id">
+    <input type="hidden" name="client_id" data-field="client_id" id="cx-cot-client-id">
 
-    {# Cliente e agência: nome visível + modal. IDs vão nos hiddens. #}
-    <input type="hidden" name="agencia_id" data-field="agencia_id" id="cx-cot-agencia-id" />
-    <input type="hidden" name="client_id" data-field="client_id" id="cx-cot-client-id" />
     <div class="cx-drawer-context" id="cx-cot-contexto" hidden>
       <div class="cx-drawer-context-row" id="cx-cot-ctx-cliente-row" hidden>
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
-        <span class="cx-drawer-context-label">Cliente</span>
+        <span class="cx-drawer-context-label">Cliente da cotação</span>
         <button type="button" class="cx-name-picker" id="cx-cot-client-picker" hidden>
-          <span id="cx-cot-client-picker-label">Buscar cliente pelo nome</span>
+          <span id="cx-cot-client-picker-label">Selecionar cliente</span>
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         </button>
         <span class="cx-drawer-context-value" id="cx-cot-ctx-cliente-nome" hidden>—</span>
@@ -34,106 +19,142 @@
         <span class="cx-drawer-context-icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
         <span class="cx-drawer-context-label">Agência</span>
         <button type="button" class="cx-name-picker" id="cx-cot-agencia-picker" hidden>
-          <span id="cx-cot-agencia-picker-label">Buscar agência pelo nome</span>
+          <span id="cx-cot-agencia-picker-label">Selecionar agência</span>
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         </button>
         <span class="cx-drawer-context-value" id="cx-cot-ctx-agencia-nome">—</span>
       </div>
     </div>
+
     <dialog id="cx-cot-pick-modal" class="cx-name-pick-dialog">
       <div class="cx-name-pick-box">
         <h3 id="cx-cot-pick-title">Escolher</h3>
-        <input type="search" id="cx-cot-pick-q" placeholder="Filtrar pelo nome" autocomplete="off" />
+        <input type="search" id="cx-cot-pick-q" placeholder="Filtrar pelo nome" autocomplete="off">
         <div id="cx-cot-pick-list" class="cx-name-pick-list"></div>
-        <button type="button" class="cx-btn cx-btn-secondary" id="cx-cot-pick-cancel">Cancelar</button>
+        <div class="cx-name-pick-actions">
+          <button type="button" class="cx-btn cx-btn-secondary" id="cx-cot-pick-clear" hidden>Sem cliente</button>
+          <button type="button" class="cx-btn cx-btn-secondary" id="cx-cot-pick-cancel">Cancelar</button>
+        </div>
       </div>
     </dialog>
 
+    <div class="cx-cotacao-editor-grid">
+      <main class="cx-cotacao-editor-main">
+        <section class="cx-drawer-section">
+          <div class="cx-drawer-section-title">Proposta comercial</div>
+          <div class="cx-drawer-section-subtitle">Identificação e direcionamento da campanha.</div>
+          <div class="cx-drawer-grid">
+            <div class="cx-drawer-field cx-drawer-field-span-2">
+              <label for="cx-cot-nome">Nome da campanha *</label>
+              <input id="cx-cot-nome" type="text" name="nome_campanha"
+                     data-field="nome_campanha" placeholder="Ex.: Campanha Black Friday 2026"
+                     required autocomplete="off">
+            </div>
+            <div class="cx-drawer-field cx-drawer-field-span-2">
+              <label for="cx-cot-objetivo">Objetivo da campanha</label>
+              <textarea id="cx-cot-objetivo" name="objetivo" data-field="objetivo"
+                        rows="4" placeholder="Descreva o resultado esperado e o contexto da proposta."></textarea>
+            </div>
+            <div class="cx-drawer-field cx-drawer-field-span-2">
+              <label for="cx-cot-plataformas">Plataformas</label>
+              <input id="cx-cot-plataformas" type="text" name="plataformas"
+                     data-field="plataformas" placeholder="TV, OOH, Meta Ads">
+              <span class="cx-drawer-field-hint">Separe os canais por vírgula.</span>
+            </div>
+          </div>
+        </section>
 
-    <div class="cx-drawer-section">
-      <div class="cx-drawer-section-title">Dados da campanha</div>
-      <div class="cx-drawer-section-subtitle">
-        Preencha o cabeçalho para criar a cotação. Depois você continua a
-        montagem completa (audiência, produtos, preço) na tela dedicada.
-      </div>
-      <div class="cx-drawer-grid">
-        <div class="cx-drawer-field" style="grid-column: span 2;">
-          <label for="cx-cot-nome">Nome da campanha *</label>
-          <input
-            id="cx-cot-nome"
-            type="text"
-            name="nome_campanha"
-            data-field="nome_campanha"
-            placeholder="Ex.: Campanha Black Friday 2026"
-            required
-            autocomplete="off"
-          />
-        </div>
+        <section class="cx-drawer-section cx-agency-clients" id="cx-cot-agency-clients" hidden>
+          <div class="cx-agency-clients-head">
+            <div>
+              <div class="cx-drawer-section-title">Clientes da agência</div>
+              <div class="cx-drawer-section-subtitle">Vínculos permanentes disponíveis para novas cotações.</div>
+            </div>
+            <span class="cx-agency-clients-count" id="cx-cot-agency-count">0</span>
+          </div>
+          <div class="cx-agency-clients-list" id="cx-cot-agency-list"></div>
+          <button type="button" class="cx-btn cx-btn-secondary cx-agency-client-add" id="cx-cot-agency-add">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            Adicionar cliente
+          </button>
+          <div class="cx-agency-client-search" id="cx-cot-agency-search" hidden>
+            <label for="cx-cot-agency-search-input">Buscar cliente final</label>
+            <input type="search" id="cx-cot-agency-search-input"
+                   placeholder="Digite nome, cidade ou CNPJ" autocomplete="off">
+            <div class="cx-agency-client-results" id="cx-cot-agency-results"></div>
+          </div>
+        </section>
+      </main>
 
-        <div class="cx-drawer-field" style="grid-column: span 2;">
-          <label for="cx-cot-responsavel">Responsável comercial</label>
-          <select
-            id="cx-cot-responsavel"
-            name="responsavel_comercial"
-            data-field="responsavel_comercial"
-          >
-            <option value="">— Selecione —</option>
-            {# Populado dinamicamente pelo JS a partir de CRM_V3_CONTEXT.executivos #}
-          </select>
-        </div>
+      <aside class="cx-cotacao-editor-side">
+        <section class="cx-drawer-section">
+          <div class="cx-drawer-section-title">Condição comercial</div>
+          <div class="cx-drawer-grid">
+            <div class="cx-drawer-field">
+              <label for="cx-cot-status">Status</label>
+              <select id="cx-cot-status" name="status" data-field="status">
+                <option value="rascunho">Rascunho</option>
+                <option value="enviada">Enviada</option>
+                <option value="em-acompanhamento">Em acompanhamento</option>
+                <option value="aprovada">Aprovada</option>
+                <option value="rejeitada">Rejeitada</option>
+                <option value="expirada">Expirada</option>
+              </select>
+            </div>
+            <div class="cx-drawer-field">
+              <label for="cx-cot-valor">Valor total</label>
+              <input id="cx-cot-valor" type="number" min="0" step="0.01"
+                     name="valor_total" data-field="valor_total" placeholder="0,00">
+            </div>
+            <div class="cx-drawer-field cx-drawer-field-span-2">
+              <label for="cx-cot-responsavel">Responsável comercial</label>
+              <select id="cx-cot-responsavel" name="responsavel_comercial"
+                      data-field="responsavel_comercial">
+                <option value="">— Selecione —</option>
+              </select>
+            </div>
+            <div class="cx-drawer-field">
+              <label for="cx-cot-periodo-inicio">Início *</label>
+              <input id="cx-cot-periodo-inicio" type="date" name="periodo_inicio"
+                     data-field="periodo_inicio" required>
+            </div>
+            <div class="cx-drawer-field">
+              <label for="cx-cot-periodo-fim">Fim</label>
+              <input id="cx-cot-periodo-fim" type="date" name="periodo_fim"
+                     data-field="periodo_fim">
+            </div>
+          </div>
+          <p class="cx-cot-duracao" id="cx-cot-duracao" role="status" aria-live="polite">
+            <strong id="cx-cot-dias-corridos">—</strong> dias corridos
+            <span class="cx-cot-duracao-sep" aria-hidden="true">·</span>
+            <strong id="cx-cot-dias-uteis">—</strong> dias úteis
+            <span class="cx-cot-duracao-hint" id="cx-cot-duracao-hint" hidden></span>
+          </p>
+        </section>
 
-        <div class="cx-drawer-field">
-          <label for="cx-cot-periodo-inicio">Início *</label>
-          <input
-            id="cx-cot-periodo-inicio"
-            type="date"
-            name="periodo_inicio"
-            data-field="periodo_inicio"
-            required
-          />
-        </div>
-        <div class="cx-drawer-field">
-          <label for="cx-cot-periodo-fim">Fim (opcional)</label>
-          <input
-            id="cx-cot-periodo-fim"
-            type="date"
-            name="periodo_fim"
-            data-field="periodo_fim"
-          />
-        </div>
-
-        <p class="cx-cot-duracao" id="cx-cot-duracao" role="status" aria-live="polite">
-          <strong id="cx-cot-dias-corridos">—</strong> dias corridos
-          <span class="cx-cot-duracao-sep" aria-hidden="true">·</span>
-          <strong id="cx-cot-dias-uteis">—</strong> dias úteis
-          <span class="cx-cot-duracao-hint" id="cx-cot-duracao-hint" hidden></span>
-        </p>
-
-        <div class="cx-drawer-field" style="grid-column: span 2;">
-          <label for="cx-cot-objetivo">Objetivo da campanha</label>
-          <textarea
-            id="cx-cot-objetivo"
-            name="objetivo"
-            data-field="objetivo"
-            rows="2"
-            placeholder="Resumo do objetivo. Você pode detalhar depois na tela de montagem."
-          ></textarea>
-        </div>
-      </div>
+        <section class="cx-drawer-section cx-drawer-note">
+          <div class="cx-drawer-note-icon" aria-hidden="true">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+          </div>
+          <div class="cx-drawer-note-body">
+            <strong>Montagem completa</strong>
+            <div>Audiência, produtos, valores detalhados, comissões e PI ficam na tela de montagem.</div>
+            <a class="cx-cotacao-open-full" id="cx-cot-open-full" href="#" target="_blank"
+               rel="noopener" hidden>Abrir montagem completa</a>
+          </div>
+        </section>
+      </aside>
     </div>
 
-    <div class="cx-drawer-section cx-drawer-note">
-      <div class="cx-drawer-note-icon" aria-hidden="true">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-      </div>
-      <div class="cx-drawer-note-body">
-        <strong>Montagem completa</strong>
-        <div>
-          Após criar, você será direcionado para a tela de detalhes onde
-          define <em>audiência</em>, <em>produtos/canais</em>, <em>valores</em>,
-          <em>comissões</em> e gera o PI.
+    <dialog id="cx-cot-unlink-dialog" class="cx-name-pick-dialog">
+      <div class="cx-name-pick-box">
+        <h3>Retirar cliente da agência?</h3>
+        <p id="cx-cot-unlink-message">O vínculo será removido permanentemente. Cotações anteriores não serão alteradas.</p>
+        <div class="cx-name-pick-actions">
+          <button type="button" class="cx-btn cx-btn-secondary" id="cx-cot-unlink-cancel">Cancelar</button>
+          <button type="button" class="cx-btn cx-btn-danger" id="cx-cot-unlink-confirm">Retirar vínculo</button>
         </div>
       </div>
-    </div>
+    </dialog>
   </form>
 </template>

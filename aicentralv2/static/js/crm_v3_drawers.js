@@ -692,7 +692,7 @@
         if (!desc || !texto) return false;
         var atual = (desc.value || '').trim();
         if (atual && atual !== texto) {
-            var ok = window.confirm('Substituir o roteiro atual por esta sugestão? O texto atual será removido do editor.');
+            var ok = window.confirm('Aplicar esta sugestão no registro da atividade? O texto atual será substituído.');
             if (!ok) return false;
         }
         desc.value = texto;
@@ -710,9 +710,12 @@
         row.className = 'cx-atividade-ia-history-item';
         var copy = document.createElement('div');
         copy.className = 'cx-atividade-ia-history-copy';
-        copy.textContent = (item.label || 'Sugestão') +
-            (item.source ? ' · ' + item.source : '') + ' · ' + item.texto;
-        copy.title = item.texto;
+        var meta = document.createElement('strong');
+        meta.textContent = (item.label || 'Roteiro') + (item.source ? ' — ' + item.source : '');
+        var text = document.createElement('span');
+        text.textContent = item.texto;
+        copy.appendChild(meta);
+        copy.appendChild(text);
         var apply = document.createElement('button');
         apply.type = 'button';
         apply.className = 'cx-atividade-ia-history-apply';
@@ -738,11 +741,12 @@
                 var data = res.data || res;
                 var items = data.historico || (Array.isArray(data) ? data : []);
                 items.slice().reverse().forEach(function (item) {
+                    if (['gerar-roteiro', 'melhorar-texto'].indexOf(item.function) === -1) return;
                     var content = item.content || {};
                     var texto = content.texto || content.mensagem || content.titulo || '';
                     if (!texto) return;
                     addIaHistory(wrapper, form, {
-                        label: item.function || 'Sugestão',
+                        label: item.function === 'melhorar-texto' ? 'Registro revisado' : 'Roteiro',
                         source: item.source === 'openrouter' ? 'IA' : 'fallback',
                         texto: stripMarkdown(texto),
                         historyId: item.id
@@ -1277,7 +1281,11 @@
         var ctx = window.CRM_V3_CONTEXT || {};
         var lista = Array.isArray(ctx.executivos) ? ctx.executivos : [];
         // Mantém o placeholder que já veio do template.
-        var selectedId = cotacao && (cotacao.responsavel_comercial || cotacao.responsavel_id);
+        var selectedId = cotacao && (
+            cotacao.responsavel_comercial ||
+            cotacao.responsavel_id ||
+            cotacao.executivo_id
+        );
         // Se não veio da cotação (nova), usa o usuário logado.
         if (!selectedId && ctx.userId) selectedId = ctx.userId;
         lista.forEach(function (ex) {
@@ -1291,6 +1299,10 @@
 
     function submitCotacaoCaminhoA(form, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
+        payload.plataformas = String(payload.plataformas || '')
+            .split(',')
+            .map(function (item) { return item.trim(); })
+            .filter(Boolean);
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
@@ -1339,7 +1351,7 @@
      * Ficha de agência: modal com nome dos clientes finais vinculados.
      * Ficha de cliente final: nome só leitura; várias agências também abrem modal.
      * ------------------------------------------------------------ */
-    function fillContextoCotacao(wrapper, clienteId) {
+    function fillContextoCotacao(wrapper, clienteId, cotacao) {
         var box = wrapper.querySelector('#cx-cot-contexto');
         var clienteRow = wrapper.querySelector('#cx-cot-ctx-cliente-row');
         var agenciaRow = wrapper.querySelector('#cx-cot-ctx-agencia-row');
@@ -1382,6 +1394,7 @@
         box.hidden = false;
         clienteRow.hidden = false;
         wrapper._cotFinais = finais;
+        wrapper._cotAgencyId = isAgencia ? String(cliente.id) : '';
         wrapper._cotAgencias = agenciasVinc.map(function (a) {
             return {
                 id: a.agencia_id || a.id || a.id_agencia_cliente,
@@ -1401,16 +1414,27 @@
             }
             if (agenciaIdInput) agenciaIdInput.value = String(cliente.id);
             if (clienteVal) clienteVal.hidden = true;
-            if (clientInput) clientInput.value = '';
+            var selectedClientId = cotacao && cotacao.cliente_id &&
+                String(cotacao.cliente_id) !== String(cliente.id)
+                ? String(cotacao.cliente_id)
+                : '';
+            var selectedClient = finais.find(function (item) {
+                return String(item.id) === selectedClientId;
+            });
+            if (clientInput) clientInput.value = selectedClientId;
             if (clientPicker) {
                 clientPicker.hidden = false;
                 clientPicker.disabled = !finais.length;
                 if (clientPickerLabel) {
-                    clientPickerLabel.textContent = finais.length
-                        ? 'Buscar cliente pelo nome'
-                        : 'Nenhum cliente vinculado';
+                    clientPickerLabel.textContent = selectedClient
+                        ? selectedClient.nome
+                        : (selectedClientId && cotacao.cliente_nome
+                            ? cotacao.cliente_nome
+                            : (finais.length ? 'Selecionar cliente' : 'Nenhum cliente vinculado'));
                 }
+                clientPicker.classList.toggle('has-value', !!selectedClientId);
             }
+            wireAgencyClientManager(wrapper, cliente);
         } else {
             if (clientInput) clientInput.value = String(cliente.id);
             if (clientPicker) clientPicker.hidden = true;
@@ -1453,6 +1477,7 @@
         var q = wrapper.querySelector('#cx-cot-pick-q');
         var title = wrapper.querySelector('#cx-cot-pick-title');
         var cancel = wrapper.querySelector('#cx-cot-pick-cancel');
+        var clear = wrapper.querySelector('#cx-cot-pick-clear');
         var clientPicker = wrapper.querySelector('#cx-cot-client-picker');
         var agenciaPicker = wrapper.querySelector('#cx-cot-agencia-picker');
 
@@ -1493,6 +1518,7 @@
         function openKind(kind) {
             wrapper._cotPickKind = kind;
             if (title) title.textContent = kind === 'cliente' ? 'Escolher cliente' : 'Escolher agência';
+            if (clear) clear.hidden = kind !== 'cliente';
             if (q) q.value = '';
             render(kind, '');
             if (modal && modal.showModal) modal.showModal();
@@ -1509,12 +1535,226 @@
                 if (modal && modal.close) modal.close();
             });
         }
+        if (clear) {
+            clear.addEventListener('click', function () {
+                var input = wrapper.querySelector('#cx-cot-client-id');
+                var label = wrapper.querySelector('#cx-cot-client-picker-label');
+                if (input) input.value = '';
+                if (label) label.textContent = 'Selecionar cliente';
+                if (clientPicker) clientPicker.classList.remove('has-value');
+                if (modal && modal.close) modal.close();
+            });
+        }
         if (clientPicker) {
             clientPicker.addEventListener('click', function () { openKind('cliente'); });
         }
         if (agenciaPicker) {
             agenciaPicker.addEventListener('click', function () { openKind('agencia'); });
         }
+    }
+
+    function normalizeAgencyClient(item) {
+        return {
+            id: String(item.id || item.id_cliente || ''),
+            nome: item.nome || item.nome_fantasia || item.razao_social || '',
+            cidade: item.cidade || (item.endereco && item.endereco.cidade) || '',
+            cnpj: item.cnpj || ''
+        };
+    }
+
+    function renderAgencyClients(wrapper) {
+        var section = wrapper.querySelector('#cx-cot-agency-clients');
+        var list = wrapper.querySelector('#cx-cot-agency-list');
+        var count = wrapper.querySelector('#cx-cot-agency-count');
+        var picker = wrapper.querySelector('#cx-cot-client-picker');
+        var pickerLabel = wrapper.querySelector('#cx-cot-client-picker-label');
+        var current = (wrapper._cotFinais || []).map(normalizeAgencyClient);
+        if (!section || !list || !wrapper._cotAgencyId) return;
+
+        section.hidden = false;
+        if (count) count.textContent = String(current.length);
+        if (picker) picker.disabled = !current.length;
+        if (!current.length) {
+            list.innerHTML = '<p class="cx-agency-clients-empty">Nenhum cliente vinculado. Adicione o primeiro cliente da agência.</p>';
+            if (pickerLabel) pickerLabel.textContent = 'Nenhum cliente vinculado';
+            return;
+        }
+
+        list.innerHTML = current.map(function (item) {
+            return (
+                '<div class="cx-agency-client-row">' +
+                    '<button type="button" class="cx-agency-client-select" data-select-client="' + escapeAttr(item.id) + '">' +
+                        '<strong>' + escapeHtml(item.nome || ('Cliente #' + item.id)) + '</strong>' +
+                        (item.cidade ? '<span>' + escapeHtml(item.cidade) + '</span>' : '') +
+                    '</button>' +
+                    '<button type="button" class="cx-agency-client-remove" data-remove-client="' + escapeAttr(item.id) + '"' +
+                        ' aria-label="Retirar ' + escapeAttr(item.nome || 'cliente') + ' da agência" title="Retirar vínculo">' +
+                        '<i class="fa-solid fa-xmark" aria-hidden="true"></i>' +
+                    '</button>' +
+                '</div>'
+            );
+        }).join('');
+
+        $$('[data-select-client]', list).forEach(function (button) {
+            button.addEventListener('click', function () {
+                var selected = current.find(function (item) {
+                    return item.id === button.getAttribute('data-select-client');
+                });
+                var input = wrapper.querySelector('#cx-cot-client-id');
+                if (input) input.value = selected ? selected.id : '';
+                if (pickerLabel && selected) pickerLabel.textContent = selected.nome;
+                if (picker) picker.classList.toggle('has-value', !!selected);
+            });
+        });
+
+        $$('[data-remove-client]', list).forEach(function (button) {
+            button.addEventListener('click', function () {
+                var selected = current.find(function (item) {
+                    return item.id === button.getAttribute('data-remove-client');
+                });
+                openAgencyUnlinkConfirm(wrapper, selected);
+            });
+        });
+    }
+
+    function syncAgencyClients(wrapper, response) {
+        wrapper._cotFinais = (response.clientes || []).map(normalizeAgencyClient);
+        var state = window.crmV3 && window.crmV3.state;
+        if (state && state.cliente && String(state.cliente.id) === String(wrapper._cotAgencyId)) {
+            state.cliente.clientes_finais = wrapper._cotFinais.slice();
+            state.cliente.clientes_finais_ids = wrapper._cotFinais.map(function (item) { return item.id; });
+        }
+        renderAgencyClients(wrapper);
+    }
+
+    function changeAgencyClientLink(wrapper, client, active) {
+        if (!client || !client.id || !wrapper._cotAgencyId) return Promise.resolve();
+        return apiFetch(
+            '/agencias/' + encodeURIComponent(wrapper._cotAgencyId) +
+            '/clientes/' + encodeURIComponent(client.id),
+            { method: active ? 'POST' : 'DELETE' }
+        ).then(function (response) {
+            syncAgencyClients(wrapper, response);
+            if (!active) {
+                var selectedInput = wrapper.querySelector('#cx-cot-client-id');
+                var pickerLabel = wrapper.querySelector('#cx-cot-client-picker-label');
+                var picker = wrapper.querySelector('#cx-cot-client-picker');
+                if (selectedInput && String(selectedInput.value) === String(client.id)) {
+                    selectedInput.value = '';
+                    if (pickerLabel) pickerLabel.textContent = 'Selecionar cliente';
+                    if (picker) picker.classList.remove('has-value');
+                }
+            }
+            notifyEntityUpdated('cliente', client.id);
+            notifyEntityUpdated('cliente', wrapper._cotAgencyId);
+            toast(active ? 'Cliente adicionado à agência' : 'Cliente retirado da agência');
+            return response;
+        });
+    }
+
+    function openAgencyUnlinkConfirm(wrapper, client) {
+        if (!client) return;
+        var dialog = wrapper.querySelector('#cx-cot-unlink-dialog');
+        var message = wrapper.querySelector('#cx-cot-unlink-message');
+        var confirm = wrapper.querySelector('#cx-cot-unlink-confirm');
+        var cancel = wrapper.querySelector('#cx-cot-unlink-cancel');
+        if (!dialog || !confirm) return;
+        if (message) {
+            message.textContent = 'O vínculo de ' + (client.nome || 'este cliente') +
+                ' será removido permanentemente. Cotações anteriores não serão alteradas.';
+        }
+        wrapper._cotPendingUnlink = client;
+        if (!dialog._cotWired) {
+            dialog._cotWired = true;
+            if (cancel) cancel.addEventListener('click', function () { dialog.close(); });
+            confirm.addEventListener('click', function () {
+                var pending = wrapper._cotPendingUnlink;
+                confirm.disabled = true;
+                changeAgencyClientLink(wrapper, pending, false)
+                    .then(function () { dialog.close(); })
+                    .catch(function (err) { toast(err.message, true); })
+                    .finally(function () { confirm.disabled = false; });
+            });
+        }
+        dialog.showModal();
+    }
+
+    function wireAgencyClientManager(wrapper) {
+        if (wrapper._cotAgencyWired || !wrapper._cotAgencyId) return;
+        wrapper._cotAgencyWired = true;
+        var add = wrapper.querySelector('#cx-cot-agency-add');
+        var searchBox = wrapper.querySelector('#cx-cot-agency-search');
+        var search = wrapper.querySelector('#cx-cot-agency-search-input');
+        var results = wrapper.querySelector('#cx-cot-agency-results');
+        var allClients = [];
+
+        function renderResults() {
+            var linked = new Set((wrapper._cotFinais || []).map(function (item) {
+                return String(item.id || item.id_cliente);
+            }));
+            var term = String(search && search.value || '').trim().toLocaleLowerCase('pt-BR');
+            var available = allClients.filter(function (item) {
+                if (!item.id || item.is_agencia || linked.has(String(item.id))) return false;
+                var haystack = [item.nome, item.cidade, item.cnpj].join(' ').toLocaleLowerCase('pt-BR');
+                return !term || haystack.indexOf(term) !== -1;
+            }).slice(0, 12);
+            if (!results) return;
+            results.innerHTML = available.length ? available.map(function (item) {
+                return (
+                    '<button type="button" class="cx-agency-client-result" data-add-client="' + escapeAttr(item.id) + '">' +
+                        '<span><strong>' + escapeHtml(item.nome || ('Cliente #' + item.id)) + '</strong>' +
+                        (item.cidade ? '<small>' + escapeHtml(item.cidade) + '</small>' : '') + '</span>' +
+                        '<i class="fa-solid fa-plus" aria-hidden="true"></i>' +
+                    '</button>'
+                );
+            }).join('') : '<p class="cx-agency-clients-empty">Nenhum cliente disponível para este filtro.</p>';
+            $$('[data-add-client]', results).forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var client = available.find(function (item) {
+                        return item.id === button.getAttribute('data-add-client');
+                    });
+                    button.disabled = true;
+                    changeAgencyClientLink(wrapper, client, true)
+                        .then(function () {
+                            if (search) search.value = '';
+                            renderResults();
+                        })
+                        .catch(function (err) { toast(err.message, true); })
+                        .finally(function () { button.disabled = false; });
+                });
+            });
+        }
+
+        function loadAvailableClients() {
+            var stateClients = window.crmV3 && window.crmV3.state && window.crmV3.state.clientes;
+            if (Array.isArray(stateClients) && stateClients.length) {
+                allClients = stateClients.map(function (item) {
+                    return Object.assign(normalizeAgencyClient(item), { is_agencia: !!item.is_agencia });
+                });
+                renderResults();
+                return Promise.resolve();
+            }
+            return apiFetch('/clientes').then(function (response) {
+                allClients = (response.clientes || []).map(function (item) {
+                    return Object.assign(normalizeAgencyClient(item), { is_agencia: !!item.is_agencia });
+                });
+                renderResults();
+            });
+        }
+
+        if (add) {
+            add.addEventListener('click', function () {
+                searchBox.hidden = !searchBox.hidden;
+                add.setAttribute('aria-expanded', String(!searchBox.hidden));
+                if (!searchBox.hidden) {
+                    loadAvailableClients()
+                        .then(function () { if (search) search.focus(); })
+                        .catch(function (err) { toast(err.message, true); });
+                }
+            });
+        }
+        if (search) search.addEventListener('input', renderResults);
+        renderAgencyClients(wrapper);
     }
 
     /* ------------------------------------------------------------
@@ -1630,9 +1870,13 @@
 
         var isEdit = !!(cotacao && cotacao.id);
 
-        // Cabeçalho de contexto (Cliente / Agência) — read-only.
-        // Preenche a partir do state global do CRM v3.
-        fillContextoCotacao(wrapper, clienteId);
+        fillContextoCotacao(wrapper, clienteId, cotacao);
+
+        var fullLink = wrapper.querySelector('#cx-cot-open-full');
+        if (fullLink && isEdit) {
+            fullLink.href = '/cotacoes/' + encodeURIComponent(cotacao.id) + '/detalhes';
+            fullLink.hidden = false;
+        }
 
         // Defaults de data: hoje / hoje+30d — só em criação e só se
         // o valor ainda estiver vazio (não sobrescreve dados de
@@ -1670,8 +1914,8 @@
 
         cxDrawer.open({
             title: isEdit ? 'Editar cotação' : 'Nova cotação',
-            breadcrumb: 'CRM v3 · Cotação · Cabeçalho',
-            size: 'md',
+            breadcrumb: 'CRM v3 · Cotação',
+            size: 'editor',
             contentEl: wrapper,
             // Sobreposto ao layout — não empurra as colunas do CRM.
             split: false,

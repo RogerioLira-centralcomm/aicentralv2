@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=79">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=82">
 {% endblock %}
 
 {% block content %}
@@ -168,6 +168,11 @@
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                     Editar cliente
                   </button>
+                  <button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm crm-v3-context-open"
+                          id="crm-v3-context-open" aria-controls="crm-v3-sidebar" aria-expanded="false">
+                    <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+                    Contexto
+                  </button>
                 </div>
                 <div class="crm-v3-detail-meta">
                   <span class="crm-v3-meta-item">Responsável: <strong id="crm-v3-meta-responsavel">—</strong></span>
@@ -299,7 +304,13 @@
       </div>
     </div>
 
-    <aside class="crm-v3-col crm-v3-col-sidebar min-h-0" id="crm-v3-sidebar" aria-label="Detalhes do cliente">
+    <aside class="crm-v3-col crm-v3-col-sidebar min-h-0" id="crm-v3-sidebar" aria-label="Contexto do cliente">
+      <div class="crm-v3-context-drawer-head">
+        <strong>Contexto do cliente</strong>
+        <button type="button" id="crm-v3-context-close" aria-label="Fechar contexto">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
       <div class="crm-v3-tabs-sidebar" role="tablist" aria-label="Seções do cliente" data-tab-group="sidebar">
         <button type="button" role="tab" class="crm-v3-tab is-active" data-tab="informacoes" aria-selected="true" id="tab-sidebar-info" title="Informações básicas">
           <i class="fas fa-info-circle" aria-hidden="true"></i>
@@ -712,6 +723,8 @@
       </div>
 
     </aside>
+    <button type="button" class="crm-v3-context-overlay" id="crm-v3-context-overlay"
+            aria-label="Fechar contexto do cliente"></button>
 
   </div>
 
@@ -731,7 +744,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=57"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=59"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=18"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

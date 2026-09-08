@@ -162,8 +162,23 @@ def main():
                    )
                 """
             )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS profile_count
+                  FROM cx_creative_viewer_profiles
+                 WHERE is_active = TRUE
+                   AND slug = ANY(%s)
+                """,
+                ([profile["slug"] for profile in PROFILES],),
+            )
+            profile_count = cursor.fetchone()["profile_count"]
+            if profile_count != len(PROFILES):
+                raise RuntimeError(
+                    "Validação do seed falhou: "
+                    f"esperados {len(PROFILES)} perfis, encontrados {profile_count}."
+                )
         conn.commit()
-    print(f"{len(PROFILES)} visualizadores de mídia populados.")
+    print(f"{profile_count} visualizadores de mídia populados e validados.")
 
 
 if __name__ == "__main__":

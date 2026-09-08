@@ -21,101 +21,10 @@
           </div>
         </div>
 
-        <section class="cx-atividade-roteiro">
-          <div class="cx-atividade-roteiro-head">
-            <label for="cx-ativ-desc">Descrição e roteiro</label>
-            <button type="button" class="cx-atividade-modelo-btn" data-atividade-modelo>
-              <i class="fa-regular fa-rectangle-list" aria-hidden="true"></i>
-              Usar modelo
-            </button>
-          </div>
-          <textarea id="cx-ativ-desc" name="descricao" data-field="descricao"
-                    placeholder="Objetivo, perguntas, argumentos e próximo passo para o executivo conduzir a conversa."></textarea>
-          <span class="cx-atividade-roteiro-hint">
-            Texto simples, pronto para executar e registrar no histórico.
-          </span>
-        </section>
-
-        <section class="cx-drawer-ia-panel cx-atividade-ia" role="region"
-                 aria-label="Assistente de IA para o roteiro">
-          <div class="cx-drawer-ia-title">
-            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-            <span>Apoio para o roteiro</span>
-          </div>
-          <p class="cx-drawer-ia-hint">
-            A sugestão usa o título, as opções abaixo e o contexto do CRM. Sua descrição não é enviada nem substituída.
-          </p>
-
-          <div class="cx-atividade-ia-options">
-            <div class="cx-drawer-field cx-drawer-field-full">
-              <label>Qual é o foco principal?</label>
-              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                   data-chip-group="foco" role="radiogroup" aria-label="Foco do roteiro">
-                <button type="button" class="cx-drawer-chip is-active" data-value="apresentar_empresa" role="radio" aria-checked="true">Apresentar a empresa</button>
-                <button type="button" class="cx-drawer-chip" data-value="entender_necessidades" role="radio" aria-checked="false">Entender necessidades</button>
-                <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Apresentar proposta</button>
-                <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
-                <button type="button" class="cx-drawer-chip" data-value="outro" role="radio" aria-checked="false">Outro</button>
-              </div>
-            </div>
-
-            <div class="cx-drawer-field cx-drawer-field-full">
-              <label>Tom da comunicação</label>
-              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                   data-chip-group="tom" role="radiogroup" aria-label="Tom da comunicação">
-                <button type="button" class="cx-drawer-chip is-active" data-value="institucional" role="radio" aria-checked="true">Institucional</button>
-                <button type="button" class="cx-drawer-chip" data-value="consultivo" role="radio" aria-checked="false">Consultivo</button>
-                <button type="button" class="cx-drawer-chip" data-value="direto" role="radio" aria-checked="false">Direto e objetivo</button>
-                <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Mais informal</button>
-              </div>
-            </div>
-
-            <div class="cx-drawer-field cx-drawer-field-full">
-              <label for="cx-ativ-ia-instrucoes">Deseja incluir algo específico?</label>
-              <input id="cx-ativ-ia-instrucoes" type="text" data-ia-field="instrucoes"
-                     placeholder="Ex.: destacar um case, antecipar objeções, combinar prazo…" />
-            </div>
-          </div>
-
-          <div class="cx-atividade-ia-toolbar">
-            <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                 data-chip-group="formato" role="radiogroup" aria-label="Formato da ajuda">
-              <button type="button" class="cx-drawer-chip is-active" data-value="roteiro" role="radio" aria-checked="true">
-                <i class="fa-solid fa-list-check" aria-hidden="true"></i>Roteiro
-              </button>
-              <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false">
-                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>WhatsApp
-              </button>
-              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false">
-                <i class="fa-regular fa-envelope" aria-hidden="true"></i>E-mail
-              </button>
-            </div>
-            <button type="button" class="cx-atividade-ia-generate" data-ia-action="gerar-roteiro">
-              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-              Sugerir roteiro
-            </button>
-            <button type="button" class="cx-atividade-modelo-btn" data-ia-action="melhorar-texto">
-              <i class="fa-solid fa-spell-check" aria-hidden="true"></i>
-              Revisar texto atual
-            </button>
-          </div>
-          <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
-        </section>
-
-        <section class="cx-atividade-ia-history" data-ia-history-section hidden>
-          <div class="cx-atividade-ia-history-title">
-            <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
-            Sugestões para revisar e aplicar
-          </div>
-          <div data-ia-history></div>
-        </section>
-      </main>
-
-      <aside class="cx-atividade-editor-side">
-        <section class="cx-atividade-side-card">
+        <section class="cx-atividade-side-card cx-atividade-details">
           <header class="cx-atividade-side-title">
             <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
-            Detalhes da atividade
+            Planejamento
           </header>
 
           <div class="cx-drawer-field cx-drawer-field-full">
@@ -147,28 +56,29 @@
             </div>
           </div>
 
-          <div class="cx-drawer-field cx-drawer-field-full">
-            <label for="cx-ativ-responsavel">Responsável</label>
-            <select id="cx-ativ-responsavel" name="executivo_id" data-field="executivo_id">
-              <option value="">— Selecionar —</option>
-            </select>
-          </div>
-
-          <div class="cx-drawer-field cx-drawer-field-full">
-            <label>Status</label>
-            <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                 data-chip-group="status" role="radiogroup" aria-label="Status">
-              <button type="button" class="cx-drawer-chip is-active" data-value="pendente" role="radio" aria-checked="true"><i class="fa-regular fa-circle"></i>Pendente</button>
-              <button type="button" class="cx-drawer-chip" data-value="em_andamento" role="radio" aria-checked="false"><i class="fa-solid fa-hourglass-half"></i>Em andamento</button>
-              <button type="button" class="cx-drawer-chip" data-value="concluida" role="radio" aria-checked="false"><i class="fa-solid fa-circle-check"></i>Concluída</button>
+          <div class="cx-atividade-owner-status">
+            <div class="cx-drawer-field">
+              <label for="cx-ativ-responsavel">Responsável</label>
+              <select id="cx-ativ-responsavel" name="executivo_id" data-field="executivo_id">
+                <option value="">Selecionar</option>
+              </select>
+            </div>
+            <div class="cx-drawer-field">
+              <label>Status</label>
+              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                   data-chip-group="status" role="radiogroup" aria-label="Status">
+                <button type="button" class="cx-drawer-chip is-active" data-value="pendente" role="radio" aria-checked="true"><i class="fa-regular fa-circle"></i>Pendente</button>
+                <button type="button" class="cx-drawer-chip" data-value="em_andamento" role="radio" aria-checked="false"><i class="fa-solid fa-hourglass-half"></i>Em andamento</button>
+                <button type="button" class="cx-drawer-chip" data-value="concluida" role="radio" aria-checked="false"><i class="fa-solid fa-circle-check"></i>Concluída</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <section class="cx-atividade-side-card">
+        <section class="cx-atividade-side-card cx-atividade-relations">
           <header class="cx-atividade-side-title">
             <i class="fa-regular fa-user" aria-hidden="true"></i>
-            Relacionamentos
+            Relacionamento
           </header>
           <div class="cx-atividade-client-context">
             <span>Cliente / empresa</span>
@@ -177,27 +87,119 @@
           <div class="cx-drawer-field cx-drawer-field-full">
             <label for="cx-ativ-contato">Contato relacionado</label>
             <select id="cx-ativ-contato" name="contato_id" data-field="contato_id">
-              <option value="">— Nenhum —</option>
+              <option value="">Nenhum contato</option>
             </select>
-            <span class="cx-atividade-contact-hint">Um contato por atividade nesta fase.</span>
           </div>
         </section>
 
-        <section class="cx-atividade-side-card cx-atividade-side-tools">
-          <header class="cx-atividade-side-title">
-            <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
-            Mais ferramentas de IA
-          </header>
-          <button type="button" data-ia-action="sugerir-atividade">
-            <i class="fa-regular fa-lightbulb"></i> Sugerir próxima atividade
-          </button>
-          <button type="button" data-ia-action="gerar-comunicacao">
-            <i class="fa-regular fa-envelope"></i> Rascunhar comunicação
-          </button>
-          <button type="button" data-ia-action="touchpoints">
-            <i class="fa-solid fa-diagram-project"></i> Criar sequência de follow-up
-          </button>
+        <section class="cx-atividade-roteiro">
+          <div class="cx-atividade-roteiro-head">
+            <label for="cx-ativ-desc">Registro da atividade</label>
+            <button type="button" class="cx-atividade-modelo-btn" data-atividade-modelo>
+              <i class="fa-regular fa-rectangle-list" aria-hidden="true"></i>
+              Usar modelo
+            </button>
+          </div>
+          <textarea id="cx-ativ-desc" name="descricao" data-field="descricao"
+                    placeholder="Registre objetivo, contexto e próximo passo. O roteiro sugerido fica separado até você aplicá-lo."></textarea>
+          <span class="cx-atividade-roteiro-hint">
+            Este texto será salvo no histórico da atividade.
+          </span>
         </section>
+      </main>
+
+      <aside class="cx-atividade-editor-side">
+        <section class="cx-drawer-ia-panel cx-atividade-ia" role="region"
+                 aria-labelledby="cx-atividade-ia-title">
+          <header class="cx-atividade-assist-head">
+            <span class="cx-atividade-assist-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
+            <div>
+              <h2 id="cx-atividade-ia-title">Preparar roteiro</h2>
+              <p>Use o contexto do CRM sem alterar o registro da atividade.</p>
+            </div>
+          </header>
+
+          <div class="cx-atividade-ia-options">
+            <div class="cx-drawer-field cx-drawer-field-full">
+              <label>Objetivo da conversa</label>
+              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                   data-chip-group="foco" role="radiogroup" aria-label="Objetivo da conversa">
+                <button type="button" class="cx-drawer-chip is-active" data-value="apresentar_empresa" role="radio" aria-checked="true">Apresentar empresa</button>
+                <button type="button" class="cx-drawer-chip" data-value="entender_necessidades" role="radio" aria-checked="false">Entender necessidades</button>
+                <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Apresentar proposta</button>
+                <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
+                <button type="button" class="cx-drawer-chip" data-value="outro" role="radio" aria-checked="false">Outro</button>
+              </div>
+            </div>
+
+            <div class="cx-drawer-field cx-drawer-field-full">
+              <label>Tom</label>
+              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                   data-chip-group="tom" role="radiogroup" aria-label="Tom da comunicação">
+                <button type="button" class="cx-drawer-chip is-active" data-value="institucional" role="radio" aria-checked="true">Institucional</button>
+                <button type="button" class="cx-drawer-chip" data-value="consultivo" role="radio" aria-checked="false">Consultivo</button>
+                <button type="button" class="cx-drawer-chip" data-value="direto" role="radio" aria-checked="false">Direto</button>
+                <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Informal</button>
+              </div>
+            </div>
+
+            <div class="cx-drawer-field cx-drawer-field-full">
+              <label for="cx-ativ-ia-instrucoes">Orientação adicional</label>
+              <textarea id="cx-ativ-ia-instrucoes" rows="3" data-ia-field="instrucoes"
+                        placeholder="Ex.: destacar um case, antecipar uma objeção ou combinar prazo."></textarea>
+            </div>
+          </div>
+
+          <div class="cx-atividade-ia-toolbar">
+            <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                 data-chip-group="formato" role="radiogroup" aria-label="Formato da sugestão">
+              <button type="button" class="cx-drawer-chip is-active" data-value="roteiro" role="radio" aria-checked="true">
+                <i class="fa-solid fa-list-check" aria-hidden="true"></i>Roteiro
+              </button>
+              <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false">
+                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>WhatsApp
+              </button>
+              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false">
+                <i class="fa-regular fa-envelope" aria-hidden="true"></i>E-mail
+              </button>
+            </div>
+            <button type="button" class="cx-atividade-ia-generate" data-ia-action="gerar-roteiro">
+              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+              Sugerir roteiro
+            </button>
+          </div>
+
+          <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
+        </section>
+
+        <section class="cx-atividade-ia-history" data-ia-history-section hidden>
+          <div class="cx-atividade-ia-history-title">
+            <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+            Roteiros disponíveis
+          </div>
+          <div data-ia-history></div>
+        </section>
+
+        <details class="cx-atividade-side-tools">
+          <summary>
+            <span><i class="fa-solid fa-sparkles" aria-hidden="true"></i>Outras ações assistidas</span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
+          <div class="cx-atividade-side-tools-list">
+            <button type="button" data-ia-action="melhorar-texto">
+              <i class="fa-solid fa-spell-check"></i> Revisar registro atual
+            </button>
+            <button type="button" data-ia-action="sugerir-atividade">
+              <i class="fa-regular fa-lightbulb"></i> Sugerir próxima atividade
+            </button>
+            <button type="button" data-ia-action="gerar-comunicacao">
+              <i class="fa-regular fa-envelope"></i> Rascunhar comunicação
+            </button>
+            <button type="button" data-ia-action="touchpoints">
+              <i class="fa-solid fa-diagram-project"></i> Criar sequência de follow-up
+            </button>
+          </div>
+        </details>
       </aside>
     </div>
   </form>

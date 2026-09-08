@@ -165,6 +165,32 @@ class CrmTestApiTest(unittest.TestCase):
         res = self.client.get(f"/crm-v3/api/agencia/{nao_agencia['id']}/clientes")
         self.assertEqual(res.status_code, 400)
 
+    def test_adiciona_e_retira_cliente_da_agencia_sem_apagar_historico(self):
+        lista = self.client.get("/crm-v3/api/clientes").get_json()["clientes"]
+        agencia = next(c for c in lista if c.get("is_agencia"))
+        novo = store.create_cliente({
+            "nome": "Cliente para vínculo",
+            "nome_fantasia": "Cliente para vínculo",
+            "razao_social": "Cliente para vínculo Ltda.",
+        })
+
+        endpoint = (
+            f"/crm-v3/api/agencias/{agencia['id']}/clientes/{novo['id']}"
+        )
+        added = self.client.post(endpoint)
+        self.assertEqual(added.status_code, 200)
+        self.assertIn(
+            novo["id"],
+            [item["id"] for item in added.get_json()["clientes"]],
+        )
+
+        removed = self.client.delete(endpoint)
+        self.assertEqual(removed.status_code, 200)
+        self.assertNotIn(
+            novo["id"],
+            [item["id"] for item in removed.get_json()["clientes"]],
+        )
+
     def test_get_clientes(self):
         res = self.client.get("/crm-v3/api/clientes")
         self.assertEqual(res.status_code, 200)

@@ -477,34 +477,6 @@
   <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-cotacao" class="cx-modal-shell crm-v3-modal">
-  <div class="cx-modal-panel crm-v3-modal-box max-w-md">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold text-lg" id="crm-v3-modal-cotacao-title">Nova cotação</h3>
-      <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-cotacao" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <form id="crm-v3-form-cotacao">
-      <input type="hidden" id="crm-v3-cotacao-id" value="">
-      <div class="cx-field mb-3"><label class="cx-label-row py-0" for="crm-v3-cotacao-titulo"><span class="cx-label text-xs">Nome da campanha *</span></label><input type="text" id="crm-v3-cotacao-titulo" required class="cx-input cx-input-sm w-full"></div>
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-valor"><span class="cx-label text-xs">Valor total *</span></label><input type="text" id="crm-v3-cotacao-valor" required placeholder="R$ 0,00" class="cx-input cx-input-sm w-full"></div>
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-status"><span class="cx-label text-xs">Status</span></label><select id="crm-v3-cotacao-status" class="cx-select cx-select-sm w-full"><option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="aprovada">Aprovada</option><option value="rejeitada">Rejeitada</option><option value="expirada">Expirada</option><option value="em-acompanhamento">Em Acompanhamento</option></select></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-inicio"><span class="cx-label text-xs">Início</span></label><input type="date" id="crm-v3-cotacao-inicio" class="cx-input cx-input-sm w-full"></div>
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-fim"><span class="cx-label text-xs">Fim</span></label><input type="date" id="crm-v3-cotacao-fim" class="cx-input cx-input-sm w-full"></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-objetivo"><span class="cx-label text-xs">Objetivo geral</span></label><input type="text" id="crm-v3-cotacao-objetivo" placeholder="Awareness, Performance…" class="cx-input cx-input-sm w-full"></div>
-        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-responsavel"><span class="cx-label text-xs">Responsável</span></label><select id="crm-v3-cotacao-responsavel" class="cx-select cx-select-sm w-full" data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome"><option value="">— Carregando… —</option></select></div>
-      </div>
-      <div class="cx-field mb-4"><label class="cx-label-row py-0" for="crm-v3-cotacao-plataformas"><span class="cx-label text-xs">Plataformas</span></label><input type="text" id="crm-v3-cotacao-plataformas" placeholder="TV Aberta, OOH, Meta Ads (separadas por vírgula)" class="cx-input cx-input-sm w-full"></div>
-      <div class="cx-modal-actions mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-cotacao">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-cotacao-submit"><span class="crm-v3-btn-text">Criar</span><span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span></button></div>
-    </form>
-  </div>
-  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
-</dialog>
-
 <dialog id="crm-v3-modal-nota" class="cx-modal-shell crm-v3-modal">
   <div class="cx-modal-panel crm-v3-modal-box max-w-md">
     <div class="flex items-center justify-between mb-4">

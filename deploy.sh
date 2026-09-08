@@ -72,6 +72,7 @@ echo ""
 echo "[3/7] Atualizando dependencias..."
 VENV_PIP="venv/bin/pip"
 [ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
+VENV_PYTHON="${VENV_PIP%/pip}python"
 
 # Pastas ~pacote em site-packages = uninstall do pip interrompido (ex.: ~vidia-cusparselt-cu13)
 cleanup_pip_orphans() {
@@ -134,9 +135,16 @@ echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
 bash deploy/configure_nginx_upload.sh
 echo "  > OK"
 
-# 8. Iniciar servico
+# 8. Atualizar schema e dados idempotentes
 echo ""
-echo "[7/8] Iniciando servico..."
+echo "[7/9] Atualizando schema dos visualizadores..."
+"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py
+"$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py
+echo "  > OK"
+
+# 9. Iniciar servico
+echo ""
+echo "[8/9] Iniciando servico..."
 sudo systemctl start aicentralv2
 sleep 3
 
@@ -155,9 +163,9 @@ else
     exit 1
 fi
 
-# 8. Health check
+# 10. Health check
 echo ""
-echo "[8/8] Health check..."
+echo "[9/9] Health check..."
 sleep 2
 HTTP_CODE=$(curl -s -m 10 -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "000" ]; then

@@ -140,6 +140,14 @@
             text-transform: uppercase;
             color: rgba(229, 240, 239, 0.52);
         }
+        .erp-nav-subsection {
+            margin: 0.625rem 0 0.2rem;
+            padding: 0 0.625rem;
+            color: rgba(229, 240, 239, 0.4);
+            font-size: 0.625rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
         .erp-nav-link {
             display: flex;
             align-items: center;
@@ -241,7 +249,9 @@
             left: 0;
             z-index: 90;
             display: none;
-            min-width: 14rem;
+            min-width: 16rem;
+            max-height: calc(100vh - var(--erp-topbar-h) - 1rem);
+            overflow-y: auto;
             border: 1px solid var(--erp-border);
             border-radius: 0.875rem;
             background: #fff;
@@ -272,6 +282,21 @@
             font-size: 0.8125rem;
             font-weight: 500;
             white-space: nowrap;
+        }
+        .erp-nav-menu-section {
+            margin: 0.35rem 0.25rem 0.2rem;
+            padding: 0.4rem 0.375rem 0.25rem;
+            border-top: 1px solid #eef2f6;
+            color: #94a3b8;
+            font-size: 0.625rem;
+            font-weight: 750;
+            letter-spacing: 0.055em;
+            text-transform: uppercase;
+        }
+        .erp-nav-menu-section:first-child {
+            margin-top: 0;
+            padding-top: 0.25rem;
+            border-top: 0;
         }
         .erp-nav-menu a:hover {
             background: #f8fafc;
@@ -440,36 +465,36 @@
             {'label': 'Início', 'endpoint': 'index', 'url': url_for('index'), 'icon': 'fa-house'}
         ]},
         {'section': 'Comercial', 'items': [
-            {'label': 'CRM', 'endpoint': 'crm_v3.crm_v3', 'url': url_for('crm_v3.crm_v3'), 'icon': 'fa-address-book', 'central_only': true},
-            {'label': 'CRM (legado)', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-clock-rotate-left', 'central_only': true, 'admin_only': true},
-            {'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
-            {'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
-            {'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
-            {'label': 'Cotações', 'endpoint': 'crm_pipeline', 'match_prefix': 'cotacoes.', 'url': url_for('crm_pipeline'), 'icon': 'fa-file-invoice-dollar'},
-            {'label': 'Briefings', 'endpoint': 'briefing_list', 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
-            {'label': 'PI Recebido', 'endpoint': 'cadu_pi_novo', 'url': url_for('cadu_pi_novo'), 'icon': 'fa-inbox'},
-            {'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'}
+            {'group': 'CRM', 'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
+            {'group': 'CRM', 'label': 'CRM', 'endpoint': 'crm_v3.crm_v3', 'url': url_for('crm_v3.crm_v3'), 'icon': 'fa-address-book', 'central_only': true},
+            {'group': 'CRM', 'label': 'CRM (legado)', 'endpoint': 'crm.index', 'url': url_for('crm.index'), 'icon': 'fa-clock-rotate-left', 'central_only': true, 'admin_only': true},
+            {'group': 'CRM', 'label': 'Leads', 'endpoint': 'leads_list', 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
+            {'group': 'CRM', 'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
+            {'group': 'Propostas', 'label': 'Briefings', 'endpoint': 'briefing_list', 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
+            {'group': 'Propostas', 'label': 'Cotações', 'endpoint': 'crm_pipeline', 'match_prefix': 'cotacoes.', 'url': url_for('crm_pipeline'), 'icon': 'fa-file-invoice-dollar'},
+            {'group': 'Entrada de PI', 'label': 'Em configuração', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=2), 'icon': 'fa-sliders'},
+            {'group': 'Entrada de PI', 'label': 'PI recebido', 'endpoint': 'cadu_pi_novo', 'url': url_for('cadu_pi_novo'), 'icon': 'fa-inbox'}
         ]},
         {'section': 'Operação', 'items': [
-            {'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'},
-            {'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
-            {'label': 'Campanhas', 'endpoint': 'campanhas_pi', 'url': url_for('campanhas_pi'), 'icon': 'fa-chart-simple'},
-            {'label': 'Acompanhamento', 'endpoint': 'campanhas_pi_lista', 'url': url_for('campanhas_pi_lista'), 'icon': 'fa-list-check'}
+            {'group': 'Campanhas', 'label': 'Acompanhamento', 'endpoint': 'campanhas_pi_lista', 'url': url_for('campanhas_pi_lista'), 'icon': 'fa-list-check'},
+            {'group': 'Campanhas', 'label': 'Campanhas', 'endpoint': 'campanhas_pi', 'url': url_for('campanhas_pi'), 'icon': 'fa-chart-simple'},
+            {'group': 'Pedidos de inserção', 'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
+            {'group': 'Pedidos de inserção', 'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'}
         ]},
         {'section': 'Financeiro', 'items': [
-            {'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
-            {'label': 'NF Emitida', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
-            {'label': 'Incentivos', 'endpoint': 'financeiro.relatorio_incentivos', 'url': url_for('financeiro.relatorio_incentivos'), 'icon': 'fa-percent'},
-            {'label': 'Meus Reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'}
+            {'group': 'Receitas e faturamento', 'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
+            {'group': 'Receitas e faturamento', 'label': 'Incentivos', 'endpoint': 'financeiro.relatorio_incentivos', 'url': url_for('financeiro.relatorio_incentivos'), 'icon': 'fa-percent'},
+            {'group': 'Receitas e faturamento', 'label': 'NF emitida', 'endpoint': 'cadu_pi_lista', 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
+            {'group': 'Despesas', 'label': 'Meus reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'}
         ]},
         {'section': 'Cadu', 'items': [
-            {'label': 'Interesses', 'endpoint': 'interesse_produto_listar', 'url': url_for('interesse_produto_listar'), 'icon': 'fa-star'},
-            {'label': 'Métricas Plataforma', 'endpoint': 'admin_metrics_dashboard', 'url': url_for('admin_metrics_dashboard'), 'icon': 'fa-gauge-high'},
-            {'label': 'Nova Audiência', 'endpoint': 'up_audiencia', 'url': url_for('up_audiencia'), 'icon': 'fa-upload'},
-            {'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
-            {'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
-            {'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
-            {'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true}
+            {'group': 'Audiências', 'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
+            {'group': 'Audiências', 'label': 'Categorias', 'endpoint': 'cadu_categorias', 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
+            {'group': 'Audiências', 'label': 'Interesses', 'endpoint': 'interesse_produto_listar', 'url': url_for('interesse_produto_listar'), 'icon': 'fa-star'},
+            {'group': 'Audiências', 'label': 'Nova audiência', 'endpoint': 'up_audiencia', 'url': url_for('up_audiencia'), 'icon': 'fa-upload'},
+            {'group': 'Audiências', 'label': 'Subcategorias', 'endpoint': 'cadu_subcategorias', 'url': url_for('cadu_subcategorias'), 'icon': 'fa-layer-group'},
+            {'group': 'Administração', 'label': 'Design System Enterprise', 'endpoint': 'design_system_enterprise', 'url': url_for('design_system_enterprise'), 'icon': 'fa-palette', 'admin_only': true},
+            {'group': 'Administração', 'label': 'Métricas da plataforma', 'endpoint': 'admin_metrics_dashboard', 'url': url_for('admin_metrics_dashboard'), 'icon': 'fa-gauge-high'}
         ]}
     ] %}
 
@@ -485,20 +510,20 @@
        ['admin', 'superadmin'], então "admin_only" é o default para
        todos os itens deste grupo. #}
     {% set parametros_items = [
-        {'label': 'Tipos de Cliente',        'endpoint': 'tipos_cliente',                     'url': url_for('tipos_cliente'),                     'icon': 'fa-gear'},
-        {'label': 'Setores',                 'endpoint': 'tbl_setor',                         'url': url_for('tbl_setor'),                         'icon': 'fa-sitemap'},
-        {'label': 'Cargos',                  'endpoint': 'tbl_cargo_contato',                 'url': url_for('tbl_cargo_contato'),                 'icon': 'fa-id-badge'},
-        {'label': 'Plataformas de Campanha', 'endpoint': 'plataformas_campanha',              'url': url_for('plataformas_campanha'),              'icon': 'fa-bullhorn'},
-        {'label': 'Incentivos',              'endpoint': 'incentivos_lista',                  'url': url_for('incentivos_lista'),                  'icon': 'fa-percent'},
-        {'label': 'Faixas cálculo PI',       'endpoint': 'faixas_calculo_pi_lista',           'url': url_for('faixas_calculo_pi_lista'),           'icon': 'fa-scale-balanced'},
-        {'label': 'Cotações (legado)',       'endpoint': 'cotacoes_list',                     'url': url_for('cotacoes_list'),                     'icon': 'fa-file-invoice'},
-        {'label': 'Comissões',               'endpoint': 'cadu_pi_com_vendas_lista',          'url': url_for('cadu_pi_com_vendas_lista'),          'icon': 'fa-hand-holding-dollar'},
-        {'label': 'Logs de Auditoria',       'endpoint': 'logs_auditoria',                    'url': url_for('logs_auditoria'),                    'icon': 'fa-clipboard-list'},
-        {'label': 'Assistente IA',           'endpoint': 'intelligence.index',                'url': url_for('intelligence.index'),                'icon': 'fa-robot'},
-        {'label': 'listaOLDKPI',             'endpoint': 'parametros.lista_old_kpi',          'url': url_for('parametros.lista_old_kpi'),          'icon': 'fa-chart-line'},
-        {'label': 'Testes DV360',            'endpoint': 'parametros.testes_dv',              'url': url_for('parametros.testes_dv'),              'icon': 'fa-vial'},
-        {'label': 'Teste Brevo',             'endpoint': 'brevo_test.formulario_teste_brevo', 'url': url_for('brevo_test.formulario_teste_brevo'), 'icon': 'fa-envelope-open-text'},
-        {'label': 'Migrations do banco',     'endpoint': 'admin_migrations.page',             'url': url_for('admin_migrations.page'),             'icon': 'fa-database', 'superadmin_only': true}
+        {'group': 'Cadastros comerciais', 'label': 'Cargos', 'endpoint': 'tbl_cargo_contato', 'url': url_for('tbl_cargo_contato'), 'icon': 'fa-id-badge'},
+        {'group': 'Cadastros comerciais', 'label': 'Setores', 'endpoint': 'tbl_setor', 'url': url_for('tbl_setor'), 'icon': 'fa-sitemap'},
+        {'group': 'Cadastros comerciais', 'label': 'Tipos de cliente', 'endpoint': 'tipos_cliente', 'url': url_for('tipos_cliente'), 'icon': 'fa-gear'},
+        {'group': 'Mídia e PI', 'label': 'Faixas de cálculo do PI', 'endpoint': 'faixas_calculo_pi_lista', 'url': url_for('faixas_calculo_pi_lista'), 'icon': 'fa-scale-balanced'},
+        {'group': 'Mídia e PI', 'label': 'Incentivos', 'endpoint': 'incentivos_lista', 'url': url_for('incentivos_lista'), 'icon': 'fa-percent'},
+        {'group': 'Mídia e PI', 'label': 'Plataformas de campanha', 'endpoint': 'plataformas_campanha', 'url': url_for('plataformas_campanha'), 'icon': 'fa-bullhorn'},
+        {'group': 'Operação e legado', 'label': 'Comissões', 'endpoint': 'cadu_pi_com_vendas_lista', 'url': url_for('cadu_pi_com_vendas_lista'), 'icon': 'fa-hand-holding-dollar'},
+        {'group': 'Operação e legado', 'label': 'Cotações (legado)', 'endpoint': 'cotacoes_list', 'url': url_for('cotacoes_list'), 'icon': 'fa-file-invoice'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
+        {'group': 'Sistema e diagnóstico', 'label': 'KPIs (legado)', 'endpoint': 'parametros.lista_old_kpi', 'url': url_for('parametros.lista_old_kpi'), 'icon': 'fa-chart-line'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Logs de auditoria', 'endpoint': 'logs_auditoria', 'url': url_for('logs_auditoria'), 'icon': 'fa-clipboard-list'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Migrations do banco', 'endpoint': 'admin_migrations.page', 'url': url_for('admin_migrations.page'), 'icon': 'fa-database', 'superadmin_only': true},
+        {'group': 'Sistema e diagnóstico', 'label': 'Teste Brevo', 'endpoint': 'brevo_test.formulario_teste_brevo', 'url': url_for('brevo_test.formulario_teste_brevo'), 'icon': 'fa-envelope-open-text'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Testes DV360', 'endpoint': 'parametros.testes_dv', 'url': url_for('parametros.testes_dv'), 'icon': 'fa-vial'}
     ] %}
 
     <aside id="erp-sidebar" class="erp-sidebar" aria-label="Navegação principal">
@@ -522,10 +547,15 @@
                     {% if (not group.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
                           and (not group.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
                         <div class="erp-nav-section">{{ group['section'] }}</div>
+                        {% set mobile_group = namespace(value='') %}
                         {% for item in group['items'] %}
                             {% if (not item.get('central_only', false) or is_centralcomm_user)
                                   and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
                                   and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                {% if item.get('group') and item.get('group') != mobile_group.value %}
+                                    <div class="erp-nav-subsection">{{ item.get('group') }}</div>
+                                    {% set mobile_group.value = item.get('group') %}
+                                {% endif %}
                                 {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
                                 <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
                                     <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
@@ -538,8 +568,13 @@
 
                 {% if session.get('user_type') in ['admin', 'superadmin'] %}
                     <div class="erp-nav-section">Parâmetros</div>
+                    {% set mobile_param_group = namespace(value='') %}
                     {% for item in parametros_items %}
                         {% if not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin' %}
+                            {% if item.get('group') and item.get('group') != mobile_param_group.value %}
+                                <div class="erp-nav-subsection">{{ item.get('group') }}</div>
+                                {% set mobile_param_group.value = item.get('group') %}
+                            {% endif %}
                             {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
                             <a href="{{ item['url'] }}" class="erp-nav-link {% if is_active %}active{% endif %}">
                                 <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i><span>{{ item['label'] }}</span>
@@ -595,10 +630,15 @@
                                     <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
                                 </button>
                                 <div class="erp-nav-menu" role="menu">
+                                    {% set desktop_group = namespace(value='') %}
                                     {% for item in group['items'] %}
                                         {% if (not item.get('central_only', false) or is_centralcomm_user)
                                               and (not item.get('admin_only', false) or session.get('user_type') in ['admin', 'superadmin'])
                                               and (not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin') %}
+                                            {% if item.get('group') and item.get('group') != desktop_group.value %}
+                                                <div class="erp-nav-menu-section">{{ item.get('group') }}</div>
+                                                {% set desktop_group.value = item.get('group') %}
+                                            {% endif %}
                                             {% set is_active = (request.endpoint == item.get('endpoint')) or (item.get('match_prefix') and request.endpoint and request.endpoint.startswith(item.get('match_prefix'))) %}
                                             <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
                                                 <i class="{{ 'fa-brands' if item.get('brand', false) else 'fa-solid' }} {{ item['icon'] }}" aria-hidden="true"></i>
@@ -625,8 +665,13 @@
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
                             </button>
                             <div class="erp-nav-menu" role="menu">
+                                {% set desktop_param_group = namespace(value='') %}
                                 {% for item in parametros_items %}
                                     {% if not item.get('superadmin_only', false) or session.get('user_type') == 'superadmin' %}
+                                        {% if item.get('group') and item.get('group') != desktop_param_group.value %}
+                                            <div class="erp-nav-menu-section">{{ item.get('group') }}</div>
+                                            {% set desktop_param_group.value = item.get('group') %}
+                                        {% endif %}
                                         {% set is_active = (request.endpoint == item.get('endpoint')) %}
                                         <a href="{{ item['url'] }}" class="{% if is_active %}active{% endif %}" role="menuitem">
                                             <i class="fa-solid {{ item['icon'] }}" aria-hidden="true"></i>{{ item['label'] }}

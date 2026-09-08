@@ -184,9 +184,16 @@ def create_app(config_class=Config):
         app.register_blueprint(whatsapp_bp)
 
         from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp, parametros_bp
+        from .creative_modeling_routes import (
+            public_bp as creative_public_bp,
+            register_creative_modeling_routes,
+        )
+
+        register_creative_modeling_routes(parametros_bp)
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)
         app.register_blueprint(parametros_bp)
+        app.register_blueprint(creative_public_bp)
 
         from .cotacoes_routes import register_cotacoes_routes
         register_cotacoes_routes(app)

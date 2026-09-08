@@ -1,0 +1,415 @@
+#!/usr/bin/env python
+"""Seed idempotente do catálogo inicial de Modelagem de Criativos."""
+
+import os
+from pathlib import Path
+
+import psycopg
+from dotenv import load_dotenv
+from psycopg.rows import dict_row
+from psycopg.types.json import Json
+
+
+ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
+
+LAYER_DESCRIPTIONS = {
+    "hotspot": {
+        "base_scene": "wide establishing shot relevant to the client sector, with 3 to 4 subtle circular markers overlaid on key visual points of interest",
+        "reveal_labels": "each marker connects via a thin leader line to a small pill-shaped label revealing additional information on hover/tap",
+    },
+    "cartas": {
+        "foreground_card": "one card mid-flip, angled in 3D perspective to suggest the flip gesture, showing the campaign hero image or message",
+        "background_cards": "edges of 2 more cards peeking from behind, hinting at unrevealed content",
+    },
+    "puxe-descubra": {
+        "curtain_layer": "soft fabric-like curtain in the brand primary tone, being pulled upward, occupying top 35 percent of frame, realistic fold, wrinkles, and shadow at the edge",
+        "revealed_layer": "the campaign scene revealed underneath, occupying bottom 65 percent of frame, with clear depth separation from the curtain above",
+    },
+    "arraste-descubra": {
+        "split_comparison": "vertical split-screen with a draggable divider handle in the center (small circular icon with left-right arrows), comparing two versions or options related to the campaign message, each side labeled with its specification",
+    },
+    "quiz": {
+        "question_card": "centered question card over a softly blurred contextual background relevant to the client sector, with 2 to 3 tappable pill-shaped answer options below, subtle progress dots indicating question depth",
+    },
+    "native-infeed": {
+        "editorial_visual": "scene styled to match the visual tone of surrounding editorial content on the host publication, not obviously an ad, natural editorial photography quality",
+        "sponsor_disclosure": "small honest sponsor disclosure label placed discreetly near the headline area",
+    },
+    "video-outstream": {
+        "hook_3s": "first 3 seconds communicate the brand name and core message visually, without relying on audio (many placements autoplay muted)",
+        "body": "main campaign message and scene, shot in high production value style matching the brand tone",
+        "endcard": "static end card with brand logo centered and one clear call to action text, held for the last 2 seconds",
+    },
+    "netflix-logo-bumper": {
+        "particle_intro": "black background, thin streaks of light and particles converging toward center, same visual rhythm as a streaming platform opening ident but in the brand primary tone instead of platform red",
+        "logo_reveal": "particles resolve into the brand logo, brief hold with subtle glow, then soft fade to black",
+    },
+    "netflix-anuncio-simulado": {
+        "context_card": "dark UI card in the visual language of a streaming platform content row, small eyebrow text with sponsor label, generous negative space, cinematic still",
+        "brand_scene": "campaign scene shot in cinematic, moody, high-production-value style consistent with premium streaming original content, not commercial or salesy lighting",
+    },
+    "hbomax-pause-ad": {
+        "pause_frame": "calm, static composition suited to a paused-screen moment, brand logo placed discreetly, low visual urgency, elegant and minimal",
+    },
+    "hbomax-interactive-midroll": {
+        "video_body": "mid-roll video scene with a subtle interactive layer cue hinted at the bottom of frame, suggesting click-reveal or carousel interaction",
+    },
+    "disney-pause-plus": {
+        "pause_card": "clean pause-frame composition with either a static billboard message, a short brand trivia question, or a small product carousel — one of the three, not all",
+    },
+    "disney-branded-slate": {
+        "sponsor_card": "presented-by style card shown before content starts, minimal composition, premium cinematic still of the brand hero product or scene",
+    },
+    "iab-medium-rectangle": {
+        "background": "compact high-contrast background with one focal area and protected negative space for short copy",
+        "content": "single product or scene, concise headline zone, brand mark and one clear call to action sized for 300 by 250 pixels",
+    },
+    "iab-leaderboard": {
+        "background": "wide horizontal scene with visual continuity across the full banner and no critical detail near the edges",
+        "content": "brand mark, short headline and call to action arranged in a left-to-right reading flow for 728 by 90 pixels",
+    },
+    "iab-half-page": {
+        "background": "tall editorial background with depth and a stable central focal point suitable for a 300 by 600 placement",
+        "content": "vertical story hierarchy with hero visual, short message, supporting detail and call to action",
+    },
+    "iab-mobile-banner": {
+        "background": "very compact horizontal background with strong tonal separation and no decorative detail",
+        "content": "brand mark, ultra-short message and compact call to action legible at 320 by 50 pixels",
+    },
+}
+
+CATEGORIES = (
+    ("programatica", "Programática"),
+    ("streaming", "Streaming"),
+)
+
+CHANNELS = (
+    (
+        "netflix",
+        "Netflix",
+        "ctv_streaming",
+        "smart_tv_16x9",
+        "Premium streaming content displayed on a 16:9 smart TV screen.",
+        "streaming",
+    ),
+    (
+        "hbomax",
+        "HBO Max",
+        "ctv_streaming",
+        "smart_tv_16x9",
+        "Premium streaming content displayed on a 16:9 smart TV screen.",
+        "streaming",
+    ),
+    (
+        "disneyplus",
+        "Disney+",
+        "ctv_streaming",
+        "smart_tv_16x9",
+        "Premium streaming content displayed on a 16:9 smart TV screen.",
+        "streaming",
+    ),
+    (
+        "portal_generico",
+        "Portais Premium",
+        "portal",
+        "desktop_browser",
+        "Premium news or content portal displayed in a desktop browser.",
+        "programatica",
+    ),
+)
+
+FORMATS = (
+    ("hotspot", "Hotspot", "Hotspot", None, "click_expand", "image"),
+    ("cartas", "Cartas", "Cards", None, "card_flip", "image"),
+    (
+        "puxe-descubra",
+        "Puxe e Descubra",
+        "Pull and Discover",
+        None,
+        "layered_reveal",
+        "image",
+    ),
+    (
+        "arraste-descubra",
+        "Arraste e Descubra",
+        "Drag and Discover",
+        None,
+        "drag_compare",
+        "image",
+    ),
+    ("quiz", "Quiz", "Quiz", None, "quiz_flow", "image"),
+    (
+        "native-infeed",
+        "Native In-Feed",
+        "Native In-Feed",
+        None,
+        "editorial_mimicry",
+        "image",
+    ),
+    (
+        "video-outstream",
+        "Vídeo Outstream",
+        "Outstream Video",
+        None,
+        "linear_video",
+        "video",
+    ),
+    (
+        "netflix-logo-bumper",
+        "Netflix — Bumper logo",
+        "Netflix — Logo bumper",
+        "netflix",
+        "logo_reveal_behind",
+        "video",
+    ),
+    (
+        "netflix-anuncio-simulado",
+        "Netflix — Anúncio simulado",
+        "Netflix — Simulated ad",
+        "netflix",
+        "native_card_takeover",
+        "video",
+    ),
+    (
+        "hbomax-pause-ad",
+        "HBO Max — Pause Ad",
+        "HBO Max — Pause Ad",
+        "hbomax",
+        "static_on_pause",
+        "image",
+    ),
+    (
+        "hbomax-interactive-midroll",
+        "HBO Max — Mid-roll Interativo",
+        "HBO Max — Interactive Mid-roll",
+        "hbomax",
+        "interactive_video_reveal",
+        "video",
+    ),
+    (
+        "disney-pause-plus",
+        "Disney+ — Pause+",
+        "Disney+ — Pause+",
+        "disneyplus",
+        "interactive_on_pause",
+        "image",
+    ),
+    (
+        "disney-branded-slate",
+        "Disney+ — Branded Slate",
+        "Disney+ — Branded Slate",
+        "disneyplus",
+        "sponsorship_card",
+        "image",
+    ),
+    (
+        "iab-medium-rectangle",
+        "IAB Medium Rectangle 300×250",
+        "IAB Medium Rectangle 300x250",
+        "portal_generico",
+        "static_display",
+        "image",
+    ),
+    (
+        "iab-leaderboard",
+        "IAB Leaderboard 728×90",
+        "IAB Leaderboard 728x90",
+        "portal_generico",
+        "static_display",
+        "image",
+    ),
+    (
+        "iab-half-page",
+        "IAB Half Page 300×600",
+        "IAB Half Page 300x600",
+        "portal_generico",
+        "static_display",
+        "image",
+    ),
+    (
+        "iab-mobile-banner",
+        "IAB Mobile Banner 320×50",
+        "IAB Mobile Banner 320x50",
+        "portal_generico",
+        "static_display",
+        "image",
+    ),
+)
+
+CHANNEL_BRAND = {
+    "netflix": ("#E50914", "#141414"),
+    "hbomax": ("#5822B4", "#0B0714"),
+    "disneyplus": ("#113CCF", "#071B47"),
+    "portal_generico": ("#1E4D4F", "#F8F9FA"),
+}
+
+FORMAT_SPECS = {
+    "iab-medium-rectangle": {
+        "aspect_ratio": "6:5",
+        "default_size": "300x250",
+        "safe_area": {"top": 12, "right": 12, "bottom": 12, "left": 12, "unit": "px"},
+        "responsive_rules": "Keep copy under 35 characters and preserve a single focal subject.",
+    },
+    "iab-leaderboard": {
+        "aspect_ratio": "91:11",
+        "default_size": "728x90",
+        "safe_area": {"top": 8, "right": 16, "bottom": 8, "left": 16, "unit": "px"},
+        "responsive_rules": "Use a horizontal reading flow; never crop the logo or CTA.",
+    },
+    "iab-half-page": {
+        "aspect_ratio": "1:2",
+        "default_size": "300x600",
+        "safe_area": {"top": 20, "right": 16, "bottom": 20, "left": 16, "unit": "px"},
+        "responsive_rules": "Use a vertical story hierarchy with at most three text blocks.",
+    },
+    "iab-mobile-banner": {
+        "aspect_ratio": "32:5",
+        "default_size": "320x50",
+        "safe_area": {"top": 5, "right": 8, "bottom": 5, "left": 8, "unit": "px"},
+        "responsive_rules": "Use logo plus ultra-short message; minimum effective type size 12 px.",
+    },
+}
+
+
+def _layers(slug):
+    return [
+        {"role": role, "description_template": description}
+        for role, description in LAYER_DESCRIPTIONS[slug].items()
+    ]
+
+
+def main():
+    conn = psycopg.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", "5432")),
+        dbname=os.getenv("DB_NAME", "aicentralv2"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", ""),
+        row_factory=dict_row,
+    )
+    try:
+        with conn.cursor() as cursor:
+            for slug, name in CATEGORIES:
+                cursor.execute(
+                    """
+                    INSERT INTO cx_format_categories (slug, name)
+                    VALUES (%s, %s)
+                    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+                    """,
+                    (slug, name),
+                )
+
+            cursor.execute("SELECT id, slug FROM cx_format_categories")
+            category_ids = {row["slug"]: row["id"] for row in cursor.fetchall()}
+            for slug, name, channel_type, device, context, category in CHANNELS:
+                primary_color, secondary_color = CHANNEL_BRAND[slug]
+                cursor.execute(
+                    """
+                    INSERT INTO cx_channels (
+                        slug, name, channel_type, device_mockup,
+                        screen_context_template, category_id,
+                        partner_primary_color, partner_secondary_color
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (slug) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        channel_type = EXCLUDED.channel_type,
+                        device_mockup = EXCLUDED.device_mockup,
+                        screen_context_template = EXCLUDED.screen_context_template,
+                        category_id = EXCLUDED.category_id,
+                        partner_primary_color = EXCLUDED.partner_primary_color,
+                        partner_secondary_color = EXCLUDED.partner_secondary_color
+                    """,
+                    (
+                        slug,
+                        name,
+                        channel_type,
+                        device,
+                        context,
+                        category_ids[category],
+                        primary_color,
+                        secondary_color,
+                    ),
+                )
+
+            cursor.execute("SELECT id, slug FROM cx_channels")
+            channel_ids = {row["slug"]: row["id"] for row in cursor.fetchall()}
+            for slug, name_pt, name_en, channel, mechanic, media_type in FORMATS:
+                engine = (
+                    "gpt_image_2" if media_type == "image" else "higgsfield"
+                )
+                spec = FORMAT_SPECS.get(slug, {})
+                aspect_ratio = spec.get("aspect_ratio", "16:9")
+                default_size = spec.get("default_size", "1920x1080")
+                descriptions = LAYER_DESCRIPTIONS[slug]
+                roles = list(descriptions)
+                cursor.execute(
+                    """
+                    INSERT INTO cx_format_templates (
+                        slug, name_pt, name_en, channel_id, mechanic,
+                        media_type, engine, aspect_ratio, default_size,
+                        safe_area, responsive_rules, background_guidance,
+                        foreground_guidance, layers, required_fields, optional_fields,
+                        forbidden_elements, use_cases_by_market,
+                        status, is_active
+                    )
+                    VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+                        '{}'::jsonb, 'formato_aberto', TRUE
+                    )
+                    ON CONFLICT (slug) DO UPDATE SET
+                        name_pt = EXCLUDED.name_pt,
+                        name_en = EXCLUDED.name_en,
+                        channel_id = EXCLUDED.channel_id,
+                        mechanic = EXCLUDED.mechanic,
+                        media_type = EXCLUDED.media_type,
+                        engine = EXCLUDED.engine,
+                        aspect_ratio = EXCLUDED.aspect_ratio,
+                        default_size = EXCLUDED.default_size,
+                        safe_area = EXCLUDED.safe_area,
+                        responsive_rules = EXCLUDED.responsive_rules,
+                        background_guidance = EXCLUDED.background_guidance,
+                        foreground_guidance = EXCLUDED.foreground_guidance,
+                        layers = EXCLUDED.layers,
+                        is_active = TRUE
+                    """,
+                    (
+                        slug,
+                        name_pt,
+                        name_en,
+                        channel_ids.get(channel),
+                        mechanic,
+                        media_type,
+                        engine,
+                        aspect_ratio,
+                        default_size,
+                        Json(spec.get("safe_area", {})),
+                        spec.get("responsive_rules"),
+                        descriptions.get(roles[0]) if roles else None,
+                        descriptions.get(roles[-1]) if roles else None,
+                        Json(_layers(slug)),
+                    ),
+                )
+        conn.commit()
+
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) AS total FROM cx_format_templates")
+            total = cursor.fetchone()["total"]
+        if total < len(FORMATS):
+            raise RuntimeError(f"Seed incompleto: {total} formatos encontrados.")
+        print(
+            "Catálogo de Modelagem de Criativos populado: "
+            f"{len(CATEGORIES)} categorias, {len(CHANNELS)} canais, "
+            f"{len(FORMATS)} formatos."
+        )
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

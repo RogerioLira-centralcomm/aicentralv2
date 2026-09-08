@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{ collection.title }} | Centralcomm</title>
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
+  <header class="pv-header">
+    <a class="pv-brand" href="https://centralcomm.media" target="_blank" rel="noopener">
+      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Centralcomm">
+    </a>
+    <div class="pv-header-actions">
+      <span>{{ collection.assets|length }} criativos</span>
+      <a class="pv-download" href="{{ url_for('creative_public.public_collection_download', token=public_token) }}">
+        <i class="fa-solid fa-download" aria-hidden="true"></i> Baixar imagens
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="pv-intro">
+      <div class="pv-client">
+        {% if collection.logo_upload_path or collection.logo_url %}
+          <img src="{{ collection.logo_upload_path or collection.logo_url }}" alt="Logo {{ collection.client_name }}">
+        {% else %}
+          <span>{{ collection.client_name[:2] }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <p class="pv-client-name">{{ collection.client_name }}</p>
+        <h1>{{ collection.title }}</h1>
+        {% if collection.description %}<p class="pv-description">{{ collection.description }}</p>{% endif %}
+      </div>
+    </section>
+
+    <nav class="pv-progress" aria-label="Navegação entre criativos">
+      {% for asset in collection.assets %}
+        <button type="button" data-go-to="{{ loop.index0 }}" aria-label="Ver criativo {{ loop.index }}" {% if loop.first %}aria-current="true"{% endif %}>{{ loop.index }}</button>
+      {% endfor %}
+    </nav>
+
+    <section class="pv-stage" id="pvStage" aria-label="Criativos da campanha">
+      {% for asset in collection.assets %}
+        {% set mechanic = (asset.mechanic or '')|lower %}
+        <article class="pv-piece" data-piece="{{ loop.index0 }}" data-mechanic="{{ mechanic }}">
+          <header class="pv-piece-head">
+            <div>
+              <span class="pv-sequence">{{ loop.index }} de {{ collection.assets|length }}</span>
+              <h2>{{ asset.title or asset.format_name or 'Criativo' }}</h2>
+            </div>
+            <div class="pv-tags">
+              {% if asset.channel_name %}<span>{{ asset.channel_name }}</span>{% endif %}
+              {% if asset.default_size %}<span>{{ asset.default_size }}</span>{% endif %}
+              {% if asset.variation_label %}<span>Variação {{ asset.variation_label }}</span>{% endif %}
+            </div>
+          </header>
+
+          <div class="pv-portal">
+            <div class="pv-portal-bar"><i></i><i></i><i></i><span>visualização no ambiente de mídia</span></div>
+            <div class="pv-portal-content">
+              <div class="pv-editorial"><b></b><span></span><span></span><span></span></div>
+              <div class="pv-media-frame">
+                {% if asset.asset_type == 'video' %}
+                  <video class="pv-video" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" preload="metadata" playsinline></video>
+                  <div class="pv-player">
+                    <button type="button" data-video-action="play" aria-label="Reproduzir"><i class="fa-solid fa-play"></i></button>
+                    <input type="range" min="0" max="100" value="0" step="0.1" aria-label="Progresso do vídeo">
+                    <time>0:00</time>
+                    <button type="button" data-video-action="mute" aria-label="Ativar ou desativar som"><i class="fa-solid fa-volume-high"></i></button>
+                    <button type="button" data-video-action="fullscreen" aria-label="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+                  </div>
+                {% elif 'cart' in mechanic or 'flip' in mechanic %}
+                  <button class="pv-flip" type="button" aria-label="Virar criativo">
+                    <span class="pv-flip-inner">
+                      <span class="pv-flip-front"><img src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" alt="{{ asset.title or asset.format_name }}"></span>
+                      <span class="pv-flip-back"><strong>Explore a mensagem</strong><small>Toque novamente para voltar ao anúncio.</small></span>
+                    </span>
+                  </button>
+                {% else %}
+                  <div class="pv-image-wrap">
+                    <img class="pv-image" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" alt="{{ asset.title or asset.format_name }}">
+                    {% if 'quiz' in mechanic %}
+                      <div class="pv-quiz">
+                        <strong>Qual mensagem mais combina com você?</strong>
+                        <button type="button">Descobrir agora</button>
+                        <button type="button">Ver benefícios</button>
+                      </div>
+                    {% elif 'arrast' in mechanic or 'pux' in mechanic %}
+                      <button class="pv-drag" type="button" aria-label="Arraste para revelar"><span>Arraste</span></button>
+                    {% elif 'hotspot' in mechanic or 'clique' in mechanic %}
+                      <button class="pv-hotspot one" type="button" aria-label="Explorar ponto 1">+</button>
+                      <button class="pv-hotspot two" type="button" aria-label="Explorar ponto 2">+</button>
+                      <div class="pv-hotspot-note">Detalhe da peça</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+              <div class="pv-editorial right"><b></b><span></span><span></span></div>
+            </div>
+          </div>
+
+          <footer class="pv-piece-foot">
+            <p>{{ asset.caption or ('Demonstração segura da mecânica ' ~ asset.mechanic if asset.mechanic else 'Prévia do criativo no contexto de publicação.') }}</p>
+            {% if asset.mechanic %}<span><i class="fa-regular fa-hand-pointer"></i> {{ asset.mechanic }}</span>{% endif %}
+          </footer>
+        </article>
+      {% else %}
+        <div class="pv-empty">Esta apresentação ainda não possui criativos.</div>
+      {% endfor %}
+    </section>
+  </main>
+
+  <footer class="pv-footer">
+    <span>Apresentação preparada pela Centralcomm</span>
+    <span>Conteúdo somente para visualização</span>
+  </footer>
+  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}"></script>
+</body>
+</html>

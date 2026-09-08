@@ -1,0 +1,23 @@
+<section class="cx-section">
+  <div class="cx-section-header mc-history-head">
+    <div>
+      <h2>Histórico de produção</h2>
+      <p>Prompts, roteiros, imagens, custos, falhas e payloads preparados.</p>
+    </div>
+    <div class="mc-filter-row">
+      <select class="cx-select" id="mcHistoryCampaign">
+        <option value="">Todas as campanhas</option>
+      </select>
+      <button class="cx-btn cx-btn-secondary" id="mcRefreshHistory" type="button">
+        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+      </button>
+    </div>
+  </div>
+  <div class="cx-section-body">
+    <div id="mcHistoryList" class="mc-history-list">
+      <div class="mc-skeleton-list" aria-label="Carregando histórico">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</section>

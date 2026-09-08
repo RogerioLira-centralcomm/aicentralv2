@@ -1,0 +1,62 @@
+{% extends "base_erp.html" %}
+{% block title %}Modelagem de Criativos — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Modelagem e produção criativa{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="mc-shell" id="mcApp">
+  <header class="mc-header">
+    <div>
+      <h1>Modelagem de Criativos</h1>
+      <p>Modele formatos, compare variações e prepare imagens e vídeos.</p>
+    </div>
+    <div class="mc-context" id="mcGlobalContext" aria-live="polite">
+      <span class="cx-badge cx-badge-muted">Nenhuma campanha selecionada</span>
+    </div>
+  </header>
+
+  <nav class="cx-tabs mc-tabs" id="mcTabs" role="tablist" aria-label="Áreas da modelagem">
+    <button class="cx-tab cx-tab-active" type="button" role="tab" aria-selected="true" data-tab="gerador">
+      <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gerador
+    </button>
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="variacoes">
+      <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Variações A/B
+    </button>
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="biblioteca">
+      <i class="fa-solid fa-shapes" aria-hidden="true"></i> Biblioteca
+    </button>
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="clientes">
+      <i class="fa-solid fa-building" aria-hidden="true"></i> Clientes
+    </button>
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="historico">
+      <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Histórico
+    </button>
+  </nav>
+
+  <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>
+
+  <section class="mc-panel" data-panel="gerador" role="tabpanel">
+    {% include "parametros/_mc_gerador.html" %}
+  </section>
+  <section class="mc-panel hidden" data-panel="variacoes" role="tabpanel">
+    {% include "parametros/_mc_variacoes.html" %}
+  </section>
+  <section class="mc-panel hidden" data-panel="biblioteca" role="tabpanel">
+    {% include "parametros/_mc_biblioteca.html" %}
+  </section>
+  <section class="mc-panel hidden" data-panel="clientes" role="tabpanel">
+    {% include "parametros/_mc_clientes.html" %}
+  </section>
+  <section class="mc-panel hidden" data-panel="historico" role="tabpanel">
+    {% include "parametros/_mc_historico.html" %}
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}" defer></script>
+{% endblock %}

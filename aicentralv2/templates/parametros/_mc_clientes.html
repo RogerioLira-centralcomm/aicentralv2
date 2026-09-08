@@ -1,0 +1,70 @@
+<div class="mc-two-column mc-clients-layout">
+  <form class="cx-section mc-form" id="mcClientForm">
+    <div class="cx-section-header">
+      <div><h2>Novo perfil de marca</h2><p>Identidade usada nos prompts e peças.</p></div>
+    </div>
+    <div class="cx-section-body mc-form-grid">
+      <label class="cx-field mc-span-2">
+        <span class="cx-label">Nome</span>
+        <input class="cx-input" name="name" maxlength="150" required>
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Setor</span>
+        <input class="cx-input" name="sector" maxlength="80">
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Logo por URL</span>
+        <input class="cx-input" name="logo_url" type="url" placeholder="https://">
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Cor primária</span>
+        <input class="cx-input mc-color-input" name="primary_color" type="color" value="#1E4D4F">
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Cor secundária</span>
+        <input class="cx-input mc-color-input" name="secondary_color" type="color" value="#F3B71B">
+      </label>
+      <label class="cx-field mc-span-2">
+        <span class="cx-label">Tom de voz</span>
+        <textarea class="cx-textarea" name="tone_of_voice" maxlength="4000" placeholder="Ex.: seguro, humano e direto"></textarea>
+      </label>
+      <label class="mc-check mc-span-2">
+        <input type="checkbox" name="show_price">
+        <span>Cliente permite preço por padrão</span>
+      </label>
+    </div>
+    <footer class="mc-form-footer">
+      <span class="mc-form-status" id="mcClientFormStatus" aria-live="polite"></span>
+      <button class="cx-btn cx-btn-primary" type="submit">Salvar perfil</button>
+    </footer>
+  </form>
+
+  <section class="cx-section">
+    <div class="cx-section-header">
+      <div><h2>Perfis cadastrados</h2><p>Selecione uma linha para conferir a identidade.</p></div>
+    </div>
+    <div class="cx-table-wrap mc-table-flat">
+      <table class="cx-table">
+        <thead><tr><th>Marca</th><th>Identidade</th><th>Logo</th><th></th></tr></thead>
+        <tbody id="mcClientTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<dialog class="cx-modal" id="mcLogoDialog">
+  <form method="dialog">
+    <header class="cx-modal-header"><strong>Enviar logo</strong><button class="cx-btn cx-btn-ghost cx-btn-sm" value="cancel" aria-label="Fechar">Fechar</button></header>
+  </form>
+  <form class="cx-modal-body" id="mcLogoForm">
+    <input type="hidden" name="client_id">
+    <label class="cx-field">
+      <span class="cx-label">Arquivo de imagem</span>
+      <input class="cx-input" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" required>
+      <span class="cx-help">PNG, JPG ou WEBP, até 5 MB.</span>
+    </label>
+    <footer class="cx-modal-footer">
+      <button class="cx-btn cx-btn-primary" type="submit">Enviar logo</button>
+    </footer>
+  </form>
+</dialog>

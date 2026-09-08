@@ -736,16 +736,12 @@
   bottom: 0;
 }
 
-/* DaisyUI `.btn-ghost` no rodapé: fundo carvão + texto escuro.
-   Força contraste mesmo se algum drawer ainda usar classes Daisy. */
-.cx-drawer-footer .btn-ghost,
-.cx-drawer-footer .btn:not(.btn-primary):not(.btn-error):not(.cx-btn-primary) {
+.cx-drawer-footer .cx-btn-ghost {
   background: #fff !important;
   color: #0f172a !important;
   border: 1px solid #cbd5e1 !important;
 }
-.cx-drawer-footer .btn-ghost:hover,
-.cx-drawer-footer .btn:not(.btn-primary):not(.btn-error):not(.cx-btn-primary):hover {
+.cx-drawer-footer .cx-btn-ghost:hover {
   background: #f1f5f9 !important;
   color: #0f172a !important;
 }
@@ -2689,10 +2685,7 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-sequence-preview-row textarea { grid-column: auto; }
 }
 
-/* --------------------------------------------------------------------------
- * Componentes de transição DaisyUI -> vanilla
- * Mantêm o DOM e os contratos JS das telas operacionais durante a migração.
- * -------------------------------------------------------------------------- */
+/* Componentes compartilhados do design system vanilla. */
 .cx-btn-success {
   background: var(--cx-success);
   color: #fff;

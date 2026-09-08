@@ -45,10 +45,10 @@
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
           <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
+ {%- if category == 'success' %} bg-green-100 text-green-800
+ {%- elif category == 'error' %} bg-red-100 text-red-800
+ {%- else %} bg-gray-100 text-gray-800
+ {%- endif %}">
             {{ message }}
           </div>
         {% endfor %}
@@ -119,8 +119,8 @@
 </div>
 
 <!-- Modal de Criação/Edição -->
-<dialog id="modal_diario" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+<dialog id="modal_diario" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-11/12 max-w-2xl bg-white p-0 rounded-lg">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Diário</h3>
       <button onclick="modal_diario.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
@@ -183,7 +183,7 @@
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 {% endblock %}
 

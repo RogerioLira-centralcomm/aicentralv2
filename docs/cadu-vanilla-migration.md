@@ -76,10 +76,25 @@ Execute após cada fase prioritária:
 python3 scripts/check_priority_daisyui.py
 ```
 
-O verificador cobre templates e JavaScript dinâmico de audiências, leads,
-clientes, CRM v3, PI e cotações. DaisyUI só deve sair do compilador depois de
-uma auditoria global, não apenas deste conjunto.
+O verificador cobre templates e JavaScript dinâmico das rotas ativas de
+Comercial, Operação, Financeiro e Cadu. O build principal deve permanecer sem
+seletores DaisyUI.
+
+## Bundles
+
+- `output.css`: Tailwind e componentes `cx-*`, sem o plugin DaisyUI. É o bundle
+  padrão de `base_erp.html`.
+- `output-legacy.css`: bundle temporário compilado com DaisyUI. É carregado por
+  `base_tailwind.html`, `base_auth.html` e por endpoints classificados como
+  `parametros` em `erp_page_context.py`.
+- `npm run build` gera e valida a existência dos dois arquivos.
+
+O CRM legado não aparece no menu. Suas páginas de entrada e consolidados
+redirecionam para o CRM v3; as APIs antigas permanecem disponíveis para não
+quebrar integrações durante a transição.
 
 ## Regressão
 
-Se uma página migrada apresentar problema, manter os templates antigos no histórico Git e reverter apenas o template da página afetada. Não remover DaisyUI até todas as páginas críticas passarem por validação.
+Se uma página migrada apresentar problema, manter os templates antigos no
+histórico Git e reverter apenas o template da página afetada. Não ampliar o
+carregamento do bundle legado para módulos ativos.

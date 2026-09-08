@@ -1,16 +1,16 @@
 <!-- Modal Busca de Cliente - Reutilizável -->
-<dialog id="modal_busca_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
+<dialog id="modal_busca_cliente" class="cx-modal-shell">
+  <div class="cx-modal-panel w-11/12 max-w-2xl">
     <h3 class="font-bold text-lg mb-4">Buscar Cliente</h3>
     
     <!-- Filtros -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
       <!-- Tipo de Pessoa -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold text-sm">Tipo de Pessoa</span>
+      <div class="cx-field">
+        <label class="cx-label-row">
+          <span class="cx-label font-semibold text-sm">Tipo de Pessoa</span>
         </label>
-        <select id="filtro_pessoa" class="select select-bordered select-sm bg-base-100">
+        <select id="filtro_pessoa" class="cx-select cx-select-sm bg-white">
           <option value="">Todos</option>
           <option value="PJ">Pessoa Jurídica</option>
           <option value="PF">Pessoa Física</option>
@@ -18,28 +18,28 @@
       </div>
 
       <!-- Nome Fantasia -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold text-sm">Nome Fantasia</span>
+      <div class="cx-field">
+        <label class="cx-label-row">
+          <span class="cx-label font-semibold text-sm">Nome Fantasia</span>
         </label>
-        <input type="text" id="filtro_nome" placeholder="Buscar por nome..." class="input input-bordered input-sm" oninput="limparOutrosFiltrosEBuscar('nome')">
+        <input type="text" id="filtro_nome" placeholder="Buscar por nome..." class="cx-input cx-input-sm" oninput="limparOutrosFiltrosEBuscar('nome')">
       </div>
     </div>
 
     <!-- Razão Social -->
-    <div class="form-control mb-4">
-      <label class="label">
-        <span class="label-text font-semibold text-sm">Razão Social</span>
+    <div class="cx-field mb-4">
+      <label class="cx-label-row">
+        <span class="cx-label font-semibold text-sm">Razão Social</span>
       </label>
-      <input type="text" id="filtro_razao" placeholder="Buscar por razão social..." class="input input-bordered input-sm" oninput="limparOutrosFiltrosEBuscar('razao')">
+      <input type="text" id="filtro_razao" placeholder="Buscar por razão social..." class="cx-input cx-input-sm" oninput="limparOutrosFiltrosEBuscar('razao')">
     </div>
 
     <!-- Botão de Busca -->
     <div class="flex justify-end gap-2 mb-4">
-      <button onclick="limparFiltrosBuscaCliente()" class="btn btn-ghost btn-sm">
+      <button onclick="limparFiltrosBuscaCliente()" class="cx-btn cx-btn-ghost cx-btn-sm">
         <i class="fas fa-times mr-1"></i>Limpar
       </button>
-      <button onclick="buscarClientes()" class="btn btn-primary btn-sm">
+      <button onclick="buscarClientes()" class="cx-btn cx-btn-primary cx-btn-sm">
         <i class="fas fa-search mr-1"></i>Buscar
       </button>
     </div>
@@ -51,13 +51,13 @@
     </div>
 
     <!-- Ações do Modal -->
-    <div class="modal-action">
+    <div class="cx-modal-actions">
       <form method="dialog">
-        <button class="btn">Cancelar</button>
+        <button class="cx-btn">Cancelar</button>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="cx-modal-dismiss">
     <button>close</button>
   </form>
 </dialog>
@@ -167,10 +167,10 @@ function exibirResultadosClientes(clientes) {
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-slate-500">${cliente.razao_social || '-'}</p>
             <p class="text-xs text-base-content/50">${pessoa} | ${documento}</p>
           </div>
-          <span class="badge badge-sm">${pessoa}</span>
+          <span class="cx-badge">${pessoa}</span>
         </div>
       </div>
     `;

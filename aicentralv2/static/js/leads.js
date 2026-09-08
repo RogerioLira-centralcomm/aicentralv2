@@ -780,16 +780,16 @@ function showAddContato() {
     const form = document.getElementById('add_contato_form');
     if (!form) return;
     form.style.display = '';
-    form.innerHTML = `<div class="bg-base-200 rounded-lg p-3 space-y-2 mb-2">
-        <input id="ac_nome" class="input input-xs input-bordered w-full" placeholder="Nome *">
-        <input id="ac_cargo" class="input input-xs input-bordered w-full" placeholder="Cargo">
-        <input id="ac_departamento" class="input input-xs input-bordered w-full" placeholder="Departamento">
+    form.innerHTML = `<div class="bg-slate-100 rounded-lg p-3 space-y-2 mb-2">
+        <input id="ac_nome" class="cx-input cx-input-xs w-full" placeholder="Nome *">
+        <input id="ac_cargo" class="cx-input cx-input-xs w-full" placeholder="Cargo">
+        <input id="ac_departamento" class="cx-input cx-input-xs w-full" placeholder="Departamento">
         <div class="grid grid-cols-2 gap-2">
-            <input id="ac_telefone" class="input input-xs input-bordered w-full" placeholder="Telefone" oninput="applyPhoneMask(this)">
-            <input id="ac_email" class="input input-xs input-bordered w-full" placeholder="Email">
+            <input id="ac_telefone" class="cx-input cx-input-xs w-full" placeholder="Telefone" oninput="applyPhoneMask(this)">
+            <input id="ac_email" class="cx-input cx-input-xs w-full" placeholder="Email">
         </div>
         <div class="flex gap-2 justify-end">
-            <button onclick="document.getElementById('add_contato_form').style.display='none'" class="btn btn-xs btn-ghost">Cancelar</button>
+            <button onclick="document.getElementById('add_contato_form').style.display='none'" class="cx-btn cx-btn-xs cx-btn-ghost">Cancelar</button>
             <button onclick="addContato()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:4px 14px;font-size:11px">Adicionar</button>
         </div>
     </div>`;
@@ -1079,15 +1079,15 @@ async function loadTabExtracao(leadId) {
         container.innerHTML = `
             <div class="space-y-3" style="font-size:12px">
                 ${lead.dados_extraidos ? '<div class="extracao-status-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Dados já extraídos — você pode re-extrair abaixo</div>' : ''}
-                <div class="bg-base-200 rounded-lg p-3 space-y-2">
+                <div class="bg-slate-100 rounded-lg p-3 space-y-2">
                     <div class="flex items-center gap-1">
                         ${faviconHtml}
-                        <input id="extrair_url" type="url" class="input input-sm input-bordered w-full" placeholder="https://..."
+                        <input id="extrair_url" type="url" class="cx-input cx-input-sm w-full" placeholder="https://..."
                                value="${esc(suggestedUrl)}" style="font-size:12px">
                     </div>
                     ${domainSuggestionHtml}
                     <button onclick="extractUrl()" class="leads-action-btn leads-action-btn-extrair" id="btn_extrair">
-                        <span class="loading loading-spinner loading-xs hidden" id="extrair_spinner"></span>
+                        <span class="cx-spinner cx-spinner-sm hidden" id="extrair_spinner"></span>
                         Extrair com IA
                     </button>
                 </div>
@@ -1837,9 +1837,9 @@ async function searchMergeLeads() {
         const data = await resp.json();
         const leads = (data.leads || []).filter(l => l.id !== selectedLeadId).slice(0, 10);
         document.getElementById('merge_results').innerHTML = leads.map(l => `
-            <div class="bg-base-200 rounded p-2 flex items-center justify-between cursor-pointer hover:bg-base-300" onclick="confirmMerge(${l.id}, '${esc(l.nome_lead)}')">
+            <div class="bg-slate-100 rounded p-2 flex items-center justify-between cursor-pointer hover:bg-base-300" onclick="confirmMerge(${l.id}, '${esc(l.nome_lead)}')">
                 <div><div class="font-semibold text-sm">${esc(l.nome_lead)}</div><div class="text-xs text-gray-500">${l.status} | ${l.potencial || ''}</div></div>
-                <span class="text-xs text-primary">Mesclar →</span>
+                <span class="text-xs text-[#1e4d4f]">Mesclar →</span>
             </div>`).join('');
     } catch(e) {}
 }
@@ -2339,7 +2339,7 @@ async function saveNovaAtividade() {
 async function fetchSugestaoIA(leadId) {
     const container = document.getElementById('modal_ativ_sugestao');
     if (!container) return;
-    container.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:6px 0;display:flex;align-items:center;gap:6px"><span class="loading loading-spinner loading-xs"></span> Buscando sugestão...</div>';
+    container.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:6px 0;display:flex;align-items:center;gap:6px"><span class="cx-spinner cx-spinner-sm"></span> Buscando sugestão...</div>';
 
     try {
         const resp = await fetch('/api/ia/sugerir-atividade', {

@@ -2819,8 +2819,11 @@ dialog.cx-modal-shell::backdrop {
   box-shadow: var(--cx-shadow-md);
 }
 .cx-modal-panel-sm { width: min(100%, 30rem); }
+.cx-modal-panel-md { width: min(100%, 42rem); }
+.cx-modal-panel-wide { width: min(100%, 48rem); }
 .cx-modal-panel-lg { width: min(100%, 56rem); }
 .cx-modal-panel-xl { width: min(100%, 72rem); }
+.cx-modal-panel-narrow { width: min(100%, 20rem); }
 .cx-modal-compact { font-size: 0.8125rem; }
 .cx-modal-title {
   margin: 0;
@@ -2941,8 +2944,11 @@ dialog.cx-modal-shell::backdrop {
   dialog.cx-modal-shell { padding: 0; }
   .cx-modal-panel,
   .cx-modal-panel-sm,
+  .cx-modal-panel-md,
+  .cx-modal-panel-wide,
   .cx-modal-panel-lg,
-  .cx-modal-panel-xl {
+  .cx-modal-panel-xl,
+  .cx-modal-panel-narrow {
     width: 100%;
     max-height: 100vh;
     border-radius: 0;

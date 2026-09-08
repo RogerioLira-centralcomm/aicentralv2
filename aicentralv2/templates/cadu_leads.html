@@ -69,7 +69,7 @@
       <div class="leads-col-header">
         <div style="display:flex;align-items:center;gap:6px;flex:1">
           <span>Equipes</span>
-          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de equipes">0</span>
+          <span id="leads_count" class="cx-badge cx-badge-muted" title="Total de equipes">0</span>
           <span style="color:#cbd5e1">·</span>
           <span style="font-size:11px;color:#94a3b8" title="Total de contatos"><span id="contatos_count">0</span> contatos</span>
         </div>
@@ -83,7 +83,7 @@
 
       <div class="leads-col-toolbar">
         <input type="text" id="search_leads" placeholder="Buscar..."
-               class="input input-xs input-bordered w-full text-[10px]" oninput="debounceSearch()" style="grid-column: span 2; height: 22px; min-height: 22px;">
+               class="cx-input cx-input-xs w-full text-[10px]" oninput="debounceSearch()" style="grid-column: span 2; height: 22px; min-height: 22px;">
         <select id="filtro_potencial" onchange="loadLeads()"
                 class="text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-gray-700 focus:outline-none">
           <option value="">Potencial</option>
@@ -110,7 +110,7 @@
       <button onclick="toggleSidebar()" class="sidebar-expand-btn" title="Expandir lista">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         Equipes
-        <span id="leads_count_collapsed" class="badge badge-ghost badge-sm" style="font-size:9px">0</span>
+        <span id="leads_count_collapsed" class="cx-badge cx-badge-muted" style="font-size:9px">0</span>
         <span style="font-size:8px;color:#94a3b8"><span id="contatos_count_collapsed">0</span> cont.</span>
       </button>
     </div>
@@ -193,44 +193,44 @@
 </div>
 
 <!-- ===== Modal Novo Lead ===== -->
-<dialog id="modal_novo_lead" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_novo_lead" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-md w-11/12 max-w-2xl">
+    <form method="dialog"><button class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Novo Lead</h3>
     <div class="space-y-2">
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Nome *</label>
-          <input id="new_nome" class="input input-xs input-bordered w-full text-[10px]" placeholder="Nome do contato">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Nome *</label>
+          <input id="new_nome" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nome do contato">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Email</label>
-          <input id="new_email" class="input input-xs input-bordered w-full text-[10px]" placeholder="email@empresa.com" type="email">
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="label label-text text-[10px] font-medium py-0">Telefone</label>
-          <input id="new_telefone" class="input input-xs input-bordered w-full text-[10px]" placeholder="(00) 00000-0000" oninput="applyPhoneMask(this)">
-        </div>
-        <div>
-          <label class="label label-text text-[10px] font-medium py-0">Empresa</label>
-          <input id="new_empresa" class="input input-xs input-bordered w-full text-[10px]" placeholder="Nome da empresa">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Email</label>
+          <input id="new_email" class="cx-input cx-input-xs w-full text-[10px]" placeholder="email@empresa.com" type="email">
         </div>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Cargo</label>
-          <input id="new_cargo" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Diretor, CEO...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Telefone</label>
+          <input id="new_telefone" class="cx-input cx-input-xs w-full text-[10px]" placeholder="(00) 00000-0000" oninput="applyPhoneMask(this)">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">URL do Site</label>
-          <input id="new_url_site" class="input input-xs input-bordered w-full text-[10px]" placeholder="https://...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Empresa</label>
+          <input id="new_empresa" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nome da empresa">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Cargo</label>
+          <input id="new_cargo" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Diretor, CEO...">
+        </div>
+        <div>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">URL do Site</label>
+          <input id="new_url_site" class="cx-input cx-input-xs w-full text-[10px]" placeholder="https://...">
         </div>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Fonte</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Fonte</label>
           <select id="new_fonte" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="manual">Manual</option>
             <option value="site">Site</option>
@@ -240,7 +240,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Potencial</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Potencial</label>
           <select id="new_potencial" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="alto">Alto</option>
             <option value="medio" selected>Médio</option>
@@ -248,7 +248,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Tipo</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Tipo</label>
           <select id="new_tipo_lead" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="cliente">Cliente</option>
             <option value="parceiro">Parceiro</option>
@@ -260,30 +260,30 @@
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Origem</label>
-          <input id="new_origem" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: lp-netflix, contato...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Origem</label>
+          <input id="new_origem" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: lp-netflix, contato...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Canal</label>
-          <input id="new_canal" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Google, LinkedIn...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Canal</label>
+          <input id="new_canal" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Google, LinkedIn...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Interesse</label>
-          <input id="new_interesse" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Mídia digital...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Interesse</label>
+          <input id="new_interesse" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Mídia digital...">
         </div>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Segmento</label>
-          <input id="new_segmento" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Tecnologia, Saúde...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Segmento</label>
+          <input id="new_segmento" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Tecnologia, Saúde...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Valor Estimado (R$)</label>
-          <input id="new_valor_estimado" class="input input-xs input-bordered w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Valor Estimado (R$)</label>
+          <input id="new_valor_estimado" class="cx-input cx-input-xs w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
         </div>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">Responsável</label>
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">Responsável</label>
         <select id="new_responsavel" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
           <option value="">Sem responsável (Inbox)</option>
           {% for ex in executivos %}
@@ -292,29 +292,29 @@
         </select>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">Observações internas</label>
-        <textarea id="new_notas_internas" class="textarea textarea-xs textarea-bordered w-full text-[10px]" rows="2" placeholder="Notas internas..."></textarea>
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">Observações internas</label>
+        <textarea id="new_notas_internas" class="cx-textarea cx-textarea-sm w-full text-[10px]" rows="2" placeholder="Notas internas..."></textarea>
       </div>
     </div>
-    <div class="modal-action pt-2">
+    <div class="cx-modal-actions pt-2">
       <button onclick="saveNewLead()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:5px 16px;font-size:10px;font-weight:600">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Importação ===== -->
-<dialog id="modal_importar" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-3xl">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_importar" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-wide w-11/12 max-w-3xl">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Incluir Leads em Massa</h3>
     <div id="import_step1">
       <div class="grid grid-cols-3 gap-2 mb-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Tipo do Lead</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Tipo do Lead</label>
           <select id="import_tipo" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="cliente">Cliente</option>
             <option value="parceiro">Parceiro</option>
@@ -324,7 +324,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Fonte</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Fonte</label>
           <select id="import_fonte" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="manual">Manual</option>
             <option value="import">Import</option>
@@ -334,7 +334,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Responsável</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Responsável</label>
           <select id="import_responsavel" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="">Sem responsável (Inbox)</option>
             {% for ex in executivos %}
@@ -344,11 +344,11 @@
         </div>
       </div>
       <textarea id="import_texto" rows="8" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
-                class="textarea textarea-bordered w-full text-[10px] font-mono"></textarea>
+                class="cx-textarea w-full text-[10px] font-mono"></textarea>
       <div style="display:flex;justify-content:flex-end;padding-top:8px">
         <button onclick="processImport()" id="btn_processar"
                 style="display:inline-flex;align-items:center;gap:4px;padding:5px 16px;font-size:10px;font-weight:600;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer">
-          <span class="loading loading-spinner loading-xs hidden" id="import_spinner"></span>
+          <span class="cx-spinner cx-spinner-sm hidden" id="import_spinner"></span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           Processar com IA
         </button>
@@ -368,13 +368,13 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Desqualificar ===== -->
-<dialog id="modal_desqualificar" class="modal modal-compact">
-  <div class="modal-box w-80">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_desqualificar" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-narrow w-80">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Desqualificar Lead</h3>
     <input type="hidden" id="motivo_desqualificacao" value="">
     <div class="desqualificar-motivos-grid" id="desqualificar_motivos">
@@ -386,34 +386,34 @@
       <button type="button" class="desqualificar-motivo-btn" data-motivo="sem_interesse" onclick="selectMotivoDesqualificar(this)">Sem interesse</button>
       <button type="button" class="desqualificar-motivo-btn" data-motivo="concorrencia" onclick="selectMotivoDesqualificar(this)">Concorrência</button>
     </div>
-    <div class="modal-action" style="margin-top:8px">
+    <div class="cx-modal-actions" style="margin-top:8px">
       <button onclick="confirmDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="width:100%;padding:5px 12px;font-size:10px;font-weight:600;flex:1">
         Confirmar Desqualificação
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Editar Lead ===== -->
-<dialog id="modal_editar_lead" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-xl">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_editar_lead" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-xl">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Editar Lead</h3>
     <div class="space-y-2">
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Empresa</label>
-          <input id="edit_empresa" class="input input-xs input-bordered w-full text-[10px]" placeholder="Nome da empresa">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Empresa</label>
+          <input id="edit_empresa" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nome da empresa">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Nome (contato)</label>
-          <input id="edit_nome" class="input input-xs input-bordered w-full text-[10px]" placeholder="Nome do contato principal">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Nome (contato)</label>
+          <input id="edit_nome" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nome do contato principal">
         </div>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Status</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Status</label>
           <select id="edit_status" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="inbox">Inbox</option>
             <option value="tentativa_contato">Tentativa de Contato</option>
@@ -422,7 +422,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Potencial</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Potencial</label>
           <select id="edit_potencial" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="alto">Alto</option>
             <option value="medio">Médio</option>
@@ -430,7 +430,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Tipo</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Tipo</label>
           <select id="edit_tipo_lead" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="cliente">Cliente</option>
             <option value="parceiro">Parceiro</option>
@@ -442,7 +442,7 @@
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Fonte</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Fonte</label>
           <select id="edit_fonte" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="manual">Manual</option>
             <option value="site">Site</option>
@@ -453,7 +453,7 @@
           </select>
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Responsável</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Responsável</label>
           <select id="edit_responsavel" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="">Sem responsável</option>
             {% for ex in executivos %}
@@ -464,25 +464,25 @@
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Origem</label>
-          <input id="edit_origem" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: lp-netflix...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Origem</label>
+          <input id="edit_origem" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: lp-netflix...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Canal</label>
-          <input id="edit_canal" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Google...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Canal</label>
+          <input id="edit_canal" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Google...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Interesse</label>
-          <input id="edit_interesse" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Mídia...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Interesse</label>
+          <input id="edit_interesse" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Mídia...">
         </div>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Segmento</label>
-          <input id="edit_segmento" class="input input-xs input-bordered w-full text-[10px]" placeholder="Ex: Tecnologia, Saúde...">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Segmento</label>
+          <input id="edit_segmento" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Ex: Tecnologia, Saúde...">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Porte Estimado</label>
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Porte Estimado</label>
           <select id="edit_porte_estimado" class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 w-full">
             <option value="">Não definido</option>
             <option value="micro">Micro</option>
@@ -494,73 +494,73 @@
         </div>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">URL do site</label>
-        <input id="edit_url_site" class="input input-xs input-bordered w-full text-[10px]" placeholder="https://...">
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">URL do site</label>
+        <input id="edit_url_site" class="cx-input cx-input-xs w-full text-[10px]" placeholder="https://...">
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Valor Estimado (R$)</label>
-          <input id="edit_valor_estimado" class="input input-xs input-bordered w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Valor Estimado (R$)</label>
+          <input id="edit_valor_estimado" class="cx-input cx-input-xs w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
         </div>
         <div>
-          <label class="label label-text text-[10px] font-medium py-0">Valor Fechado (R$)</label>
-          <input id="edit_valor_fechado" class="input input-xs input-bordered w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
+          <label class="cx-label-row cx-label text-[10px] font-medium py-0">Valor Fechado (R$)</label>
+          <input id="edit_valor_fechado" class="cx-input cx-input-xs w-full text-[10px]" type="number" step="0.01" placeholder="0,00">
         </div>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">Score de Qualificação (0-100)</label>
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">Score de Qualificação (0-100)</label>
         <div class="flex items-center gap-2">
-          <input id="edit_qualificacao_score" type="range" min="0" max="100" value="0" class="range range-xs range-primary flex-1"
+          <input id="edit_qualificacao_score" type="range" min="0" max="100" value="0" class="cx-range flex-1"
                  oninput="document.getElementById('edit_score_display').textContent = this.value">
           <span id="edit_score_display" class="text-[10px] font-bold text-gray-700" style="min-width:24px">0</span>
         </div>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">Notas de Qualificação</label>
-        <textarea id="edit_qualificacao_notas" class="textarea textarea-xs textarea-bordered w-full text-[10px]" rows="2" placeholder="Observações sobre a qualificação..."></textarea>
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">Notas de Qualificação</label>
+        <textarea id="edit_qualificacao_notas" class="cx-textarea cx-textarea-sm w-full text-[10px]" rows="2" placeholder="Observações sobre a qualificação..."></textarea>
       </div>
       <div>
-        <label class="label label-text text-[10px] font-medium py-0">Notas Internas</label>
-        <textarea id="edit_notas_internas" class="textarea textarea-xs textarea-bordered w-full text-[10px]" rows="2" placeholder="Observações internas..."></textarea>
+        <label class="cx-label-row cx-label text-[10px] font-medium py-0">Notas Internas</label>
+        <textarea id="edit_notas_internas" class="cx-textarea cx-textarea-sm w-full text-[10px]" rows="2" placeholder="Observações internas..."></textarea>
       </div>
     </div>
-    <div class="modal-action pt-2">
+    <div class="cx-modal-actions pt-2">
       <button onclick="saveEditLead()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:5px 16px;font-size:10px;font-weight:600">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Editar Contato ===== -->
-<dialog id="modal_editar_contato" class="modal modal-compact">
-  <div class="modal-box w-80">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_editar_contato" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-narrow w-80">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Editar Contato</h3>
     <input type="hidden" id="editc_id">
     <div class="space-y-1.5">
-      <input id="editc_nome" class="input input-xs input-bordered w-full text-[10px]" placeholder="Nome *">
-      <input id="editc_cargo" class="input input-xs input-bordered w-full text-[10px]" placeholder="Cargo">
-      <input id="editc_departamento" class="input input-xs input-bordered w-full text-[10px]" placeholder="Departamento">
-      <input id="editc_telefone" class="input input-xs input-bordered w-full text-[10px]" placeholder="(00) 00000-0000">
-      <input id="editc_email" class="input input-xs input-bordered w-full text-[10px]" placeholder="Email">
+      <input id="editc_nome" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Nome *">
+      <input id="editc_cargo" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Cargo">
+      <input id="editc_departamento" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Departamento">
+      <input id="editc_telefone" class="cx-input cx-input-xs w-full text-[10px]" placeholder="(00) 00000-0000">
+      <input id="editc_email" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Email">
     </div>
-    <div class="modal-action pt-2">
+    <div class="cx-modal-actions pt-2">
       <button onclick="saveEditContato()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:5px 16px;font-size:10px;font-weight:600">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Resultado Comunicação ===== -->
-<dialog id="modal_comunicacao_resultado" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-xl">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_comunicacao_resultado" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-xl">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Comunicação Gerada</h3>
     <div class="comm-preview" id="modal_comm_preview">
       <div id="modal_comm_text" contenteditable="true"></div>
@@ -575,25 +575,25 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Mesclar Leads ===== -->
-<dialog id="modal_mesclar" class="modal modal-compact">
-  <div class="modal-box w-80">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_mesclar" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-narrow w-80">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Mesclar com outro Lead</h3>
     <p class="text-[9px] text-gray-500 mb-2">Os contatos e atividades do lead selecionado serão movidos para o lead atual. O lead selecionado será excluído.</p>
-    <input id="merge_search" class="input input-xs input-bordered w-full mb-2 text-[10px]" placeholder="Buscar lead por nome..." oninput="searchMergeLeads()">
+    <input id="merge_search" class="cx-input cx-input-xs w-full mb-2 text-[10px]" placeholder="Buscar lead por nome..." oninput="searchMergeLeads()">
     <div id="merge_results" class="space-y-1 max-h-48 overflow-y-auto"></div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Converter Lead em Cliente ===== -->
-<dialog id="modal_converter" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-3xl max-h-[90vh]">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_converter" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel cx-modal-panel-wide w-11/12 max-w-3xl max-h-[90vh]">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Converter Lead em Cliente</h3>
 
     <div id="converter_form_content">
@@ -745,23 +745,23 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Extração de Dados ===== -->
-<dialog id="modal_extracao" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-md">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_extracao" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-md">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Extração de Dados</h3>
     <div id="modal_extracao_content"></div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Nova Atividade ===== -->
-<dialog id="modal_nova_atividade" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-md modal-atividade">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_nova_atividade" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-md modal-atividade">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Nova Atividade</h3>
 
     <div id="modal_ativ_sugestao"></div>
@@ -782,8 +782,8 @@
       <label class="modal-ativ-label" for="modal_ativ_desc">Descrição</label>
       <div style="position:relative">
         <textarea id="modal_ativ_desc" class="modal-ativ-textarea" rows="3" placeholder="Descreva a atividade..."></textarea>
-        <button onclick="melhorarTextoModal()" class="btn btn-xs btn-ghost absolute" style="right:4px;bottom:4px;font-size:10px;color:#7c3aed" title="Melhorar texto" id="btn_melhorar_texto">
-          <span class="loading loading-spinner loading-xs hidden" id="melhorar_spinner"></span>
+        <button onclick="melhorarTextoModal()" class="cx-btn cx-btn-xs cx-btn-ghost absolute" style="right:4px;bottom:4px;font-size:10px;color:#7c3aed" title="Melhorar texto" id="btn_melhorar_texto">
+          <span class="cx-spinner cx-spinner-sm hidden" id="melhorar_spinner"></span>
           ✨ Melhorar
         </button>
       </div>
@@ -801,20 +801,20 @@
       <input id="modal_ativ_prazo" type="date" class="modal-ativ-input" style="display:none">
     </div>
 
-    <div class="modal-action" style="margin-top:16px">
+    <div class="cx-modal-actions" style="margin-top:16px">
       <button onclick="saveNovaAtividade()" class="modal-ativ-cta">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Registrar Atividade
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Central de Comunicação ===== -->
-<dialog id="modal_comunicacao_central" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-xl modal-atividade">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_comunicacao_central" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-xl modal-atividade">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Central de Comunicação</h3>
 
     <div class="modal-ativ-section">
@@ -899,7 +899,7 @@
     </div>
 
     <button onclick="gerarComunicacao()" class="modal-ativ-cta" id="btn_modal_comm_gerar" style="background:#7c3aed;margin-bottom:12px">
-      <span class="loading loading-spinner loading-xs hidden" id="modal_comm_spinner"></span>
+      <span class="cx-spinner cx-spinner-sm hidden" id="modal_comm_spinner"></span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
       Gerar com IA
     </button>
@@ -921,13 +921,13 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <!-- ===== Modal Editar Atividade ===== -->
-<dialog id="modal_editar_atividade" class="modal modal-compact">
-  <div class="modal-box w-11/12 max-w-md modal-atividade">
-    <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+<dialog id="modal_editar_atividade" class="cx-modal-shell cx-modal-compact">
+  <div class="cx-modal-panel w-11/12 max-w-md modal-atividade">
+    <form method="dialog"><button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-sm mb-2">Editar Atividade</h3>
     <input type="hidden" id="edit_ativ_id">
 
@@ -960,14 +960,14 @@
       <input id="edit_ativ_prazo" type="date" class="modal-ativ-input">
     </div>
 
-    <div class="modal-action" style="margin-top:16px">
+    <div class="cx-modal-actions" style="margin-top:16px">
       <button onclick="saveEditAtividade()" class="modal-ativ-cta">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar Alterações
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <script>

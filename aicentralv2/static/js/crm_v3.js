@@ -881,8 +881,8 @@
         if (!wrap || !text) return;
         text.textContent = msg;
         if (alert) {
-            alert.classList.toggle('alert-error', !!isError);
-            alert.classList.toggle('alert-success', !isError);
+            alert.classList.toggle('cx-alert-danger', !!isError);
+            alert.classList.toggle('cx-alert-success', !isError);
         }
         wrap.hidden = false;
         wrap.classList.add('crm-v3-toast-visible');
@@ -999,7 +999,7 @@
         updatePillCounts();
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-base-content/60">Nenhum cliente encontrado.</div>';
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-slate-500">Nenhum cliente encontrado.</div>';
             return;
         }
 
@@ -1108,7 +1108,7 @@
                 ? '<div class="crm-v3-cliente-meta">' +
                   metaChips.map(function (chip) {
                       return '<span class="crm-v3-cliente-meta-chip' +
-                          (chip.cls ? ' ' + chip.cls : '') + '"' +
+ (chip.cls ? ' ' + chip.cls : '') + '"' +
                           ' title="' + escapeHtml(chip.title) + '">' +
                           '<i class="fa-solid ' + chip.icon + '" aria-hidden="true"></i>' +
                           '<span>' + escapeHtml(String(chip.text)) + '</span>' +
@@ -3120,18 +3120,18 @@
         if (!container) return;
         updateTabCounts();
         if (!state.objetivos.length) {
-            container.innerHTML = '<div class="text-sm text-base-content/60">Nenhum objetivo registrado.</div>';
+            container.innerHTML = '<div class="text-sm text-slate-500">Nenhum objetivo registrado.</div>';
             return;
         }
         container.innerHTML = state.objetivos.map(function (o) {
             return (
                 '<div class="crm-v3-objetivo flex items-center gap-2 py-2" data-objetivo-id="' + escapeHtml(o.id) + '">' +
-                '<input type="checkbox" class="checkbox checkbox-xs crm-v3-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
+                '<input type="checkbox" class="cx-checkbox cx-checkbox-sm crm-v3-obj-toggle" ' + (o.concluido ? 'checked' : '') + ' aria-label="' + escapeHtml(o.texto) + '" />' +
                 '<span class="crm-v3-obj-text text-sm flex-1" title="' + escapeHtml(o.texto) + '">' + escapeHtml(o.texto) + '</span>' +
-                '<span class="crm-v3-obj-date text-xs text-base-content/60 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
+                '<span class="crm-v3-obj-date text-xs text-slate-500 shrink-0">' + escapeHtml(dataParaExibicao(o.prazo)) + '</span>' +
                 '<div class="crm-v3-obj-actions flex gap-0">' +
-                '<button type="button" class="crm-v3-obj-edit btn btn-ghost btn-xs btn-square" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
-                '<button type="button" class="crm-v3-obj-delete btn btn-ghost btn-xs btn-square text-error" aria-label="Excluir objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-trash"></i></button>' +
+                '<button type="button" class="crm-v3-obj-edit cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon" aria-label="Editar objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="crm-v3-obj-delete cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon text-red-700" aria-label="Excluir objetivo" data-objetivo-id="' + escapeHtml(o.id) + '"><i class="fa-solid fa-trash"></i></button>' +
                 '</div></div>'
             );
         }).join('');
@@ -3982,11 +3982,11 @@
             ).join('');
             return (
                 '<div class="crm-v3-agencia-row" data-idx="' + idx + '">' +
-                '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts + '</select>' +
+                '<select class="cx-select cx-select-sm crm-v3-agencia-select">' + opts + '</select>' +
                 '<label class="crm-v3-agencia-principal">' +
-                '<input type="radio" name="crm-v3-agencia-principal" class="radio radio-xs" ' + (v.is_principal ? 'checked' : '') + ' />' +
+                '<input type="radio" name="crm-v3-agencia-principal" class="cx-radio cx-radio-sm" ' + (v.is_principal ? 'checked' : '') + ' />' +
                 '<span>Principal</span></label>' +
-                '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>' +
+                '<button type="button" class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>' +
                 '</div>'
             );
         }).join('');
@@ -4016,11 +4016,11 @@
                 wrap.className = 'crm-v3-agencia-row';
                 wrap.setAttribute('data-idx', String(idx));
                 wrap.innerHTML = (
-                    '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts + '</select>' +
+                    '<select class="cx-select cx-select-sm crm-v3-agencia-select">' + opts + '</select>' +
                     '<label class="crm-v3-agencia-principal">' +
-                    '<input type="radio" name="crm-v3-agencia-principal" class="radio radio-xs" />' +
+                    '<input type="radio" name="crm-v3-agencia-principal" class="cx-radio cx-radio-sm" />' +
                     '<span>Principal</span></label>' +
-                    '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>'
+                    '<button type="button" class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon crm-v3-agencia-remove" aria-label="Remover"><i class="fa-solid fa-xmark"></i></button>'
                 );
                 list.appendChild(wrap);
                 wrap.querySelector('.crm-v3-agencia-remove').addEventListener('click', function () {
@@ -4104,11 +4104,11 @@
                 var prazo = new Date(hoje.getTime());
                 prazo.setDate(prazo.getDate() + Number(item.prazo_dias || 30));
                 return '<label class="flex gap-2 items-start border border-base-200 rounded-lg p-3" data-objetivo-ia-row>' +
-                    '<input type="checkbox" class="checkbox checkbox-sm mt-1" checked>' +
+                    '<input type="checkbox" class="cx-checkbox cx-checkbox-sm mt-1" checked>' +
                     '<div class="flex-1">' +
-                    '<input class="input input-bordered input-sm w-full" data-objetivo-ia-texto value="' + escapeHtml(item.texto || '') + '">' +
-                    '<div class="flex gap-2 items-center mt-2"><input type="date" class="input input-bordered input-xs" data-objetivo-ia-prazo value="' + prazo.toISOString().slice(0, 10) + '">' +
-                    '<span class="text-xs text-base-content/60">' + escapeHtml(item.motivo || '') + '</span></div></div></label>';
+                    '<input class="cx-input cx-input-sm w-full" data-objetivo-ia-texto value="' + escapeHtml(item.texto || '') + '">' +
+                    '<div class="flex gap-2 items-center mt-2"><input type="date" class="cx-input cx-input-xs" data-objetivo-ia-prazo value="' + prazo.toISOString().slice(0, 10) + '">' +
+                    '<span class="text-xs text-slate-500">' + escapeHtml(item.motivo || '') + '</span></div></div></label>';
             }).join('');
             var progress = $('#crm-v3-objetivos-ia-progress');
             if (progress) progress.textContent = 'Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local');
@@ -4199,7 +4199,7 @@
         if (steps) {
             $$('.step', steps).forEach(function (s) {
                 var n = parseInt(s.getAttribute('data-step'), 10);
-                s.classList.toggle('step-primary', n <= step);
+                s.classList.toggle('cx-step-active', n <= step);
             });
         }
         $('#crm-v3-import-step-1').hidden = step !== 1;
@@ -4880,11 +4880,11 @@
         tbody.innerHTML = state.importRows.map(function (r, i) {
             return (
                 '<tr data-row="' + i + '">' +
-                '<td><input class="input input-xs input-bordered w-full crm-import-nome" value="' + escapeHtml(r.nome) + '" /></td>' +
-                '<td><input class="input input-xs input-bordered w-full crm-import-email" value="' + escapeHtml(r.email) + '" /></td>' +
-                '<td><input class="input input-xs input-bordered w-full crm-import-telefone" value="' + escapeHtml(r.telefone || '') + '" /></td>' +
-                '<td><input class="input input-xs input-bordered w-full crm-import-cargo" value="' + escapeHtml(r.cargo || '') + '" /></td>' +
-                '<td><input type="checkbox" class="checkbox checkbox-xs crm-import-principal" ' + (r.principal ? 'checked' : '') + ' /></td>' +
+                '<td><input class="cx-input cx-input-xs w-full crm-import-nome" value="' + escapeHtml(r.nome) + '" /></td>' +
+                '<td><input class="cx-input cx-input-xs w-full crm-import-email" value="' + escapeHtml(r.email) + '" /></td>' +
+                '<td><input class="cx-input cx-input-xs w-full crm-import-telefone" value="' + escapeHtml(r.telefone || '') + '" /></td>' +
+                '<td><input class="cx-input cx-input-xs w-full crm-import-cargo" value="' + escapeHtml(r.cargo || '') + '" /></td>' +
+                '<td><input type="checkbox" class="cx-checkbox cx-checkbox-sm crm-import-principal" ' + (r.principal ? 'checked' : '') + ' /></td>' +
                 '</tr>'
             );
         }).join('');

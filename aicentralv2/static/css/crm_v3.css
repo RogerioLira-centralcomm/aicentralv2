@@ -5203,7 +5203,7 @@ img.crm-v3-avatar-mini {
     display: none !important;
 }
 
-.crm-v3-toast.toast {
+.crm-v3-toast.cx-toast {
     position: fixed;
     z-index: 100;
     opacity: 0;

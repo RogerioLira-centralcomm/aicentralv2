@@ -1,6 +1,6 @@
 <!-- Modais do protótipo CRM v3 (DaisyUI dialog.modal) -->
-<dialog id="crm-v3-modal-contato" class="modal crm-v3-modal">
-  <div class="modal-box crm-v3-modal-box-md max-w-lg">
+<dialog id="crm-v3-modal-contato" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box crm-v3-modal-box-md max-w-lg">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-contato-title">Novo contato</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-contato" aria-label="Fechar">
@@ -9,56 +9,56 @@
     </div>
     <form id="crm-v3-form-contato">
       <input type="hidden" id="crm-v3-contato-id" name="contato_id" value="">
-      <div class="form-control w-full mb-3">
-        <label class="label py-0" for="crm-v3-contato-nome"><span class="label-text text-xs">Nome completo *</span></label>
-        <input type="text" id="crm-v3-contato-nome" name="nome" required placeholder="Nome do contato" class="input input-bordered input-sm w-full" />
+      <div class="cx-field w-full mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-contato-nome"><span class="cx-label text-xs">Nome completo *</span></label>
+        <input type="text" id="crm-v3-contato-nome" name="nome" required placeholder="Nome do contato" class="cx-input cx-input-sm w-full" />
       </div>
-      <div class="form-control w-full mb-3">
-        <label class="label py-0" for="crm-v3-contato-email"><span class="label-text text-xs">E-mail *</span></label>
-        <input type="email" id="crm-v3-contato-email" name="email" required placeholder="email@empresa.com" class="input input-bordered input-sm w-full" />
+      <div class="cx-field w-full mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-contato-email"><span class="cx-label text-xs">E-mail *</span></label>
+        <input type="email" id="crm-v3-contato-email" name="email" required placeholder="email@empresa.com" class="cx-input cx-input-sm w-full" />
       </div>
-      <div class="form-control w-full mb-3">
-        <label class="label py-0" for="crm-v3-contato-cargo"><span class="label-text text-xs">Cargo</span></label>
-        <input type="text" id="crm-v3-contato-cargo" name="cargo" placeholder="Ex.: Gerente de Mídia" class="input input-bordered input-sm w-full" />
-      </div>
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-contato-setor"><span class="label-text text-xs">Setor</span></label>
-          <input type="text" id="crm-v3-contato-setor" name="setor" placeholder="Ex.: Marketing" class="input input-bordered input-sm w-full" />
-        </div>
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-contato-status"><span class="label-text text-xs">Status</span></label>
-          <select id="crm-v3-contato-status" name="status" class="select select-bordered select-sm w-full"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
-        </div>
+      <div class="cx-field w-full mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-contato-cargo"><span class="cx-label text-xs">Cargo</span></label>
+        <input type="text" id="crm-v3-contato-cargo" name="cargo" placeholder="Ex.: Gerente de Mídia" class="cx-input cx-input-sm w-full" />
       </div>
       <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-contato-telefone"><span class="label-text text-xs">Telefone</span></label>
-          <input type="text" id="crm-v3-contato-telefone" name="telefone" placeholder="(11) 99999-9999" class="input input-bordered input-sm w-full" />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-contato-setor"><span class="cx-label text-xs">Setor</span></label>
+          <input type="text" id="crm-v3-contato-setor" name="setor" placeholder="Ex.: Marketing" class="cx-input cx-input-sm w-full" />
         </div>
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-contato-telefone2"><span class="label-text text-xs">Segundo telefone</span></label>
-          <input type="text" id="crm-v3-contato-telefone2" name="telefone_secundario" placeholder="Opcional" class="input input-bordered input-sm w-full" />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-contato-status"><span class="cx-label text-xs">Status</span></label>
+          <select id="crm-v3-contato-status" name="status" class="cx-select cx-select-sm w-full"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
         </div>
       </div>
-      <label class="label cursor-pointer justify-start gap-2 mb-4">
-        <input type="checkbox" id="crm-v3-contato-principal" name="principal" class="checkbox checkbox-sm checkbox-primary" />
-        <span class="label-text text-xs">Contato principal</span>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-contato-telefone"><span class="cx-label text-xs">Telefone</span></label>
+          <input type="text" id="crm-v3-contato-telefone" name="telefone" placeholder="(11) 99999-9999" class="cx-input cx-input-sm w-full" />
+        </div>
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-contato-telefone2"><span class="cx-label text-xs">Segundo telefone</span></label>
+          <input type="text" id="crm-v3-contato-telefone2" name="telefone_secundario" placeholder="Opcional" class="cx-input cx-input-sm w-full" />
+        </div>
+      </div>
+      <label class="cx-label-row cursor-pointer justify-start gap-2 mb-4">
+        <input type="checkbox" id="crm-v3-contato-principal" name="principal" class="cx-checkbox cx-checkbox-sm" />
+        <span class="cx-label text-xs">Contato principal</span>
       </label>
-      <div class="modal-action mt-0">
+      <div class="cx-modal-actions mt-0">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-contato">Cancelar</button>
         <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-contato-submit">
           <span class="crm-v3-btn-text">Salvar</span>
-          <span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span>
+          <span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-cliente" class="modal crm-v3-modal">
-  <div class="modal-box max-w-4xl">
+<dialog id="crm-v3-modal-cliente" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-4xl">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-cliente-title">Novo cliente</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-cliente" aria-label="Fechar">
@@ -72,45 +72,45 @@
       <fieldset class="crm-v3-form-fieldset">
         <legend class="crm-v3-form-legend">Identificação</legend>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-pessoa"><span class="label-text text-xs">Pessoa</span></label>
-            <select id="crm-v3-cliente-pessoa" name="pessoa" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-pessoa"><span class="cx-label text-xs">Pessoa</span></label>
+            <select id="crm-v3-cliente-pessoa" name="pessoa" class="cx-select cx-select-sm w-full">
               <option value="J">Pessoa Jurídica</option>
               <option value="F">Pessoa Física</option>
             </select>
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-cnpj"><span class="label-text text-xs">CNPJ / CPF</span></label>
-            <input type="text" id="crm-v3-cliente-cnpj" name="cnpj" class="input input-bordered input-sm w-full" placeholder="00.000.000/0000-00" />
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-cnpj"><span class="cx-label text-xs">CNPJ / CPF</span></label>
+            <input type="text" id="crm-v3-cliente-cnpj" name="cnpj" class="cx-input cx-input-sm w-full" placeholder="00.000.000/0000-00" />
           </div>
-          <div class="form-control w-full col-span-2">
-            <label class="label py-0" for="crm-v3-cliente-nome"><span class="label-text text-xs">Nome fantasia *</span></label>
-            <input type="text" id="crm-v3-cliente-nome" name="nome" required placeholder="Nome fantasia" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full col-span-2">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-nome"><span class="cx-label text-xs">Nome fantasia *</span></label>
+            <input type="text" id="crm-v3-cliente-nome" name="nome" required placeholder="Nome fantasia" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full col-span-2 md:col-span-4">
-            <label class="label py-0" for="crm-v3-cliente-razao"><span class="label-text text-xs">Razão social</span></label>
-            <input type="text" id="crm-v3-cliente-razao" name="razao_social" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full col-span-2 md:col-span-4">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-razao"><span class="cx-label text-xs">Razão social</span></label>
+            <input type="text" id="crm-v3-cliente-razao" name="razao_social" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-ie"><span class="label-text text-xs">Inscrição estadual</span></label>
-            <input type="text" id="crm-v3-cliente-ie" name="inscricao_estadual" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-ie"><span class="cx-label text-xs">Inscrição estadual</span></label>
+            <input type="text" id="crm-v3-cliente-ie" name="inscricao_estadual" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-im"><span class="label-text text-xs">Inscrição municipal</span></label>
-            <input type="text" id="crm-v3-cliente-im" name="inscricao_municipal" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-im"><span class="cx-label text-xs">Inscrição municipal</span></label>
+            <input type="text" id="crm-v3-cliente-im" name="inscricao_municipal" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-tipo"><span class="label-text text-xs">Tipo de cliente</span></label>
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-tipo"><span class="cx-label text-xs">Tipo de cliente</span></label>
             {# Populado por JS via /crm-v3/api/lookups (tbl_tipo_cliente).
                Antes tinha "privado"/"publico" hardcoded. #}
-            <select id="crm-v3-cliente-tipo" name="id_tipo_cliente" class="select select-bordered select-sm w-full"
+            <select id="crm-v3-cliente-tipo" name="id_tipo_cliente" class="cx-select cx-select-sm w-full"
                     data-lookup="tipos_cliente" data-lookup-label="label">
               <option value="">— Carregando… —</option>
             </select>
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-perfil"><span class="label-text text-xs">Perfil</span></label>
-            <select id="crm-v3-cliente-perfil" name="perfil" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-perfil"><span class="cx-label text-xs">Perfil</span></label>
+            <select id="crm-v3-cliente-perfil" name="perfil" class="cx-select cx-select-sm w-full">
               <option value="direto">Cliente final</option>
               <option value="agencia">Agência</option>
             </select>
@@ -122,37 +122,37 @@
       <fieldset class="crm-v3-form-fieldset">
         <legend class="crm-v3-form-legend">Endereço</legend>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <div class="form-control w-full md:col-span-1">
-            <label class="label py-0" for="crm-v3-cliente-cep"><span class="label-text text-xs">CEP</span></label>
-            <input type="text" id="crm-v3-cliente-cep" name="cep" class="input input-bordered input-sm w-full" placeholder="00000-000" />
+          <div class="cx-field w-full md:col-span-1">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-cep"><span class="cx-label text-xs">CEP</span></label>
+            <input type="text" id="crm-v3-cliente-cep" name="cep" class="cx-input cx-input-sm w-full" placeholder="00000-000" />
           </div>
-          <div class="form-control w-full md:col-span-1">
-            <label class="label py-0" for="crm-v3-cliente-uf"><span class="label-text text-xs">UF</span></label>
+          <div class="cx-field w-full md:col-span-1">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-uf"><span class="cx-label text-xs">UF</span></label>
             {# Populado por JS via /crm-v3/api/lookups (tbl_estado). #}
-            <select id="crm-v3-cliente-uf" name="uf" class="select select-bordered select-sm w-full"
+            <select id="crm-v3-cliente-uf" name="uf" class="cx-select cx-select-sm w-full"
                     data-lookup="estados" data-lookup-value="sigla" data-lookup-label="sigla">
               <option value="">—</option>
             </select>
           </div>
-          <div class="form-control w-full md:col-span-2">
-            <label class="label py-0" for="crm-v3-cliente-cidade"><span class="label-text text-xs">Cidade</span></label>
-            <input type="text" id="crm-v3-cliente-cidade" name="cidade" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full md:col-span-2">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-cidade"><span class="cx-label text-xs">Cidade</span></label>
+            <input type="text" id="crm-v3-cliente-cidade" name="cidade" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full md:col-span-2">
-            <label class="label py-0" for="crm-v3-cliente-bairro"><span class="label-text text-xs">Bairro</span></label>
-            <input type="text" id="crm-v3-cliente-bairro" name="bairro" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full md:col-span-2">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-bairro"><span class="cx-label text-xs">Bairro</span></label>
+            <input type="text" id="crm-v3-cliente-bairro" name="bairro" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full md:col-span-3">
-            <label class="label py-0" for="crm-v3-cliente-logradouro"><span class="label-text text-xs">Logradouro</span></label>
-            <input type="text" id="crm-v3-cliente-logradouro" name="logradouro" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full md:col-span-3">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-logradouro"><span class="cx-label text-xs">Logradouro</span></label>
+            <input type="text" id="crm-v3-cliente-logradouro" name="logradouro" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full md:col-span-1">
-            <label class="label py-0" for="crm-v3-cliente-numero"><span class="label-text text-xs">Número</span></label>
-            <input type="text" id="crm-v3-cliente-numero" name="numero" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full md:col-span-1">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-numero"><span class="cx-label text-xs">Número</span></label>
+            <input type="text" id="crm-v3-cliente-numero" name="numero" class="cx-input cx-input-sm w-full" />
           </div>
-          <div class="form-control w-full md:col-span-2">
-            <label class="label py-0" for="crm-v3-cliente-complemento"><span class="label-text text-xs">Complemento</span></label>
-            <input type="text" id="crm-v3-cliente-complemento" name="complemento" class="input input-bordered input-sm w-full" />
+          <div class="cx-field w-full md:col-span-2">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-complemento"><span class="cx-label text-xs">Complemento</span></label>
+            <input type="text" id="crm-v3-cliente-complemento" name="complemento" class="cx-input cx-input-sm w-full" />
           </div>
         </div>
       </fieldset>
@@ -161,20 +161,20 @@
       <fieldset class="crm-v3-form-fieldset">
         <legend class="crm-v3-form-legend">Comercial</legend>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-classificacao"><span class="label-text text-xs">Classificação</span></label>
-            <select id="crm-v3-cliente-classificacao" name="classificacao_cliente" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-classificacao"><span class="cx-label text-xs">Classificação</span></label>
+            <select id="crm-v3-cliente-classificacao" name="classificacao_cliente" class="cx-select cx-select-sm w-full">
               <option value="Prospecção">Prospecção</option>
               <option value="Ativo">Ativo</option>
               <option value="Geladeira">Geladeira</option>
             </select>
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-responsavel"><span class="label-text text-xs">Executivo</span></label>
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-responsavel"><span class="cx-label text-xs">Executivo</span></label>
             {# Populado por JS com executivos reais (tbl_contato_cliente
                where vendas_central_comm). Value = id (int) para o
                backend gravar em vendas_central_comm. #}
-            <select id="crm-v3-cliente-responsavel" name="executivo_id" class="select select-bordered select-sm w-full"
+            <select id="crm-v3-cliente-responsavel" name="executivo_id" class="cx-select cx-select-sm w-full"
                     data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome">
               <option value="">— Carregando… —</option>
             </select>
@@ -183,25 +183,25 @@
              `prioridade`. Ficava confuso para o time comercial. A
              classificação (Prospecção/Ativo/Geladeira) permanece
              disponível no chip do header e na aba Info. #}
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-bv"><span class="label-text text-xs">BV %</span></label>
-            <input type="number" step="0.01" min="0" max="100" id="crm-v3-cliente-bv" name="bv_percentual" class="input input-bordered input-sm w-full" placeholder="0.00" />
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-bv"><span class="cx-label text-xs">BV %</span></label>
+            <input type="number" step="0.01" min="0" max="100" id="crm-v3-cliente-bv" name="bv_percentual" class="cx-input cx-input-sm w-full" placeholder="0.00" />
           </div>
-          <div class="form-control w-full">
-            <label class="label py-0" for="crm-v3-cliente-margem"><span class="label-text text-xs">Margem CC</span></label>
-            <input type="number" step="0.01" min="0" max="100" id="crm-v3-cliente-margem" name="margem_cc" class="input input-bordered input-sm w-full" placeholder="0.00" />
+          <div class="cx-field w-full">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-margem"><span class="cx-label text-xs">Margem CC</span></label>
+            <input type="number" step="0.01" min="0" max="100" id="crm-v3-cliente-margem" name="margem_cc" class="cx-input cx-input-sm w-full" placeholder="0.00" />
           </div>
-          <div class="form-control w-full md:col-span-3">
-            <label class="label py-0"><span class="label-text text-xs">Habilidades comerciais</span></label>
+          <div class="cx-field w-full md:col-span-3">
+            <label class="cx-label-row py-0"><span class="cx-label text-xs">Habilidades comerciais</span></label>
             <div class="crm-v3-checkbox-row">
-              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-opera-midia" name="opera_midia" class="checkbox checkbox-xs" /> <span>Opera mídia</span></label>
-              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-demanda-dados" name="demanda_dados" class="checkbox checkbox-xs" /> <span>Demanda dados</span></label>
-              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-programatica" name="demanda_programatica_canais" class="checkbox checkbox-xs" /> <span>Programática</span></label>
+              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-opera-midia" name="opera_midia" class="cx-checkbox cx-checkbox-sm" /> <span>Opera mídia</span></label>
+              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-demanda-dados" name="demanda_dados" class="cx-checkbox cx-checkbox-sm" /> <span>Demanda dados</span></label>
+              <label class="crm-v3-checkbox-inline"><input type="checkbox" id="crm-v3-cliente-programatica" name="demanda_programatica_canais" class="cx-checkbox cx-checkbox-sm" /> <span>Programática</span></label>
             </div>
           </div>
-          <div class="form-control w-full md:col-span-4">
-            <label class="label py-0" for="crm-v3-cliente-obs"><span class="label-text text-xs">Observações comerciais</span></label>
-            <textarea id="crm-v3-cliente-obs" name="observacoes_comerciais_adicionais" rows="3" class="textarea textarea-bordered textarea-sm w-full"></textarea>
+          <div class="cx-field w-full md:col-span-4">
+            <label class="cx-label-row py-0" for="crm-v3-cliente-obs"><span class="cx-label text-xs">Observações comerciais</span></label>
+            <textarea id="crm-v3-cliente-obs" name="observacoes_comerciais_adicionais" rows="3" class="cx-textarea cx-textarea-sm w-full"></textarea>
           </div>
         </div>
       </fieldset>
@@ -209,27 +209,27 @@
       <!-- Vínculos -->
       <fieldset class="crm-v3-form-fieldset" id="crm-v3-cliente-vinculos-fieldset">
         <legend class="crm-v3-form-legend">Vínculos com agência</legend>
-        <div class="text-xs text-base-content/60 mb-2">Se este cliente é atendido por uma ou mais agências, selecione abaixo. A agência marcada como principal recebe a comunicação padrão.</div>
+        <div class="text-xs text-slate-500 mb-2">Se este cliente é atendido por uma ou mais agências, selecione abaixo. A agência marcada como principal recebe a comunicação padrão.</div>
         <div id="crm-v3-cliente-agencias-list" class="crm-v3-agencias-list">
           <!-- rows preenchidos por JS -->
         </div>
         <button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-xs mt-2" id="crm-v3-cliente-agencia-add"><i class="fa-solid fa-plus mr-1"></i>Adicionar agência</button>
       </fieldset>
 
-      <div class="modal-action mt-4">
+      <div class="cx-modal-actions mt-4">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-cliente">Cancelar</button>
         <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-cliente-submit">
           <span class="crm-v3-btn-text">Criar cliente</span>
-          <span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span>
+          <span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-atividade" class="modal crm-v3-modal">
-  <div class="modal-box max-w-lg">
+<dialog id="crm-v3-modal-atividade" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-lg">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-atividade-title">Nova atividade</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-atividade" aria-label="Fechar">
@@ -238,66 +238,66 @@
     </div>
     <form id="crm-v3-form-atividade">
       <input type="hidden" id="crm-v3-atividade-id" value="">
-      <div class="form-control w-full mb-3">
-        <label class="label py-0" for="crm-v3-atividade-titulo"><span class="label-text text-xs">Título *</span></label>
-        <input type="text" id="crm-v3-atividade-titulo" name="titulo" required placeholder="Ex.: Ligar para responsável" class="input input-bordered input-sm w-full" />
+      <div class="cx-field w-full mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-atividade-titulo"><span class="cx-label text-xs">Título *</span></label>
+        <input type="text" id="crm-v3-atividade-titulo" name="titulo" required placeholder="Ex.: Ligar para responsável" class="cx-input cx-input-sm w-full" />
       </div>
-      <div class="form-control w-full mb-3">
-        <label class="label py-0" for="crm-v3-atividade-desc"><span class="label-text text-xs">Descrição</span></label>
-        <textarea id="crm-v3-atividade-desc" name="descricao" rows="3" placeholder="Detalhes da atividade" class="textarea textarea-bordered textarea-sm w-full"></textarea>
+      <div class="cx-field w-full mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-atividade-desc"><span class="cx-label text-xs">Descrição</span></label>
+        <textarea id="crm-v3-atividade-desc" name="descricao" rows="3" placeholder="Detalhes da atividade" class="cx-textarea cx-textarea-sm w-full"></textarea>
       </div>
       <div class="grid grid-cols-2 gap-2 mb-4">
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-atividade-data"><span class="label-text text-xs">Data</span></label>
-          <input type="date" id="crm-v3-atividade-data" name="data" class="input input-bordered input-sm w-full" />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-atividade-data"><span class="cx-label text-xs">Data</span></label>
+          <input type="date" id="crm-v3-atividade-data" name="data" class="cx-input cx-input-sm w-full" />
         </div>
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-atividade-hora"><span class="label-text text-xs">Hora</span></label>
-          <input type="time" id="crm-v3-atividade-hora" name="hora" class="input input-bordered input-sm w-full" />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-atividade-hora"><span class="cx-label text-xs">Hora</span></label>
+          <input type="time" id="crm-v3-atividade-hora" name="hora" class="cx-input cx-input-sm w-full" />
         </div>
       </div>
-      <div class="form-control w-full mb-4">
-        <label class="label py-0" for="crm-v3-atividade-prioridade"><span class="label-text text-xs">Prioridade</span></label>
-        <select id="crm-v3-atividade-prioridade" name="prioridade" class="select select-bordered select-sm w-full">
+      <div class="cx-field w-full mb-4">
+        <label class="cx-label-row py-0" for="crm-v3-atividade-prioridade"><span class="cx-label text-xs">Prioridade</span></label>
+        <select id="crm-v3-atividade-prioridade" name="prioridade" class="cx-select cx-select-sm w-full">
           <option value="Alta">Alta</option>
           <option value="Média" selected>Média</option>
           <option value="Baixa">Baixa</option>
         </select>
       </div>
       <div class="grid grid-cols-2 gap-2 mb-4">
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-atividade-tipo"><span class="label-text text-xs">Tipo</span></label>
-          <select id="crm-v3-atividade-tipo" class="select select-bordered select-sm w-full">
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-atividade-tipo"><span class="cx-label text-xs">Tipo</span></label>
+          <select id="crm-v3-atividade-tipo" class="cx-select cx-select-sm w-full">
             <option value="atividade">Atividade</option>
             <option value="ligacao">Ligação</option>
             <option value="reuniao">Reunião</option>
             <option value="doc">Documento</option>
           </select>
         </div>
-        <div class="form-control w-full">
-          <label class="label py-0" for="crm-v3-atividade-responsavel"><span class="label-text text-xs">Responsável</span></label>
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0" for="crm-v3-atividade-responsavel"><span class="cx-label text-xs">Responsável</span></label>
           {# Populado por JS via /crm-v3/api/lookups (executivos reais).
              Value = id_contato_cliente (o backend converte para responsavel_id). #}
-          <select id="crm-v3-atividade-responsavel" name="responsavel_id" class="select select-bordered select-sm w-full"
+          <select id="crm-v3-atividade-responsavel" name="responsavel_id" class="cx-select cx-select-sm w-full"
                   data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome">
             <option value="">— Carregando… —</option>
           </select>
         </div>
       </div>
-      <div class="modal-action mt-0">
+      <div class="cx-modal-actions mt-0">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-atividade">Cancelar</button>
         <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-atividade-submit">
           <span class="crm-v3-btn-text">Agendar</span>
-          <span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span>
+          <span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-import" class="modal crm-v3-modal">
-  <div class="modal-box max-w-2xl">
+<dialog id="crm-v3-modal-import" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-2xl">
     <div class="flex items-center justify-between mb-2">
       <h3 class="font-semibold text-lg">Importar contatos</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-import" aria-label="Fechar">
@@ -332,10 +332,10 @@
       </div>
     </div>
 
-    <div class="steps steps-horizontal w-full text-xs mb-4" id="crm-v3-import-steps">
-      <div class="step step-primary" data-step="1">Texto</div>
-      <div class="step" data-step="2">Revisão</div>
-      <div class="step" data-step="3">Confirmar</div>
+    <div class="cx-steps w-full text-xs mb-4" id="crm-v3-import-steps">
+      <div class="cx-step cx-step-active" data-step="1">Texto</div>
+      <div class="cx-step" data-step="2">Revisão</div>
+      <div class="cx-step" data-step="3">Confirmar</div>
     </div>
     <div id="crm-v3-import-step-1">
       {# Duas fontes de input:
@@ -366,7 +366,7 @@
         </div>
         {# Estado durante o OCR (spinner + mensagem) #}
         <div class="crm-v3-import-dropzone-loading" data-dropzone-state="loading" hidden>
-          <span class="loading loading-spinner loading-md text-primary"></span>
+          <span class="cx-spinner text-[#1e4d4f]"></span>
           <div>
             <strong>Analisando imagem com Gemini 2.5 Flash…</strong>
             <span>Isso costuma levar 5–15 segundos.</span>
@@ -396,142 +396,142 @@
 
       {# Fonte 2: texto puro (comportamento original) #}
       <p class="text-xs text-base-content/70 mb-2">Formato <code>Nome;email;telefone;cargo</code> — uma linha por contato.</p>
-      <textarea id="crm-v3-import-texto" class="textarea textarea-bordered w-full text-sm" rows="6" placeholder="João Silva;joao@empresa.com;11999999999;Gerente"></textarea>
-      <div class="modal-action mt-4">
+      <textarea id="crm-v3-import-texto" class="cx-textarea w-full text-sm" rows="6" placeholder="João Silva;joao@empresa.com;11999999999;Gerente"></textarea>
+      <div class="cx-modal-actions mt-4">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-import">Cancelar</button>
         <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-import-processar">
           <span class="crm-v3-btn-text">Processar</span>
-          <span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span>
+          <span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span>
         </button>
       </div>
     </div>
     <div id="crm-v3-import-step-2" hidden>
       <div class="overflow-x-auto max-h-64 border border-base-200 rounded-lg">
-        <table class="table table-xs table-zebra w-full" id="crm-v3-import-table">
+        <table class="cx-table cx-table-dense cx-table-zebra w-full" id="crm-v3-import-table">
           <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Cargo</th><th>Principal</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="text-xs text-base-content/60 mt-2" id="crm-v3-import-review-count"></p>
-      <div class="modal-action mt-2">
+      <p class="text-xs text-slate-500 mt-2" id="crm-v3-import-review-count"></p>
+      <div class="cx-modal-actions mt-2">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-import-back-1">Voltar</button>
         <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-import-next-2">Continuar</button>
       </div>
     </div>
     <div id="crm-v3-import-step-3" hidden>
       <p class="text-sm mb-4" id="crm-v3-import-confirm-msg">Confirmar importação?</p>
-      <div class="modal-action mt-0">
+      <div class="cx-modal-actions mt-0">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" id="crm-v3-import-back-2">Voltar</button>
         <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-import-submit">
           <span class="crm-v3-btn-text">Importar</span>
-          <span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span>
+          <span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span>
         </button>
       </div>
     </div>
-    <p class="text-error text-xs mt-2" id="crm-v3-import-error" hidden></p>
+    <p class="text-red-700 text-xs mt-2" id="crm-v3-import-error" hidden></p>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-objetivo" class="modal crm-v3-modal">
-  <div class="modal-box max-w-md">
+<dialog id="crm-v3-modal-objetivo" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-md">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-objetivo-title">Novo objetivo</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-objetivo" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form id="crm-v3-form-objetivo">
       <input type="hidden" id="crm-v3-objetivo-id" value="">
-      <div class="form-control mb-3">
-        <label class="label py-0" for="crm-v3-objetivo-texto"><span class="label-text text-xs">Objetivo *</span></label>
-        <input type="text" id="crm-v3-objetivo-texto" required class="input input-bordered input-sm w-full">
+      <div class="cx-field mb-3">
+        <label class="cx-label-row py-0" for="crm-v3-objetivo-texto"><span class="cx-label text-xs">Objetivo *</span></label>
+        <input type="text" id="crm-v3-objetivo-texto" required class="cx-input cx-input-sm w-full">
       </div>
-      <div class="form-control mb-4">
-        <label class="label py-0" for="crm-v3-objetivo-prazo"><span class="label-text text-xs">Prazo</span></label>
-        <input type="date" id="crm-v3-objetivo-prazo" class="input input-bordered input-sm w-full">
+      <div class="cx-field mb-4">
+        <label class="cx-label-row py-0" for="crm-v3-objetivo-prazo"><span class="cx-label text-xs">Prazo</span></label>
+        <input type="date" id="crm-v3-objetivo-prazo" class="cx-input cx-input-sm w-full">
       </div>
-      <div class="modal-action mt-0">
+      <div class="cx-modal-actions mt-0">
         <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-objetivo">Cancelar</button>
-        <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-objetivo-submit"><span class="crm-v3-btn-text">Salvar</span><span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span></button>
+        <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-objetivo-submit"><span class="crm-v3-btn-text">Salvar</span><span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span></button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-objetivos-ia" class="modal crm-v3-modal">
-  <div class="modal-box max-w-xl">
+<dialog id="crm-v3-modal-objetivos-ia" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-xl">
     <div class="flex items-center justify-between mb-2">
       <div>
         <h3 class="font-semibold text-lg">Objetivos sugeridos pela IA</h3>
-        <p class="text-xs text-base-content/60">Revise, edite e desmarque o que não deseja criar.</p>
+        <p class="text-xs text-slate-500">Revise, edite e desmarque o que não deseja criar.</p>
       </div>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-objetivos-ia" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="crm-v3-objetivos-ia-list" class="space-y-2 my-4"></div>
-    <p id="crm-v3-objetivos-ia-progress" class="text-xs text-base-content/60" aria-live="polite"></p>
-    <div class="modal-action mt-3">
+    <p id="crm-v3-objetivos-ia-progress" class="text-xs text-slate-500" aria-live="polite"></p>
+    <div class="cx-modal-actions mt-3">
       <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-objetivos-ia">Cancelar</button>
       <button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-objetivos-ia-create">Criar selecionados</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-cotacao" class="modal crm-v3-modal">
-  <div class="modal-box max-w-md">
+<dialog id="crm-v3-modal-cotacao" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-md">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-cotacao-title">Nova cotação</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-cotacao" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form id="crm-v3-form-cotacao">
       <input type="hidden" id="crm-v3-cotacao-id" value="">
-      <div class="form-control mb-3"><label class="label py-0" for="crm-v3-cotacao-titulo"><span class="label-text text-xs">Nome da campanha *</span></label><input type="text" id="crm-v3-cotacao-titulo" required class="input input-bordered input-sm w-full"></div>
+      <div class="cx-field mb-3"><label class="cx-label-row py-0" for="crm-v3-cotacao-titulo"><span class="cx-label text-xs">Nome da campanha *</span></label><input type="text" id="crm-v3-cotacao-titulo" required class="cx-input cx-input-sm w-full"></div>
       <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-valor"><span class="label-text text-xs">Valor total *</span></label><input type="text" id="crm-v3-cotacao-valor" required placeholder="R$ 0,00" class="input input-bordered input-sm w-full"></div>
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-status"><span class="label-text text-xs">Status</span></label><select id="crm-v3-cotacao-status" class="select select-bordered select-sm w-full"><option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="aprovada">Aprovada</option><option value="rejeitada">Rejeitada</option><option value="expirada">Expirada</option><option value="em-acompanhamento">Em Acompanhamento</option></select></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-valor"><span class="cx-label text-xs">Valor total *</span></label><input type="text" id="crm-v3-cotacao-valor" required placeholder="R$ 0,00" class="cx-input cx-input-sm w-full"></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-status"><span class="cx-label text-xs">Status</span></label><select id="crm-v3-cotacao-status" class="cx-select cx-select-sm w-full"><option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="aprovada">Aprovada</option><option value="rejeitada">Rejeitada</option><option value="expirada">Expirada</option><option value="em-acompanhamento">Em Acompanhamento</option></select></div>
       </div>
       <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-inicio"><span class="label-text text-xs">Início</span></label><input type="date" id="crm-v3-cotacao-inicio" class="input input-bordered input-sm w-full"></div>
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-fim"><span class="label-text text-xs">Fim</span></label><input type="date" id="crm-v3-cotacao-fim" class="input input-bordered input-sm w-full"></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-inicio"><span class="cx-label text-xs">Início</span></label><input type="date" id="crm-v3-cotacao-inicio" class="cx-input cx-input-sm w-full"></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-fim"><span class="cx-label text-xs">Fim</span></label><input type="date" id="crm-v3-cotacao-fim" class="cx-input cx-input-sm w-full"></div>
       </div>
       <div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-objetivo"><span class="label-text text-xs">Objetivo geral</span></label><input type="text" id="crm-v3-cotacao-objetivo" placeholder="Awareness, Performance…" class="input input-bordered input-sm w-full"></div>
-        <div class="form-control"><label class="label py-0" for="crm-v3-cotacao-responsavel"><span class="label-text text-xs">Responsável</span></label><select id="crm-v3-cotacao-responsavel" class="select select-bordered select-sm w-full" data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome"><option value="">— Carregando… —</option></select></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-objetivo"><span class="cx-label text-xs">Objetivo geral</span></label><input type="text" id="crm-v3-cotacao-objetivo" placeholder="Awareness, Performance…" class="cx-input cx-input-sm w-full"></div>
+        <div class="cx-field"><label class="cx-label-row py-0" for="crm-v3-cotacao-responsavel"><span class="cx-label text-xs">Responsável</span></label><select id="crm-v3-cotacao-responsavel" class="cx-select cx-select-sm w-full" data-lookup="executivos" data-lookup-value="id" data-lookup-label="nome"><option value="">— Carregando… —</option></select></div>
       </div>
-      <div class="form-control mb-4"><label class="label py-0" for="crm-v3-cotacao-plataformas"><span class="label-text text-xs">Plataformas</span></label><input type="text" id="crm-v3-cotacao-plataformas" placeholder="TV Aberta, OOH, Meta Ads (separadas por vírgula)" class="input input-bordered input-sm w-full"></div>
-      <div class="modal-action mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-cotacao">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-cotacao-submit"><span class="crm-v3-btn-text">Criar</span><span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span></button></div>
+      <div class="cx-field mb-4"><label class="cx-label-row py-0" for="crm-v3-cotacao-plataformas"><span class="cx-label text-xs">Plataformas</span></label><input type="text" id="crm-v3-cotacao-plataformas" placeholder="TV Aberta, OOH, Meta Ads (separadas por vírgula)" class="cx-input cx-input-sm w-full"></div>
+      <div class="cx-modal-actions mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-cotacao">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-cotacao-submit"><span class="crm-v3-btn-text">Criar</span><span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span></button></div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-nota" class="modal crm-v3-modal">
-  <div class="modal-box max-w-md">
+<dialog id="crm-v3-modal-nota" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-md">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg" id="crm-v3-modal-nota-title">Nova nota</h3>
       <button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-sm crm-v3-icon-btn-ghost" data-close-modal="crm-v3-modal-nota" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form id="crm-v3-form-nota">
       <input type="hidden" id="crm-v3-nota-id" value="">
-      <div class="form-control mb-4"><label class="label py-0" for="crm-v3-nota-texto"><span class="label-text text-xs">Nota *</span></label><textarea id="crm-v3-nota-texto" required rows="5" class="textarea textarea-bordered w-full"></textarea></div>
-      <div class="modal-action mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-nota">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-nota-submit"><span class="crm-v3-btn-text">Salvar</span><span class="loading loading-spinner loading-xs crm-v3-btn-loading" hidden></span></button></div>
+      <div class="cx-field mb-4"><label class="cx-label-row py-0" for="crm-v3-nota-texto"><span class="cx-label text-xs">Nota *</span></label><textarea id="crm-v3-nota-texto" required rows="5" class="cx-textarea w-full"></textarea></div>
+      <div class="cx-modal-actions mt-0"><button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-nota">Cancelar</button><button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-nota-submit"><span class="crm-v3-btn-text">Salvar</span><span class="cx-spinner cx-spinner-sm crm-v3-btn-loading" hidden></span></button></div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-confirm-obj" class="modal crm-v3-modal">
-  <div class="modal-box max-w-sm">
+<dialog id="crm-v3-modal-confirm-obj" class="cx-modal-shell crm-v3-modal">
+  <div class="cx-modal-panel crm-v3-modal-box max-w-sm">
     <h3 class="font-semibold text-lg mb-2">Excluir objetivo</h3>
     <p class="text-sm text-base-content/80 mb-4" id="crm-v3-confirm-obj-text">Tem certeza que deseja excluir este objetivo?</p>
-    <div class="modal-action mt-0">
+    <div class="cx-modal-actions mt-0">
       <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-confirm-obj">Cancelar</button>
       <button type="button" class="crm-v3-btn crm-v3-btn-danger crm-v3-btn-sm" id="crm-v3-confirm-obj-btn">Excluir</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button aria-label="Fechar">close</button></form>
+  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<div id="crm-v3-toast" class="crm-v3-toast toast toast-top toast-end z-[100]" role="status" aria-live="polite" hidden>
-  <div class="alert alert-success shadow-lg text-sm"><span id="crm-v3-toast-text"></span></div>
+<div id="crm-v3-toast" class="crm-v3-toast cx-toast cx-toast-top cx-toast-end z-[100]" role="status" aria-live="polite" hidden>
+  <div class="cx-alert cx-alert-success shadow-lg text-sm"><span id="crm-v3-toast-text"></span></div>
 </div>

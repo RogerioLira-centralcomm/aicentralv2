@@ -37,7 +37,8 @@
         // Invalidação: qualquer POST /web-info/refresh substitui a
         // entrada. Trocar de cliente na coluna 1 não invalida (o
         // dicionário é por clienteId).
-        webInfoCache: {}
+        webInfoCache: {},
+        webInfoPending: false
     };
 
     /* ------------------------------------------------------------------
@@ -1743,11 +1744,13 @@
 
     function atualizarWebInfo() {
         var cid = state.clienteId;
-        if (!cid) return;
+        if (!cid || state.webInfoPending) return;
+        state.webInfoPending = true;
         var btn = $('#crm-v3-web-refresh');
         var btnNow = $('#crm-v3-web-fetch-now');
+        var btnRetry = $('#crm-v3-web-retry');
         var origHTML = btn ? btn.innerHTML : '';
-        [btn, btnNow].forEach(function (b) {
+        [btn, btnNow, btnRetry].forEach(function (b) {
             if (!b) return;
             b.disabled = true;
         });
@@ -1761,7 +1764,8 @@
         if (!dominio) {
             showToast('Informe o site nesta aba para buscar as informações.', true);
             renderWebInfo(state.webInfoCache[cid] || state.webInfoCache[String(cid)] || null);
-            [btn, btnNow].forEach(function (b) {
+            state.webInfoPending = false;
+            [btn, btnNow, btnRetry].forEach(function (b) {
                 if (!b) return;
                 b.disabled = false;
             });
@@ -1796,7 +1800,8 @@
             // Restaura estado anterior (o cache não muda em caso de erro).
             renderWebInfo(state.webInfoCache[cid] || null);
         }).finally(function () {
-            [btn, btnNow].forEach(function (b) {
+            state.webInfoPending = false;
+            [btn, btnNow, btnRetry].forEach(function (b) {
                 if (!b) return;
                 b.disabled = false;
             });
@@ -1826,7 +1831,17 @@
         if (info.status === 'erro') {
             setWebTabState('error');
             var errEl = $('#crm-v3-web-error-msg');
-            if (errEl) errEl.textContent = info.erro_mensagem || 'Erro desconhecido';
+            var errorText = info.erro_mensagem || 'Erro desconhecido';
+            if (errEl) {
+                errEl.textContent = /demorou|timeout/i.test(errorText)
+                    ? 'O site demorou para responder. Aguarde alguns instantes e tente novamente.'
+                    : errorText;
+                errEl.title = errorText;
+            }
+            var preserved = $('#crm-v3-web-error-preserved');
+            if (preserved) {
+                preserved.hidden = !(info.logo_url || info.titulo || info.descricao);
+            }
             return;
         }
 
@@ -1949,6 +1964,9 @@
 
         var btnNow = $('#crm-v3-web-fetch-now');
         if (btnNow) btnNow.addEventListener('click', atualizarWebInfo);
+
+        var btnRetry = $('#crm-v3-web-retry');
+        if (btnRetry) btnRetry.addEventListener('click', atualizarWebInfo);
     }
 
 
@@ -2232,7 +2250,6 @@
             return (
                 '<div class="crm-v3-contato-card' + (ativo ? ' crm-v3-contato-card-active' : '') + (expandido ? ' is-expanded' : '') + '" role="listitem" tabindex="0" data-contato-id="' + escapeHtml(c.id) + '">' +
                 '<div class="crm-v3-contato-main">' +
-                avatarHtml(nomeExibido, 'w-8 h-8') +
                 '<div class="crm-v3-contato-info min-w-0">' +
                 '<div class="crm-v3-contato-nome-row">' +
                 '<button type="button" class="crm-v3-contato-nome" data-contato-id="' + escapeHtml(c.id) + '" title="Editar ' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</button>' +

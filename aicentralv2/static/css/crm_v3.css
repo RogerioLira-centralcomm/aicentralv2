@@ -69,6 +69,17 @@ html:has(.crm-v3-page) body {
     color: var(--crm-text);
 }
 
+/* Densidade operacional: equivale a 80% de zoom somente no workspace
+   desktop. Mobile preserva dimensões mínimas de toque e legibilidade. */
+@media (min-width: 901px) {
+    .crm-v3-page {
+        width: 125%;
+        height: calc(125vh - 70px);
+        max-height: calc(125vh - 70px);
+        zoom: 0.8;
+    }
+}
+
 /* ==============================================================
    Métricas do cliente — grid próprio (substitui DaisyUI stats).
    • Sem bordas verticais divisórias (limpo).
@@ -707,7 +718,7 @@ button:hover > .crm-v3-menu-hint {
 .crm-v3-contato-main {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0;
     min-width: 0;
 }
 
@@ -2599,7 +2610,7 @@ img.crm-v3-avatar-mini {
     overflow: visible;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
 }
 
 .crm-v3-ativ-empty {
@@ -2905,7 +2916,7 @@ img.crm-v3-avatar-mini {
 .crm-v3-date-group {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
 }
 
 .crm-v3-date-group[data-bucket="atrasada"] .crm-v3-date-label {
@@ -2919,8 +2930,8 @@ img.crm-v3-avatar-mini {
 .crm-v3-date-label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 6px;
+    gap: 4px;
+    padding: 2px 4px;
     font-size: 11px;
     font-weight: 700;
     color: var(--crm-text-subtle);
@@ -2928,7 +2939,7 @@ img.crm-v3-avatar-mini {
     letter-spacing: 0.06em;
     line-height: 1;
     border-bottom: 1px solid var(--crm-border-light);
-    margin-bottom: 2px;
+    margin-bottom: 0;
 }
 
 .crm-v3-date-count {
@@ -2947,11 +2958,13 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-ativ {
+    position: relative;
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 8px;
-    padding: 6px 6px;
+    gap: 4px;
+    min-height: 28px;
+    padding: 3px 4px;
     border-radius: var(--crm-radius-sm);
     border-bottom: 1px solid var(--crm-border-light);
 }
@@ -2979,8 +2992,8 @@ img.crm-v3-avatar-mini {
 
 /* Botão check-círculo (marca como feita / reabre) */
 .crm-v3-ativ-check {
-    width: 22px;
-    height: 22px;
+    width: 19px;
+    height: 19px;
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -2991,7 +3004,7 @@ img.crm-v3-avatar-mini {
     cursor: pointer;
     border-radius: 50%;
     transition: color 0.15s, background 0.15s;
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .crm-v3-ativ-check:hover {
@@ -3023,14 +3036,14 @@ img.crm-v3-avatar-mini {
  * O tipo é identificado pelo desenho do ícone (phone, users, file, note),
  * não pela cor. */
 .crm-v3-ativ-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: 10px;
     background: var(--crm-surface);
     color: var(--crm-text-muted);
     border: 1px solid var(--crm-border-light);
@@ -3236,16 +3249,25 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-ativ-actions {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: 3px;
     display: inline-flex;
     align-items: center;
     gap: 2px;
+    padding-left: 4px;
+    background: var(--crm-surface);
     opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%);
     transition: opacity 0.15s;
 }
 
 .crm-v3-ativ:hover .crm-v3-ativ-actions,
 .crm-v3-ativ:focus-within .crm-v3-ativ-actions {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .crm-v3-icon-btn.crm-v3-icon-btn-danger:hover {
@@ -5414,6 +5436,12 @@ img.crm-v3-avatar-mini {
     opacity: 0.85;
     max-width: 100%;
     word-break: break-word;
+}
+.crm-v3-web-msg .crm-v3-web-error-preserved {
+    padding-top: 8px;
+    border-top: 1px solid #fde68a;
+    color: #854d0e;
+    font-weight: 600;
 }
 
 /* Skeleton — placeholder animado enquanto o GET /web-info roda. */

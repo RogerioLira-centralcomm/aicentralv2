@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=77">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=79">
 {% endblock %}
 
 {% block content %}
@@ -662,6 +662,15 @@
                 <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
                 <p><strong>Não foi possível ler o site.</strong></p>
                 <p class="crm-v3-web-error-detail" id="crm-v3-web-error-msg"></p>
+                <p class="crm-v3-web-error-preserved" id="crm-v3-web-error-preserved" hidden>
+                  Os dados e o logo da última leitura válida foram mantidos.
+                </p>
+                <button type="button"
+                        class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm"
+                        id="crm-v3-web-retry">
+                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                  Tentar novamente
+                </button>
               </div>
             </div>
 
@@ -722,7 +731,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=55"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=57"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

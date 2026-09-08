@@ -1,9 +1,9 @@
 """CRM v3 — Web Scout (crawl mínimo do site do cliente via Firecrawl).
 
 Fase B do plano macro (set/2026): quando o usuário confirma o site em
-"Site & logo", disparamos um `POST /v1/scrape` do Firecrawl na home,
-extraímos `og:image`/`favicon` (logo canônico do próprio site — muito
-melhor que Clearbit ou Google Favicons para clientes locais),
+"Site & logo", disparamos um `POST /v2/scrape` do Firecrawl na home,
+extraímos o perfil `branding`, metadata e links (logo canônico do
+próprio site — melhor que favicons genéricos para clientes locais),
 `<title>`, meta description e links do menu principal. Persistimos em
 `cliente_web_info` para renderização na aba "Web" do CRM v3 sem
 recustar Firecrawl a cada abertura do cliente.
@@ -43,7 +43,7 @@ Fluxo:
 Segurança e observabilidade:
 - FIRECRAWL_API_KEY vem de env. Se ausente, marca status='erro' com
   mensagem clara em vez de estourar 500.
-- Timeout de 30s no request. Sites lentos não travam o CRM.
+- Timeout configurável e uma repetição para falhas transitórias.
 - Log estruturado em `aicentral.crm_v3.web_scout` (mesma família dos
   outros módulos).
 """
@@ -56,7 +56,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -64,8 +64,9 @@ from . import db
 
 logger = logging.getLogger("aicentral.crm_v3.web_scout")
 
-FIRECRAWL_URL = "https://api.firecrawl.dev/v1/scrape"
-FIRECRAWL_TIMEOUT_S = 30
+FIRECRAWL_URL = "https://api.firecrawl.dev/v2/scrape"
+FIRECRAWL_TIMEOUT_S = 45
+FIRECRAWL_MAX_ATTEMPTS = 2
 
 _SQL_CREATE_CLIENTE_WEB_INFO = """
 CREATE TABLE IF NOT EXISTS cliente_web_info (
@@ -135,6 +136,28 @@ def _dominio_para_url(dominio: str) -> str:
     return f"https://{d}"
 
 
+def _firecrawl_timeout() -> int:
+    """Timeout configurável, limitado para não prender workers Flask."""
+    raw = os.environ.get("FIRECRAWL_TIMEOUT_S", str(FIRECRAWL_TIMEOUT_S))
+    try:
+        return max(10, min(int(raw), 120))
+    except (TypeError, ValueError):
+        return FIRECRAWL_TIMEOUT_S
+
+
+def _firecrawl_url() -> str:
+    """Aceita endpoint completo ou base de API em FIRECRAWL_API_URL."""
+    configured = os.environ.get("FIRECRAWL_API_URL", "").strip()
+    if not configured:
+        return FIRECRAWL_URL
+    value = configured.rstrip("/")
+    if value.endswith("/scrape"):
+        return value
+    if value.endswith("/v1") or value.endswith("/v2"):
+        return value + "/scrape"
+    return value + "/v2/scrape"
+
+
 def _extrair_menu_links(fc_links: list, dominio: str, limite: int = 8) -> list:
     """Filtra a lista de links do Firecrawl para o menu principal.
 
@@ -152,8 +175,8 @@ def _extrair_menu_links(fc_links: list, dominio: str, limite: int = 8) -> list:
     visto = set()
     resultado = []
     for item in fc_links:
-        # Firecrawl v1 retorna links como strings simples em `data.links`.
-        # Se algum dia mudar para dicts, damos suporte transparente.
+        # O Firecrawl normalmente retorna strings em `data.links`; também
+        # aceitamos dicts para manter compatibilidade entre versões.
         if isinstance(item, dict):
             url = str(item.get("url") or "").strip()
             texto = str(item.get("text") or "").strip()
@@ -190,71 +213,124 @@ def _extrair_menu_links(fc_links: list, dominio: str, limite: int = 8) -> list:
 
 
 def _firecrawl_scrape(url: str) -> Dict[str, Any]:
-    """Chama Firecrawl /v1/scrape e devolve `data` bruto.
+    """Chama Firecrawl /v2/scrape e devolve `data` bruto.
 
     Lança RuntimeError com mensagem amigável em caso de falha (chave
-    ausente, HTTP != 2xx, timeout). O caller decide se persiste com
-    status='erro' ou propaga.
+    ausente, HTTP != 2xx, timeout). Timeout, conexão e HTTP 5xx recebem
+    somente uma nova tentativa; erros definitivos não gastam créditos.
     """
     api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("FIRECRAWL_API_KEY não configurada")
 
+    timeout_s = _firecrawl_timeout()
     payload = {
         "url": url,
-        # `markdown` habilita o metadata rico (ogImage, favicon, title,
-        # description). `links` traz o menu para _extrair_menu_links.
-        "formats": ["markdown", "links"],
-        # onlyMainContent=false porque queremos o <head> completo (og:*).
+        # `branding` separa o logo real do og:image promocional.
+        # Não pedimos markdown: o CRM não o consome e ele torna o scrape
+        # mais lento em sites grandes.
+        "formats": ["branding", "links"],
         "onlyMainContent": False,
+        "timeout": max(5_000, (timeout_s - 5) * 1_000),
+        "maxAge": 3_600_000,
+        "storeInCache": True,
     }
-    try:
-        resp = requests.post(
-            FIRECRAWL_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=FIRECRAWL_TIMEOUT_S,
-        )
-    except requests.Timeout as e:
-        raise RuntimeError(f"Timeout ao acessar Firecrawl ({FIRECRAWL_TIMEOUT_S}s)") from e
-    except requests.RequestException as e:
-        raise RuntimeError(f"Erro de rede ao acessar Firecrawl: {e}") from e
-
-    if resp.status_code // 100 != 2:
-        # Firecrawl devolve JSON com `error` na maioria dos casos.
+    endpoint = _firecrawl_url()
+    last_error = None
+    for attempt in range(1, FIRECRAWL_MAX_ATTEMPTS + 1):
         try:
-            body = resp.json()
-            msg = body.get("error") or body.get("message") or f"HTTP {resp.status_code}"
-        except Exception:
-            msg = f"HTTP {resp.status_code}"
+            resp = requests.post(
+                endpoint,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=timeout_s,
+            )
+        except requests.Timeout as exc:
+            last_error = exc
+            logger.warning(
+                "Firecrawl timeout tentativa %s/%s para %s",
+                attempt, FIRECRAWL_MAX_ATTEMPTS, url,
+            )
+            if attempt < FIRECRAWL_MAX_ATTEMPTS:
+                continue
+            raise RuntimeError(
+                f"O site demorou mais de {timeout_s}s para responder. Tente novamente."
+            ) from exc
+        except requests.ConnectionError as exc:
+            last_error = exc
+            logger.warning(
+                "Firecrawl conexão falhou tentativa %s/%s para %s",
+                attempt, FIRECRAWL_MAX_ATTEMPTS, url,
+            )
+            if attempt < FIRECRAWL_MAX_ATTEMPTS:
+                continue
+            raise RuntimeError("Não foi possível conectar ao Firecrawl. Tente novamente.") from exc
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Erro de rede ao acessar Firecrawl: {exc}") from exc
+
+        if resp.status_code // 100 == 2:
+            try:
+                body = resp.json()
+            except ValueError as exc:
+                raise RuntimeError("Firecrawl retornou uma resposta inválida") from exc
+            if not body.get("success"):
+                raise RuntimeError(
+                    f"Firecrawl: {body.get('error') or body.get('message') or 'resposta sem success=true'}"
+                )
+            return body.get("data") or {}
+
+        try:
+            error_body = resp.json()
+            msg = error_body.get("error") or error_body.get("message")
+        except (ValueError, AttributeError):
+            msg = None
+        msg = str(msg or f"HTTP {resp.status_code}")[:300]
+        if resp.status_code >= 500 and attempt < FIRECRAWL_MAX_ATTEMPTS:
+            logger.warning(
+                "Firecrawl HTTP %s tentativa %s/%s para %s",
+                resp.status_code, attempt, FIRECRAWL_MAX_ATTEMPTS, url,
+            )
+            continue
+        if resp.status_code in (401, 403):
+            raise RuntimeError("Firecrawl: credencial inválida ou sem permissão")
+        if resp.status_code == 402:
+            raise RuntimeError("Firecrawl: créditos insuficientes")
+        if resp.status_code == 429:
+            raise RuntimeError("Firecrawl: limite de requisições atingido. Tente mais tarde.")
         raise RuntimeError(f"Firecrawl: {msg}")
 
-    body = resp.json()
-    if not body.get("success"):
-        raise RuntimeError(f"Firecrawl: {body.get('error') or 'resposta sem success=true'}")
-    return body.get("data") or {}
+    raise RuntimeError(f"Firecrawl indisponível: {last_error or 'falha desconhecida'}")
 
 
 def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
     """Traduz o payload do Firecrawl para o shape da tabela.
 
     Prioridades de logo (ordem de fallback):
-        1. og:image (imagem que o próprio site publica para redes sociais).
-        2. metadata.favicon (link rel=icon absoluto).
-        3. /favicon.ico do apex (fallback duro).
+        1. branding.logo / branding.images.logo.
+        2. branding.images.ogImage ou metadata.ogImage.
+        3. favicon separado para apresentação auxiliar.
     """
     meta = fc_data.get("metadata") or {}
-    # og:image pode vir como `ogImage` (v1) ou `og:image` (v0). Cobre ambos.
+    branding = fc_data.get("branding") or {}
+    branding_images = branding.get("images") or {}
+    base_url = _dominio_para_url(dominio)
+
+    logo = (
+        branding.get("logo")
+        or branding_images.get("logo")
+        or ""
+    )
     og_image = (
-        meta.get("ogImage")
+        branding_images.get("ogImage")
+        or meta.get("ogImage")
         or meta.get("og:image")
         or meta.get("twitterImage")
         or ""
     )
-    favicon = meta.get("favicon") or ""
+    favicon = branding_images.get("favicon") or meta.get("favicon") or ""
 
     titulo = (
         meta.get("ogSiteName")
@@ -273,8 +349,8 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
     menu_links = _extrair_menu_links(fc_data.get("links") or [], dominio)
 
     return {
-        "logo_url": og_image or None,
-        "favicon_url": favicon or None,
+        "logo_url": urljoin(base_url + "/", logo or og_image) if (logo or og_image) else None,
+        "favicon_url": urljoin(base_url + "/", favicon) if favicon else None,
         "titulo": (titulo or "").strip()[:255] or None,
         "descricao": (descricao or "").strip() or None,
         "menu_links": menu_links,
@@ -309,7 +385,7 @@ def _ext_logo(url: str, content_type: str) -> str:
 
 
 def _persistir_logo_cliente(cliente_id, url: Optional[str]) -> Optional[str]:
-    """Baixa o og:image e grava em static/uploads/clientes (igual audiências)."""
+    """Baixa o logo detectado e grava em static/uploads/clientes."""
     raw = (url or "").strip()
     if not raw:
         return None
@@ -330,26 +406,42 @@ def _persistir_logo_cliente(cliente_id, url: Optional[str]) -> Optional[str]:
         if resp.status_code // 100 != 2:
             logger.info("logo download HTTP %s para %s", resp.status_code, raw[:120])
             return None
+        content_length = resp.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > _LOGO_MAX_BYTES:
+                    logger.info("logo %s excedeu o limite no header", raw[:80])
+                    return None
+            except (TypeError, ValueError):
+                pass
+        content_type = (resp.headers.get("Content-Type") or "").split(";")[0].lower()
+        if content_type and not (
+            content_type.startswith("image/")
+            or content_type == "application/octet-stream"
+        ):
+            logger.info("logo rejeitado por Content-Type %s para %s", content_type, raw[:80])
+            return None
         _LOGO_DIR.mkdir(parents=True, exist_ok=True)
-        ext = _ext_logo(raw, resp.headers.get("Content-Type") or "")
+        ext = _ext_logo(raw, content_type)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"cliente_{int(cliente_id)}_{ts}{ext}"
         filepath = _LOGO_DIR / filename
         total = 0
-        with open(filepath, "wb") as fh:
-            for chunk in resp.iter_content(chunk_size=8192):
-                if not chunk:
-                    continue
-                total += len(chunk)
-                if total > _LOGO_MAX_BYTES:
-                    fh.close()
-                    try:
-                        filepath.unlink()
-                    except OSError:
-                        pass
-                    logger.info("logo %s excedeu %s bytes", raw[:80], _LOGO_MAX_BYTES)
-                    return None
-                fh.write(chunk)
+        try:
+            with open(filepath, "wb") as fh:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > _LOGO_MAX_BYTES:
+                        raise ValueError("logo excedeu o limite de tamanho")
+                    fh.write(chunk)
+        except Exception:
+            try:
+                filepath.unlink()
+            except OSError:
+                pass
+            raise
         if total < 32:
             try:
                 filepath.unlink()

@@ -136,6 +136,20 @@ class WebScoutFirecrawlTest(unittest.TestCase):
             scout._firecrawl_scrape_com_variantes("cliente.com.br")
         self.assertEqual(scrape.call_count, 2)
 
+    @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_nao_expoe_erro_tecnico_do_segundo_host(self, scrape):
+        scrape.side_effect = [
+            RuntimeError("DNS resolution failed for hostname"),
+            RuntimeError("provider request id=secret-123 upstream failure"),
+        ]
+
+        with self.assertRaises(RuntimeError) as raised:
+            scout._firecrawl_scrape_com_variantes("cliente.com.br")
+
+        self.assertIn("com e sem www", str(raised.exception))
+        self.assertNotIn("secret-123", str(raised.exception))
+        self.assertEqual(scrape.call_count, 2)
+
     def test_branding_tem_prioridade_e_normaliza_url_relativa(self):
         result = scout._montar_registro(
             "cliente.com.br",

@@ -1216,6 +1216,44 @@ class CrmV3Repository:
             return []
         return [self._map_atividade(r) for r in rows]
 
+    def get_atividade(self, atividade_id: str) -> Optional[Dict[str, Any]]:
+        row = _db().obter_atividade_cliente_por_id(atividade_id)
+        return self._map_atividade(row) if row else None
+
+    def get_google_connection(self, user_id, include_token=False):
+        return _db().obter_conexao_google_usuario(user_id, incluir_token=include_token)
+
+    def save_activity_meeting(self, activity_id, user_id, starts_at, ends_at,
+                              timezone, attendees):
+        _db().salvar_reuniao_atividade(
+            activity_id, user_id, starts_at, ends_at, timezone, attendees
+        )
+        return self.get_activity_meeting(activity_id)
+
+    def get_activity_meeting(self, activity_id):
+        meeting = _db().obter_reuniao_atividade(activity_id)
+        if not meeting:
+            return None
+        return self._map_meeting(meeting)
+
+    def update_activity_meeting_sync(self, activity_id, status, event_id=None,
+                                     meet_url=None, error=None):
+        _db().atualizar_sync_reuniao(
+            activity_id, status, event_id=event_id, meet_url=meet_url, error=error
+        )
+        return self.get_activity_meeting(activity_id)
+
+    @staticmethod
+    def _map_meeting(meeting):
+        item = dict(meeting)
+        for field in ("starts_at", "ends_at", "last_synced_at"):
+            value = item.get(field)
+            item[field] = value.isoformat() if hasattr(value, "isoformat") else value
+        item["activity_id"] = str(item.get("activity_id"))
+        item["user_id"] = str(item.get("user_id"))
+        item["attendees"] = [dict(attendee) for attendee in item.get("attendees") or []]
+        return item
+
     def create_atividade(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
@@ -1566,6 +1604,13 @@ class CrmV3Repository:
             payload["nome_campanha"] = nome_campanha
         if "objetivo" in data:
             payload["objetivo_campanha"] = (data.get("objetivo") or "").strip()
+        for frontend_key, db_key in (
+            ("apresentacao_dados", "apresentacao_dados"),
+            ("premissas", "premissas"),
+            ("observacoes_gerais", "observacoes_gerais"),
+        ):
+            if frontend_key in data:
+                payload[db_key] = str(data.get(frontend_key) or "").strip()
         if "periodo_inicio" in data:
             payload["periodo_inicio"] = self._validate_iso_date(
                 data.get("periodo_inicio"), "periodo_inicio"
@@ -1617,18 +1662,37 @@ class CrmV3Repository:
             payload["tipo_comercial"] = normalizar_tipo_comercial(
                 data.get("tipo_comercial")
             )
-        agencia_raw = data.get("agencia_id")
-        if agencia_raw not in (None, ""):
+        for frontend_key, db_key in (
+            ("agencia_id", "agencia_id"),
+            ("client_user_id", "client_user_id"),
+            ("agencia_user_id", "agencia_user_id"),
+            ("id_parceiro", "id_parceiro"),
+            ("parceiro_user_id", "parceiro_user_id"),
+            ("responsavel_comercial", "responsavel_comercial"),
+        ):
+            if frontend_key not in data:
+                continue
+            raw_id = data.get(frontend_key)
+            if raw_id in (None, ""):
+                payload[db_key] = None
+                continue
             try:
-                payload["agencia_id"] = int(agencia_raw)
+                payload[db_key] = int(raw_id)
             except (TypeError, ValueError):
-                raise ValueError("agencia_id inválido")
-        responsavel_raw = data.get("responsavel_comercial")
-        if responsavel_raw not in (None, ""):
+                raise ValueError(f"{frontend_key} inválido")
+        for frontend_key, db_key in (
+            ("budget_estimado", "budget_estimado"),
+            ("frequencia_impacto", "frequencia_impacto"),
+        ):
+            if frontend_key not in data or data.get(frontend_key) in (None, ""):
+                continue
             try:
-                payload["responsavel_comercial"] = int(responsavel_raw)
+                value = float(data[frontend_key])
+                payload[db_key] = int(value) if frontend_key == "frequencia_impacto" else value
             except (TypeError, ValueError):
-                raise ValueError("responsavel_comercial inválido")
+                raise ValueError(f"{frontend_key} inválido")
+            if value < 0 or (frontend_key == "frequencia_impacto" and value < 1):
+                raise ValueError(f"{frontend_key} inválido")
         return payload
 
     def create_cotacao(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1788,6 +1852,11 @@ class CrmV3Repository:
             "data": data_display,
             "objetivo": row.get("objetivo_campanha") or "",
             "plataformas": plataformas,
+            "apresentacao_dados": row.get("apresentacao_dados") or "",
+            "budget_estimado": float(row.get("budget_estimado") or 0),
+            "frequencia_impacto": int(row.get("frequencia_impacto") or 3),
+            "premissas": row.get("premissas") or "",
+            "observacoes_gerais": row.get("observacoes_gerais") or "",
             "vendedor_nome": row.get("vendedor_nome") or "",
             "executivo_id": (
                 str(row.get("responsavel_comercial"))
@@ -1795,6 +1864,11 @@ class CrmV3Repository:
                 else ""
             ),
             "contato_nome": row.get("contato_nome") or "",
+            "client_user_id": str(row.get("client_user_id") or ""),
+            "agencia_id": str(row.get("agencia_id") or ""),
+            "agencia_user_id": str(row.get("agencia_user_id") or ""),
+            "id_parceiro": str(row.get("id_parceiro") or ""),
+            "parceiro_user_id": str(row.get("parceiro_user_id") or ""),
             "origem": row.get("origem") or "proprio",
             "cliente_nome": row.get("cliente_nome") or "",
             "cliente_final_nome": (

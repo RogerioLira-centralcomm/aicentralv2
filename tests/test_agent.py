@@ -40,7 +40,7 @@ class AgentContractsTest(unittest.TestCase):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
     def test_registry_contains_only_allowlisted_read_tools(self):
-        self.assertEqual(len(TOOLS), 17)
+        self.assertEqual(len(TOOLS), 20)
         self.assertIn("consultar_contato", TOOLS)
         self.assertIn("consultar_pi", TOOLS)
         self.assertIn("consultar_campanha", TOOLS)
@@ -49,8 +49,36 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("consultar_operacao_pi", TOOLS)
         self.assertIn("resumir_operacao", TOOLS)
         self.assertIn("preparar_alteracao_contato", TOOLS)
+        self.assertIn("listar_canais_plataformas", TOOLS)
+        self.assertIn("buscar_audiencias", TOOLS)
+        self.assertIn("listar_formatos", TOOLS)
         self.assertTrue(all(tool.operation_type == "read" for tool in TOOLS.values()))
         self.assertTrue(all(not tool.confirmation_required for tool in TOOLS.values()))
+
+    @patch("aicentralv2.agent.tools.commercial.db")
+    def test_catalog_tools_expose_platform_audience_and_format(self, mock_db):
+        mock_db.buscar_canais_plataformas.return_value = [{
+            "id": 3, "nome": "DV360", "canais": "Display, Vídeo",
+            "total_audiencias": 18,
+        }]
+        mock_db.buscar_audiencias.return_value = [{
+            "id": 8, "nome": "Intenção automotiva",
+            "plataforma_id": 3, "plataforma_nome": "DV360",
+            "perfil_socioeconomico": "AB", "cpm_venda": 12,
+        }]
+        mock_db.buscar_formatos_comerciais.return_value = [{
+            "nome": "Display 300x250", "tipo": "Formato", "total_usos": 9,
+        }]
+        self.assertEqual(
+            commercial.listar_canais_plataformas()["data"][0]["title"], "DV360"
+        )
+        self.assertEqual(
+            commercial.buscar_audiencias("automotiva")["data"][0]["platform"],
+            "DV360",
+        )
+        self.assertEqual(
+            commercial.listar_formatos()["data"][0]["usage_count"], 9
+        )
 
     @patch("aicentralv2.agent.tools.commercial.get_store")
     def test_global_client_search_exposes_responsible_and_safe_link(self, mock_store):
@@ -252,8 +280,13 @@ class AgentApiSecurityTest(unittest.TestCase):
         response = self.client.post("/api/agent/conversations", json={"context": {}})
         self.assertEqual(response.status_code, 403)
 
+    @patch("aicentralv2.agent.routes.db.obter_usuario_por_id")
     @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
-    def test_internal_bootstrap_returns_capability_and_token(self, _mock_list):
+    def test_internal_bootstrap_returns_capability_and_token(self, _mock_list, mock_user):
+        mock_user.return_value = {
+            "nome_completo": "Teste",
+            "foto_url": "/static/uploads/contatos/teste.jpg",
+        }
         with self.client.session_transaction() as session:
             session["user_id"] = 10
             session["user_name"] = "Teste"
@@ -264,9 +297,11 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertIn("commercial.read.assigned", data["capabilities"])
         self.assertNotIn("commercial.read.global", data["capabilities"])
         self.assertTrue(data["csrf_token"])
+        self.assertEqual(data["user"]["photo_url"], "/static/uploads/contatos/teste.jpg")
 
+    @patch("aicentralv2.agent.routes.db.obter_usuario_por_id", return_value={})
     @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
-    def test_admin_bootstrap_includes_global_commercial_access(self, _mock_list):
+    def test_admin_bootstrap_includes_global_commercial_access(self, _mock_list, _mock_user):
         with self.client.session_transaction() as session:
             session["user_id"] = 10
             session["is_centralcomm"] = True
@@ -538,6 +573,12 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertIn("dock.dataset.contextWall", agent_js)
         self.assertIn("mailto:", agent_js)
         self.assertIn("data-contact-confirm", agent_js)
+        self.assertIn("cx-agent-more-menu", shell)
+        self.assertIn("cx-agent-composer-suggestions", shell)
+        self.assertNotIn("data-agent-tab=\"actions\"", shell)
+        self.assertIn("appendMessage('assistant', String(content || ''), display)", agent_js)
+        self.assertIn("cx-agent-message-cards", agent_js)
+        self.assertNotIn("renderDisplay(body, display);", agent_js)
 
 
 if __name__ == "__main__":

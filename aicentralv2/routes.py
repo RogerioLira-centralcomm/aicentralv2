@@ -4398,6 +4398,95 @@ def init_routes(app):
             app.logger.error(f"Erro ao salvar imagem: {str(e)}")
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/perfil/google/conectar')
+    @login_required
+    def perfil_google_conectar():
+        """Inicia OAuth Google para Calendar/Meet da conta logada."""
+        from aicentralv2.services import google_calendar
+
+        try:
+            state = google_calendar.new_oauth_state()
+            session['google_oauth_state'] = state
+            return redirect(google_calendar.authorization_url(state))
+        except google_calendar.GoogleCalendarError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('index', perfil='google-error'))
+
+    @app.route('/perfil/google/callback')
+    @login_required
+    def perfil_google_callback():
+        """Valida OAuth e vincula a identidade Google ao usuário da sessão."""
+        import hmac
+        from aicentralv2.services import google_calendar
+
+        expected_state = session.pop('google_oauth_state', '')
+        received_state = request.args.get('state', '')
+        if not expected_state or not hmac.compare_digest(expected_state, received_state):
+            flash('A conexão Google expirou ou não pôde ser validada.', 'error')
+            return redirect(url_for('index', perfil='google-error'))
+        if request.args.get('error'):
+            flash('A conexão Google foi cancelada.', 'warning')
+            return redirect(url_for('index', perfil='google-cancelled'))
+        try:
+            identity = google_calendar.exchange_authorization_code(
+                request.args.get('code', '')
+            )
+            encrypted_token = google_calendar.encrypt_refresh_token(
+                identity['refresh_token']
+            )
+            db.salvar_conexao_google_usuario(
+                session['user_id'],
+                identity['google_sub'],
+                identity['google_email'],
+                encrypted_token,
+                identity['granted_scopes'],
+            )
+            flash('Google Calendar conectado com sucesso.', 'success')
+            return redirect(url_for('index', perfil='google-connected'))
+        except google_calendar.GoogleCalendarError as exc:
+            app.logger.warning('Conexão Google recusada: %s', exc)
+            flash(str(exc), 'error')
+            return redirect(url_for('index', perfil='google-error'))
+        except Exception:
+            app.logger.exception('Falha ao conectar Google Calendar')
+            flash('Não foi possível vincular esta conta Google.', 'error')
+            return redirect(url_for('index', perfil='google-error'))
+
+    @app.route('/api/perfil/google', methods=['GET'])
+    @client_accessible_api
+    def api_perfil_google():
+        try:
+            connection = db.obter_conexao_google_usuario(session['user_id'])
+        except Exception:
+            connection = None
+        return jsonify({
+            'success': True,
+            'connected': bool(connection and connection.get('status') == 'connected'),
+            'email': connection.get('google_email') if connection else None,
+        })
+
+    @app.route('/api/perfil/google', methods=['DELETE'])
+    @client_accessible_api
+    def api_perfil_google_desconectar():
+        from aicentralv2.services import google_calendar
+
+        connection = db.obter_conexao_google_usuario(
+            session['user_id'], incluir_token=True
+        )
+        if not connection:
+            return jsonify({'success': True, 'connected': False})
+        try:
+            google_calendar.revoke_refresh_token(
+                connection['encrypted_refresh_token']
+            )
+        except google_calendar.GoogleCalendarError:
+            app.logger.info(
+                'Token Google já estava revogado para usuário %s',
+                session['user_id'],
+            )
+        db.remover_conexao_google_usuario(session['user_id'])
+        return jsonify({'success': True, 'connected': False})
+
     @app.route('/api/perfil/foto', methods=['POST'])
     @login_required
     def api_perfil_foto():

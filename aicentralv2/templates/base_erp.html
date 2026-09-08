@@ -20,7 +20,7 @@
       navegador mesmo quando `npm run build` é rodado sem apontar para
       enterprise-system.css. Auto-contido, ordem depois do output.css.
     -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=15">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=17">
 
     <script>
     function setCookie(name, value, days) {
@@ -665,6 +665,7 @@
         {'group': 'Mídia e PI', 'label': 'Incentivos', 'endpoint': 'incentivos_lista', 'url': url_for('incentivos_lista'), 'icon': 'fa-percent'},
         {'group': 'Mídia e PI', 'label': 'Plataformas de campanha', 'endpoint': 'plataformas_campanha', 'url': url_for('plataformas_campanha'), 'icon': 'fa-bullhorn'},
         {'group': 'Mídia e PI', 'label': 'Modelagem de Criativos', 'endpoint': 'parametros.modelagem_criativos', 'url': url_for('parametros.modelagem_criativos'), 'icon': 'fa-photo-film'},
+        {'group': 'Mídia e PI', 'label': 'Integrações', 'endpoint': 'parametros.integracoes', 'url': url_for('parametros.integracoes'), 'icon': 'fa-plug-circle-bolt'},
         {'group': 'Operação e legado', 'label': 'Comissões', 'endpoint': 'cadu_pi_com_vendas_lista', 'url': url_for('cadu_pi_com_vendas_lista'), 'icon': 'fa-hand-holding-dollar'},
         {'group': 'Operação e legado', 'label': 'Cotações (legado)', 'endpoint': 'cotacoes_list', 'match_endpoints': ['cotacao_nova', 'cotacao_editar', 'cotacao_detalhes'], 'url': url_for('cotacoes_list'), 'icon': 'fa-file-invoice'},
         {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'match_prefix': 'intelligence.', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
@@ -932,6 +933,29 @@
                         <div><dt class="font-semibold uppercase tracking-wide text-slate-400">Tipo</dt><dd class="mt-1">{{ perfil_contato.user_type or session.get('user_type', '—') }}</dd></div>
                     </dl>
                 {% endif %}
+                <section class="rounded-xl border border-slate-200 bg-slate-50 p-3" aria-label="Google Calendar">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-slate-800"><i class="fa-brands fa-google mr-1" aria-hidden="true"></i>Google Calendar e Meet</p>
+                            {% if perfil_google and perfil_google.status == 'connected' %}
+                                <p class="mt-1 truncate text-xs text-slate-500">{{ perfil_google.google_email }}</p>
+                            {% else %}
+                                <p class="mt-1 text-xs text-slate-500">Conecte sua agenda para criar reuniões pelo CRM.</p>
+                            {% endif %}
+                        </div>
+                        {% if perfil_google and perfil_google.status == 'connected' %}
+                            <span class="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">Conectado</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <a href="{{ url_for('perfil_google_conectar') }}" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#1e4d4f]">
+                            {% if perfil_google %}Reconectar{% else %}Conectar Google{% endif %}
+                        </a>
+                        {% if perfil_google %}
+                            <button type="button" id="erp-google-disconnect" class="rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Desconectar</button>
+                        {% endif %}
+                    </div>
+                </section>
             </div>
             <form method="dialog" class="flex justify-end border-t border-slate-200 bg-slate-50 px-4 py-3">
                 <button class="rounded-lg bg-[#1e4d4f] px-4 py-2 text-sm font-semibold text-white">Fechar</button>
@@ -1062,6 +1086,34 @@
                 var modal = document.getElementById('modal-meu-perfil');
                 if (modal && typeof modal.showModal === 'function') modal.showModal();
             });
+        }
+        var googleDisconnect = document.getElementById('erp-google-disconnect');
+        if (googleDisconnect) {
+            googleDisconnect.addEventListener('click', function () {
+                window.showConfirm({
+                    title: 'Desconectar Google Calendar',
+                    message: 'Reuniões existentes não serão apagadas, mas o CRM deixará de sincronizar novos convites.',
+                    theme: 'danger',
+                    confirmText: 'Desconectar',
+                    onConfirm: function () {
+                        googleDisconnect.disabled = true;
+                        fetch('/api/perfil/google', { method: 'DELETE', credentials: 'same-origin' })
+                            .then(function (response) { return response.json(); })
+                            .then(function (data) {
+                                if (!data.success) throw new Error(data.error || 'Falha ao desconectar');
+                                window.location.reload();
+                            })
+                            .catch(function (error) {
+                                googleDisconnect.disabled = false;
+                                if (typeof showToast === 'function') showToast(error.message, 'error');
+                            });
+                    }
+                });
+            });
+        }
+        if (new URLSearchParams(window.location.search).has('perfil')) {
+            var profileModal = document.getElementById('modal-meu-perfil');
+            if (profileModal && typeof profileModal.showModal === 'function') profileModal.showModal();
         }
         (function initNavBuscaPi() {
             var input = document.getElementById('nav-busca-pi-input');
@@ -1293,7 +1345,7 @@
     <script src="{{ url_for('static', filename='js/cx_ui.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=2"></script>
     {% if is_centralcomm_user %}
-    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=5"></script>
+    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=6"></script>
     {% endif %}
 
     {% block scripts %}{% endblock %}

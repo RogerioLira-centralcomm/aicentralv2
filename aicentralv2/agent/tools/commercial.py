@@ -1,5 +1,6 @@
 """Consultas contextuais e propostas confirmáveis do Agente CentralX."""
 
+from ... import db
 from ...crm_v3_repository import get_store
 from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 from ...pi_operacao_service import PiOperacaoService
@@ -308,6 +309,55 @@ def consultar_cotacao(
     )
 
 
+def listar_canais_plataformas(query=None, limit=20, **_):
+    rows = db.buscar_canais_plataformas(query, min(limit, MAX_RESULTS))
+    items = [{
+        "title": item.get("nome") or "Plataforma",
+        "subtitle": " · ".join(filter(None, [
+            item.get("canais"),
+            f"{item.get('total_audiencias') or 0} audiência(s)",
+        ])),
+        "platform_id": item.get("id"),
+        "channels": item.get("canais") or "",
+        "audiences": item.get("total_audiencias") or 0,
+    } for item in rows]
+    return _ok(items, f"{len(items)} plataforma(s) e canal(is)", items)
+
+
+def buscar_audiencias(query, plataforma_id=None, limit=20, **_):
+    rows = db.buscar_audiencias(query, min(limit, MAX_RESULTS))
+    if plataforma_id not in (None, ""):
+        rows = [
+            item for item in rows
+            if str(item.get("plataforma_id") or "") == str(plataforma_id)
+        ]
+    items = [{
+        "title": item.get("nome") or "Audiência",
+        "subtitle": " · ".join(filter(None, [
+            item.get("plataforma_nome") or item.get("fonte"),
+            item.get("perfil_socioeconomico"),
+        ])),
+        "platform": item.get("plataforma_nome") or item.get("fonte") or "",
+        "cpm_sale": _number(item.get("cpm_venda")),
+        "cpm_cost": _number(item.get("cpm_custo")),
+    } for item in rows[:min(limit, MAX_RESULTS)]]
+    return _ok(items, f"{len(items)} audiência(s) do CADU", items)
+
+
+def listar_formatos(query=None, limit=20, **_):
+    rows = db.buscar_formatos_comerciais(query, min(limit, MAX_RESULTS))
+    items = [{
+        "title": item.get("nome") or "Formato",
+        "subtitle": " · ".join(filter(None, [
+            item.get("tipo"),
+            f"{item.get('total_usos') or 0} uso(s)",
+        ])),
+        "format_type": item.get("tipo") or "",
+        "usage_count": item.get("total_usos") or 0,
+    } for item in rows]
+    return _ok(items, f"{len(items)} formato(s) comercial(is)", items)
+
+
 def _pi_item(item):
     return {
         "type": "pi",
@@ -319,6 +369,7 @@ def _pi_item(item):
         "status": item.get("sub_status_descricao") or "",
         "value": _number(item.get("vr_bruto_pi")),
         "responsible": item.get("responsavel_comercial_nome") or "",
+        "responsible_photo": item.get("responsavel_comercial_foto_url") or "",
         "period": " a ".join(filter(None, [
             str(item.get("periodo_inicio") or ""),
             str(item.get("periodo_fim") or ""),
@@ -386,6 +437,7 @@ def _campaign_item(item):
         "status": item.get("status_descricao") or "",
         "platform": item.get("plataforma_nome") or "",
         "responsible": item.get("responsavel_operacao_nome") or "",
+        "responsible_photo": item.get("responsavel_operacao_foto_url") or "",
         "contracted": contracted,
         "achieved": achieved,
         "delivery_percent": _percentage(achieved, contracted),

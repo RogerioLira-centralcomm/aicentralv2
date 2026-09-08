@@ -8,7 +8,8 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 from flask import Blueprint, current_app, g, jsonify, render_template, request, session, url_for
 
 from .auth import admin_required_api, login_required, login_required_api
-from .crm_v3_helpers import parse_texto_contatos, texto_sem_markdown
+from .cotacao_tipos import destino_tipo_comercial, normalizar_tipo_comercial
+from .crm_v3_helpers import normalizar_telefone, parse_texto_contatos, texto_sem_markdown
 from .crm_v3_repository import StoreUnavailable, get_store, store_diagnostic
 
 
@@ -175,6 +176,23 @@ def _ok(data=None, **extra):
 
 def _err(message, status=400):
     return jsonify({"success": False, "error": message}), status
+
+
+def _cotacao_redirect_url(cotacao):
+    if not cotacao or not cotacao.get("id"):
+        return None
+    endpoint, sufixo = destino_tipo_comercial(cotacao.get("tipo_comercial"))
+    try:
+        return url_for(endpoint, cotacao_id=cotacao["id"])
+    except Exception:  # blueprint reduzido em testes e desenvolvimento
+        return f"/cotacoes/{cotacao['id']}/{sufixo}"
+
+
+def _cotacao_com_url(cotacao):
+    if not isinstance(cotacao, dict):
+        return cotacao
+    cotacao["detalhes_url"] = _cotacao_redirect_url(cotacao)
+    return cotacao
 
 
 @bp.route("/")
@@ -419,6 +437,99 @@ def api_atividades(cliente_id):
     return _ok(items, atividades=items)
 
 
+def _meeting_draft(activity, payload):
+    from datetime import datetime, timedelta
+    from email.utils import parseaddr
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    if activity.get("tipo") != "reuniao":
+        raise ValueError("A agenda Google exige uma atividade do tipo reunião.")
+    date_value = activity.get("data")
+    time_value = activity.get("hora")
+    if not date_value or not time_value:
+        raise ValueError("Informe data e hora para agendar a reunião.")
+    timezone = str(payload.get("timezone") or "America/Sao_Paulo").strip()
+    try:
+        tz = ZoneInfo(timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError("Fuso horário inválido.") from exc
+    try:
+        starts_at = datetime.fromisoformat(f"{date_value}T{time_value}").replace(tzinfo=tz)
+        duration = int(payload.get("duration_minutes") or 30)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Data, hora ou duração inválida.") from exc
+    if duration < 15 or duration > 480:
+        raise ValueError("A duração deve ficar entre 15 e 480 minutos.")
+
+    attendees = []
+    seen = set()
+    for raw in (payload.get("attendees") or [])[:50]:
+        if not isinstance(raw, dict):
+            continue
+        email = parseaddr(str(raw.get("email") or "").strip())[1].lower()
+        if not email or "@" not in email or email in seen:
+            continue
+        seen.add(email)
+        source = raw.get("source") if raw.get("source") in (
+            "contact", "manual", "internal"
+        ) else "manual"
+        attendees.append({
+            "name": texto_sem_markdown(raw.get("name") or "").strip()[:255],
+            "email": email[:320],
+            "source": source,
+        })
+    return store.save_activity_meeting(
+        activity["id"],
+        session["user_id"],
+        starts_at,
+        starts_at + timedelta(minutes=duration),
+        timezone,
+        attendees,
+    )
+
+
+def _sync_meeting(activity, meeting):
+    from .services import google_calendar
+
+    if str(meeting.get("user_id")) != str(session.get("user_id")):
+        raise PermissionError("Somente o organizador pode sincronizar esta reunião.")
+    connection = store.get_google_connection(session["user_id"], include_token=True)
+    if not connection or connection.get("status") != "connected":
+        return store.update_activity_meeting_sync(
+            activity["id"], "error",
+            error="Conecte o Google Calendar no seu perfil para criar o Meet.",
+        )
+    store.update_activity_meeting_sync(activity["id"], "syncing", error=None)
+    try:
+        result = google_calendar.sync_event(
+            activity, meeting, connection["encrypted_refresh_token"]
+        )
+        return store.update_activity_meeting_sync(
+            activity["id"],
+            "synced",
+            event_id=result["event_id"],
+            meet_url=result.get("meet_url"),
+            error=None,
+        )
+    except google_calendar.GoogleCalendarError as exc:
+        current_app.logger.warning(
+            "Falha Google Calendar atividade=%s: %s", activity["id"], exc
+        )
+        return store.update_activity_meeting_sync(
+            activity["id"], "error", error=str(exc)[:1000]
+        )
+
+
+def _apply_meeting_payload(activity, data):
+    payload = data.get("meeting")
+    if not isinstance(payload, dict):
+        return None
+    meeting = _meeting_draft(activity, payload)
+    if payload.get("sync_google"):
+        meeting = _sync_meeting(activity, meeting)
+    return meeting
+
+
 @bp.route("/api/clientes/<cliente_id>/atividades", methods=["POST"])
 @login_required_api
 def api_create_atividade(cliente_id):
@@ -427,7 +538,10 @@ def api_create_atividade(cliente_id):
         ativ = store.create_atividade(cliente_id, data)
         if ativ is None:
             return _err("Cliente não encontrado", 404)
-        return _ok(ativ, atividade=ativ), 201
+        meeting = _apply_meeting_payload(ativ, data)
+        if meeting:
+            ativ["meeting"] = meeting
+        return _ok(ativ, atividade=ativ, meeting=meeting), 201
     except ValueError as e:
         return _err(str(e))
 
@@ -479,9 +593,63 @@ def api_update_atividade(atividade_id):
         ativ, cliente_id = store.update_atividade(atividade_id, data)
         if not ativ:
             return _err("Atividade não encontrada", 404)
-        return _ok(ativ, atividade=ativ, cliente_id=cliente_id)
+        meeting = _apply_meeting_payload(ativ, data)
+        if meeting:
+            ativ["meeting"] = meeting
+        return _ok(ativ, atividade=ativ, cliente_id=cliente_id, meeting=meeting)
     except ValueError as e:
         return _err(str(e))
+
+
+@bp.route("/api/atividades/<atividade_id>/reuniao")
+@login_required_api
+def api_get_activity_meeting(atividade_id):
+    activity = store.get_atividade(atividade_id)
+    if not activity:
+        return _err("Atividade não encontrada", 404)
+    meeting = store.get_activity_meeting(atividade_id)
+    return _ok(meeting, meeting=meeting)
+
+
+@bp.route("/api/atividades/<atividade_id>/reuniao/sincronizar", methods=["POST"])
+@login_required_api
+def api_sync_activity_meeting(atividade_id):
+    activity = store.get_atividade(atividade_id)
+    meeting = store.get_activity_meeting(atividade_id)
+    if not activity or not meeting:
+        return _err("Reunião não encontrada", 404)
+    try:
+        synced = _sync_meeting(activity, meeting)
+        return _ok(synced, meeting=synced)
+    except PermissionError as exc:
+        return _err(str(exc), 403)
+
+
+@bp.route("/api/atividades/<atividade_id>/reuniao/evento", methods=["DELETE"])
+@login_required_api
+def api_cancel_activity_meeting(atividade_id):
+    from .services import google_calendar
+
+    meeting = store.get_activity_meeting(atividade_id)
+    if not meeting:
+        return _err("Reunião não encontrada", 404)
+    if str(meeting.get("user_id")) != str(session.get("user_id")):
+        return _err("Somente o organizador pode cancelar esta reunião.", 403)
+    connection = store.get_google_connection(session["user_id"], include_token=True)
+    if meeting.get("google_event_id") and connection:
+        try:
+            google_calendar.cancel_event(
+                meeting, connection["encrypted_refresh_token"]
+            )
+        except google_calendar.GoogleCalendarError as exc:
+            store.update_activity_meeting_sync(
+                atividade_id, "error", error=str(exc)[:1000]
+            )
+            return _err(str(exc), 502)
+    cancelled = store.update_activity_meeting_sync(
+        atividade_id, "cancelled", error=None
+    )
+    return _ok(cancelled, meeting=cancelled)
 
 
 @bp.route("/api/atividades/<atividade_id>", methods=["DELETE"])
@@ -543,6 +711,7 @@ def api_cotacoes(cliente_id):
     items = store.list_cotacoes(cliente_id)
     if items is None:
         return _err("Cliente não encontrado", 404)
+    items = [_cotacao_com_url(item) for item in items]
     return _ok(items, cotacoes=items)
 
 
@@ -576,26 +745,8 @@ def api_create_cotacao(cliente_id):
         cotacao = store.create_cotacao(cliente_id, request.get_json(silent=True) or {})
         if cotacao is None:
             return _err("Cliente não encontrado", 404)
-        redirect_url = None
-        cot_id = cotacao.get("id") if isinstance(cotacao, dict) else None
-        if cot_id:
-            try:
-                # Rota do módulo legado — mantém a URL estável independente
-                # de refactors internos do CRM v3.
-                endpoint = (
-                    "cotacoes.cotacao_detalhes"
-                    if cotacao.get("tipo_comercial", "midia") == "midia"
-                    else "cotacoes.cotacao_editar"
-                )
-                redirect_url = url_for(endpoint, cotacao_id=cot_id)
-            except Exception:  # noqa: BLE001 — rota ausente em testes/dev sem blueprint
-                sufixo = (
-                    "detalhes"
-                    if cotacao.get("tipo_comercial", "midia") == "midia"
-                    else "editar"
-                )
-                redirect_url = f"/cotacoes/{cot_id}/{sufixo}"
-            cotacao["detalhes_url"] = redirect_url
+        cotacao = _cotacao_com_url(cotacao)
+        redirect_url = cotacao.get("detalhes_url")
         payload = {"cotacao": cotacao}
         if redirect_url:
             payload["redirect_url"] = redirect_url
@@ -613,9 +764,49 @@ def api_update_cotacao(cotacao_id):
         )
         if cotacao is None:
             return _err("Cotação não encontrada", 404)
-        return _ok(cotacao, cotacao=cotacao, cliente_id=cliente_id)
+        cotacao = _cotacao_com_url(cotacao)
+        return _ok(
+            cotacao,
+            cotacao=cotacao,
+            cliente_id=cliente_id,
+            redirect_url=cotacao.get("detalhes_url"),
+        )
     except ValueError as e:
         return _err(str(e))
+
+
+@bp.route("/api/cotacoes/<cotacao_id>/briefing", methods=["POST"])
+@login_required_api
+def api_upload_cotacao_briefing(cotacao_id):
+    cotacao = store.get_cotacao(cotacao_id)
+    if not cotacao:
+        return _err("Cotação não encontrada", 404)
+    arquivo = request.files.get("arquivo")
+    if not arquivo or not arquivo.filename:
+        return _err("Selecione um arquivo de briefing")
+    from .cotacoes_routes import (
+        BRIEFING_EXTENSOES_PERMITIDAS,
+        BRIEFING_MAX_BYTES,
+        DESCRICAO_ANEXO_BRIEFING,
+        _salvar_file_storage_como_anexo_cotacao,
+    )
+    import os
+
+    extensao = os.path.splitext(arquivo.filename)[1].lower()
+    if extensao not in BRIEFING_EXTENSOES_PERMITIDAS:
+        return _err("Formato de briefing não permitido")
+    arquivo.seek(0, os.SEEK_END)
+    tamanho = arquivo.tell()
+    arquivo.seek(0)
+    if tamanho > BRIEFING_MAX_BYTES:
+        return _err("Briefing excede o limite de 10 MB")
+    anexo_id = _salvar_file_storage_como_anexo_cotacao(
+        int(cotacao_id),
+        arquivo,
+        DESCRICAO_ANEXO_BRIEFING,
+        session.get("user_id"),
+    )
+    return _ok(anexo_id=anexo_id)
 
 
 @bp.route("/api/cotacoes/<cotacao_id>", methods=["DELETE"])
@@ -861,6 +1052,16 @@ def _texto_ia_limpo(texto) -> str:
     return texto_sem_markdown(texto or "")
 
 
+def _dados_canal_contato(contato: dict) -> dict:
+    contato = contato or {}
+    return {
+        "telefone": normalizar_telefone(
+            contato.get("telefone") or contato.get("telefone_secundario")
+        ),
+        "email": str(contato.get("email") or "").strip().lower(),
+    }
+
+
 def _contexto_ia(data: dict, profile: str) -> dict:
     cliente_id = str(data.get("cliente_id") or "").strip()
     if not cliente_id:
@@ -959,6 +1160,47 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
     )
 
 
+def _abordagem_ligacao_fallback(titulo, cliente, contato=None) -> dict:
+    nome_cliente = (cliente or {}).get("nome") or "o cliente"
+    nome_contato = (contato or {}).get("nome") or "responsável"
+    objetivo = (titulo or "retomar o relacionamento comercial").strip()
+    abertura = (
+        f"Olá {nome_contato}, aqui é a CentralComm. "
+        f"Quero conversar brevemente sobre {objetivo.lower()}."
+    )
+    perguntas = [
+        f"Como este tema está sendo tratado hoje na {nome_cliente}?",
+        "Quais prioridades ou resultados precisam ser atendidos primeiro?",
+        "Existe alguma restrição de prazo, verba ou aprovação que devemos considerar?",
+        "Quem mais precisa participar da próxima conversa?",
+        "Qual próximo passo faria sentido combinarmos agora?",
+    ]
+    fechamento = (
+        "Recapitule o que foi entendido, confirme responsáveis e combine "
+        "uma próxima ação com data."
+    )
+    texto = (
+        f"Abertura:\n{abertura}\n\nPerguntas:\n- "
+        + "\n- ".join(perguntas)
+        + f"\n\nFechamento:\n{fechamento}"
+    )
+    return {
+        "objetivo": objetivo,
+        "abertura": abertura,
+        "perguntas": perguntas,
+        "objecoes_a_explorar": [
+            "Prioridade concorrente ou ausência de urgência.",
+            "Prazo, verba ou processo de aprovação ainda indefinidos.",
+        ],
+        "pontos_de_atencao": [
+            "Ouvir antes de apresentar a solução.",
+            "Não presumir orçamento ou decisão.",
+        ],
+        "fechamento": fechamento,
+        "texto": texto,
+    }
+
+
 def _montar_roteiro(data: dict) -> dict:
     """Gera roteiro sem reutilizar o campo de descrição editável."""
     titulo = texto_sem_markdown(data.get("titulo") or "").strip()
@@ -1005,20 +1247,58 @@ def _montar_roteiro(data: dict) -> dict:
                 user += f"Instrução adicional do executivo:\n{instrucoes}\n"
             system_prompt = (
                 "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
-                "Sua tarefa NÃO é enfeitar texto: é ajudar o executivo a EXECUTAR a atividade.\n"
+                "Crie um guia prático para ligação ou reunião, não uma mensagem pronta.\n"
                 "Não invente dados e priorize o estágio da oportunidade, objetivos, última interação e decisor.\n"
                 "Retorne APENAS JSON válido no formato "
-                '{"texto":"roteiro em texto puro, máximo 220 palavras",'
+                '{"abertura":"abertura curta e natural",'
+                '"objetivo":"resultado esperado desta conversa",'
+                '"perguntas":["pergunta aberta e específica"],'
+                '"objecoes_a_explorar":["objeção que deve ser investigada, sem presumir que existe"],'
+                '"pontos_de_atencao":["ponto verificável"],'
+                '"fechamento":"próximo passo objetivo",'
                 '"motivo":"por que este roteiro é adequado agora",'
                 '"contexto_utilizado":["dado verificável 1","dado verificável 2"]}. '
-                "O texto deve conter Objetivo, Roteiro e Fechamento. Sem markdown."
+                "Crie de 4 a 6 perguntas. Sem markdown."
             )
             parsed = _parse_ia_json(
                 _call_openrouter(system_prompt, user, max_tokens=650, temperature=0.35),
-                required=("texto", "motivo"),
+                required=("abertura", "perguntas", "fechamento", "motivo"),
+            )
+            perguntas = [
+                _texto_ia_limpo(item)
+                for item in (parsed.get("perguntas") or [])[:6]
+                if _texto_ia_limpo(item)
+            ]
+            if not perguntas:
+                perguntas = _abordagem_ligacao_fallback(
+                    titulo, cliente, contato
+                )["perguntas"]
+            pontos = [
+                _texto_ia_limpo(item)
+                for item in (parsed.get("pontos_de_atencao") or [])[:4]
+                if _texto_ia_limpo(item)
+            ]
+            objecoes = [
+                _texto_ia_limpo(item)
+                for item in (parsed.get("objecoes_a_explorar") or [])[:4]
+                if _texto_ia_limpo(item)
+            ]
+            abertura = _texto_ia_limpo(parsed["abertura"])
+            fechamento = _texto_ia_limpo(parsed["fechamento"])
+            objetivo_saida = _texto_ia_limpo(parsed.get("objetivo")) or titulo
+            texto = (
+                f"Abertura:\n{abertura}\n\nPerguntas:\n- "
+                + "\n- ".join(perguntas)
+                + f"\n\nFechamento:\n{fechamento}"
             )
             return {
-                "texto": _texto_ia_limpo(parsed["texto"]),
+                "texto": texto,
+                "objetivo": objetivo_saida,
+                "abertura": abertura,
+                "perguntas": perguntas,
+                "objecoes_a_explorar": objecoes,
+                "pontos_de_atencao": pontos,
+                "fechamento": fechamento,
                 "motivo": _texto_ia_limpo(parsed["motivo"]),
                 "contexto_utilizado": [
                     _texto_ia_limpo(x) for x in (parsed.get("contexto_utilizado") or [])[:5]
@@ -1027,8 +1307,9 @@ def _montar_roteiro(data: dict) -> dict:
             }
         except Exception as exc:
             _log_provider_failure("gerar-roteiro", exc)
+    fallback = _abordagem_ligacao_fallback(titulo, cliente, contato)
     return {
-        "texto": _roteiro_fallback(titulo, tipo, cliente, contato, foco, tom),
+        **fallback,
         "motivo": "Roteiro seguro baseado no tipo, foco e classificação disponíveis.",
         "contexto_utilizado": ["cliente", "contato selecionado", "foco e tom"],
         "source": "fallback",
@@ -1085,13 +1366,124 @@ def api_ia_gerar_roteiro():
     if not str(data.get("titulo") or "").strip():
         return _err("Informe o título da atividade para gerar o roteiro", 400)
     out = _montar_roteiro(data)
+    contato, _ = _contato_para_ia(data, str(data.get("cliente_id") or ""))
+    dados_canal = _dados_canal_contato(contato)
     return _ok(_registrar_saida_ia(data, "gerar-roteiro", {
         "texto": out["texto"],
         "descricao": out["texto"],
+        "abertura": out.get("abertura"),
+        "objetivo": out.get("objetivo"),
+        "perguntas": out.get("perguntas") or [],
+        "objecoes_a_explorar": out.get("objecoes_a_explorar") or [],
+        "pontos_de_atencao": out.get("pontos_de_atencao") or [],
+        "fechamento": out.get("fechamento"),
+        "tipo": "reuniao" if str(data.get("tipo") or "").lower() == "reuniao" else "ligacao",
+        "contato": contato,
+        **dados_canal,
         "motivo": out.get("motivo"),
         "contexto_utilizado": out.get("contexto_utilizado") or [],
         "source": out["source"],
     }))
+
+
+def _normalizar_sugestao_cotacao(sugestao, data, cliente):
+    hoje = date.today()
+    nome_cliente = (cliente or {}).get("nome") or "Cliente"
+    tipo = normalizar_tipo_comercial(
+        sugestao.get("tipo_comercial") or data.get("tipo_comercial"),
+        estrito=False,
+    )
+    inicio = _texto_ia_limpo(sugestao.get("periodo_inicio")) or hoje.isoformat()
+    fim = _texto_ia_limpo(sugestao.get("periodo_fim")) or (hoje + timedelta(days=30)).isoformat()
+    budget = sugestao.get("budget_estimado")
+    try:
+        budget = float(budget) if budget not in (None, "") else None
+    except (TypeError, ValueError):
+        budget = None
+    plataformas = sugestao.get("plataformas") or []
+    if isinstance(plataformas, str):
+        plataformas = [item.strip() for item in plataformas.split(",") if item.strip()]
+    return {
+        "tipo_comercial": tipo,
+        "nome_campanha": _texto_ia_limpo(sugestao.get("nome_campanha"))
+        or f"Proposta {nome_cliente}",
+        "objetivo": _texto_ia_limpo(sugestao.get("objetivo"))
+        or _texto_ia_limpo(data.get("objetivo")),
+        "periodo_inicio": inicio,
+        "periodo_fim": fim,
+        "budget_estimado": budget,
+        "plataformas": plataformas[:8],
+        "apresentacao_dados": _texto_ia_limpo(sugestao.get("apresentacao_dados")),
+        "motivo": _texto_ia_limpo(sugestao.get("motivo"))
+        or "Estrutura inicial baseada nos dados disponíveis do cliente.",
+        "contexto_utilizado": [
+            _texto_ia_limpo(item)
+            for item in (sugestao.get("contexto_utilizado") or [])[:5]
+            if _texto_ia_limpo(item)
+        ],
+        "source": sugestao.get("source") or "fallback",
+    }
+
+
+@bp.route("/api/ia/sugerir-cotacao", methods=["POST"])
+@login_required_api
+def api_ia_sugerir_cotacao():
+    data = request.get_json(silent=True) or {}
+    cliente_id = str(data.get("cliente_id") or "").strip()
+    cliente = store.get_cliente(cliente_id) if cliente_id else None
+    if not cliente:
+        return _err("Selecione o cliente antes de pedir uma sugestão")
+
+    if _openrouter_available():
+        try:
+            system_prompt = (
+                "Você prepara o início de uma proposta comercial da CENTRALCOMM. "
+                "Use somente fatos presentes no contexto; não invente budget, canais ou briefing. "
+                "Retorne APENAS JSON com: "
+                '{"tipo_comercial":"midia|parceiros|formatos_interativos|dados",'
+                '"nome_campanha":"...","objetivo":"...","periodo_inicio":"YYYY-MM-DD",'
+                '"periodo_fim":"YYYY-MM-DD","budget_estimado":null,'
+                '"plataformas":[],"apresentacao_dados":"...","motivo":"...",'
+                '"contexto_utilizado":["..."]}.'
+            )
+            prompt = (
+                f"CONTEXTO COMERCIAL:\n{_contexto_ia_json(data, 'next_action')}\n\n"
+                "Prepare apenas um ponto de partida curto e revisável para o executivo."
+            )
+            sugestao = _parse_ia_json(
+                _call_openrouter(system_prompt, prompt, max_tokens=750, temperature=0.25),
+                required=("tipo_comercial", "nome_campanha", "motivo"),
+            )
+            sugestao["source"] = "openrouter"
+            normalizada = _normalizar_sugestao_cotacao(sugestao, data, cliente)
+            return _ok(normalizada, sugestao=normalizada)
+        except Exception as exc:
+            _log_provider_failure("sugerir-cotacao", exc)
+
+    classificacao = cliente.get("classificacao_cliente") or "sem classificação"
+    fallback = _normalizar_sugestao_cotacao(
+        {
+            "tipo_comercial": data.get("tipo_comercial") or "midia",
+            "nome_campanha": data.get("nome_campanha")
+            or f"Proposta {cliente.get('nome') or 'cliente'}",
+            "objetivo": data.get("objetivo") or "",
+            "budget_estimado": data.get("budget_estimado") or None,
+            "plataformas": data.get("plataformas") or [],
+            "apresentacao_dados": data.get("apresentacao_dados") or "",
+            "motivo": (
+                "O rascunho mantém apenas os dados confirmados e abre espaço "
+                "para completar escopo e cálculo na próxima tela."
+            ),
+            "contexto_utilizado": [
+                "cliente selecionado",
+                f"classificação: {classificacao}",
+            ],
+            "source": "fallback",
+        },
+        data,
+        cliente,
+    )
+    return _ok(fallback, sugestao=fallback)
 
 
 @bp.route("/api/ia/sugerir-atividade", methods=["POST"])
@@ -1242,6 +1634,7 @@ def api_ia_gerar_comunicacao():
     ).strip()
 
     contato_principal, contatos = _contato_para_ia(data, cliente_id)
+    dados_canal = _dados_canal_contato(contato_principal)
 
     if _openrouter_available() and cliente and objetivo:
         try:
@@ -1275,6 +1668,7 @@ def api_ia_gerar_comunicacao():
                 "contexto_utilizado": parsed.get("contexto_utilizado") or [],
                 "tipo": tipo,
                 "contato": contato_principal,
+                **dados_canal,
                 "source": "openrouter",
             }
             return _ok(_registrar_saida_ia(data, "gerar-comunicacao", saida))
@@ -1283,23 +1677,31 @@ def api_ia_gerar_comunicacao():
 
     # Fallback determinístico
     nome_cliente = (cliente or {}).get("nome") or "cliente"
-    responsavel = (cliente or {}).get("responsavel") or "Executivo CentralX"
+    responsavel = (
+        session.get("user_name")
+        or (cliente or {}).get("responsavel")
+        or "Equipe CentralComm"
+    )
     nome_contato = contato_principal.get("nome") if contato_principal else "responsável"
     assunto = f"Follow-up comercial — {nome_cliente}"
+    contexto_atividade = objetivo or "retomar o relacionamento comercial"
     if tipo == "whatsapp":
         mensagem = (
             f"Oi {nome_contato}, aqui é {responsavel} da CentralComm.\n\n"
-            f"Queria retomar o alinhamento com a {nome_cliente}. "
-            "Temos um próximo passo claro e gostaria de confirmar um horário rápido esta semana.\n\n"
-            "Pode ser?"
+            f"Queria falar sobre {contexto_atividade}. "
+            f"Preparei este contato considerando o momento da {nome_cliente} "
+            "e gostaria de alinhar o próximo passo.\n\n"
+            "Faz sentido conversarmos rapidamente esta semana?"
         )
     else:
         mensagem = (
             f"Olá {nome_contato},\n\n"
-            f"Aqui é {responsavel}, da CentralComm. Passando para retomar nosso alinhamento "
-            f"sobre a agenda comercial da {nome_cliente}. Preparei um resumo dos próximos "
-            "passos e gostaria de propor uma rápida reunião para alinharmos prioridades.\n\n"
-            "Posso reservar 30 minutos na sua agenda esta semana?\n\n"
+            f"Aqui é {responsavel}, da CentralComm.\n\n"
+            f"Estou entrando em contato para tratar de {contexto_atividade}. "
+            f"Considerei o momento comercial da {nome_cliente} e organizei os pontos "
+            "principais para avançarmos com clareza.\n\n"
+            "Gostaria de entender sua disponibilidade e combinar o próximo passo. "
+            "Podemos reservar uma conversa breve nesta semana?\n\n"
             "Abraço,\n"
             f"{responsavel}\nCentralComm"
         )
@@ -1310,6 +1712,7 @@ def api_ia_gerar_comunicacao():
         "contexto_utilizado": ["cliente", "contato selecionado", "canal"],
         "tipo": tipo,
         "contato": contato_principal,
+        **dados_canal,
         "source": "fallback",
     }))
 

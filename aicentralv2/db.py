@@ -3515,10 +3515,15 @@ def buscar_audiencias(termo, limite=20):
                 FROM cadu_audiencias a
                 LEFT JOIN cadu_audiencias_plataformas p ON a.plataforma_id = p.id
                 WHERE a.is_active = true
-                  AND (LOWER(a.nome) LIKE LOWER(%s) OR LOWER(a.slug) LIKE LOWER(%s))
+                  AND (
+                      LOWER(a.nome) LIKE LOWER(%s)
+                      OR LOWER(a.slug) LIKE LOWER(%s)
+                      OR COALESCE(a.perfil_socioeconomico, '') ILIKE %s
+                      OR COALESCE(p.nome, '') ILIKE %s
+                  )
                 ORDER BY a.nome
                 LIMIT %s
-            ''', (pattern, pattern, limite))
+            ''', (pattern, pattern, pattern, pattern, limite))
             return cursor.fetchall()
     except Exception as e:
         raise e
@@ -6084,6 +6089,296 @@ def obter_atividade_cliente_por_id(atividade_id):
             (atividade_id,),
         )
         return cur.fetchone()
+
+
+# ---------- Google Calendar/Meet por usuário ----------
+
+def obter_credencial_integracao(provider, incluir_segredo=False):
+    conn = get_db()
+    with conn.cursor() as cur:
+        secret_field = ", encrypted_secret" if incluir_segredo else ""
+        cur.execute(
+            f"""
+            SELECT provider, public_config, status, last_validation_status,
+                   last_validation_message, last_validated_at, updated_by,
+                   created_at, updated_at{secret_field}
+              FROM system_integration_credentials
+             WHERE provider = %s
+            """,
+            (provider,),
+        )
+        return cur.fetchone()
+
+
+def listar_credenciais_integracoes():
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT provider, public_config, status, last_validation_status,
+                   last_validation_message, last_validated_at, updated_by,
+                   created_at, updated_at,
+                   (encrypted_secret IS NOT NULL AND encrypted_secret <> '') AS has_secret
+              FROM system_integration_credentials
+             ORDER BY provider
+            """
+        )
+        return cur.fetchall() or []
+
+
+def salvar_credencial_integracao(provider, public_config, encrypted_secret,
+                                 updated_by, status="active"):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO system_integration_credentials (
+                    provider, public_config, encrypted_secret, status, updated_by
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (provider) DO UPDATE SET
+                    public_config = EXCLUDED.public_config,
+                    encrypted_secret = COALESCE(
+                        EXCLUDED.encrypted_secret,
+                        system_integration_credentials.encrypted_secret
+                    ),
+                    status = EXCLUDED.status,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = NOW()
+                RETURNING provider
+                """,
+                (
+                    provider,
+                    Json(public_config or {}),
+                    encrypted_secret,
+                    status,
+                    int(updated_by) if updated_by else None,
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def atualizar_validacao_credencial_integracao(provider, status, message):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE system_integration_credentials SET
+                    last_validation_status = %s,
+                    last_validation_message = %s,
+                    last_validated_at = NOW(),
+                    updated_at = NOW()
+                 WHERE provider = %s
+                RETURNING provider
+                """,
+                (status, message, provider),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def remover_credencial_integracao(provider):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM system_integration_credentials "
+                "WHERE provider = %s RETURNING provider",
+                (provider,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_conexao_google_usuario(user_id, incluir_token=False):
+    conn = get_db()
+    with conn.cursor() as cur:
+        token_field = ", encrypted_refresh_token" if incluir_token else ""
+        cur.execute(
+            f"""
+            SELECT user_id, google_sub, google_email, granted_scopes, status,
+                   token_updated_at, created_at, updated_at{token_field}
+              FROM user_google_connections
+             WHERE user_id = %s
+            """,
+            (int(user_id),),
+        )
+        return cur.fetchone()
+
+
+def salvar_conexao_google_usuario(user_id, google_sub, google_email,
+                                  encrypted_refresh_token, granted_scopes):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO user_google_connections (
+                    user_id, google_sub, google_email, encrypted_refresh_token,
+                    granted_scopes, status
+                ) VALUES (%s, %s, %s, %s, %s, 'connected')
+                ON CONFLICT (user_id) DO UPDATE SET
+                    google_sub = EXCLUDED.google_sub,
+                    google_email = EXCLUDED.google_email,
+                    encrypted_refresh_token = EXCLUDED.encrypted_refresh_token,
+                    granted_scopes = EXCLUDED.granted_scopes,
+                    status = 'connected',
+                    token_updated_at = NOW(),
+                    updated_at = NOW()
+                RETURNING user_id
+                """,
+                (
+                    int(user_id), google_sub, google_email,
+                    encrypted_refresh_token, granted_scopes,
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def remover_conexao_google_usuario(user_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM user_google_connections WHERE user_id = %s RETURNING user_id",
+                (int(user_id),),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def salvar_reuniao_atividade(activity_id, user_id, starts_at, ends_at,
+                             timezone, attendees):
+    """Salva o rascunho e substitui convidados na mesma transação."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crm_activity_meetings (
+                    activity_id, user_id, starts_at, ends_at, timezone,
+                    sync_status, sync_error
+                ) VALUES (%s, %s, %s, %s, %s, 'draft', NULL)
+                ON CONFLICT (activity_id) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    starts_at = EXCLUDED.starts_at,
+                    ends_at = EXCLUDED.ends_at,
+                    timezone = EXCLUDED.timezone,
+                    sync_status = CASE
+                        WHEN crm_activity_meetings.google_event_id IS NULL THEN 'draft'
+                        ELSE 'syncing'
+                    END,
+                    sync_error = NULL,
+                    updated_at = NOW()
+                RETURNING activity_id
+                """,
+                (int(activity_id), int(user_id), starts_at, ends_at, timezone),
+            )
+            row = cur.fetchone()
+            cur.execute(
+                "DELETE FROM crm_activity_meeting_attendees WHERE activity_id = %s",
+                (int(activity_id),),
+            )
+            for attendee in attendees or []:
+                cur.execute(
+                    """
+                    INSERT INTO crm_activity_meeting_attendees (
+                        activity_id, name, email, source
+                    ) VALUES (%s, %s, LOWER(%s), %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (
+                        int(activity_id), attendee.get("name"),
+                        attendee["email"], attendee.get("source") or "manual",
+                    ),
+                )
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_reuniao_atividade(activity_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT activity_id, user_id, starts_at, ends_at, timezone,
+                   google_calendar_id, google_event_id, meet_url,
+                   sync_status, sync_error, last_synced_at
+              FROM crm_activity_meetings
+             WHERE activity_id = %s
+            """,
+            (int(activity_id),),
+        )
+        meeting = cur.fetchone()
+        if not meeting:
+            return None
+        cur.execute(
+            """
+            SELECT name, email, source
+              FROM crm_activity_meeting_attendees
+             WHERE activity_id = %s
+             ORDER BY id
+            """,
+            (int(activity_id),),
+        )
+        meeting["attendees"] = cur.fetchall() or []
+        return meeting
+
+
+def atualizar_sync_reuniao(activity_id, status, event_id=None, meet_url=None,
+                           error=None):
+    if status not in ("draft", "syncing", "synced", "error", "cancelled"):
+        raise ValueError("status de sincronização inválido")
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crm_activity_meetings SET
+                    sync_status = %s,
+                    google_event_id = COALESCE(%s, google_event_id),
+                    meet_url = COALESCE(%s, meet_url),
+                    sync_error = %s,
+                    last_synced_at = CASE WHEN %s = 'synced' THEN NOW()
+                                          ELSE last_synced_at END,
+                    updated_at = NOW()
+                 WHERE activity_id = %s
+                RETURNING activity_id
+                """,
+                (status, event_id, meet_url, error, status, int(activity_id)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
 
 
 # ---------- sales_objetivos_cliente ----------
@@ -10479,6 +10774,73 @@ def obter_cadu_plataformas():
                 FROM cadu_audiencias_plataformas
                 ORDER BY ordem
             ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def buscar_canais_plataformas(termo=None, limite=20):
+    """Busca plataformas do CADU e resume os canais/fontes associados."""
+    conn = get_db()
+    termo = str(termo or "").strip()
+    pattern = f"%{termo}%"
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    p.id,
+                    p.nome,
+                    COUNT(a.id) AS total_audiencias,
+                    STRING_AGG(
+                        DISTINCT NULLIF(TRIM(a.fonte), ''),
+                        ', ' ORDER BY NULLIF(TRIM(a.fonte), '')
+                    ) AS canais
+                FROM cadu_audiencias_plataformas p
+                LEFT JOIN cadu_audiencias a
+                       ON a.plataforma_id = p.id
+                      AND a.is_active = true
+                WHERE (%s = ''
+                       OR p.nome ILIKE %s
+                       OR COALESCE(a.fonte, '') ILIKE %s)
+                GROUP BY p.id, p.nome, p.ordem
+                ORDER BY p.ordem, p.nome
+                LIMIT %s
+                ''',
+                (termo, pattern, pattern, limite),
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def buscar_formatos_comerciais(termo=None, limite=20):
+    """Lista formatos já utilizados em linhas de cotação, sem alterar preços."""
+    conn = get_db()
+    termo = str(termo or "").strip()
+    pattern = f"%{termo}%"
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT catalogo.nome, catalogo.tipo, COUNT(*) AS total_usos
+                FROM cadu_cotacao_linhas linha
+                CROSS JOIN LATERAL (
+                    VALUES
+                        (NULLIF(TRIM(linha.formato), ''), 'Formato'),
+                        (NULLIF(TRIM(linha.formato_compra), ''), 'Compra'),
+                        (NULLIF(TRIM(linha.tipo_peca), ''), 'Peça')
+                ) AS catalogo(nome, tipo)
+                WHERE catalogo.nome IS NOT NULL
+                  AND (%s = '' OR catalogo.nome ILIKE %s)
+                GROUP BY catalogo.nome, catalogo.tipo
+                ORDER BY total_usos DESC, catalogo.nome
+                LIMIT %s
+                ''',
+                (termo, pattern, limite),
+            )
             return cursor.fetchall()
     except Exception as e:
         conn.rollback()

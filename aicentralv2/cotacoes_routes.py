@@ -25,7 +25,7 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import login_required
-from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+from aicentralv2.cotacao_tipos import destino_tipo_comercial, normalizar_tipo_comercial
 
 from aicentralv2.db import PLATAFORMA_CATEGORIAS_CANONICAS as _ORDEM_CATEGORIA_PLATAFORMA
 
@@ -942,11 +942,7 @@ def cotacao_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-            destino = (
-                'cotacoes.cotacao_detalhes'
-                if kwargs['tipo_comercial'] == 'midia'
-                else 'cotacoes.cotacao_editar'
-            )
+            destino, _ = destino_tipo_comercial(kwargs['tipo_comercial'])
             return redirect(url_for(destino, cotacao_id=resultado['id']))
 
         except Exception as e:
@@ -1136,11 +1132,7 @@ def cotacao_editar(cotacao_id):
                 dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total},
             )
 
-            destino = (
-                'cotacoes.cotacao_detalhes'
-                if update_kwargs['tipo_comercial'] == 'midia'
-                else 'cotacoes.cotacao_editar'
-            )
+            destino, _ = destino_tipo_comercial(update_kwargs['tipo_comercial'])
             return redirect(url_for(destino, cotacao_id=cotacao_id))
 
         clientes = db.obter_clientes_simples()

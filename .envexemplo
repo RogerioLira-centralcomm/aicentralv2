@@ -22,3 +22,20 @@ MAIL_USE_SSL=False
 MAIL_USERNAME=seu-email@gmail.com
 MAIL_PASSWORD=sua-senha-app
 MAIL_DEFAULT_SENDER=seu-email@gmail.com
+
+# Google Calendar/Meet por usuário
+BASE_URL=https://seu-dominio.example
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=https://seu-dominio.example/perfil/google/callback
+# Gere com: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+GOOGLE_TOKEN_ENCRYPTION_KEY=
+GOOGLE_CALENDAR_TIMEOUT=20
+
+# Chave mestra para criptografar credenciais globais salvas no PostgreSQL
+INTEGRATION_CREDENTIALS_KEY=
+
+# Fallback opcional enquanto as credenciais ainda não foram salvas em Parâmetros
+HIGGSFIELD_API_KEY=
+HIGGSFIELD_WORKSPACE_ID=
+HIGGSFIELD_DEFAULT_MODEL=

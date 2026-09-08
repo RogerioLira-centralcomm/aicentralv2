@@ -40,28 +40,47 @@
 
     <div class="cx-cotacao-editor-grid">
       <main class="cx-cotacao-editor-main">
+        <section class="cx-drawer-section cx-cot-start">
+          <div class="cx-drawer-section-title">Como esta proposta será montada?</div>
+          <div class="cx-drawer-section-subtitle">O tipo define a próxima tela. Você pode revisar antes de criar o rascunho.</div>
+          <input id="cx-cot-tipo" type="hidden" name="tipo_comercial"
+                 data-field="tipo_comercial" value="midia">
+          <div class="cx-cot-type-track" role="radiogroup" aria-label="Tipo de cotação">
+            <button type="button" class="cx-cot-type-option is-active" data-cot-type="midia"
+                    role="radio" aria-checked="true" value="midia">
+              <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+              <span><strong>Mídia</strong><small>Itens, audiência e calculadora</small></span>
+            </button>
+            <button type="button" class="cx-cot-type-option" data-cot-type="parceiros"
+                    role="radio" aria-checked="false" value="parceiros">
+              <i class="fa-solid fa-handshake" aria-hidden="true"></i>
+              <span><strong>Parceiros</strong><small>Escopo e condição comercial</small></span>
+            </button>
+            <button type="button" class="cx-cot-type-option" data-cot-type="formatos_interativos"
+                    role="radio" aria-checked="false" value="formatos_interativos">
+              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+              <span><strong>Formatos interativos</strong><small>Experiência e produção</small></span>
+            </button>
+            <button type="button" class="cx-cot-type-option" data-cot-type="dados"
+                    role="radio" aria-checked="false" value="dados">
+              <i class="fa-solid fa-database" aria-hidden="true"></i>
+              <span><strong>Dados</strong><small>Base, recorte e entrega</small></span>
+            </button>
+          </div>
+          <p class="cx-drawer-field-hint cx-cot-type-hint" id="cx-cot-tipo-hint" role="status" aria-live="polite">
+            Mídia usa a montagem e a calculadora atuais.
+          </p>
+        </section>
+
         <section class="cx-drawer-section">
-          <div class="cx-drawer-section-title">Proposta comercial</div>
-          <div class="cx-drawer-section-subtitle">Identificação e direcionamento da campanha.</div>
+          <div class="cx-drawer-section-title">Ponto de partida</div>
+          <div class="cx-drawer-section-subtitle">O suficiente para abrir um rascunho identificável e continuar sem retrabalho.</div>
           <div class="cx-drawer-grid">
             <div class="cx-drawer-field cx-drawer-field-span-2">
               <label for="cx-cot-nome">Nome da campanha *</label>
               <input id="cx-cot-nome" type="text" name="nome_campanha"
                      data-field="nome_campanha" placeholder="Ex.: Campanha Black Friday 2026"
                      required autocomplete="off">
-            </div>
-            <div class="cx-drawer-field cx-drawer-field-span-2">
-              <label for="cx-cot-tipo">Tipo de cotação *</label>
-              <select id="cx-cot-tipo" name="tipo_comercial"
-                      data-field="tipo_comercial" required>
-                <option value="midia">Mídia</option>
-                <option value="parceiros">Parceiros</option>
-                <option value="formatos_interativos">Formatos interativos</option>
-                <option value="dados">Dados</option>
-              </select>
-              <span class="cx-drawer-field-hint" id="cx-cot-tipo-hint">
-                Mídia usa a montagem e a calculadora atuais.
-              </span>
             </div>
             <div class="cx-drawer-field cx-drawer-field-span-2">
               <label for="cx-cot-objetivo">Objetivo da campanha</label>
@@ -76,6 +95,92 @@
             </div>
           </div>
         </section>
+
+        <details class="cx-cot-refine" id="cx-cot-refine">
+          <summary>
+            <span>
+              <strong>Refinar rascunho</strong>
+              <small>Participantes, briefing e premissas</small>
+            </span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
+          <div class="cx-cot-refine-body">
+            <section class="cx-drawer-section">
+              <div class="cx-drawer-section-title">Participantes</div>
+              <div class="cx-drawer-grid">
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-client-user">Contato do cliente</label>
+                  <select id="cx-cot-client-user" name="client_user_id" data-field="client_user_id">
+                    <option value="">Selecione depois</option>
+                  </select>
+                </div>
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-agencia-user">Contato da agência</label>
+                  <select id="cx-cot-agencia-user" name="agencia_user_id" data-field="agencia_user_id">
+                    <option value="">Selecione depois</option>
+                  </select>
+                </div>
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-parceiro">Parceiro</label>
+                  <select id="cx-cot-parceiro" name="id_parceiro" data-field="id_parceiro">
+                    <option value="">Sem parceiro</option>
+                  </select>
+                </div>
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-parceiro-user">Contato do parceiro</label>
+                  <select id="cx-cot-parceiro-user" name="parceiro_user_id" data-field="parceiro_user_id">
+                    <option value="">Selecione depois</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section class="cx-drawer-section">
+              <div class="cx-drawer-section-title">Briefing</div>
+              <div class="cx-drawer-grid">
+                <div class="cx-drawer-field cx-drawer-field-span-2">
+                  <label for="cx-cot-briefing">Resumo do briefing</label>
+                  <textarea id="cx-cot-briefing" name="apresentacao_dados"
+                            data-field="apresentacao_dados" rows="5" maxlength="4000"
+                            placeholder="Público, mensagem, entregas e restrições já conhecidas."></textarea>
+                </div>
+                <div class="cx-drawer-field cx-drawer-field-span-2">
+                  <label for="cx-cot-briefing-file">Anexar briefing</label>
+                  <input id="cx-cot-briefing-file" type="file"
+                         accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png">
+                  <span class="cx-drawer-field-hint">Opcional. PDF, DOC, PPT, JPG ou PNG, até 10 MB.</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="cx-drawer-section">
+              <div class="cx-drawer-section-title">Orientações da proposta</div>
+              <div class="cx-drawer-grid">
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-frequencia">Frequência de impacto</label>
+                  <input id="cx-cot-frequencia" type="number" min="1" step="1"
+                         name="frequencia_impacto" data-field="frequencia_impacto" value="3">
+                </div>
+                <div class="cx-drawer-field">
+                  <label for="cx-cot-valor">Valor da proposta</label>
+                  <input id="cx-cot-valor" type="number" min="0" step="0.01"
+                         name="valor_total" data-field="valor_total" placeholder="Calculado na montagem">
+                </div>
+                <div class="cx-drawer-field cx-drawer-field-span-2">
+                  <label for="cx-cot-premissas">Premissas</label>
+                  <textarea id="cx-cot-premissas" name="premissas" data-field="premissas"
+                            rows="4" placeholder="Condições consideradas nesta proposta."></textarea>
+                </div>
+                <div class="cx-drawer-field cx-drawer-field-span-2">
+                  <label for="cx-cot-observacoes">Observações gerais</label>
+                  <textarea id="cx-cot-observacoes" name="observacoes_gerais"
+                            data-field="observacoes_gerais" rows="4"
+                            placeholder="Informações que precisam acompanhar a proposta."></textarea>
+                </div>
+              </div>
+            </section>
+          </div>
+        </details>
 
         <section class="cx-drawer-section cx-agency-clients" id="cx-cot-agency-clients" hidden>
           <div class="cx-agency-clients-head">
@@ -100,6 +205,20 @@
       </main>
 
       <aside class="cx-cotacao-editor-side">
+        <section class="cx-cot-agent" aria-labelledby="cx-cot-agent-title">
+          <div class="cx-cot-agent-head">
+            <span class="cx-cot-agent-mark" aria-hidden="true"><i class="fa-solid fa-sparkles"></i></span>
+            <div>
+              <strong id="cx-cot-agent-title">Preparar com o agente</strong>
+              <span>Usa o contexto deste cliente sem salvar nada.</span>
+            </div>
+          </div>
+          <button type="button" class="cx-cot-agent-trigger" id="cx-cot-agent-trigger">
+            Sugerir ponto de partida
+          </button>
+          <div class="cx-cot-agent-result" id="cx-cot-agent-result" hidden aria-live="polite"></div>
+        </section>
+
         <section class="cx-drawer-section">
           <div class="cx-drawer-section-title">Condição comercial</div>
           <div class="cx-drawer-grid">
@@ -115,9 +234,9 @@
               </select>
             </div>
             <div class="cx-drawer-field">
-              <label for="cx-cot-valor">Valor total</label>
-              <input id="cx-cot-valor" type="number" min="0" step="0.01"
-                     name="valor_total" data-field="valor_total" placeholder="0,00">
+              <label for="cx-cot-budget">Budget estimado</label>
+              <input id="cx-cot-budget" type="number" min="0" step="0.01"
+                     name="budget_estimado" data-field="budget_estimado" placeholder="0,00">
             </div>
             <div class="cx-drawer-field cx-drawer-field-span-2">
               <label for="cx-cot-responsavel">Responsável comercial</label>

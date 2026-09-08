@@ -10,13 +10,25 @@
       </div>
     </div>
     <div class="cx-agent-header-actions">
-      <button type="button" id="cx-agent-new-conversation" class="cx-agent-new-btn" aria-label="Começar nova conversa" title="Começar nova conversa">
-        <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
-        <span>Nova conversa</span>
+      <button type="button" id="cx-agent-search-toggle" class="cx-agent-icon-btn" aria-label="Buscar registros" title="Buscar registros" aria-expanded="false">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
       </button>
-      <button type="button" id="cx-agent-settings" class="cx-agent-icon-btn" aria-label="Configurações do agente">
-        <i class="fa-solid fa-gear" aria-hidden="true"></i>
-      </button>
+      <div class="cx-agent-more">
+        <button type="button" id="cx-agent-more-toggle" class="cx-agent-icon-btn" aria-label="Mais opções" title="Mais opções" aria-expanded="false">
+          <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+        </button>
+        <div id="cx-agent-more-menu" class="cx-agent-more-menu" hidden>
+          <button type="button" id="cx-agent-new-conversation">
+            <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i><span>Nova conversa</span>
+          </button>
+          <button type="button" id="cx-agent-history-open">
+            <i class="fa-regular fa-clock" aria-hidden="true"></i><span>Histórico</span>
+          </button>
+          <button type="button" id="cx-agent-settings">
+            <i class="fa-solid fa-gear" aria-hidden="true"></i><span>Configurações</span>
+          </button>
+        </div>
+      </div>
       <button type="button" id="cx-agent-minimize" class="cx-agent-icon-btn" aria-label="Minimizar agente">
         <i class="fa-solid fa-minus" aria-hidden="true"></i>
       </button>
@@ -27,7 +39,7 @@
   </header>
 
   <div id="cx-agent-workspace" class="cx-agent-workspace">
-    <div class="cx-agent-commercial-search">
+    <div id="cx-agent-commercial-search" class="cx-agent-commercial-search" hidden>
       <label for="cx-agent-commercial-query">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input id="cx-agent-commercial-query" type="search" autocomplete="off"
@@ -41,6 +53,9 @@
       <button type="button" id="cx-agent-scope-trigger" class="cx-agent-scope-trigger" hidden>
         <span>Meus registros</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
       </button>
+      <button type="button" id="cx-agent-search-close" class="cx-agent-icon-btn" aria-label="Fechar busca">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
       <div id="cx-agent-commercial-results" class="cx-agent-commercial-results" hidden></div>
     </div>
 
@@ -51,13 +66,6 @@
 
     <div class="cx-agent-workspace-columns">
       <div class="cx-agent-conversation-column">
-        <nav class="cx-agent-tabs" role="tablist" aria-label="Áreas do agente">
-      <button type="button" class="cx-agent-tab is-active" role="tab" aria-selected="true" aria-controls="cx-agent-panel-chat" data-agent-tab="chat">Chat</button>
-      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-actions" data-agent-tab="actions">Ações</button>
-      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-suggestions" data-agent-tab="suggestions">Sugestões</button>
-      <button type="button" class="cx-agent-tab" role="tab" aria-selected="false" aria-controls="cx-agent-panel-history" data-agent-tab="history">Histórico</button>
-        </nav>
-
         <div class="cx-agent-panels">
       <section id="cx-agent-panel-chat" class="cx-agent-panel is-active" role="tabpanel" data-agent-panel="chat">
         <div id="cx-agent-messages" class="cx-agent-messages" aria-live="polite">
@@ -88,6 +96,7 @@
           <p class="cx-agent-extract-tip">O agente lê PDF, imagem ou texto para puxar cliente, valores, campanhas e período.</p>
         </div>
         <div class="cx-agent-composer-wrap">
+          <div id="cx-agent-composer-suggestions" class="cx-agent-composer-suggestions" aria-live="polite"></div>
           <form id="cx-agent-composer" class="cx-agent-composer">
             <div id="cx-agent-attachments" class="cx-agent-attachments" aria-live="polite" hidden></div>
             <label class="sr-only" for="cx-agent-input">Mensagem para o Agente CentralX</label>
@@ -109,16 +118,11 @@
         </div>
       </section>
 
-      <section id="cx-agent-panel-actions" class="cx-agent-panel" role="tabpanel" data-agent-panel="actions" hidden>
-        <div id="cx-agent-actions" class="cx-agent-action-list"></div>
-      </section>
-
-      <section id="cx-agent-panel-suggestions" class="cx-agent-panel" role="tabpanel" data-agent-panel="suggestions" hidden>
-        <div id="cx-agent-suggestions" class="cx-agent-suggestion-list"></div>
-      </section>
-
       <section id="cx-agent-panel-history" class="cx-agent-panel" role="tabpanel" data-agent-panel="history" hidden>
         <div class="cx-agent-history-toolbar">
+          <button type="button" id="cx-agent-history-back" class="cx-agent-icon-btn" aria-label="Voltar à conversa">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          </button>
           <label class="cx-agent-history-search">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input type="search" id="cx-agent-history-query" placeholder="Buscar nas conversas..." autocomplete="off">
@@ -127,6 +131,8 @@
         </div>
         <div id="cx-agent-history" class="cx-agent-history"></div>
       </section>
+      <div id="cx-agent-actions" hidden></div>
+      <div id="cx-agent-suggestions" hidden></div>
         </div>
       </div>
 

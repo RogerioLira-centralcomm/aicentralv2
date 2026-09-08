@@ -1,0 +1,115 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Integrações — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Credenciais de integrações{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="cx-integrations" data-integration-app>
+  <header class="cx-integrations-head">
+    <div>
+      <span class="cx-integrations-eyebrow">Configuração do sistema</span>
+      <h1>Integrações</h1>
+      <p>Configure os provedores usados pelo CRM e pela Modelagem de Criativos.</p>
+    </div>
+    <div class="cx-integrations-security">
+      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+      <span>Segredos criptografados no PostgreSQL e nunca exibidos novamente.</span>
+    </div>
+  </header>
+
+  <div class="cx-integrations-feedback" data-integration-feedback hidden role="status"></div>
+
+  <section class="cx-integrations-grid" aria-label="Provedores">
+    <form class="cx-integration-card" data-integration-form="google_calendar">
+      <header>
+        <span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span>
+        <div>
+          <h2>Google Calendar e Meet</h2>
+          <p>Credencial OAuth global usada para conectar a agenda de cada usuário.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label>
+          <span>Client ID</span>
+          <input name="client_id" type="text" autocomplete="off"
+                 placeholder="000000.apps.googleusercontent.com">
+        </label>
+        <label>
+          <span>Client secret</span>
+          <input name="client_secret" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter o segredo atual">
+          <small data-secret-state>Nenhum segredo armazenado.</small>
+        </label>
+        <label class="is-wide">
+          <span>Redirect URI</span>
+          <input name="redirect_uri" type="url" autocomplete="off"
+                 placeholder="https://seu-dominio/perfil/google/callback">
+        </label>
+      </div>
+
+      <aside>
+        <strong>Conta da aplicação</strong>
+        <span>Depois desta configuração, cada executivo conecta sua própria conta Google em “Meu perfil”.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google</button>
+      </footer>
+    </form>
+
+    <form class="cx-integration-card" data-integration-form="higgsfield">
+      <header>
+        <span class="cx-integration-logo is-higgsfield"><i class="fa-solid fa-film" aria-hidden="true"></i></span>
+        <div>
+          <h2>Higgsfield</h2>
+          <p>Credencial global do motor de vídeo da Modelagem de Criativos.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label class="is-wide">
+          <span>API key</span>
+          <input name="api_key" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter a chave atual">
+          <small data-secret-state>Nenhuma chave armazenada.</small>
+        </label>
+        <label>
+          <span>Workspace ID <em>opcional</em></span>
+          <input name="workspace_id" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>Modelo padrão <em>opcional</em></span>
+          <input name="default_model" type="text" autocomplete="off"
+                 placeholder="Definido pelo fluxo de vídeo">
+        </label>
+      </div>
+
+      <aside>
+        <strong>Modelagem de Criativos</strong>
+        <span>A preparação de payloads continua disponível; este status informa se o provedor está pronto para execução.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Higgsfield</button>
+      </footer>
+    </form>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=1"></script>
+{% endblock %}

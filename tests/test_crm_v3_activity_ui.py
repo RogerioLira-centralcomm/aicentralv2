@@ -26,7 +26,7 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         side = self.template.index('<aside class="cx-atividade-editor-side">')
         self.assertLess(main, side)
         self.assertLess(self.template.index("Registro da atividade"), side)
-        self.assertGreater(self.template.index("Preparar roteiro"), side)
+        self.assertGreater(self.template.index("Preparar abordagem"), side)
 
     def test_activity_fields_are_unique_after_reorganization(self):
         ids = re.findall(r'\bid="([^"]+)"', self.template)
@@ -42,16 +42,31 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         ):
             self.assertIn(field, ids)
 
-    def test_ai_is_progressive_and_does_not_replace_activity_record(self):
+    def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
         self.assertIn("<details class=\"cx-atividade-side-tools\">", self.template)
         self.assertIn("Outras ações assistidas", self.template)
+        self.assertIn('<details class="cx-atividade-ia-settings">', self.template)
+        self.assertIn("Objetivo, tom e orientações", self.template)
+        self.assertIn("payload.notas_executivo = payload.descricao", self.js)
         self.assertIn("delete payload.descricao", self.js)
-        self.assertIn("A descrição não foi alterada", self.js)
-        self.assertIn("Aplicar no editor", self.js)
+        self.assertIn("canApply: false", self.js)
+        self.assertNotIn("A descrição não foi alterada", self.js)
 
-    def test_right_side_history_only_loads_scripts_and_revisions(self):
-        self.assertIn("Roteiros disponíveis", self.template)
+    def test_right_side_prioritizes_channel_result_and_keeps_history(self):
+        output = self.template.index('data-ia-output')
+        settings = self.template.index('cx-atividade-ia-settings')
+        self.assertLess(output, settings)
+        self.assertIn("Materiais gerados", self.template)
         self.assertIn("['gerar-roteiro', 'melhorar-texto']", self.js)
+        self.assertIn("renderAssistantResult", self.js)
+        self.assertIn("Abrir WhatsApp", self.js)
+        self.assertIn("Criar e-mail", self.js)
+        self.assertIn("Copiar assunto", self.js)
+        self.assertIn("Objeções e orientações adicionais", self.js)
+        self.assertIn("encodeURIComponent(message)", self.js)
+        self.assertIn("encodeURIComponent(contactEmail)", self.js)
+        self.assertIn("if (phone)", self.js)
+        self.assertIn("if (channel === 'email' && contactEmail)", self.js)
         self.assertIn("white-space: pre-wrap", self.css)
 
     def test_mobile_falls_back_to_one_column(self):
@@ -61,6 +76,21 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
             r"@media \(max-width: 900px\)[\s\S]*?"
             r"\.cx-atividade-editor-grid\s*\{[^}]*flex-direction:\s*column",
         )
+
+    def test_meeting_schedule_is_conditional_and_deadline_is_prioritized(self):
+        self.assertIn("Prazo principal", self.template)
+        self.assertIn('data-meeting-panel hidden', self.template)
+        self.assertIn("Agenda da reunião", self.template)
+        self.assertIn('data-meeting-field="duration_minutes"', self.template)
+        self.assertIn('data-meeting-field="timezone"', self.template)
+        self.assertIn('data-meeting-attendees', self.template)
+        self.assertIn("Criar convite com Google Meet", self.template)
+        self.assertIn("meetingEditor.toggle(val)", self.js)
+        self.assertIn("payload.meeting = meetingEditor.payload()", self.js)
+        self.assertIn("window.showConfirm({", self.js)
+        self.assertNotIn("window.confirm(", self.js)
+        self.assertIn("Prévia do convite", self.template)
+        self.assertIn(".cx-meeting-panel[hidden]", self.css)
 
 
 if __name__ == "__main__":

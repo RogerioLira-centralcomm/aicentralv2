@@ -471,6 +471,37 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(approval.status_code, 400)
         self.assertIn("rascunho", approval.get_json()["error"])
 
+    def test_agente_sugere_cotacao_sem_criar_rascunho(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            response = self.client.post(
+                "/crm-v3/api/ia/sugerir-cotacao",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "tipo_comercial": "dados",
+                    "objetivo": "Planejar expansão",
+                },
+            )
+        finally:
+            routes._openrouter_available = original
+        self.assertEqual(response.status_code, 200)
+        sugestao = response.get_json()["sugestao"]
+        self.assertEqual(sugestao["tipo_comercial"], "dados")
+        self.assertEqual(sugestao["objetivo"], "Planejar expansão")
+        self.assertEqual(sugestao["source"], "fallback")
+        self.assertTrue(sugestao["contexto_utilizado"])
+
+    def test_agente_exige_cliente_para_sugerir_cotacao(self):
+        response = self.client.post(
+            "/crm-v3/api/ia/sugerir-cotacao",
+            json={"tipo_comercial": "midia"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cliente", response.get_json()["error"].lower())
+
     def test_cotacao_aceita_apenas_statuses_canonicos_e_aliases(self):
         created = self.client.post(
             "/crm-v3/api/clientes/auto-shopping/cotacoes",
@@ -644,7 +675,15 @@ class CrmTestApiTest(unittest.TestCase):
             captured["system"] = system
             captured["user"] = user
             return json.dumps({
-                "texto": "Objetivo: preparar conversa\nRoteiro:\n- ouvir\nFechamento: combinar retorno",
+                "abertura": "Quero entender as prioridades da próxima campanha.",
+                "perguntas": [
+                    "Qual resultado é prioridade?",
+                    "O que mudou desde a última conversa?",
+                    "Quem participa da decisão?",
+                    "Qual prazo precisamos considerar?",
+                ],
+                "pontos_de_atencao": ["Ouvir antes de apresentar."],
+                "fechamento": "Combinar retorno com data.",
                 "motivo": "Reunião de descoberta",
                 "contexto_utilizado": ["foco", "tom"],
             })
@@ -669,6 +708,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertIn("Tom da comunicação: Consultivo", captured["user"])
         self.assertIn("Antecipar objeções sobre prazo", captured["user"])
         self.assertNotIn("ROTEIRO ANTIGO GERADO POR IA", captured["user"])
+        self.assertEqual(len(result["perguntas"]), 4)
 
     def test_contexto_ia_nao_expoe_dados_pessoais(self):
         contexto = store.get_ai_context("auto-shopping", "comunicacao")
@@ -686,20 +726,65 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_comunicacao_preserva_canal_e_contato_escolhido(self):
+        import aicentralv2.crm_v3_routes as routes
+
         contato = (store.list_contatos("auto-shopping") or [])[0]
-        res = self.client.post(
-            "/crm-v3/api/ia/gerar-comunicacao",
-            json={
-                "cliente_id": "auto-shopping",
-                "contato_id": contato["id"],
-                "tipo": "whatsapp",
-                "objetivo": "Retomar proposta",
-            },
-        )
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/gerar-comunicacao",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "contato_id": contato["id"],
+                    "tipo": "whatsapp",
+                    "objetivo": "Retomar proposta",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
         self.assertEqual(res.status_code, 200)
         data = res.get_json()["data"]
         self.assertEqual(data["tipo"], "whatsapp")
         self.assertEqual(data["contato"]["id"], contato["id"])
+        self.assertEqual(data["email"], contato["email"].lower())
+        self.assertTrue(data["telefone"].startswith("55"))
+        self.assertIn(contato["nome"], data["mensagem"])
+        self.assertIn("Executivo Teste", data["mensagem"])
+        self.assertTrue(data["mensagem"])
+        self.assertIn("motivo", data)
+
+    def test_roteiro_de_ligacao_retorna_abordagem_estruturada(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        contato = (store.list_contatos("auto-shopping") or [])[0]
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/gerar-roteiro",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "contato_id": contato["id"],
+                    "titulo": "Entender prioridades da próxima campanha",
+                    "notas_executivo": "O cliente pediu retorno sobre prazos.",
+                    "tipo": "ligacao",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()["data"]
+        self.assertEqual(data["tipo"], "ligacao")
+        self.assertEqual(data["contato"]["id"], contato["id"])
+        self.assertTrue(data["abertura"])
+        self.assertEqual(
+            data["objetivo"], "Entender prioridades da próxima campanha"
+        )
+        self.assertGreaterEqual(len(data["perguntas"]), 4)
+        self.assertTrue(data["objecoes_a_explorar"])
+        self.assertTrue(data["fechamento"])
+        self.assertTrue(data["texto"])
 
     def test_historico_ia_funciona_no_store_mock(self):
         generated = self.client.post(
@@ -719,6 +804,79 @@ class CrmTestApiTest(unittest.TestCase):
             f"/crm-v3/api/ia/historico/{history_id}/aplicar", json={}
         )
         self.assertEqual(applied.status_code, 200)
+
+    def test_reuniao_salva_agenda_e_convidados_sem_enviar(self):
+        res = self.client.post(
+            "/crm-v3/api/clientes/auto-shopping/atividades",
+            json={
+                "titulo": "Planejamento de campanha",
+                "descricao": "Definir próximos passos.",
+                "tipo": "reuniao",
+                "data": "2026-09-15",
+                "hora": "14:30",
+                "meeting": {
+                    "duration_minutes": 60,
+                    "timezone": "America/Sao_Paulo",
+                    "sync_google": False,
+                    "attendees": [
+                        {"name": "Juliana", "email": "juliana@cliente.com", "source": "contact"},
+                        {"email": "JULIANA@cliente.com"},
+                    ],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        meeting = res.get_json()["meeting"]
+        self.assertEqual(meeting["sync_status"], "draft")
+        self.assertEqual(len(meeting["attendees"]), 1)
+        self.assertIn("14:30:00", meeting["starts_at"])
+
+    def test_reuniao_sincroniza_meet_e_impede_outro_organizador(self):
+        from unittest.mock import patch
+
+        created = self.client.post(
+            "/crm-v3/api/clientes/auto-shopping/atividades",
+            json={
+                "titulo": "Reunião com cliente",
+                "tipo": "reuniao",
+                "data": "2026-09-16",
+                "hora": "10:00",
+                "meeting": {
+                    "duration_minutes": 30,
+                    "timezone": "America/Sao_Paulo",
+                    "attendees": [{"email": "cliente@example.com"}],
+                },
+            },
+        ).get_json()
+        activity_id = created["atividade"]["id"]
+        store.google_connections["1"] = {
+            "status": "connected",
+            "encrypted_refresh_token": "token-criptografado",
+            "google_email": "executivo@centralcomm.media",
+        }
+        with patch(
+            "aicentralv2.services.google_calendar.sync_event",
+            return_value={
+                "event_id": "google-event-1",
+                "meet_url": "https://meet.google.com/abc-defg-hij",
+            },
+        ):
+            synced = self.client.post(
+                f"/crm-v3/api/atividades/{activity_id}/reuniao/sincronizar",
+                json={},
+            )
+        self.assertEqual(synced.status_code, 200)
+        self.assertEqual(synced.get_json()["meeting"]["sync_status"], "synced")
+        self.assertTrue(
+            synced.get_json()["meeting"]["meet_url"].startswith("https://meet.google.com/")
+        )
+
+        store.activity_meetings[activity_id]["user_id"] = "999"
+        denied = self.client.post(
+            f"/crm-v3/api/atividades/{activity_id}/reuniao/sincronizar",
+            json={},
+        )
+        self.assertEqual(denied.status_code, 403)
 
     def test_sequencia_invalida_nao_cria_nenhuma_atividade(self):
         antes = len(store.list_atividades("auto-shopping"))
@@ -918,6 +1076,35 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
             "titulo": "X", "plataformas": ["YouTube", " Meta ", ""],
         })
         self.assertEqual(payload["plataforma_campanha"], "YouTube, Meta")
+
+    def test_prepare_cotacao_payload_cobre_inicio_rapido_completo(self):
+        payload = self.repo._prepare_cotacao_payload({
+            "titulo": "Plano 2027",
+            "apresentacao_dados": "Resumo confirmado",
+            "budget_estimado": "12500.50",
+            "frequencia_impacto": "4",
+            "premissas": "Prazo de 30 dias",
+            "observacoes_gerais": "Revisar praça",
+            "client_user_id": "11",
+            "agencia_id": "22",
+            "agencia_user_id": "33",
+            "id_parceiro": "44",
+            "parceiro_user_id": "55",
+        })
+        self.assertEqual(payload["apresentacao_dados"], "Resumo confirmado")
+        self.assertEqual(payload["budget_estimado"], 12500.5)
+        self.assertEqual(payload["frequencia_impacto"], 4)
+        self.assertEqual(payload["client_user_id"], 11)
+        self.assertEqual(payload["agencia_id"], 22)
+        self.assertEqual(payload["id_parceiro"], 44)
+
+    def test_prepare_cotacao_payload_permite_limpar_participante_opcional(self):
+        payload = self.repo._prepare_cotacao_payload({
+            "agencia_id": "",
+            "id_parceiro": "",
+        })
+        self.assertIsNone(payload["agencia_id"])
+        self.assertIsNone(payload["id_parceiro"])
 
     # ---- Notas (histórico append-only) -------------------------------
 

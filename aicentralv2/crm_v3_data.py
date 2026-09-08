@@ -814,6 +814,8 @@ class CrmTestStore:
                 cotacao.setdefault("tipo_comercial_label", "Mídia")
         self.notas = copy.deepcopy(_INITIAL_NOTAS)
         self._ai_history = {}
+        self.google_connections = {}
+        self.activity_meetings = {}
 
     def _enrich_cliente(self, c):
         cliente_id = c["id"]
@@ -1304,6 +1306,59 @@ class CrmTestStore:
         }
         self.atividades.setdefault(cliente_id, []).append(ativ)
         return ativ
+
+    def get_atividade(self, atividade_id):
+        for items in self.atividades.values():
+            for activity in items:
+                if activity["id"] == atividade_id:
+                    return dict(activity)
+        return None
+
+    def get_google_connection(self, user_id, include_token=False):
+        connection = self.google_connections.get(str(user_id))
+        if not connection:
+            return None
+        item = dict(connection)
+        if not include_token:
+            item.pop("encrypted_refresh_token", None)
+        return item
+
+    def save_activity_meeting(self, activity_id, user_id, starts_at, ends_at,
+                              timezone, attendees):
+        previous = self.activity_meetings.get(str(activity_id), {})
+        meeting = {
+            "activity_id": str(activity_id),
+            "user_id": str(user_id),
+            "starts_at": starts_at.isoformat() if hasattr(starts_at, "isoformat") else starts_at,
+            "ends_at": ends_at.isoformat() if hasattr(ends_at, "isoformat") else ends_at,
+            "timezone": timezone,
+            "google_calendar_id": "primary",
+            "google_event_id": previous.get("google_event_id"),
+            "meet_url": previous.get("meet_url"),
+            "sync_status": "syncing" if previous.get("google_event_id") else "draft",
+            "sync_error": None,
+            "last_synced_at": previous.get("last_synced_at"),
+            "attendees": [dict(item) for item in attendees or []],
+        }
+        self.activity_meetings[str(activity_id)] = meeting
+        return dict(meeting)
+
+    def get_activity_meeting(self, activity_id):
+        meeting = self.activity_meetings.get(str(activity_id))
+        return copy.deepcopy(meeting) if meeting else None
+
+    def update_activity_meeting_sync(self, activity_id, status, event_id=None,
+                                     meet_url=None, error=None):
+        meeting = self.activity_meetings.get(str(activity_id))
+        if not meeting:
+            return None
+        meeting["sync_status"] = status
+        meeting["sync_error"] = error
+        if event_id:
+            meeting["google_event_id"] = event_id
+        if meet_url:
+            meeting["meet_url"] = meet_url
+        return copy.deepcopy(meeting)
 
     def update_atividade(self, atividade_id, data):
         for cliente_id, items in self.atividades.items():

@@ -81,6 +81,37 @@ TOOLS = {
             commercial.consultar_cotacao, {"cotacao_id": ID}, ("cotacao_id",),
         ),
         Tool(
+            "listar_canais_plataformas",
+            "Lista ou busca canais e plataformas disponíveis no catálogo CADU, com quantidade de audiências.",
+            commercial.listar_canais_plataformas,
+            {
+                "query": {"type": "string", "minLength": 2, "maxLength": 120},
+                "limit": LIMIT,
+            },
+            (),
+        ),
+        Tool(
+            "buscar_audiencias",
+            "Busca audiências ativas do CADU por nome, slug ou perfil.",
+            commercial.buscar_audiencias,
+            {
+                "query": {"type": "string", "minLength": 2, "maxLength": 120},
+                "plataforma_id": ID,
+                "limit": LIMIT,
+            },
+            ("query",),
+        ),
+        Tool(
+            "listar_formatos",
+            "Lista ou busca formatos, tipos de compra e tipos de peça já utilizados nas cotações.",
+            commercial.listar_formatos,
+            {
+                "query": {"type": "string", "minLength": 2, "maxLength": 120},
+                "limit": LIMIT,
+            },
+            (),
+        ),
+        Tool(
             "buscar_pi", "Busca PIs por ID, código ou título.",
             commercial.buscar_pi,
             {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},

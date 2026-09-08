@@ -163,6 +163,8 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py
 "$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py
 "$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py
+"$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
+"$VENV_PYTHON" migrations/run_add_system_integration_credentials.py
 echo "  > OK"
 
 # 9. Iniciar servico

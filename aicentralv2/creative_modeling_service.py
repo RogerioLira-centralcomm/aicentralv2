@@ -864,6 +864,8 @@ class CreativeModelingService:
         )
 
     def prepare_higgsfield(self, step_id, asset_ids, created_by=None):
+        from .services import integration_credentials
+
         step_id = _integer(step_id, "Step")
         ids = [_integer(value, "Asset") for value in (asset_ids or [])]
         if len(ids) != 4 or len(set(ids)) != 4:
@@ -880,13 +882,20 @@ class CreativeModelingService:
         step = context["step"]
         if step.get("script_status") != "approved":
             raise ValueError("Revise e aprove o roteiro antes de preparar o vídeo.")
+        provider_config = integration_credentials.get_configuration(
+            "higgsfield", include_secrets=False
+        )
+        provider_model = (
+            provider_config.get("default_model")
+            or "higgsfield-pending-configuration"
+        )
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
             step_id,
             step["format_template_id"],
             "video_payload",
             "higgsfield",
-            "higgsfield-pending-configuration",
+            provider_model,
             Decimal("0"),
             script_text=step["script_text"],
             created_by=created_by,
@@ -898,6 +907,12 @@ class CreativeModelingService:
             step.get("aspect_ratio"),
             15,
         )
+        payload["provider_configuration"] = {
+            "configured": provider_config.get("configured", False),
+            "source": provider_config.get("source"),
+            "workspace_id": provider_config.get("workspace_id") or None,
+            "default_model": provider_config.get("default_model") or None,
+        }
         self.repository.link_video_assets(job_id, assets)
         self.repository.complete_generation_job(
             job_id, Decimal("0"), payload, "ready_for_higgsfield"
@@ -905,6 +920,8 @@ class CreativeModelingService:
         return {"job_id": job_id, "payload": payload}
 
     def prepare_display_motion(self, asset_id, created_by=None):
+        from .services import integration_credentials
+
         asset_id = _integer(asset_id, "Asset")
         assets = self.repository.get_assets([asset_id], approved_only=True)
         if len(assets) != 1:
@@ -914,13 +931,17 @@ class CreativeModelingService:
             raise ValueError("A animação de display exige uma imagem estática.")
         if not asset.get("campaign_id") or not asset.get("format_template_id"):
             raise ValueError("O asset precisa estar vinculado a campanha e formato.")
+        provider_config = integration_credentials.get_configuration(
+            "higgsfield", include_secrets=False
+        )
         job_id = self.repository.create_generation_job(
             asset["campaign_id"],
             asset.get("step_id"),
             asset["format_template_id"],
             "display_motion_payload",
             "higgsfield",
-            "higgsfield-pending-configuration",
+            provider_config.get("default_model")
+            or "higgsfield-pending-configuration",
             Decimal("0"),
             prompt=(
                 "Complemento animado de 3 segundos criado após aprovação "
@@ -931,6 +952,12 @@ class CreativeModelingService:
         payload = build_display_motion_payload(
             job_id, asset, asset.get("aspect_ratio")
         )
+        payload["provider_configuration"] = {
+            "configured": provider_config.get("configured", False),
+            "source": provider_config.get("source"),
+            "workspace_id": provider_config.get("workspace_id") or None,
+            "default_model": provider_config.get("default_model") or None,
+        }
         self.repository.link_video_assets(job_id, assets)
         self.repository.complete_generation_job(
             job_id, Decimal("0"), payload, "ready_for_higgsfield"

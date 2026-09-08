@@ -29,6 +29,14 @@ def rotulo_tipo_comercial(valor):
     return COTACAO_TIPOS[normalizar_tipo_comercial(valor, estrito=False)]
 
 
+def destino_tipo_comercial(valor):
+    """Retorna endpoint Flask e sufixo canônicos para continuar a cotação."""
+    slug = normalizar_tipo_comercial(valor, estrito=False)
+    if slug == TIPO_COMERCIAL_PADRAO:
+        return "cotacoes.cotacao_detalhes", "detalhes"
+    return "cotacoes.cotacao_editar", "editar"
+
+
 def validar_status_tipo_comercial(tipo, status):
     """Novos produtos ficam em rascunho até seus módulos próprios existirem."""
     slug = normalizar_tipo_comercial(tipo)

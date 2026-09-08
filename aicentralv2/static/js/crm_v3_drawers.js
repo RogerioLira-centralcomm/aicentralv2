@@ -778,6 +778,8 @@
             var opt = document.createElement('option');
             opt.value = String(c.id);
             opt.textContent = c.nome + (c.cargo ? ' — ' + c.cargo : '');
+            opt.dataset.email = c.email || '';
+            opt.dataset.name = c.nome || '';
             select.appendChild(opt);
         });
         var pref = atividade && (atividade.contato_id != null ? String(atividade.contato_id) : '');
@@ -863,8 +865,14 @@
         var apply = document.createElement('button');
         apply.type = 'button';
         apply.className = 'cx-atividade-ia-history-apply';
-        apply.textContent = 'Aplicar no editor';
+        apply.textContent = item.canApply ? 'Aplicar no registro' : 'Copiar';
         apply.addEventListener('click', function () {
+            if (!item.canApply) {
+                navigator.clipboard.writeText(item.texto).then(function () {
+                    toast('Conteúdo copiado');
+                }).catch(function () { toast('Não foi possível copiar', true); });
+                return;
+            }
             if (!applyTextSafely(form, item.texto)) return;
             if (item.historyId) {
                 apiFetch('/ia/historico/' + encodeURIComponent(item.historyId) + '/aplicar', {
@@ -893,7 +901,8 @@
                         label: item.function === 'melhorar-texto' ? 'Registro revisado' : 'Roteiro',
                         source: item.source === 'openrouter' ? 'IA' : 'fallback',
                         texto: stripMarkdown(texto),
-                        historyId: item.id
+                        historyId: item.id,
+                        canApply: item.function === 'melhorar-texto'
                     });
                 });
             }).catch(function () { /* migration ainda não aplicada */ });
@@ -914,6 +923,228 @@
             };
             applyTextSafely(form, modelos[tipo] || modelos.atividade);
         });
+    }
+
+    function setupMeetingEditor(wrapper, form, atividade) {
+        var panel = wrapper.querySelector('[data-meeting-panel]');
+        var attendeesEl = wrapper.querySelector('[data-meeting-attendees]');
+        var attendeeInput = wrapper.querySelector('[data-meeting-attendee-input]');
+        var attendeeAdd = wrapper.querySelector('[data-meeting-attendee-add]');
+        var eventStatus = wrapper.querySelector('[data-meeting-event-status]');
+        var preview = wrapper.querySelector('[data-meeting-preview]');
+        var contactSelect = form.querySelector('[data-field="contato_id"]');
+        var dateLabel = wrapper.querySelector('[data-activity-date-label]');
+        var attendees = [];
+        var currentMeeting = null;
+        var activityRef = atividade || null;
+
+        function addAttendee(email, name, source) {
+            email = String(email || '').trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+            if (attendees.some(function (item) { return item.email === email; })) return true;
+            attendees.push({ email: email, name: name || '', source: source || 'manual' });
+            renderAttendees();
+            return true;
+        }
+
+        function addRelatedContact() {
+            if (!contactSelect || !contactSelect.selectedOptions.length) return;
+            var option = contactSelect.selectedOptions[0];
+            if (option.dataset.email) {
+                addAttendee(option.dataset.email, option.dataset.name, 'contact');
+            }
+        }
+
+        function renderAttendees() {
+            if (!attendeesEl) return;
+            attendeesEl.replaceChildren();
+            attendees.forEach(function (item, index) {
+                var chip = document.createElement('span');
+                chip.className = 'cx-meeting-attendee-chip';
+                var text = document.createElement('span');
+                text.textContent = item.name ? item.name + ' · ' + item.email : item.email;
+                var remove = document.createElement('button');
+                remove.type = 'button';
+                remove.setAttribute('aria-label', 'Remover ' + item.email);
+                remove.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+                remove.addEventListener('click', function () {
+                    attendees.splice(index, 1);
+                    renderAttendees();
+                });
+                chip.append(text, remove);
+                attendeesEl.appendChild(chip);
+            });
+            renderPreview();
+        }
+
+        function renderPreview() {
+            if (!preview) return;
+            var title = (form.querySelector('[data-field="titulo"]') || {}).value || 'Reunião';
+            var date = (form.querySelector('[data-field="data"]') || {}).value || 'data pendente';
+            var time = (form.querySelector('[data-field="hora"]') || {}).value || 'hora pendente';
+            var duration = (wrapper.querySelector('[data-meeting-field="duration_minutes"]') || {}).value || '30';
+            preview.replaceChildren();
+            var strong = document.createElement('strong');
+            var detail = document.createElement('span');
+            strong.textContent = title;
+            detail.textContent = date + ' às ' + time + ' · ' + duration +
+                ' min · ' + attendees.length + ' convidado(s)';
+            preview.append(strong, detail);
+        }
+
+        function renderStatus(meeting) {
+            currentMeeting = meeting || null;
+            if (!eventStatus || !meeting) {
+                if (eventStatus) eventStatus.hidden = true;
+                return;
+            }
+            eventStatus.hidden = false;
+            eventStatus.replaceChildren();
+            var message = document.createElement('span');
+            var labels = {
+                draft: 'Reunião salva no CRM; convite ainda não enviado.',
+                syncing: 'Sincronizando com o Google Calendar…',
+                synced: 'Convite sincronizado com o Google Calendar.',
+                error: meeting.sync_error || 'Não foi possível sincronizar o convite.',
+                cancelled: 'Evento cancelado no Google Calendar.'
+            };
+            message.textContent = labels[meeting.sync_status] || 'Estado da reunião atualizado.';
+            eventStatus.appendChild(message);
+            if (meeting.meet_url) {
+                var meet = document.createElement('a');
+                meet.href = meeting.meet_url;
+                meet.target = '_blank';
+                meet.rel = 'noopener noreferrer';
+                meet.textContent = 'Abrir Meet';
+                eventStatus.appendChild(meet);
+            }
+            if (activityRef && activityRef.id && meeting.sync_status === 'error') {
+                var retry = document.createElement('button');
+                retry.type = 'button';
+                retry.textContent = 'Tentar novamente';
+                retry.addEventListener('click', function () {
+                    retry.disabled = true;
+                    apiFetch('/atividades/' + encodeURIComponent(activityRef.id) + '/reuniao/sincronizar', {
+                        method: 'POST', body: {}
+                    }).then(function (res) {
+                        renderStatus((res.data && res.data.meeting) || res.meeting || res.data);
+                    }).catch(function (error) {
+                        toast(error.message, true);
+                    }).finally(function () { retry.disabled = false; });
+                });
+                eventStatus.appendChild(retry);
+            }
+            if (activityRef && activityRef.id && meeting.google_event_id && meeting.sync_status !== 'cancelled') {
+                var cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.className = 'is-danger';
+                cancel.textContent = 'Cancelar convite';
+                cancel.addEventListener('click', function () {
+                    window.showConfirm({
+                        title: 'Cancelar convite',
+                        message: 'O evento será cancelado no Google Calendar e os convidados serão avisados.',
+                        theme: 'danger',
+                        confirmText: 'Cancelar evento',
+                        onConfirm: function () {
+                            cancel.disabled = true;
+                            apiFetch('/atividades/' + encodeURIComponent(activityRef.id) + '/reuniao/evento', {
+                                method: 'DELETE'
+                            }).then(function (res) {
+                                renderStatus((res.data && res.data.meeting) || res.meeting || res.data);
+                            }).catch(function (error) {
+                                toast(error.message, true);
+                            }).finally(function () { cancel.disabled = false; });
+                        }
+                    });
+                });
+                eventStatus.appendChild(cancel);
+            }
+        }
+
+        function toggle(value) {
+            var visible = value === 'reuniao';
+            if (panel) panel.hidden = !visible;
+            if (dateLabel) {
+                dateLabel.innerHTML = visible
+                    ? 'Data da reunião <span class="cx-required">*</span>'
+                    : 'Data planejada <span class="cx-required">*</span>';
+            }
+            if (visible) addRelatedContact();
+        }
+
+        if (attendeeAdd) {
+            attendeeAdd.addEventListener('click', function () {
+                if (!addAttendee(attendeeInput.value, '', 'manual')) {
+                    toast('Informe um e-mail válido para o convidado', true);
+                    return;
+                }
+                attendeeInput.value = '';
+                attendeeInput.focus();
+            });
+        }
+        if (attendeeInput) {
+            attendeeInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    attendeeAdd.click();
+                }
+            });
+        }
+        if (contactSelect) contactSelect.addEventListener('change', addRelatedContact);
+        [
+            form.querySelector('[data-field="titulo"]'),
+            form.querySelector('[data-field="data"]'),
+            form.querySelector('[data-field="hora"]'),
+            wrapper.querySelector('[data-meeting-field="duration_minutes"]')
+        ].forEach(function (field) {
+            if (field) field.addEventListener('input', renderPreview);
+        });
+        renderPreview();
+
+        if (atividade && atividade.id && atividade.tipo === 'reuniao') {
+            apiFetch('/atividades/' + encodeURIComponent(atividade.id) + '/reuniao')
+                .then(function (res) {
+                    var meeting = (res.data && res.data.meeting) || res.meeting || res.data;
+                    if (!meeting) return;
+                    attendees = (meeting.attendees || []).map(function (item) {
+                        return { email: item.email, name: item.name || '', source: item.source || 'manual' };
+                    });
+                    var duration = wrapper.querySelector('[data-meeting-field="duration_minutes"]');
+                    var timezone = wrapper.querySelector('[data-meeting-field="timezone"]');
+                    var sync = wrapper.querySelector('[data-meeting-field="sync_google"]');
+                    if (duration && meeting.starts_at && meeting.ends_at) {
+                        duration.value = String(Math.round(
+                            (new Date(meeting.ends_at) - new Date(meeting.starts_at)) / 60000
+                        ));
+                    }
+                    if (timezone) timezone.value = meeting.timezone || 'America/Sao_Paulo';
+                    if (sync) {
+                        sync.checked = meeting.sync_status === 'synced'
+                            || meeting.sync_status === 'error'
+                            || Boolean(meeting.google_event_id);
+                    }
+                    renderAttendees();
+                    renderStatus(meeting);
+                }).catch(function () { /* migration ainda não aplicada */ });
+        }
+
+        return {
+            toggle: toggle,
+            payload: function () {
+                var duration = wrapper.querySelector('[data-meeting-field="duration_minutes"]');
+                var timezone = wrapper.querySelector('[data-meeting-field="timezone"]');
+                var sync = wrapper.querySelector('[data-meeting-field="sync_google"]');
+                return {
+                    duration_minutes: Number(duration && duration.value || 30),
+                    timezone: timezone && timezone.value || 'America/Sao_Paulo',
+                    attendees: attendees.slice(),
+                    sync_google: Boolean(sync && sync.checked)
+                };
+            },
+            renderStatus: renderStatus,
+            setActivity: function (value) { activityRef = value || activityRef; },
+            current: function () { return currentMeeting; }
+        };
     }
 
     var _atividadeDrawerId = null;
@@ -958,20 +1189,35 @@
         wireChipGroups(wrapper, form);
         wireAtividadeModelo(wrapper, form);
         loadIaHistory(wrapper, form, clienteId);
+        var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
+
+        function syncAssistantChannel(value) {
+            var fmt = form.querySelector('[data-field="formato"]');
+            var label = wrapper.querySelector('[data-ia-channel-label]');
+            var generate = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
+            var channel = value === 'email' || value === 'whatsapp' ? value : 'roteiro';
+            if (fmt) fmt.value = channel;
+            var labels = {
+                email: 'E-mail com assunto e mensagem',
+                whatsapp: 'Mensagem pronta para WhatsApp',
+                ligacao: 'Abertura e perguntas para ligação',
+                reuniao: 'Abertura e perguntas para reunião'
+            };
+            if (label) label.textContent = labels[value] || 'Abordagem para a atividade';
+            if (generate) {
+                generate.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' +
+                    (value === 'email' ? 'Gerar e-mail' : value === 'whatsapp'
+                        ? 'Gerar mensagem' : 'Gerar abordagem');
+            }
+        }
+        syncAssistantChannel(tipoVal);
+        meetingEditor.toggle(tipoVal);
 
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
                 var val = chip.getAttribute('data-value');
-                var fmt = form.querySelector('[data-field="formato"]');
-                var fg = wrapper.querySelector('[data-chip-group="formato"]');
-                if (!fmt || (val !== 'email' && val !== 'whatsapp')) return;
-                fmt.value = val;
-                if (!fg) return;
-                $$('.cx-drawer-chip', fg).forEach(function (c) {
-                    var active = c.getAttribute('data-value') === val;
-                    c.classList.toggle('is-active', active);
-                    c.setAttribute('aria-checked', active ? 'true' : 'false');
-                });
+                syncAssistantChannel(val);
+                meetingEditor.toggle(val);
             });
         });
 
@@ -999,7 +1245,10 @@
                     variant: 'primary',
                     id: 'cx-drawer-atividade-submit',
                     onClick: function (ev, id) {
-                        submitAtividade(form, atividade, clienteId, id, ev.currentTarget);
+                        submitAtividade(
+                            form, atividade, clienteId, id, ev.currentTarget,
+                            meetingEditor
+                        );
                     }
                 }
             ]
@@ -1013,7 +1262,7 @@
         return _atividadeDrawerId;
     }
 
-    function submitAtividade(form, atividade, clienteId, drawerId, submitBtn) {
+    function submitAtividade(form, atividade, clienteId, drawerId, submitBtn, meetingEditor) {
         if (form.dataset.submitting === '1') return;
         if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
         var payload = serializeForm(form);
@@ -1029,35 +1278,73 @@
         // Hora vazia significa "sem hora" — mande null. Só é persistido
         // no banco se a base tiver a coluna `hora_atividade` (opcional).
         if (!payload.hora) payload.hora = null;
-
-        form.dataset.submitting = '1';
-        form.setAttribute('aria-busy', 'true');
-        var submitLabel = submitBtn ? submitBtn.textContent : '';
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
+        if (payload.tipo === 'reuniao' && meetingEditor) {
+            payload.meeting = meetingEditor.payload();
+            if (!payload.hora) {
+                toast('Informe a hora de início da reunião', true);
+                return;
+            }
+            if (payload.meeting.sync_google) {
+                var googleStatus = form.querySelector('[data-meeting-sync]');
+                if (googleStatus && googleStatus.dataset.googleConnected !== 'true') {
+                    toast('Conecte o Google Calendar no seu perfil ou salve sem enviar o convite.', true);
+                    return;
+                }
+            }
         }
-        var isEdit = !!(atividade && atividade.id);
-        var req = isEdit
-            ? apiFetch('/atividades/' + encodeURIComponent(atividade.id), { method: 'PATCH', body: payload })
-            : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
-        req.then(function () {
-            toast(isEdit ? 'Atividade atualizada' : 'Atividade criada');
-            notifyEntityUpdated('cliente', clienteId);
-            cxDrawer.close(drawerId);
-            if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
-                window.crmV3.reloadAtividades();
+
+        function persist() {
+            form.dataset.submitting = '1';
+            form.setAttribute('aria-busy', 'true');
+            var submitLabel = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
             }
-        }).catch(function (err) {
-            toast(err.message, true);
-        }).finally(function () {
-            form.dataset.submitting = '0';
-            form.removeAttribute('aria-busy');
-            if (submitBtn && document.body.contains(submitBtn)) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = submitLabel;
-            }
-        });
+            var isEdit = !!(atividade && atividade.id);
+            var req = isEdit
+                ? apiFetch('/atividades/' + encodeURIComponent(atividade.id), { method: 'PATCH', body: payload })
+                : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
+            req.then(function (res) {
+                var meeting = res.meeting || (res.data && res.data.meeting);
+                if (meetingEditor && (res.atividade || res.data)) {
+                    meetingEditor.setActivity(res.atividade || res.data);
+                }
+                if (meeting && meeting.sync_status === 'error') {
+                    meetingEditor.renderStatus(meeting);
+                    toast('Atividade salva, mas o convite não foi sincronizado.', true);
+                    notifyEntityUpdated('cliente', clienteId);
+                    return;
+                }
+                toast(isEdit ? 'Atividade atualizada' : 'Atividade criada');
+                notifyEntityUpdated('cliente', clienteId);
+                cxDrawer.close(drawerId);
+                if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
+                    window.crmV3.reloadAtividades();
+                }
+            }).catch(function (err) {
+                toast(err.message, true);
+            }).finally(function () {
+                form.dataset.submitting = '0';
+                form.removeAttribute('aria-busy');
+                if (submitBtn && document.body.contains(submitBtn)) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = submitLabel;
+                }
+            });
+        }
+
+        if (payload.meeting && payload.meeting.sync_google) {
+            window.showConfirm({
+                title: atividade && atividade.id ? 'Atualizar convite' : 'Enviar convite',
+                message: 'A atividade será salva e o Google Calendar avisará os convidados.',
+                detail: payload.meeting.attendees.length + ' convidado(s) receberão a atualização.',
+                confirmText: atividade && atividade.id ? 'Salvar e atualizar' : 'Salvar e enviar',
+                onConfirm: persist
+            });
+            return;
+        }
+        persist();
     }
 
     function stripMarkdown(s) {
@@ -1072,6 +1359,158 @@
         return s.trim();
     }
 
+    function whatsappNumber(value) {
+        var digits = String(value || '').replace(/\D/g, '');
+        if (digits.indexOf('55') === 0 && digits.length >= 12) return digits;
+        return digits.length === 10 || digits.length === 11 ? '55' + digits : '';
+    }
+
+    function copyAssistantText(text) {
+        return navigator.clipboard.writeText(String(text || '')).then(function () {
+            toast('Conteúdo copiado');
+        }).catch(function () {
+            toast('Não foi possível copiar o conteúdo', true);
+        });
+    }
+
+    function renderAssistantResult(output, data, channel) {
+        output.replaceChildren();
+        output.classList.add('is-visible', 'is-result');
+        var result = document.createElement('article');
+        result.className = 'cx-atividade-result';
+        var head = document.createElement('header');
+        var heading = document.createElement('strong');
+        var source = document.createElement('span');
+        var labels = {
+            whatsapp: 'Mensagem de WhatsApp',
+            email: 'E-mail pronto',
+            ligacao: 'Guia para ligação',
+            reuniao: 'Guia para reunião'
+        };
+        heading.textContent = labels[channel] || 'Abordagem sugerida';
+        source.textContent = data.source === 'openrouter' ? 'IA contextual' : 'Modelo local';
+        head.append(heading, source);
+        result.appendChild(head);
+
+        var subject = stripMarkdown(data.assunto || '');
+        var message = stripMarkdown(data.mensagem || data.texto || '');
+        if (subject) {
+            var subjectBlock = document.createElement('div');
+            subjectBlock.className = 'cx-atividade-result-subject';
+            subjectBlock.innerHTML = '<span>Assunto</span><strong>' + escapeHtml(subject) + '</strong>';
+            result.appendChild(subjectBlock);
+        }
+        if (channel === 'ligacao' || channel === 'reuniao') {
+            if (data.objetivo) {
+                var goal = document.createElement('section');
+                goal.innerHTML = '<h3>Objetivo da conversa</h3><p>' +
+                    escapeHtml(data.objetivo) + '</p>';
+                result.appendChild(goal);
+            }
+            if (data.abertura) {
+                var opening = document.createElement('section');
+                opening.innerHTML = '<h3>Abertura</h3><p>' + escapeHtml(data.abertura) + '</p>';
+                result.appendChild(opening);
+            }
+            if (Array.isArray(data.perguntas) && data.perguntas.length) {
+                var questions = document.createElement('section');
+                questions.innerHTML = '<h3>Perguntas para aproximar</h3><ol>' +
+                    data.perguntas.map(function (item) {
+                        return '<li>' + escapeHtml(item) + '</li>';
+                    }).join('') + '</ol>';
+                result.appendChild(questions);
+            }
+            if (data.fechamento) {
+                var closing = document.createElement('section');
+                closing.innerHTML = '<h3>Fechamento</h3><p>' + escapeHtml(data.fechamento) + '</p>';
+                result.appendChild(closing);
+            }
+            var objections = Array.isArray(data.objecoes_a_explorar)
+                ? data.objecoes_a_explorar : [];
+            var attentionPoints = Array.isArray(data.pontos_de_atencao)
+                ? data.pontos_de_atencao : [];
+            if (objections.length || attentionPoints.length) {
+                var guidance = document.createElement('details');
+                guidance.className = 'cx-atividade-result-guidance';
+                guidance.innerHTML = '<summary>Objeções e orientações adicionais</summary>' +
+                    (objections.length ? '<h4>Objeções a explorar</h4><ul>' +
+                        objections.map(function (item) {
+                            return '<li>' + escapeHtml(item) + '</li>';
+                        }).join('') + '</ul>' : '') +
+                    (attentionPoints.length ? '<h4>Pontos de atenção</h4><ul>' +
+                        attentionPoints.map(function (item) {
+                            return '<li>' + escapeHtml(item) + '</li>';
+                        }).join('') + '</ul>' : '');
+                result.appendChild(guidance);
+            }
+        } else {
+            var copy = document.createElement('div');
+            copy.className = 'cx-atividade-result-message';
+            copy.textContent = message;
+            result.appendChild(copy);
+        }
+
+        var actions = document.createElement('footer');
+        var copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'cx-atividade-result-action';
+        copyButton.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar ' +
+            (channel === 'email' ? 'e-mail' : channel === 'whatsapp' ? 'mensagem' : 'guia');
+        copyButton.addEventListener('click', function () {
+            copyAssistantText(subject ? subject + '\n\n' + message : message);
+        });
+        actions.appendChild(copyButton);
+        if (subject) {
+            var copySubject = document.createElement('button');
+            copySubject.type = 'button';
+            copySubject.className = 'cx-atividade-result-action';
+            copySubject.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar assunto';
+            copySubject.addEventListener('click', function () {
+                copyAssistantText(subject);
+            });
+            actions.appendChild(copySubject);
+        }
+
+        var contact = data.contato || {};
+        if (channel === 'whatsapp') {
+            var phone = whatsappNumber(
+                data.telefone || contact.telefone || contact.telefone_secundario
+            );
+            if (phone) {
+                var whatsapp = document.createElement('a');
+                whatsapp.className = 'cx-atividade-result-action is-primary';
+                whatsapp.target = '_blank';
+                whatsapp.rel = 'noopener noreferrer';
+                whatsapp.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
+                whatsapp.innerHTML = '<i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp';
+                actions.appendChild(whatsapp);
+            }
+        }
+        var contactEmail = String(data.email || contact.email || '').trim();
+        if (channel === 'email' && contactEmail) {
+            var email = document.createElement('a');
+            email.className = 'cx-atividade-result-action is-primary';
+            email.href = 'mailto:' + encodeURIComponent(contactEmail) +
+                '?subject=' + encodeURIComponent(subject) +
+                '&body=' + encodeURIComponent(message);
+            email.innerHTML = '<i class="fa-regular fa-envelope"></i> Criar e-mail';
+            actions.appendChild(email);
+        }
+        result.appendChild(actions);
+        if (
+            (channel === 'whatsapp' && actions.children.length === 1)
+            || (channel === 'email' && actions.children.length === 1)
+        ) {
+            var missing = document.createElement('small');
+            missing.className = 'cx-atividade-result-missing';
+            missing.textContent = channel === 'whatsapp'
+                ? 'O contato selecionado não possui celular válido.'
+                : 'O contato selecionado não possui e-mail.';
+            result.appendChild(missing);
+        }
+        output.appendChild(result);
+    }
+
     function runIA(btn, form, output, clienteId, wrapper) {
         if (!wrapper || wrapper.dataset.iaBusy === '1') return;
         var action = btn.getAttribute('data-ia-action');
@@ -1082,10 +1521,16 @@
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
         var endpoint = action;
         if (action === 'gerar-roteiro') {
-            // A descrição pode ser um roteiro aplicado anteriormente. Nunca a
-            // envie novamente ao gerador, evitando realimentação de texto de IA.
+            var activityType = String(payload.tipo || 'atividade').toLowerCase();
+            payload.notas_executivo = payload.descricao || '';
+            payload.objetivo = [payload.titulo, payload.descricao]
+                .filter(Boolean).join('\n\n');
             delete payload.descricao;
-            payload.objetivo = payload.titulo || '';
+            if (activityType === 'email' || activityType === 'whatsapp') {
+                endpoint = 'gerar-comunicacao';
+                payload.formato = activityType;
+                payload.tipo = activityType;
+            }
         }
         if (action === 'gerar-comunicacao') {
             var fmt = String(payload.formato || payload.tipo || '').toLowerCase();
@@ -1101,27 +1546,23 @@
         var iaPanel = wrapper.querySelector('.cx-atividade-ia');
         if (iaPanel) iaPanel.setAttribute('aria-busy', 'true');
         output.classList.add('is-visible');
+        output.classList.remove('is-result');
         output.setAttribute('aria-busy', 'true');
         output.textContent = 'Consultando assistente…';
 
         apiFetch('/ia/' + endpoint, { method: 'POST', body: payload }).then(function (res) {
             var data = res.data || res;
-            if (endpoint === 'melhorar-texto' || endpoint === 'gerar-roteiro') {
+            if (endpoint === 'melhorar-texto') {
                 var texto = stripMarkdown((data && (data.texto || data.descricao || data.texto_melhorado)) || '');
                 if (texto) {
                     addIaHistory(wrapper, form, {
-                        label: endpoint === 'melhorar-texto' ? 'Texto revisado' : 'Roteiro ' + (payload.foco || ''),
+                        label: 'Texto revisado',
                         texto: texto,
                         source: data.source === 'openrouter' ? 'IA' : 'fallback',
-                        historyId: data.history_id
+                        historyId: data.history_id,
+                        canApply: true
                     });
-                    if (endpoint === 'gerar-roteiro') {
-                        output.textContent = 'Roteiro pronto como sugestão. A descrição não foi alterada.' +
-                            '\nOrigem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
-                            (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '') +
-                            ((data.contexto_utilizado || []).length ? '\nDados considerados: ' + data.contexto_utilizado.join(', ') : '') +
-                            '\nRevise em “Sugestões desta edição” e aplique somente se desejar.';
-                    } else if (applyTextSafely(form, texto)) {
+                    if (applyTextSafely(form, texto)) {
                         output.textContent = 'Texto revisado' +
                             '. Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
                             '\nRevise antes de salvar.';
@@ -1129,8 +1570,24 @@
                         output.textContent = 'Sugestão guardada no histórico sem substituir seu texto.';
                     }
                 } else {
-                    output.textContent = 'A IA não devolveu roteiro. Tente de novo ou escreva na descrição.';
+                    output.textContent = 'A IA não devolveu texto. Tente novamente.';
                 }
+            } else if (endpoint === 'gerar-roteiro') {
+                var guideText = stripMarkdown((data && data.texto) || '');
+                if (guideText) {
+                    addIaHistory(wrapper, form, {
+                        label: payload.tipo === 'reuniao' ? 'Guia de reunião' : 'Guia de ligação',
+                        texto: guideText,
+                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                        historyId: data.history_id,
+                        canApply: false
+                    });
+                }
+                renderAssistantResult(
+                    output,
+                    data,
+                    payload.tipo === 'reuniao' ? 'reuniao' : 'ligacao'
+                );
             } else if (action === 'sugerir-atividade' || endpoint === 'sugerir-atividade') {
                 if (data) {
                     // Helper defensivo: só atualiza se o campo existir
@@ -1237,14 +1694,12 @@
                         label: String(payload.tipo || 'Comunicação'),
                         texto: msg,
                         source: data.source === 'openrouter' ? 'IA' : 'fallback',
-                        historyId: data.history_id
+                        historyId: data.history_id,
+                        canApply: false
                     });
-                    output.textContent = 'Comunicação criada separadamente do roteiro. Origem: ' +
-                        (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
-                        (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '');
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
-                    setTimeout(function () { openDrawerComunicacao(data, clienteId, payload); }, 200);
+                    renderAssistantResult(output, data, payload.tipo);
                 } else {
                     output.textContent = 'Sem conteúdo gerado.';
                 }
@@ -1441,7 +1896,26 @@
         });
     }
 
-    function submitCotacaoCaminhoA(form, cotacao, clienteId, drawerId, abrirMontagem) {
+    function uploadCotacaoBriefing(wrapper, cotacaoId) {
+        var input = wrapper.querySelector('#cx-cot-briefing-file');
+        var file = input && input.files && input.files[0];
+        if (!file || !cotacaoId) return Promise.resolve();
+        var data = new FormData();
+        data.append('arquivo', file);
+        return fetch(
+            API_BASE + '/cotacoes/' + encodeURIComponent(cotacaoId) + '/briefing',
+            { method: 'POST', body: data }
+        ).then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok || payload.success === false) {
+                    throw new Error(payload.error || 'Não foi possível anexar o briefing');
+                }
+                return payload;
+            });
+        });
+    }
+
+    function submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
         payload.tipo_comercial = payload.tipo_comercial || 'midia';
         payload.plataformas = String(payload.plataformas || '')
@@ -1451,15 +1925,12 @@
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
+        var isEdit = !!(cotacao && cotacao.id);
+        if (!isEdit) payload.status = 'rascunho';
         if (payload.tipo_comercial !== 'midia') {
             payload.status = 'rascunho';
-            if (abrirMontagem) {
-                toast('Salve o rascunho. A montagem deste tipo terá um módulo próprio.', true);
-                return;
-            }
         }
 
-        var isEdit = !!(cotacao && cotacao.id);
         var targetId = String(payload.client_id || clienteId || '').trim();
         if (!isEdit && !targetId) {
             toast('Selecione o cliente da cotação', true);
@@ -1470,9 +1941,14 @@
             ? apiFetch('/cotacoes/' + encodeURIComponent(cotacao.id), { method: 'PATCH', body: payload })
             : apiFetch('/clientes/' + encodeURIComponent(targetId) + '/cotacoes', { method: 'POST', body: payload });
 
-        req.then(function (resp) {
-            toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
+        return req.then(function (resp) {
             var updatedQuoteId = (resp.cotacao && resp.cotacao.id) || (cotacao && cotacao.id);
+            return uploadCotacaoBriefing(wrapper, updatedQuoteId)
+                .then(function () { return { response: resp, quoteId: updatedQuoteId }; });
+        }).then(function (result) {
+            var resp = result.response;
+            toast(isEdit ? 'Cotação atualizada' : 'Cotação criada');
+            var updatedQuoteId = result.quoteId;
             notifyEntityUpdated('cotacao', updatedQuoteId);
             cxDrawer.close(drawerId);
             if (window.crmV3 && typeof window.crmV3.reloadCotacoes === 'function') {
@@ -1480,13 +1956,13 @@
             }
             if (abrirMontagem) {
                 // Preferência: URL vinda do backend (mais seguro se a rota mudar).
-                // Fallback: /cotacoes/<id>/detalhes (padrão do módulo legado).
                 var url = (resp && resp.redirect_url)
                     || (resp && resp.cotacao && resp.cotacao.detalhes_url)
                     || null;
                 if (!url) {
                     var novoId = (resp && resp.cotacao && resp.cotacao.id) || (cotacao && cotacao.id);
-                    if (novoId) url = '/cotacoes/' + encodeURIComponent(novoId) + '/detalhes';
+                    var sufixo = payload.tipo_comercial === 'midia' ? 'detalhes' : 'editar';
+                    if (novoId) url = '/cotacoes/' + encodeURIComponent(novoId) + '/' + sufixo;
                 }
                 if (url) {
                     // Nova aba: o usuário mantém contexto no CRM v3 e volta
@@ -1500,11 +1976,27 @@
 
     function wireTipoCotacao(wrapper) {
         var tipo = wrapper.querySelector('#cx-cot-tipo');
+        var options = $$('[data-cot-type]', wrapper);
         var status = wrapper.querySelector('#cx-cot-status');
         var hint = wrapper.querySelector('#cx-cot-tipo-hint');
         var note = wrapper.querySelector('#cx-cot-montagem-note');
         var fullLink = wrapper.querySelector('#cx-cot-open-full');
         if (!tipo) return;
+
+        function selectTipo(value, fromUser) {
+            var valid = options.some(function (button) {
+                return button.getAttribute('data-cot-type') === value;
+            });
+            tipo.value = valid ? value : 'midia';
+            if (fromUser) wrapper._cotTypeTouched = true;
+            options.forEach(function (button) {
+                var active = button.getAttribute('data-cot-type') === tipo.value;
+                button.classList.toggle('is-active', active);
+                button.setAttribute('aria-checked', String(active));
+                button.tabIndex = active ? 0 : -1;
+            });
+            update();
+        }
 
         function update() {
             var isMidia = (tipo.value || 'midia') === 'midia';
@@ -1527,11 +2019,25 @@
                         : 'Esta categoria não usa a calculadora nem o PI de Mídia.';
                 }
             }
-            if (fullLink) fullLink.hidden = !isMidia || !fullLink.getAttribute('href');
+            if (fullLink) fullLink.hidden = !fullLink.getAttribute('href');
         }
 
-        tipo.addEventListener('change', update);
-        update();
+        options.forEach(function (button, index) {
+            button.addEventListener('click', function () {
+                selectTipo(button.getAttribute('data-cot-type'), true);
+            });
+            button.addEventListener('keydown', function (event) {
+                if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+                event.preventDefault();
+                var next = index + (event.key === 'ArrowRight' ? 1 : -1);
+                if (next < 0) next = options.length - 1;
+                if (next >= options.length) next = 0;
+                options[next].focus();
+                selectTipo(options[next].getAttribute('data-cot-type'), true);
+            });
+        });
+        wrapper._selectCotacaoTipo = selectTipo;
+        selectTipo(tipo.value || 'midia', false);
     }
 
     /* ------------------------------------------------------------
@@ -1685,12 +2191,14 @@
                         var input = wrapper.querySelector('#cx-cot-client-id');
                         var lab = wrapper.querySelector('#cx-cot-client-picker-label');
                         if (input) input.value = String(it.id);
+                        if (input) input.dispatchEvent(new Event('change'));
                         if (lab) lab.textContent = it.nome || ('#' + it.id);
                         if (clientPicker) clientPicker.classList.add('has-value');
                     } else {
                         var hid = wrapper.querySelector('#cx-cot-agencia-id');
                         var alab = wrapper.querySelector('#cx-cot-agencia-picker-label');
                         if (hid) hid.value = String(it.id);
+                        if (hid) hid.dispatchEvent(new Event('change'));
                         if (alab) alab.textContent = it.nome || ('#' + it.id);
                         if (agenciaPicker) agenciaPicker.classList.add('has-value');
                     }
@@ -1728,6 +2236,7 @@
                 var input = wrapper.querySelector('#cx-cot-client-id');
                 var label = wrapper.querySelector('#cx-cot-client-picker-label');
                 if (input) input.value = '';
+                if (input) input.dispatchEvent(new Event('change'));
                 if (label) label.textContent = 'Selecionar cliente';
                 if (clientPicker) clientPicker.classList.remove('has-value');
                 if (modal && modal.close) modal.close();
@@ -1790,6 +2299,7 @@
                 });
                 var input = wrapper.querySelector('#cx-cot-client-id');
                 if (input) input.value = selected ? selected.id : '';
+                if (input) input.dispatchEvent(new Event('change'));
                 if (pickerLabel && selected) pickerLabel.textContent = selected.nome;
                 if (picker) picker.classList.toggle('has-value', !!selected);
             });
@@ -2022,6 +2532,173 @@
         atualizar();
     }
 
+    function contactOptionValue(contact) {
+        return String(contact.id || contact.id_contato_cliente || '');
+    }
+
+    function loadCotacaoContacts(clienteId, select, selectedId) {
+        if (!select) return Promise.resolve();
+        select.innerHTML = '<option value="">Selecione depois</option>';
+        if (!clienteId) return Promise.resolve();
+        select.disabled = true;
+        return apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/contatos')
+            .then(function (response) {
+                (response.contatos || response.data || []).forEach(function (contact) {
+                    var option = document.createElement('option');
+                    option.value = contactOptionValue(contact);
+                    option.textContent = contact.nome || contact.nome_completo || contact.email || option.value;
+                    if (selectedId && String(selectedId) === option.value) option.selected = true;
+                    select.appendChild(option);
+                });
+            })
+            .catch(function () {
+                select.innerHTML = '<option value="">Contatos indisponíveis</option>';
+            })
+            .finally(function () { select.disabled = false; });
+    }
+
+    function wireCotacaoParticipants(wrapper, cotacao) {
+        var clientInput = wrapper.querySelector('#cx-cot-client-id');
+        var agencyInput = wrapper.querySelector('#cx-cot-agencia-id');
+        var clientContact = wrapper.querySelector('#cx-cot-client-user');
+        var agencyContact = wrapper.querySelector('#cx-cot-agencia-user');
+        var partner = wrapper.querySelector('#cx-cot-parceiro');
+        var partnerContact = wrapper.querySelector('#cx-cot-parceiro-user');
+        var clients = (window.crmV3 && window.crmV3.state && window.crmV3.state.clientes) || [];
+
+        if (partner) {
+            clients.filter(function (item) { return !item.is_agencia; }).forEach(function (item) {
+                var option = document.createElement('option');
+                option.value = String(item.id || '');
+                option.textContent = item.nome || ('Cliente #' + item.id);
+                if (cotacao && String(cotacao.id_parceiro || '') === option.value) option.selected = true;
+                partner.appendChild(option);
+            });
+            partner.addEventListener('change', function () {
+                loadCotacaoContacts(partner.value, partnerContact, '');
+            });
+        }
+        if (clientInput) {
+            clientInput.addEventListener('change', function () {
+                loadCotacaoContacts(clientInput.value, clientContact, '');
+            });
+        }
+        if (agencyInput) {
+            agencyInput.addEventListener('change', function () {
+                loadCotacaoContacts(agencyInput.value, agencyContact, '');
+            });
+        }
+        loadCotacaoContacts(
+            clientInput && clientInput.value,
+            clientContact,
+            cotacao && cotacao.client_user_id
+        );
+        loadCotacaoContacts(
+            agencyInput && agencyInput.value,
+            agencyContact,
+            cotacao && cotacao.agencia_user_id
+        );
+        loadCotacaoContacts(
+            partner && partner.value,
+            partnerContact,
+            cotacao && cotacao.parceiro_user_id
+        );
+    }
+
+    function applyCotacaoSuggestion(wrapper, suggestion, key, force) {
+        var selectors = {
+            nome_campanha: '[data-field="nome_campanha"]',
+            objetivo: '[data-field="objetivo"]',
+            periodo_inicio: '[data-field="periodo_inicio"]',
+            periodo_fim: '[data-field="periodo_fim"]',
+            budget_estimado: '[data-field="budget_estimado"]',
+            plataformas: '[data-field="plataformas"]',
+            apresentacao_dados: '[data-field="apresentacao_dados"]'
+        };
+        if (key === 'tipo_comercial') {
+            if ((force || !wrapper._cotTypeTouched) && wrapper._selectCotacaoTipo) {
+                wrapper._selectCotacaoTipo(suggestion[key] || 'midia', false);
+            }
+            return;
+        }
+        var input = wrapper.querySelector(selectors[key] || '');
+        if (!input || suggestion[key] == null || suggestion[key] === '') return;
+        if (!force && String(input.value || '').trim()) return;
+        input.value = Array.isArray(suggestion[key]) ? suggestion[key].join(', ') : String(suggestion[key]);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function wireCotacaoAgent(wrapper) {
+        var trigger = wrapper.querySelector('#cx-cot-agent-trigger');
+        var result = wrapper.querySelector('#cx-cot-agent-result');
+        var form = wrapper.querySelector('form');
+        if (!trigger || !result || !form) return;
+
+        trigger.addEventListener('click', function () {
+            var payload = serializeForm(form);
+            payload.cliente_id = payload.client_id || '';
+            trigger.disabled = true;
+            trigger.textContent = 'Preparando…';
+            result.hidden = false;
+            result.innerHTML = '<p class="cx-cot-agent-working">Lendo o contexto comercial deste cliente.</p>';
+            apiFetch('/ia/sugerir-cotacao', { method: 'POST', body: payload })
+                .then(function (response) {
+                    var suggestion = response.sugestao || response.data || {};
+                    var fieldLabels = {
+                        tipo_comercial: 'Tipo',
+                        nome_campanha: 'Campanha',
+                        objetivo: 'Objetivo',
+                        periodo_inicio: 'Início',
+                        periodo_fim: 'Fim',
+                        budget_estimado: 'Budget',
+                        plataformas: 'Plataformas',
+                        apresentacao_dados: 'Briefing'
+                    };
+                    Object.keys(fieldLabels).forEach(function (key) {
+                        applyCotacaoSuggestion(wrapper, suggestion, key, false);
+                    });
+                    var proposals = Object.keys(fieldLabels).filter(function (key) {
+                        return suggestion[key] != null && suggestion[key] !== '';
+                    }).map(function (key) {
+                        var value = Array.isArray(suggestion[key])
+                            ? suggestion[key].join(', ')
+                            : String(suggestion[key]);
+                        return '<button type="button" class="cx-cot-agent-field" data-apply-cot="' +
+                            escapeAttr(key) + '"><span>' + escapeHtml(fieldLabels[key]) +
+                            '</span><strong>' + escapeHtml(value) + '</strong></button>';
+                    }).join('');
+                    var context = (suggestion.contexto_utilizado || []).map(function (item) {
+                        return '<li>' + escapeHtml(item) + '</li>';
+                    }).join('');
+                    result.innerHTML =
+                        '<p class="cx-cot-agent-reason">' +
+                            escapeHtml(suggestion.motivo || 'Sugestão preparada para revisão.') +
+                        '</p><div class="cx-cot-agent-fields">' + proposals + '</div>' +
+                        (context ? '<ul class="cx-cot-agent-context">' + context + '</ul>' : '') +
+                        '<small>Campos vazios foram preenchidos. Clique em uma sugestão para substituir o campo.</small>';
+                    $$('[data-apply-cot]', result).forEach(function (button) {
+                        button.addEventListener('click', function () {
+                            applyCotacaoSuggestion(
+                                wrapper,
+                                suggestion,
+                                button.getAttribute('data-apply-cot'),
+                                true
+                            );
+                            button.classList.add('is-applied');
+                        });
+                    });
+                })
+                .catch(function (error) {
+                    result.innerHTML = '<p class="cx-cot-agent-error">' + escapeHtml(error.message) + '</p>';
+                })
+                .finally(function () {
+                    trigger.disabled = false;
+                    trigger.textContent = 'Gerar outra sugestão';
+                });
+        });
+    }
+
     function openDrawerCotacao(cotacao, clienteId) {
         var frag = cloneTpl('cx-drawer-cotacao-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
@@ -2041,10 +2718,15 @@
 
         var fullLink = wrapper.querySelector('#cx-cot-open-full');
         if (fullLink && isEdit) {
-            fullLink.href = '/cotacoes/' + encodeURIComponent(cotacao.id) + '/detalhes';
+            fullLink.href = cotacao.detalhes_url || (
+                '/cotacoes/' + encodeURIComponent(cotacao.id) + '/' +
+                ((cotacao.tipo_comercial || 'midia') === 'midia' ? 'detalhes' : 'editar')
+            );
             fullLink.hidden = false;
         }
         wireTipoCotacao(wrapper);
+        wireCotacaoParticipants(wrapper, cotacao || {});
+        wireCotacaoAgent(wrapper);
 
         // Defaults de data: hoje / hoje+30d — só em criação e só se
         // o valor ainda estiver vazio (não sobrescreve dados de
@@ -2068,14 +2750,14 @@
                 label: isEdit ? 'Salvar alterações' : 'Salvar rascunho',
                 variant: 'ghost',
                 onClick: function (ev, id) {
-                    submitCotacaoCaminhoA(form, cotacao, clienteId, id, false);
+                    submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, id, false);
                 }
             },
             {
-                label: isEdit ? 'Salvar e abrir montagem' : 'Salvar e montar cotação',
+                label: isEdit ? 'Salvar e continuar' : 'Criar rascunho e continuar',
                 variant: 'primary',
                 onClick: function (ev, id) {
-                    submitCotacaoCaminhoA(form, cotacao, clienteId, id, true);
+                    submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, id, true);
                 }
             }
         ];

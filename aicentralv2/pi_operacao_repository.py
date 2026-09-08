@@ -55,7 +55,8 @@ class PiOperacaoRepository:
                        cli.nome_fantasia AS cliente_nome,
                        ag.nome_fantasia AS agencia_nome,
                        ss.display AS sub_status_descricao,
-                       resp.nome_completo AS responsavel_comercial_nome
+                       resp.nome_completo AS responsavel_comercial_nome,
+                       resp.foto_url AS responsavel_comercial_foto_url
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                   LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
@@ -85,7 +86,8 @@ class PiOperacaoRepository:
                        c.totalizador_gasto, c.updated_at,
                        st.descricao AS status_descricao,
                        plt.descricao AS plataforma_nome,
-                       resp.nome_completo AS responsavel_operacao_nome
+                       resp.nome_completo AS responsavel_operacao_nome,
+                       resp.foto_url AS responsavel_operacao_foto_url
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
                   LEFT JOIN cadu_pi_camp_plataforma plt
@@ -112,7 +114,8 @@ class PiOperacaoRepository:
                        c.totalizador_gasto, c.updated_at,
                        st.descricao AS status_descricao,
                        plt.descricao AS plataforma_nome,
-                       resp.nome_completo AS responsavel_operacao_nome
+                       resp.nome_completo AS responsavel_operacao_nome,
+                       resp.foto_url AS responsavel_operacao_foto_url
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
                   LEFT JOIN cadu_pi_camp_plataforma plt
@@ -158,7 +161,8 @@ class PiOperacaoRepository:
                        p.id_sub_status_pi, p.periodo_inicio, p.periodo_fim,
                        cli.nome_fantasia AS cliente_nome,
                        ss.display AS sub_status_descricao,
-                       resp.nome_completo AS responsavel_comercial_nome
+                       resp.nome_completo AS responsavel_comercial_nome,
+                       resp.foto_url AS responsavel_comercial_foto_url
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
@@ -192,6 +196,7 @@ class PiOperacaoRepository:
                        plt.descricao AS plataforma_nome,
                        cli.nome_fantasia AS cliente_nome,
                        resp.nome_completo AS responsavel_operacao_nome,
+                       resp.foto_url AS responsavel_operacao_foto_url,
                        p.codigo_pi_cc, p.codigo_pi_ag
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi p ON p.id_pi = c.id_pi

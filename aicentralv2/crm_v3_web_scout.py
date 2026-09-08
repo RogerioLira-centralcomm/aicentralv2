@@ -192,8 +192,7 @@ def _firecrawl_scrape_com_variantes(raw: Optional[str]) -> tuple[Dict[str, Any],
                     "Não encontramos o domínio. Testamos os endereços com e sem www."
                 ) from second_error
             raise RuntimeError(
-                "Não foi possível ler o site. Testamos os endereços com e sem www. "
-                f"{str(second_error)[:220]}"
+                "Não foi possível ler o site. Testamos os endereços com e sem www."
             ) from second_error
 
 

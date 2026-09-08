@@ -81,6 +81,21 @@ class Config:
 	).rstrip('/')
 	DV360_TIMEOUT = int(os.getenv('DV360_TIMEOUT', '30'))
 
+	# Google Workspace por usuário (Calendar + Meet). O redirect precisa estar
+	# cadastrado no Google Cloud Console. A chave Fernet protege refresh tokens.
+	GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')
+	GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '')
+	GOOGLE_OAUTH_REDIRECT_URI = os.getenv(
+		'GOOGLE_OAUTH_REDIRECT_URI',
+		f"{BASE_URL.rstrip('/')}/perfil/google/callback",
+	)
+	GOOGLE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_TOKEN_ENCRYPTION_KEY', '')
+	GOOGLE_CALENDAR_TIMEOUT = int(os.getenv('GOOGLE_CALENDAR_TIMEOUT', '20'))
+	INTEGRATION_CREDENTIALS_KEY = os.getenv('INTEGRATION_CREDENTIALS_KEY', '')
+	HIGGSFIELD_API_KEY = os.getenv('HIGGSFIELD_API_KEY', '')
+	HIGGSFIELD_WORKSPACE_ID = os.getenv('HIGGSFIELD_WORKSPACE_ID', '')
+	HIGGSFIELD_DEFAULT_MODEL = os.getenv('HIGGSFIELD_DEFAULT_MODEL', '')
+
 	# Campanha PI: ID da plataforma DV360 em cadu_pi_camp_plataforma (opcional). Vazio → deteção por descrição na BD.
 	_PI_PLT_DV360_RAW = os.getenv('PI_PLATAFORMA_DV360_ID', '').strip()
 	PI_PLATAFORMA_DV360_ID = int(_PI_PLT_DV360_RAW) if _PI_PLT_DV360_RAW.isdigit() else None

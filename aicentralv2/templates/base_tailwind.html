@@ -392,6 +392,29 @@
                         </dd>
                     </div>
                 </dl>
+                <section class="mt-3 rounded-xl border border-base-200 bg-base-200/30 p-3" aria-label="Google Calendar">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold">Google Calendar e Meet</p>
+                            {% if perfil_google and perfil_google.status == 'connected' %}
+                            <p class="mt-0.5 truncate text-xs text-base-content/60">{{ perfil_google.google_email }}</p>
+                            {% else %}
+                            <p class="mt-0.5 text-xs text-base-content/60">Crie reuniões e convites diretamente pelo CRM.</p>
+                            {% endif %}
+                        </div>
+                        {% if perfil_google and perfil_google.status == 'connected' %}
+                        <span class="badge badge-success badge-sm">Conectado</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <a href="{{ url_for('perfil_google_conectar') }}" class="btn btn-outline btn-xs">
+                            {% if perfil_google %}Reconectar{% else %}Conectar Google{% endif %}
+                        </a>
+                        {% if perfil_google %}
+                        <button type="button" id="perfil-google-disconnect" class="btn btn-ghost btn-xs text-error">Desconectar</button>
+                        {% endif %}
+                    </div>
+                </section>
                 {% else %}
                 <p class="text-sm text-base-content/70">Não foi possível carregar os dados do perfil.</p>
                 {% endif %}
@@ -445,6 +468,35 @@
                 })
                 .finally(function () { input.value = ''; });
         });
+    })();
+    (function () {
+        var disconnect = document.getElementById('perfil-google-disconnect');
+        if (disconnect) {
+            disconnect.addEventListener('click', function () {
+                window.showConfirm({
+                    title: 'Desconectar Google Calendar',
+                    message: 'Reuniões existentes não serão apagadas, mas novos convites deixarão de ser sincronizados.',
+                    theme: 'danger',
+                    confirmText: 'Desconectar',
+                    onConfirm: function () {
+                        disconnect.disabled = true;
+                        fetch('/api/perfil/google', { method: 'DELETE', credentials: 'same-origin' })
+                            .then(function (response) { return response.json(); })
+                            .then(function (data) {
+                                if (!data.success) throw new Error(data.error || 'Falha ao desconectar');
+                                window.location.reload();
+                            })
+                            .catch(function () {
+                                disconnect.disabled = false;
+                            });
+                    }
+                });
+            });
+        }
+        if (new URLSearchParams(window.location.search).has('perfil')) {
+            var modal = document.getElementById('modal-meu-perfil');
+            if (modal && typeof modal.showModal === 'function') modal.showModal();
+        }
     })();
     </script>
 

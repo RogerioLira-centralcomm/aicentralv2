@@ -121,6 +121,29 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertNotIn('id="crm-v3-modal-cotacao"', self.modals)
         self.assertNotIn("openCotacaoModal", self.js)
 
+    def test_quote_drawer_is_progressive_and_agent_suggestions_are_reviewable(self):
+        self.assertIn('class="cx-cot-type-track"', self.drawer)
+        self.assertEqual(4, self.drawer.count('data-cot-type="'))
+        self.assertIn('<details class="cx-cot-refine"', self.drawer)
+        for field in (
+            "client_user_id",
+            "agencia_user_id",
+            "id_parceiro",
+            "parceiro_user_id",
+            "budget_estimado",
+            "apresentacao_dados",
+            "frequencia_impacto",
+            "premissas",
+            "observacoes_gerais",
+        ):
+            self.assertIn(f'data-field="{field}"', self.drawer)
+        self.assertIn("wireCotacaoAgent", self.drawer_js)
+        self.assertIn("/ia/sugerir-cotacao", self.drawer_js)
+        self.assertIn("Campos vazios foram preenchidos", self.drawer_js)
+        self.assertIn("applyCotacaoSuggestion", self.drawer_js)
+        self.assertIn(".cx-cot-type-track", self.enterprise_css)
+        self.assertIn(".cx-cot-agent", self.enterprise_css)
+
     def test_quote_type_is_single_and_media_remains_the_legacy_flow(self):
         for slug in ("midia", "parceiros", "formatos_interativos", "dados"):
             self.assertIn(f'value="{slug}"', self.drawer)
@@ -132,6 +155,7 @@ class CrmV3MainUiContractTest(unittest.TestCase):
             "migrations/run_add_tipo_comercial_to_cotacoes.py",
             self.deploy,
         )
+        self.assertIn("destino_tipo_comercial", self.cotacao_tipos)
 
     def test_quote_cards_show_type_and_company_identity(self):
         self.assertIn("cotacaoTipoHtml(c)", self.js)

@@ -7,6 +7,7 @@ import uuid
 
 from flask import current_app, jsonify, request, session
 
+from .. import db
 from ..crm_v3_repository import get_store
 from ..pi_operacao_repository import PiOperacaoRepository
 from ..services.openrouter_service import DEFAULT_CHAT_MODEL
@@ -74,6 +75,24 @@ def _context(raw=None):
 
 def _suggestions(context):
     return suggestion_prompts(context)
+
+
+def _current_user_payload():
+    payload = {
+        "id": session["user_id"],
+        "name": session.get("user_name") or "Usuário",
+        "photo_url": "",
+    }
+    try:
+        user = db.obter_usuario_por_id(session["user_id"]) or {}
+        payload["name"] = user.get("nome_completo") or payload["name"]
+        payload["photo_url"] = user.get("foto_url") or ""
+    except Exception:
+        current_app.logger.debug(
+            "Foto do usuário indisponível no bootstrap do agente.",
+            exc_info=True,
+        )
+    return payload
 
 
 def _valid_signature(mime, raw):
@@ -255,7 +274,7 @@ def bootstrap():
     return jsonify({
         "success": True,
         "data": {
-            "user": {"id": session["user_id"], "name": session.get("user_name") or "Usuário"},
+            "user": _current_user_payload(),
             "capabilities": public_capabilities(),
             "model": DEFAULT_CHAT_MODEL,
             "csrf_token": get_or_create_csrf_token(),

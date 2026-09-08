@@ -90,6 +90,12 @@ def _base(entity_type, record, context, title, subtitle, url, facts, relations=N
         "identity": {
             "title": title,
             "subtitle": subtitle or "",
+            "photo_url": (
+                record.get("foto_url")
+                or record.get("responsavel_comercial_foto_url")
+                or record.get("responsavel_operacao_foto_url")
+                or ""
+            ),
             "type_label": {
                 "cliente": "Cliente",
                 "contato": "Contato",

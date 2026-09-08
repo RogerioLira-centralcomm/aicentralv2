@@ -56,6 +56,7 @@ ENDPOINT_CONTEXT = {
     "parametros.testes_dv": ("parametros", "testes_dv360"),
     "parametros.testes_dv_legado": ("parametros", "testes_dv360_legado"),
     "parametros.modelagem_criativos": ("parametros", "modelagem_criativos"),
+    "parametros.integracoes": ("parametros", "integracoes"),
     "dv360_pages.diagnostico": ("parametros", "diagnostico_dv360"),
 }
 

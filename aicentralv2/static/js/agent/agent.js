@@ -29,7 +29,8 @@
     recordKey: '',
     activeView: 'conversation',
     contextWallOpen: false,
-    contextPersistTimer: null
+    contextPersistTimer: null,
+    currentUser: { id: '', name: '', photo_url: '' }
   };
 
   var els = {
@@ -77,7 +78,15 @@
     recordTitle: document.getElementById('cx-agent-record-title'),
     recordOpen: document.getElementById('cx-agent-record-open'),
     recordClose: document.getElementById('cx-agent-record-close'),
-    recordBody: document.getElementById('cx-agent-record-body')
+    recordBody: document.getElementById('cx-agent-record-body'),
+    commercialSearch: document.getElementById('cx-agent-commercial-search'),
+    searchToggle: document.getElementById('cx-agent-search-toggle'),
+    searchClose: document.getElementById('cx-agent-search-close'),
+    moreToggle: document.getElementById('cx-agent-more-toggle'),
+    moreMenu: document.getElementById('cx-agent-more-menu'),
+    historyOpen: document.getElementById('cx-agent-history-open'),
+    historyBack: document.getElementById('cx-agent-history-back'),
+    composerSuggestions: document.getElementById('cx-agent-composer-suggestions')
   };
 
   function escapeHtml(value) {
@@ -467,12 +476,15 @@
     var identity = data.identity || {};
     var title = identity.title || 'Registro';
     var openUrl = safeActionUrl(data.url, false);
+    var identityPhoto = safeInternalUrl(identity.photo_url) ? identity.photo_url : '';
     els.recordTitle.textContent = title;
     els.recordOpen.href = openUrl || '#';
     els.recordOpen.hidden = !openUrl;
     els.recordBody.innerHTML =
       '<div class="cx-agent-context-identity is-' + escapeHtml(data.type || 'record') + '">' +
-        '<span><i class="fa-regular ' + contextIcon(data.type) + '"></i></span>' +
+        '<span>' + (identityPhoto
+          ? '<img src="' + escapeHtml(identityPhoto) + '" alt="">'
+          : '<i class="fa-regular ' + contextIcon(data.type) + '"></i>') + '</span>' +
         '<div><small>' + escapeHtml(identity.type_label || entityTypeLabel(data.type)) + '</small>' +
         '<strong>' + escapeHtml(title) + '</strong>' +
         (identity.subtitle ? '<p>' + escapeHtml(identity.subtitle) + '</p>' : '') + '</div>' +
@@ -680,12 +692,32 @@
   }
 
   function showSettings(open) {
+    setMoreOpen(false);
     dock.classList.toggle('is-settings', open);
     els.settingsPanel.hidden = !open;
     els.workspace.hidden = open;
   }
 
+  function setMoreOpen(open) {
+    if (!els.moreMenu) return;
+    els.moreMenu.hidden = !open;
+    els.moreToggle.setAttribute('aria-expanded', String(open));
+  }
+
+  function setSearchOpen(open) {
+    els.commercialSearch.hidden = !open;
+    els.searchToggle.setAttribute('aria-expanded', String(open));
+    if (open) {
+      setMoreOpen(false);
+      window.setTimeout(function () { els.commercialQuery.focus(); }, 0);
+    } else {
+      els.commercialResults.hidden = true;
+    }
+  }
+
   function switchTab(name) {
+    dock.classList.toggle('is-history', name === 'history');
+    setMoreOpen(false);
     document.querySelectorAll('[data-agent-tab]').forEach(function (tab) {
       var active = tab.dataset.agentTab === name;
       tab.classList.toggle('is-active', active);
@@ -730,14 +762,11 @@
     switchTab('chat');
     els.input.value = prompt;
     resizeInput();
+    renderComposerSuggestions();
     els.input.focus();
   }
 
   function goCrm(prompt) {
-    var client = clientContext();
-    if (client) {
-      window.location.href = '/crm-v3/#cliente=' + encodeURIComponent(client.entity_id);
-    }
     usePrompt(prompt);
   }
 
@@ -828,6 +857,51 @@
       });
     }
     renderActions();
+    renderComposerSuggestions();
+  }
+
+  function suggestionCatalog() {
+    var commercial = [
+      { label: 'Buscar PI pelo código', prompt: 'Busque o PI pelo código e apresente status, cliente, campanha, período e valores.' },
+      { label: 'Listar cotações de cliente', prompt: 'Liste as cotações deste cliente com tipo, status, responsável e valor.' },
+      { label: 'Consultar canais e plataformas', prompt: 'Consulte os canais e plataformas disponíveis na base comercial.' },
+      { label: 'Buscar audiência CADU', prompt: 'Busque audiências do CADU relacionadas ao que estou descrevendo.' },
+      { label: 'Consultar formatos', prompt: 'Consulte formatos comerciais relacionados ao meu pedido.' }
+    ];
+    var seen = {};
+    return state.suggestions.concat(commercial).filter(function (item) {
+      var key = String(item.prompt || item.label || '').toLowerCase();
+      if (!key || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  function renderComposerSuggestions() {
+    if (!els.composerSuggestions) return;
+    var query = String(els.input.value || '').trim().toLowerCase();
+    var words = query.split(/\s+/).filter(function (word) { return word.length > 2; });
+    var catalog = suggestionCatalog().map(function (item, index) {
+      var haystack = String((item.label || '') + ' ' + (item.prompt || '')).toLowerCase();
+      var score = words.reduce(function (total, word) {
+        return total + (haystack.indexOf(word) >= 0 ? 3 : 0);
+      }, 0) - (index / 100);
+      return { item: item, score: score };
+    });
+    if (words.length) {
+      catalog = catalog.filter(function (entry) { return entry.score > 0; });
+    }
+    catalog.sort(function (a, b) { return b.score - a.score; });
+    els.composerSuggestions.replaceChildren();
+    catalog.slice(0, 2).forEach(function (entry) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'cx-agent-composer-suggestion';
+      button.textContent = entry.item.label;
+      button.addEventListener('click', function () { usePrompt(entry.item.prompt); });
+      els.composerSuggestions.appendChild(button);
+    });
+    els.composerSuggestions.hidden = !els.composerSuggestions.children.length;
   }
 
   function applyPrefsUi() {
@@ -849,6 +923,7 @@
         if (els.commercialScope.hidden) els.commercialScope.value = 'mine';
         syncCommercialScope(els.commercialScope.value);
         state.bootstrapped = true;
+        state.currentUser = data.user || state.currentUser;
         els.userName.textContent = (data.user && data.user.name) || 'tudo bem?';
         var model = data.model || 'openai/gpt-4o-mini';
         var modelName = model === 'openai/gpt-4o-mini' ? 'Padrão (OpenRouter)' : model.split('/').pop();
@@ -1103,7 +1178,10 @@
 
   function addAssistantMessageExtras(wrapper, body, content, display) {
     renderAttachmentSummary(body, display && display.attachments);
-    renderDisplay(body, display);
+    var cards = document.createElement('div');
+    cards.className = 'cx-agent-message-cards';
+    renderDisplay(cards, display);
+    if (cards.children.length) wrapper.appendChild(cards);
     var actions = document.createElement('div');
     actions.className = 'cx-agent-message-actions';
     var copy = document.createElement('button');
@@ -1122,6 +1200,28 @@
     wrapper.appendChild(actions);
   }
 
+  function messageAvatar(role) {
+    var avatar = document.createElement('span');
+    avatar.className = 'cx-agent-message-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    var photo = role === 'user' && state.currentUser ? state.currentUser.photo_url : '';
+    if (safeInternalUrl(photo)) {
+      var image = document.createElement('img');
+      image.src = photo;
+      image.alt = '';
+      image.addEventListener('error', function () {
+        image.remove();
+        avatar.textContent = String(state.currentUser.name || 'EU').slice(0, 2).toUpperCase();
+      });
+      avatar.appendChild(image);
+    } else if (role === 'user') {
+      avatar.textContent = String((state.currentUser && state.currentUser.name) || 'EU').slice(0, 2).toUpperCase();
+    } else {
+      avatar.innerHTML = '<i class="fa-solid fa-sparkles"></i>';
+    }
+    return avatar;
+  }
+
   function appendMessage(role, content, display, extraClass) {
     var welcome = els.messages.querySelector('.cx-agent-welcome');
     if (welcome) welcome.hidden = true;
@@ -1131,12 +1231,12 @@
     body.className = 'cx-agent-message-body';
     if (role === 'assistant' && !extraClass) body.appendChild(renderMarkdown(content));
     else body.textContent = content || '';
-    wrapper.appendChild(body);
+    if (role === 'user') wrapper.append(body, messageAvatar(role));
+    else wrapper.append(messageAvatar(role), body);
     if (role === 'assistant' && !extraClass) {
       addAssistantMessageExtras(wrapper, body, content, display);
     } else {
       renderAttachmentSummary(body, display && display.attachments);
-      renderDisplay(body, display);
     }
     els.messages.appendChild(wrapper);
     els.messages.scrollTop = els.messages.scrollHeight;
@@ -1144,42 +1244,8 @@
   }
 
   function appendProgressiveMessage(content, display) {
-    var text = String(content || '');
-    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion || text.length < 24) {
-      appendMessage('assistant', text, display);
-      return Promise.resolve();
-    }
-    var wrapper = appendMessage('assistant', '', null, 'is-progressive');
-    var body = wrapper.querySelector('.cx-agent-message-body');
-    var visual = document.createElement('span');
-    visual.className = 'cx-agent-progressive-text';
-    visual.setAttribute('aria-hidden', 'true');
-    var cursor = document.createElement('i');
-    cursor.className = 'cx-agent-progressive-cursor';
-    cursor.setAttribute('aria-hidden', 'true');
-    body.setAttribute('aria-label', text);
-    body.append(visual, cursor);
-    var chunkSize = Math.max(2, Math.ceil(text.length / 95));
-    var position = 0;
-    return new Promise(function (resolve) {
-      function reveal() {
-        position = Math.min(text.length, position + chunkSize);
-        visual.textContent = text.slice(0, position);
-        els.messages.scrollTop = els.messages.scrollHeight;
-        if (position < text.length) {
-          window.setTimeout(reveal, 18);
-          return;
-        }
-        wrapper.classList.remove('is-progressive');
-        body.removeAttribute('aria-label');
-        body.replaceChildren(renderMarkdown(text));
-        addAssistantMessageExtras(wrapper, body, text, display);
-        els.messages.scrollTop = els.messages.scrollHeight;
-        resolve();
-      }
-      reveal();
-    });
+    appendMessage('assistant', String(content || ''), display);
+    return Promise.resolve();
   }
 
   function appendLoadingProgress() {
@@ -1242,6 +1308,22 @@
             }
           });
         }
+        if (item.responsible_photo || item.photo_url) {
+          card.classList.add('has-avatar');
+          var ownerAvatar = document.createElement('span');
+          ownerAvatar.className = 'cx-agent-result-avatar';
+          var ownerPhoto = item.responsible_photo || item.photo_url;
+          if (safeInternalUrl(ownerPhoto)) {
+            var ownerImage = document.createElement('img');
+            ownerImage.src = ownerPhoto;
+            ownerImage.alt = '';
+            ownerAvatar.appendChild(ownerImage);
+          }
+          ownerAvatar.appendChild(document.createTextNode(
+            String(item.responsible || item.title || 'CX').slice(0, 2).toUpperCase()
+          ));
+          card.appendChild(ownerAvatar);
+        }
         var title = document.createElement('strong');
         title.textContent = item.title || 'Resultado';
         card.appendChild(title);
@@ -1300,13 +1382,6 @@
         }
         results.appendChild(card);
       });
-      var more = (group.links && group.links[0]) || (items.length > 8 ? { url: (items[0] || {}).url, label: 'Ver todas' } : null);
-      if (more && safeInternalUrl(more.url || (items[0] || {}).url)) {
-        var link = document.createElement('a');
-        link.href = more.url || items[0].url;
-        link.textContent = (more.label || 'Ver todas') + ' →';
-        results.appendChild(link);
-      }
       parent.appendChild(results);
     });
   }
@@ -1739,6 +1814,15 @@
   els.close.addEventListener('click', function () { setOpen(false); });
   els.minimize.addEventListener('click', minimize);
   els.settings.addEventListener('click', function () { showSettings(true); });
+  els.searchToggle.addEventListener('click', function () {
+    setSearchOpen(els.commercialSearch.hidden);
+  });
+  els.searchClose.addEventListener('click', function () { setSearchOpen(false); });
+  els.moreToggle.addEventListener('click', function () {
+    setMoreOpen(els.moreMenu.hidden);
+  });
+  els.historyOpen.addEventListener('click', function () { switchTab('history'); });
+  els.historyBack.addEventListener('click', function () { switchTab('chat'); });
   els.settingsBack.addEventListener('click', function () { showSettings(false); });
   if (els.entity) els.entity.addEventListener('click', openEntity);
   els.recordClose.addEventListener('click', closeContextWall);
@@ -1834,7 +1918,7 @@
         onConfirm: run
       });
     } else {
-      run();
+      showComposerFeedback('A confirmação não pôde ser exibida. Nenhuma alteração foi salva.', true);
     }
   });
   dock.querySelectorAll('[data-agent-view]').forEach(function (button) {
@@ -1860,7 +1944,10 @@
     if (state.controller) state.controller.abort();
     else sendMessage();
   });
-  els.input.addEventListener('input', resizeInput);
+  els.input.addEventListener('input', function () {
+    resizeInput();
+    renderComposerSuggestions();
+  });
   els.input.addEventListener('keydown', function (event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -1868,6 +1955,7 @@
     }
   });
   els.newConversation.addEventListener('click', function () {
+    setMoreOpen(false);
     state.conversationId = '';
     sessionStorage.removeItem('centralx_agent_conversation_id');
     state.context = readBodyContext();
@@ -1901,12 +1989,13 @@
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       setOpen(true);
-      els.commercialQuery.focus();
+      setSearchOpen(true);
       els.commercialQuery.select();
       return;
     }
     if (event.key === 'Escape' && dock.classList.contains('is-open')) {
-      if (!els.commercialResults.hidden) els.commercialResults.hidden = true;
+      if (!els.moreMenu.hidden) setMoreOpen(false);
+      else if (!els.commercialSearch.hidden) setSearchOpen(false);
       else if (!els.settingsPanel.hidden) showSettings(false);
       else if (state.contextWallOpen) closeContextWall();
       else setOpen(false);
@@ -1946,5 +2035,6 @@
   closeContextWall();
   updateContext();
   renderActions();
+  renderComposerSuggestions();
   resizeInput();
 }());

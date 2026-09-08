@@ -1,6 +1,7 @@
 import unittest
 
 from aicentralv2.cotacao_tipos import (
+    destino_tipo_comercial,
     normalizar_tipo_comercial,
     rotulo_tipo_comercial,
     validar_status_tipo_comercial,
@@ -34,6 +35,18 @@ class CotacaoTiposTest(unittest.TestCase):
         self.assertEqual(
             "midia", validar_status_tipo_comercial("midia", "Aprovada")
         )
+
+    def test_destino_da_continuidade_depende_do_tipo(self):
+        self.assertEqual(
+            ("cotacoes.cotacao_detalhes", "detalhes"),
+            destino_tipo_comercial("midia"),
+        )
+        for tipo in ("parceiros", "formatos_interativos", "dados"):
+            with self.subTest(tipo=tipo):
+                self.assertEqual(
+                    ("cotacoes.cotacao_editar", "editar"),
+                    destino_tipo_comercial(tipo),
+                )
 
 
 if __name__ == "__main__":

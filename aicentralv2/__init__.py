@@ -133,10 +133,15 @@ def create_app(config_class=Config):
         # Verificar se usuário é CENTRALCOMM; reutiliza o mesmo contato para o modal Meu perfil
         is_cc_user = False
         perfil_contato = None
+        perfil_google = None
         if 'user_id' in session:
             try:
                 contato = db.obter_contato_por_id(session['user_id'])
                 perfil_contato = contato
+                try:
+                    perfil_google = db.obter_conexao_google_usuario(session['user_id'])
+                except Exception:
+                    perfil_google = None
                 if contato and contato.get('pk_id_tbl_cliente'):
                     cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
                     if cliente:
@@ -148,6 +153,7 @@ def create_app(config_class=Config):
             APP_CONFIG=app.config,
             is_centralcomm_user=is_cc_user,
             perfil_contato=perfil_contato,
+            perfil_google=perfil_google,
             cx_page_context=resolve_page_context(),
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
@@ -189,8 +195,10 @@ def create_app(config_class=Config):
             public_bp as creative_public_bp,
             register_creative_modeling_routes,
         )
+        from .integration_settings_routes import register_integration_settings_routes
 
         register_creative_modeling_routes(parametros_bp)
+        register_integration_settings_routes(parametros_bp)
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)
         app.register_blueprint(parametros_bp)

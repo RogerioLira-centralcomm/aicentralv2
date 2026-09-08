@@ -1227,11 +1227,19 @@
         await withLock(`${action}-${step.id}`, button, () => api(routes[action][0], { method: 'POST', body: form }));
         toast('Imagem gerada e adicionada aos assets.', 'success');
       } else if (action === 'generate-script' || action === 'prepare-higgsfield') {
-        await withLock(`${action}-${step.id}`, button, () => api(routes[action][0], {
+        const result = await withLock(`${action}-${step.id}`, button, () => api(routes[action][0], {
           method: routes[action][1],
           body: JSON.stringify({ asset_ids: Array.from(state.selectedAssets) }),
         }));
-        toast(action === 'generate-script' ? 'Roteiro criado para revisão.' : 'Payload Higgsfield preparado.', 'success');
+        const provider = result?.payload?.provider_configuration;
+        toast(
+          action === 'generate-script'
+            ? 'Roteiro criado para revisão.'
+            : provider?.configured
+              ? 'Payload Higgsfield preparado com provedor configurado.'
+              : 'Payload preparado. Configure a credencial Higgsfield em Parâmetros para executar.',
+          action === 'prepare-higgsfield' && !provider?.configured ? 'warning' : 'success',
+        );
       } else if (routes[action]) {
         await withLock(`${action}-${step.id}`, button, () => api(routes[action][0], {
           method: routes[action][1], body: '{}',
@@ -1499,12 +1507,18 @@
     } else if (action === 'prepare-display-motion') {
       const holder = button.closest('[data-plan-asset-id]');
       try {
-        await withLock(`display-motion-${holder.dataset.planAssetId}`, button, () => api(
+        const result = await withLock(`display-motion-${holder.dataset.planAssetId}`, button, () => api(
           `/parametros/api/assets/${holder.dataset.planAssetId}/display-motion/prepare`,
           { method: 'POST', body: '{}' },
         ));
         await refreshCampaign();
-        toast('Complemento animado de 3 segundos preparado para o Higgsfield.', 'success');
+        const provider = result?.payload?.provider_configuration;
+        toast(
+          provider?.configured
+            ? 'Complemento de 3 segundos preparado com Higgsfield configurado.'
+            : 'Complemento preparado. Configure o Higgsfield em Parâmetros para executar.',
+          provider?.configured ? 'success' : 'warning',
+        );
       } catch (error) { toast(error.message, 'error'); }
     } else if (action === 'save-asset-meta') {
       const holder = button.closest('[data-plan-asset-id]');

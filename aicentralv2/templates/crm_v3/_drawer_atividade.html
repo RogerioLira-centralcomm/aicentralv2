@@ -42,17 +42,17 @@
           </div>
 
           <div class="cx-atividade-date-grid">
+            <div class="cx-drawer-field cx-atividade-deadline">
+              <label for="cx-ativ-prazo">Prazo principal</label>
+              <input id="cx-ativ-prazo" type="date" name="data_prazo" data-field="data_prazo" />
+            </div>
             <div class="cx-drawer-field">
-              <label for="cx-ativ-data">Data <span class="cx-required">*</span></label>
+              <label for="cx-ativ-data" data-activity-date-label>Data planejada <span class="cx-required">*</span></label>
               <input id="cx-ativ-data" type="date" name="data" data-field="data" required />
             </div>
             <div class="cx-drawer-field">
               <label for="cx-ativ-hora">Hora</label>
               <input id="cx-ativ-hora" type="time" name="hora" data-field="hora" />
-            </div>
-            <div class="cx-drawer-field">
-              <label for="cx-ativ-prazo">Prazo</label>
-              <input id="cx-ativ-prazo" type="date" name="data_prazo" data-field="data_prazo" />
             </div>
           </div>
 
@@ -92,6 +92,66 @@
           </div>
         </section>
 
+        <section class="cx-atividade-side-card cx-meeting-panel" data-meeting-panel hidden>
+          <header class="cx-atividade-side-title">
+            <i class="fa-brands fa-google" aria-hidden="true"></i>
+            Agenda da reunião
+          </header>
+          <p class="cx-meeting-intro">A data e a hora acima definem o início do convite.</p>
+          <div class="cx-meeting-grid">
+            <label class="cx-drawer-field">
+              <span>Duração</span>
+              <select data-meeting-field="duration_minutes">
+                <option value="30">30 minutos</option>
+                <option value="45">45 minutos</option>
+                <option value="60">1 hora</option>
+                <option value="90">1h30</option>
+              </select>
+            </label>
+            <label class="cx-drawer-field">
+              <span>Fuso horário</span>
+              <select data-meeting-field="timezone">
+                <option value="America/Sao_Paulo">Brasília</option>
+                <option value="America/Manaus">Manaus</option>
+                <option value="America/Rio_Branco">Rio Branco</option>
+              </select>
+            </label>
+          </div>
+          <div class="cx-drawer-field cx-drawer-field-full">
+            <label for="cx-meeting-attendee">Convidados</label>
+            <div class="cx-meeting-attendee-entry">
+              <input id="cx-meeting-attendee" type="email" data-meeting-attendee-input
+                     placeholder="nome@empresa.com" autocomplete="off" />
+              <button type="button" data-meeting-attendee-add>Adicionar</button>
+            </div>
+            <div class="cx-meeting-attendees" data-meeting-attendees></div>
+          </div>
+          <label class="cx-meeting-create">
+            <input type="checkbox" data-meeting-field="sync_google" />
+            <span>
+              <strong>Criar convite com Google Meet</strong>
+              <small>Os convidados recebem o convite somente ao salvar a atividade.</small>
+            </span>
+          </label>
+          <details class="cx-meeting-preview">
+            <summary>Prévia do convite</summary>
+            <div data-meeting-preview>
+              <strong>Reunião</strong>
+              <span>Preencha data, hora e convidados para revisar o convite.</span>
+            </div>
+          </details>
+          <div class="cx-meeting-sync" data-meeting-sync
+               data-google-connected="{{ 'true' if perfil_google and perfil_google.status == 'connected' else 'false' }}">
+            {% if perfil_google and perfil_google.status == 'connected' %}
+              <span><i class="fa-solid fa-circle-check"></i> Google conectado: {{ perfil_google.google_email }}</span>
+            {% else %}
+              <span><i class="fa-solid fa-circle-exclamation"></i> Conecte o Google no seu perfil antes de criar o Meet.</span>
+              <a href="{{ url_for('perfil_google_conectar') }}">Conectar agora</a>
+            {% endif %}
+          </div>
+          <div class="cx-meeting-event-status" data-meeting-event-status hidden></div>
+        </section>
+
         <section class="cx-atividade-roteiro">
           <div class="cx-atividade-roteiro-head">
             <label for="cx-ativ-desc">Registro da atividade</label>
@@ -114,12 +174,19 @@
           <header class="cx-atividade-assist-head">
             <span class="cx-atividade-assist-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
             <div>
-              <h2 id="cx-atividade-ia-title">Preparar roteiro</h2>
-              <p>Use o contexto do CRM sem alterar o registro da atividade.</p>
+              <h2 id="cx-atividade-ia-title">Preparar abordagem</h2>
+              <p>Gere uma resposta pronta para o canal da atividade.</p>
             </div>
           </header>
 
-          <div class="cx-atividade-ia-options">
+          <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
+
+          <details class="cx-atividade-ia-settings">
+            <summary>
+              <span><i class="fa-solid fa-sliders" aria-hidden="true"></i>Objetivo, tom e orientações</span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
+            <div class="cx-atividade-ia-options">
             <div class="cx-drawer-field cx-drawer-field-full">
               <label>Objetivo da conversa</label>
               <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
@@ -148,34 +215,22 @@
               <textarea id="cx-ativ-ia-instrucoes" rows="3" data-ia-field="instrucoes"
                         placeholder="Ex.: destacar um case, antecipar uma objeção ou combinar prazo."></textarea>
             </div>
-          </div>
+            </div>
+          </details>
 
           <div class="cx-atividade-ia-toolbar">
-            <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                 data-chip-group="formato" role="radiogroup" aria-label="Formato da sugestão">
-              <button type="button" class="cx-drawer-chip is-active" data-value="roteiro" role="radio" aria-checked="true">
-                <i class="fa-solid fa-list-check" aria-hidden="true"></i>Roteiro
-              </button>
-              <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false">
-                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>WhatsApp
-              </button>
-              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false">
-                <i class="fa-regular fa-envelope" aria-hidden="true"></i>E-mail
-              </button>
-            </div>
+            <span class="cx-atividade-channel" data-ia-channel-label>Abordagem para atividade</span>
             <button type="button" class="cx-atividade-ia-generate" data-ia-action="gerar-roteiro">
               <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-              Sugerir roteiro
+              Gerar abordagem
             </button>
           </div>
-
-          <div class="cx-drawer-ia-output" data-ia-output aria-live="polite"></div>
         </section>
 
         <section class="cx-atividade-ia-history" data-ia-history-section hidden>
           <div class="cx-atividade-ia-history-title">
             <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
-            Roteiros disponíveis
+            Materiais gerados
           </div>
           <div data-ia-history></div>
         </section>

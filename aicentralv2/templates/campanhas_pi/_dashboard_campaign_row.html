@@ -1,0 +1,81 @@
+<article class="campaign-queue-row campaign-queue-row--{{ c.health_severity }}"
+         data-campaign-row
+         data-search="{{ (c.cliente_nome or '')|lower }} {{ (c.nome_campanha or '')|lower }} {{ (c.codigo_pi or '')|lower }}"
+         tabindex="0"
+         role="link"
+         aria-label="Abrir detalhe da campanha {{ c.nome_campanha or 'sem nome' }}"
+         data-detail-url="{{ url_for('campanha_pi_detalhe', id_camp=c.id_campanha, return_url=request.full_path) }}">
+  <div class="campaign-queue-identity">
+    <span class="campaign-risk campaign-risk--{{ c.health_severity }}">
+      {% if c.health_severity == 'critical' %}Crítica{% elif c.health_severity == 'attention' %}Atenção{% else %}No ritmo{% endif %}
+    </span>
+    <strong>{{ c.nome_campanha or 'Campanha sem nome' }}</strong>
+    <span>{{ c.cliente_nome or 'Cliente não informado' }}</span>
+    <small>{{ c.codigo_pi or 'PI sem código' }}{% if c.plataforma_nome %} · {{ c.plataforma_nome }}{% endif %}</small>
+  </div>
+
+  <div class="campaign-queue-owner">
+    <span>Responsável</span>
+    <strong>{{ c.responsavel_operacao_nome or c.executivo_nome or 'Não definido' }}</strong>
+    <small>
+      {% if c.ultimo_diario_data %}
+        Atualizado em {{ c.ultimo_diario_data.strftime('%d/%m/%Y') }}
+      {% else %}
+        Sem diário operacional
+      {% endif %}
+    </small>
+  </div>
+
+  <div class="campaign-queue-progress">
+    <div class="campaign-progress-item">
+      <span><b>Tempo</b><strong>{{ c.periodo_pct_elapsed|round|int }}%</strong></span>
+      <progress max="100" value="{{ [c.periodo_pct_elapsed, 100]|min }}">Tempo decorrido</progress>
+    </div>
+    <div class="campaign-progress-item campaign-progress-item--delivery">
+      <span><b>Entrega</b><strong>{{ c.pct_objetivo|round|int }}%</strong></span>
+      <progress max="100" value="{{ [c.pct_objetivo, 100]|min }}">Objetivo entregue</progress>
+    </div>
+    <div class="campaign-progress-item campaign-progress-item--investment">
+      <span><b>Investimento</b><strong>{{ c.pct_custo_midia|round|int }}%</strong></span>
+      <progress max="100" value="{{ [c.pct_custo_midia, 100]|min }}">Investimento realizado</progress>
+    </div>
+  </div>
+
+  <div class="campaign-queue-finance">
+    <span>Realizado / previsto</span>
+    <strong>{{ c.totalizador_gasto_num|format_brl_ptbr }}</strong>
+    <small>de {{ c.custo_midia_previsto|format_brl_ptbr }}</small>
+  </div>
+
+  <div class="campaign-queue-guidance">
+    <strong>{{ c.health_recommendation }}</strong>
+    <span>
+      {% if c.periodo_dias_restantes is none %}Prazo não definido
+      {% elif c.periodo_dias_restantes < 0 %}Vencida há {{ c.periodo_dias_restantes|abs }} dias
+      {% elif c.periodo_dias_restantes == 0 %}Encerra hoje
+      {% else %}{{ c.periodo_dias_restantes }} dias restantes{% endif %}
+    </span>
+  </div>
+
+  <div class="campaign-queue-actions">
+    <button type="button"
+            class="campaign-icon-button"
+            data-edit-campaign="{{ c.edit_payload|tojson|forceescape }}"
+            aria-label="Editar rapidamente {{ c.nome_campanha or 'campanha' }}"
+            title="Edição rápida">
+      <i class="fas fa-pen" aria-hidden="true"></i>
+    </button>
+    {% if c.googled_pi_princ %}
+      <a class="campaign-icon-button" href="{{ c.googled_pi_princ }}" target="_blank" rel="noopener"
+         aria-label="Abrir pasta no Google Drive" title="Google Drive">
+        <i class="fab fa-google-drive" aria-hidden="true"></i>
+      </a>
+    {% endif %}
+    {% if c.link_dash %}
+      <a class="campaign-icon-button" href="{{ c.link_dash }}" target="_blank" rel="noopener"
+         aria-label="Abrir dashboard externo" title="Dashboard">
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
+      </a>
+    {% endif %}
+  </div>
+</article>

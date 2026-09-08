@@ -1,0 +1,134 @@
+<dialog id="campaignQuickEdit" class="campaign-dialog" aria-labelledby="campaignQuickEditTitle">
+  <form id="campaignQuickEditForm"
+        class="campaign-dialog-panel"
+        method="post"
+        data-edit-url-template="{{ url_for('campanha_pi_editar', id_camp=0) }}">
+    <input type="hidden" name="campanhas_retorno" value="dashboard">
+    <input type="hidden" name="_camp_form_has_under" value="1">
+    <input type="hidden" id="quick_id_pi" name="id_pi">
+    <input type="hidden" id="quick_id_cliente_hidden" name="id_cliente">
+    <input type="hidden" id="quick_mes_ref" name="mes_ref">
+    <input type="hidden" id="quick_mes_ref_comp" name="mes_ref_comp">
+
+    <header class="campaign-dialog-header">
+      <div>
+        <span>Edição rápida</span>
+        <h2 id="campaignQuickEditTitle">Editar campanha</h2>
+      </div>
+      <button type="button" class="campaign-dialog-close" data-close-dialog aria-label="Fechar edição">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <div class="campaign-dialog-content">
+      <p id="campaignQuickEditStatus" class="campaign-form-status" role="status" aria-live="polite" hidden></p>
+
+      <fieldset class="campaign-form-section">
+        <legend>Configuração e entrega</legend>
+        <div class="campaign-form-grid">
+          <label class="campaign-field campaign-field--wide">
+            <span>Nome da campanha</span>
+            <input id="quick_nome_campanha" name="nome_campanha" required>
+          </label>
+          <label class="campaign-field campaign-field--wide">
+            <span>Cliente</span>
+            <select id="quick_id_cliente" disabled>
+              <option value="">Selecione</option>
+              {% for cli in clientes %}
+                <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="campaign-field">
+            <span>Objetivo contratado</span>
+            <input id="quick_obj_contratados" name="obj_contratados" inputmode="decimal">
+          </label>
+          <label class="campaign-field">
+            <span>Valor da plataforma</span>
+            <input id="quick_valor_plataforma" name="valor_plataforma" inputmode="decimal" required>
+          </label>
+          <label class="campaign-field">
+            <span>Custo de mídia previsto</span>
+            <input id="quick_custo_midia_orcado" name="custo_midia_orcado" inputmode="decimal">
+          </label>
+          <label class="campaign-field">
+            <span>Status</span>
+            <select id="quick_id_status" name="id_status">
+              {% for st in statuses %}<option value="{{ st.id }}">{{ st.descricao }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="campaign-field">
+            <span>Início</span>
+            <input type="date" id="quick_periodo_inicio" name="periodo_inicio" required>
+          </label>
+          <label class="campaign-field">
+            <span>Término</span>
+            <input type="date" id="quick_periodo_fim" name="periodo_fim" required>
+          </label>
+          <label class="campaign-field">
+            <span>Plataforma</span>
+            <select id="quick_id_plataforma" name="id_plataforma">
+              <option value="">Selecione</option>
+              {% for plt in plataformas %}<option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="campaign-field">
+            <span>Objetivo</span>
+            <select id="quick_id_objetivos_campanha" name="id_objetivos_campanha">
+              <option value="">Selecione</option>
+              {% for obj in objetivos %}<option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="campaign-field">
+            <span>Atingido</span>
+            <input id="quick_totalizador_atingido" name="totalizador_atingido" inputmode="decimal">
+          </label>
+          <label class="campaign-field">
+            <span>Gasto</span>
+            <input id="quick_totalizador_gasto" name="totalizador_gasto" inputmode="decimal">
+          </label>
+          <label class="campaign-field campaign-field--wide">
+            <span>Dashboard</span>
+            <input type="url" id="quick_link_dash" name="link_dash" placeholder="https://">
+          </label>
+          <label class="campaign-check">
+            <input type="checkbox" id="quick_under" name="under">
+            <span>Marcar como under</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="campaign-form-section">
+        <legend>Composição financeira</legend>
+        <div class="campaign-form-financial">
+          {% for field, label in [
+            ('perc_margem_cc', '% Margem'), ('perc_tech_fee', '% Tech fee'),
+            ('perc_com_vendas', '% Comissão'), ('perc_pl_incentivos', '% PL incentivos'),
+            ('perc_impostos', '% Impostos')
+          ] %}
+            <label class="campaign-field">
+              <span>{{ label }}</span>
+              <input id="quick_{{ field }}" name="{{ field }}" inputmode="decimal">
+            </label>
+          {% endfor %}
+          {% for field, label in [
+            ('val_margem_cc', 'Margem'), ('val_tech_fee', 'Tech fee'),
+            ('val_com_vendas', 'Comissão'), ('val_pl_incentivos', 'PL incentivos'),
+            ('val_impostos', 'Impostos')
+          ] %}
+            <label class="campaign-field">
+              <span>{{ label }}</span>
+              <input id="quick_{{ field }}" name="{{ field }}" readonly tabindex="-1">
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </div>
+
+    <footer class="campaign-dialog-footer">
+      <a id="campaignFullEditLink" class="campaign-button campaign-button--quiet" href="#">Abrir detalhe completo</a>
+      <button type="button" class="campaign-button campaign-button--quiet" data-close-dialog>Cancelar</button>
+      <button type="submit" class="campaign-button campaign-button--primary">Salvar alterações</button>
+    </footer>
+  </form>
+</dialog>

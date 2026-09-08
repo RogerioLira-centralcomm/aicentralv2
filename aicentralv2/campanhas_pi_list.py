@@ -31,6 +31,12 @@ def build_campaign_list_filters(args):
             filters[query_name] = int(raw)
         except (TypeError, ValueError):
             continue
+    status_view = args.get("status_view")
+    if status_view not in (None, ""):
+        try:
+            filters["id_status"] = int(status_view)
+        except (TypeError, ValueError):
+            pass
     return filters
 
 

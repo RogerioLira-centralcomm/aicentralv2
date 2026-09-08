@@ -14630,7 +14630,11 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     cli.vendas_central_comm AS executivo_id,
                     pi.vr_liquido_pi AS valor_liquido_pi,
                     pi.vr_platafor_max_pi AS valor_plataformas_pi,
-                    (SELECT COUNT(*) FROM cadu_pi_camp_diarios d WHERE d.id_campanha = c.id_campanha) AS qtd_diarios
+                    pi.id_status_pi,
+                    pi.id_sub_status_pi,
+                    resp_op.nome_completo AS responsavel_operacao_nome,
+                    ultimo_diario.data_evento AS ultimo_diario_data,
+                    COALESCE(ultimo_diario.qtd_diarios, 0) AS qtd_diarios
                 FROM cadu_pi_campanha c
                 LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
@@ -14638,6 +14642,13 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                 LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
                 {pi_join} cadu_pi pi ON c.id_pi = pi.id_pi
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                LEFT JOIN tbl_contato_cliente resp_op
+                    ON resp_op.id_contato_cliente = c.id_responsavel_operacao
+                LEFT JOIN LATERAL (
+                    SELECT MAX(d.data_evento) AS data_evento, COUNT(*) AS qtd_diarios
+                    FROM cadu_pi_camp_diarios d
+                    WHERE d.id_campanha = c.id_campanha
+                ) ultimo_diario ON TRUE
                 WHERE 1=1
             '''
             params = []
@@ -14673,11 +14684,33 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                 if filtros.get('resp_comercial'):
                     query += ' AND cli.vendas_central_comm = %s'
                     params.append(filtros['resp_comercial'])
+                if filtros.get('id_responsavel_operacao'):
+                    query += ' AND c.id_responsavel_operacao = %s'
+                    params.append(filtros['id_responsavel_operacao'])
                 if not somente_pi_em_andamento and filtros.get('id_sub_status_pi'):
                     query += ' AND pi.id_sub_status_pi = %s'
                     params.append(filtros['id_sub_status_pi'])
+                if filtros.get('status_ativo'):
+                    query += '''
+                        AND LOWER(TRIM(COALESCE(st.descricao, ''))) IN (
+                            'ativa', 'ativo', 'em andamento'
+                        )
+                    '''
+                if filtros.get('status_encerrado'):
+                    query += '''
+                        AND LOWER(TRIM(COALESCE(st.descricao, ''))) IN (
+                            'finalizada', 'finalizado', 'concluída', 'concluida',
+                            'concluído', 'concluido', 'encerrada', 'encerrado'
+                        )
+                    '''
 
-            query += ' ORDER BY c.mes_ref_comp DESC, c.id_campanha DESC'
+            if filtros and filtros.get('status_encerrado'):
+                query += ' ORDER BY COALESCE(c.periodo_fim, c.updated_at) DESC NULLS LAST, c.id_campanha DESC'
+            else:
+                query += ' ORDER BY c.mes_ref_comp DESC, c.id_campanha DESC'
+            if filtros and filtros.get('limit'):
+                query += ' LIMIT %s'
+                params.append(max(1, min(int(filtros['limit']), 100)))
             cursor.execute(query, params)
             return cursor.fetchall()
     except Exception as e:
@@ -14691,6 +14724,100 @@ def obter_campanhas_pi_acompanhamento(filtros=None):
     filtros.pop('id_status', None)
     filtros.pop('id_sub_status_pi', None)
     return obter_campanhas_pi(filtros, somente_pi_em_andamento=True)
+
+
+def obter_campanhas_dashboard_ativas(id_status_ativa, filtros=None):
+    """Fila do painel: todas as ativas, sem recorte mensal implícito."""
+    params = {
+        key: value
+        for key, value in (filtros or {}).items()
+        if key in {
+            'id_cliente', 'id_plataforma', 'id_pi', 'resp_comercial',
+            'id_responsavel_operacao',
+        } and value
+    }
+    if id_status_ativa:
+        params['id_status'] = int(id_status_ativa)
+    else:
+        params['status_ativo'] = True
+    return obter_campanhas_pi(params or None)
+
+
+def obter_campanhas_dashboard_encerradas(limite=5):
+    """Retorna as campanhas encerradas mais recentes."""
+    return obter_campanhas_pi({'status_encerrado': True, 'limit': limite})
+
+
+def obter_status_dashboard_campanhas():
+    """Contagens globais das esteiras de PI e campanha."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    ss.key AS id,
+                    ss.display AS nome,
+                    COUNT(pi.id_pi) AS total
+                FROM cadu_pi_sub_status ss
+                LEFT JOIN cadu_pi pi ON pi.id_sub_status_pi = ss.key
+                GROUP BY ss.key, ss.display
+                ORDER BY ss.key
+                '''
+            )
+            status_pis = cursor.fetchall()
+            cursor.execute(
+                '''
+                SELECT
+                    st.id,
+                    st.descricao AS nome,
+                    COUNT(c.id_campanha) AS total
+                FROM cadu_pi_camp_status st
+                LEFT JOIN cadu_pi_campanha c ON c.id_status = st.id
+                GROUP BY st.id, st.descricao
+                ORDER BY st.descricao
+                '''
+            )
+            status_campanhas = cursor.fetchall()
+            return {
+                'status_pis': status_pis,
+                'status_campanhas': status_campanhas,
+            }
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_gasto_dashboard_por_plataforma(mes_ref_comp):
+    """Agrega gasto do mês de referência por plataforma."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    COALESCE(NULLIF(TRIM(plt.descricao), ''), 'Sem plataforma') AS plataforma_nome,
+                    c.totalizador_gasto
+                FROM cadu_pi_campanha c
+                LEFT JOIN cadu_pi_camp_plataforma plt
+                    ON plt.id_plataforma = c.id_plataforma
+                WHERE c.mes_ref_comp = %s
+                ''',
+                (mes_ref_comp,),
+            )
+            totais = {}
+            for row in cursor.fetchall():
+                nome = row.get('plataforma_nome') or 'Sem plataforma'
+                totais[nome] = totais.get(nome, 0.0) + parse_valor_monetario_para_float(
+                    row.get('totalizador_gasto')
+                )
+            return [
+                {'plataforma_nome': nome, 'gasto': round(gasto, 2)}
+                for nome, gasto in sorted(totais.items(), key=lambda item: item[1], reverse=True)
+            ]
+    except Exception as e:
+        conn.rollback()
+        raise e
 
 
 def obter_campanhas_pi_lista_old_kpi(filtros=None):

@@ -58,6 +58,10 @@ class CampanhasPiContractTest(unittest.TestCase):
 
         self.assertEqual(filtros, {"resp_comercial": 12, "id_cliente": 174})
 
+    def test_esteira_pode_abrir_lista_com_status_explicito(self):
+        filtros = build_campaign_list_filters({"status_view": "3"})
+        self.assertEqual(filtros, {"id_status": 3})
+
     def test_template_novo_e_sintaticamente_valido(self):
         project_root = Path(__file__).resolve().parents[1]
         template_path = project_root / "aicentralv2" / "templates" / "campanhas_pi_lista.html"

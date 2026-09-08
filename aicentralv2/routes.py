@@ -12054,237 +12054,153 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pass
         return None
 
-    def _id_sub_status_pi_em_andamento():
-        """Key do sub-status PI 'Em andamento' para filtro fixo no acompanhamento."""
-        try:
-            row = db.obter_sub_status_pi_por_display('Em andamento')
-            if row and row.get('key') is not None:
-                return int(row['key'])
-        except (TypeError, ValueError):
-            pass
-        return 3
-
     def _filtros_campanhas_pi_lista_da_request():
         """Monta filtros da fila completa, sem corte implícito por mês ou status."""
         return build_campaign_list_filters(request.args)
 
-    def _filtros_campanhas_pi_da_request():
-        """Monta filtros da listagem/dashboard de campanhas PI a partir da query string."""
-        from datetime import datetime as dt_cls
-        filtros = {
-            'id_cliente': request.args.get('id_cliente', type=int),
-            'id_plataforma': request.args.get('id_plataforma', type=int),
-            'id_pi': request.args.get('id_pi', type=int),
-            'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
-        }
-        if request.args.get('resp_comercial'):
-            filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
-        if 'id_status' in request.args:
-            id_st = request.args.get('id_status', type=int)
-            if id_st:
-                filtros['id_status'] = id_st
-        else:
-            ativa_id = _id_status_campanha_ativa()
-            if ativa_id:
-                filtros['id_status'] = ativa_id
-        filtros = {k: v for k, v in filtros.items() if v is not None}
-        if 'mes_ref_comp' not in filtros:
-            now = dt_cls.now()
-            filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
-        return filtros
-
-    def _mes_ref_comp_ordem(m):
-        if not m or '/' not in str(m):
-            return (0, 0)
-        parts = str(m).split('/', 2)
-        try:
-            return (int(parts[1].strip()), int(parts[0].strip()))
-        except (ValueError, IndexError):
-            return (0, 0)
-
     @app.route('/campanhas-pi')
     @login_required
     def campanhas_pi():
-        """Lista todas as campanhas PI"""
+        """Painel executivo e fila operacional de campanhas."""
         try:
             session['campanhas_pi_retorno'] = 'dashboard'
-            from datetime import datetime as dt_cls
-            from collections import defaultdict
-            import json as json_mod
+            from datetime import date as date_cls
+            from aicentralv2.campanhas_pi_dashboard import (
+                build_month_comparison,
+                build_platform_series,
+                month_reference,
+                previous_month_reference,
+                prioritize_active_campaigns,
+                summarize_campaigns,
+            )
 
-            filtros = _filtros_campanhas_pi_da_request()
-
+            hoje = date_cls.today()
+            referencia = request.args.get('mes_ref_comp', '').strip() or month_reference(hoje)
+            referencia_anterior = previous_month_reference(referencia)
+            filtros_fila = {
+                'id_cliente': request.args.get('id_cliente', type=int),
+                'id_plataforma': request.args.get('id_plataforma', type=int),
+                'id_pi': request.args.get('id_pi', type=int),
+                'id_responsavel_operacao': request.args.get(
+                    'id_responsavel_operacao',
+                    type=int,
+                ),
+            }
+            filtros_fila = {key: value for key, value in filtros_fila.items() if value}
+            status_ativa_id = _id_status_campanha_ativa()
             vendedores = db.obter_vendedores_centralcomm()
-
-            campanhas_raw = db.obter_campanhas_pi(filtros or None)
-            campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
             auxiliares = _carregar_auxiliares_campanha()
+
+            campanhas_raw = db.obter_campanhas_dashboard_ativas(
+                status_ativa_id,
+                filtros_fila,
+            )
+            campanhas_base = [
+                _anexar_preco_metrica_campanha(c)
+                for c in (campanhas_raw or [])
+            ]
+            desvio = float(
+                current_app.config.get('PI_DESVIO_ACEITAVEL_PERCENTUAL', 5.0)
+            )
+            dias_sem_diario = int(
+                current_app.config.get('CAMPANHA_DIARIO_LIMITE_DIAS', 3)
+            )
+            campanhas_ativas = prioritize_active_campaigns(
+                campanhas_base,
+                today=hoje,
+                tolerance=desvio,
+                stale_days=dias_sem_diario,
+            )
+            for campanha in campanhas_ativas:
+                campanha['edit_payload'] = serializar_para_json(campanha)
+
+            ultimas_encerradas = [
+                _anexar_preco_metrica_campanha(c)
+                for c in (db.obter_campanhas_dashboard_encerradas(5) or [])
+            ]
+            for campanha in ultimas_encerradas:
+                campanha['edit_payload'] = serializar_para_json(campanha)
+
+            esteiras = db.obter_status_dashboard_campanhas()
+            status_pis = esteiras.get('status_pis', [])
+            status_campanhas = esteiras.get('status_campanhas', [])
+
             try:
                 meses_ref = db.obter_meses_ref_campanha_pi()
             except Exception as ex_m:
                 app.logger.warning('obter_meses_ref_campanha_pi (dashboard): %s', ex_m)
                 meses_ref = []
-            meses_ref = _meses_ref_pi_seguros(meses_ref, filtros.get('mes_ref_comp'))
+            meses_ref = _meses_ref_pi_seguros(meses_ref, referencia)
             if not meses_ref:
-                meses_ref = [filtros['mes_ref_comp']]
+                meses_ref = [referencia]
 
-            def _parse_currency(raw):
-                v = _parse_brl_float(raw)
-                return float(v) if v is not None else 0.0
-
-            total_campanhas = len(campanhas) if campanhas else 0
-            campanhas_ativas = 0
-            soma_pct_objetivo = 0
-            count_pct_objetivo = 0
-            gasto_total = 0.0
-            previsto_total = 0.0
-            soma_dias = 0
-            count_dias = 0
-            valor_liquido_total = 0.0
-            valor_plataforma_total = 0.0
-            count_liquido = 0
-
-            gasto_por_plataforma = defaultdict(float)
-            gasto_por_executivo = defaultdict(float)
-            clientes_agg = defaultdict(lambda: {'investimento_total': 0.0, 'num_campanhas': 0, 'objetivo_total': 0.0, 'atingido_total': 0.0})
-            objetivo_por_mes = defaultdict(lambda: {'obj': 0, 'ating': 0, 'count': 0})
-            perf_campanhas = []
-
-            for camp in (campanhas or []):
-                if camp.get('status_nome') and camp['status_nome'].lower() in ('ativo', 'ativa', 'em andamento'):
-                    campanhas_ativas += 1
-
-                obj = camp.get('obj_contratados')
-                ating = camp.get('totalizador_atingido')
-                pct_camp = 0
-                obj_f = parse_volume_campanha(obj)
-                ating_f = parse_volume_campanha(ating)
-                if obj_f > 0:
-                    pct_camp = round((ating_f / obj_f) * 100)
-                    soma_pct_objetivo += pct_camp
-                    count_pct_objetivo += 1
-
-                gasto_val = _parse_currency(camp.get('totalizador_gasto'))
-                prev_val = _parse_currency(camp.get('custo_midia_previsto')) or _parse_currency(camp.get('valor_plataforma'))
-                gasto_total += gasto_val
-                previsto_total += prev_val
-
-                if camp.get('periodo_inicio') and camp.get('periodo_fim'):
-                    try:
-                        dias = (camp['periodo_fim'] - camp['periodo_inicio']).days
-                        if dias > 0:
-                            soma_dias += dias
-                            count_dias += 1
-                    except (TypeError, AttributeError):
-                        pass
-
-                vl_pi = 0.0
-                if camp.get('valor_liquido_pi'):
-                    try:
-                        vl_pi = float(camp['valor_liquido_pi'])
-                        valor_liquido_total += vl_pi
-                        count_liquido += 1
-                    except (ValueError, TypeError):
-                        pass
-                valor_plataforma_total += prev_val
-
-                plat_nome = camp.get('plataforma_nome') or 'Sem plataforma'
-                gasto_por_plataforma[plat_nome] += gasto_val
-
-                exec_nome = camp.get('executivo_nome') or 'Sem exec.'
-                gasto_por_executivo[exec_nome] += gasto_val
-
-                cli_nome = camp.get('cliente_nome') or 'Sem cliente'
-                clientes_agg[cli_nome]['investimento_total'] += gasto_val
-                clientes_agg[cli_nome]['num_campanhas'] += 1
-                clientes_agg[cli_nome]['objetivo_total'] += parse_volume_campanha(obj)
-                clientes_agg[cli_nome]['atingido_total'] += parse_volume_campanha(ating)
-
-                mes_key = camp.get('mes_ref_comp') or 'N/A'
-                objetivo_por_mes[mes_key]['obj'] += parse_volume_campanha(obj)
-                objetivo_por_mes[mes_key]['ating'] += parse_volume_campanha(ating)
-                objetivo_por_mes[mes_key]['count'] += 1
-
-                perf_campanhas.append({
-                    'nome': camp.get('nome_campanha', ''),
-                    'pct': pct_camp,
-                    'cliente': camp.get('cliente_nome', ''),
-                })
-
-            perf_campanhas.sort(key=lambda x: x['pct'], reverse=True)
-            perf_top10 = perf_campanhas[:10]
-
-            midia_corte = 0.40
-            midia_max = valor_liquido_total * midia_corte
-            pct_midia = round((valor_plataforma_total / midia_max) * 100, 1) if midia_max > 0 else 0
-
-            kpis = {
-                'total_campanhas': total_campanhas,
-                'campanhas_ativas': campanhas_ativas,
-                'pct_objetivo_medio': round(soma_pct_objetivo / count_pct_objetivo) if count_pct_objetivo > 0 else 0,
-                'gasto_total': gasto_total,
-                'previsto_total': previsto_total,
-                'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
-                'tempo_medio_dias': round(soma_dias / count_dias) if count_dias > 0 else 0,
-                'valor_liquido_total': valor_liquido_total,
-                'valor_plataforma_total': valor_plataforma_total,
-                'midia_max': midia_max,
-                'pct_midia': pct_midia,
-                'midia_corte_pct': int(midia_corte * 100),
+            campanhas_mes_atual = [
+                _anexar_preco_metrica_campanha(c)
+                for c in (db.obter_campanhas_pi({'mes_ref_comp': referencia}) or [])
+            ]
+            campanhas_mes_anterior = [
+                _anexar_preco_metrica_campanha(c)
+                for c in (
+                    db.obter_campanhas_pi({'mes_ref_comp': referencia_anterior}) or []
+                )
+            ]
+            resumo_global = summarize_campaigns(campanhas_ativas)
+            resumo_atual = summarize_campaigns(
+                prioritize_active_campaigns(
+                    campanhas_mes_atual,
+                    today=hoje,
+                    tolerance=desvio,
+                    stale_days=dias_sem_diario,
+                )
+            )
+            resumo_anterior = summarize_campaigns(
+                prioritize_active_campaigns(
+                    campanhas_mes_anterior,
+                    today=hoje,
+                    tolerance=desvio,
+                    stale_days=dias_sem_diario,
+                )
+            )
+            comparativo_mensal = build_month_comparison(
+                resumo_atual,
+                resumo_anterior,
+            )
+            serie_plataformas = build_platform_series(
+                db.obter_gasto_dashboard_por_plataforma(referencia),
+                db.obter_gasto_dashboard_por_plataforma(referencia_anterior),
+            )
+            serie_ritmo = {
+                'campanhas': [
+                    {
+                        'id': row.get('id_campanha'),
+                        'nome': row.get('nome_campanha') or 'Campanha',
+                        'cliente': row.get('cliente_nome') or 'Sem cliente',
+                        'tempo': row.get('periodo_pct_elapsed', 0),
+                        'entrega': row.get('pct_objetivo', 0),
+                        'severidade': row.get('health_severity'),
+                    }
+                    for row in campanhas_ativas
+                ]
             }
 
-            chart_plataformas = {
-                'labels': list(gasto_por_plataforma.keys()),
-                'values': [round(v, 2) for v in gasto_por_plataforma.values()],
-            }
-
-            meses_sorted = sorted(objetivo_por_mes.keys(), key=_mes_ref_comp_ordem)
-            chart_objetivo_mes = {
-                'labels': meses_sorted,
-                'obj': [objetivo_por_mes[m]['obj'] for m in meses_sorted],
-                'ating': [objetivo_por_mes[m]['ating'] for m in meses_sorted],
-            }
-
-            chart_performance = {
-                'labels': [((c.get('nome') or '')[:30]) for c in perf_top10],
-                'values': [c['pct'] for c in perf_top10],
-                'clientes': [c['cliente'] for c in perf_top10],
-            }
-
-            exec_sorted = sorted(gasto_por_executivo.items(), key=lambda x: x[1], reverse=True)
-            chart_executivos = {
-                'labels': [e[0] for e in exec_sorted],
-                'values': [round(e[1], 2) for e in exec_sorted],
-            }
-
-            top_clientes_sorted = sorted(clientes_agg.items(), key=lambda x: x[1]['investimento_total'], reverse=True)[:20]
-            top_clientes = []
-            for pos, (cli_name, data) in enumerate(top_clientes_sorted, 1):
-                pct_obj_medio = round((data['atingido_total'] / data['objetivo_total']) * 100, 1) if data['objetivo_total'] > 0 else 0
-                ticket_medio = round(data['investimento_total'] / data['num_campanhas'], 2) if data['num_campanhas'] > 0 else 0
-                top_clientes.append({
-                    'pos': pos,
-                    'nome': cli_name,
-                    'num_campanhas': data['num_campanhas'],
-                    'investimento_total': round(data['investimento_total'], 2),
-                    'ticket_medio': ticket_medio,
-                    'pct_objetivo_medio': pct_obj_medio,
-                })
-
-            now = dt_cls.now()
-            mes_atual = f"{now.month}/{now.year}"
-
-            return render_template('campanhas_pi.html',
-                campanhas=campanhas, **auxiliares,
-                filtros=filtros, meses_ref=meses_ref,
-                kpis=kpis, vendedores=vendedores,
-                status_ativa_id=_id_status_campanha_ativa(),
-                mes_atual=mes_atual,
-                chart_plataformas=json_mod.dumps(chart_plataformas),
-                chart_objetivo_mes=json_mod.dumps(chart_objetivo_mes),
-                chart_performance=json_mod.dumps(chart_performance),
-                chart_executivos=json_mod.dumps(chart_executivos),
-                top_clientes=top_clientes)
+            return render_template(
+                'campanhas_pi.html',
+                campanhas_ativas=campanhas_ativas,
+                ultimas_encerradas=ultimas_encerradas,
+                status_pis=status_pis,
+                status_campanhas=status_campanhas,
+                resumo_global=resumo_global,
+                comparativo_mensal=comparativo_mensal,
+                serie_plataformas=serie_plataformas,
+                serie_ritmo=serie_ritmo,
+                referencia=referencia,
+                referencia_anterior=referencia_anterior,
+                filtros=filtros_fila,
+                meses_ref=meses_ref,
+                vendedores=vendedores,
+                status_ativa_id=status_ativa_id,
+                **auxiliares,
+            )
         except Exception as e:
             import traceback
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}\n{traceback.format_exc()}")

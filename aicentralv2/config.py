@@ -98,6 +98,11 @@ class Config:
 		PI_DESVIO_ACEITAVEL_PERCENTUAL = float(_PI_DESVIO_RAW.replace(',', '.'))
 	except ValueError:
 		PI_DESVIO_ACEITAVEL_PERCENTUAL = 5.0
+	_CAMP_DIARIO_LIMITE_RAW = os.getenv('CAMPANHA_DIARIO_LIMITE_DIAS', '3').strip()
+	try:
+		CAMPANHA_DIARIO_LIMITE_DIAS = max(1, int(_CAMP_DIARIO_LIMITE_RAW))
+	except ValueError:
+		CAMPANHA_DIARIO_LIMITE_DIAS = 3
 
 	# Spedy — emissão NFS-e (sandbox: https://sandbox-api.spedy.com.br/v1)
 	SPEDY_API_KEY = os.getenv('SPEDY_API_KEY', '')

@@ -207,24 +207,89 @@
   function renderRecipients(data) {
     var target = document.getElementById('pi-recipient-options');
     if (!target) return;
-    var selected = list(data.destinatarios || data.recipients);
-    var available = list(data.contatos_disponiveis || data.available_contacts);
-    if (!available.length) {
-      target.innerHTML = '<div class="pi-op-state">Nenhum contato disponível.</div>';
+    var count = document.getElementById('pi-recipient-count');
+    var form = document.getElementById('pi-recipients-form');
+    var submit = form && form.querySelector('button[type="submit"]');
+    if (data.recipient_error) {
+      target.className = '';
+      target.innerHTML = errorHtml(data.recipient_error) +
+        '<button type="button" class="pi-op-text-btn pi-op-recipient-retry" data-retry-recipients>Tentar novamente</button>';
+      if (count) count.textContent = '';
+      if (submit) submit.disabled = true;
       return;
     }
+    var selected = list(data.destinatarios || data.recipients);
+    var available = list(data.contatos_disponiveis || data.available_contacts);
+    var recipientId = function (item) {
+      if (item == null) return '';
+      if (typeof item !== 'object') return String(item);
+      return String(item.id_contato_cliente || item.contato_id || item.id || '');
+    };
     var selectedById = {};
-    selected.forEach(function (item) { selectedById[String(item.id_contato_cliente)] = item; });
-    target.innerHTML = available.map(function (item) {
-      var id = String(item.id_contato_cliente);
+    selected.forEach(function (item) {
+      var id = recipientId(item);
+      if (id) selectedById[id] = typeof item === 'object' ? item : { id_contato_cliente: id };
+    });
+    var availableIds = {};
+    available = available.filter(function (item) {
+      var id = recipientId(item);
+      if (!id || availableIds[id]) return false;
+      availableIds[id] = true;
+      return true;
+    });
+    selected.forEach(function (item) {
+      var id = recipientId(item);
+      if (id && !availableIds[id] && typeof item === 'object') {
+        available.push(Object.assign({ indisponivel: true }, item));
+        availableIds[id] = true;
+      }
+    });
+    if (!available.length) {
+      target.className = '';
+      target.innerHTML = '<div class="pi-op-state">Nenhum contato com vínculo ativo foi encontrado para o cliente ou agência deste PI.</div>';
+      if (count) count.textContent = '0 selecionados';
+      if (submit) submit.disabled = true;
+      return;
+    }
+    var groups = { cliente_final: [], agencia: [] };
+    available.forEach(function (item) {
+      var id = recipientId(item);
       var active = selectedById[id];
       var role = (active && active.papel) ||
         (data.pi && String(item.pk_id_tbl_cliente) === String(data.pi.id_agencia) ? 'agencia' : 'cliente_final');
-      return '<label class="pi-op-check"><input type="checkbox" data-recipient-id="' + esc(id) +
-        '" data-recipient-role="' + esc(role) + '"' + (active ? ' checked' : '') + (readOnly ? ' disabled' : '') +
-        '><span><strong>' + esc(item.nome_completo || item.email) + '</strong><small class="block">' +
-        esc(item.email || '') + ' · ' + esc(role === 'agencia' ? 'Agência' : 'Cliente') + '</small></span></label>';
-    }).join('');
+      if (!groups[role]) role = 'cliente_final';
+      groups[role].push({ item: item, id: id, active: active, role: role });
+    });
+    function groupHtml(role, label) {
+      var items = groups[role];
+      if (!items.length) return '';
+      return '<fieldset class="pi-op-recipient-group"><legend>' + esc(label) + '</legend>' +
+        items.map(function (entry) {
+          var item = entry.item;
+          var hasEmail = Boolean(String(item.email || '').trim());
+          var disabled = readOnly || (item.indisponivel && !entry.active);
+          var detail = hasEmail ? esc(item.email) : '<span class="pi-op-recipient-missing">Sem e-mail cadastrado</span>';
+          if (item.indisponivel) detail += ' <span class="pi-op-recipient-unavailable">Contato inativo</span>';
+          return '<label class="pi-op-check pi-op-recipient' + (!hasEmail ? ' has-warning' : '') + '">' +
+            '<input type="checkbox" data-recipient-id="' + esc(entry.id) +
+            '" data-recipient-role="' + esc(entry.role) + '" data-has-email="' + (hasEmail ? 'true' : 'false') + '"' +
+            (entry.active ? ' checked' : '') + (disabled ? ' disabled' : '') + '>' +
+            '<span><strong>' + esc(item.nome_completo || item.email || 'Contato sem nome') +
+            '</strong><small class="block">' + detail + '</small></span></label>';
+        }).join('') + '</fieldset>';
+    }
+    target.className = 'pi-op-recipient-groups';
+    target.innerHTML = groupHtml('cliente_final', 'Cliente') + groupHtml('agencia', 'Agência');
+    updateRecipientCount();
+    if (submit) submit.disabled = readOnly;
+  }
+
+  function updateRecipientCount() {
+    var form = document.getElementById('pi-recipients-form');
+    var count = document.getElementById('pi-recipient-count');
+    if (!form || !count) return;
+    var total = form.querySelectorAll('[data-recipient-id]:checked').length;
+    count.textContent = total + (total === 1 ? ' selecionado' : ' selecionados');
   }
 
   function communicationName(item) {
@@ -262,6 +327,7 @@
       if (target) target.innerHTML = errorHtml(error.message);
       renderChecklist({});
       renderTimeline({});
+      renderRecipients({ recipient_error: error.message });
     }
   }
 
@@ -604,11 +670,27 @@
 
   var recipientsForm = document.getElementById('pi-recipients-form');
   if (recipientsForm && !readOnly) {
+    recipientsForm.addEventListener('change', function (event) {
+      if (event.target.matches('[data-recipient-id]')) updateRecipientCount();
+    });
     recipientsForm.addEventListener('submit', async function (event) {
       event.preventDefault();
+      var checked = recipientsForm.querySelectorAll('[data-recipient-id]:checked');
+      if (!checked.length) {
+        notify('Selecione ao menos um destinatário.', 'warning');
+        return;
+      }
+      var withoutEmail = Array.prototype.find.call(checked, function (input) {
+        return input.dataset.hasEmail !== 'true';
+      });
+      if (withoutEmail) {
+        notify('Remova os contatos sem e-mail antes de salvar.', 'warning');
+        withoutEmail.focus();
+        return;
+      }
       var defaultRoles = {};
       var recipients = Array.prototype.map.call(
-        recipientsForm.querySelectorAll('[data-recipient-id]:checked'),
+        checked,
         function (input) {
           var role = input.dataset.recipientRole;
           var isDefault = !defaultRoles[role];
@@ -627,13 +709,24 @@
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ destinatarios: recipients })
         });
-        notify(data.message || 'Destinatários atualizados.', 'success');
+        notify(data.message || 'Destinatários salvos.', 'success');
+        await loadOperation();
       } catch (error) { notify(error.message, 'error'); }
       finally { setBusy(button, false); }
     });
   }
 
   document.addEventListener('click', function (event) {
+    var retryRecipients = event.target.closest('[data-retry-recipients]');
+    if (retryRecipients) {
+      var recipientTarget = document.getElementById('pi-recipient-options');
+      if (recipientTarget) {
+        recipientTarget.className = 'pi-op-state';
+        recipientTarget.textContent = 'Carregando contatos disponíveis…';
+      }
+      loadOperation();
+      return;
+    }
     var communication = event.target.closest('[data-communication]');
     if (communication) {
       previewEmail(communication.dataset.communication, selectedCampaign && selectedCampaign.id_campanha);

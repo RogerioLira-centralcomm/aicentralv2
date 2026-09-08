@@ -101,6 +101,35 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-op-check.is-complete strong { color: #647b76; }
 .pi-op-check__status { display: inline-flex; flex: 0 0 15px; justify-content: center; margin-top: 1px; color: #9aabac; }
 .pi-op-check.is-complete .pi-op-check__status { color: #27844c; }
+.pi-op-recipient-count { color: #587073; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.pi-op-recipient-groups { display: grid; gap: 12px; }
+.pi-op-recipient-group {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #e2e9e8;
+  border-radius: 8px;
+  padding: 4px 10px 6px;
+  background: #fbfcfc;
+}
+.pi-op-recipient-group legend {
+  padding: 0 5px;
+  color: #4f696b;
+  font-size: 10px;
+  font-weight: 750;
+}
+.pi-op-recipient.has-warning strong { color: #7a5415; }
+.pi-op-recipient-missing { color: #a36a0a; font-weight: 650; }
+.pi-op-recipient-unavailable {
+  display: inline-flex;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #edf1f1;
+  padding: 1px 5px;
+  color: #667779;
+  font-size: 9px;
+  font-weight: 700;
+}
+.pi-op-recipient-retry { margin-top: 8px; }
 .pi-op-campaign-checklist { border-top: 1px solid #e5eceb; }
 .pi-op-campaign-checklist:first-child { border-top: 0; }
 .pi-op-campaign-checklist summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; cursor: pointer; list-style: none; }

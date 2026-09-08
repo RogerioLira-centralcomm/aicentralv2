@@ -9,15 +9,60 @@ class AgentStorageUnavailable(RuntimeError):
     pass
 
 
+REQUIRED_COLUMNS = {
+    "agent_conversations": {
+        "id", "user_id", "title", "context_module", "context_screen",
+        "context_entity_type", "context_entity_id", "context_entity_label",
+        "created_at", "updated_at",
+    },
+    "agent_messages": {
+        "id", "conversation_id", "role", "content", "display_payload",
+        "model", "prompt_tokens", "completion_tokens", "created_at",
+    },
+    "agent_tool_calls": {
+        "id", "conversation_id", "message_id", "tool_name", "operation_type",
+        "arguments_sanitized", "result_summary", "status", "duration_ms",
+        "request_id", "created_at",
+    },
+}
+
+
 def _ensure_tables():
     conn = db.get_db()
     with conn.cursor() as cur:
-        cur.execute("SELECT to_regclass('public.agent_conversations') AS table_name")
-        row = cur.fetchone() or {}
-    if not row.get("table_name"):
-        raise AgentStorageUnavailable(
-            "Migration create_agent_tables.sql ainda não foi aplicada."
+        cur.execute(
+            """
+            SELECT table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = ANY(%s)
+            """,
+            (list(REQUIRED_COLUMNS),),
         )
+        rows = cur.fetchall() or []
+    found = {table: set() for table in REQUIRED_COLUMNS}
+    for row in rows:
+        found.setdefault(row.get("table_name"), set()).add(row.get("column_name"))
+    missing = {
+        table: sorted(columns - found.get(table, set()))
+        for table, columns in REQUIRED_COLUMNS.items()
+        if columns - found.get(table, set())
+    }
+    if missing:
+        raise AgentStorageUnavailable(
+            "Schema do agente incompleto; execute upgrade_agent_tables_20260908.sql. "
+            f"Ausências: {missing}"
+        )
+
+
+def rollback_failed_transaction():
+    """Libera a conexão após uma consulta de tool falhar no PostgreSQL."""
+    try:
+        conn = db.get_db()
+        if not conn.closed:
+            conn.rollback()
+    except Exception:
+        pass
 
 
 def list_conversations(user_id, limit=30, page=1):

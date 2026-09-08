@@ -72,6 +72,7 @@
         if (!response.ok || payload.success === false) {
           var error = new Error(payload.error || 'Não foi possível concluir a operação.');
           error.status = response.status;
+          error.requestId = payload.request_id || '';
           throw error;
         }
         return payload;
@@ -708,7 +709,9 @@
       appendMessage('assistant', message.content, message.display);
     }).catch(function (error) {
       loading.remove();
-      appendMessage('assistant', error.name === 'AbortError' ? 'Consulta cancelada.' : error.message);
+      var errorMessage = error.name === 'AbortError' ? 'Consulta cancelada.' : error.message;
+      if (error.requestId) errorMessage += '\n\nReferência técnica: `' + error.requestId + '`';
+      appendMessage('assistant', errorMessage);
     }).finally(function () {
       state.controller = null;
       setSending(false);

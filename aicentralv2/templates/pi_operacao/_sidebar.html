@@ -57,14 +57,17 @@
     </section>
 
     <section class="pi-op-panel" aria-labelledby="pi-recipients-title">
-      <div class="pi-op-panel__title">
-        <i class="fa-solid fa-at" aria-hidden="true"></i>
-        <h3 id="pi-recipients-title">Destinatários</h3>
+      <div class="pi-op-panel__title pi-op-panel__title--actions">
+        <span>
+          <i class="fa-solid fa-at" aria-hidden="true"></i>
+          <h3 id="pi-recipients-title">Destinatários</h3>
+        </span>
+        <strong id="pi-recipient-count" class="pi-op-recipient-count" aria-live="polite"></strong>
       </div>
       <form id="pi-recipients-form" class="pi-op-stack">
         <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
         {% if not somente_leitura %}
-        <button type="submit" class="pi-op-btn pi-op-btn--secondary">Atualizar destinatários</button>
+        <button type="submit" class="pi-op-btn pi-op-btn--secondary" disabled>Salvar destinatários</button>
         {% endif %}
       </form>
     </section>

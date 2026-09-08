@@ -173,6 +173,7 @@ def run(
                     name = str((call.get("function") or {}).get("name") or "desconhecida")[:80]
                     clean = {}
                     duration_ms = 0
+                    storage.rollback_failed_transaction()
                     logging.getLogger("aicentral.agent").warning(
                         "Tool %s indisponível request_id=%s: %s", name, request_id, type(exc).__name__
                     )

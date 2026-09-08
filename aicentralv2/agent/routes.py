@@ -223,26 +223,30 @@ def messages_create(conversation_id):
         attachments = _validated_attachments(payload.get("attachments"))
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    if storage.count_recent_user_messages(session["user_id"], minutes=5) >= RATE_LIMIT_MESSAGES:
-        return jsonify({"success": False, "error": "Muitas consultas. Aguarde alguns minutos."}), 429
-    context = _context(payload.get("context"))
-    attachment_display = {
-        "attachments": [
-            {"name": item["name"], "mime": item["mime"], "size": item["size"]}
-            for item in attachments
-        ]
-    } if attachments else None
-    user_message = storage.add_message(
-        conversation_id, session["user_id"], "user", content, attachment_display
-    )
-    if not user_message:
-        return jsonify({"success": False, "error": "Conversa não encontrada."}), 404
     request_id = uuid.uuid4().hex
+    stage = "rate_limit"
     try:
+        if storage.count_recent_user_messages(session["user_id"], minutes=5) >= RATE_LIMIT_MESSAGES:
+            return jsonify({"success": False, "error": "Muitas consultas. Aguarde alguns minutos."}), 429
+        context = _context(payload.get("context"))
+        attachment_display = {
+            "attachments": [
+                {"name": item["name"], "mime": item["mime"], "size": item["size"]}
+                for item in attachments
+            ]
+        } if attachments else None
+        stage = "persist_user_message"
+        user_message = storage.add_message(
+            conversation_id, session["user_id"], "user", content, attachment_display
+        )
+        if not user_message:
+            return jsonify({"success": False, "error": "Conversa não encontrada."}), 404
+        stage = "orchestrator"
         result = run(
             conversation_id, session["user_id"], user_message["id"], context,
             set(public_capabilities()), request_id, attachments=attachments,
         )
+        stage = "persist_assistant_message"
         assistant = storage.add_message(
             conversation_id, session["user_id"], "assistant", result["content"],
             result.get("display"), result.get("model"), result.get("usage"),
@@ -259,18 +263,44 @@ def messages_create(conversation_id):
                 "request_id": request_id,
             },
         })
+    except storage.AgentStorageUnavailable as exc:
+        current_app.logger.error(
+            "Schema do Agente CentralX incompatível stage=%s request_id=%s: %s",
+            stage, request_id, exc,
+        )
+        return jsonify({
+            "success": False,
+            "error": "O banco do agente precisa ser atualizado. Execute a migration pendente.",
+            "request_id": request_id,
+        }), 503
     except AgentOrchestratorError as exc:
         current_app.logger.warning("Agente CentralX indisponível request_id=%s: %s", request_id, exc)
         error_text = "Não consegui concluir a consulta agora. Tente novamente em instantes."
-        storage.add_message(conversation_id, session["user_id"], "assistant", error_text)
+        try:
+            storage.rollback_failed_transaction()
+            storage.add_message(conversation_id, session["user_id"], "assistant", error_text)
+        except Exception:
+            current_app.logger.warning(
+                "Não foi possível persistir erro do agente request_id=%s", request_id
+            )
         return jsonify({"success": False, "error": error_text, "request_id": request_id}), 503
     except Exception:
-        current_app.logger.exception("Falha no Agente CentralX request_id=%s", request_id)
+        storage.rollback_failed_transaction()
+        current_app.logger.exception(
+            "Falha no Agente CentralX stage=%s request_id=%s", stage, request_id
+        )
+        storage_failure = stage in {
+            "rate_limit", "persist_user_message", "persist_assistant_message"
+        }
         return jsonify({
             "success": False,
-            "error": "Ocorreu uma falha ao consultar os dados. Tente novamente.",
+            "error": (
+                "Não foi possível acessar o histórico do agente. Tente novamente."
+                if storage_failure
+                else "Ocorreu uma falha ao consultar os dados. Tente novamente."
+            ),
             "request_id": request_id,
-        }), 500
+        }), 503 if storage_failure else 500
 
 
 @bp.get("/history")

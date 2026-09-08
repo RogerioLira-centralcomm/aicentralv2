@@ -1,6 +1,7 @@
 """Contratos de leitura para a parede contextual do Agente CentralX."""
 
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 from ..pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 
@@ -20,6 +21,23 @@ ALIASES = {
 def canonical_type(entity_type):
     value = str(entity_type or "").strip().casefold()
     return ALIASES.get(value, value)
+
+
+def safe_context_url(value, allow_external=False):
+    value = str(value or "").strip()
+    if value.startswith("/") and not value.startswith("//"):
+        return value
+    if not allow_external:
+        return ""
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return ""
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    if parsed.username or parsed.password:
+        return ""
+    return value
 
 
 def _value(value):
@@ -392,9 +410,10 @@ def _campaign_context(store, pi_repo, campaign):
         {"kind": "open", "label": "Abrir campanha", "url": url},
         {"kind": "copy", "label": "Copiar link", "value": url},
     ]
-    if campaign.get("link_dash"):
-        actions.append({"kind": "open", "label": "Abrir dashboard", "url": campaign["link_dash"], "external": True})
-        actions.append({"kind": "copy", "label": "Copiar dashboard", "value": campaign["link_dash"]})
+    dashboard_url = safe_context_url(campaign.get("link_dash"), allow_external=True)
+    if dashboard_url:
+        actions.append({"kind": "open", "label": "Abrir dashboard", "url": dashboard_url, "external": True})
+        actions.append({"kind": "copy", "label": "Copiar dashboard", "value": dashboard_url})
     return _base(
         "campanha", campaign, context, title, campaign.get("plataforma_nome") or "", url,
         _facts(

@@ -474,6 +474,8 @@ def commercial_search():
         if search_contacts and kind in {"all", "contacts"}
         else []
     )
+    if not isinstance(contacts, list):
+        contacts = []
     operational = {"pis": [], "campaigns": []}
     if kind in {"all", "pis", "campaigns"}:
         try:

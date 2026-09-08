@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from flask import Flask
 
 from aicentralv2.agent import bp
+from aicentralv2.agent.context_records import build_context_record, safe_context_url
 from aicentralv2.agent.services.orchestrator import _contextual_arguments
 from aicentralv2.agent.tools import commercial
 from aicentralv2.agent.tools.registry import TOOLS, ToolValidationError, get_tool, validate_arguments
@@ -26,8 +27,12 @@ class AgentContractsTest(unittest.TestCase):
         with self.assertRaises(ToolValidationError):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
-    def test_registry_contains_only_six_read_tools(self):
-        self.assertEqual(len(TOOLS), 6)
+    def test_registry_contains_only_allowlisted_read_tools(self):
+        self.assertEqual(len(TOOLS), 13)
+        self.assertIn("consultar_contato", TOOLS)
+        self.assertIn("consultar_pi", TOOLS)
+        self.assertIn("consultar_campanha", TOOLS)
+        self.assertIn("preparar_alteracao_contato", TOOLS)
         self.assertTrue(all(tool.operation_type == "read" for tool in TOOLS.values()))
         self.assertTrue(all(not tool.confirmation_required for tool in TOOLS.values()))
 
@@ -64,6 +69,22 @@ class AgentContractsTest(unittest.TestCase):
             "listar_contatos", {}, {"entity_type": "cotacao", "entity_id": "98037"}
         )
         self.assertNotIn("cliente_id", unrelated)
+        self.assertEqual(
+            _contextual_arguments(
+                "consultar_pi", {}, {"entity_type": "pi", "entity_id": "72"}
+            )["pi_id"],
+            "72",
+        )
+
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_search_focuses_only_one_exact_result(self, mock_store):
+        mock_store.return_value.search_clientes.return_value = [{
+            "id": "7", "nome": "Acme", "responsavel": "Ana"
+        }]
+        exact = commercial.buscar_cliente("Acme")
+        partial = commercial.buscar_cliente("Acm")
+        self.assertEqual(exact["context_focus"]["entity_id"], "7")
+        self.assertNotIn("context_focus", partial)
 
     @patch.dict("os.environ", {}, clear=True)
     def test_openrouter_key_is_resolved_lazily(self):
@@ -139,8 +160,9 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertIn("commercial.read.global", data["capabilities"])
         self.assertIn("commercial.write.global", data["capabilities"])
 
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store")
-    def test_commercial_search_forces_assigned_scope_for_regular_user(self, mock_store):
+    def test_commercial_search_forces_assigned_scope_for_regular_user(self, mock_store, _mock_ops):
         mock_store.return_value.search_clientes.return_value = []
         mock_store.return_value.search_cotacoes.return_value = []
         with self.client.session_transaction() as session:
@@ -155,8 +177,9 @@ class AgentApiSecurityTest(unittest.TestCase):
             "acme", 8, executivo_id=10
         )
 
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store")
-    def test_commercial_search_all_is_available_to_admin(self, mock_store):
+    def test_commercial_search_all_is_available_to_admin(self, mock_store, _mock_ops):
         mock_store.return_value.search_clientes.return_value = []
         mock_store.return_value.search_cotacoes.return_value = []
         with self.client.session_transaction() as session:
@@ -210,9 +233,9 @@ class AgentApiSecurityTest(unittest.TestCase):
         response = self.client.get("/api/agent/commercial/record/cliente/7")
         self.assertEqual(response.status_code, 404)
 
-    @patch("aicentralv2.agent.routes.build_insights")
+    @patch("aicentralv2.agent.routes.PiOperacaoRepository")
     @patch("aicentralv2.agent.routes.get_store")
-    def test_quote_record_returns_client_and_detail_url(self, mock_store, mock_insights):
+    def test_quote_record_returns_client_and_detail_url(self, mock_store, mock_pi_repo):
         store = mock_store.return_value
         store.get_cotacao.return_value = {
             "id": "91",
@@ -221,7 +244,7 @@ class AgentApiSecurityTest(unittest.TestCase):
             "executivo_id": "10",
         }
         store.get_cliente.return_value = {"id": "7", "nome": "Acme"}
-        mock_insights.return_value = {"entity": None, "alerts": [], "prompts": []}
+        mock_pi_repo.return_value.listar_pis_cliente.return_value = []
         with self.client.session_transaction() as session:
             session.update(user_id=10, is_centralcomm=True, user_type="client")
         response = self.client.get("/api/agent/commercial/record/cotacao/91")
@@ -229,6 +252,52 @@ class AgentApiSecurityTest(unittest.TestCase):
         data = response.get_json()["data"]
         self.assertEqual(data["client"]["nome"], "Acme")
         self.assertEqual(data["url"], "/cotacoes/91/detalhes")
+
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_contact_change_requires_confirmation_and_csrf(self, mock_store):
+        store = mock_store.return_value
+        store.get_contato.return_value = {
+            "id": "15", "cliente_id": "7", "nome": "Ana", "email": "ana@acme.com"
+        }
+        store.get_cliente.return_value = {
+            "id": "7", "nome": "Acme", "executivo_id": "10"
+        }
+        store.update_contato.return_value = (
+            {
+                "id": "15", "cliente_id": "7", "nome": "Ana",
+                "email": "ana@acme.com", "telefone": "(31) 99999-0000",
+            },
+            "7",
+        )
+        with self.client.session_transaction() as session:
+            session.update(
+                user_id=10, is_centralcomm=True, user_type="client",
+                agent_csrf_token="token",
+            )
+        denied = self.client.post(
+            "/api/agent/context/contact-changes",
+            json={"confirmed": False, "operation": "update_contact"},
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(denied.status_code, 400)
+        updated = self.client.post(
+            "/api/agent/context/contact-changes",
+            json={
+                "confirmed": True,
+                "operation": "update_contact",
+                "contato_id": "15",
+                "changes": {
+                    "nome": "Ana",
+                    "telefone": "(31) 99999-0000",
+                    "campo_perigoso": "ignorado",
+                },
+            },
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        sent = store.update_contato.call_args.args[1]
+        self.assertNotIn("campo_perigoso", sent)
+        self.assertEqual(sent["telefone"], "(31) 99999-0000")
 
     @patch("aicentralv2.agent.routes.build_insights")
     @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
@@ -285,6 +354,61 @@ class AgentInsightsTest(unittest.TestCase):
         self.assertIn("quote_follow_up", {item["id"] for item in data["alerts"]})
 
 
+class ContextRecordContractTest(unittest.TestCase):
+    def setUp(self):
+        self.store = MagicMock()
+        self.pi_repo = MagicMock()
+        self.allow = lambda _record: True
+
+    def test_client_context_distinguishes_operational_stage_and_relations(self):
+        self.store.get_cliente.return_value = {
+            "id": "7", "nome": "Acme", "responsavel": "Ana"
+        }
+        self.store.list_contatos.return_value = [{
+            "id": "15", "nome": "Bruno", "cargo": "Mídia",
+            "telefone": "(31) 99999-0000", "email": "bruno@acme.com",
+        }]
+        self.store.list_cotacoes.return_value = [{"id": "9", "titulo": "Plano 2026"}]
+        self.pi_repo.listar_pis_cliente.return_value = [{
+            "id_pi": 20, "titulo_pi": "PI Acme"
+        }]
+        self.pi_repo.listar_campanhas.return_value = [{
+            "id_campanha": 30, "nome_campanha": "Always on"
+        }]
+        data = build_context_record(
+            "cliente", "7", self.store, self.allow, self.allow, self.pi_repo
+        )
+        facts = {item["label"]: item["value"] for item in data["facts"]}
+        keys = {item["key"] for item in data["relations"]}
+        self.assertEqual(facts["Etapa"], "Em operação")
+        self.assertTrue({"contacts", "quotes", "pis", "campaigns"}.issubset(keys))
+        contacts = next(item for item in data["relations"] if item["key"] == "contacts")
+        self.assertEqual(contacts["items"][0]["phone"], "(31) 99999-0000")
+        self.assertIn("Mídia", contacts["items"][0]["subtitle"])
+
+    def test_contact_context_omits_empty_facts(self):
+        self.store.get_contato.return_value = {
+            "id": "15", "cliente_id": "7", "nome": "Bruno",
+            "cargo": "Mídia", "telefone": "", "email": "bruno@acme.com",
+        }
+        self.store.get_cliente.return_value = {"id": "7", "nome": "Acme"}
+        data = build_context_record(
+            "contato", "15", self.store, self.allow, self.allow, self.pi_repo
+        )
+        labels = {item["label"] for item in data["facts"]}
+        self.assertIn("Cargo", labels)
+        self.assertIn("E-mail", labels)
+        self.assertNotIn("Telefone", labels)
+
+    def test_external_context_url_rejects_unsafe_protocols_and_credentials(self):
+        self.assertEqual(safe_context_url("javascript:alert(1)", True), "")
+        self.assertEqual(safe_context_url("https://user:pass@example.com", True), "")
+        self.assertEqual(
+            safe_context_url("https://dashboard.example.com/campanha/7", True),
+            "https://dashboard.example.com/campanha/7",
+        )
+
+
 class AgentWorkspaceContractTest(unittest.TestCase):
     def test_workspace_contains_search_record_and_sync_contracts(self):
         root = Path(__file__).resolve().parents[1]
@@ -295,7 +419,10 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertIn("cx-agent-record-body", shell)
         self.assertIn("centralx:entity-updated", agent_js)
         self.assertIn("centralx:entity-updated", crm_js)
-        self.assertIn("commercial/record", agent_js)
+        self.assertIn("/api/agent/context/", agent_js)
+        self.assertIn("dock.dataset.contextWall", agent_js)
+        self.assertIn("mailto:", agent_js)
+        self.assertIn("data-contact-confirm", agent_js)
 
 
 if __name__ == "__main__":

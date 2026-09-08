@@ -1,13 +1,10 @@
 /**
- * CRM v3 Drawers — plug-in que substitui os modais grandes (cliente, atividade,
- * cotação e contato) por drawers off-canvas usando cxDrawer.
+ * CRM v3 Drawers — editores off-canvas de cliente, atividade, cotação e contato.
  *
  * Estratégia
  * ----------
- * O `crm_v3.js` continua abrindo os modais tradicionais como fallback; este
- * módulo intercepta os mesmos handlers (via wrappers das funções globais
- * exportadas em `window.crmV3.*`) e chama `cxDrawer.open()` com os templates
- * <template id="cx-drawer-*-tpl">. O submit envia via as mesmas APIs REST do CRM v3.
+ * Os cadastros extensos têm um único fluxo no cxDrawer. O submit envia pelas
+ * APIs REST do CRM v3 e notifica a página para atualizar os dados exibidos.
  */
 (function () {
     'use strict';
@@ -122,6 +119,7 @@
             if (uf && data.uf) uf.value = data.uf;
             var numero = root.querySelector('[data-field="endereco.numero"]');
             if (numero) numero.focus();
+            updateClienteAddressSummary(root);
             toast('Endereço preenchido pelo CEP');
         }
 
@@ -151,6 +149,33 @@
         });
     }
 
+    function updateClienteAddressSummary(root) {
+        var summary = root.querySelector('#cx-cliente-endereco-resumo');
+        if (!summary) return;
+        var value = function (field) {
+            var el = root.querySelector('[data-field="endereco.' + field + '"]');
+            return el ? String(el.value || '').trim() : '';
+        };
+        var cidade = value('cidade');
+        var uf = value('uf');
+        var cep = value('cep');
+        var logradouro = value('logradouro');
+        var localidade = cidade && uf ? cidade + '/' + uf : (cidade || uf);
+        summary.textContent = localidade || cep || logradouro || 'Não informado';
+    }
+
+    function wireClienteAddressSummary(root) {
+        var address = root.querySelector('.crm-v3-cliente-address');
+        if (!address) return;
+        address.addEventListener('input', function () {
+            updateClienteAddressSummary(root);
+        });
+        address.addEventListener('change', function () {
+            updateClienteAddressSummary(root);
+        });
+        updateClienteAddressSummary(root);
+    }
+
     /* -----------------------------------------------------------
        Drawer: Cliente
        ----------------------------------------------------------- */
@@ -167,24 +192,27 @@
             var wrapper = document.createElement('div');
             wrapper.appendChild(frag);
             var form = wrapper.querySelector('form');
-            fillForm(form, cliente || {});
+            var formData = cliente || {
+                pessoa: 'J',
+                perfil: 'direto',
+                classificacao_cliente: 'Prospecção',
+                bv_percentual: 0,
+                margem_cc: 0
+            };
+            fillForm(form, formData);
 
-            populateLookupSelects(wrapper, cliente);
+            populateLookupSelects(wrapper, formData);
 
             bindCepLookup(wrapper);
+            wireClienteAddressSummary(wrapper);
 
             renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
-            var addBtn = wrapper.querySelector('[data-drawer-action="add-agencia"]');
-            if (addBtn) {
-                addBtn.addEventListener('click', function () {
-                    addAgenciaRow(wrapper.querySelector('#cx-drawer-cliente-agencias'), '');
-                });
-            }
+            wireAgenciaSearch(wrapper);
 
             cxDrawer.open({
                 title: cliente ? 'Editar cliente' : 'Novo cliente',
                 breadcrumb: 'CRM v3 · Cadastro',
-                size: 'lg',
+                size: 'xl',
                 contentEl: wrapper,
                 split: false,
                 actions: [
@@ -216,6 +244,7 @@
     }
 
     function submitCliente(form, cliente, drawerId) {
+        if (!form || !form.reportValidity()) return;
         var payload = serializeForm(form);
         payload.is_agencia = payload.perfil === 'agencia';
         payload.tipo_label = payload.is_agencia ? 'Agência' : 'Cliente final';
@@ -280,56 +309,176 @@
                 vinculos = [{ agencia_id: cliente.agencia_id, is_principal: true }];
             }
         }
-        if (!vinculos.length) vinculos.push({ agencia_id: '', is_principal: true });
 
-        // Placeholder visual enquanto a lista de agências é carregada
-        // (só na primeira abertura do drawer). Assim o usuário vê algo
-        // imediatamente sem parecer que o drawer travou.
         var loading = document.createElement('div');
-        loading.className = 'text-xs text-slate-500 py-1';
+        loading.className = 'crm-v3-cliente-agencias-empty';
         loading.textContent = 'Carregando agências…';
         container.appendChild(loading);
 
         ensureAgenciasCarregadas().then(function () {
             container.innerHTML = '';
             vinculos.forEach(function (v) { addAgenciaRow(container, v.agencia_id, v.is_principal); });
+            updateAgenciaManager(container);
         }).catch(function (err) {
             container.innerHTML = '';
             toast(err.message || 'Falha ao carregar agências.', true);
             vinculos.forEach(function (v) { addAgenciaRow(container, v.agencia_id, v.is_principal); });
+            updateAgenciaManager(container);
         });
     }
 
     function addAgenciaRow(container, selectedId, isPrincipal) {
-        if (!container) return;
+        if (!container || !selectedId) return;
         var agencias = getAgencias();
         var sid = String(selectedId || '');
-        // Se a agência salva não estiver na lista carregada (ex.: outra
-        // filial, agência desativada), preservamos o vínculo criando
-        // uma option extra "id — não encontrada". Assim o PATCH não
-        // apaga o dado por engano só porque o combo não tem o item.
-        var opts = ['<option value="">— Selecionar agência —</option>'];
-        var achou = false;
-        agencias.forEach(function (a) {
-            var sel = String(a.id) === sid ? ' selected' : '';
-            if (sel) achou = true;
-            opts.push('<option value="' + a.id + '"' + sel + '>' + a.nome + '</option>');
+        var duplicate = $$('.crm-v3-agencia-select', container).some(function (sel) {
+            return String(sel.value) === sid;
         });
-        if (sid && !achou) {
-            opts.push('<option value="' + sid + '" selected>#' + sid + ' — (não encontrada)</option>');
-        }
+        if (duplicate) return;
+        var agencia = agencias.find(function (a) { return String(a.id) === sid; });
+        var nome = agencia ? agencia.nome : ('Agência #' + sid + ' (não encontrada)');
+        var cnpj = agencia && agencia.cnpj ? agencia.cnpj : '';
+        var shouldBePrincipal = !!isPrincipal || !container.querySelector('.crm-v3-agencia-row');
         var row = document.createElement('div');
         row.className = 'crm-v3-agencia-row';
         row.innerHTML = (
-            '<select class="cx-select cx-select-sm crm-v3-agencia-select">' + opts.join('') + '</select>' +
+            '<select class="crm-v3-agencia-select" aria-hidden="true" tabindex="-1">' +
+            '<option value="' + escapeAttr(sid) + '" selected>' + escapeHtml(nome) + '</option></select>' +
+            '<span class="crm-v3-agencia-icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>' +
+            '<span class="crm-v3-agencia-info"><strong>' + escapeHtml(nome) + '</strong>' +
+            (cnpj ? '<small>' + escapeHtml(cnpj) + '</small>' : '<small>Agência vinculada</small>') + '</span>' +
             '<label class="crm-v3-agencia-principal">' +
-            '<input type="radio" name="cx-drawer-cliente-principal" class="cx-radio cx-radio-sm" ' + (isPrincipal ? 'checked' : '') + ' />' +
+            '<input type="radio" name="cx-drawer-cliente-principal" class="cx-radio cx-radio-sm" ' + (shouldBePrincipal ? 'checked' : '') + ' />' +
             '<span>Principal</span></label>' +
-            '<button type="button" class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon crm-v3-agencia-remove"><i class="fa-solid fa-xmark"></i></button>'
+            '<button type="button" class="crm-v3-agencia-remove" aria-label="Remover vínculo com ' + escapeAttr(nome) + '">' +
+            '<i class="fa-solid fa-xmark" aria-hidden="true"></i></button>'
         );
         container.appendChild(row);
+        row.querySelector('input[type="radio"]').addEventListener('change', function () {
+            updateAgenciaManager(container);
+        });
         row.querySelector('.crm-v3-agencia-remove').addEventListener('click', function () {
+            var wasPrincipal = !!row.querySelector('input[type="radio"]:checked');
             row.remove();
+            if (wasPrincipal) {
+                var next = container.querySelector('input[name="cx-drawer-cliente-principal"]');
+                if (next) next.checked = true;
+            }
+            updateAgenciaManager(container);
+        });
+        updateAgenciaManager(container);
+    }
+
+    function updateAgenciaManager(container) {
+        if (!container) return;
+        var rows = $$('.crm-v3-agencia-row', container);
+        var root = container.closest('.crm-v3-cliente-editor');
+        var count = root && root.querySelector('#cx-drawer-cliente-agencias-count');
+        if (count) count.textContent = String(rows.length);
+        var empty = container.querySelector('.crm-v3-cliente-agencias-empty');
+        if (!rows.length && !empty) {
+            empty = document.createElement('div');
+            empty.className = 'crm-v3-cliente-agencias-empty';
+            empty.innerHTML = '<i class="fa-regular fa-building" aria-hidden="true"></i>' +
+                '<strong>Nenhuma agência vinculada</strong>' +
+                '<span>Use a busca acima para adicionar.</span>';
+            container.appendChild(empty);
+        } else if (rows.length && empty) {
+            empty.remove();
+        }
+    }
+
+    function wireAgenciaSearch(root) {
+        var input = root.querySelector('#cx-drawer-cliente-agencia-search');
+        var results = root.querySelector('#cx-drawer-cliente-agencia-results');
+        var container = root.querySelector('#cx-drawer-cliente-agencias');
+        if (!input || !results || !container) return;
+
+        function normalize(value) {
+            return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
+        function closeResults() {
+            results.hidden = true;
+            results.innerHTML = '';
+            input.setAttribute('aria-expanded', 'false');
+        }
+
+        function renderResults() {
+            var query = normalize(input.value).trim();
+            if (!query) {
+                closeResults();
+                return;
+            }
+            var queryDigits = query.replace(/\D/g, '');
+            var selected = new Set($$('.crm-v3-agencia-select', container).map(function (sel) {
+                return String(sel.value);
+            }));
+            var matches = getAgencias().filter(function (agencia) {
+                if (selected.has(String(agencia.id))) return false;
+                var cnpj = normalize(agencia.cnpj);
+                return normalize(agencia.nome).includes(query)
+                    || cnpj.includes(query)
+                    || (queryDigits.length >= 3 && cnpj.replace(/\D/g, '').includes(queryDigits));
+            }).slice(0, 8);
+            results.innerHTML = '';
+            matches.forEach(function (agencia) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('role', 'option');
+                button.innerHTML = '<i class="fa-solid fa-building" aria-hidden="true"></i><span><strong>' +
+                    escapeHtml(agencia.nome) + '</strong>' +
+                    (agencia.cnpj ? '<small>' + escapeHtml(agencia.cnpj) + '</small>' : '') + '</span>';
+                button.addEventListener('click', function () {
+                    addAgenciaRow(container, agencia.id, false);
+                    input.value = '';
+                    closeResults();
+                    input.focus();
+                });
+                results.appendChild(button);
+            });
+            if (!matches.length) {
+                results.innerHTML = '<div class="crm-v3-cliente-agencia-no-results">Nenhuma agência encontrada</div>';
+            }
+            results.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+        }
+
+        input.addEventListener('input', renderResults);
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                input.value = '';
+                closeResults();
+            } else if (event.key === 'ArrowDown') {
+                var first = results.querySelector('button');
+                if (first) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+        results.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeResults();
+                input.focus();
+                return;
+            }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                var options = $$('button', results);
+                var current = options.indexOf(document.activeElement);
+                if (!options.length) return;
+                event.preventDefault();
+                var next = event.key === 'ArrowDown' ? current + 1 : current - 1;
+                if (next >= options.length) next = 0;
+                if (next < 0) next = options.length - 1;
+                options[next].focus();
+            }
+        });
+        root.addEventListener('click', function (event) {
+            var search = input.closest('.crm-v3-cliente-agencia-search');
+            if (!results.contains(event.target) && !(search && search.contains(event.target))) {
+                closeResults();
+            }
         });
     }
 

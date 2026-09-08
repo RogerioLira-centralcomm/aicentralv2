@@ -621,8 +621,9 @@ class CrmV3Repository:
         dezenas. Agora usamos `db.obter_clientes_agencias()`, que já é
         a fonte oficial usada pelas telas de agência do CRM legado.
 
-        Retorna dicts no formato mínimo esperado pelo select:
-          {"id": "<id_cliente>", "nome": "<nome_fantasia_ou_razao>"}
+        Retorna os dados mínimos para o gerenciador pesquisável:
+          {"id": "<id_cliente>", "nome": "<nome_fantasia_ou_razao>",
+           "cnpj": "<documento_quando_disponivel>"}
         """
         rows = _db().obter_clientes_agencias() or []
         out = []
@@ -630,7 +631,11 @@ class CrmV3Repository:
             nome = (r.get("nome_fantasia") or r.get("razao_social") or "").strip()
             if not nome:
                 continue
-            out.append({"id": str(r["id_cliente"]), "nome": nome})
+            out.append({
+                "id": str(r["id_cliente"]),
+                "nome": nome,
+                "cnpj": str(r.get("cnpj") or "").strip(),
+            })
         return out
 
     def get_cliente(self, cliente_id: str) -> Optional[Dict[str, Any]]:

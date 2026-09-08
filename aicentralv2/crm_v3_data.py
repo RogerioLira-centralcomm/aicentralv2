@@ -950,7 +950,7 @@ class CrmTestStore:
 
     def list_agencias(self):
         """Paridade com CrmV3Repository.list_agencias — retorna todas
-        as agências como {"id": <id>, "nome": <nome>}. No mock a fonte
+        as agências com id, nome e documento pesquisável. No mock a fonte
         é o próprio state.clientes filtrado por is_agencia.
         """
         out = []
@@ -960,7 +960,11 @@ class CrmTestStore:
             nome = (c.get("nome") or c.get("nome_fantasia") or "").strip()
             if not nome:
                 continue
-            out.append({"id": c["id"], "nome": nome})
+            out.append({
+                "id": c["id"],
+                "nome": nome,
+                "cnpj": str(c.get("cnpj") or "").strip(),
+            })
         return out
 
     def get_cliente(self, cliente_id):

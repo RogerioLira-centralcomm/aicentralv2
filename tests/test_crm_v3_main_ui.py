@@ -9,6 +9,7 @@ CSS = ROOT / "aicentralv2/static/css/crm_v3.css"
 JS = ROOT / "aicentralv2/static/js/crm_v3.js"
 DRAWER_JS = ROOT / "aicentralv2/static/js/crm_v3_drawers.js"
 DRAWER = ROOT / "aicentralv2/templates/crm_v3/_drawer_cotacao.html"
+CLIENT_DRAWER = ROOT / "aicentralv2/templates/crm_v3/_drawer_cliente.html"
 MODALS = ROOT / "aicentralv2/templates/crm_v3/_modals.html"
 ENTERPRISE_CSS = ROOT / "aicentralv2/static/css/tailwind/enterprise-system.css"
 
@@ -21,6 +22,7 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         cls.js = JS.read_text()
         cls.drawer_js = DRAWER_JS.read_text()
         cls.drawer = DRAWER.read_text()
+        cls.client_drawer = CLIENT_DRAWER.read_text()
         cls.modals = MODALS.read_text()
         cls.enterprise_css = ENTERPRISE_CSS.read_text()
 
@@ -103,6 +105,40 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("changeAgencyClientLink", self.drawer_js)
         self.assertIn("method: active ? 'POST' : 'DELETE'", self.drawer_js)
         self.assertIn(".cx-agency-client-row", self.enterprise_css)
+
+    def test_client_editor_is_a_single_responsive_drawer(self):
+        self.assertIn("crm-v3-cliente-editor-grid", self.client_drawer)
+        self.assertIn("crm-v3-cliente-editor-main", self.client_drawer)
+        self.assertIn("crm-v3-cliente-editor-side", self.client_drawer)
+        self.assertIn("size: 'xl'", self.drawer_js)
+        self.assertNotIn('id="crm-v3-modal-cliente"', self.modals)
+        self.assertNotIn("openClienteModal", self.js)
+
+    def test_client_address_is_collapsible_and_summarized(self):
+        self.assertIn('<details class="crm-v3-cliente-address', self.client_drawer)
+        self.assertIn('id="cx-cliente-endereco-resumo"', self.client_drawer)
+        self.assertIn("wireClienteAddressSummary", self.drawer_js)
+
+    def test_client_agencies_have_search_and_explicit_empty_state(self):
+        self.assertIn('id="cx-drawer-cliente-agencia-search"', self.client_drawer)
+        self.assertIn('id="cx-drawer-cliente-agencias-count"', self.client_drawer)
+        self.assertIn("wireAgenciaSearch", self.drawer_js)
+        self.assertIn("Nenhuma agência vinculada", self.drawer_js)
+        self.assertNotIn('data-drawer-action="add-agencia"', self.client_drawer)
+
+    def test_client_editor_stacks_on_tablet_and_mobile(self):
+        self.assertRegex(
+            self.css,
+            r"@media \(max-width: 900px\)[\s\S]*?"
+            r"\.crm-v3-cliente-editor-grid\s*\{[\s\S]*?"
+            r"grid-template-columns:\s*1fr",
+        )
+        self.assertRegex(
+            self.css,
+            r"@media \(max-width: 640px\)[\s\S]*?"
+            r"\.crm-v3-cliente-form-grid\s*\{[\s\S]*?"
+            r"grid-template-columns:\s*1fr",
+        )
 
 
 if __name__ == "__main__":

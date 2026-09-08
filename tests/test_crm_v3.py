@@ -902,6 +902,22 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         self.assertEqual(self.repo.update_nota("1", {"texto": "x"}), (None, None))
         self.assertEqual(self.repo.delete_nota("1"), (False, None))
 
+    def test_list_agencias_inclui_cnpj_para_busca(self):
+        self.db.obter_clientes_agencias.return_value = [{
+            "id_cliente": 12,
+            "nome_fantasia": "Agência Real",
+            "razao_social": "Agência Real Ltda.",
+            "cnpj": "12.345.678/0001-90",
+        }]
+        self.assertEqual(
+            self.repo.list_agencias(),
+            [{
+                "id": "12",
+                "nome": "Agência Real",
+                "cnpj": "12.345.678/0001-90",
+            }],
+        )
+
     def test_map_cliente_vinculos_usam_id_agencia_cliente(self):
         """GET /api/clientes/<id> quebrava com KeyError: 'id_cliente'.
 

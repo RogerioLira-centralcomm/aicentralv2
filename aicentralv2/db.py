@@ -12526,6 +12526,16 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         audiencias = []
 
     criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=linhas, audiencias=audiencias)
+    try:
+        from .pi_operacao_service import sincronizar_operacao_pi
+
+        sincronizar_operacao_pi(id_pi)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "PI %s criado, mas o checklist operacional não foi sincronizado: %s",
+            id_pi,
+            exc,
+        )
     return id_pi
 
 
@@ -14366,6 +14376,7 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     c.custo_midia_orcado,
                     c.preco_unitario_orcado,
                     c.id_plataforma,
+                    c.id_responsavel_operacao,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,
@@ -14609,6 +14620,7 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.custo_midia_orcado,
                     c.preco_unitario_orcado,
                     c.id_plataforma,
+                    c.id_responsavel_operacao,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,
@@ -14651,7 +14663,7 @@ def criar_campanha_pi(data):
                     periodo_inicio, periodo_fim, id_status,
                     totalizador_atingido, totalizador_gasto,
                     valor_plataforma, custo_midia_orcado, preco_unitario_orcado,
-                    id_plataforma,
+                    id_plataforma, id_responsavel_operacao,
                     perc_margem_cc, perc_tech_fee, perc_com_vendas,
                     perc_pl_incentivos, perc_impostos,
                     val_margem_cc, val_tech_fee, val_com_vendas,
@@ -14664,7 +14676,7 @@ def criar_campanha_pi(data):
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
-                    %s,
+                    %s, %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
@@ -14691,6 +14703,7 @@ def criar_campanha_pi(data):
                 data.get('custo_midia_orcado'),
                 data.get('preco_unitario_orcado'),
                 data.get('id_plataforma'),
+                data.get('id_responsavel_operacao'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
                 data.get('perc_com_vendas'),
@@ -14770,6 +14783,7 @@ def atualizar_campanha_pi(id_campanha, data):
                     custo_midia_orcado = %s,
                     preco_unitario_orcado = %s,
                     id_plataforma = %s,
+                    id_responsavel_operacao = %s,
                     perc_margem_cc = %s,
                     perc_tech_fee = %s,
                     perc_com_vendas = %s,
@@ -14801,6 +14815,7 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('custo_midia_orcado'),
                 data.get('preco_unitario_orcado'),
                 data.get('id_plataforma'),
+                data.get('id_responsavel_operacao'),
                 data.get('perc_margem_cc'),
                 data.get('perc_tech_fee'),
                 data.get('perc_com_vendas'),

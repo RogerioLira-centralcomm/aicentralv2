@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Previsão de início — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Previsão de início das campanhas do PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}Previsão de início{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">A preparação das campanhas do cliente <strong>{{ cliente }}</strong> está em andamento.</p><p style="margin:0;">A previsão atual de início está indicada nas informações abaixo e poderá ser atualizada caso surja alguma dependência operacional.</p>{% endblock %}

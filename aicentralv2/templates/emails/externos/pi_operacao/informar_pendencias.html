@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Pendências operacionais — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Atualização sobre pendências do PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}Pendências operacionais{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">O PI do cliente <strong>{{ cliente }}</strong> possui pendências que impedem o avanço da operação neste momento.</p><p style="margin:0;">Confira os itens abaixo para alinharmos a regularização e a continuidade das campanhas.</p>{% endblock %}

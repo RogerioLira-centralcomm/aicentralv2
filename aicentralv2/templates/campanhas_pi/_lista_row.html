@@ -1,0 +1,140 @@
+{% set obj_val = c.obj_contratados|parse_volume_campanha %}
+{% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
+{% set pct_obj = c.pct_objetivo if c.pct_objetivo is not none else (((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0) %}
+{% set prev_val = c.custo_midia_previsto|parse_brl_float if c.custo_midia_previsto is not none else 0 %}
+{% set gasto_val = c.totalizador_gasto|parse_brl_float %}
+{% set pct_inv = c.pct_custo_midia if c.pct_custo_midia is not none else (((gasto_val / prev_val) * 100)|round(0)|int if prev_val > 0 else 0) %}
+{% set restante_obj = obj_val - ating_val %}
+{% set diff_gasto = gasto_val - prev_val %}
+{% set pct_periodo = c.periodo_pct_elapsed if c.periodo_pct_elapsed is not none else none %}
+{% set preco_orc = c.preco_unitario_orcado_brl %}
+{% set preco_real = c.preco_unitario_realizado_brl %}
+{% set sigla_kpi = sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) %}
+{% set link_count = (1 if c.googled_pi_princ else 0) + (1 if c.link_dash else 0) %}
+{% set dias_restantes = (c.periodo_fim - agora).days if c.periodo_fim else none %}
+{% set exec_parts = (c.executivo_nome or '').split(' ') %}
+{% set exec_ini = ((exec_parts[0][0:1] if exec_parts and exec_parts[0] else '') ~ (exec_parts[-1][0:1] if exec_parts|length > 1 and exec_parts[-1] else ''))|upper %}
+{% if pct_obj <= 0 %}{% set prog_tier = 'empty' %}
+{% elif pct_obj < 34 %}{% set prog_tier = 'low' %}
+{% elif pct_obj < 70 %}{% set prog_tier = 'mid' %}
+{% elif pct_obj < 100 %}{% set prog_tier = 'high' %}
+{% elif pct_obj == 100 %}{% set prog_tier = 'complete' %}
+{% else %}{% set prog_tier = 'over' %}{% endif %}
+{% set prog_width = [pct_obj, 100]|min if pct_obj > 0 else 0 %}
+
+<tr data-campanha-id="{{ c.id_campanha }}"
+    data-plataforma-id="{{ c.id_plataforma or '' }}"
+    data-plataforma-nome="{{ c.plataforma_nome or '' }}"
+    data-status-key="{{ grupo.key }}"
+    tabindex="0"
+    aria-label="Campanha {{ c.nome_campanha or c.id_campanha }}. Pressione Enter para editar."
+    data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "objetivo_nome": c.objetivo_nome or "", "cliente_nome": c.cliente_nome or "", "executivo_nome": c.executivo_nome or "", "executivo_foto_url": c.executivo_foto_url or "", "plataforma_nome": c.plataforma_nome or "", "status_nome": c.status_nome or "", "preco_metrica_brl": c.preco_metrica_brl, "preco_metrica_modalidade": c.preco_metrica_modalidade, "preco_unitario_orcado_brl": c.preco_unitario_orcado_brl, "preco_unitario_realizado_brl": c.preco_unitario_realizado_brl, "custo_midia_previsto": c.custo_midia_previsto, "pct_objetivo": c.pct_objetivo, "pct_custo_midia": c.pct_custo_midia, "periodo_pct_elapsed": c.periodo_pct_elapsed, "valor_liquido_pi": c.valor_liquido_pi or "", "obj_contratados": (c.obj_contratados if c.obj_contratados is not none else ""), "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": (c.totalizador_atingido if c.totalizador_atingido is not none else ""), "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "custo_midia_orcado": c.custo_midia_orcado or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "perc_margem_cc": (c.perc_margem_cc if c.perc_margem_cc is not none else ""), "perc_tech_fee": (c.perc_tech_fee if c.perc_tech_fee is not none else ""), "perc_com_vendas": (c.perc_com_vendas if c.perc_com_vendas is not none else ""), "perc_pl_incentivos": (c.perc_pl_incentivos if c.perc_pl_incentivos is not none else ""), "perc_impostos": (c.perc_impostos if c.perc_impostos is not none else ""), "val_margem_cc": c.val_margem_cc or "", "val_tech_fee": c.val_tech_fee or "", "val_com_vendas": c.val_com_vendas or "", "val_pl_incentivos": c.val_pl_incentivos or "", "val_impostos": c.val_impostos or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
+    onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao abrir campanha:', e); showToast('Erro ao abrir edição: ' + e.message, 'error'); }">
+  <td class="camp-flag-cell align-middle" onclick="event.stopPropagation();">
+    <button type="button" class="camp-flag-btn" data-flag-btn="{{ c.id_campanha }}" title="Flag operacional" aria-label="Alterar flag de {{ c.nome_campanha or 'campanha' }}">
+      <span class="camp-flag-marker" data-flag="none" data-flag-for="{{ c.id_campanha }}"></span>
+    </button>
+  </td>
+  <td class="camp-cell-pi">
+    <strong>{{ c.codigo_pi or 'Sem código' }}</strong>
+    <span>
+      {% if c.periodo_inicio and c.periodo_fim %}
+        {{ c.periodo_inicio.strftime('%d/%m/%y') }}–{{ c.periodo_fim.strftime('%d/%m/%y') }}
+      {% elif c.periodo_inicio %}Desde {{ c.periodo_inicio.strftime('%d/%m/%y') }}
+      {% else %}Período não informado{% endif %}
+    </span>
+    {% if dias_restantes is not none %}
+      <small class="{% if dias_restantes < 0 %}is-overdue{% endif %}">
+        {% if dias_restantes >= 0 %}{{ dias_restantes }} dias restantes{% else %}encerrada há {{ dias_restantes|abs }} dias{% endif %}
+      </small>
+    {% endif %}
+    {% if pct_periodo is not none %}
+      <div class="camp-metric-line camp-metric-line--period">
+        <div class="camp-progress camp-progress-sm" data-tier="{{ pct_periodo|progress_tier }}" title="Progresso do período: {{ pct_periodo }}%">
+          <div class="camp-progress-fill" style="width: {{ [pct_periodo, 100]|min if pct_periodo > 0 else 0 }}%"></div>
+        </div>
+        <span>{{ pct_periodo }}%</span>
+      </div>
+    {% endif %}
+  </td>
+  <td class="camp-cell-campaign">
+    <strong>{{ c.nome_campanha or 'Campanha sem nome' }}</strong>
+    <span>{{ c.cliente_nome or 'Cliente não informado' }}</span>
+    <span class="camp-cell-exec">
+      <span class="exec-avatar" aria-hidden="true">
+        {% if c.executivo_foto_url %}<img src="{{ c.executivo_foto_url }}" alt="">
+        {% else %}{{ exec_ini or '?' }}{% endif %}
+      </span>
+      {{ c.executivo_nome or 'Sem executivo' }}
+    </span>
+  </td>
+  <td class="camp-cell-status">
+    <span class="camp-status-badge" data-status="{{ grupo.key }}">{{ c.status_nome or 'Sem status' }}</span>
+    <div class="platform-badge" data-platform-badge>
+      <span class="platform-icon-wrap" title="{{ c.plataforma_nome or 'Plataforma não informada' }}">
+        <i class="platform-icon fa-solid fa-bullhorn" aria-hidden="true"></i>
+      </span>
+      <span>{{ c.plataforma_nome or 'Sem plataforma' }}</span>
+      <span class="link-count-badge {% if link_count == 0 %}empty{% endif %}" title="{{ link_count }} links">L{{ link_count }}</span>
+    </div>
+  </td>
+  <td class="camp-cell-unit-price">
+    {% if preco_orc is not none or preco_real is not none %}
+      <strong>{{ sigla_kpi }}</strong>
+      <div class="camp-price-pair">
+        <span><small>Orçado</small>{{ (preco_orc|format_brl_ptbr) if preco_orc is not none else '—' }}</span>
+        <span><small>Realizado</small>{{ (preco_real|format_brl_ptbr) if preco_real is not none else '—' }}</span>
+      </div>
+    {% else %}
+      <span class="camp-empty">Preço unitário pendente</span>
+    {% endif %}
+  </td>
+  <td class="camp-cell-metric">
+    {% if obj_val > 0 %}
+      <div class="camp-metric-line">
+        <div class="camp-progress camp-progress-sm" data-tier="{{ prog_tier }}" title="Entrega da meta: {{ pct_obj }}%">
+          <div class="camp-progress-fill" style="width: {{ prog_width }}%"></div>
+        </div>
+        <strong>{{ pct_obj }}%</strong>
+      </div>
+      <span>{{ ating_val|format_volume_ptbr }} de {{ obj_val|format_volume_ptbr }}</span>
+      <small>Restante {{ restante_obj|format_volume_ptbr }}</small>
+    {% elif ating_val > 0 %}
+      <strong>{{ ating_val|format_volume_ptbr }}</strong><span>atingido; meta pendente</span>
+    {% else %}<span class="camp-empty">Meta não informada</span>{% endif %}
+  </td>
+  <td class="camp-cell-money">
+    {% if prev_val > 0 %}
+      <div class="camp-investment-bar" role="img" aria-label="{{ pct_inv }}% do custo de mídia previsto utilizado">
+        <span style="width: {{ [pct_inv, 100]|min if pct_inv > 0 else 0 }}%" class="{% if pct_inv > 100 %}is-over{% endif %}"></span>
+      </div>
+      <strong class="{% if pct_inv > 100 %}is-over{% endif %}">{{ gasto_val|format_brl_ptbr }}</strong>
+      <span>{{ pct_inv }}% utilizado</span>
+      <small>Previsto {{ prev_val|format_brl_ptbr }}</small>
+      <small class="{% if diff_gasto > 0 %}is-over{% endif %}">Diferença {% if diff_gasto > 0 %}+{% endif %}{{ diff_gasto|format_brl_ptbr }}</small>
+    {% else %}
+      <strong>{{ gasto_val|format_brl_ptbr }}</strong><span>previsto não informado</span>
+    {% endif %}
+  </td>
+  <td class="camp-cell-actions" onclick="event.stopPropagation();">
+    <button type="button" data-row-edit class="camp-action-btn" title="Editar campanha" aria-label="Editar {{ c.nome_campanha or 'campanha' }}">
+      <i class="fas fa-pen" aria-hidden="true"></i>
+    </button>
+    {% if c.googled_pi_princ %}
+      <a href="{{ c.googled_pi_princ }}" target="_blank" rel="noopener" class="camp-action-btn" title="Abrir Google Drive" aria-label="Abrir Google Drive">
+        <i class="fab fa-google-drive" aria-hidden="true"></i>
+      </a>
+    {% endif %}
+    {% if c.link_dash %}
+      <a href="{{ c.link_dash }}" target="_blank" rel="noopener" class="camp-action-btn" title="Abrir dashboard" aria-label="Abrir dashboard">
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
+      </a>
+    {% endif %}
+    <button type="button" class="camp-action-btn" data-open-diarios
+            data-id="{{ c.id_campanha }}" data-codigo="{{ c.codigo_pi|e }}"
+            data-titulo="{{ c.titulo_pi|e }}" data-nome="{{ c.nome_campanha|e }}"
+            title="Abrir diários" aria-label="Abrir diários de {{ c.nome_campanha or 'campanha' }}">
+      <i class="fas fa-calendar-day" aria-hidden="true"></i>
+    </button>
+  </td>
+</tr>

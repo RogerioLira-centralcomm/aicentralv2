@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Risco de entrega — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Atenção: há risco de entrega no PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}Risco de entrega{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">Identificamos uma condição que pode impactar a entrega das campanhas do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">Confira o contexto abaixo para alinharmos as medidas necessárias e reduzir o impacto na veiculação.</p>{% endblock %}

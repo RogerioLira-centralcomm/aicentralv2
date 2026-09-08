@@ -1,0 +1,49 @@
+<section class="camp-status-group {% if grupo.active %}is-active{% else %}is-history{% endif %}"
+         data-campaign-group="{{ grupo.key }}" data-group-count="{{ grupo.count }}">
+  <header class="camp-status-group__header">
+    <div>
+      <span class="camp-status-dot" aria-hidden="true"></span>
+      <h2>{{ grupo.label }}</h2>
+      <span class="camp-status-group__count" data-group-visible-count>{{ grupo.count }}</span>
+    </div>
+    <dl class="camp-status-group__totals">
+      <div><dt>Gasto</dt><dd>{{ grupo.total_gasto|format_brl_ptbr }}</dd></div>
+      <div><dt>Previsto</dt><dd>{{ grupo.total_previsto|format_brl_ptbr }}</dd></div>
+    </dl>
+  </header>
+  {% if grupo.campanhas %}
+  <div class="lista-table-wrap">
+    <table class="camp-manager-table">
+      <thead>
+        <tr>
+          <th class="camp-flag-th">
+            {% if grupo.active %}
+            <button type="button" id="campFlagSortButton" class="camp-sort-button"
+                    title="Ordenar por prioridade" aria-label="Ordenar campanhas ativas por prioridade"
+                    aria-pressed="false" onclick="toggleFlagSort()">
+              <i class="fa-solid fa-flag" aria-hidden="true"></i>
+            </button>
+            {% else %}
+            <i class="fa-solid fa-flag" aria-hidden="true"></i><span class="sr-only">Prioridade</span>
+            {% endif %}
+          </th>
+          <th>PI e período</th>
+          <th>Campanha e cliente</th>
+          <th>Status e canal</th>
+          <th class="is-centered">Preço unitário</th>
+          <th class="is-centered">Entrega</th>
+          <th class="is-centered">Investimento</th>
+          <th class="is-centered"><span class="sr-only">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody class="campanhas-table-body" data-status-tbody="{{ grupo.key }}">
+        {% for c in grupo.campanhas %}
+          {% include 'campanhas_pi/_lista_row.html' %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="camp-status-group__empty">Nenhuma campanha ativa. Consulte o histórico ou ajuste o executivo.</div>
+  {% endif %}
+</section>

@@ -1,0 +1,112 @@
+<aside id="pi-operation-sidebar" class="pi-op-sidebar" aria-label="Contexto da operação">
+  <div class="pi-op-sidebar__head">
+    <div>
+      <h2 id="pi-sidebar-title">Operação do PI</h2>
+    </div>
+    <button type="button" class="pi-op-icon-btn pi-op-sidebar-close" data-sidebar-close aria-label="Fechar painel">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div id="pi-sidebar-scroll" class="pi-op-sidebar__scroll">
+    <div id="pi-operation-feedback" class="pi-op-feedback" role="status" aria-live="polite" hidden></div>
+    <section id="pi-context-panel" class="pi-op-panel pi-op-context" hidden aria-labelledby="pi-context-title">
+      <div class="pi-op-panel__title">
+        <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+        <h3 id="pi-context-title">Campanha</h3>
+      </div>
+      <div id="pi-context-content"></div>
+    </section>
+
+    <section class="pi-op-panel pi-op-workflow" aria-labelledby="pi-checklist-title">
+      <div class="pi-op-panel__title pi-op-panel__title--actions">
+        <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3 id="pi-checklist-title">Checklist da operação</h3></span>
+        <button type="button" id="pi-checklist-generate" class="pi-op-text-btn">Atualizar</button>
+      </div>
+      <div class="pi-op-progress" aria-live="polite">
+        <div class="pi-op-progress__label">
+          <strong id="pi-checklist-progress-label">Carregando progresso…</strong>
+          <span id="pi-checklist-progress-value"></span>
+        </div>
+        <div class="pi-op-progress__track" role="progressbar" aria-label="Progresso do checklist" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="pi-checklist-progress-bar"></span>
+        </div>
+      </div>
+      <div class="pi-op-next">
+        <span>Próxima ação</span>
+        <div id="pi-operation-recommendation" class="pi-op-state">Aguardando dados reais.</div>
+      </div>
+      <div class="pi-op-checklist-group">
+        <h4>Etapas do PI</h4>
+        <div id="pi-checklist-pi" class="pi-op-state">Nenhum item disponível.</div>
+      </div>
+      <div class="pi-op-checklist-group">
+        <div class="pi-op-checklist-group__head">
+          <h4>Campanhas</h4>
+          <span id="pi-checklist-campaign-count"></span>
+        </div>
+        <div id="pi-checklist-campaigns" class="pi-op-state">Nenhuma campanha disponível.</div>
+      </div>
+    </section>
+
+    <section id="pi-communications-panel" class="pi-op-panel" aria-labelledby="pi-communications-title">
+      <div class="pi-op-panel__title">
+        <i class="fa-regular fa-envelope" aria-hidden="true"></i>
+        <h3 id="pi-communications-title">Comunicação desta etapa</h3>
+      </div>
+      <div id="pi-operation-communications" class="pi-op-state">Carregando catálogo…</div>
+    </section>
+
+    <section class="pi-op-panel" aria-labelledby="pi-recipients-title">
+      <div class="pi-op-panel__title">
+        <i class="fa-solid fa-at" aria-hidden="true"></i>
+        <h3 id="pi-recipients-title">Destinatários</h3>
+      </div>
+      <form id="pi-recipients-form" class="pi-op-stack">
+        <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
+        {% if not somente_leitura %}
+        <button type="submit" class="pi-op-btn pi-op-btn--secondary">Atualizar destinatários</button>
+        {% endif %}
+      </form>
+    </section>
+
+    <section class="pi-op-panel" aria-labelledby="pi-timeline-title">
+      <div class="pi-op-panel__title">
+        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+        <h3 id="pi-timeline-title">Marcos concluídos</h3>
+      </div>
+      <div id="pi-operation-timeline" class="pi-op-state">Nenhuma atividade registrada.</div>
+    </section>
+
+    <section class="pi-op-panel" aria-labelledby="pi-interaction-title">
+      <div class="pi-op-panel__title">
+        <i class="fa-regular fa-comment-dots" aria-hidden="true"></i>
+        <h3 id="pi-interaction-title">Registrar interação</h3>
+      </div>
+      <form id="pi-interaction-form" class="pi-op-stack">
+        <label for="pi-interaction-text" class="sr-only">Descrição da interação</label>
+        <textarea id="pi-interaction-text" rows="3" maxlength="2000" placeholder="Adicione uma observação real da operação"></textarea>
+        <button type="submit" class="pi-op-btn pi-op-btn--secondary">Registrar</button>
+      </form>
+    </section>
+  </div>
+</aside>
+<button type="button" id="pi-sidebar-mobile-trigger" class="pi-op-sidebar-trigger" aria-controls="pi-operation-sidebar" aria-expanded="false">
+  <i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Operação</span>
+</button>
+<div id="pi-sidebar-backdrop" class="pi-op-sidebar-backdrop" data-sidebar-close aria-hidden="true"></div>
+
+<dialog id="pi-confirm-dialog" class="pi-confirm-dialog" aria-labelledby="pi-confirm-title" aria-describedby="pi-confirm-message">
+  <form method="dialog" class="pi-confirm-dialog__surface">
+    <div class="pi-confirm-dialog__icon" aria-hidden="true">
+      <i class="fa-regular fa-paper-plane"></i>
+    </div>
+    <div>
+      <h2 id="pi-confirm-title">Confirmar ação</h2>
+      <p id="pi-confirm-message"></p>
+    </div>
+    <div class="pi-confirm-dialog__actions">
+      <button type="submit" value="cancel" class="pi-op-btn pi-op-btn--secondary">Voltar</button>
+      <button type="submit" value="confirm" id="pi-confirm-accept" class="pi-op-btn pi-op-btn--primary">Confirmar</button>
+    </div>
+  </form>
+</dialog>

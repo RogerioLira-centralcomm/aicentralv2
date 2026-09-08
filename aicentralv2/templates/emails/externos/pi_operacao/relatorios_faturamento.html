@@ -1,0 +1,8 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Relatórios para faturamento — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Dashboards e relatórios do PI {{ codigo_pi }} para faturamento.{% endblock %}
+{% block heading %}Relatórios para faturamento{% endblock %}
+{% block message %}
+<p style="margin:0 0 16px;">Consolidamos abaixo as campanhas vinculadas ao PI <strong>{{ codigo_pi }}</strong>.</p>
+<p style="margin:0;">Use os links de dashboard disponíveis em cada campanha para validar os dados necessários ao faturamento.</p>
+{% endblock %}

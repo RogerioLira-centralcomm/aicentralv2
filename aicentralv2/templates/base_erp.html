@@ -453,6 +453,15 @@
             height: calc(100vh - var(--erp-topbar-h));
             max-height: calc(100vh - var(--erp-topbar-h));
         }
+        /* Painéis legados de PI/campanhas agora convivem com a navbar ERP. */
+        .cx-erp-shell .sidebar-panel {
+            top: var(--erp-topbar-h);
+            height: calc(100vh - var(--erp-topbar-h));
+        }
+        .cx-erp-shell .pi-filter-sticky,
+        .cx-erp-shell .pi-page-sticky {
+            top: var(--erp-topbar-h);
+        }
     </style>
     {% block styles %}{% endblock %}
 </head>

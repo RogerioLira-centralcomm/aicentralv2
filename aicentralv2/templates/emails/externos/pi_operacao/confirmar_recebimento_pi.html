@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Recebimento confirmado — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Confirmamos o recebimento do PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}PI recebido{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">Confirmamos o recebimento do PI do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">Nossa equipe fará a conferência das informações e seguirá com as próximas etapas operacionais.</p>{% endblock %}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}Atualização do PI {{ codigo_pi }}{% endblock %}</title>
+    <!--[if mso]>
+    <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+    <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{% block preheader %}Atualização operacional do PI {{ codigo_pi }}.{% endblock %}</div>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;background-color:#f4f4f5;">
+        <tr>
+            <td align="center" style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="580" style="width:100%;max-width:580px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+                    <tr>
+                        <td align="center" style="padding:24px 32px;background-color:#ffffff;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu — CentralComm Media" width="100" style="display:block;width:100px;height:auto;border:0;margin:0 auto;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding:26px 32px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <span style="display:block;color:#ffffff;font-size:21px;line-height:1.3;font-weight:700;">{% block heading %}Atualização operacional{% endblock %}</span>
+                            <span style="display:block;margin-top:7px;color:#d1d5db;font-size:13px;line-height:1.4;">PI {{ codigo_pi }}{% if titulo_pi %} &bull; {{ titulo_pi }}{% endif %}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:30px 32px;">
+                            <p style="margin:0 0 20px;color:#333842;font-size:15px;line-height:1.6;">Olá{% if destinatario_nome %}, <strong style="color:#06b863;">{{ destinatario_nome }}</strong>{% endif %}.</p>
+                            <div style="color:#4b5563;font-size:14px;line-height:1.7;">{% block message %}{% endblock %}</div>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;margin:24px 0;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                                <tr>
+                                    <td style="padding:19px 20px;">
+                                        <span style="display:block;margin-bottom:10px;color:#06b863;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;">Dados do PI</span>
+                                        <p style="margin:0 0 5px;color:#64748b;font-size:13px;line-height:1.55;"><strong style="color:#333842;">Cliente:</strong> {{ cliente }}</p>
+                                        <p style="margin:0 0 5px;color:#64748b;font-size:13px;line-height:1.55;"><strong style="color:#333842;">Código:</strong> {{ codigo_pi }}</p>
+                                        {% if titulo_pi %}<p style="margin:0 0 5px;color:#64748b;font-size:13px;line-height:1.55;"><strong style="color:#333842;">Título:</strong> {{ titulo_pi }}</p>{% endif %}
+                                        {% if periodo_inicio or periodo_fim %}<p style="margin:0;color:#64748b;font-size:13px;line-height:1.55;"><strong style="color:#333842;">Período:</strong> {{ periodo_inicio }}{% if periodo_inicio and periodo_fim %} a {% endif %}{{ periodo_fim }}</p>{% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% if campanhas %}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;margin:0 0 24px;background-color:#f0fdf4;border-left:4px solid #06F17B;border-radius:8px;">
+                                <tr>
+                                    <td style="padding:17px 20px;">
+                                        <span style="display:block;margin-bottom:8px;color:#333842;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;">Campanhas</span>
+                                        {% for campanha in campanhas %}
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;{% if not loop.first %}border-top:1px solid #d9eee0;{% endif %}">
+                                            <tr>
+                                                <td style="padding:9px 0;color:#4b5563;font-size:13px;line-height:1.5;">
+                                                    <strong style="display:block;color:#333842;">{{ campanha.nome }}</strong>
+                                                    <span>{{ campanha.plataforma }} &bull; {{ campanha.status }}{% if campanha.percentual_objetivo is not none %} &bull; {{ campanha.percentual_objetivo }}% do objetivo{% endif %}</span>
+                                                </td>
+                                                {% if campanha.link_dashboard %}
+                                                <td align="right" valign="middle" style="padding:9px 0 9px 12px;">
+                                                    <a href="{{ campanha.link_dashboard }}" style="color:#067647;font-size:12px;font-weight:700;text-decoration:none;">Dashboard</a>
+                                                </td>
+                                                {% endif %}
+                                            </tr>
+                                        </table>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% block extra_content %}{% endblock %}
+
+                            {% if corpo_editavel %}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;margin:0 0 24px;">
+                                <tr>
+                                    <!-- Conteúdo HTML deve ser sanitizado pelo backend antes da renderização. -->
+                                    <td style="color:#4b5563;font-size:14px;line-height:1.7;">{{ corpo_editavel | safe }}</td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% if link_pi %}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;margin:26px 0;">
+                                <tr><td align="center"><a href="{{ link_pi }}" style="display:inline-block;padding:13px 28px;background-color:#06F17B;border-radius:7px;color:#333842;font-size:14px;font-weight:700;text-decoration:none;">Acessar PI</a></td></tr>
+                            </table>
+                            {% endif %}
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;margin-top:24px;border-top:1px solid #e5e7eb;">
+                                <tr>
+                                    <td style="padding-top:18px;color:#64748b;font-size:12px;line-height:1.6;">
+                                        Atenciosamente,<br>
+                                        {% if executivo_vendas %}<strong style="color:#333842;">{{ executivo_vendas }}</strong><br>{% endif %}
+                                        {% if agencia %}{{ agencia }}<br>{% endif %}
+                                        CentralComm Media
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding:20px 32px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <p style="margin:0 0 7px;color:#ffffff;font-size:12px;font-weight:600;"><span style="color:#06F17B;">Cadu</span> &bull; CentralComm Media</p>
+                            <p style="margin:0 0 9px;color:#9ca3af;font-size:11px;"><a href="https://centralcomm.media" style="color:#06F17B;text-decoration:none;">centralcomm.media</a> &nbsp;|&nbsp; <a href="mailto:contato@centralcomm.media" style="color:#06F17B;text-decoration:none;">contato@centralcomm.media</a></p>
+                            <p style="margin:0;color:#6b7280;font-size:10px;line-height:1.5;">Mensagem operacional destinada aos envolvidos neste PI. Se você a recebeu por engano, desconsidere-a e informe o remetente.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

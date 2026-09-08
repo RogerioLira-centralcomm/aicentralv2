@@ -41,10 +41,30 @@
       <div class="mig-env-item"><span class="mig-env-label">Pendentes</span><code id="mig-env-pending" class="mig-env-pending">0</code></div>
     </section>
 
+    <aside class="mig-order-note" aria-label="Orientação sobre a ordem">
+      <i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i>
+      <div>
+        <strong>Prioridade operacional, não ordem de dependência</strong>
+        <p>Pendentes e falhas aparecem primeiro. Antes de executar, abra o arquivo e confirme suas dependências; nomes em ordem alfabética não garantem sequência de banco.</p>
+      </div>
+    </aside>
+
     {# ==================================================================
        Tabela de migrations
        ================================================================== #}
     <section class="mig-table-wrap">
+      <div class="mig-toolbar">
+        <label class="mig-search" for="mig-search-input">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="mig-search-input" placeholder="Buscar migration" autocomplete="off">
+        </label>
+        <div class="mig-filters" role="group" aria-label="Filtrar migrations">
+          <button type="button" class="mig-filter is-active" data-filter="all">Todas <span id="mig-count-all">0</span></button>
+          <button type="button" class="mig-filter" data-filter="pending">Pendentes <span id="mig-count-pending">0</span></button>
+          <button type="button" class="mig-filter" data-filter="applied">Aplicadas <span id="mig-count-applied">0</span></button>
+          <button type="button" class="mig-filter" data-filter="readonly">Somente leitura <span id="mig-count-readonly">0</span></button>
+        </div>
+      </div>
       <table class="mig-table" role="grid" aria-label="Lista de migrations">
         <thead>
           <tr>
@@ -386,6 +406,20 @@
 </style>
 
 <div id="mig-toast" class="mig-toast" role="status" aria-live="polite"></div>
+
+<dialog id="mig-confirm-dialog" class="mig-confirm-dialog" aria-labelledby="mig-confirm-title" aria-describedby="mig-confirm-message">
+  <form method="dialog" class="mig-confirm-surface">
+    <div class="mig-confirm-icon" aria-hidden="true"><i class="fa-solid fa-database"></i></div>
+    <div>
+      <h2 id="mig-confirm-title">Confirmar migration</h2>
+      <p id="mig-confirm-message"></p>
+    </div>
+    <div class="mig-confirm-actions">
+      <button type="submit" value="cancel" class="mig-btn mig-btn-outline">Voltar</button>
+      <button type="submit" value="confirm" id="mig-confirm-accept" class="mig-btn">Executar</button>
+    </div>
+  </form>
+</dialog>
 
 <script>
 (function () {

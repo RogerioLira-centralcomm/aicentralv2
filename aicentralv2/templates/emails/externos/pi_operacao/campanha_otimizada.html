@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Campanha otimizada — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Atualização de otimização das campanhas do PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}Campanha otimizada{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">Realizamos otimizações nas campanhas do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">As alterações foram aplicadas com base no acompanhamento operacional e no desempenho observado.</p>{% endblock %}

@@ -12,6 +12,10 @@ import secrets
 import os
 import re
 from aicentralv2 import db, audit
+from aicentralv2.campanhas_pi_list import (
+    build_campaign_list_filters,
+    group_campaigns_by_status,
+)
 from aicentralv2.email_service import (
     send_password_reset_email, send_password_changed_email, send_invite_email,
     send_subscription_confirmation_email, send_new_subscription_internal_email
@@ -369,6 +373,22 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Erro ao registrar auditoria: {e}")
+
+
+def _sincronizar_operacao_pi_seguro(id_pi):
+    """Atualiza marcos operacionais sem interromper o fluxo legado do PI."""
+    if not id_pi:
+        return
+    try:
+        from aicentralv2.pi_operacao_service import sincronizar_operacao_pi
+
+        sincronizar_operacao_pi(int(id_pi), session.get('user_id'))
+    except Exception as e:
+        current_app.logger.warning(
+            "Não foi possível sincronizar a timeline operacional do PI %s: %s",
+            id_pi,
+            e,
+        )
 
 
 def login_required(f):
@@ -9879,6 +9899,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
+                _sincronizar_operacao_pi_seguro(id_pi)
 
                 registrar_auditoria(
                     acao='UPDATE',
@@ -10447,6 +10468,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 dados_anteriores={'id_status_pi': pi.get('id_status_pi'), 'id_sub_status_pi': pi.get('id_sub_status_pi')},
                 dados_novos={'status': 'Campanha em análise', 'sub_status': 'Em aprovação'}
             )
+            _sincronizar_operacao_pi_seguro(id_pi)
 
             if webhook_erros:
                 return jsonify({'success': True, 'warning': f'Status alterado, mas {len(webhook_erros)} webhook(s) falharam'})
@@ -10562,6 +10584,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 dados_anteriores={'id_sub_status_pi': pi.get('id_sub_status_pi')},
                 dados_novos={'sub_status': 'Em andamento', 'campanhas_ativadas': quant_campanhas}
             )
+            _sincronizar_operacao_pi_seguro(id_pi)
 
             if webhook_erros:
                 return jsonify({'success': True, 'warning': f'Campanhas iniciadas, mas {len(webhook_erros)} webhook(s) falharam'})
@@ -10666,6 +10689,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 dados_anteriores={'id_sub_status_pi': pi.get('id_sub_status_pi')},
                 dados_novos={'sub_status': 'Em faturamento', 'campanhas_finalizadas': quant_campanhas}
             )
+            _sincronizar_operacao_pi_seguro(id_pi)
 
             if webhook_erros:
                 return jsonify({'success': True, 'warning': f'PI enviado para faturamento, mas {len(webhook_erros)} webhook(s) falharam'})
@@ -11919,6 +11943,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
             'custo_midia_orcado': _parse_real_campanha(request.form.get('custo_midia_orcado')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
+            'id_responsavel_operacao': request.form.get('id_responsavel_operacao', type=int),
             **{
                 _k: (request.form.get(_k, '').strip() or None)
                 for _k in (
@@ -11946,7 +11971,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos',
             'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
             'link_dash', 'id_centralx',
-            'id_objetivos_campanha', 'id_plataforma', 'id_status',
+            'id_objetivos_campanha', 'id_plataforma', 'id_responsavel_operacao', 'id_status',
         )
         for campo in campos:
             val = data.get(campo)
@@ -12039,21 +12064,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         return 3
 
     def _filtros_campanhas_pi_lista_da_request():
-        """Monta filtros do acompanhamento: sem status de campanha, só PI Em andamento."""
-        from datetime import datetime as dt_cls
-        filtros = {
-            'id_cliente': request.args.get('id_cliente', type=int),
-            'id_plataforma': request.args.get('id_plataforma', type=int),
-            'id_pi': request.args.get('id_pi', type=int),
-            'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
-        }
-        if request.args.get('resp_comercial'):
-            filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
-        filtros = {k: v for k, v in filtros.items() if v is not None}
-        if 'mes_ref_comp' not in filtros:
-            now = dt_cls.now()
-            filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
-        return filtros
+        """Monta filtros da fila completa, sem corte implícito por mês ou status."""
+        return build_campaign_list_filters(request.args)
 
     def _filtros_campanhas_pi_da_request():
         """Monta filtros da listagem/dashboard de campanhas PI a partir da query string."""
@@ -12289,6 +12301,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         def _flat_para_lista():
             q = dict(flat)
             q.pop('id_status', None)
+            q.pop('mes_ref_comp', None)
+            q.pop('_restored', None)
             return q
 
         explicit = (
@@ -12326,27 +12340,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             session['campanhas_pi_retorno'] = 'lista'
             filtros = _filtros_campanhas_pi_lista_da_request()
 
-            view_diarios = request.args.get('view') == 'diarios'
-
             from datetime import datetime as dt_cls
 
             vendedores = db.obter_vendedores_centralcomm()
 
-            campanhas_raw = db.obter_campanhas_pi_acompanhamento(filtros)
+            campanhas_raw = db.obter_campanhas_pi(filtros or None)
             campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
+            grupos_campanhas = group_campaigns_by_status(campanhas)
             auxiliares = _carregar_auxiliares_campanha()
-            try:
-                meses_ref = db.obter_meses_ref_campanha_pi_acompanhamento()
-            except Exception as ex_m:
-                app.logger.warning('obter_meses_ref_campanha_pi_acompanhamento (lista): %s', ex_m)
-                meses_ref = []
-            meses_ref = _meses_ref_pi_seguros(meses_ref, filtros.get('mes_ref_comp'))
-            if not meses_ref:
-                meses_ref = [filtros['mes_ref_comp']]
 
             return render_template('campanhas_pi_lista.html',
                 campanhas=campanhas, **auxiliares,
-                filtros=filtros, meses_ref=meses_ref,
+                filtros=filtros, grupos_campanhas=grupos_campanhas,
                 vendedores=vendedores, agora=dt_cls.now())
         except Exception as e:
             import traceback
@@ -12375,6 +12380,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     if return_to_pi:
                         return redirect(url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') + f'#pi-{id_pi_form}')
                     return _redirect_campanhas_pi_preservar_filtros()
+                if pi_ref and not data.get('id_responsavel_operacao'):
+                    data['id_responsavel_operacao'] = pi_ref.get('id_resp_comercial')
 
             if not data['nome_campanha']:
                 if is_ajax:
@@ -12401,6 +12408,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 pi_atualizado = None
                 if data.get('id_pi'):
                     pi_atualizado = _maybe_recalc_pi_financeiro(int(data['id_pi']))
+                    _sincronizar_operacao_pi_seguro(data['id_pi'])
                 if is_ajax:
                     resp = {
                         'success': True,
@@ -12451,6 +12459,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             data = _extrair_dados_campanha()
             data = _preservar_valores_campanha_pi(data, campanha)
+            if not data.get('id_responsavel_operacao') and campanha.get('id_pi'):
+                pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
+                if pi_ref:
+                    data['id_responsavel_operacao'] = pi_ref.get('id_resp_comercial')
 
             if not data['nome_campanha']:
                 if is_ajax:
@@ -12486,6 +12498,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     if data.get('valor_plataforma'):
                         _subtrair_valor_plataforma_pi(id_pi, data['valor_plataforma'])
                 pi_atualizado = _maybe_recalc_pi_financeiro(int(id_pi)) if id_pi else None
+                if id_pi:
+                    _sincronizar_operacao_pi_seguro(id_pi)
                 if is_ajax:
                     resp = {
                         'success': True,
@@ -12545,6 +12559,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 pi_atualizado = None
                 if campanha.get('id_pi'):
                     pi_atualizado = _maybe_recalc_pi_financeiro(int(campanha['id_pi']))
+                    _sincronizar_operacao_pi_seguro(campanha['id_pi'])
                 msg = f'Campanha "{campanha["nome_campanha"]}" excluída com sucesso!'
                 if is_ajax:
                     resp = {'success': True, 'message': msg}
@@ -12576,9 +12591,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'error': 'Dados inválidos'}), 400
 
             updates = []
+            pis_afetados = set()
             for item in data:
                 if not item.get('id_campanha'):
                     continue
+                campanha = db.obter_campanha_pi_por_id(int(item['id_campanha']))
+                if campanha and campanha.get('id_pi'):
+                    pis_afetados.add(int(campanha['id_pi']))
                 updates.append({
                     'id_campanha': int(item['id_campanha']),
                     'totalizador_atingido': item.get('totalizador_atingido'),
@@ -12587,6 +12606,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if updates:
                 db.atualizar_campanhas_massa(updates)
+                for id_pi in pis_afetados:
+                    _sincronizar_operacao_pi_seguro(id_pi)
 
             return jsonify({'success': True, 'updated': len(updates)})
         except Exception as e:
@@ -12685,6 +12706,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'totalizador_atingido': str(atingido_parsed) if atingido_parsed else '0',
                 'totalizador_gasto': str(gasto_parsed) if gasto_parsed else '0',
             }])
+            _sincronizar_operacao_pi_seguro(campanha.get('id_pi'))
 
             return jsonify({'success': True, 'id': id_diario})
         except Exception as e:
@@ -12747,6 +12769,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'totalizador_atingido': str(novo_at),
                     'totalizador_gasto': str(novo_ga),
                 }])
+                _sincronizar_operacao_pi_seguro(campanha.get('id_pi'))
 
             return jsonify({'success': True})
         except Exception as e:

@@ -1,0 +1,5 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Campanha iniciada — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}As campanhas do PI {{ codigo_pi }} foram iniciadas.{% endblock %}
+{% block heading %}Campanha iniciada{% endblock %}
+{% block message %}<p style="margin:0 0 16px;">As campanhas do cliente <strong>{{ cliente }}</strong> foram iniciadas.</p><p style="margin:0;">A equipe acompanhará a veiculação e realizará os ajustes operacionais necessários ao longo do período.</p>{% endblock %}

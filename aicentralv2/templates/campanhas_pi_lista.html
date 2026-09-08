@@ -1,4 +1,4 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
 
 {% block title %}{% if request.args.get('view') == 'diarios' %}Diários Geral{% else %}Acompanhamento de Campanhas{% endif %} - CentralComm AI{% endblock %}
 
@@ -6,6 +6,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}">
 <style>
   .badge-status { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .badge-ativo { background: #dcfce7; color: #166534; }
@@ -48,48 +49,49 @@
   .email-template-card:hover { border-color: #6366f1; background: #f5f3ff; }
   .email-template-card.selected { border-color: #6366f1; background: #ede9fe; }
 
-  /* Modal editar campanha — compacto */
-  #modal_campanha .modal-box { max-width: 40rem; padding: 0; }
+  /* Modal editar campanha — mesa operacional */
+  #modal_campanha .modal-box { max-width: 72rem; padding: 0; }
   #modal_campanha .camp-modal-head {
-    padding: 0.4rem 0.85rem;
+    padding: 0.75rem 1rem;
+    background: #1e4d4f;
   }
-  #modal_campanha .camp-modal-head h3 { font-size: 11px; }
+  #modal_campanha .camp-modal-head h3 { font-size: 14px; }
   #modal_campanha .camp-modal-body {
-    padding: 0.65rem 0.85rem 0.75rem;
-    overflow: visible;
-    max-height: none;
+    padding: 1rem;
+    overflow-y: auto;
+    max-height: min(78vh, 760px);
   }
   #modal_campanha .camp-form-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.4rem 0.6rem;
+    gap: 0.65rem 0.75rem;
   }
   #modal_campanha .camp-col-2 { grid-column: span 2; }
   #modal_campanha .camp-col-4 { grid-column: span 4; }
   #modal_campanha .camp-field label {
     display: block;
-    font-size: 9px;
-    font-weight: 600;
-    color: #4b5563;
-    margin-bottom: 1px;
+    font-size: 11px;
+    font-weight: 650;
+    color: #526568;
+    margin-bottom: 3px;
     line-height: 1.2;
   }
   #modal_campanha .camp-field input:not([type=checkbox]),
   #modal_campanha .camp-field select {
     width: 100%;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.3;
-    padding: 0.2rem 0.45rem;
-    min-height: 26px;
+    padding: 0.42rem 0.55rem;
+    min-height: 34px;
     border-radius: 0.375rem;
     border: 1px solid #e5e7eb;
-    background: #f9fafb;
+    background: #fafcfc;
   }
   #modal_campanha .camp-field input:focus,
   #modal_campanha .camp-field select:focus {
     background: #fff;
-    border-color: #9ca3af;
-    outline: none;
+    border-color: #1e4d4f;
+    outline: 2px solid rgba(30,77,79,.1);
   }
   #modal_campanha .camp-field input:disabled,
   #modal_campanha .camp-field select:disabled {
@@ -106,18 +108,27 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    padding-top: 1rem;
+    padding-top: 1.35rem;
   }
   #modal_campanha .camp-field-check input { width: 13px; height: 13px; }
-  #modal_campanha .camp-field-check span { font-size: 10px; color: #6b7280; }
+  #modal_campanha .camp-field-check span { font-size: 11px; color: #526568; }
+  #modal_campanha .camp-form-section-title {
+    display: flex; align-items: center; gap: 8px; margin: 0 0 0.7rem;
+    color: #1e4d4f; font-size: 12px; font-weight: 750;
+  }
+  #modal_campanha .camp-form-section-title::after { content: ""; height: 1px; flex: 1; background: #e3e9ea; }
+  #modal_campanha .camp-margem-section { margin-top: 1rem; border-top: 1px solid #e3e9ea; padding-top: 0.85rem; }
+  #modal_campanha .camp-margem-grid {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.55rem 0.7rem;
+  }
   #modal_campanha .camp-modal-foot {
-    margin-top: 0.5rem;
-    padding-top: 0.45rem;
+    position: sticky; bottom: -1rem; margin-top: 1rem; padding: 0.75rem 0 0;
     border-top: 1px solid #f3f4f6;
+    background: #fff;
   }
   #modal_campanha .camp-btn-save {
-    padding: 0.3rem 1rem;
-    font-size: 11px;
+    padding: 0.55rem 1.25rem;
+    font-size: 12px;
     font-weight: 500;
     border-radius: 0.375rem;
   }
@@ -144,6 +155,9 @@
     #modal_campanha .camp-col-2,
     #modal_campanha .camp-col-4 { grid-column: span 2; }
   }
+  @media (max-width: 900px) {
+    #modal_campanha .camp-margem-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 
   @media (max-width: 768px) {
     .sidebar-panel { width: 100vw; right: -100vw; }
@@ -152,50 +166,46 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-3 pb-6">
+<div class="pi-operation camp-list-page">
 
   {# ====== FILTROS ====== #}
-  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
-    <div class="flex items-center gap-3 flex-wrap">
-      <div class="relative">
-        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-        <select id="filtroMesRef" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
-          {% for m in meses_ref %}
-            {% set mp = (m|string).split('/') %}
-            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ m }}{% endif %}</option>
-          {% endfor %}
-        </select>
+  <header class="pi-op-header camp-list-header">
+    <div class="camp-list-header__identity">
+      <h1>{% if request.args.get('view') == 'diarios' %}Atualização diária{% else %}Acompanhamento de campanhas{% endif %}</h1>
+      <p>{% if request.args.get('view') == 'diarios' %}Registre entrega e investimento em todas as campanhas ativas.{% else %}Todas as competências, organizadas por status de campanha.{% endif %}</p>
+    </div>
+    <div class="camp-list-toolbar">
+      <div class="camp-filter-field">
+        <label for="searchInput">Buscar</label>
+        <div class="camp-filter-control">
+          <i class="fa-solid fa-search" aria-hidden="true"></i>
+          <input type="search" id="searchInput" placeholder="Campanha, cliente, PI ou plataforma">
+        </div>
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-user-tie absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-        <select id="filtroExecutivo" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
-          <option value="">Todos executivos</option>
-          {% for v in vendedores %}
-            <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
-              {{ v.nome_completo }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="relative">
-        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-        <input type="text" id="searchInput" placeholder="Buscar campanha..."
-               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 200px;">
+      <div class="camp-filter-field">
+        <label for="filtroExecutivo">Executivo</label>
+        <div class="camp-filter-control">
+          <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
+          <select id="filtroExecutivo" onchange="aplicarFiltros()">
+            <option value="">Todos os executivos</option>
+            {% for v in vendedores %}
+              <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>{{ v.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       {% if request.args.get('view') == 'diarios' %}
-      <button type="button" onclick="confirmarAtualizarDiariosMassa()"
-              class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5">
-        <i class="fas fa-layer-group text-xs"></i> Atualizar Todos
+      <button type="button" id="btnAtualizarDiariosMassa" onclick="confirmarAtualizarDiariosMassa()"
+              class="pi-op-btn pi-op-btn--primary" aria-describedby="campActionStatus">
+        <i class="fas fa-layer-group" aria-hidden="true"></i> Atualizar todos
       </button>
       {% endif %}
+      <span class="camp-list-total"><strong id="totalCampanhas">{{ grupos_campanhas.total_count }}</strong> campanhas</span>
     </div>
-    <div class="text-sm text-gray-500">
-      <span id="totalCampanhas">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }}
-    </div>
-  </div>
+    <p id="campActionStatus" class="sr-only" role="status" aria-live="polite"></p>
+  </header>
 
+  <main class="camp-list-content">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-4 space-y-2">
@@ -214,6 +224,26 @@
 
   {# ====== TABELA COMPACTA ====== #}
   {% if campanhas and campanhas|length > 0 %}
+  {% if request.args.get('view') != 'diarios' %}
+    {% set grupo = grupos_campanhas.active %}
+    {% include 'campanhas_pi/_lista_grupo.html' %}
+
+    {% if grupos_campanhas.history_count %}
+    <details class="camp-history" data-history-container>
+      <summary>
+        <span><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Histórico</span>
+        <span><strong data-history-visible-count>{{ grupos_campanhas.history_count }}</strong> campanhas em outros status</span>
+      </summary>
+      <div class="camp-history__groups">
+        {% for grupo in grupos_campanhas.history %}
+          {% include 'campanhas_pi/_lista_grupo.html' %}
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  {% endif %}
+
+  {% if false %}
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}>
     <div class="overflow-x-auto lista-table-wrap">
       <table class="w-full text-sm lista-table">
@@ -411,6 +441,7 @@
       </table>
     </div>
   </div>
+  {% endif %}
 
   {% if request.args.get('view') == 'diarios' %}
   {# ====== DIÁRIOS GERAL ====== #}
@@ -461,12 +492,13 @@
   {% endif %}
 
   {% else %}
-    <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
-      <i class="fas fa-bullhorn text-6xl text-gray-200 mb-4"></i>
-      <p class="text-gray-400 text-lg mb-2">Nenhuma campanha encontrada.</p>
-      <p class="text-gray-400 text-sm">Ajuste os filtros para ver campanhas.</p>
+    <div class="camp-list-empty">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <h2>Nenhuma campanha cadastrada</h2>
+      <p>Não há campanhas para os filtros atuais. Selecione outro executivo ou consulte o cadastro de PIs.</p>
     </div>
   {% endif %}
+  </main>
 </div>
 
 {# Menu contextual da flag operacional #}
@@ -486,8 +518,8 @@
 </div>
 
 {# ====== SIDEBAR LATERAL ====== #}
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}></div>
-<div class="sidebar-panel" id="sidebarPanel" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()" hidden aria-hidden="true"></div>
+<div class="sidebar-panel" id="sidebarPanel" hidden aria-hidden="true">
   <div class="sticky top-0 bg-white z-10 border-b border-gray-200">
     <div class="flex items-center justify-between px-5 py-3">
       <h3 class="font-bold text-gray-800 text-lg truncate" id="sidebarTitle">Detalhes</h3>
@@ -734,7 +766,7 @@
   <div class="modal-box w-11/12 bg-white p-0 rounded-lg shadow-2xl">
     <div class="camp-modal-head flex items-center justify-between bg-gray-600 rounded-t-lg">
       <h3 class="font-semibold text-white tracking-wide" id="modal_title">Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span></h3>
-      <button onclick="modal_campanha.close()" class="p-1 hover:bg-gray-500 rounded transition-colors">
+      <button type="button" onclick="modal_campanha.close()" class="p-1 hover:bg-gray-500 rounded transition-colors" aria-label="Fechar edição">
         <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
     </div>
@@ -748,6 +780,7 @@
         <input type="hidden" id="mes_ref" name="mes_ref" value="">
         <input type="hidden" id="mes_ref_comp" name="mes_ref_comp" value="">
 
+        <h4 class="camp-form-section-title">Configuração e entrega</h4>
         <div class="camp-form-grid">
           <div class="camp-field camp-col-2">
             <label for="nome_campanha">Nome da Campanha</label>
@@ -843,17 +876,20 @@
           </div>
         </div>
 
-        <div class="camp-margem-grid">
-          <div class="camp-field"><label for="perc_margem_cc">% Margem</label><input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00"></div>
-          <div class="camp-field"><label for="perc_tech_fee">% Tech Fee</label><input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00"></div>
-          <div class="camp-field"><label for="perc_com_vendas">% Com.</label><input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00"></div>
-          <div class="camp-field"><label for="perc_pl_incentivos">% PL Inc.</label><input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00"></div>
-          <div class="camp-field"><label for="perc_impostos">% Imp.</label><input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00"></div>
-          <div class="camp-field"><label for="val_margem_cc">Margem</label><input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1"></div>
-          <div class="camp-field"><label for="val_tech_fee">Tech Fee</label><input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1"></div>
-          <div class="camp-field"><label for="val_com_vendas">Com.</label><input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1"></div>
-          <div class="camp-field"><label for="val_pl_incentivos">PL Inc.</label><input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
-          <div class="camp-field"><label for="val_impostos">Impostos</label><input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+        <div class="camp-margem-section">
+          <h4 class="camp-form-section-title">Composição financeira</h4>
+          <div class="camp-margem-grid">
+            <div class="camp-field"><label for="perc_margem_cc">% Margem</label><input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00"></div>
+            <div class="camp-field"><label for="perc_tech_fee">% Tech Fee</label><input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00"></div>
+            <div class="camp-field"><label for="perc_com_vendas">% Comissão</label><input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00"></div>
+            <div class="camp-field"><label for="perc_pl_incentivos">% PL incentivos</label><input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00"></div>
+            <div class="camp-field"><label for="perc_impostos">% Impostos</label><input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00"></div>
+            <div class="camp-field"><label for="val_margem_cc">Margem</label><input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+            <div class="camp-field"><label for="val_tech_fee">Tech Fee</label><input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+            <div class="camp-field"><label for="val_com_vendas">Comissão</label><input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+            <div class="camp-field"><label for="val_pl_incentivos">PL incentivos</label><input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+            <div class="camp-field"><label for="val_impostos">Impostos</label><input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
+          </div>
         </div>
 
         <div id="campanha_timestamps" class="grid grid-cols-2 gap-2 mt-2 hidden">
@@ -867,6 +903,7 @@
           </div>
         </div>
 
+        <p id="campanhaFormStatus" class="camp-form-status" role="status" aria-live="polite" hidden></p>
         <div class="camp-modal-foot flex items-center justify-between">
           <button type="button" id="btnDiariosCampanha" onclick="abrirDiariosDoCampanhaModal()"
                   class="camp-btn-diarios font-medium border border-indigo-200 text-indigo-600 rounded hover:bg-indigo-50 transition-colors hidden">
@@ -891,7 +928,7 @@
     <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
       <div class="flex items-center justify-between">
         <h3 class="font-semibold text-lg text-gray-800" id="modal_diarios_title">Diários da Campanha</h3>
-        <button onclick="modal_diarios.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <button type="button" onclick="modal_diarios.close()" class="p-2 hover:bg-gray-200 rounded transition-colors" aria-label="Fechar diários">
           <i class="fa-solid fa-xmark text-gray-500"></i>
         </button>
       </div>
@@ -983,6 +1020,30 @@
   let currentSidebarCamp = null;
   let sidebarChartInstance = null;
   let selectedEmailTemplate = 'relatorio';
+  const isDiariosView = {{ 'true' if request.args.get('view') == 'diarios' else 'false' }};
+
+  function notifyCampAction(message, type) {
+    const status = document.getElementById('campActionStatus');
+    if (status) status.textContent = message;
+    if (typeof window.showToast === 'function') window.showToast(message, type || 'info');
+  }
+
+  function requestCampConfirmation(options) {
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm(options);
+      return true;
+    }
+    notifyCampAction('A confirmação não pôde ser aberta. Recarregue a página e tente novamente.', 'error');
+    return false;
+  }
+
+  function setCampFormStatus(message, type) {
+    const status = document.getElementById('campanhaFormStatus');
+    if (!status) return;
+    status.textContent = message || '';
+    status.dataset.type = type || 'info';
+    status.hidden = !message;
+  }
 
   /** Alinhado a _parse_brl_float / parseBrlMoedaJs: número JSON; vírgula = BR; vários pontos = milhar; um ponto = decimal. */
   function parseBrlMoedaJs(val) {
@@ -1145,7 +1206,7 @@
     document.querySelectorAll('[data-flag-for]').forEach(function(el) {
       el.setAttribute('data-flag', getCampFlag(el.getAttribute('data-flag-for')));
     });
-    document.querySelectorAll('#campanhasTableBody tr[data-campanha-id]').forEach(function(row) {
+    document.querySelectorAll('.campanhas-table-body tr[data-campanha-id]').forEach(function(row) {
       row.dataset.flag = getCampFlag(row.dataset.campanhaId);
     });
   }
@@ -1194,7 +1255,7 @@
   }
 
   function aplicarFlagSort() {
-    const tbody = document.getElementById('campanhasTableBody');
+    const tbody = document.querySelector('[data-status-tbody="ativas"]');
     if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr[data-campanha-id]'));
     rows.sort(function(a, b) {
@@ -1206,7 +1267,7 @@
   }
 
   function restaurarOrdemOriginal() {
-    const tbody = document.getElementById('campanhasTableBody');
+    const tbody = document.querySelector('[data-status-tbody="ativas"]');
     if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr[data-campanha-id]'));
     rows.sort(function(a, b) {
@@ -1219,8 +1280,15 @@
 
   function toggleFlagSort() {
     campFlagSortActive = !campFlagSortActive;
-    const th = document.getElementById('campFlagSortTh');
-    if (th) th.classList.toggle('sorted', campFlagSortActive);
+    const button = document.getElementById('campFlagSortButton');
+    if (button) {
+      button.classList.toggle('sorted', campFlagSortActive);
+      button.setAttribute('aria-pressed', campFlagSortActive ? 'true' : 'false');
+      button.setAttribute(
+        'aria-label',
+        campFlagSortActive ? 'Restaurar ordem das campanhas ativas' : 'Ordenar campanhas ativas por prioridade'
+      );
+    }
     if (campFlagSortActive) aplicarFlagSort();
     else restaurarOrdemOriginal();
     aplicarVisibilidadeLinhas();
@@ -1228,25 +1296,73 @@
 
   function aplicarVisibilidadeLinhas() {
     const searchTerm = ((document.getElementById('searchInput') || {}).value || '').toLowerCase();
-    const rows = document.querySelectorAll('#campanhasTableBody tr[data-campanha-id]');
+    const rows = document.querySelectorAll(
+      isDiariosView
+        ? '#tabelaDiariosMassa tr[data-campanha-id]'
+        : '.campanhas-table-body tr[data-campanha-id]'
+    );
     let visibleCount = 0;
     rows.forEach(function(row) {
       const textMatch = !searchTerm || row.textContent.toLowerCase().includes(searchTerm);
       row.style.display = textMatch ? '' : 'none';
       if (textMatch) visibleCount++;
     });
+    document.querySelectorAll('[data-campaign-group]').forEach(function(group) {
+      const groupRows = Array.from(group.querySelectorAll('tr[data-campanha-id]'));
+      const groupVisible = groupRows.filter(function(row) { return row.style.display !== 'none'; }).length;
+      const counter = group.querySelector('[data-group-visible-count]');
+      if (counter) counter.textContent = groupVisible;
+      group.hidden = Boolean(searchTerm) && groupVisible === 0;
+    });
+    const history = document.querySelector('[data-history-container]');
+    if (history) {
+      const historyVisible = Array.from(history.querySelectorAll('tr[data-campanha-id]'))
+        .filter(function(row) { return row.style.display !== 'none'; }).length;
+      const counter = history.querySelector('[data-history-visible-count]');
+      if (counter) counter.textContent = historyVisible;
+      history.hidden = Boolean(searchTerm) && historyVisible === 0;
+      if (searchTerm && historyVisible > 0) {
+        if (!history.dataset.searchOpen) {
+          history.dataset.wasOpen = history.open ? 'true' : 'false';
+          history.dataset.searchOpen = 'true';
+        }
+        history.open = true;
+      } else if (!searchTerm && history.dataset.searchOpen) {
+        history.open = history.dataset.wasOpen === 'true';
+        delete history.dataset.searchOpen;
+        delete history.dataset.wasOpen;
+      }
+    }
     const tc = document.getElementById('totalCampanhas');
     if (tc) tc.textContent = visibleCount;
   }
 
   function initCampanhasTableUi() {
-    const tbody = document.getElementById('campanhasTableBody');
-    if (tbody) {
+    document.querySelectorAll('.campanhas-table-body').forEach(function(tbody) {
       tbody.querySelectorAll('tr[data-campanha-id]').forEach(function(row, idx) {
         row.dataset.originalIndex = String(idx);
+        row.addEventListener('keydown', function(event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            row.click();
+          }
+        });
+        const editButton = row.querySelector('[data-row-edit]');
+        if (editButton) editButton.addEventListener('click', function() { row.click(); });
+        const diariosButton = row.querySelector('[data-open-diarios]');
+        if (diariosButton) {
+          diariosButton.addEventListener('click', function() {
+            abrirModalDiarios(
+              diariosButton.dataset.id,
+              diariosButton.dataset.codigo || '',
+              diariosButton.dataset.titulo || '',
+              diariosButton.dataset.nome || ''
+            );
+          });
+        }
       });
-    }
-    applyPlatformIcons(document.getElementById('campanhasTableBody') || document);
+    });
+    applyPlatformIcons(document);
     initCampFlags();
     aplicarVisibilidadeLinhas();
   }
@@ -1254,54 +1370,35 @@
   initCampanhasTableUi();
 
   // ==================== FILTROS ====================
-  const isDiariosView = {{ 'true' if request.args.get('view') == 'diarios' else 'false' }};
-
   function aplicarFiltros() {
     const params = new URLSearchParams();
-    const mesEl = document.getElementById('filtroMesRef');
     const execEl = document.getElementById('filtroExecutivo');
-    const mes = mesEl ? mesEl.value : '';
     const exec = execEl ? execEl.value : '';
 
-    setCookie('cc_filtro_mes', mes, 30);
     setCookie('cc_filtro_exec', exec, 30);
+    setCookie('cc_filtro_mes', '', -1);
 
     if (isDiariosView) params.set('view', 'diarios');
-    if (mes) params.set('mes_ref_comp', mes);
-    params.set('resp_comercial', exec);
+    if (exec) params.set('resp_comercial', exec);
     window.location.href = '{{ url_for("campanhas_pi_lista") }}' + (params.toString() ? '?' + params.toString() : '');
   }
 
   (function restoreCampPiFilters() {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('id_status')) {
+    if (params.has('id_status') || params.has('mes_ref_comp') || params.has('_restored')) {
       params.delete('id_status');
+      params.delete('mes_ref_comp');
+      params.delete('_restored');
+      setCookie('cc_filtro_mes', '', -1);
       window.location.replace('{{ url_for("campanhas_pi_lista") }}' + (params.toString() ? '?' + params.toString() : ''));
       return;
     }
-    if (params.has('_restored')) return;
-    const cMes = getCookie('cc_filtro_mes');
     const cExec = getCookie('cc_filtro_exec');
+    setCookie('cc_filtro_mes', '', -1);
     let needsRedirect = false;
     const rp = new URLSearchParams(params);
     if (isDiariosView) rp.set('view', 'diarios');
     if (cExec && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
-    if (cMes && !params.has('mes_ref_comp')) {
-      const sel = document.getElementById('filtroMesRef');
-      if (sel && sel.options && sel.options.length) {
-        let matched = false;
-        for (const opt of sel.options) {
-          if (opt.value === cMes) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
-        }
-        if (!matched) {
-          const mesNum = parseInt(cMes, 10);
-          for (const opt of sel.options) {
-            if (opt.value && parseInt(opt.value.split('/')[0], 10) === mesNum) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
-          }
-        }
-        if (matched) needsRedirect = true;
-      }
-    }
     if (!needsRedirect) return;
     rp.set('_restored', '1');
     window.location.href = '{{ url_for("campanhas_pi_lista") }}?' + rp.toString();
@@ -1566,17 +1663,14 @@
           if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
         });
     };
-    if (typeof showConfirm === 'function') {
-      showConfirm({
-        title: 'Excluir diário',
-        message: 'Tem certeza que deseja excluir este registro de diário? Esta ação não pode ser desfeita.',
-        theme: 'danger',
-        confirmText: 'Excluir',
-        onConfirm: runDelete
-      });
-    } else if (window.confirm('Tem certeza que deseja excluir este diário?')) {
-      runDelete();
-    }
+    requestCampConfirmation({
+      title: 'Excluir diário',
+      message: 'Este registro será removido definitivamente.',
+      detail: 'Os totais da campanha serão recalculados após a exclusão.',
+      theme: 'danger',
+      confirmText: 'Excluir diário',
+      onConfirm: runDelete
+    });
   }
 
   // ==================== EMAIL ====================
@@ -1676,6 +1770,7 @@
     document.getElementById('campanhaForm').reset();
     document.getElementById('campanha_timestamps').classList.add('hidden');
     document.getElementById('btnDiariosCampanha').classList.add('hidden');
+    setCampFormStatus('', 'info');
   }
 
   let currentModalCampId = null;
@@ -1683,7 +1778,7 @@
 
   function abrirModalEditar(c) {
     try {
-      console.log('abrirModalEditar chamada:', c);
+      setCampFormStatus('', 'info');
       currentModalCampId = c.id_campanha;
       currentModalCampData = c;
       document.getElementById('modal_title').innerHTML = 'Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span>';
@@ -1751,11 +1846,12 @@
 
   function excluirCampanhaSidebar() {
     if (!currentSidebarCamp) return;
-    showConfirm({
-      title: 'Excluir Campanha',
-      message: `Tem certeza que deseja excluir a campanha <strong>${currentSidebarCamp.nome_campanha || ''}</strong>?`,
+    requestCampConfirmation({
+      title: 'Excluir campanha',
+      message: 'A campanha selecionada será removida definitivamente.',
+      detail: 'Confira o nome da campanha antes de continuar. Esta ação não pode ser desfeita.',
       theme: 'danger',
-      confirmText: 'Excluir',
+      confirmText: 'Excluir campanha',
       onConfirm: () => {
         fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
           method: 'POST',
@@ -1780,6 +1876,7 @@
     const btn = document.getElementById('btnSalvarCampanha');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvando...';
+    setCampFormStatus('Salvando alterações da campanha…', 'info');
 
     const formData = new FormData(form);
     formData.set('campanhas_retorno', 'lista');
@@ -1796,19 +1893,22 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
+        setCampFormStatus(data.message || 'Campanha salva com sucesso.', 'success');
         if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
         modal_campanha.close();
         setTimeout(() => location.reload(), 600);
       } else {
+        setCampFormStatus(data.error || 'Não foi possível salvar a campanha.', 'error');
         if (typeof showToast === 'function') showToast(data.error || 'Erro ao salvar.', 'error');
         btn.disabled = false;
-        btn.innerHTML = 'Salvar';
+        btn.innerHTML = 'Salvar campanha';
       }
     })
     .catch(() => {
+      setCampFormStatus('Não foi possível conectar ao servidor. Tente novamente.', 'error');
       if (typeof showToast === 'function') showToast('Erro ao salvar campanha.', 'error');
       btn.disabled = false;
-      btn.innerHTML = 'Salvar';
+      btn.innerHTML = 'Salvar campanha';
     });
   });
 
@@ -1970,17 +2070,14 @@
           if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
         });
     };
-    if (typeof showConfirm === 'function') {
-      showConfirm({
-        title: 'Excluir diário',
-        message: 'Tem certeza que deseja excluir este registro de diário? Esta ação não pode ser desfeita.',
-        theme: 'danger',
-        confirmText: 'Excluir',
-        onConfirm: runDelete
-      });
-    } else if (window.confirm('Tem certeza que deseja excluir este diário?')) {
-      runDelete();
-    }
+    requestCampConfirmation({
+      title: 'Excluir diário',
+      message: 'Este registro será removido definitivamente.',
+      detail: 'Os totais da campanha serão recalculados após a exclusão.',
+      theme: 'danger',
+      confirmText: 'Excluir diário',
+      onConfirm: runDelete
+    });
   }
 
   (function initDiarioListaClickDelegation() {
@@ -2053,7 +2150,8 @@
           id_pi: row.dataset.idPi,
           data_evento: data,
           atingido: atingido,
-          gasto: gasto
+          gasto: gasto,
+          row: row
         });
       }
     });
@@ -2066,19 +2164,29 @@
       showToast('Nenhuma linha com os 3 campos preenchidos (data, atingido, gasto).', 'warning');
       return;
     }
-    showConfirm({
-      title: 'Adicionar Diários',
+    requestCampConfirmation({
+      title: 'Adicionar diários',
       message: `<strong>${validos.length}</strong> diário${validos.length > 1 ? 's' : ''} ser${validos.length > 1 ? 'ão adicionados' : 'á adicionado'}.`,
       detail: '<span class="text-gray-500">Apenas linhas com data, valor atingido e valor gasto preenchidos serão processadas.</span>',
       theme: 'info',
-      confirmText: 'Confirmar',
+      confirmText: 'Adicionar diários',
       onConfirm: () => enviarDiariosMassa(validos)
     });
   }
 
   async function enviarDiariosMassa(items) {
+    const button = document.getElementById('btnAtualizarDiariosMassa');
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+    }
     let ok = 0, erros = 0;
-    for (const item of items) {
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+      const progressMessage = `Atualizando ${index + 1} de ${items.length}`;
+      if (button) button.innerHTML = `<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ${progressMessage}`;
+      const status = document.getElementById('campActionStatus');
+      if (status) status.textContent = progressMessage;
       try {
         const resp = await fetch(`/api/campanhas-pi/${item.id_campanha}/diarios`, {
           method: 'POST',
@@ -2090,16 +2198,29 @@
           })
         });
         const data = await resp.json();
-        if (data.success) ok++;
-        else erros++;
-      } catch (e) { erros++; }
+        if (resp.ok && data.success) {
+          ok++;
+          item.row.dataset.saveState = 'success';
+        } else {
+          erros++;
+          item.row.dataset.saveState = 'error';
+        }
+      } catch (e) {
+        erros++;
+        item.row.dataset.saveState = 'error';
+      }
+    }
+    if (button) {
+      button.removeAttribute('aria-busy');
+      button.innerHTML = '<i class="fas fa-layer-group" aria-hidden="true"></i> Atualizar todos';
     }
     if (erros === 0) {
-      showToast(`${ok} diário${ok > 1 ? 's' : ''} adicionado${ok > 1 ? 's' : ''} com sucesso!`, 'success');
+      notifyCampAction(`${ok} diário${ok > 1 ? 's adicionados' : ' adicionado'} com sucesso.`, 'success');
     } else {
-      showToast(`${ok} adicionado${ok > 1 ? 's' : ''}, ${erros} com erro.`, 'warning');
+      notifyCampAction(`${ok} atualizado${ok !== 1 ? 's' : ''}; ${erros} com erro. Revise as linhas marcadas.`, 'warning');
     }
-    setTimeout(() => location.reload(), 1200);
+    if (erros === 0) setTimeout(() => location.reload(), 1200);
+    else if (button) button.disabled = false;
   }
 
   // ==================== KEYBOARD ====================

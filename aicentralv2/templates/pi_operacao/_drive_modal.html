@@ -1,0 +1,37 @@
+{% if modo == 'editar' and pi %}
+<dialog id="modal_arquivos_pi" class="pi-drive-dialog" aria-labelledby="pi-drive-title">
+  <div class="pi-drive-modal">
+    <header class="pi-drive-modal__header">
+      <div>
+        <span class="pi-op-eyebrow">Google Drive</span>
+        <h2 id="pi-drive-title">Arquivos do PI</h2>
+      </div>
+      <button type="button" class="pi-op-icon-btn" data-drive-close aria-label="Fechar arquivos do PI">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="pi-drive-tabs" role="tablist" aria-label="Pastas do PI">
+      <button type="button" role="tab" aria-selected="true" data-drive-tab="principal"
+        data-drive-url="{{ pi.googled_pi_princ or '' }}">Principal</button>
+      <button type="button" role="tab" aria-selected="false" data-drive-tab="financeiro"
+        data-drive-url="{{ pi.googled_pi_financ or '' }}">Financeiro</button>
+      <button type="button" role="tab" aria-selected="false" data-drive-tab="pecas"
+        data-drive-url="{{ pi.googled_pi_pecas or '' }}">Peças</button>
+      <button type="button" role="tab" aria-selected="false" data-drive-tab="assinados"
+        data-drive-url="{{ pi.googled_pi_arq_ass or '' }}">Assinados</button>
+    </div>
+    <div id="pi-drive-content" class="pi-drive-content" role="tabpanel" tabindex="0">
+      <div class="pi-op-state pi-op-state--loading">
+        <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+        <span>Carregando pasta…</span>
+      </div>
+    </div>
+    <footer class="pi-drive-modal__footer">
+      <a id="pi-drive-external" href="#" target="_blank" rel="noopener noreferrer" class="pi-op-btn pi-op-btn--secondary" hidden>
+        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir no Drive
+      </a>
+      <button type="button" class="pi-op-btn pi-op-btn--primary" data-drive-close>Fechar</button>
+    </footer>
+  </div>
+</dialog>
+{% endif %}

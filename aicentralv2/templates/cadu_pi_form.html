@@ -1,9 +1,14 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
 
 {% block title %}{% if modo == 'novo' %}PI Recebido{% elif somente_leitura|default(false) %}Visualizar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% else %}Editar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% endif %} - CentralComm AI{% endblock %}
+{% block page_label %}Operação do PI{% endblock %}
+{% block page_subtitle %}Gestão de campanhas e comunicações{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=1">
+{% endblock %}
 
 {% block content %}
-{% set somente_leitura = somente_leitura|default(false) %}
+{% set somente_leitura = somente_leitura|default(false) or (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['4', '5', '6']) %}
 {% set pi_campanhas_editaveis = modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2', '3'] and not somente_leitura %}
 {% set pi_valores_editaveis = (modo == 'novo' or (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2'])) and not somente_leitura %}
 {% set pi_status_label = (pi.sub_status_descricao or pi.status_descricao or '') if modo == 'editar' and pi else '' %}
@@ -17,76 +22,90 @@
 </optgroup>
 {% endfor %}
 {% endmacro %}
-<div class="max-w-full mx-auto px-1">
+<div id="pi-operacao-app"
+  class="pi-operation"
+  data-pi-id="{{ pi.id_pi if modo == 'editar' and pi else 0 }}"
+  data-stage="{{ pi.id_sub_status_pi if modo == 'editar' and pi else 2 }}"
+  data-readonly="{{ 'true' if somente_leitura else 'false' }}">
   <!-- Header Compacto sticky -->
-  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
-    <div class="flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
+  <div class="pi-op-header">
+    <div class="pi-op-header__row">
+      <div class="pi-op-title-wrap">
         {% set back_url = (return_url ~ '#pi-' ~ pi.id_pi) if return_url and pi and pi.id_pi else (return_url if return_url else (url_for('cadu_pi_lista', id_sub_status_pi=2, visao='cancelados') if pi and pi.id_sub_status_pi|string == '6' else url_for('cadu_pi_lista', id_sub_status_pi=pi.id_sub_status_pi if pi and pi.id_sub_status_pi else 2))) %}
-        <a href="{{ back_url }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
-          <i class="fas fa-arrow-left text-[10px]"></i>
+        <a href="{{ back_url }}" class="pi-op-icon-btn" title="Voltar" aria-label="Voltar">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
         </a>
         <div>
-          <h1 class="text-sm font-semibold text-gray-800">{% if modo == 'novo' %}PI Recebido{% elif somente_leitura and pi_status_label %}Visualizar PI - {{ pi_status_label }}{% elif somente_leitura %}Visualizar PI{% elif pi_status_label %}Editar PI - {{ pi_status_label }}{% else %}Editar PI{% endif %}</h1>
-          <p class="text-[9px] text-gray-500">{% if modo == 'novo' %}Cadastrar novo PI{% elif somente_leitura %}Somente visualização — alterações não permitidas{% else %}Atualizar dados do PI{% endif %}</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1>{% if modo == 'novo' %}PI Recebido{% else %}Operação do PI{% if pi and pi.codigo_pi_cc %} · {{ pi.codigo_pi_cc }}{% endif %}{% endif %}</h1>
+            {% if pi_status_label %}<span class="pi-op-badge">{{ pi_status_label }}</span>{% endif %}
+          </div>
+          <p>{% if modo == 'novo' %}Cadastrar novo PI{% elif somente_leitura %}Somente visualização — alterações não permitidas{% else %}{{ pi.titulo_pi or 'Atualizar dados, campanhas e operação' }}{% endif %}</p>
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        <a href="{{ back_url }}" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">{% if somente_leitura %}Voltar{% else %}Cancelar{% endif %}</a>
+      <div class="pi-op-actions">
         {% if modo == 'editar' and pi and not somente_leitura %}
-          <button type="button" onclick="abrirModalLinks()" class="px-2 py-1 text-[10px] border border-purple-400 rounded hover:bg-purple-50 text-purple-700 inline-flex items-center gap-1">
+          <button type="button" onclick="abrirModalLinks()" class="pi-op-btn pi-op-btn--secondary">
             <span id="badge_total_links" class="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full {% if pi.total_links %}bg-purple-600 text-white{% else %}bg-gray-200 text-gray-500{% endif %}">{{ pi.total_links or 0 }}</span>
-            <i class="fas fa-link mr-0.5"></i>Links
+            <i class="fas fa-link" aria-hidden="true"></i>Links
           </button>
           {% if pi.googled_pi_princ %}
-            <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-2 py-1 text-[10px] border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
-              <i class="fab fa-google-drive mr-1"></i>Pastas
-            </a>
+            <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary">
+              <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
+            </button>
           {% else %}
-            <button type="button" id="btn_gerar_pastas" class="px-2 py-1 text-[10px] border border-yellow-400 rounded hover:bg-yellow-50 text-yellow-700">
-              <i class="fab fa-google-drive mr-1"></i>Gerar Pastas
+            <button type="button" id="btn_gerar_pastas" class="pi-op-btn pi-op-btn--secondary">
+              <i class="fab fa-google-drive" aria-hidden="true"></i>Gerar Pastas
             </button>
           {% endif %}
+          <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
+            <i class="fa-regular fa-envelope-open" aria-hidden="true"></i>Pré-visualizar e-mails
+          </button>
           {% if pi.id_sub_status_pi|string == '2' %}
           <button type="button" id="btn_enviar_producao"
             onclick="document.getElementById('modal_confirmar_producao').showModal()"
             {% if not pi.get('googled_pi_princ') or not pi.get('id_cliente') or not pi.get('codigo_pi_cc') %}disabled{% endif %}
-            class="px-2 py-1 text-[10px] border border-orange-400 rounded hover:bg-orange-50 text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            class="pi-op-btn pi-op-btn--accent"
             title="{% if not pi.get('googled_pi_princ') %}Gere as pastas primeiro{% elif not pi.get('id_cliente') %}Selecione um cliente{% elif not pi.get('codigo_pi_cc') %}Preencha o código do PI{% else %}Enviar PI para operação{% endif %}">
-            <i class="fas fa-paper-plane mr-1"></i>Enviar Operação
+            <i class="fas fa-paper-plane" aria-hidden="true"></i>Enviar para aprovação
           </button>
           <button type="button" id="btn_cancelar_pi"
             onclick="document.getElementById('modal_confirmar_cancelar_pi').showModal()"
-            class="px-2 py-1 text-[10px] border border-red-400 rounded hover:bg-red-50 text-red-700">
-            <i class="fas fa-ban mr-1"></i>Cancelar PI
+            class="pi-op-btn pi-op-btn--danger">
+            <i class="fas fa-ban" aria-hidden="true"></i>Cancelar PI
           </button>
           {% elif pi.id_sub_status_pi|string == '1' and pi.total_campanhas and pi.total_campanhas > 0 %}
           <button type="button" id="btn_enviar_andamento"
             onclick="document.getElementById('modal_confirmar_andamento').showModal()"
-            class="px-2 py-1 text-[10px] border border-green-500 rounded hover:bg-green-50 text-green-700">
-            <i class="fas fa-play mr-1"></i>Iniciar campanhas
+            class="pi-op-btn pi-op-btn--accent">
+            <i class="fas fa-play" aria-hidden="true"></i>Iniciar campanhas
           </button>
           {% elif pi.id_sub_status_pi|string == '3' %}
           <button type="button" id="btn_enviar_financeiro"
             onclick="document.getElementById('modal_confirmar_financeiro').showModal()"
-            class="px-2 py-1 text-[10px] border border-amber-500 rounded hover:bg-amber-50 text-amber-700">
-            <i class="fas fa-file-invoice-dollar mr-1"></i>Enviar Financeiro
+            class="pi-op-btn pi-op-btn--accent">
+            <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>Encerrar e enviar ao Financeiro
           </button>
           {% endif %}
         {% elif modo == 'editar' and pi and somente_leitura and pi.googled_pi_princ %}
-          <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-2 py-1 text-[10px] border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
-            <i class="fab fa-google-drive mr-1"></i>Pastas
-          </a>
+          <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary">
+            <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
+          </button>
+          <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
+            <i class="fa-regular fa-envelope-open" aria-hidden="true"></i>Pré-visualizar e-mails
+          </button>
         {% endif %}
         {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string == '4') and not somente_leitura %}
-        <button type="submit" form="pi_form" class="px-2 py-1 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;">
-          <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
+        <button type="submit" form="pi_form" class="pi-op-btn pi-op-btn--primary">
+          <i class="fas fa-save" aria-hidden="true"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
         {% endif %}
       </div>
     </div>
   </div>
 
+  <div class="pi-op-layout{% if not (modo == 'editar' and pi) %} pi-op-layout--single{% endif %}">
+  <section class="pi-op-main" aria-label="Dados do PI">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-2">
@@ -542,7 +561,14 @@
     </form>
 
   </div>
+  </section>
+  {% if modo == 'editar' and pi %}
+    {% include 'pi_operacao/_sidebar.html' %}
+  {% endif %}
+  </div>
 </div>
+
+{% include 'pi_operacao/_drive_modal.html' %}
 
 <script>
 (function() {
@@ -1879,6 +1905,16 @@
               {% endfor %}
             </select>
           </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Responsável <span class="text-red-400">*</span></label>
+            <select name="id_responsavel_operacao" required
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              <option value="">Selecione...</option>
+              {% for v in vendedores|default([]) %}
+                <option value="{{ v.id_contato_cliente }}" {% if pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <div class="col-span-2">
             <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Link Dash</label>
             <input type="url" name="link_dash" placeholder="Link Dash"
@@ -2038,6 +2074,7 @@
     setFormField('id_status', c.id_status || '');
     setFormField('id_plataforma', c.id_plataforma || '');
     setFormField('id_objetivos_campanha', c.id_objetivos_campanha || '');
+    setFormField('id_responsavel_operacao', c.id_responsavel_operacao || {{ (pi.id_resp_comercial or '')|tojson }});
     setFormField('link_dash', c.link_dash || '');
     var dtIni = document.getElementById('nova_camp_dt_inicio');
     var dtFim = document.getElementById('nova_camp_dt_fim');
@@ -2079,8 +2116,7 @@
 
   window.excluirCampanhaPi = function(c) {
     if (!c || !c.id_campanha) return;
-    if (typeof showConfirm !== 'function') {
-      if (!confirm('Excluir campanha "' + (c.nome_campanha || '') + '"?')) return;
+    function executarExclusao() {
       fetch(urlExcluirTpl.replace('/0/', '/' + c.id_campanha + '/'), {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -2089,28 +2125,34 @@
           if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
           onCampanhaPiAjaxSuccess(data);
         } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
+      }).catch(function() {
+        if (typeof showToast === 'function') showToast('Erro ao excluir campanha.', 'error');
+      });
+    }
+    if (typeof showConfirm === 'function') {
+      showConfirm({
+        title: 'Excluir campanha',
+        message: 'Excluir a campanha <strong>' + escHtml(c.nome_campanha || '') + '</strong>? Esta ação não pode ser desfeita.',
+        theme: 'danger',
+        confirmText: 'Excluir campanha',
+        onConfirm: executarExclusao
       });
       return;
     }
-    showConfirm({
-      title: 'Excluir Campanha',
-      message: 'Tem certeza que deseja excluir a campanha <strong>' + (c.nome_campanha || '') + '</strong>?',
-      theme: 'danger',
-      confirmText: 'Excluir',
-      onConfirm: function() {
-        fetch(urlExcluirTpl.replace('/0/', '/' + c.id_campanha + '/'), {
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        }).then(function(r) { return r.json(); }).then(function(data) {
-          if (data.success) {
-            if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
-            onCampanhaPiAjaxSuccess(data);
-          } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
-        }).catch(function() {
-          if (typeof showToast === 'function') showToast('Erro ao excluir campanha.', 'error');
-        });
-      }
-    });
+    if (window.piOperacao && typeof window.piOperacao.confirmar === 'function') {
+      window.piOperacao.confirmar({
+        title: 'Excluir campanha',
+        message: 'Excluir a campanha "' + (c.nome_campanha || '') + '"? Esta ação não pode ser desfeita.',
+        confirmText: 'Excluir campanha',
+        danger: true
+      }).then(function(confirmado) {
+        if (confirmado) executarExclusao();
+      });
+      return;
+    }
+    if (typeof showToast === 'function') {
+      showToast('A confirmação não pôde ser aberta. Recarregue a página e tente novamente.', 'error');
+    }
   };
 
   form.addEventListener('submit', function(e) {
@@ -2399,11 +2441,13 @@ function abrirViewCampanha(c) {
             botoesExtra =
               '<button type="button" data-camp-edit="' + payload + '" class="btn-editar-camp text-indigo-600 hover:text-indigo-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
                 '<i class="fa-solid fa-pen text-[10px]"></i>Editar</button>' +
+              '<button type="button" data-camp-context="' + payload + '" class="btn-duplicar-camp text-slate-600 hover:text-slate-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                '<i class="fa-regular fa-copy text-[10px]"></i>Duplicar</button>' +
               '<button type="button" data-camp-delete="' + payload + '" class="btn-excluir-camp text-red-500 hover:text-red-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
                 '<i class="fa-solid fa-trash text-[10px]"></i>Excluir</button>';
           }
 
-          html += '<details class="border border-gray-200 rounded-lg mb-2">' +
+          html += '<details open class="border border-gray-200 rounded-lg mb-2">' +
             '<summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none [&::-webkit-details-marker]:hidden">' +
               '<div class="flex items-center gap-2 min-w-0">' +
                 '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400 transition-transform details-open-rotate"></i>' +
@@ -2442,8 +2486,10 @@ function abrirViewCampanha(c) {
                 '</div>' +
                 '<div class="flex flex-wrap items-end gap-2">' +
                   '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                    '<i class="fa-solid fa-eye text-[10px]"></i>Ver campanha</button>' +
+                    '<i class="fa-solid fa-chart-line text-[10px]"></i>Acompanhar</button>' +
                   botoesExtra +
+                  '<button type="button" data-camp-context="' + payload + '" class="btn-email-camp text-emerald-700 hover:text-emerald-900 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                    '<i class="fa-regular fa-envelope text-[10px]"></i>E-mail</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -2834,4 +2880,8 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
 });
 </script>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=1"></script>
 {% endblock %}

@@ -175,6 +175,9 @@ def create_app(config_class=Config):
         from .agent import bp as agent_bp
         app.register_blueprint(agent_bp)
 
+        from .pi_operacao_routes import bp as pi_operacao_bp
+        app.register_blueprint(pi_operacao_bp)
+
         # Painel administrativo de migrations — permite executar
         # `migrations/*.sql` e `migrations/run_*.py` pelo navegador
         # após o deploy. Restrito a superadmin (auth.py).

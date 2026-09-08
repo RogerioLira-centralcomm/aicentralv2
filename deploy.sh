@@ -163,6 +163,9 @@ else
     exit 1
 fi
 
+echo "  > Validando APIs de formatos e visualizadores..."
+"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py
+
 # 10. Health check
 echo ""
 echo "[9/9] Health check..."

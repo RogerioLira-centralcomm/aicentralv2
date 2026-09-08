@@ -5,7 +5,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from flask import Blueprint, Flask
 from jinja2 import Environment
@@ -611,6 +611,24 @@ class CreativeRoutesTest(unittest.TestCase):
         response = self.client.get("/parametros/api/formats")
         self.assertEqual(response.status_code, 403)
 
+    def test_apis_de_formatos_e_visualizadores_retornam_200(self):
+        service = Mock()
+        service.list_formats.return_value = [{"id": 7, "name_pt": "Leaderboard"}]
+        service.list_viewer_profiles.return_value = [{"id": 1, "slug": "g1"}]
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            formats = self.client.get("/parametros/api/formats")
+            viewers = self.client.get("/parametros/api/viewer-profiles")
+        self.assertEqual(formats.status_code, 200)
+        self.assertEqual(viewers.status_code, 200)
+        self.assertTrue(formats.get_json()["success"])
+        self.assertTrue(viewers.get_json()["success"])
+
 
 class CreativeFilesContractTest(unittest.TestCase):
     def test_templates_sao_jinja_valido_e_usam_design_system(self):
@@ -693,6 +711,21 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max"):
             self.assertIn(f'"slug": "{slug}"', viewer_seed)
+        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        migration_call = (
+            '"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py'
+        )
+        seed_call = '"$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py'
+        start_call = "sudo systemctl start aicentralv2"
+        verify_call = (
+            '"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py'
+        )
+        self.assertIn(migration_call, deploy)
+        self.assertIn(seed_call, deploy)
+        self.assertIn(verify_call, deploy)
+        self.assertLess(deploy.index(migration_call), deploy.index(start_call))
+        self.assertLess(deploy.index(seed_call), deploy.index(start_call))
+        self.assertLess(deploy.index(start_call), deploy.index(verify_call))
 
 
 if __name__ == "__main__":

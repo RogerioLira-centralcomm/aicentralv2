@@ -20,11 +20,16 @@ FILES = [
     ROOT / "aicentralv2/templates/clientes.html",
     ROOT / "aicentralv2/templates/modal_busca_cliente.html",
     ROOT / "aicentralv2/templates/crm_v3/_modals.html",
+    ROOT / "aicentralv2/templates/financeiro/meus_reembolsos.html",
+    ROOT / "aicentralv2/templates/financeiro/gestao.html",
+    ROOT / "aicentralv2/templates/financeiro/relatorio_incentivos.html",
     ROOT / "aicentralv2/static/js/leads.js",
     ROOT / "aicentralv2/static/js/crm_v3.js",
     ROOT / "aicentralv2/static/js/cadu_pi_list.js",
     ROOT / "aicentralv2/static/js/cadu_pi_operacao.js",
     ROOT / "aicentralv2/static/js/cotacao_detalhes.js",
+    ROOT / "aicentralv2/static/js/financeiro.js",
+    ROOT / "aicentralv2/static/js/financeiro_gestao.js",
 ]
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)

@@ -41,12 +41,12 @@
 
     function statusBadge(st) {
         const [label, cls] = STATUS_MAP[st] || [st, 'badge-ghost'];
-        return `<span class="badge badge-sm ${cls}">${label}</span>`;
+        return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 
     function summaryStatusBadge(st) {
         const [label, cls] = SUMMARY_STATUS[st] || [st, 'badge-ghost'];
-        return `<span class="badge badge-sm ${cls}">${label}</span>`;
+        return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 
     function showToast(msg, type) {
@@ -124,8 +124,8 @@
         const rejectedNote = e.status === 'rejected' && e.rejection_reason
             ? `<div class="text-xs text-error mt-0.5">Motivo: ${escapeHtml(e.rejection_reason)}</div>` : '';
         const reviewActions = e.status === 'submitted'
-            ? `<button type="button" class="btn btn-xs btn-success fin-adm-approve" data-id="${e.id}">Aprovar</button>
-               <button type="button" class="btn btn-xs btn-error btn-outline fin-adm-reject" data-id="${e.id}">Reprovar</button>`
+            ? `<button type="button" class="cx-btn cx-btn-xs cx-btn-success fin-adm-approve" data-id="${e.id}">Aprovar</button>
+               <button type="button" class="cx-btn cx-btn-xs cx-btn-danger cx-btn-outline fin-adm-reject" data-id="${e.id}">Reprovar</button>`
             : '';
         return `
         <tr class="fin-expense-row" data-id="${e.id}">
@@ -137,7 +137,7 @@
             <td class="text-right whitespace-nowrap">
                 <div class="flex gap-1 justify-end flex-wrap">
                     ${reviewActions}
-                    <button type="button" class="btn btn-xs btn-ghost fin-adm-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
+                    <button type="button" class="cx-btn cx-btn-xs cx-btn-ghost fin-adm-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
                 </div>
             </td>
         </tr>`;
@@ -189,14 +189,14 @@
                 const expanded = expandedSummaries.has(s.id);
                 const pending = Number(s.pending_decision_count ?? s.pending_review_count) || 0;
                 const markPaidBtn = s.status === 'open'
-                    ? `<button type="button" class="btn btn-xs btn-success fin-adm-mark-paid"
+                    ? `<button type="button" class="cx-btn cx-btn-xs cx-btn-success fin-adm-mark-paid"
                         data-id="${s.id}" data-desc="${escapeHtml(s.description)}"
                         data-pending="${pending}"
                         title="${pending > 0 ? `${pending} item(ns) aguardando aprovação ou reprovação` : 'Concluir pagamento do lote'}">Marcar pago</button>`
                     : '';
                 html += `
-                <tr class="fin-summary-row cursor-pointer hover:bg-base-200/50" data-summary-id="${s.id}">
-                    <td><button type="button" class="btn btn-xs btn-ghost fin-toggle" data-id="${s.id}">${expanded ? '▼' : '▶'}</button></td>
+                <tr class="fin-summary-row cursor-pointer hover:bg-slate-100/50" data-summary-id="${s.id}">
+                    <td><button type="button" class="cx-btn cx-btn-xs cx-btn-ghost fin-toggle" data-id="${s.id}">${expanded ? '▼' : '▶'}</button></td>
                     <td class="font-medium">${escapeHtml(s.description)}</td>
                     <td class="whitespace-nowrap">${escapeHtml(s.user_name || s.user_email || ('#' + s.user_id))}</td>
                     <td>${summaryStatusBadge(s.status)}</td>
@@ -211,7 +211,7 @@
                     html += `
                 <tr class="fin-detail" data-summary-id="${s.id}">
                     <td colspan="8" class="p-0">
-                        <table class="table table-xs w-full">
+                        <table class="cx-table cx-table-dense w-full">
                             <thead>
                                 <tr class="text-xs opacity-60">
                                     <th>Data</th>
@@ -294,7 +294,7 @@
             return;
         }
         const btn = $('#fin-adm-reject-confirm');
-        btn.classList.add('loading');
+        btn.classList.add('is-loading');
         try {
             await api(`/admin/expenses/${id}/reject`, {
                 method: 'POST',
@@ -306,7 +306,7 @@
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            btn.classList.remove('loading');
+            btn.classList.remove('is-loading');
         }
     }
 
@@ -339,7 +339,7 @@
             return;
         }
         const btn = $('#fin-adm-paid-confirm');
-        btn.classList.add('loading');
+        btn.classList.add('is-loading');
         try {
             await api(`/admin/summaries/${id}/mark-paid`, {
                 method: 'POST',
@@ -351,7 +351,7 @@
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            btn.classList.remove('loading');
+            btn.classList.remove('is-loading');
         }
     }
 

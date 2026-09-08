@@ -40,12 +40,12 @@
 
     function statusBadge(st) {
         const [label, cls] = STATUS_MAP[st] || [st, 'badge-ghost'];
-        return `<span class="badge badge-sm ${cls}">${label}</span>`;
+        return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 
     function summaryStatusBadge(st) {
         const [label, cls] = SUMMARY_STATUS[st] || [st, 'badge-ghost'];
-        return `<span class="badge badge-sm ${cls}">${label}</span>`;
+        return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 
     function showToast(msg, type) {
@@ -192,11 +192,11 @@
         const rejected = e.status === 'rejected' && e.rejection_reason
             ? `<div class="text-xs text-error mt-0.5">Motivo: ${escapeHtml(e.rejection_reason)}</div>` : '';
         const review = e.needs_review && canEdit
-            ? '<span class="badge badge-xs badge-warning ml-1">revisar</span>' : '';
+            ? '<span class="cx-badge cx-badge-warning ml-1">revisar</span>' : '';
         return `
         <tr class="fin-expense-row" data-id="${e.id}" data-summary-id="${e.summary_id || ''}">
             <td>${selectable
-                ? `<input type="checkbox" class="checkbox checkbox-xs fin-row-select" data-id="${e.id}" />`
+                ? `<input type="checkbox" class="cx-checkbox cx-checkbox-sm fin-row-select" data-id="${e.id}" />`
                 : ''}</td>
             <td class="whitespace-nowrap pl-6">${dateBR(e.expense_date)}</td>
             <td class="min-w-[8rem]">${escapeHtml(e.merchant_name || '—')}${rejected}</td>
@@ -206,10 +206,10 @@
             <td class="whitespace-nowrap">${statusBadge(e.status)}${review}</td>
             <td class="text-right whitespace-nowrap">
                 <div class="flex gap-1 justify-end">
-                    ${canEdit ? `<button type="button" class="btn btn-xs btn-ghost fin-edit" data-id="${e.id}" title="Editar">✏️</button>` : ''}
-                    <button type="button" class="btn btn-xs btn-ghost fin-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
-                    ${canSubmit ? `<button type="button" class="btn btn-xs btn-primary fin-submit" data-id="${e.id}">Enviar</button>` : ''}
-                    ${canDelete ? `<button type="button" class="btn btn-xs btn-ghost text-error fin-delete" data-id="${e.id}" title="Excluir">🗑️</button>` : ''}
+                    ${canEdit ? `<button type="button" class="cx-btn cx-btn-xs cx-btn-ghost fin-edit" data-id="${e.id}" title="Editar">✏️</button>` : ''}
+                    <button type="button" class="cx-btn cx-btn-xs cx-btn-ghost fin-receipt" data-id="${e.id}" title="Ver comprovante">📎</button>
+                    ${canSubmit ? `<button type="button" class="cx-btn cx-btn-xs cx-btn-primary fin-submit" data-id="${e.id}">Enviar</button>` : ''}
+                    ${canDelete ? `<button type="button" class="cx-btn cx-btn-xs cx-btn-ghost text-error fin-delete" data-id="${e.id}" title="Excluir">🗑️</button>` : ''}
                 </div>
             </td>
         </tr>`;
@@ -287,8 +287,8 @@
                 const expanded = expandedSummaries.has(s.id) || s.status === 'open';
                 if (s.status === 'open') expandedSummaries.add(s.id);
                 html += `
-                <tr class="fin-summary-row cursor-pointer hover:bg-base-200/50" data-summary-id="${s.id}">
-                    <td><button type="button" class="btn btn-xs btn-ghost fin-toggle" data-id="${s.id}">${expanded ? '▼' : '▶'}</button></td>
+                <tr class="fin-summary-row cursor-pointer hover:bg-slate-100/50" data-summary-id="${s.id}">
+                    <td><button type="button" class="cx-btn cx-btn-xs cx-btn-ghost fin-toggle" data-id="${s.id}">${expanded ? '▼' : '▶'}</button></td>
                     <td class="font-medium">${escapeHtml(s.description)}</td>
                     <td>${summaryStatusBadge(s.status)}</td>
                     <td class="text-right text-green-600 font-medium">${money(s.total_payable)}</td>
@@ -300,11 +300,11 @@
                     html += `
                 <tr class="fin-detail" data-summary-id="${s.id}">
                     <td colspan="7" class="p-0">
-                        <table class="table table-xs w-full">
+                        <table class="cx-table cx-table-dense w-full">
                             <thead>
                                 <tr class="text-xs opacity-60">
                                     <th class="w-8">
-                                        <input type="checkbox" class="checkbox checkbox-xs fin-detail-select-all" title="Marcar todos neste lote" />
+                                        <input type="checkbox" class="cx-checkbox cx-checkbox-sm fin-detail-select-all" title="Marcar todos neste lote" />
                                     </th>
                                     <th>Data</th>
                                     <th>Estabelecimento</th>
@@ -370,7 +370,7 @@
         if (!ids.length) return;
         if (!confirm(`Enviar ${ids.length} reembolso(s) ao financeiro?`)) return;
         const btn = $('#fin-btn-bulk-submit');
-        btn?.classList.add('loading');
+        btn?.classList.add('is-loading');
         try {
             const r = await api('/expenses/submit-bulk', {
                 method: 'POST',
@@ -386,7 +386,7 @@
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            btn?.classList.remove('loading');
+            btn?.classList.remove('is-loading');
         }
     }
 
@@ -404,7 +404,7 @@
         if (!ids.length) return;
         if (!confirm(`Excluir ${ids.length} reembolso(s)? Essa ação não pode ser desfeita.`)) return;
         const btn = $('#fin-btn-bulk-delete');
-        btn?.classList.add('loading');
+        btn?.classList.add('is-loading');
         try {
             const r = await api('/expenses/delete-bulk', {
                 method: 'POST',
@@ -420,7 +420,7 @@
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            btn?.classList.remove('loading');
+            btn?.classList.remove('is-loading');
         }
     }
 
@@ -531,8 +531,8 @@
         let id = $('#fin-edit-id').value || null;
         const btnDraft = $('#fin-btn-save-draft');
         const btnSubmit = $('#fin-btn-save-submit');
-        btnDraft.classList.add('loading');
-        btnSubmit.classList.add('loading');
+        btnDraft.classList.add('is-loading');
+        btnSubmit.classList.add('is-loading');
         try {
             if (id) {
                 await api(`/expenses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -557,8 +557,8 @@
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            btnDraft.classList.remove('loading');
-            btnSubmit.classList.remove('loading');
+            btnDraft.classList.remove('is-loading');
+            btnSubmit.classList.remove('is-loading');
         }
     }
 

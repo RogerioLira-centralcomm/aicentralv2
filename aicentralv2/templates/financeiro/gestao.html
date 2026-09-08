@@ -8,7 +8,7 @@
 <style>
   #fin-gestao-app .fin-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
   #fin-gestao-app .fin-label { display: block; font-size: 0.75rem; line-height: 1.25; font-weight: 500; opacity: 0.7; margin: 0; }
-  #fin-gestao-app .fin-expense-row td { background: hsl(var(--b2) / 0.35); }
+  #fin-gestao-app .fin-expense-row td { background: rgba(248, 250, 252, 0.35); }
 </style>
 {% endblock %}
 
@@ -20,37 +20,37 @@
             <p class="text-xs opacity-60">Lotes de reembolso por colaborador. Aprove despesas e marque o lote como pago.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="btn btn-sm btn-primary">Lançar despesa</a>
-            <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="btn btn-sm btn-ghost">Meus reembolsos</a>
+            <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="cx-btn cx-btn-sm cx-btn-primary">Lançar despesa</a>
+            <a href="{{ url_for('financeiro.meus_reembolsos') }}" class="cx-btn cx-btn-sm cx-btn-ghost">Meus reembolsos</a>
         </div>
     </div>
 
     <!-- Resumo -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="fin-admin-summary">
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+        <div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
             <div class="cx-stat-label">Lotes abertos</div>
             <div class="cx-stat-value text-gray-900" id="fin-adm-open-q">0</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+        <div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
             <div class="cx-stat-label">A pagar (abertos)</div>
             <div class="cx-stat-value text-green-600" id="fin-adm-approved">R$ 0,00</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+        <div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
             <div class="cx-stat-label">Enviados (aguardando)</div>
             <div class="cx-stat-value text-gray-900" id="fin-adm-submitted">R$ 0,00</div>
             <div class="text-xs text-gray-400" id="fin-adm-submitted-q">0 itens</div>
         </div>
-        <div class="bg-base-100 border border-base-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
+        <div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-1 min-h-[80px]">
             <div class="cx-stat-label">Rejeitados (abertos)</div>
             <div class="cx-stat-value text-red-600" id="fin-adm-rejected">R$ 0,00</div>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="bg-base-100 border border-base-200 rounded-xl p-3 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
         <div class="fin-field">
             <label for="fin-f-status" class="fin-label">Status do lote</label>
-            <select id="fin-f-status" class="select select-bordered select-sm">
+            <select id="fin-f-status" class="cx-select cx-select-sm">
                 <option value="">Todos</option>
                 <option value="open">Em andamento</option>
                 <option value="paid">Pago</option>
@@ -58,27 +58,27 @@
         </div>
         <div class="fin-field">
             <label for="fin-f-user" class="fin-label">Usuário</label>
-            <select id="fin-f-user" class="select select-bordered select-sm">
+            <select id="fin-f-user" class="cx-select cx-select-sm">
                 <option value="">Todos</option>
             </select>
         </div>
         <div class="fin-field">
             <label for="fin-f-from" class="fin-label">De</label>
-            <input type="date" id="fin-f-from" class="input input-bordered input-sm w-full cursor-pointer" />
+            <input type="date" id="fin-f-from" class="cx-input cx-input-sm w-full cursor-pointer" />
         </div>
         <div class="fin-field">
             <label for="fin-f-to" class="fin-label">Até</label>
-            <input type="date" id="fin-f-to" class="input input-bordered input-sm w-full cursor-pointer" />
+            <input type="date" id="fin-f-to" class="cx-input cx-input-sm w-full cursor-pointer" />
         </div>
         <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end">
-            <button type="button" class="btn btn-sm btn-ghost" id="fin-f-clear">Limpar</button>
-            <button type="button" class="btn btn-sm btn-primary" id="fin-f-apply">Aplicar</button>
+            <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" id="fin-f-clear">Limpar</button>
+            <button type="button" class="cx-btn cx-btn-sm cx-btn-primary" id="fin-f-apply">Aplicar</button>
         </div>
     </div>
 
     <!-- Tabela de lotes -->
-    <div class="bg-base-100 border border-base-200 rounded-xl shadow-sm overflow-x-auto">
-        <table class="table table-sm">
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
+        <table class="cx-table cx-table-dense">
             <thead>
                 <tr>
                     <th class="w-8"></th>
@@ -99,45 +99,45 @@
 </div>
 
 <!-- Modal reprovação -->
-<dialog id="fin-adm-reject-modal" class="modal">
-  <div class="modal-box max-w-md">
+<dialog id="fin-adm-reject-modal" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md">
     <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+      <button class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
     </form>
     <h3 class="font-bold text-base mb-1">Reprovar despesa</h3>
     <p class="text-xs opacity-60 mb-3">Informe o motivo para o colaborador corrigir e reenviar.</p>
     <input type="hidden" id="fin-adm-reject-id" />
     <div class="fin-field mb-4">
       <label for="fin-adm-reject-reason" class="fin-label">Motivo *</label>
-      <textarea id="fin-adm-reject-reason" class="textarea textarea-bordered textarea-sm w-full" rows="3" placeholder="Ex.: comprovante ilegível, valor divergente…"></textarea>
+      <textarea id="fin-adm-reject-reason" class="cx-textarea cx-textarea-sm w-full" rows="3" placeholder="Ex.: comprovante ilegível, valor divergente…"></textarea>
     </div>
-    <div class="modal-action">
-      <button type="button" class="btn btn-sm btn-ghost" id="fin-adm-reject-cancel">Cancelar</button>
-      <button type="button" class="btn btn-sm btn-error" id="fin-adm-reject-confirm">Reprovar</button>
+    <div class="cx-modal-actions">
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" id="fin-adm-reject-cancel">Cancelar</button>
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-danger" id="fin-adm-reject-confirm">Reprovar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>fechar</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>fechar</button></form>
 </dialog>
 
 <!-- Modal marcar pago -->
-<dialog id="fin-adm-paid-modal" class="modal">
-  <div class="modal-box max-w-md">
+<dialog id="fin-adm-paid-modal" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md">
     <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+      <button class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
     </form>
     <h3 class="font-bold text-base mb-1">Marcar lote como pago</h3>
     <p class="text-xs opacity-60 mb-3" id="fin-adm-paid-hint">Informe a data de pagamento para concluir o lote.</p>
     <input type="hidden" id="fin-adm-paid-id" />
     <div class="fin-field mb-4">
       <label for="fin-adm-paid-date" class="fin-label">Data de pagamento *</label>
-      <input type="date" id="fin-adm-paid-date" class="input input-bordered input-sm w-full cursor-pointer" required />
+      <input type="date" id="fin-adm-paid-date" class="cx-input cx-input-sm w-full cursor-pointer" required />
     </div>
-    <div class="modal-action">
-      <button type="button" class="btn btn-sm btn-ghost" id="fin-adm-paid-cancel">Cancelar</button>
-      <button type="button" class="btn btn-sm btn-success" id="fin-adm-paid-confirm">Confirmar pagamento</button>
+    <div class="cx-modal-actions">
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" id="fin-adm-paid-cancel">Cancelar</button>
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-success" id="fin-adm-paid-confirm">Confirmar pagamento</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>fechar</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>fechar</button></form>
 </dialog>
 {% endblock %}
 

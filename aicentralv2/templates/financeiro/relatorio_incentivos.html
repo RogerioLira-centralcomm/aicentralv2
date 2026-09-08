@@ -57,10 +57,10 @@
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
           <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
+ {%- if category == 'success' %} bg-green-100 text-green-800
+ {%- elif category == 'error' %} bg-red-100 text-red-800
+ {%- else %} bg-gray-100 text-gray-800
+ {%- endif %}">
             {{ message }}
           </div>
         {% endfor %}
@@ -172,8 +172,8 @@
 {% endblock %}
 
 {% block scripts %}
-<dialog id="modal_pis_incentivo" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg max-h-[90vh] overflow-hidden flex flex-col">
+<dialog id="modal_pis_incentivo" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md w-11/12 max-w-2xl bg-white p-0 rounded-lg max-h-[90vh] overflow-hidden flex flex-col">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50 shrink-0">
       <div>
         <h3 class="font-semibold text-base text-gray-800" id="modal_pis_titulo">PIs do cadastro incentivado</h3>
@@ -232,7 +232,7 @@
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
 </dialog>
 
 <script>

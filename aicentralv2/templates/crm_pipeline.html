@@ -225,8 +225,8 @@
 </div>
 
 <!-- Modal Detalhes Cotação -->
-<dialog id="modal_cotacao" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg">
+<dialog id="modal_cotacao" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-xl w-11/12 max-w-5xl bg-white p-0 rounded-lg">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
       <div class="flex items-center gap-4">
@@ -507,7 +507,7 @@
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50">
+  <form method="dialog" class="cx-modal-dismiss bg-black/50">
     <button>close</button>
   </form>
 </dialog>
@@ -678,7 +678,7 @@ let cotacaoAtualData = null;
 let acaoPendente = null;
 let pipelineDrawerId = null;
 const pipelineModalSource = document.getElementById('modal_cotacao');
-const pipelineDrawerTemplate = pipelineModalSource.querySelector('.modal-box').cloneNode(true);
+const pipelineDrawerTemplate = pipelineModalSource.querySelector('.cx-modal-panel').cloneNode(true);
 pipelineModalSource.remove();
 
 function garantirDrawerDetalhe() {

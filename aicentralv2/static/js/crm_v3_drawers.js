@@ -278,7 +278,7 @@
         // (só na primeira abertura do drawer). Assim o usuário vê algo
         // imediatamente sem parecer que o drawer travou.
         var loading = document.createElement('div');
-        loading.className = 'text-xs text-base-content/60 py-1';
+        loading.className = 'text-xs text-slate-500 py-1';
         loading.textContent = 'Carregando agências…';
         container.appendChild(loading);
 
@@ -313,11 +313,11 @@
         var row = document.createElement('div');
         row.className = 'crm-v3-agencia-row';
         row.innerHTML = (
-            '<select class="select select-bordered select-sm crm-v3-agencia-select">' + opts.join('') + '</select>' +
+            '<select class="cx-select cx-select-sm crm-v3-agencia-select">' + opts.join('') + '</select>' +
             '<label class="crm-v3-agencia-principal">' +
-            '<input type="radio" name="cx-drawer-cliente-principal" class="radio radio-xs" ' + (isPrincipal ? 'checked' : '') + ' />' +
+            '<input type="radio" name="cx-drawer-cliente-principal" class="cx-radio cx-radio-sm" ' + (isPrincipal ? 'checked' : '') + ' />' +
             '<span>Principal</span></label>' +
-            '<button type="button" class="btn btn-ghost btn-xs btn-square crm-v3-agencia-remove"><i class="fa-solid fa-xmark"></i></button>'
+            '<button type="button" class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon crm-v3-agencia-remove"><i class="fa-solid fa-xmark"></i></button>'
         );
         container.appendChild(row);
         row.querySelector('.crm-v3-agencia-remove').addEventListener('click', function () {

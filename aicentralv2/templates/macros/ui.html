@@ -1,17 +1,17 @@
 {% macro badge(status, label) %}
 {% set variant = {
-  'hoje': 'badge-success', 'success': 'badge-success',
-  'atrasado': 'badge-warning', 'warning': 'badge-warning',
-  'amanha': 'badge-warning', 'info': 'badge-info',
+  'hoje': 'cx-badge-success', 'success': 'cx-badge-success',
+  'atrasado': 'cx-badge-warning', 'warning': 'cx-badge-warning',
+  'amanha': 'cx-badge-warning', 'info': 'badge-info',
   'seguindo': 'badge-info',
   'sem-atividade': 'badge-ghost', 'sem_atividade': 'badge-ghost', 'muted': 'badge-ghost',
-  'danger': 'badge-error', 'error': 'badge-error',
-  'rascunho': 'badge-ghost', 'enviada': 'badge-info', 'aprovada': 'badge-success',
-  'rejeitada': 'badge-error', 'expirada': 'badge-warning', 'em-acompanhamento': 'badge-info',
-  'concluido': 'badge-success', 'concluida': 'badge-success',
-  'alta': 'badge-error', 'media': 'badge-warning', 'baixa': 'badge-ghost'
+  'danger': 'cx-badge-danger', 'error': 'cx-badge-danger',
+  'rascunho': 'badge-ghost', 'enviada': 'badge-info', 'aprovada': 'cx-badge-success',
+  'rejeitada': 'cx-badge-danger', 'expirada': 'cx-badge-warning', 'em-acompanhamento': 'badge-info',
+  'concluido': 'cx-badge-success', 'concluida': 'cx-badge-success',
+  'alta': 'cx-badge-danger', 'media': 'cx-badge-warning', 'baixa': 'badge-ghost'
 } %}
-<span class="badge badge-sm {{ variant.get((status or '')|lower, 'badge-neutral') }}">{{ label or '—' }}</span>
+<span class="cx-badge {{ variant.get((status or '')|lower, 'badge-neutral') }}">{{ label or '—' }}</span>
 {% endmacro %}
 
 {% macro avatar(nome, size='w-8 h-8', tone=None) %}
@@ -27,8 +27,8 @@
   {% set hash_sum.v = hash_sum.v + ch|length %}
 {% endfor %}
 {% set resolved_tone = tone or ('primary' if hash_sum.v % 2 == 0 else 'muted') %}
-<div class="avatar placeholder">
-  <div class="rounded-full {{ size }} {{ 'bg-primary text-primary-content' if resolved_tone == 'primary' else 'bg-neutral text-neutral-content' }}">
+<div class="cx-avatar">
+  <div class="rounded-full {{ size }} {{ 'bg-primary text-white' if resolved_tone == 'primary' else 'bg-neutral text-neutral-content' }}">
     <span class="text-xs font-semibold">{{ iniciais }}</span>
   </div>
 </div>

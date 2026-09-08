@@ -241,13 +241,13 @@
 
     function badgeDaisy(type) {
         var map = {
-            success: 'badge-success', hoje: 'badge-success',
-            aprovada: 'badge-success',
-            warning: 'badge-warning', atrasado: 'badge-warning', amanha: 'badge-warning', media: 'badge-warning',
-            expirada: 'badge-warning',
-            info: 'badge-info', enviada: 'badge-info', seguindo: 'badge-info', 'em acompanhamento': 'badge-info',
-            danger: 'badge-error', error: 'badge-error', alta: 'badge-error', rejeitada: 'badge-error',
-            muted: 'badge-ghost', 'sem-atividade': 'badge-ghost', baixa: 'badge-ghost', rascunho: 'badge-ghost'
+            success: 'cx-badge-success', hoje: 'cx-badge-success',
+            aprovada: 'cx-badge-success',
+            warning: 'cx-badge-warning', atrasado: 'cx-badge-warning', amanha: 'cx-badge-warning', media: 'cx-badge-warning',
+            expirada: 'cx-badge-warning',
+            info: 'cx-badge-info', enviada: 'cx-badge-info', seguindo: 'cx-badge-info', 'em acompanhamento': 'cx-badge-info',
+            danger: 'cx-badge-danger', error: 'cx-badge-danger', alta: 'cx-badge-danger', rejeitada: 'cx-badge-danger',
+            muted: 'cx-badge-muted', 'sem-atividade': 'cx-badge-muted', baixa: 'cx-badge-muted', rascunho: 'cx-badge-muted'
         };
         return 'badge badge-sm ' + (map[(type || '').toLowerCase()] || 'badge-neutral');
     }
@@ -601,7 +601,7 @@
                 'src="' + escapeHtml(srcPrincipal) + '" />';
         }
         return (
-            '<div class="avatar placeholder crm-v3-card-avatar">' +
+            '<div class="cx-avatar crm-v3-card-avatar">' +
             '<div class="rounded-full ' + sizeClass + ' ' + bg + ' crm-v3-card-avatar-inner">' +
             '<span class="text-xs font-semibold">' + escapeHtml(ini) + '</span>' +
             imgHtml +

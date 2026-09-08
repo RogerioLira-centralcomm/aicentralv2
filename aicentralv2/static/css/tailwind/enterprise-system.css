@@ -2912,6 +2912,67 @@ dialog.cx-modal-shell::backdrop {
   background: #f8fafc;
 }
 
+.cx-dropdown {
+  position: relative;
+}
+.cx-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  display: none;
+  min-width: 14rem;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-lg);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-shadow-md);
+  padding: 0.5rem;
+}
+.cx-dropdown:focus-within .cx-dropdown-menu,
+.cx-dropdown.is-open .cx-dropdown-menu {
+  display: block;
+}
+.cx-menu {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cx-menu > li > a,
+.cx-menu > li > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--cx-radius-md);
+  padding: 0.5rem 0.625rem;
+  color: var(--cx-text);
+  text-align: left;
+}
+.cx-menu > li > a:hover,
+.cx-menu > li > button:hover {
+  background: var(--cx-surface-muted);
+}
+.cx-menu-title {
+  padding: 0.375rem 0.625rem;
+  color: var(--cx-text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+.cx-avatar {
+  display: inline-grid;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--cx-brand-soft);
+  color: var(--cx-brand);
+}
+.cx-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .cx-steps {
   display: flex;
   gap: 0.5rem;

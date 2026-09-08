@@ -8286,7 +8286,7 @@ async function carregarComentarios() {
         container.innerHTML = result.comentarios.map(c => `
           <div class="cx-card bg-gray-100 p-3">
             <div class="flex items-start gap-3">
-              <div class="avatar placeholder">
+              <div class="cx-avatar">
                 <div class="bg-neutral text-neutral-content rounded-full w-10">
                   <span class="text-sm">${(c.usuario_nome || 'U').substring(0,2).toUpperCase()}</span>
                 </div>

@@ -11,6 +11,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = [
     *sorted((ROOT / "aicentralv2/templates").glob("cadu_audiencias*.html")),
+    *sorted((ROOT / "aicentralv2/templates/crm_v3").glob("*.html")),
+    ROOT / "aicentralv2/templates/briefing_list.html",
+    ROOT / "aicentralv2/templates/briefing_form.html",
+    ROOT / "aicentralv2/templates/crm_pipeline.html",
+    ROOT / "aicentralv2/templates/cadu_cotacoes.html",
+    ROOT / "aicentralv2/templates/cadu_cotacoes_form.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes_legado.html",
     ROOT / "aicentralv2/templates/cadu_pi.html",
@@ -19,12 +25,14 @@ FILES = [
     ROOT / "aicentralv2/templates/cadu_leads.html",
     ROOT / "aicentralv2/templates/clientes.html",
     ROOT / "aicentralv2/templates/modal_busca_cliente.html",
-    ROOT / "aicentralv2/templates/crm_v3/_modals.html",
+    ROOT / "aicentralv2/templates/crm_v3.html",
+    ROOT / "aicentralv2/templates/macros/ui.html",
     ROOT / "aicentralv2/templates/financeiro/meus_reembolsos.html",
     ROOT / "aicentralv2/templates/financeiro/gestao.html",
     ROOT / "aicentralv2/templates/financeiro/relatorio_incentivos.html",
     ROOT / "aicentralv2/static/js/leads.js",
     ROOT / "aicentralv2/static/js/crm_v3.js",
+    ROOT / "aicentralv2/static/js/crm_v3_drawers.js",
     ROOT / "aicentralv2/static/js/cadu_pi_list.js",
     ROOT / "aicentralv2/static/js/cadu_pi_operacao.js",
     ROOT / "aicentralv2/static/js/cotacao_detalhes.js",
@@ -49,6 +57,7 @@ FORBIDDEN = re.compile(
     r"steps?|step(?:-(?:primary|success|warning|error|info))?|table(?:-(?:xs|sm|md|lg|zebra|pin-rows|pin-cols))?|"
     r"progress(?:-(?:primary|success|warning|error|info))?|join(?:-(?:item|vertical|horizontal))?|"
     r"dropdown(?:-(?:content|end|top|bottom|left|right|hover|open))?|toast(?:-(?:top|bottom|start|center|end|middle))?"
+    r"|avatar|placeholder|menu(?:-(?:title|horizontal|vertical|compact))?"
     r")$"
 )
 

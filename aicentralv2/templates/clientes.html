@@ -10,7 +10,7 @@
   .badge-cat-a { background-color: #10b981; color: white; }
   .badge-cat-b { background-color: #6b7280; color: white; }
   .badge-cat-c { background-color: #9ca3af; color: white; }
-  
+
   /* Tab styles */
   .tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
   .modal-tab-content.hidden { display: none; }
@@ -93,14 +93,14 @@
       <!-- Título -->
       <div class="flex items-center gap-2">
         <h1 class="text-sm font-semibold text-gray-800">Clientes</h1>
-        {% if total %}<span class="text-[9px] text-gray-500">({{ total }})</span>{% endif %}
+        {% if total %}<span class="text-xs text-gray-500">({{ total }})</span>{% endif %}
       </div>
-      
+
       <!-- Filtros Inline -->
       <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-2">
         <!-- Executivo -->
-        <select name="executivo_id" onchange="salvarFiltrosClientes(); this.form.submit()" 
-                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px; max-width: 240px;">
+        <select name="executivo_id" onchange="salvarFiltrosClientes(); this.form.submit()"
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px; max-width: 240px;">
           <option value="">Todos executivos</option>
           {% for vendedor in vendedores_cc %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
@@ -108,79 +108,79 @@
             </option>
           {% endfor %}
         </select>
-        
+
         <!-- Busca -->
         <input type="text" name="search" value="{{ filtros.get('search', '') }}" placeholder="Buscar cliente..."
                onkeydown="if(event.key==='Enter'){salvarFiltrosClientes(); this.form.submit();}"
-               class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
-        
+               class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
+
         <!-- Hidden fields para manter filtros -->
         <input type="hidden" name="status" id="status_filter" value="{{ request.args.get('status', 'ativo') }}">
         <input type="hidden" name="categoria" id="categoria_filter" value="{{ request.args.get('categoria', '') }}">
         <input type="hidden" name="agencia" id="agencia_filter" value="{{ request.args.get('agencia', 'nao') }}">
-        
+
         <!-- Status Icons -->
         <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
-          <button type="button" onclick="filtrarStatus('ativo')" 
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarStatus('ativo')"
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}"
                   title="Ativos">
-            <i class="fa-solid fa-circle-check text-[10px] text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-circle-check text-xs text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
           </button>
-          <button type="button" onclick="filtrarStatus('inativo')" 
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarStatus('inativo')"
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}"
                   title="Inativos">
-            <i class="fa-solid fa-circle-xmark text-[10px] text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-circle-xmark text-xs text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
           </button>
-          <button type="button" onclick="filtrarStatus('todos')" 
-                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarStatus('todos')"
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}"
                   title="Todos">
-            <i class="fa-solid fa-list text-[10px] text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-list text-xs text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
           </button>
         </div>
-        
+
         <!-- Categoria ABC -->
         <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
-          <button type="button" onclick="filtrarCategoria('')" 
-                  class="px-1.5 py-0.5 text-[9px] rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}" 
+          <button type="button" onclick="filtrarCategoria('')"
+                  class="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}"
                   title="Todas categorias">∀</button>
-          <button type="button" onclick="filtrarCategoria('A')" 
-                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+          <button type="button" onclick="filtrarCategoria('A')"
+                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
                   title="Categoria A">A</button>
-          <button type="button" onclick="filtrarCategoria('B')" 
-                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+          <button type="button" onclick="filtrarCategoria('B')"
+                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
                   title="Categoria B">B</button>
-          <button type="button" onclick="filtrarCategoria('C')" 
-                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+          <button type="button" onclick="filtrarCategoria('C')"
+                  class="px-1.5 py-0.5 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
                   title="Categoria C">C</button>
         </div>
-        
+
         <!-- Agência toggle: Clientes / Agências / Todos -->
         <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
           {% set agencia_val = request.args.get('agencia', 'nao') %}
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='nao') }}"
-             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
              title="Clientes">
-            <i class="fa-solid fa-user text-[9px]"></i>
+            <i class="fa-solid fa-user text-xs"></i>
           </a>
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='sim') }}"
-             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
              title="Agências">
-            <i class="fa-solid fa-building text-[9px]"></i>
+            <i class="fa-solid fa-building text-xs"></i>
           </a>
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='todos') }}"
-             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-xs rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}"
              title="Todos">
-            <i class="fa-solid fa-list text-[9px]"></i>
+            <i class="fa-solid fa-list text-xs"></i>
           </a>
         </div>
       </form>
-      
+
       <!-- Botões -->
       <div class="flex gap-1.5">
-        <button onclick="recategorizarABC()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
+        <button onclick="recategorizarABC()" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
           <i class="fas fa-tags mr-1"></i>ABC
         </button>
-        <button onclick="abrirModalNovo()" class="px-2 py-1 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+        <button onclick="abrirModalNovo()" class="px-2 py-1 text-xs bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
           <i class="fas fa-plus mr-1"></i>Novo
         </button>
       </div>
@@ -206,14 +206,14 @@
         <table class="cx-table cx-table-dense clientes-table" id="tabela_clientes">
           <thead class="bg-gray-100">
             <tr>
-              <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Nome</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Tipo</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-16">Cotações</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Aprovação</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-16">Briefings</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Aceite</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-14">Usuários</th>
-              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-12">Cat.</th>
+              <th class="text-left py-1.5 px-2 text-xs font-medium text-gray-600 uppercase">Nome</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Tipo</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-16">Cotações</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Aprovação</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-16">Briefings</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-20">Aceite</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-14">Usuários</th>
+              <th class="text-center py-1.5 px-1.5 text-xs font-medium text-gray-600 uppercase w-12">Cat.</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -221,39 +221,39 @@
             <tr class="hover:bg-gray-50 transition-colors">
               <td class="py-1.5 px-2">
                 <div>
-                  <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
-                     class="font-medium text-[10px] text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
+                  <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;"
+                     class="font-medium text-xs text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
                 {% if cliente.razao_social %}
-                <div class="text-[9px] text-gray-400">{{ cliente.razao_social }}</div>
+                <div class="text-xs text-gray-400">{{ cliente.razao_social }}</div>
                 {% endif %}
                 {% if not filtros.get('executivo_id') and cliente.executivo_nome %}
-                <div class="text-[9px] text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
+                <div class="text-xs text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
                 {% endif %}
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="text-[9px] text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
+                <span class="text-xs text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="font-medium text-[10px] text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
+                <span class="font-medium text-xs text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="text-[10px] {% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+                <span class="text-xs {% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.cotacoes_aprovadas_mes or 0 }}/{{ cliente.cotacoes_mes or 0 }}
                 </span>
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="font-medium text-[10px] text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
+                <span class="font-medium text-xs text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="text-[10px] {% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+                <span class="text-xs {% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.briefings_aceitos_mes or 0 }}/{{ cliente.briefings_mes or 0 }}
                 </span>
               </td>
               <td class="text-center py-1.5 px-1.5">
-                <span class="text-[8px] px-1.5 py-0 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
+                <span class="text-xs px-1.5 py-0 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
               </td>
               <td class="text-center py-1.5 px-1.5">
                 {% set cat = cliente.categoria_abc or 'C' %}
@@ -266,33 +266,33 @@
           </tbody>
         </table>
       </div>
-      
+
       <!-- Paginação -->
       {% if pages > 1 %}
       <div class="flex justify-center items-center gap-1.5 p-2 border-t border-gray-200">
         {% if page > 1 %}
-          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">
+          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-left"></i>
           </a>
         {% endif %}
-        
+
         {% for p in range(1, pages + 1) %}
           {% if p == page %}
-            <span class="px-2 py-0.5 text-[10px] bg-gray-800 text-white rounded">{{ p }}</span>
+            <span class="px-2 py-0.5 text-xs bg-gray-800 text-white rounded">{{ p }}</span>
           {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
+            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
           {% elif p == page - 3 or p == page + 3 %}
-            <span class="px-1.5 text-[10px] text-gray-400">...</span>
+            <span class="px-1.5 text-xs text-gray-400">...</span>
           {% endif %}
         {% endfor %}
-        
+
         {% if page < pages %}
-          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">
+          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-right"></i>
           </a>
         {% endif %}
-        
-        <span class="text-[9px] text-gray-500 ml-3">
+
+        <span class="text-xs text-gray-500 ml-3">
           Página {{ page }} de {{ pages }}
         </span>
       </div>
@@ -300,8 +300,8 @@
     {% else %}
       <div class="text-center py-8">
         <i class="fas fa-users text-3xl text-gray-300 mb-3"></i>
-        <p class="text-[10px] text-gray-500 mb-3">Nenhum cliente encontrado.</p>
-        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700">
+        <p class="text-xs text-gray-500 mb-3">Nenhum cliente encontrado.</p>
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
           <i class="fas fa-plus mr-1"></i>Cadastrar Cliente
         </button>
       </div>
@@ -361,21 +361,21 @@
     rp.set('_restored', '1');
     window.location.href = '{{ url_for("clientes") }}?' + rp.toString();
   })();
-  
+
   // Recategorizar ABC
   async function recategorizarABC() {
     if (!confirm('Deseja recategorizar todos os clientes conforme regras ABC?\n\nA: aprovações >= R$200k/mês\nB: ativo, < R$200k\nC: sem briefings/cotações')) {
       return;
     }
-    
+
     try {
       const response = await fetch('/admin/clientes/recategorizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         showToast(data.message, 'success');
         location.reload();
@@ -395,94 +395,94 @@
     <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-xs text-gray-800" id="modal_title">Novo Cliente</h3>
       <button onclick="modal_cliente.close()" class="p-1 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-[9px] text-gray-500"></i>
+        <i class="fa-solid fa-xmark text-xs text-gray-500"></i>
       </button>
     </div>
-    
+
     <!-- Tabs -->
     <div id="tabs_container" class="flex border-b border-gray-200 px-2 bg-gray-50" style="display:none;">
-      <button class="px-2 py-1 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
+      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
         <i class="fas fa-edit mr-0.5"></i>Editar
       </button>
-      <button class="px-2 py-1 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
+      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
         <i class="fas fa-info-circle mr-0.5"></i>Detalhes
       </button>
-      <button class="px-2 py-1 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
+      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
         <i class="fas fa-address-book mr-0.5"></i>Contatos
       </button>
-      <button class="px-2 py-1 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
+      <button class="px-2 py-1 text-xs font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
         <i class="fas fa-file-contract mr-0.5"></i>Assinaturas
       </button>
     </div>
-    
+
     <!-- Conteúdo -->
     <div class="p-3 modal-cliente-body">
       <!-- Conteúdo Editar -->
       <form id="form_cliente" method="post" class="modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
-        
+
         <!-- Linha 1: Pessoa + CNPJ + Nome -->
         <div class="grid grid-cols-6 gap-1.5 mb-1.5">
           <div id="status_toggle_container" class="cx-field col-span-1" style="display:none;">
-            <label class="text-[9px] font-medium text-gray-500">Status</label>
+            <label class="text-xs font-medium text-gray-500">Status</label>
             <div class="flex">
-              <label id="label_status_ativo" class="status-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-[9px] font-medium border-green-500 bg-green-50 text-green-700" onclick="toggleStatusField(true)">
+              <label id="label_status_ativo" class="status-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-xs font-medium border-green-500 bg-green-50 text-green-700" onclick="toggleStatusField(true)">
                 <input type="radio" name="status" value="1" class="hidden" checked><span>On</span>
               </label>
-              <label id="label_status_inativo" class="status-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-r text-[9px] font-medium border-gray-300 bg-white text-gray-400" onclick="toggleStatusField(false)">
+              <label id="label_status_inativo" class="status-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-r text-xs font-medium border-gray-300 bg-white text-gray-400" onclick="toggleStatusField(false)">
                 <input type="radio" name="status" value="0" class="hidden"><span>Off</span>
               </label>
             </div>
           </div>
           <div class="cx-field col-span-1">
-            <label class="text-[9px] font-medium text-gray-500">Pessoa*</label>
+            <label class="text-xs font-medium text-gray-500">Pessoa*</label>
             <div class="flex pessoa-toggle-group">
-              <label id="label_pessoa_j" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-[9px] font-medium border-green-500 bg-green-50 text-green-700">
+              <label id="label_pessoa_j" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-xs font-medium border-green-500 bg-green-50 text-green-700">
                 <input type="radio" name="pessoa" value="J" class="hidden" required checked><span>PJ</span>
               </label>
-              <label id="label_pessoa_f" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-r text-[9px] font-medium border-gray-300 bg-white text-gray-400">
+              <label id="label_pessoa_f" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-r text-xs font-medium border-gray-300 bg-white text-gray-400">
                 <input type="radio" name="pessoa" value="F" class="hidden" required><span>PF</span>
               </label>
             </div>
           </div>
           <div class="cx-field col-span-2">
-            <label id="label_cnpj" class="text-[9px] font-medium text-gray-500">CNPJ</label>
-            <input id="input_cnpj" name="cnpj" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00.000.000/0000-00" oninput="mascaraCnpjCpf(this)" maxlength="18">
-            <span id="cnpjcpf_msg" class="text-red-500 text-[8px]"></span>
+            <label id="label_cnpj" class="text-xs font-medium text-gray-500">CNPJ</label>
+            <input id="input_cnpj" name="cnpj" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00.000.000/0000-00" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <span id="cnpjcpf_msg" class="text-red-500 text-xs"></span>
           </div>
           <div class="cx-field col-span-3">
-            <label id="label_nome_fantasia" class="text-[9px] font-medium text-gray-500">Nome Fantasia*</label>
-            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia" onblur="verificarExistenciaNome()">
-            <span id="nome_msg" class="text-red-500 text-[8px]"></span>
+            <label id="label_nome_fantasia" class="text-xs font-medium text-gray-500">Nome Fantasia*</label>
+            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia" onblur="verificarExistenciaNome()">
+            <span id="nome_msg" class="text-red-500 text-xs"></span>
           </div>
         </div>
 
         <!-- Linha 2: Razão Social -->
         <div id="razao_social_fields" class="mb-1.5">
-          <label class="text-[9px] font-medium text-gray-500">Razão Social*</label>
-          <input id="input_razao_social" name="razao_social" required class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social completa">
+          <label class="text-xs font-medium text-gray-500">Razão Social*</label>
+          <input id="input_razao_social" name="razao_social" required class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social completa">
         </div>
 
         <!-- Linha 3: Tipo + Classificação + Executivo -->
         <div class="grid grid-cols-3 gap-1.5 mb-1.5">
           <div id="tipo_cliente_fields" class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Tipo*</label>
-            <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-xs font-medium text-gray-500">Tipo*</label>
+            <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for tipo in tipos_cliente %}<option value="{{ tipo.id_tipo_cliente }}" data-parceiro="{% if 'parceiro' in (tipo.display or '')|lower %}1{% else %}0{% endif %}">{{ tipo.display }}</option>{% endfor %}
             </select>
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Classificação</label>
-            <select name="classificacao_cliente" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+            <label class="text-xs font-medium text-gray-500">Classificação</label>
+            <select name="classificacao_cliente" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="Prospecção" selected>Prospecção</option>
               <option value="Ativo">Ativo</option>
               <option value="Geladeira">Geladeira</option>
             </select>
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Executivo*</label>
-            <select name="vendas_central_comm" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-xs font-medium text-gray-500">Executivo*</label>
+            <select name="vendas_central_comm" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for vendedor in vendedores_cc %}<option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>{% endfor %}
             </select>
@@ -492,68 +492,68 @@
         <!-- Linha 4: Agência + BV + Margem + IE + IM -->
         <div class="grid grid-cols-5 gap-1.5 mb-1.5">
           <div id="agencia_fields" class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Perfil agência*</label>
-            <select name="pk_id_tbl_agencia" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-xs font-medium text-gray-500">Perfil agência*</label>
+            <select name="pk_id_tbl_agencia" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for agencia in agencias %}<option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>{% endfor %}
             </select>
           </div>
           <div id="percentual_fields" class="cx-field">
-            <label id="percentual_label" class="text-[9px] font-medium text-gray-500">BV (%)</label>
-            <input name="percentual" type="text" maxlength="5" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0,00" oninput="mascaraPercentual(this)">
+            <label id="percentual_label" class="text-xs font-medium text-gray-500">BV (%)</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0,00" oninput="mascaraPercentual(this)">
           </div>
           <div id="margem_cc_fields" class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Margem (%)</label>
-            <input name="margem_cc" type="text" inputmode="numeric" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0" oninput="atualizarHintMargemCc()">
-            <span id="margem_cc_hint" class="text-amber-600 text-[8px]"></span>
+            <label class="text-xs font-medium text-gray-500">Margem (%)</label>
+            <input name="margem_cc" type="text" inputmode="numeric" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0" oninput="atualizarHintMargemCc()">
+            <span id="margem_cc_hint" class="text-amber-600 text-xs"></span>
           </div>
           <div id="inscricoes_fields" class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">IE</label>
-            <input name="inscricao_estadual" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Estadual">
+            <label class="text-xs font-medium text-gray-500">IE</label>
+            <input name="inscricao_estadual" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Estadual">
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">IM</label>
-            <input name="inscricao_municipal" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Municipal">
+            <label class="text-xs font-medium text-gray-500">IM</label>
+            <input name="inscricao_municipal" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Municipal">
           </div>
         </div>
 
         <!-- Linha 5: Campos comerciais -->
         <div class="grid grid-cols-4 gap-1.5 mb-1.5">
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Opera mídia?</label>
-            <select name="opera_midia" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+            <label class="text-xs font-medium text-gray-500">Opera mídia?</label>
+            <select name="opera_midia" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Demanda dados?</label>
-            <select name="demanda_dados" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+            <label class="text-xs font-medium text-gray-500">Demanda dados?</label>
+            <select name="demanda_dados" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Programática?</label>
-            <select name="demanda_programatica_canais" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+            <label class="text-xs font-medium text-gray-500">Programática?</label>
+            <select name="demanda_programatica_canais" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
           <div class="cx-field">
-            <label class="text-[9px] font-medium text-gray-500">Observações</label>
-            <input name="observacoes_comerciais_adicionais" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Obs. comerciais">
+            <label class="text-xs font-medium text-gray-500">Observações</label>
+            <input name="observacoes_comerciais_adicionais" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Obs. comerciais">
           </div>
         </div>
 
         <!-- Agências vinculadas (hidden by default) -->
         <div id="agencias_vinculadas_fields" class="hidden mb-1.5">
           <div class="flex flex-wrap gap-1.5 items-center">
-            <span class="text-[9px] font-medium text-gray-500">Agências:</span>
-            <select id="agencias-vinculadas-picker" class="flex-1 min-w-[8rem] px-1.5 py-0.5 text-[10px] border border-gray-300 rounded bg-white">
+            <span class="text-xs font-medium text-gray-500">Agências:</span>
+            <select id="agencias-vinculadas-picker" class="flex-1 min-w-[8rem] px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white">
               <option value="">Adicionar...</option>
             </select>
-            <button type="button" id="btn-agencia-vinculada-add" class="px-1.5 py-0.5 text-[10px] bg-gray-700 text-white rounded hover:bg-gray-600">+</button>
+            <button type="button" id="btn-agencia-vinculada-add" class="px-1.5 py-0.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-600">+</button>
           </div>
           <div id="agencias-vinculadas-lista" class="flex flex-wrap gap-1 mt-1"></div>
           <div id="agencias-vinculadas-hidden"></div>
@@ -563,37 +563,37 @@
         <div class="border-t border-gray-100 pt-1.5">
           <div class="grid grid-cols-6 gap-1.5 mb-1.5">
             <div class="cx-field">
-              <label class="text-[9px] font-medium text-gray-500">CEP</label>
-              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
+              <label class="text-xs font-medium text-gray-500">CEP</label>
+              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
             </div>
             <div class="cx-field">
-              <label class="text-[9px] font-medium text-gray-500">UF</label>
-              <select id="estado" name="pk_id_aux_estado" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <label class="text-xs font-medium text-gray-500">UF</label>
+              <select id="estado" name="pk_id_aux_estado" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">-</option>
                 {% for estado in estados %}<option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>{% endfor %}
               </select>
             </div>
             <div class="cx-field col-span-2">
-              <label class="text-[9px] font-medium text-gray-500">Cidade</label>
-              <input id="cidade" name="cidade" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+              <label class="text-xs font-medium text-gray-500">Cidade</label>
+              <input id="cidade" name="cidade" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
             <div class="cx-field col-span-2">
-              <label class="text-[9px] font-medium text-gray-500">Bairro</label>
-              <input id="bairro" name="bairro" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+              <label class="text-xs font-medium text-gray-500">Bairro</label>
+              <input id="bairro" name="bairro" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
           </div>
           <div class="grid grid-cols-6 gap-1.5">
             <div class="cx-field col-span-3">
-              <label class="text-[9px] font-medium text-gray-500">Logradouro</label>
-              <input id="logradouro" name="logradouro" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+              <label class="text-xs font-medium text-gray-500">Logradouro</label>
+              <input id="logradouro" name="logradouro" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
             <div class="cx-field">
-              <label class="text-[9px] font-medium text-gray-500">Nº</label>
-              <input id="numero" name="numero" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+              <label class="text-xs font-medium text-gray-500">Nº</label>
+              <input id="numero" name="numero" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
             <div class="cx-field col-span-2">
-              <label class="text-[9px] font-medium text-gray-500">Complemento</label>
-              <input id="complemento" name="complemento" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+              <label class="text-xs font-medium text-gray-500">Complemento</label>
+              <input id="complemento" name="complemento" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
           </div>
         </div>
@@ -603,78 +603,78 @@
 
         <!-- Botões do Form -->
         <div class="flex justify-between pt-1.5 border-t border-gray-200 mt-1.5">
-          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="px-2 py-0.5 text-[10px] bg-red-600 text-white rounded hover:bg-red-700">
+          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700">
             <i class="fas fa-trash-alt mr-0.5"></i>Excluir
           </button>
           <div class="flex gap-2 ml-auto">
-            <button type="button" onclick="modal_cliente.close()" class="px-2 py-0.5 text-[10px] text-gray-600 hover:text-gray-800">Cancelar</button>
-            <button type="submit" class="px-2 py-0.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700">
+            <button type="button" onclick="modal_cliente.close()" class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800">Cancelar</button>
+            <button type="submit" class="px-2 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
               <i class="fas fa-save mr-0.5"></i><span id="btn_submit_text">Cadastrar</span>
             </button>
           </div>
         </div>
       </form>
-      
+
       <!-- Conteúdo Detalhes -->
       <div id="detalhes_aba_content" class="modal-tab-content hidden" data-tab="detalhes">
         <div class="bg-gray-50 rounded p-2 mb-1.5">
-          <h4 class="text-[9px] font-medium text-gray-600 mb-1.5 flex items-center">
+          <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
             <i class="fas fa-info-circle mr-0.5"></i>Informações Principais
           </h4>
-          <div id="info_principais_aba" class="grid grid-cols-2 gap-1.5 text-[10px]">
+          <div id="info_principais_aba" class="grid grid-cols-2 gap-1.5 text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
 
         <div id="endereco_section_aba" class="bg-gray-50 rounded p-2 mb-1.5" style="display:none;">
-          <h4 class="text-[9px] font-medium text-gray-600 mb-1.5 flex items-center">
+          <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
             <i class="fas fa-map-marker-alt mr-0.5"></i>Endereço
           </h4>
-          <div id="info_endereco_aba" class="grid grid-cols-2 gap-1.5 text-[10px]">
+          <div id="info_endereco_aba" class="grid grid-cols-2 gap-1.5 text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
 
         <div id="agencias_vinculadas_section_aba" class="bg-gray-50 rounded p-2" style="display:none;">
-          <h4 class="text-[9px] font-medium text-gray-600 mb-1.5 flex items-center">
+          <h4 class="text-xs font-medium text-gray-600 mb-1.5 flex items-center">
             <i class="fas fa-building mr-0.5"></i>Agências vinculadas
           </h4>
-          <div id="agencias_vinculadas_lista_aba" class="text-[10px]"></div>
+          <div id="agencias_vinculadas_lista_aba" class="text-xs"></div>
         </div>
       </div>
-      
+
       <!-- Conteúdo Contatos -->
       <div id="contatos_aba_content" class="modal-tab-content hidden" data-tab="contatos">
         <div class="flex justify-between items-center mb-1">
-          <h4 class="text-[9px] font-medium text-gray-700">Contatos Vinculados</h4>
-          <button type="button" onclick="abrirModalNovoContato()" class="px-1.5 py-0.5 text-[9px] bg-gray-800 text-white rounded hover:bg-gray-700">
+          <h4 class="text-xs font-medium text-gray-700">Contatos Vinculados</h4>
+          <button type="button" onclick="abrirModalNovoContato()" class="px-1.5 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
             <i class="fas fa-plus mr-0.5"></i>Novo
           </button>
         </div>
-        
+
         <div class="bg-gray-50 rounded p-1.5">
           <div id="lista_contatos_aba" class="space-y-0.5">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
       </div>
-      
+
       <!-- Conteúdo Contratos -->
       <div id="contratos_aba_content" class="modal-tab-content hidden" data-tab="contratos">
         <div class="flex justify-between items-center mb-1">
-          <h4 class="text-[9px] font-medium text-gray-700">Assinaturas do Cliente</h4>
-          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-1.5 py-0.5 text-[9px] bg-gray-800 text-white rounded hover:bg-gray-700">
+          <h4 class="text-xs font-medium text-gray-700">Assinaturas do Cliente</h4>
+          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-1.5 py-0.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-700">
             <i class="fas fa-gift mr-0.5"></i>Criar Plano Beta
           </button>
         </div>
-        
+
         <div class="bg-gray-50 rounded p-1.5">
-          <div id="lista_contratos_aba" class="text-[10px]">
+          <div id="lista_contratos_aba" class="text-xs">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
       </div>
-      
+
     </div>
   </div>
   <form method="dialog" class="cx-modal-dismiss bg-black/50">
@@ -688,53 +688,53 @@
     <form method="dialog">
       <button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
     </form>
-    
+
     <h3 class="font-bold text-sm mb-3">
       <span id="detalhes_title">Detalhes do Cliente</span>
     </h3>
-    
+
     <div id="detalhes_content" class="space-y-3">
       <!-- Informações Principais -->
-      <div class="bg-base-200/50 rounded-lg p-3">
-        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+      <div class="bg-slate-100/50 rounded-lg p-3">
+        <h4 class="text-xs font-semibold mb-2 flex items-center">
           <i class="fas fa-info-circle mr-1 text-[#1e4d4f]"></i>Informações Principais
         </h4>
-        <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
+        <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
 
       <!-- Endereço -->
-      <div id="endereco_section" class="bg-base-200/50 rounded-lg p-3" style="display:none;">
-        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+      <div id="endereco_section" class="bg-slate-100/50 rounded-lg p-3" style="display:none;">
+        <h4 class="text-xs font-semibold mb-2 flex items-center">
           <i class="fas fa-map-marker-alt mr-1 text-[#1e4d4f]"></i>Endereço
         </h4>
-        <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
+        <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
 
-      <div id="agencias_vinculadas_section" class="bg-base-200/50 rounded-lg p-3" style="display:none;">
-        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+      <div id="agencias_vinculadas_section" class="bg-slate-100/50 rounded-lg p-3" style="display:none;">
+        <h4 class="text-xs font-semibold mb-2 flex items-center">
           <i class="fas fa-building mr-1 text-[#1e4d4f]"></i>Agências vinculadas
         </h4>
-        <div id="agencias_vinculadas_lista" class="text-[10px]"></div>
+        <div id="agencias_vinculadas_lista" class="text-xs"></div>
       </div>
 
       <!-- Contatos Vinculados -->
-      <div class="bg-base-200/50 rounded-lg p-3">
-        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+      <div class="bg-slate-100/50 rounded-lg p-3">
+        <h4 class="text-xs font-semibold mb-2 flex items-center">
           <i class="fas fa-address-book mr-1 text-[#1e4d4f]"></i>Contatos Vinculados
         </h4>
-        <div id="lista_contatos" class="text-[10px]">
+        <div id="lista_contatos" class="text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
     </div>
 
     <div class="cx-modal-actions mt-4">
-      <button type="button" onclick="modal_detalhes.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-[10px]">Fechar</button>
-      <button type="button" onclick="editarClienteDoModal()" class="cx-btn cx-btn-xs bg-gray-800 text-white border-gray-800 hover:bg-gray-700 text-[10px]">
+      <button type="button" onclick="modal_detalhes.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Fechar</button>
+      <button type="button" onclick="editarClienteDoModal()" class="cx-btn cx-btn-xs bg-gray-800 text-white border-gray-800 hover:bg-gray-700 text-xs">
         <i class="fas fa-edit mr-1"></i>Editar Cliente
       </button>
     </div>
@@ -750,59 +750,59 @@
     <form method="dialog">
       <button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
     </form>
-    
+
     <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo Contato</h3>
-    
+
     <form id="form_contato" class="space-y-2" autocomplete="off">
       <input type="hidden" id="contato_id" name="contato_id" value="">
       <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
 
       <!-- Foto do colaborador (apenas na edição) -->
-      <div id="contato_foto_container" class="hidden items-center gap-3 mb-1 pb-2 border-b border-base-200 flex">
+      <div id="contato_foto_container" class="hidden items-center gap-3 mb-1 pb-2 border-b border-slate-200 flex">
         <div id="contato_foto_avatar"></div>
         <div>
-          <label for="contato_foto_input" class="cx-btn cx-btn-ghost cx-btn-xs px-1 h-6 min-h-6 text-[11px] gap-1">
+          <label for="contato_foto_input" class="cx-btn cx-btn-ghost cx-btn-xs px-1 h-6 min-h-6 text-xs gap-1">
             <i class="fas fa-camera"></i>
             <span id="contato_foto_label">Alterar foto</span>
           </label>
           <input id="contato_foto_input" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
-          <span id="contato_foto_msg" class="text-[10px] text-slate-500 ml-1"></span>
+          <span id="contato_foto_msg" class="text-xs text-slate-500 ml-1"></span>
         </div>
       </div>
 
       <!-- Linha 1: Nome, Email, Telefone -->
       <div id="contato_linha1" class="grid grid-cols-12 gap-2">
         <div class="cx-field col-span-6" id="contato_nome_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Nome Completo <span class="text-error">*</span></span></label>
-          <input type="text" id="contato_nome_completo" name="nome_completo" class="cx-input cx-input-xs w-full text-[10px]" required placeholder="Nome completo">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Nome Completo <span class="text-error">*</span></span></label>
+          <input type="text" id="contato_nome_completo" name="nome_completo" class="cx-input cx-input-xs w-full text-xs" required placeholder="Nome completo">
         </div>
         <div class="cx-field col-span-6" id="contato_email_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Email <span class="text-error">*</span></span></label>
-          <input type="email" id="contato_email" name="email" class="cx-input cx-input-xs w-full text-[10px]" required placeholder="email@exemplo.com">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Email <span class="text-error">*</span></span></label>
+          <input type="email" id="contato_email" name="email" class="cx-input cx-input-xs w-full text-xs" required placeholder="email@exemplo.com">
         </div>
         <div class="cx-field col-span-4 hidden" id="contato_telefone_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Telefone</span></label>
-          <input type="text" id="contato_telefone" name="telefone" class="cx-input cx-input-xs w-full text-[10px]" placeholder="+55 (00) 00000-0000" maxlength="20">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Telefone</span></label>
+          <input type="text" id="contato_telefone" name="telefone" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
         </div>
         <div class="cx-field col-span-4 hidden" id="contato_telefone_secundario_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Segundo telefone</span></label>
-          <input type="text" id="contato_telefone_secundario" name="telefone_secundario" class="cx-input cx-input-xs w-full text-[10px]" placeholder="+55 (00) 00000-0000" maxlength="20">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Segundo telefone</span></label>
+          <input type="text" id="contato_telefone_secundario" name="telefone_secundario" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
         </div>
       </div>
 
       {% if session.user_type in ['admin', 'superadmin'] %}
-      <div class="grid grid-cols-12 gap-2 border border-base-200 rounded p-2 bg-base-200/30" id="contato_wasender_container">
+      <div class="grid grid-cols-12 gap-2 border border-slate-200 rounded p-2 bg-slate-100/30" id="contato_wasender_container">
         <div class="cx-field col-span-5">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Wasender API key</span></label>
-          <input type="password" id="contato_wasender_api_key" name="wasender_api_key" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Informe para criar/alterar">
-          <span id="contato_wasender_api_key_mask" class="text-[9px] text-base-content/50 mt-0.5"></span>
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Wasender API key</span></label>
+          <input type="password" id="contato_wasender_api_key" name="wasender_api_key" class="cx-input cx-input-xs w-full text-xs" placeholder="Informe para criar/alterar">
+          <span id="contato_wasender_api_key_mask" class="text-xs text-slate-500 mt-0.5"></span>
         </div>
         <div class="cx-field col-span-5">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Wasender session id</span></label>
-          <input type="text" id="contato_wasender_session_id" name="wasender_session_id" class="cx-input cx-input-xs w-full text-[10px]" placeholder="Opcional">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Wasender session id</span></label>
+          <input type="text" id="contato_wasender_session_id" name="wasender_session_id" class="cx-input cx-input-xs w-full text-xs" placeholder="Opcional">
         </div>
         <label class="cx-field col-span-2 cursor-pointer justify-end">
-          <span class="cx-label text-[10px] font-medium mb-1">Ativo</span>
+          <span class="cx-label text-xs font-medium mb-1">Ativo</span>
           <input type="checkbox" id="contato_wasender_ativo" name="wasender_ativo" class="cx-toggle">
         </label>
       </div>
@@ -811,8 +811,8 @@
       <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
       <div class="grid grid-cols-12 gap-2">
         <div class="cx-field col-span-4">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Setor</span></label>
-          <select id="contato_setor" name="pk_id_aux_setor" class="cx-select cx-select-xs w-full text-[10px]" onchange="carregarCargosPorSetor(this.value)">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Setor</span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="cx-select cx-select-xs w-full text-xs" onchange="carregarCargosPorSetor(this.value)">
             <option value="">Selecione</option>
             {% for setor in setores %}
             <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
@@ -820,8 +820,8 @@
           </select>
         </div>
         <div class="cx-field col-span-4">
-          <label class="cx-label-row py-0"><span class="cx-label text-[10px] font-medium">Cargo</span></label>
-          <select id="contato_cargo" name="pk_id_tbl_cargo" class="cx-select cx-select-xs w-full text-[10px]">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Cargo</span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="cx-select cx-select-xs w-full text-xs">
             <option value="">Selecione setor</option>
           </select>
         </div>
@@ -835,8 +835,8 @@
       <input type="hidden" id="contato_senha" name="senha" value="">
 
       <div class="cx-modal-actions mt-2 pt-2 border-t">
-        <button type="button" onclick="modal_contato.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-[10px]">Cancelar</button>
-        <button type="submit" class="cx-btn text-white cx-btn-xs text-[10px]" style="background-color: #72cd80; border-color: #72cd80;">
+        <button type="button" onclick="modal_contato.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Cancelar</button>
+        <button type="submit" class="cx-btn text-white cx-btn-xs text-xs" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar Contato</span>
         </button>
       </div>
@@ -874,7 +874,7 @@ document.addEventListener('DOMContentLoaded', function() {
     getPessoa: () => document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J',
   });
   agenciasVinculadasCtrl.carregarPicker().then(() => agenciasVinculadasCtrl.popularPicker());
-  
+
   if (formCliente) {
     // Handler para mudança de pessoa (PF/PJ) no modal
     const pessoaRadios = formCliente.querySelectorAll('input[name="pessoa"]');
@@ -894,13 +894,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (selTipoCliente) {
       selTipoCliente.addEventListener('change', atualizarVisibilidadeBv);
     }
-    
+
     // Handler para blur do CNPJ/CPF no modal
     const cnpjInput = document.getElementById('input_cnpj');
     if (cnpjInput) {
       cnpjInput.addEventListener('blur', onCnpjCpfBlur);
     }
-    
+
     // Handler para submit do formulário
     formCliente.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -945,7 +945,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   ${cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia ? `<div class="text-xs text-slate-500">${cliente.razao_social}</div>` : ''}
                 </td>
                 <td>
-                  ${cliente.executivo_nome ? `<span class="text-slate-900">${cliente.executivo_nome}</span>` : `<span class="text-base-content/40 italic">Não atribuído</span>`}
+                  ${cliente.executivo_nome ? `<span class="text-slate-900">${cliente.executivo_nome}</span>` : `<span class="text-slate-400 italic">Não atribuído</span>`}
                 </td>
                 <td class="text-center">${cliente.pessoa}</td>
                 <td class="text-center">
@@ -997,7 +997,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showToast('Erro ao salvar cliente.', 'error');
       }
     });
-    
+
     // Inicializar campos ao abrir modal
     togglePessoaFieldsModal();
   }
@@ -1010,10 +1010,10 @@ function abrirModalNovo() {
   document.getElementById('cliente_id').value = '';
   document.getElementById('btn_submit_text').textContent = 'Cadastrar';
   _ultimoCepBuscado = '';
-  
+
   // Resetar para Pessoa Jurídica
   document.querySelector('input[name="pessoa"][value="J"]').checked = true;
-  
+
   // Limpar mensagens de erro
   document.getElementById('cnpjcpf_msg').innerText = '';
   const inpMargem = document.querySelector('#form_cliente input[name="margem_cc"]');
@@ -1034,12 +1034,12 @@ function abrirModalNovo() {
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
   agenciasVinculadasCtrl?.reset();
-  
+
   // Ocultar status, abas e botão excluir (modo novo)
   document.getElementById('status_toggle_container').style.display = 'none';
   document.getElementById('tabs_container').style.display = 'none';
   document.getElementById('btn_excluir_cliente').style.display = 'none';
-  
+
   // Mostrar apenas o formulário
   document.querySelectorAll('.modal-tab-content').forEach(content => {
     if (content.dataset.tab === 'editar') {
@@ -1050,7 +1050,7 @@ function abrirModalNovo() {
       content.style.display = 'none';
     }
   });
-  
+
   // Pré-selecionar executivo de vendas logado
   const selectVendas = document.querySelector('select[name="vendas_central_comm"]');
   const optionLogado = selectVendas.querySelector(`option[value="${LOGGED_USER_ID}"]`);
@@ -1068,23 +1068,23 @@ async function abrirModalEditar(clienteId) {
     // Buscar dados do cliente
     const response = await fetch(`/api/cliente/${clienteId}`);
     const cliente = await response.json();
-    
+
     // Foto de colaborador só vale para a CentralComm
     window.__clienteEhCentralComm = (cliente.nome_fantasia || '').trim().toUpperCase() === 'CENTRALCOMM';
 
     // Buscar contatos do cliente
     const contatosResponse = await fetch(`/api/cliente/${clienteId}/contatos`);
     const contatos = await contatosResponse.json();
-    
+
     // Preencher o formulário
     document.getElementById('modal_title').textContent = cliente.nome_fantasia || cliente.razao_social;
     document.getElementById('cliente_id').value = clienteId;
     document.getElementById('btn_submit_text').textContent = 'Atualizar';
-    
+
     // Tipo de pessoa
     const pessoaRadio = document.querySelector(`input[name="pessoa"][value="${cliente.pessoa}"]`);
     if (pessoaRadio) pessoaRadio.checked = true;
-    
+
     // Campos básicos
     document.getElementById('select_tipo_cliente').value = cliente.id_tipo_cliente || '';
     document.getElementById('input_cnpj').value = cliente.cnpj || '';
@@ -1100,11 +1100,11 @@ async function abrirModalEditar(clienteId) {
     if (selDemandaProgramatica) selDemandaProgramatica.value = cliente.demanda_programatica_canais ? '1' : '0';
     const obsComerciais = document.querySelector('#form_cliente textarea[name="observacoes_comerciais_adicionais"]');
     if (obsComerciais) obsComerciais.value = cliente.observacoes_comerciais_adicionais || '';
-    
+
     // Inscrições
     document.querySelector('input[name="inscricao_estadual"]').value = cliente.inscricao_estadual || '';
     document.querySelector('input[name="inscricao_municipal"]').value = cliente.inscricao_municipal || '';
-    
+
     // Endereço
     document.getElementById('cep').value = cliente.cep || '';
     document.getElementById('estado').value = cliente.estado || '';
@@ -1113,7 +1113,7 @@ async function abrirModalEditar(clienteId) {
     document.getElementById('logradouro').value = cliente.logradouro || '';
     document.getElementById('numero').value = cliente.numero || '';
     document.getElementById('complemento').value = cliente.complemento || '';
-    
+
     // Informações comerciais
     document.querySelector('select[name="vendas_central_comm"]').value = cliente.vendas_central_comm || '';
     document.querySelector('select[name="pk_id_tbl_agencia"]').value = cliente.pk_id_tbl_agencia || '';
@@ -1126,7 +1126,7 @@ async function abrirModalEditar(clienteId) {
         ? String(parseInt(cliente.margem_cc, 10))
         : '';
     }
-    
+
     // BV (percentual) - formatar com vírgula
     if (cliente.percentual) {
       const percentualFormatado = parseFloat(cliente.percentual).toFixed(2).replace('.', ',');
@@ -1134,7 +1134,7 @@ async function abrirModalEditar(clienteId) {
     } else {
       document.querySelector('input[name="percentual"]').value = '';
     }
-    
+
     // Status do cliente
     document.getElementById('status_toggle_container').style.display = '';
     document.getElementById('btn_excluir_cliente').style.display = '';
@@ -1148,11 +1148,11 @@ async function abrirModalEditar(clienteId) {
 
     // Preencher aba de detalhes
     preencherAbaDetalhes(cliente, contatos);
-    
+
     // Mostrar abas (modo edição)
     document.getElementById('tabs_container').style.display = '';
     trocarAba('editar'); // Começar na aba Editar
-    
+
     // Abrir modal
     modal_cliente.showModal();
   } catch (error) {
@@ -1165,21 +1165,21 @@ async function abrirModalEditar(clienteId) {
 function mascaraPercentual(input) {
   // Remove tudo que não é dígito
   let valor = input.value.replace(/\D/g, '');
-  
+
   // Se vazio, limpa o campo
   if (valor.length === 0) {
     input.value = '';
     return;
   }
-  
+
   // Limita a 4 dígitos (9999 = 99,99)
   if (valor.length > 4) {
     valor = valor.substring(0, 4);
   }
-  
+
   // Converte para número e divide por 100 para ter 2 casas decimais
   const numero = parseInt(valor) / 100;
-  
+
   // Formata com 2 casas decimais e substitui ponto por vírgula
   input.value = numero.toFixed(2).replace('.', ',');
 }
@@ -1197,19 +1197,19 @@ function _selecionarOptionPorTexto(selectEl, texto) {
 
 function togglePessoaFieldsModal() {
   const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
-  
+
   // Atualizar estilos dos toggle buttons
   const labelJ = document.getElementById('label_pessoa_j');
   const labelF = document.getElementById('label_pessoa_f');
   const checkIconJ = labelJ?.querySelector('.pessoa-check-icon');
   const checkIconF = labelF?.querySelector('.pessoa-check-icon');
-  
+
   if (pessoa === 'J') {
     // PJ selecionado
     labelJ?.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
     labelJ?.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
     checkIconJ?.classList.remove('hidden');
-    
+
     labelF?.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
     labelF?.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
     checkIconF?.classList.add('hidden');
@@ -1218,12 +1218,12 @@ function togglePessoaFieldsModal() {
     labelF?.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
     labelF?.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
     checkIconF?.classList.remove('hidden');
-    
+
     labelJ?.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
     labelJ?.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
     checkIconJ?.classList.add('hidden');
   }
-  
+
   // Campos específicos de PJ
   const tipoClienteField = document.getElementById('tipo_cliente_fields');
   const selectTipoCliente = document.getElementById('select_tipo_cliente');
@@ -1231,7 +1231,7 @@ function togglePessoaFieldsModal() {
   const inscricoesFields = document.getElementById('inscricoes_fields');
   const razaoSocialFields = document.getElementById('razao_social_fields');
   const inputRazaoSocial = document.getElementById('input_razao_social');
-  
+
   const selectAgencia = document.querySelector('select[name="pk_id_tbl_agencia"]');
 
   if (pessoa === 'F') {
@@ -1380,30 +1380,30 @@ async function buscarEmpresaPorCNPJ(cnpj) {
     document.getElementById('cnpjcpf_msg').innerText = 'CNPJ deve ter 14 dígitos';
     return;
   }
-  
+
   try {
     // Mostrar loading
     document.getElementById('cnpjcpf_msg').innerText = 'Buscando dados do CNPJ...';
     document.getElementById('cnpjcpf_msg').classList.remove('text-error');
     document.getElementById('cnpjcpf_msg').classList.add('text-info');
-    
+
     // Pegar cliente_id se estiver editando
     const clienteId = document.getElementById('cliente_id').value;
     let url = '/api/buscar_cnpj/' + cnpj;
     if (clienteId) {
       url += '?cliente_id=' + clienteId;
     }
-    
+
     const resp = await fetch(url);
     const result = await resp.json();
-    
+
     if (result.success) {
       const data = result.data;
-      
+
       // Atualizar razão social e nome fantasia
       const inputRazaoSocial = document.getElementById('input_razao_social');
       const inputNomeFantasia = document.getElementById('input_nome_fantasia');
-      
+
       if (inputRazaoSocial && data.razao_social) {
         inputRazaoSocial.value = data.razao_social;
       }
@@ -1415,7 +1415,7 @@ async function buscarEmpresaPorCNPJ(cnpj) {
           inputNomeFantasia.value = data.razao_social;
         }
       }
-      
+
       // Atualizar inscrições
       const inscEstadual = document.querySelector('#form_cliente input[name="inscricao_estadual"]');
       if (inscEstadual && data.inscricao_estadual) {
@@ -1425,7 +1425,7 @@ async function buscarEmpresaPorCNPJ(cnpj) {
       if (inscMunicipal && data.inscricao_municipal) {
         inscMunicipal.value = data.inscricao_municipal;
       }
-      
+
       // Atualizar campos de endereço
       if (data.cep) {
         const cepInput = document.getElementById('cep');
@@ -1467,11 +1467,11 @@ async function buscarEmpresaPorCNPJ(cnpj) {
         const complementoInput = document.getElementById('complemento');
         if (complementoInput) complementoInput.value = data.complemento;
       }
-      
+
       // Limpar mensagem de sucesso
       document.getElementById('cnpjcpf_msg').innerText = '';
       document.getElementById('cnpjcpf_msg').classList.remove('text-info');
-      
+
       showToast('Dados do CNPJ carregados com sucesso!', 'success');
     } else {
       document.getElementById('cnpjcpf_msg').innerText = result.message || 'CNPJ inválido!';
@@ -1508,7 +1508,7 @@ async function onCnpjCpfBlur() {
   const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
   const doc = document.getElementById('input_cnpj').value.replace(/\D/g, '');
   if (!doc) return;
-  
+
   if (pessoa === 'F') {
     if (!validarCPF(doc)) {
       document.getElementById('cnpjcpf_msg').innerText = 'CPF inválido!';
@@ -1521,7 +1521,7 @@ async function onCnpjCpfBlur() {
       return;
     }
     document.getElementById('cnpjcpf_msg').innerText = '';
-    
+
     // Buscar dados na ReceitaWS (autofill)
     await buscarEmpresaPorCNPJ(doc);
   }
@@ -1540,7 +1540,7 @@ function mascaraCep(input) {
 function mascaraCnpjCpf(input) {
   const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
   let v = input.value.replace(/\D/g, '');
-  
+
   if (pessoa === 'F') {
     // Máscara CPF: 999.999.999-99 (14 caracteres)
     v = v.slice(0, 11); // Limita a 11 dígitos
@@ -1557,7 +1557,7 @@ function mascaraCnpjCpf(input) {
     v = v.replace(/(\d{4})(\d)/, '$1-$2');
     input.maxLength = 18;
   }
-  
+
   input.value = v;
 }
 
@@ -1642,11 +1642,11 @@ function getEstadoIdBySigla(sigla) {
 // Função para toggle de status de cliente
 async function toggleStatus(clienteId, badgeElement, statusAtual) {
   const novoStatus = !statusAtual;
-  
+
   // Desabilitar badge durante a requisição
   badgeElement.disabled = true;
   badgeElement.classList.add('opacity-50');
-  
+
   try {
     const response = await fetch(`/clientes/${clienteId}/toggle-status`, {
       method: 'POST',
@@ -1654,7 +1654,7 @@ async function toggleStatus(clienteId, badgeElement, statusAtual) {
         'Content-Type': 'application/json',
       }
     });
-    
+
     if (response.ok) {
       // Atualizar o badge
       badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
@@ -1683,50 +1683,50 @@ async function abrirModalDetalhes(clienteId) {
     // Buscar dados do cliente
     const response = await fetch(`/api/cliente/${clienteId}`);
     const cliente = await response.json();
-    
+
     // Buscar contatos do cliente
     const contatosResponse = await fetch(`/api/cliente/${clienteId}/contatos`);
     const contatos = await contatosResponse.json();
-    
+
     // Preencher título
     document.getElementById('detalhes_title').textContent = `Detalhes: ${cliente.nome_fantasia || cliente.razao_social}`;
-    
+
     // Preencher informações principais
     const infoPrincipais = document.getElementById('info_principais');
     infoPrincipais.innerHTML = `
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">ID:</span><span>#${cliente.id_cliente}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Status:</span>
-        <span class="cx-badge ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span>
+      <div class="flex"><span class="font-semibold text-slate-600 w-40">ID:</span><span>#${cliente.id_cliente}</span></div>
+      <div class="flex"><span class="font-semibold text-slate-600 w-40">Status:</span>
+        <span class="cx-badge ${cliente.status ? 'cx-badge-success' : 'cx-badge-danger'}">${cliente.status ? 'Ativo' : 'Inativo'}</span>
       </div>
-      ${cliente.pessoa !== 'F' ? `<div class="flex"><span class="font-semibold text-base-content/70 w-40">Razão Social:</span><span>${cliente.razao_social || '—'}</span></div>` : ''}
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'Nome Completo' : 'Nome Fantasia'}:</span><span>${cliente.nome_fantasia || '—'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || 'Não informado'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Tipo:</span><span>${cliente.tipo_cliente_display || 'Não informado'}</span></div>
+      ${cliente.pessoa !== 'F' ? `<div class="flex"><span class="font-semibold text-slate-600 w-40">Razão Social:</span><span>${cliente.razao_social || '—'}</span></div>` : ''}
+      <div class="flex"><span class="font-semibold text-slate-600 w-40">${cliente.pessoa === 'F' ? 'Nome Completo' : 'Nome Fantasia'}:</span><span>${cliente.nome_fantasia || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-slate-600 w-40">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || 'Não informado'}</span></div>
+      <div class="flex"><span class="font-semibold text-slate-600 w-40">Tipo:</span><span>${cliente.tipo_cliente_display || 'Não informado'}</span></div>
       ${cliente.pessoa !== 'F' ? `
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Estadual:</span><span>${cliente.inscricao_estadual || '—'}</span></div>
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Municipal:</span><span>${cliente.inscricao_municipal || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">Insc. Estadual:</span><span>${cliente.inscricao_estadual || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">Insc. Municipal:</span><span>${cliente.inscricao_municipal || '—'}</span></div>
       ` : ''}
     `;
-    
+
     // Preencher endereço se existir
     const enderecoSection = document.getElementById('endereco_section');
     const infoEndereco = document.getElementById('info_endereco');
     if (cliente.cep || cliente.logradouro || cliente.cidade) {
       enderecoSection.style.display = '';
       infoEndereco.innerHTML = `
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">CEP:</span><span>${cliente.cep || '—'}</span></div>
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
-        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
-        <div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Logradouro:</span><span>${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}</span></div>
-        ${cliente.complemento ? `<div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Complemento:</span><span>${cliente.complemento}</span></div>` : ''}
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">CEP:</span><span>${cliente.cep || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-slate-600 w-40">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
+        <div class="flex md:col-span-2"><span class="font-semibold text-slate-600 w-40">Logradouro:</span><span>${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}</span></div>
+        ${cliente.complemento ? `<div class="flex md:col-span-2"><span class="font-semibold text-slate-600 w-40">Complemento:</span><span>${cliente.complemento}</span></div>` : ''}
       `;
     } else {
       enderecoSection.style.display = 'none';
     }
 
     renderAgenciasVinculadasDetalhes(cliente, 'agencias_vinculadas_lista', 'agencias_vinculadas_section');
-    
+
     // Preencher contatos
     const listaContatos = document.getElementById('lista_contatos');
     if (contatos && contatos.length > 0) {
@@ -1749,10 +1749,10 @@ async function abrirModalDetalhes(clienteId) {
                   <td>${c.email || '—'}</td>
                   <td>
                     ${c.telefone || '—'}
-                    ${c.telefone_secundario ? `<div class="text-[10px] opacity-70">${c.telefone_secundario}</div>` : ''}
+                    ${c.telefone_secundario ? `<div class="text-xs opacity-70">${c.telefone_secundario}</div>` : ''}
                   </td>
                   <td>${c.setor || '—'}</td>
-                  <td><span class="cx-badge ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                  <td><span class="cx-badge ${c.status ? 'cx-badge-success' : 'cx-badge-danger'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1762,7 +1762,7 @@ async function abrirModalDetalhes(clienteId) {
     } else {
       listaContatos.innerHTML = '<p class="text-center text-slate-500 text-sm py-4">Nenhum contato vinculado</p>';
     }
-    
+
     // Abrir modal
     modal_detalhes.showModal();
   } catch (error) {
@@ -1782,7 +1782,7 @@ function criarPlanoBetaTester(clienteId) {
   if (!confirm('Deseja criar um Plano Beta Tester para este cliente?\n\nDetalhes do plano:\n- 100.000 tokens/mês\n- 50 imagens/mês\n- 10 usuários\n- Válido por 3 meses')) {
     return;
   }
-  
+
   fetch(`/api/cliente/${clienteId}/criar-plano-beta`, {
     method: 'POST',
     headers: {
@@ -1800,13 +1800,13 @@ function criarPlanoBetaTester(clienteId) {
   .then(data => {
     if (data.success) {
       showToast('Plano Beta Tester criado com sucesso!', 'success');
-      
+
       // Recarregar lista de contratos se estiver na aba de contratos
-      if (document.getElementById('contratos_aba_content') && 
+      if (document.getElementById('contratos_aba_content') &&
           document.getElementById('contratos_aba_content').style.display !== 'none') {
         carregarContratosCliente(clienteId);
       }
-      
+
       // Atualizar a cor do botão de detalhes na listagem
       const btnDetalhes = document.getElementById(`btn_detalhes_${clienteId}`);
       if (btnDetalhes) {
@@ -1838,19 +1838,19 @@ function filtrarClientes() {
   const tbody = document.querySelector('table tbody');
   const linhas = tbody.querySelectorAll('tr');
   let totalVisiveis = 0;
-  
+
   linhas.forEach(linha => {
     const nomeCell = linha.children[0]; // Primeira coluna = nome
     const executivoCell = linha.children[1]; // Segunda coluna = executivo
-    
+
     const nomeFantasia = nomeCell.querySelector('.font-semibold')?.textContent.toLowerCase() || '';
     const razaoSocial = nomeCell.querySelector('.text-xs')?.textContent.toLowerCase() || '';
     const executivoTexto = executivoCell.textContent.trim();
     const agenciaData = linha.dataset.agencia || 'nao';
-    
+
     // Verificar se passa no filtro de pesquisa
     const passaPesquisa = !pesquisa || nomeFantasia.includes(pesquisa) || razaoSocial.includes(pesquisa);
-    
+
     // Verificar se passa no filtro de executivo
     let passaExecutivo = true;
     if (filtroExecutivo === 'NAO_ATRIBUIDO') {
@@ -1858,7 +1858,7 @@ function filtrarClientes() {
     } else if (filtroExecutivo !== '') {
       passaExecutivo = executivoTexto === filtroExecutivo;
     }
-    
+
     // Verificar se passa no filtro de agência
     let passaAgencia = true;
     if (filtroAgencia === 'sim') {
@@ -1866,7 +1866,7 @@ function filtrarClientes() {
     } else if (filtroAgencia === 'nao') {
       passaAgencia = agenciaData === 'nao';
     }
-    
+
     // Mostrar apenas se passar em todos os filtros
     if (passaPesquisa && passaExecutivo && passaAgencia) {
       linha.style.display = '';
@@ -1875,11 +1875,11 @@ function filtrarClientes() {
       linha.style.display = 'none';
     }
   });
-  
+
   // Atualizar contador
   const contador = document.getElementById('contador_filtro');
   const totalClientes = linhas.length;
-  
+
   // Mostrar contador apenas se houver filtros ativos (agencia 'todos' não conta como filtro)
   const filtroAgenciaAtivo = filtroAgencia && filtroAgencia !== 'todos';
   if (pesquisa || filtroExecutivo || filtroAgenciaAtivo) {
@@ -1913,7 +1913,7 @@ function trocarAba(aba) {
       btn.style.color = '#4b5563';
     }
   });
-  
+
   // Mostrar/ocultar conteúdos
   document.querySelectorAll('.modal-tab-content').forEach(content => {
     const tabName = content.dataset.tab;
@@ -1925,7 +1925,7 @@ function trocarAba(aba) {
       content.style.display = 'none';
     }
   });
-  
+
   // Carregar dados específicos da aba
   if (aba === 'contratos') {
     const clienteId = document.getElementById('cliente_id').value;
@@ -1940,36 +1940,36 @@ function preencherAbaDetalhes(cliente, contatos) {
   // Preencher informações principais
   const infoPrincipais = document.getElementById('info_principais_aba');
   infoPrincipais.innerHTML = `
-    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">ID:</span><span>#${cliente.id_cliente}</span></div>
-    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Status:</span><span class="cx-badge ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span></div>
-    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || '—'}</span></div>
-    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Tipo:</span><span>${cliente.tipo_cliente_display || '—'}</span></div>
-    ${cliente.pessoa !== 'F' ? `<div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">Razão:</span><span class="truncate">${cliente.razao_social || '—'}</span></div>` : ''}
-    <div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">${cliente.pessoa === 'F' ? 'Nome' : 'Fantasia'}:</span><span class="truncate">${cliente.nome_fantasia || '—'}</span></div>
-    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Executivo:</span><span>${cliente.executivo_nome || '—'}</span></div>
-    <div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">Margem CC:</span><span>${(cliente.margem_cc !== undefined && cliente.margem_cc !== null && cliente.margem_cc !== '') ? cliente.margem_cc + '%' : '—'}</span></div>
-    ${cliente.pessoa === 'J' && cliente.agencia_key === true && cliente.percentual ? `<div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">BV:</span><span>${parseFloat(cliente.percentual).toFixed(2).replace('.', ',')}%</span></div>` : ''}
-    ${cliente.pessoa !== 'F' ? `<div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Est.:</span><span>${cliente.inscricao_estadual || '—'}</span></div><div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Mun.:</span><span>${cliente.inscricao_municipal || '—'}</span></div>` : ''}
+    <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">ID:</span><span>#${cliente.id_cliente}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Status:</span><span class="cx-badge ${cliente.status ? 'cx-badge-success' : 'cx-badge-danger'}">${cliente.status ? 'Ativo' : 'Inativo'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || '—'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Tipo:</span><span>${cliente.tipo_cliente_display || '—'}</span></div>
+    ${cliente.pessoa !== 'F' ? `<div class="flex items-center md:col-span-2"><span class="font-semibold text-slate-600 w-16">Razão:</span><span class="truncate">${cliente.razao_social || '—'}</span></div>` : ''}
+    <div class="flex items-center md:col-span-2"><span class="font-semibold text-slate-600 w-16">${cliente.pessoa === 'F' ? 'Nome' : 'Fantasia'}:</span><span class="truncate">${cliente.nome_fantasia || '—'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Executivo:</span><span>${cliente.executivo_nome || '—'}</span></div>
+    <div class="flex items-center md:col-span-2"><span class="font-semibold text-slate-600 w-16">Margem CC:</span><span>${(cliente.margem_cc !== undefined && cliente.margem_cc !== null && cliente.margem_cc !== '') ? cliente.margem_cc + '%' : '—'}</span></div>
+    ${cliente.pessoa === 'J' && cliente.agencia_key === true && cliente.percentual ? `<div class="flex items-center"><span class="font-semibold text-slate-600 w-16">BV:</span><span>${parseFloat(cliente.percentual).toFixed(2).replace('.', ',')}%</span></div>` : ''}
+    ${cliente.pessoa !== 'F' ? `<div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Insc. Est.:</span><span>${cliente.inscricao_estadual || '—'}</span></div><div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Insc. Mun.:</span><span>${cliente.inscricao_municipal || '—'}</span></div>` : ''}
   `;
-  
+
   // Preencher endereço se existir
   const enderecoSection = document.getElementById('endereco_section_aba');
   const infoEndereco = document.getElementById('info_endereco_aba');
   if (cliente.cep || cliente.logradouro || cliente.cidade) {
     enderecoSection.style.display = '';
     infoEndereco.innerHTML = `
-      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">CEP:</span><span>${cliente.cep || '—'}</span></div>
-      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
-      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
-      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
-      <div class="flex items-center md:col-span-4"><span class="font-semibold text-base-content/70 w-16">Endereço:</span><span class="truncate">${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}${cliente.complemento ? ' - ' + cliente.complemento : ''}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">CEP:</span><span>${cliente.cep || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
+      <div class="flex items-center md:col-span-4"><span class="font-semibold text-slate-600 w-16">Endereço:</span><span class="truncate">${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}${cliente.complemento ? ' - ' + cliente.complemento : ''}</span></div>
     `;
   } else {
     enderecoSection.style.display = 'none';
   }
 
   renderAgenciasVinculadasDetalhes(cliente, 'agencias_vinculadas_lista_aba', 'agencias_vinculadas_section_aba');
-  
+
   // Preencher contatos
   const listaContatos = document.getElementById('lista_contatos_aba');
   if (contatos && contatos.length > 0) {
@@ -1996,7 +1996,7 @@ function preencherAbaDetalhes(cliente, contatos) {
   } else {
     listaContatos.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:12px;font-size:10px;">Nenhum contato vinculado</p>';
   }
-  
+
   // Carregar contratos do cliente
   carregarContratosCliente(cliente.id_cliente);
 }
@@ -2007,27 +2007,27 @@ function contatoAvatarHtml(c) {
   if (!window.__clienteEhCentralComm) return '';
   const nome = c.nome_completo || '';
   if (c.foto_url) {
-    return `<div class="avatar shrink-0"><div class="rounded-full w-7 h-7"><img src="${c.foto_url}" alt="Foto"></div></div>`;
+    return `<div class="cx-avatar shrink-0"><div class="rounded-full w-7 h-7"><img src="${c.foto_url}" alt="Foto"></div></div>`;
   }
   const iniciais = nome.substring(0, 2).toUpperCase() || 'U';
-  return `<div class="avatar placeholder shrink-0"><div class="bg-[#1e4d4f] text-primary-content rounded-full w-7 h-7 text-[10px]"><span class="font-semibold">${iniciais}</span></div></div>`;
+  return `<div class="cx-avatar shrink-0"><div class="bg-[#1e4d4f] text-white rounded-full w-7 h-7 text-xs"><span class="font-semibold">${iniciais}</span></div></div>`;
 }
 
 // Função para carregar contatos na aba
 async function carregarContatosAba(clienteId) {
   const listaContatos = document.getElementById('lista_contatos_aba');
-  
+
   if (!listaContatos) {
     console.error('Elemento lista_contatos_aba não encontrado');
     return;
   }
-  
+
   try {
     const response = await fetch(`/api/cliente/${clienteId}/contatos`);
     if (!response.ok) throw new Error('Erro ao buscar contatos');
-    
+
     const contatos = await response.json();
-    
+
     if (contatos && contatos.length > 0) {
       listaContatos.innerHTML = contatos.map(c => {
         const statusBg = c.status ? '#dcfce7' : '#fee2e2';
@@ -2052,7 +2052,7 @@ async function carregarContatosAba(clienteId) {
     } else {
       listaContatos.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:12px;font-size:10px;">Nenhum contato vinculado</p>';
     }
-    
+
   } catch (error) {
     console.error('Erro ao carregar contatos:', error);
     listaContatos.innerHTML = '<p style="text-align:center;color:#ef4444;padding:12px;font-size:10px;">Erro ao carregar</p>';
@@ -2062,18 +2062,18 @@ async function carregarContatosAba(clienteId) {
 // Função para carregar contratos do cliente
 async function carregarContratosCliente(clienteId) {
   const listaContratos = document.getElementById('lista_contratos_aba');
-  
+
   if (!listaContratos) {
     console.error('Elemento lista_contratos_aba não encontrado');
     return;
   }
-  
+
   listaContratos.innerHTML = '<p class="text-center text-slate-500 text-sm py-4">Carregando...</p>';
-  
+
   try {
     const response = await fetch(`/api/cliente/${clienteId}/planos`);
     const data = await response.json();
-    
+
     if (data.success && data.planos && data.planos.length > 0) {
       listaContratos.innerHTML = `
         <div class="overflow-x-auto">
@@ -2139,15 +2139,15 @@ async function togglePlanoStatus(planoId, badgeElement, statusAtual) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       const novoStatus = data.novo_status;
-      
+
       // Atualizar o badge
       badgeElement.textContent = novoStatus === 'active' ? 'Ativo' : novoStatus === 'suspended' ? 'Suspenso' : 'Cancelado';
       badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
-      
+
       if (novoStatus === 'active') {
         badgeElement.style = 'background-color: #72cd80; color: white; border-color: #72cd80;';
         badgeElement.title = 'Clique para cancelar';
@@ -2158,7 +2158,7 @@ async function togglePlanoStatus(planoId, badgeElement, statusAtual) {
         badgeElement.style = 'background-color: #ef4444; color: white; border-color: #ef4444;';
         badgeElement.title = 'Clique para ativar';
       }
-      
+
       badgeElement.setAttribute('onclick', `togglePlanoStatus(${planoId}, this, '${novoStatus}')`);
     } else {
       showToast('Erro ao alterar status do plano.', 'error');
@@ -2185,11 +2185,11 @@ function abrirModalNovoContato() {
     document.getElementById('form_contato').reset();
     document.getElementById('contato_id').value = '';
     document.getElementById('contato_cliente_id').value = clienteId;
-    
+
     // Atualizar título e botão
     document.getElementById('contato_modal_title').textContent = 'Novo Contato';
     document.getElementById('contato_btn_text').textContent = 'Criar Contato';
-    
+
     // Ocultar campo telefone em novo contato
     document.getElementById('contato_telefone_container').classList.add('hidden');
     document.getElementById('contato_telefone_secundario_container').classList.add('hidden');
@@ -2204,7 +2204,7 @@ function abrirModalNovoContato() {
     document.getElementById('contato_nome_container').classList.add('col-span-6');
     document.getElementById('contato_email_container').classList.remove('col-span-4');
     document.getElementById('contato_email_container').classList.add('col-span-6');
-    
+
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
     cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
@@ -2238,10 +2238,10 @@ function configurarFotoContato(contato) {
 
   const nome = contato.nome_completo || '';
   if (contato.foto_url) {
-    avatar.innerHTML = `<div class="avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${contato.foto_url}" alt="Foto"></div></div>`;
+    avatar.innerHTML = `<div class="cx-avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${contato.foto_url}" alt="Foto"></div></div>`;
   } else {
     const iniciais = nome.substring(0, 2).toUpperCase() || 'U';
-    avatar.innerHTML = `<div class="avatar placeholder"><div class="bg-[#1e4d4f] text-primary-content rounded-full w-12 h-12 text-sm"><span class="font-semibold">${iniciais}</span></div></div>`;
+    avatar.innerHTML = `<div class="cx-avatar"><div class="bg-[#1e4d4f] text-white rounded-full w-12 h-12 text-sm"><span class="font-semibold">${iniciais}</span></div></div>`;
   }
   container.classList.remove('hidden');
 
@@ -2252,7 +2252,7 @@ function configurarFotoContato(contato) {
     const file = novoInput.files && novoInput.files[0];
     if (!file) return;
     msg.textContent = 'Enviando...';
-    msg.className = 'text-[10px] text-base-content/60 ml-1';
+    msg.className = 'text-xs text-slate-500 ml-1';
     label.textContent = 'Enviando...';
 
     const fd = new FormData();
@@ -2262,21 +2262,21 @@ function configurarFotoContato(contato) {
       .then(data => {
         if (data && data.success) {
           const cacheBust = data.foto_url + '?t=' + Date.now();
-          avatar.innerHTML = `<div class="avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${cacheBust}" alt="Foto"></div></div>`;
+          avatar.innerHTML = `<div class="cx-avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${cacheBust}" alt="Foto"></div></div>`;
           msg.textContent = 'Foto atualizada!';
-          msg.className = 'text-[10px] text-success ml-1';
+          msg.className = 'text-xs text-success ml-1';
           // Atualiza a listagem de contatos para refletir a nova foto
           const clienteId = document.getElementById('contato_cliente_id').value;
           if (clienteId) carregarContatosAba(clienteId);
         } else {
           msg.textContent = (data && data.error) ? data.error : 'Erro ao enviar foto';
-          msg.className = 'text-[10px] text-error ml-1';
+          msg.className = 'text-xs text-error ml-1';
         }
         label.textContent = 'Alterar foto';
       })
       .catch(() => {
         msg.textContent = 'Erro ao enviar foto';
-        msg.className = 'text-[10px] text-error ml-1';
+        msg.className = 'text-xs text-error ml-1';
         label.textContent = 'Alterar foto';
       })
       .finally(() => { novoInput.value = ''; });
@@ -2289,11 +2289,11 @@ async function abrirModalEditarContato(contatoId) {
     // Buscar dados do contato
     const response = await fetch(`/api/contato/${contatoId}`);
     if (!response.ok) throw new Error('Erro ao buscar dados do contato');
-    
+
     const contato = await response.json();
-    
+
     console.log('Dados do contato:', contato); // Debug
-    
+
     // Preencher formulário
     document.getElementById('contato_id').value = contato.id_contato_cliente;
     document.getElementById('contato_cliente_id').value = contato.pk_id_tbl_cliente;
@@ -2310,7 +2310,7 @@ async function abrirModalEditarContato(contatoId) {
     }
     document.getElementById('contato_cohorts').value = contato.cohorts || 1;
     document.getElementById('contato_user_type').value = contato.user_type || 'client';
-    
+
     // Mostrar campo telefone em edição
     document.getElementById('contato_telefone_container').classList.remove('hidden');
     document.getElementById('contato_telefone_secundario_container').classList.remove('hidden');
@@ -2319,11 +2319,11 @@ async function abrirModalEditarContato(contatoId) {
     document.getElementById('contato_nome_container').classList.add('col-span-4');
     document.getElementById('contato_email_container').classList.remove('col-span-6');
     document.getElementById('contato_email_container').classList.add('col-span-4');
-    
+
     // Setor e cargo
     const setorId = contato.pk_id_tbl_setor;
     const cargoSelect = document.getElementById('contato_cargo');
-    
+
     if (setorId) {
       document.getElementById('contato_setor').value = setorId;
       // Carregar cargos do setor e depois selecionar o cargo
@@ -2334,7 +2334,7 @@ async function abrirModalEditarContato(contatoId) {
       document.getElementById('contato_setor').value = '';
       cargoSelect.innerHTML = '<option value="">Selecione o setor primeiro</option>';
     }
-    
+
     // Atualizar título e botão
     document.getElementById('contato_modal_title').textContent = 'Editar Contato';
     document.getElementById('contato_btn_text').textContent = 'Atualizar Contato';
@@ -2344,7 +2344,7 @@ async function abrirModalEditarContato(contatoId) {
 
     // Abrir modal
     modal_contato.showModal();
-    
+
   } catch (error) {
     console.error('Erro ao carregar contato:', error);
     showToast('Erro ao carregar dados do contato!', 'error');
@@ -2354,18 +2354,18 @@ async function abrirModalEditarContato(contatoId) {
 // Função para carregar cargos por setor
 async function carregarCargosPorSetor(setorId) {
   const cargoSelect = document.getElementById('contato_cargo');
-  
+
   if (!setorId) {
     cargoSelect.innerHTML = '<option value="">Selecione primeiro o setor</option>';
     return;
   }
-  
+
   try {
     const response = await fetch(`/api/setor/${setorId}/cargos`);
     if (!response.ok) throw new Error('Erro ao buscar cargos');
-    
+
     const cargos = await response.json();
-    
+
     cargoSelect.innerHTML = '<option value="">Selecione o cargo</option>';
     cargos.forEach(cargo => {
       const option = document.createElement('option');
@@ -2373,7 +2373,7 @@ async function carregarCargosPorSetor(setorId) {
       option.textContent = cargo.descricao;
       cargoSelect.appendChild(option);
     });
-    
+
   } catch (error) {
     console.error('Erro ao carregar cargos:', error);
     cargoSelect.innerHTML = '<option value="">Erro ao carregar cargos</option>';
@@ -2384,7 +2384,7 @@ async function carregarCargosPorSetor(setorId) {
 function formatarTelefone(valor) {
   // Remove tudo que não é dígito
   const digits = valor.replace(/\D/g, '');
-  
+
   if (digits.length === 0) return '';
 
   // Aceita formato internacional BR usado no WhatsApp: +55 (DD) 99999-9999
@@ -2399,10 +2399,10 @@ function formatarTelefone(valor) {
     }
     return '+55 (' + ddd + ') ' + numero.slice(0, 5) + '-' + numero.slice(5);
   }
-  
+
   // Limita a 11 dígitos
   const limited = digits.slice(0, 11);
-  
+
   // Formatar conforme quantidade de dígitos
   if (limited.length <= 2) {
     return '(' + limited;
@@ -2421,22 +2421,22 @@ function formatarTelefone(valor) {
 // Handler para submit do formulário de contato
 document.addEventListener('DOMContentLoaded', function() {
   const formContato = document.getElementById('form_contato');
-  
+
   // Máscara de telefone para contato
   const telefoneInput = document.getElementById('contato_telefone');
   const telefoneSecundarioInput = document.getElementById('contato_telefone_secundario');
   [telefoneInput, telefoneSecundarioInput].filter(Boolean).forEach(function(inputTel) {
     inputTel.addEventListener('input', function(e) {
       const formatted = formatarTelefone(e.target.value);
-      
+
       // Só atualiza se o valor mudou
       if (e.target.value !== formatted) {
         // Guardar posição do cursor
         const cursorPos = e.target.selectionStart;
         const oldLen = e.target.value.length;
-        
+
         e.target.value = formatted;
-        
+
         // Ajustar posição do cursor
         const newLen = formatted.length;
         const diff = newLen - oldLen;
@@ -2444,7 +2444,7 @@ document.addEventListener('DOMContentLoaded', function() {
         e.target.setSelectionRange(newPos, newPos);
       }
     });
-    
+
     // Formatar ao colar
     inputTel.addEventListener('paste', function(e) {
       e.preventDefault();
@@ -2452,15 +2452,15 @@ document.addEventListener('DOMContentLoaded', function() {
       e.target.value = formatarTelefone(pastedText);
     });
   });
-  
+
   if (formContato) {
     formContato.addEventListener('submit', async function(e) {
       e.preventDefault();
-      
+
       const contatoId = document.getElementById('contato_id').value;
       const clienteId = document.getElementById('contato_cliente_id').value;
       const senha = document.getElementById('contato_senha').value;
-      
+
       // Preparar dados
       const formData = new FormData(formContato);
       const setorValue = formData.get('pk_id_aux_setor');
@@ -2481,7 +2481,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data.wasender_session_id = formData.get('wasender_session_id') || '';
         data.wasender_ativo = document.getElementById('contato_wasender_ativo').checked;
       }
-      
+
       // Adicionar senha apenas se preenchida
       if (senha) {
         if (contatoId) {
@@ -2490,7 +2490,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data.senha = senha;
         }
       }
-      
+
       try {
         let response;
         if (contatoId) {
@@ -2508,13 +2508,13 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(data)
           });
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
           showToast(result.message, 'success');
           modal_contato.close();
-          
+
           // Recarregar lista de contatos se estiver na aba de contatos
           if (document.getElementById('contatos_aba_content').style.display !== 'none') {
             await carregarContatosAba(clienteId);
@@ -2522,7 +2522,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           showToast(result.message || 'Erro ao salvar contato!', 'error');
         }
-        
+
       } catch (error) {
         console.error('Erro ao salvar contato:', error);
         showToast('Erro ao salvar contato!', 'error');
@@ -2537,12 +2537,12 @@ async function toggleContatoStatus(contatoId, clienteId, badgeElement, statusAtu
     const response = await fetch(`/api/contato/${contatoId}/toggle-status`, {
       method: 'POST'
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       const novoStatus = !statusAtual;
-      
+
       // Atualizar o badge
       badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
       badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
@@ -2552,7 +2552,7 @@ async function toggleContatoStatus(contatoId, clienteId, badgeElement, statusAtu
     } else {
       showToast(result.message || 'Erro ao alterar status!', 'error');
     }
-    
+
   } catch (error) {
     console.error('Erro ao alterar status:', error);
     showToast('Erro ao alterar status do contato!', 'error');
@@ -2590,14 +2590,14 @@ async function excluirCliente() {
 // Função para deletar contato
 async function deletarContato(contatoId, clienteId, nomeContato) {
   if (!confirm(`Tem certeza que deseja deletar o contato "${nomeContato}"? Esta ação não pode ser desfeita!`)) return;
-  
+
   try {
     const response = await fetch(`/api/contato/${contatoId}/deletar`, {
       method: 'DELETE'
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       showToast(result.message, 'success');
       await carregarContatosAba(clienteId);
@@ -2616,7 +2616,7 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
     } else {
       showToast(result.message || 'Erro ao deletar contato!', 'error');
     }
-    
+
   } catch (error) {
     console.error('Erro ao deletar contato:', error);
     showToast('Erro ao deletar contato!', 'error');
@@ -2628,7 +2628,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const urlParams = new URLSearchParams(window.location.search);
   const clienteId = urlParams.get('open');
   const tab = urlParams.get('tab');
-  
+
   if (clienteId) {
     abrirModalEditar(parseInt(clienteId)).then(() => {
       if (tab === 'contratos') {
@@ -2641,7 +2641,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
       }
     });
-    
+
     // Limpar URL sem recarregar página
     window.history.replaceState({}, document.title, window.location.pathname);
   }
@@ -2665,30 +2665,30 @@ function getInviteStatusBadge(inviteStatus, inviteExpiresAt) {
   if (!inviteStatus) {
     return '<span class="cx-badge" style="background-color: #e5e7eb; color: #6b7280; border-color: #e5e7eb;">Sem convite</span>';
   }
-  
+
   // Verificar se o convite expirou
   const isExpired = inviteExpiresAt ? new Date(inviteExpiresAt) < new Date() : false;
-  
+
   // Status aceito
   if (inviteStatus === 'accepted') {
     return '<span class="cx-badge" style="background-color: #10b981; color: white; border-color: #10b981;">Aceito</span>';
   }
-  
+
   // Status pendente mas expirado
   if (inviteStatus === 'pending' && isExpired) {
     return '<span class="cx-badge" style="background-color: #ef4444; color: white; border-color: #ef4444;">Expirado</span>';
   }
-  
+
   // Status pendente não expirado
   if (inviteStatus === 'pending') {
     return '<span class="cx-badge" style="background-color: #f59e0b; color: white; border-color: #f59e0b;">Pendente</span>';
   }
-  
+
   // Status cancelado
   if (inviteStatus === 'cancelled') {
     return '<span class="cx-badge" style="background-color: #9ca3af; color: white; border-color: #9ca3af;">Cancelado</span>';
   }
-  
+
   // Fallback para outros status
   return '<span class="cx-badge" style="background-color: #e5e7eb; color: #6b7280; border-color: #e5e7eb;">—</span>';
 }
@@ -2704,23 +2704,23 @@ async function enviarConviteContato(contatoId, email, nomeContato) {
     return;
   }
   if (!confirm(`Enviar convite para ${nomeContato} (${emailTrim})?`)) return;
-  
+
   const clienteId = document.getElementById('cliente_id').value;
-  
+
   if (!clienteId) {
     showToast('Erro: Cliente não identificado.', 'error');
     return;
   }
-  
+
   try {
     const response = await fetch(`/api/cliente/${clienteId}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: emailTrim, role: 'member', contato_id: contatoId })
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       showToast(result.message || `Convite enviado para ${nomeContato}!`, 'success');
       await carregarContatosAba(clienteId);

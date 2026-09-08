@@ -22,12 +22,12 @@
       <!-- Voltar + Título + Número -->
       <div class="flex items-center gap-2 min-w-0">
         <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
-          <i class="fas fa-arrow-left text-[10px]"></i>
+          <i class="fas fa-arrow-left text-xs"></i>
         </a>
         <div class="min-w-0 flex items-center gap-2">
           <h1 class="text-xs font-semibold text-gray-800 leading-tight truncate">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
           {% if modo == 'editar' and cotacao %}
-          <span class="text-[10px] font-mono font-semibold text-gray-700 bg-gray-100 px-1 py-0.5 rounded flex-shrink-0">{{ cotacao.numero_cotacao }}</span>
+          <span class="text-xs font-mono font-semibold text-gray-700 bg-gray-100 px-1 py-0.5 rounded flex-shrink-0">{{ cotacao.numero_cotacao }}</span>
           {% endif %}
         </div>
       </div>
@@ -38,7 +38,7 @@
           Cancelar
         </a>
         <button type="submit" form="cotacao_form" class="px-2.5 py-1 text-xs rounded text-white font-medium transition-colors shadow-sm hover:shadow flex items-center gap-1.5" style="background-color: #72cd80;">
-          <i class="fas fa-check text-[10px]"></i>{% if modo == 'novo' %}Criar cotação{% else %}Salvar{% endif %}
+          <i class="fas fa-check text-xs"></i>{% if modo == 'novo' %}Criar cotação{% else %}Salvar{% endif %}
         </button>
       </div>
     </div>
@@ -95,7 +95,7 @@
         <span class="w-2.5 h-2.5 rounded-full {{ _status_cor }}"></span>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Status</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500 leading-tight">Status</p>
         <p class="text-sm font-semibold text-gray-800 truncate">{{ _status }}</p>
       </div>
     </div>
@@ -105,7 +105,7 @@
         <i class="fas fa-coins text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor Líq.</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500 leading-tight">Valor Líq.</p>
         <p class="text-sm font-semibold {% if _valor_liquido_card %}text-gray-800{% else %}text-gray-400{% endif %} truncate" id="card_valor_liquido">{% if _valor_liquido_card %}R$ {{ "{:,.2f}".format(_valor_liquido_card).replace(',', '_').replace('.', ',').replace('_', '.') }}{% else %}—{% endif %}</p>
       </div>
     </div>
@@ -115,7 +115,7 @@
         <i class="fas fa-bullseye text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Budget</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500 leading-tight">Budget</p>
         <p class="text-sm font-semibold text-gray-800 truncate" id="card_budget">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if (modo == 'editar' and cotacao) else '0,00' }}</p>
       </div>
     </div>
@@ -125,7 +125,7 @@
         <i class="fas fa-calendar-alt text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Período</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500 leading-tight">Período</p>
         <p class="text-xs font-semibold text-gray-800 truncate" id="card_periodo">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if (modo == 'editar' and cotacao and cotacao.periodo_inicio) else '—' }}{% if modo == 'editar' and cotacao and cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}</p>
       </div>
     </div>
@@ -135,7 +135,7 @@
         <i class="fas fa-tv text-xs"></i>
       </span>
       <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
         <p class="text-sm font-semibold {% if _plataforma_card %}text-gray-800{% else %}text-gray-400{% endif %} truncate">{{ _plataforma_card if _plataforma_card else '—' }}</p>
       </div>
     </div>
@@ -169,18 +169,18 @@
         <div class="space-y-2">
           <!-- Cliente -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">Cliente <span class="text-red-500">*</span></label>
+            <label class="block text-xs font-medium text-gray-500">Cliente <span class="text-red-500">*</span></label>
             <div class="flex gap-0.5 items-center mb-0.5">
               <button type="button" class="cot-nova-name-btn has-value" onclick="abrirModalCliente()" title="Buscar cliente">
                 <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
                 <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Novo Cliente">
-                <i class="fas fa-plus text-[9px]"></i>
+                <i class="fas fa-plus text-xs"></i>
               </button>
             </div>
-            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-            <select name="client_user_id" id="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+            <label class="block text-xs font-medium text-gray-500">Contato</label>
+            <select name="client_user_id" id="client_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
               <option value="">Selecione...</option>
               {% if cotacao and contatos_cliente %}
                 {% for contato in contatos_cliente %}
@@ -192,7 +192,7 @@
 
           <!-- Agência -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">Agência</label>
+            <label class="block text-xs font-medium text-gray-500">Agência</label>
             <div id="agencia_combo_wrap" class="hidden mb-0.5">
               <select id="agencia_combo" hidden aria-hidden="true">
                 <option value="">Selecione...</option>
@@ -204,14 +204,14 @@
                 <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Nova Agência">
-                <i class="fas fa-plus text-[9px]"></i>
+                <i class="fas fa-plus text-xs"></i>
               </button>
               <button type="button" onclick="limparAgencia()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar agência">
-                <i class="fas fa-times text-[9px]"></i>
+                <i class="fas fa-times text-xs"></i>
               </button>
             </div>
-            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-            <select name="agencia_user_id" id="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+            <label class="block text-xs font-medium text-gray-500">Contato</label>
+            <select name="agencia_user_id" id="agencia_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
               <option value="">Selecione...</option>
               {% if cotacao and contatos_agencia %}
                 {% for contato in contatos_agencia %}
@@ -223,21 +223,21 @@
 
           <!-- Parceiro -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">Parceiro</label>
+            <label class="block text-xs font-medium text-gray-500">Parceiro</label>
             <div class="flex gap-0.5 items-center mb-0.5">
               <button type="button" class="cot-nova-name-btn{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %} has-value{% endif %}" onclick="abrirModalParceiro()" title="Buscar parceiro">
                 <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
                 <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Novo Parceiro">
-                <i class="fas fa-plus text-[9px]"></i>
+                <i class="fas fa-plus text-xs"></i>
               </button>
               <button type="button" onclick="limparParceiro()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar parceiro">
-                <i class="fas fa-times text-[9px]"></i>
+                <i class="fas fa-times text-xs"></i>
               </button>
             </div>
-            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-            <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+            <label class="block text-xs font-medium text-gray-500">Contato</label>
+            <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
               <option value="">Selecione...</option>
               {% if cotacao and contatos_parceiro %}
                 {% for contato in contatos_parceiro %}
@@ -249,8 +249,8 @@
 
           <!-- Responsável Comercial -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">Responsável Comercial <span class="text-red-500">*</span></label>
-            <select name="responsavel_comercial" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+            <label class="block text-xs font-medium text-gray-500">Responsável Comercial <span class="text-red-500">*</span></label>
+            <select name="responsavel_comercial" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
               <option value="">Selecione...</option>
               {% for vendedor in vendedores %}
               <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
@@ -260,14 +260,14 @@
 
           <!-- Briefing -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">Briefing <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <label class="block text-xs font-medium text-gray-500">Briefing <span class="text-gray-400 font-normal">(opcional)</span></label>
             <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
             <div class="relative">
               <div class="flex gap-0.5">
                 <div class="flex-1 relative">
                   <input type="text"
                          id="briefing_busca"
-                         class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                         class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
                          placeholder="Digite para buscar briefing..."
                          value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
                          oninput="buscarBriefingsAutocomplete(this.value)"
@@ -277,13 +277,13 @@
                   </div>
                 </div>
                 <button type="button" id="briefing_btn_busca" class="p-0.5 rounded text-white transition-colors" style="background-color:#72cd80;" onclick="mostrarSugestoesBriefing()" title="Buscar briefing">
-                  <i class="fas fa-search text-[9px]"></i>
+                  <i class="fas fa-search text-xs"></i>
                 </button>
                 <button type="button" id="briefing_btn_limpar" class="p-0.5 rounded bg-gray-100 border border-gray-300 hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors" onclick="limparBriefingSelecionado()" title="Limpar">
-                  <i class="fas fa-times text-[9px]"></i>
+                  <i class="fas fa-times text-xs"></i>
                 </button>
               </div>
-              <div id="briefing_empty_state" class="{% if cotacao and cotacao.briefing_id %}hidden{% endif %} text-center py-1.5 text-gray-400 text-[9px] mt-1 border border-dashed border-gray-200 rounded">
+              <div id="briefing_empty_state" class="{% if cotacao and cotacao.briefing_id %}hidden{% endif %} text-center py-1.5 text-gray-400 text-xs mt-1 border border-dashed border-gray-200 rounded">
                 <i class="fas fa-file-alt text-xs mb-0.5 block"></i>
                 Nenhum briefing vinculado
               </div>
@@ -300,48 +300,48 @@
         <div class="space-y-2">
           <!-- Nome da Campanha -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">
+            <label class="block text-xs font-medium text-gray-500">
               Nome da Campanha <span class="text-red-500">*</span>
-              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-xs text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
             </label>
             <input type="text" name="nome_campanha" id="nome_campanha"
                    value="{{ cotacao.nome_campanha if cotacao else '' }}"
-                   class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                   class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
                    placeholder="Ex: Campanha Verão 2025" required
                    {% if modo == 'editar' %}readonly{% endif %}>
           </div>
 
           <!-- Objetivo da Campanha -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500">
+            <label class="block text-xs font-medium text-gray-500">
               Objetivo da Campanha <span class="text-red-500">*</span>
-              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-xs text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
             </label>
             <div class="relative">
               <textarea name="objetivo_campanha" id="objetivo_campanha"
-                        class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                        class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
                         rows="2" placeholder="Objetivo..."
                         maxlength="2000"
                         oninput="atualizarContador(this, 'contador_objetivo', 2000)"
                         {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-              <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
+              <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-xs text-gray-400">0/2000</span>
             </div>
           </div>
 
           <!-- Período -->
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[8px] font-medium text-gray-500">Início <span class="text-red-500">*</span></label>
+              <label class="block text-xs font-medium text-gray-500">Início <span class="text-red-500">*</span></label>
               <input type="date" id="periodo_inicio" name="periodo_inicio"
                      value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
+                     class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
                      onclick="this.showPicker()" onchange="calcularDuracao()" required>
             </div>
             <div>
-              <label class="block text-[8px] font-medium text-gray-500">Término <span class="text-red-500">*</span></label>
+              <label class="block text-xs font-medium text-gray-500">Término <span class="text-red-500">*</span></label>
               <input type="date" id="periodo_fim" name="periodo_fim"
                      value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
+                     class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
                      onclick="this.showPicker()" onchange="calcularDuracao()">
             </div>
           </div>
@@ -349,18 +349,18 @@
           <!-- Duração + Budget -->
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[8px] font-medium text-gray-500">Duração</label>
+              <label class="block text-xs font-medium text-gray-500">Duração</label>
               <input type="text" id="duracao_dias" readonly
-                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed"
+                     class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed"
                      placeholder="Calculada" value="">
             </div>
             <div>
-              <label class="block text-[8px] font-medium text-gray-500">Budget Estimado</label>
+              <label class="block text-xs font-medium text-gray-500">Budget Estimado</label>
               <div class="relative">
-                <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-[9px] font-medium">R$</span>
+                <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">R$</span>
                 <input type="text" id="budget_estimado" name="budget_estimado_display"
                        value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}"
-                       class="w-full text-[10px] border border-gray-200 rounded pl-6 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                       class="w-full text-xs border border-gray-200 rounded pl-6 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
                        placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
                 <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
               </div>
@@ -377,35 +377,35 @@
         <div class="space-y-2">
           <!-- Frequência de impacto -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500" for="frequencia_impacto">
+            <label class="block text-xs font-medium text-gray-500" for="frequencia_impacto">
               Frequência de impacto
             </label>
             <input type="number" min="1" step="1" name="frequencia_impacto" id="frequencia_impacto"
                    value="{{ cotacao.frequencia_impacto if cotacao and cotacao.frequencia_impacto else FREQUENCIA_IMPACTO_DEFAULT }}"
-                   class="w-24 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
-            <p class="text-[8px] text-gray-400 mt-0.5">Usada para calcular a estimativa de impactos únicos na proposta (PDF).</p>
+                   class="w-24 text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+            <p class="text-xs text-gray-400 mt-0.5">Usada para calcular a estimativa de impactos únicos na proposta (PDF).</p>
           </div>
 
           <!-- Premissas -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500" for="premissas">
+            <label class="block text-xs font-medium text-gray-500" for="premissas">
               Premissas
             </label>
             <textarea name="premissas" id="premissas"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
                       rows="4" placeholder="Premissas da proposta...">{% if modo == 'editar' %}{{ cotacao.premissas if cotacao and cotacao.premissas else PREMISSAS_DEFAULT }}{% else %}{{ PREMISSAS_DEFAULT }}{% endif %}</textarea>
-            <p class="text-[8px] text-gray-400 mt-0.5">Exibidas ao lado do Total da campanha no PDF.</p>
+            <p class="text-xs text-gray-400 mt-0.5">Exibidas ao lado do Total da campanha no PDF.</p>
           </div>
 
           <!-- Observações gerais -->
           <div>
-            <label class="block text-[8px] font-medium text-gray-500" for="observacoes_gerais">
+            <label class="block text-xs font-medium text-gray-500" for="observacoes_gerais">
               Observações gerais
             </label>
             <textarea name="observacoes_gerais" id="observacoes_gerais"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
                       rows="8" placeholder="Observações gerais da proposta...">{% if modo == 'editar' %}{{ cotacao.observacoes_gerais if cotacao and cotacao.observacoes_gerais else OBSERVACOES_GERAIS_DEFAULT }}{% else %}{{ OBSERVACOES_GERAIS_DEFAULT }}{% endif %}</textarea>
-            <p class="text-[8px] text-gray-400 mt-0.5">Exibidas na última página do PDF.</p>
+            <p class="text-xs text-gray-400 mt-0.5">Exibidas na última página do PDF.</p>
           </div>
         </div>
       </div>
@@ -427,13 +427,13 @@
           <label class="block font-medium text-gray-500 mb-0.5">Nome da campanha <span class="text-red-500">*</span></label>
           <input type="text" name="nome_campanha" id="nome_campanha"
                  value="{{ cotacao.nome_campanha if cotacao else '' }}"
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none"
+                 class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none"
                  placeholder="Ex: Campanha Verão 2025" required>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Responsável comercial <span class="text-red-500">*</span></label>
           <select name="responsavel_comercial"
-                  class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
+                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
             <option value="">Selecione o responsável</option>
             {% for vendedor in vendedores %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
@@ -458,11 +458,11 @@
               <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Novo cliente">
-              <i class="fas fa-plus text-[9px]"></i>
+              <i class="fas fa-plus text-xs"></i>
             </button>
           </div>
           <label class="block font-medium text-gray-500 mb-0.5">Contato do cliente</label>
-          <select name="client_user_id" id="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+          <select name="client_user_id" id="client_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
             <option value="">Selecione o contato</option>
             {% if cotacao and contatos_cliente %}
               {% for contato in contatos_cliente %}
@@ -484,11 +484,11 @@
               <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Nova agência">
-              <i class="fas fa-plus text-[9px]"></i>
+              <i class="fas fa-plus text-xs"></i>
             </button>
           </div>
           <label class="block font-medium text-gray-500 mb-0.5">Contato da agência</label>
-          <select name="agencia_user_id" id="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+          <select name="agencia_user_id" id="agencia_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
             <option value="">Selecione o contato</option>
           </select>
         </div>
@@ -500,11 +500,11 @@
               <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Novo parceiro">
-              <i class="fas fa-plus text-[9px]"></i>
+              <i class="fas fa-plus text-xs"></i>
             </button>
           </div>
           <label class="block font-medium text-gray-500 mb-0.5">Contato do parceiro</label>
-          <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+          <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
             <option value="">Selecione o contato</option>
           </select>
         </div>
@@ -521,13 +521,13 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Data de início <span class="text-red-500">*</span></label>
           <input type="date" id="periodo_inicio" name="periodo_inicio"
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
+                 class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
                  onclick="this.showPicker()" onchange="calcularDuracao()" required>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Data de término <span class="text-red-500">*</span></label>
           <input type="date" id="periodo_fim" name="periodo_fim"
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
+                 class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
                  onclick="this.showPicker()" onchange="calcularDuracao()">
         </div>
         <div class="cot-nova-duracao-col">
@@ -540,9 +540,9 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Budget estimado <span class="text-red-500">*</span></label>
           <div class="relative">
-            <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-[9px] font-medium">R$</span>
+            <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">R$</span>
             <input type="text" id="budget_estimado" name="budget_estimado_display"
-                   class="w-full text-[10px] border border-gray-200 rounded pl-5 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none"
+                   class="w-full text-xs border border-gray-200 rounded pl-5 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none"
                    placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
             <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
           </div>
@@ -554,13 +554,13 @@
     <div class="bg-white rounded border border-gray-200 p-2">
       <div class="flex items-center gap-1.5 mb-2">
         <span class="secao-num flex items-center justify-center rounded-full bg-green-500 text-white font-semibold flex-shrink-0">4</span>
-        <h2 class="secao-titulo font-semibold text-gray-800">Briefing da campanha <span class="text-[8px] font-normal text-gray-400 bg-gray-100 px-1 py-0.5 rounded ml-1">Opcional</span></h2>
+        <h2 class="secao-titulo font-semibold text-gray-800">Briefing da campanha <span class="text-xs font-normal text-gray-400 bg-gray-100 px-1 py-0.5 rounded ml-1">Opcional</span></h2>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-2 cot-nova-briefing">
         <div class="cot-nova-briefing-col">
           <label class="block font-medium text-gray-500 mb-0.5" for="apresentacao_dados">Resumo do briefing</label>
           <textarea name="apresentacao_dados" id="apresentacao_dados"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none cot-nova-briefing-surface"
+                    class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none cot-nova-briefing-surface"
                     placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."
                     maxlength="4000"
                     oninput="atualizarContador(this, 'contador_resumo_briefing', 4000)"></textarea>
@@ -605,7 +605,7 @@
           <label class="font-medium text-gray-500 whitespace-nowrap" for="frequencia_impacto">Frequência de impacto</label>
           <input type="number" min="1" step="1" name="frequencia_impacto" id="frequencia_impacto"
                  value="{{ cotacao.frequencia_impacto if cotacao and cotacao.frequencia_impacto else FREQUENCIA_IMPACTO_DEFAULT }}"
-                 class="w-16 text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
+                 class="w-16 text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none">
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-2 cot-nova-secao-textos">
@@ -613,23 +613,23 @@
           <label class="block font-medium text-gray-500 mb-0.5">Objetivo da campanha <span class="text-red-500">*</span></label>
           <div class="relative cot-nova-secao-texto-body">
             <textarea name="objetivo_campanha" id="objetivo_campanha"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                      class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
                       placeholder="Qual o principal objetivo desta campanha?"
                       maxlength="2000"
                       oninput="atualizarContador(this, 'contador_objetivo', 2000)">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-            <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
+            <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-xs text-gray-400">0/2000</span>
           </div>
         </div>
         <div class="cot-nova-secao-texto">
           <label class="block font-medium text-gray-500 mb-0.5" for="premissas">Premissas</label>
           <textarea name="premissas" id="premissas"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                    class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
                     placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
         </div>
         <div class="cot-nova-secao-texto">
           <label class="block font-medium text-gray-500 mb-0.5" for="observacoes_gerais">Observações gerais</label>
           <textarea name="observacoes_gerais" id="observacoes_gerais"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                    class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
                     placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
         </div>
       </div>
@@ -737,7 +737,7 @@
         <div class="cot-sheet-body">
 
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
-          <div class="form-control col-span-1 md:col-span-2">
+          <div class="cx-field col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
             <div class="flex gap-0">
               <label id="nc_label_pj" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncTogglePessoa('J')">
@@ -750,22 +750,22 @@
               </label>
             </div>
           </div>
-          <div class="form-control col-span-1 md:col-span-2">
+          <div class="cx-field col-span-1 md:col-span-2">
             <label id="nc_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ</label>
             <input id="nc_cnpj" name="cnpj" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
           </div>
-          <div class="form-control col-span-1 md:col-span-4">
+          <div class="cx-field col-span-1 md:col-span-4">
             <label id="nc_label_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
             <input id="nc_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
           </div>
-          <div id="nc_razao_fields" class="form-control col-span-1 md:col-span-4">
+          <div id="nc_razao_fields" class="cx-field col-span-1 md:col-span-4">
             <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
             <input id="nc_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
           </div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
-          <div id="nc_tipo_fields" class="form-control col-span-1 md:col-span-2">
+          <div id="nc_tipo_fields" class="cx-field col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
             <select id="nc_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -774,7 +774,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="form-control col-span-1 md:col-span-5">
+          <div class="cx-field col-span-1 md:col-span-5">
             <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
             <select id="nc_vendas" name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -783,7 +783,7 @@
               {% endfor %}
             </select>
           </div>
-          <div id="nc_agencia_fields" class="form-control col-span-1 md:col-span-3">
+          <div id="nc_agencia_fields" class="cx-field col-span-1 md:col-span-3">
             <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
             <select id="nc_agencia" name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -792,18 +792,18 @@
               {% endfor %}
             </select>
           </div>
-          <div id="nc_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
+          <div id="nc_percentual_fields" class="cx-field col-span-1 md:col-span-2" style="display:none;">
             <label id="nc_percentual_label" class="text-xs font-medium text-gray-600 mb-1">Percentual*</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
           </div>
         </div>
 
         <div id="nc_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
             <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
             <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
           </div>
@@ -824,11 +824,11 @@
         <div class="border-t border-gray-200 pt-3 mt-3">
           <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
           <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
               <input id="nc_cep" name="cep" oninput="mascaraCep(this)" onkeydown="ncBuscarCep(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
               <select id="nc_estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">UF</option>
@@ -837,25 +837,25 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
               <input id="nc_cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
               <input id="nc_bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
-            <div class="form-control col-span-3">
+            <div class="cx-field col-span-3">
               <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
               <input id="nc_logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
           </div>
           <div class="grid grid-cols-4 gap-3 mt-3">
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
               <input name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
-            <div class="form-control col-span-3">
+            <div class="cx-field col-span-3">
               <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
               <input name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
@@ -939,7 +939,7 @@ function limparParceiro() {
 function toggleBriefingSection() {
   const content = document.getElementById('briefing_content');
   const chevron = document.getElementById('briefing_chevron');
-  
+
   if (content.classList.contains('hidden')) {
     content.classList.remove('hidden');
     chevron.classList.add('rotate-180');
@@ -1010,7 +1010,7 @@ function atualizarContador(textarea, contadorId, maxLength) {
   const contador = document.getElementById(contadorId);
   const length = textarea.value.length;
   contador.textContent = `${length}/${maxLength}`;
-  
+
   if (length > maxLength * 0.9) {
     contador.classList.add('text-orange-500');
     contador.classList.remove('text-gray-400', 'text-red-500');
@@ -1030,7 +1030,7 @@ function inicializarContadores() {
     { id: 'observacoes', contador: 'contador_observacoes', max: 1000 },
     { id: 'observacoes_internas', contador: 'contador_obs_internas', max: 1000 }
   ];
-  
+
   campos.forEach(campo => {
     const textarea = document.getElementById(campo.id);
     if (textarea) {
@@ -1084,7 +1084,7 @@ function salvarRascunho() {
   const form = document.getElementById('cotacao_form');
   const formData = new FormData(form);
   formData.append('salvar_rascunho', '1');
-  
+
   fetch(form.action || window.location.href, {
     method: 'POST',
     body: formData
@@ -1138,7 +1138,7 @@ function atualizarStepper() {
     { num: 4, check: verificarBlocoPrazo },
     { num: 5, check: verificarBlocoEscopo }
   ];
-  
+
   steps.forEach(step => {
     const isComplete = step.check();
     atualizarStepVisual(step.num, isComplete);
@@ -1150,29 +1150,29 @@ function atualizarStepVisual(stepNum, isComplete) {
   const stepLabel = document.getElementById(`step_label_${stepNum}`);
   const blocoCircle = document.getElementById(`bloco_circle_${stepNum}`);
   const stepLine = document.getElementById(`step_line_${stepNum}`);
-  
+
   if (isComplete) {
     if (stepCircle) {
-      stepCircle.className = 'cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-500 text-white border border-green-500 transition-all hover:bg-green-600';
+      stepCircle.className = 'cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-green-500 text-white border border-green-500 transition-all hover:bg-green-600';
     }
     if (stepLabel) {
-      stepLabel.className = 'ml-1 text-[10px] font-semibold text-green-800 transition-all';
+      stepLabel.className = 'ml-1 text-xs font-semibold text-green-800 transition-all';
     }
     if (blocoCircle) {
-      blocoCircle.className = 'flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[8px] font-semibold transition-all';
+      blocoCircle.className = 'flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-xs font-semibold transition-all';
     }
     if (stepLine) {
       stepLine.className = 'w-6 h-px bg-green-500 mx-1 transition-all';
     }
   } else {
     if (stepCircle) {
-      stepCircle.className = 'cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200';
+      stepCircle.className = 'cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200';
     }
     if (stepLabel) {
-      stepLabel.className = 'ml-1 text-[10px] text-green-700 transition-all';
+      stepLabel.className = 'ml-1 text-xs text-green-700 transition-all';
     }
     if (blocoCircle) {
-      blocoCircle.className = 'flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all';
+      blocoCircle.className = 'flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold transition-all';
     }
     if (stepLine) {
       stepLine.className = 'w-6 h-px bg-green-300 mx-1 transition-all';
@@ -1212,23 +1212,23 @@ function configurarListenersStepper() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', atualizarStepper);
   });
-  
+
   const selectResponsavel = document.querySelector('select[name="responsavel_comercial"]');
   if (selectResponsavel) selectResponsavel.addEventListener('change', atualizarStepper);
-  
+
   const clienteId = document.getElementById('client_id');
   if (clienteId) {
     const observer = new MutationObserver(atualizarStepper);
     observer.observe(clienteId, { attributes: true, attributeFilter: ['value'] });
     clienteId.addEventListener('change', atualizarStepper);
   }
-  
+
   const camposPrazo = ['periodo_inicio', 'periodo_fim'];
   camposPrazo.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', atualizarStepper);
   });
-  
+
   const objetivo = document.getElementById('objetivo_campanha');
   if (objetivo) objetivo.addEventListener('input', atualizarStepper);
 }
@@ -1265,7 +1265,7 @@ async function buscarClientesModal() {
         const documento = cliente.cnpj || '-';
         const clienteId = cliente.pk_id_tbl_cliente;
         html += `
-          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition"
                onclick="selecionarClienteForm('${clienteId}', '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
             <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
             <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
@@ -1334,21 +1334,21 @@ async function selecionarClienteForm(clienteId, nomeFantasia) {
 document.addEventListener('DOMContentLoaded', function() {
     const periodoInicio = document.getElementById('periodo_inicio');
     const periodoFim = document.getElementById('periodo_fim');
-    
+
     if (periodoInicio && !periodoInicio.value) {
         const hoje = new Date();
         const dataInicio = new Date(hoje);
         dataInicio.setDate(dataInicio.getDate() + 7);
         periodoInicio.value = dataInicio.toISOString().split('T')[0];
     }
-    
+
     if (periodoFim && !periodoFim.value) {
         const hoje = new Date();
         const dataFim = new Date(hoje);
         dataFim.setDate(dataFim.getDate() + 37);
         periodoFim.value = dataFim.toISOString().split('T')[0];
     }
-    
+
     calcularDuracao();
     inicializarContadores();
     configurarListenersStepper();
@@ -1357,20 +1357,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function formatarMoedaReal(input, hiddenFieldId) {
   let value = input.value.replace(/\D/g, '');
-  
+
   if (value === '') {
     input.value = '';
     document.getElementById(hiddenFieldId).value = '';
     return;
   }
-  
+
   value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-  
+
   input.value = value;
-  
+
   const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
   document.getElementById(hiddenFieldId).value = valorNumerico;
   atualizarCardsMetricas();
@@ -1455,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', function() {
       formatarMoedaReal(displayInput, campo + '_hidden');
     }
   });
-  
+
   const clienteSelect = document.getElementById('client_id');
   if (clienteSelect) {
     clienteSelect.addEventListener('change', async function() {
@@ -1465,7 +1465,7 @@ document.addEventListener('DOMContentLoaded', function() {
       briefingsCache = [];
       limparBriefingSelecionado();
       contatoSelect.innerHTML = '<option value="">Selecione um contato</option>';
-      
+
       if (clienteId) {
         try {
           await carregarBriefingsCliente(clienteId);
@@ -1668,7 +1668,7 @@ async function buscarAgenciasModal() {
         const clienteId = cliente.pk_id_tbl_cliente;
         const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
         html += `
-          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition"
                onclick="selecionarAgenciaForm('${clienteId}', '${nomeEscapado}')">
             <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
             <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
@@ -1708,7 +1708,7 @@ async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
 async function carregarContatosAgencia(agenciaId) {
   const contatoAgenciaSelect = document.getElementById('agencia_user_id');
   contatoAgenciaSelect.innerHTML = '<option value="">Selecione...</option>';
-  
+
   if (agenciaId) {
     try {
       const response = await fetch(`/api/clientes/${agenciaId}/todos-contatos`);
@@ -1772,7 +1772,7 @@ async function buscarParceirosModal() {
         const clienteId = cliente.pk_id_tbl_cliente;
         const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
         html += `
-          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition"
                onclick="selecionarParceiroForm('${clienteId}', '${nomeEscapado}')">
             <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
             <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
@@ -1846,17 +1846,17 @@ let briefingsCache = [];
 async function buscarBriefingsAutocomplete(termo) {
   const clienteId = document.getElementById('client_id').value;
   const sugestoesDiv = document.getElementById('briefing_sugestoes');
-  
+
   if (briefingBuscaTimeout) {
     clearTimeout(briefingBuscaTimeout);
   }
-  
+
   if (!clienteId) {
     sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Selecione um cliente primeiro</div>';
     sugestoesDiv.classList.remove('hidden');
     return;
   }
-  
+
   if (termo.length < 2) {
     if (briefingsCache.length > 0) {
       renderizarSugestoesBriefing(briefingsCache, termo);
@@ -1866,17 +1866,17 @@ async function buscarBriefingsAutocomplete(termo) {
     }
     return;
   }
-  
+
   briefingBuscaTimeout = setTimeout(async () => {
     try {
       if (briefingsCache.length === 0) {
         await carregarBriefingsCliente(clienteId);
       }
-      
-      const filtrados = briefingsCache.filter(b => 
+
+      const filtrados = briefingsCache.filter(b =>
         b.titulo.toLowerCase().includes(termo.toLowerCase())
       );
-      
+
       renderizarSugestoesBriefing(filtrados, termo);
     } catch (error) {
       console.error('Erro ao buscar briefings:', error);
@@ -1902,18 +1902,18 @@ async function carregarBriefingsCliente(clienteId) {
 
 function renderizarSugestoesBriefing(briefings, termo) {
   const sugestoesDiv = document.getElementById('briefing_sugestoes');
-  
+
   if (!briefings || briefings.length === 0) {
     sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Nenhum briefing encontrado</div>';
     sugestoesDiv.classList.remove('hidden');
     return;
   }
-  
+
   let html = '';
   briefings.forEach(briefing => {
     const statusClass = getStatusClassBriefing(briefing.status);
     html += `
-      <div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0" 
+      <div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
            onclick="selecionarBriefing(${briefing.id}, '${briefing.titulo.replace(/'/g, "\\'")}')">
         <div class="flex justify-between items-center">
           <span class="text-sm font-medium text-gray-800">${briefing.titulo}</span>
@@ -1923,7 +1923,7 @@ function renderizarSugestoesBriefing(briefings, termo) {
       </div>
     `;
   });
-  
+
   sugestoesDiv.innerHTML = html;
   sugestoesDiv.classList.remove('hidden');
 }
@@ -1945,7 +1945,7 @@ function selecionarBriefing(briefingId, titulo) {
   if (briefingIdEl) briefingIdEl.value = briefingId;
   if (briefingBusca) briefingBusca.value = titulo;
   if (sugestoesDiv) sugestoesDiv.classList.add('hidden');
-  
+
   const badge = document.getElementById('briefing_badge');
   const emptyState = document.getElementById('briefing_empty_state');
   if (badge) badge.classList.remove('hidden');
@@ -1959,7 +1959,7 @@ function limparBriefingSelecionado() {
   if (briefingIdEl) briefingIdEl.value = '';
   if (briefingBusca) briefingBusca.value = '';
   if (sugestoesDiv) sugestoesDiv.classList.add('hidden');
-  
+
   const badge = document.getElementById('briefing_badge');
   const emptyState = document.getElementById('briefing_empty_state');
   if (badge) badge.classList.add('hidden');
@@ -1973,7 +1973,7 @@ function mostrarSugestoesBriefing() {
 
   const clienteId = document.getElementById('client_id').value;
   const termo = briefingBusca.value;
-  
+
   if (clienteId) {
     buscarBriefingsAutocomplete(termo);
   } else {
@@ -2012,7 +2012,7 @@ function handleBriefingFileDrop(event) {
 document.addEventListener('click', function(e) {
   const briefingContainer = document.getElementById('briefing_busca');
   const sugestoesDiv = document.getElementById('briefing_sugestoes');
-  
+
   if (briefingContainer && sugestoesDiv && !briefingContainer.contains(e.target) && !sugestoesDiv.contains(e.target)) {
     sugestoesDiv.classList.add('hidden');
   }

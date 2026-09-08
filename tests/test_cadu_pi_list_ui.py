@@ -91,6 +91,30 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("assignMobileCellLabels", self.js)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
 
+    def test_configuration_row_keeps_status_and_flight_compact(self):
+        self.assertIn("pi-row--config", self.template)
+        self.assertIn("pi-config-date-range", self.template)
+        self.assertIn("pi-config-duration", self.template)
+        self.assertIn("<time datetime=", self.template)
+        self.assertRegex(
+            self.css,
+            r"\.pi-page \.pi-list-table tbody \.pi-row--config > td\s*\{"
+            r"[^}]*padding-top:\s*0\.55rem;"
+            r"[^}]*padding-bottom:\s*0\.55rem;"
+            r"[^}]*vertical-align:\s*middle;",
+        )
+        self.assertRegex(
+            self.css,
+            r"\.pi-config-title\s*\{[^}]*text-overflow:\s*ellipsis;"
+            r"[^}]*white-space:\s*nowrap;",
+        )
+        self.assertRegex(
+            self.css,
+            r"\.pi-config-status\s*\{[^}]*white-space:\s*nowrap;",
+        )
+        self.assertIn(".pi-config-head th:nth-child(4) { width: 16%; }", self.css)
+        self.assertIn(".pi-config-head th:nth-child(7) { width: 10%; }", self.css)
+
     def test_new_list_css_has_no_text_smaller_than_twelve_pixels(self):
         small_px = re.findall(r"font-size:\s*(?:[0-9]|1[01])px", self.css)
         small_rem = re.findall(r"font-size:\s*0\.(?:[0-6]\d*|7[0-4]\d*)rem", self.css)

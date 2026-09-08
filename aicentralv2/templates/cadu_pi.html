@@ -44,7 +44,7 @@
         {% include 'cadu_pi/_table.html' %}
         <tbody class="text-[11px]">
           {% for pi in pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="pi-row">
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% endif %}">
           {% if sub_status_atual|string == '1' %}
             <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
@@ -129,12 +129,16 @@
             </td>
             <td>
               {% if pi.get('periodo_inicio') %}
-              <strong class="pi-config-date">
-                {{ pi.periodo_inicio.strftime('%d/%m/%Y') }}
-                {% if pi.get('periodo_fim') %}<span>até {{ pi.periodo_fim.strftime('%d/%m/%Y') }}</span>{% endif %}
+              <strong class="pi-config-date pi-config-date-range">
+                <time datetime="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}">{{ pi.periodo_inicio.strftime('%d/%m/%Y') }}</time>
+                {% if pi.get('periodo_fim') %}
+                <span aria-hidden="true">—</span>
+                <time datetime="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}">{{ pi.periodo_fim.strftime('%d/%m/%Y') }}</time>
+                {% endif %}
               </strong>
               {% if pi.get('periodo_fim') %}
-              <span class="pi-config-muted">{{ (pi.periodo_fim - pi.periodo_inicio).days }} dias</span>
+              {% set dias_veiculacao = (pi.periodo_fim - pi.periodo_inicio).days %}
+              <span class="pi-config-muted pi-config-duration">{{ dias_veiculacao }} dia{% if dias_veiculacao != 1 %}s{% endif %}</span>
               {% endif %}
               {% else %}
               <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>

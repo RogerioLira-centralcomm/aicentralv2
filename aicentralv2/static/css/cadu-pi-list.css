@@ -169,13 +169,19 @@
 }
 
 .pi-config-head th:nth-child(1) { width: 13%; }
-.pi-config-head th:nth-child(2) { width: 20%; }
+.pi-config-head th:nth-child(2) { width: 19%; }
 .pi-config-head th:nth-child(3) { width: 14%; }
-.pi-config-head th:nth-child(4) { width: 13%; }
-.pi-config-head th:nth-child(5) { width: 14%; }
-.pi-config-head th:nth-child(6) { width: 13%; }
-.pi-config-head th:nth-child(7) { width: 8%; }
+.pi-config-head th:nth-child(4) { width: 16%; }
+.pi-config-head th:nth-child(5) { width: 12%; }
+.pi-config-head th:nth-child(6) { width: 11%; }
+.pi-config-head th:nth-child(7) { width: 10%; }
 .pi-config-head th:nth-child(8) { width: 5%; }
+
+.pi-page .pi-list-table tbody .pi-row--config > td {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  vertical-align: middle;
+}
 
 .pi-config-primary,
 .pi-config-primary > span,
@@ -191,14 +197,15 @@
 }
 
 .pi-config-title {
-  display: -webkit-box !important;
+  display: block !important;
+  max-width: 100%;
   margin-top: 0.2rem;
   overflow: hidden;
   color: #475569;
   font-size: 0.75rem !important;
   line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pi-config-meta,
@@ -261,11 +268,24 @@
   white-space: nowrap;
 }
 
-.pi-config-date > span {
-  margin-top: 0.125rem;
-  color: #64748b;
+.pi-config-date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-config-date-range > span {
+  display: inline;
+  margin: 0;
+  color: #94a3b8;
   font-size: 0.75rem !important;
   font-weight: 500;
+}
+
+.pi-config-duration {
+  margin-top: 0.15rem;
+  white-space: nowrap;
 }
 
 .pi-config-type {
@@ -306,6 +326,7 @@
 
 .pi-config-status {
   width: fit-content;
+  max-width: 100%;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
   background: #eff6ff;
@@ -313,10 +334,12 @@
   color: #1d4ed8;
   font-size: 0.75rem !important;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .pi-config-status + .pi-config-muted {
   margin-top: 0.3rem;
+  white-space: nowrap;
 }
 
 .pi-config-pending {

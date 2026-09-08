@@ -5229,6 +5229,9 @@ def init_routes(app):
         try:
             # Coletar filtros da query string
             status_raw = request.args.get('status')
+            status_normalizado = (status_raw or '').strip()
+            if status_normalizado.upper() in ('TODOS', 'ATODOS'):
+                status_normalizado = None
             filtros = {
                 'executivo_id': request.args.get('executivo_id', type=int),
                 'cliente_id': request.args.get('cliente_id', type=int),
@@ -5237,7 +5240,7 @@ def init_routes(app):
                 'valor_min': request.args.get('valor_min', type=float),
                 'valor_max': request.args.get('valor_max', type=float),
                 'mes': request.args.get('mes'),
-                'status': None if status_raw == 'TODOS' else status_raw,
+                'status': status_normalizado,
             }
             
             # Remover filtros vazios
@@ -5304,6 +5307,18 @@ def init_routes(app):
                 }
                 for status, cotacoes in colunas.items()
             }
+            cotacoes_ativas = (
+                list(colunas.get('Rascunho') or [])
+                + list(colunas.get('Enviada') or [])
+            )
+            metricas_pipeline = {
+                'ativas': len(cotacoes_ativas),
+                'valor_aberto': sum(_valor_coluna(c) for c in cotacoes_ativas),
+                'sem_movimento': sum(
+                    1 for c in cotacoes_ativas
+                    if int(c.get('dias_sem_movimento') or 0) > 30
+                ),
+            }
             
             return render_template('crm_pipeline.html',
                                  colunas=colunas,
@@ -5312,6 +5327,7 @@ def init_routes(app):
                                  vendedores=vendedores,
                                  clientes=clientes,
                                  filtros=filtros,
+                                 metricas_pipeline=metricas_pipeline,
                                  now=datetime.now)
         except Exception as e:
             app.logger.error(f"Erro ao carregar pipeline: {str(e)}", exc_info=True)
@@ -5350,6 +5366,9 @@ def init_routes(app):
 
             dados = {
                 'id': cotacao['id'],
+                'client_id': cotacao.get('client_id'),
+                'contato_id': cotacao.get('client_user_id'),
+                'executivo_id': cotacao.get('responsavel_comercial'),
                 'numero_cotacao': cotacao['numero_cotacao'],
                 'nome_campanha': cotacao['nome_campanha'],
                 'status': cotacao['status'],
@@ -5360,6 +5379,14 @@ def init_routes(app):
                 'moeda': cotacao.get('moeda') or 'BRL',
                 'condicoes_comerciais': cotacao.get('condicoes_comerciais'),
                 'cliente_nome': cotacao.get('cliente_nome'),
+                'agencia_id': cotacao.get('agencia_id'),
+                'agencia_nome': cotacao.get('agencia_nome'),
+                'is_agencia': (
+                    str(cotacao.get('agencia_key') or '').strip().lower()
+                    in ('true', 't', 'sim', 's', '1')
+                    or str(cotacao.get('agencia_display') or '').strip().lower()
+                    in ('sim', 's')
+                ),
                 'executivo_nome': cotacao.get('executivo_nome'),
                 'contato_nome': cotacao.get('contato_nome'),
                 'contato_email': cotacao.get('contato_email'),
@@ -5377,6 +5404,16 @@ def init_routes(app):
                 'briefing': cotacao.get('briefing'),
                 'anexos': cotacao.get('anexos', []),
                 'audiencias': cotacao.get('audiencias', []),
+                'atividades': [
+                    {
+                        **dict(atividade),
+                        'data_atividade': serialize_date(atividade.get('data_atividade')),
+                        'data_prazo': serialize_date(atividade.get('data_prazo')),
+                        'created_at': serialize_date(atividade.get('created_at')),
+                        'hora_atividade': serialize_date(atividade.get('hora_atividade')),
+                    }
+                    for atividade in (cotacao.get('atividades') or [])
+                ],
                 'tem_pi': id_pi_vinculado is not None,
                 'id_pi': id_pi_vinculado,
             }
@@ -5385,6 +5422,42 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao obter detalhes cotação: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/crm/pipeline/cotacao/<int:cotacao_id>/atividades', methods=['POST'])
+    @login_required
+    def api_pipeline_criar_atividade(cotacao_id):
+        """Cria uma atividade do CRM vinculada à proposta aberta no pipeline."""
+        try:
+            cotacao = db.obter_cotacao_detalhes_pipeline(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            payload = request.get_json(silent=True) or {}
+            titulo = str(payload.get('titulo') or '').strip()
+            descricao = str(payload.get('descricao') or titulo).strip()
+            data_atividade = payload.get('data_atividade') or datetime.now().date().isoformat()
+            if not titulo or not descricao:
+                return jsonify({'success': False, 'message': 'Informe o título da atividade'}), 400
+
+            atividade = db.criar_atividade_cliente(
+                cliente_id=cotacao.get('client_id'),
+                executivo_id=payload.get('executivo_id') or cotacao.get('responsavel_comercial'),
+                descricao=descricao,
+                data_atividade=data_atividade,
+                contato_id=payload.get('contato_id') or cotacao.get('client_user_id'),
+                tipo=payload.get('tipo') or 'follow_up',
+                titulo=titulo,
+                data_prazo=payload.get('data_prazo') or data_atividade,
+                status='pendente',
+                cotacao_id=cotacao_id,
+            )
+            return jsonify({'success': True, 'atividade': dict(atividade or {})}), 201
+        except Exception as e:
+            app.logger.error(
+                'Erro ao criar atividade da cotação %s: %s',
+                cotacao_id, e, exc_info=True,
+            )
+            return jsonify({'success': False, 'message': 'Não foi possível criar a atividade'}), 500
 
     @app.route('/parametros/cotacoes-teste-calculo/nova', methods=['GET', 'POST'])
     @login_required

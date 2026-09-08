@@ -5,17 +5,11 @@
 {% block page_subtitle %}Cotações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=7">
 <style>
   .tab-nav-item { border-bottom: 2px solid transparent; }
   .tab-nav-item.active { color: #1e4d4f; border-bottom-color: #1e4d4f; font-weight: 600; }
   .tab-nav-item.active .tab-nav-icon { color: #1e4d4f; }
-  dialog.modal[open] {
-    position: fixed;
-    inset: 0;
-    margin: auto;
-    max-height: 90vh;
-  }
 </style>
 {% endblock %}
 
@@ -231,11 +225,9 @@
           <div>
             <label class="block text-[8px] font-medium text-gray-500">Parceiro</label>
             <div class="flex gap-0.5 items-center mb-0.5">
-              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+              <button type="button" class="cot-nova-name-btn{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %} has-value{% endif %}" onclick="abrirModalParceiro()" title="Buscar parceiro">
                 <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
-              </div>
-              <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar parceiro">
-                <i class="fas fa-search text-[9px]"></i>
+                <i class="fas fa-search" aria-hidden="true"></i>
               </button>
               <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Novo Parceiro">
                 <i class="fas fa-plus text-[9px]"></i>
@@ -503,11 +495,9 @@
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Parceiro</label>
           <div class="flex gap-0.5 items-center mb-1">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[22px]">
-              <span id="nome_parceiro_selecionado">Buscar parceiro...</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-500" title="Buscar parceiro">
-              <i class="fas fa-search text-[9px]"></i>
+            <button type="button" class="cot-nova-name-btn" onclick="abrirModalParceiro()" title="Buscar parceiro">
+              <span id="nome_parceiro_selecionado">Buscar parceiro pelo nome</span>
+              <i class="fas fa-search" aria-hidden="true"></i>
             </button>
             <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 text-green-600" title="Novo parceiro">
               <i class="fas fa-plus text-[9px]"></i>
@@ -566,42 +556,42 @@
         <span class="secao-num flex items-center justify-center rounded-full bg-green-500 text-white font-semibold flex-shrink-0">4</span>
         <h2 class="secao-titulo font-semibold text-gray-800">Briefing da campanha <span class="text-[8px] font-normal text-gray-400 bg-gray-100 px-1 py-0.5 rounded ml-1">Opcional</span></h2>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 cot-nova-briefing">
+        <div class="cot-nova-briefing-col">
           <label class="block font-medium text-gray-500 mb-0.5" for="apresentacao_dados">Resumo do briefing</label>
-          <div class="relative">
-            <textarea name="apresentacao_dados" id="apresentacao_dados"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
-                      rows="6" placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."
-                      maxlength="4000"
-                      oninput="atualizarContador(this, 'contador_resumo_briefing', 4000)"></textarea>
-            <span id="contador_resumo_briefing" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/4000</span>
-          </div>
-          <div data-ia-group class="flex flex-wrap items-center gap-1 mt-0.5">
-            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','corrigir')" title="Corrigir com IA" aria-label="Corrigir com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
-              <i class="fas fa-spell-check text-[9px]"></i><span class="text-[8px]">Corrigir</span>
+          <textarea name="apresentacao_dados" id="apresentacao_dados"
+                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none cot-nova-briefing-surface"
+                    placeholder="Descreva aqui o briefing da campanha, objetivos, público-alvo, mensagens principais..."
+                    maxlength="4000"
+                    oninput="atualizarContador(this, 'contador_resumo_briefing', 4000)"></textarea>
+          <div class="cot-nova-briefing-foot" data-ia-group>
+            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','corrigir')" title="Corrigir com IA" aria-label="Corrigir com IA">
+              <i class="fas fa-spell-check"></i><span>Corrigir</span>
             </button>
-            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','ampliar')" title="Ampliar com IA" aria-label="Ampliar com IA" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-50 text-emerald-600">
-              <i class="fas fa-wand-magic-sparkles text-[9px]"></i><span class="text-[8px]">Ampliar</span>
+            <button type="button" onclick="melhorarCampoIABriefing('apresentacao_dados','ampliar')" title="Ampliar com IA" aria-label="Ampliar com IA">
+              <i class="fas fa-wand-magic-sparkles"></i><span>Ampliar</span>
             </button>
+            <span id="contador_resumo_briefing" class="cot-nova-briefing-count">0/4000</span>
           </div>
         </div>
-        <div>
-          <label class="block font-medium text-gray-500 mb-0.5">Anexar briefing (PDF, DOC, PPT, JPG, PNG)</label>
+        <div class="cot-nova-briefing-col">
+          <label class="block font-medium text-gray-500 mb-0.5" for="briefing_arquivo">Anexar briefing</label>
           <div id="briefing_dropzone"
-               class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors min-h-[120px] flex flex-col items-center justify-center"
+               class="cot-nova-briefing-surface"
                onclick="document.getElementById('briefing_arquivo').click()"
                ondragover="event.preventDefault(); this.classList.add('border-green-400','bg-green-50');"
                ondragleave="this.classList.remove('border-green-400','bg-green-50');"
                ondrop="event.preventDefault(); this.classList.remove('border-green-400','bg-green-50'); handleBriefingFileDrop(event);">
-            <i class="fas fa-cloud-upload-alt text-2xl mb-1" style="color:#72cd80;"></i>
-            <p class="text-[10px] text-gray-600 font-medium">Arraste o arquivo ou clique para selecionar</p>
-            <p class="text-[8px] text-gray-400 mt-0.5">Máx. 10MB</p>
-            <p id="briefing_arquivo_nome" class="text-[9px] text-green-700 mt-1 truncate max-w-full hidden"></p>
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Arraste o arquivo ou clique para selecionar</p>
+            <p id="briefing_arquivo_nome" class="cot-nova-briefing-file hidden"></p>
           </div>
           <input type="file" id="briefing_arquivo" name="briefing_arquivo" class="hidden"
                  accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"
                  onchange="mostrarNomeBriefingArquivo(this)">
+          <div class="cot-nova-briefing-foot">
+            <span class="cot-nova-briefing-hint">PDF, DOC, PPT, JPG, PNG · máx. 10MB</span>
+          </div>
         </div>
       </div>
     </div>
@@ -619,28 +609,28 @@
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-2 cot-nova-secao-textos">
-        <div>
+        <div class="cot-nova-secao-texto">
           <label class="block font-medium text-gray-500 mb-0.5">Objetivo da campanha <span class="text-red-500">*</span></label>
-          <div class="relative">
+          <div class="relative cot-nova-secao-texto-body">
             <textarea name="objetivo_campanha" id="objetivo_campanha"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
-                      rows="12" placeholder="Qual o principal objetivo desta campanha?"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                      placeholder="Qual o principal objetivo desta campanha?"
                       maxlength="2000"
                       oninput="atualizarContador(this, 'contador_objetivo', 2000)">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
             <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
           </div>
         </div>
-        <div>
+        <div class="cot-nova-secao-texto">
           <label class="block font-medium text-gray-500 mb-0.5" for="premissas">Premissas</label>
           <textarea name="premissas" id="premissas"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
-                    rows="12" placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
+                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                    placeholder="Premissas da proposta...">{{ PREMISSAS_DEFAULT }}</textarea>
         </div>
-        <div>
+        <div class="cot-nova-secao-texto">
           <label class="block font-medium text-gray-500 mb-0.5" for="observacoes_gerais">Observações gerais</label>
           <textarea name="observacoes_gerais" id="observacoes_gerais"
-                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-y"
-                    rows="12" placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
+                    class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none resize-none"
+                    placeholder="Observações gerais da proposta...">{{ OBSERVACOES_GERAIS_DEFAULT }}</textarea>
         </div>
       </div>
     </div>
@@ -655,130 +645,96 @@
   </div>
 </div>
 
-<!-- Modal de Busca de Cliente -->
-<dialog id="modal_escolher_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800">Buscar Cliente</h3>
-    </div>
-    
-    <div class="p-6">
-      <div class="flex gap-2 mb-4">
-        <input 
-          type="text" 
-          id="busca_cliente_modal" 
-          placeholder="Digite nome, CNPJ, razão social..." 
-          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
-          onkeyup="buscarClientesModal()"
-        >
-        <button onclick="limparBuscaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
-          <i class="fas fa-times"></i>
-        </button>
+<!-- Busca: cliente / agência / parceiro — painel lateral fixo -->
+<dialog id="modal_escolher_cliente" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar cliente</h3>
       </div>
-
-      <div id="resultados_modal" class="max-h-96 overflow-y-auto">
-        <p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>
-      </div>
-    </div>
-
-    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-      <form method="dialog">
-        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      </form>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop bg-black/50">
-    <button>close</button>
-  </form>
-</dialog>
-
-<!-- Modal de Busca de Agência -->
-<dialog id="modal_escolher_agencia" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800">Buscar Agência</h3>
-    </div>
-    
-    <div class="p-6">
-      <div class="flex gap-2 mb-4">
-        <input 
-          type="text" 
-          id="busca_agencia_modal" 
-          placeholder="Digite nome da agência..." 
-          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
-          onkeyup="buscarAgenciasModal()"
-        >
-        <button onclick="limparBuscaAgenciaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-
-      <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto">
-        <p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>
-      </div>
-    </div>
-
-    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-      <form method="dialog">
-        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      </form>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop bg-black/50">
-    <button>close</button>
-  </form>
-</dialog>
-
-<!-- Modal de Busca de Parceiro Regional -->
-<dialog id="modal_escolher_parceiro" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800">Buscar Parceiro</h3>
-    </div>
-    
-    <div class="p-6">
-      <div class="flex gap-2 mb-4">
-        <input 
-          type="text" 
-          id="busca_parceiro_modal" 
-          placeholder="Digite nome do parceiro regional..." 
-          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
-          onkeyup="buscarParceirosModal()"
-        >
-        <button onclick="limparBuscaParceiroModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-
-      <div id="resultados_parceiro_modal" class="max-h-96 overflow-y-auto">
-        <p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>
-      </div>
-    </div>
-
-    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-      <form method="dialog">
-        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      </form>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop bg-black/50">
-    <button>close</button>
-  </form>
-</dialog>
-
-<!-- Modal Criar Novo Cliente -->
-<dialog id="modal_novo_cliente_cotacao" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="nc_modal_title">Novo Cliente</h3>
-      <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
       </button>
     </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="busca_cliente_modal" placeholder="Nome, CNPJ ou razão social" autocomplete="off" onkeyup="buscarClientesModal()">
+      <button type="button" onclick="limparBuscaModal()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="resultados_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar clientes.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('modal_escolher_cliente').close(); abrirModalNovoCliente('cliente')">Novo cliente</button>
+    </div>
+  </div>
+</dialog>
 
-    <div class="p-6">
-      <form id="nc_form" class="space-y-3">
+<dialog id="modal_escolher_agencia" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar agência</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="busca_agencia_modal" placeholder="Nome da agência" autocomplete="off" onkeyup="buscarAgenciasModal()">
+      <button type="button" onclick="limparBuscaAgenciaModal()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="resultados_agencia_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar agências.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('modal_escolher_agencia').close(); abrirModalNovoCliente('agencia')">Nova agência</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="modal_escolher_parceiro" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar parceiro</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="busca_parceiro_modal" placeholder="Nome do parceiro regional" autocomplete="off" onkeyup="buscarParceirosModal()">
+      <button type="button" onclick="limparBuscaParceiroModal()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="resultados_parceiro_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar parceiros regionais.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('modal_escolher_parceiro').close(); abrirModalNovoCliente('parceiro')">Novo parceiro</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="modal_novo_cliente_cotacao" class="cot-sheet is-wide" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Cadastro</p>
+        <h3 id="nc_modal_title">Novo cliente</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <form id="nc_form" class="cot-sheet-form">
         <input type="hidden" id="nc_contexto" value="cliente">
+        <div class="cot-sheet-body">
 
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
           <div class="form-control col-span-1 md:col-span-2">
@@ -907,17 +863,13 @@
         </div>
 
         <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
-
-        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
-          <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            <i class="fas fa-save mr-2"></i>Cadastrar
-          </button>
         </div>
-      </form>
-    </div>
+        <div class="cot-sheet-foot">
+          <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Cancelar</button>
+          <button type="submit" class="cot-sheet-btn is-primary">Cadastrar</button>
+        </div>
+    </form>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
 <script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
@@ -1630,6 +1582,17 @@ function abrirModalCliente() {
   }
 }
 
+function abrirModalParceiro() {
+  const modal = document.getElementById('modal_escolher_parceiro');
+  if (!modal) return;
+  modal.showModal();
+  const input = document.getElementById('busca_parceiro_modal');
+  if (input) {
+    input.value = '';
+    setTimeout(function () { input.focus(); }, 40);
+  }
+}
+
 function abrirModalAgencia() {
   const modal = document.getElementById('modal_escolher_agencia');
   if (!modal) return;
@@ -1836,6 +1799,7 @@ function limparBuscaParceiroModal() {
 async function selecionarParceiroForm(parceiroId, nomeParceiro) {
   document.getElementById('id_parceiro').value = parceiroId;
   document.getElementById('nome_parceiro_selecionado').textContent = nomeParceiro;
+  marcarNomePicker('nome_parceiro_selecionado', true);
   document.getElementById('modal_escolher_parceiro').close();
   limparBuscaParceiroModal();
 
@@ -1844,7 +1808,9 @@ async function selecionarParceiroForm(parceiroId, nomeParceiro) {
 
 function limparParceiroSelecionado() {
   document.getElementById('id_parceiro').value = '';
-  document.getElementById('nome_parceiro_selecionado').textContent = 'Nenhum';
+  const isNovo = !document.getElementById('cotacao_form')?.dataset.modo;
+  document.getElementById('nome_parceiro_selecionado').textContent = isNovo ? 'Buscar parceiro pelo nome' : 'Nenhum';
+  marcarNomePicker('nome_parceiro_selecionado', false);
   document.getElementById('parceiro_user_id').innerHTML = '<option value="">Selecione...</option>';
 }
 

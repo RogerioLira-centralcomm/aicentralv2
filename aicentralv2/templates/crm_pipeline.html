@@ -4,19 +4,40 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=2">
-<style>
-.modal-tab-content.hidden { display: none; }
-.tab-btn.tab-active { color: #1e4d4f; border-bottom-color: #1e4d4f; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
 <div class="pp-page">
+  {% macro money_br(valor) -%}
+    {%- set n = valor|default(0, true)|float -%}
+    {%- if n >= 1000 -%}
+      {{ "{:,.1f}".format(n / 1000).replace(',', '_').replace('.', ',').replace('_', '.') }}k
+    {%- elif n > 0 -%}
+      {{ "{:,.0f}".format(n).replace(',', '.') }}
+    {%- else -%}
+      —
+    {%- endif -%}
+  {%- endmacro %}
+
   <div class="pp-toolbar">
     <div class="pp-title-block">
-      <h1>Pipeline</h1>
-      <p>Propostas por fase. Arraste o card para mudar o status.</p>
+      <h1>Pipeline de Propostas</h1>
+      <p>Acompanhe as oportunidades e priorize propostas sem movimentação.</p>
+    </div>
+    <div class="pp-metrics" aria-label="Resumo do pipeline">
+      <div class="pp-metric">
+        <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+        <span><strong>{{ metricas_pipeline.ativas|default(0) }}</strong> ativas</span>
+      </div>
+      <div class="pp-metric">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        <span><strong>R$ {{ money_br(metricas_pipeline.valor_aberto|default(0)) }}</strong> em aberto</span>
+      </div>
+      <div class="pp-metric {% if metricas_pipeline.sem_movimento|default(0) %}is-alert{% endif %}">
+        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+        <span><strong>{{ metricas_pipeline.sem_movimento|default(0) }}</strong> paradas há +30d</span>
+      </div>
     </div>
     <div class="pp-header-actions">
       <div class="pp-views">
@@ -27,10 +48,14 @@
     </div>
   </div>
 
-  <form id="filtros_form" class="pp-filters">
+  <form id="filtros_form" class="pp-filters" onsubmit="return false">
+    <label class="pp-search">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" id="filtro_busca" placeholder="Buscar cliente, agência ou campanha" autocomplete="off" oninput="filtrarCards()">
+    </label>
     <label class="pp-filter">
-      <span>Executivo</span>
-      <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()">
+      <span>Responsável</span>
+      <select class="cx-select" name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()">
       <option value="">Todos</option>
       {% for vendedor in vendedores %}
         <option value="{{ vendedor.id_contato_cliente }}"
@@ -43,7 +68,7 @@
     </label>
     <label class="pp-filter">
       <span>Mês</span>
-      <select name="mes" id="filtro_mes" onchange="aplicarFiltros()">
+      <select class="cx-select" name="mes" id="filtro_mes" onchange="aplicarFiltros()">
       <option value="">Todos</option>
       <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
       <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
@@ -62,7 +87,7 @@
     {% set status_atual = filtros.get('status') or 'TODOS' %}
     <label class="pp-filter">
       <span>Status</span>
-      <select name="status" id="filtro_status" onchange="aplicarFiltros()">
+      <select class="cx-select" name="status" id="filtro_status" onchange="aplicarFiltros()">
       <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
       <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
       <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
@@ -71,17 +96,6 @@
       </select>
     </label>
   </form>
-
-  {% macro money_br(valor) -%}
-    {%- set n = valor|default(0, true)|float -%}
-    {%- if n >= 1000 -%}
-      {{ "{:,.1f}".format(n / 1000).replace(',', '_').replace('.', ',').replace('_', '.') }}k
-    {%- elif n > 0 -%}
-      {{ "{:,.0f}".format(n).replace(',', '.') }}
-    {%- else -%}
-      —
-    {%- endif -%}
-  {%- endmacro %}
 
   {% macro pp_avatar(cotacao) %}
     {% if cotacao.executivo_foto_url %}
@@ -94,49 +108,43 @@
   {% endmacro %}
 
   {% macro pp_deal_card(cotacao, status) %}
-    {% set alerta_urgente = (status == 'Enviada') and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
     {% set bruto = cotacao.valor_total_bruto|default(cotacao.valor_total_proposta, true)|float %}
-    {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
-    {% set plats = (cotacao.plataformas or cotacao.plataforma_campanha or '')|trim %}
-    <div class="pp-card pp-deal kanban-card {% if alerta_urgente %}is-urgente{% endif %}"
+    {% set dias = cotacao.dias_sem_movimento|default(0, true)|int %}
+    {% set is_agencia = cotacao.agencia_key == true or (cotacao.agencia_key|string|lower) in ['true', 't', 'sim', 's', '1'] or (cotacao.agencia_display|string|lower) in ['sim', 's'] %}
+    <div class="pp-card pp-deal kanban-card"
          draggable="true"
          data-cotacao-id="{{ cotacao.id }}"
          data-status="{{ status }}"
+         data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          ondragstart="handleCardDragStart(event)"
          ondragend="handleCardDragEnd(event)">
       <div class="pp-deal-top">
         <div class="pp-deal-who">
-          <div class="pp-deal-client" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
-          {% if cotacao.agencia_nome and cotacao.agencia_id %}
-          <div class="pp-deal-agency">via {{ cotacao.agencia_nome }}</div>
+          <div class="pp-deal-client" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
+            <i class="fa-solid {% if is_agencia %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
+            <span>{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
+            <small>{% if is_agencia %}Agência{% else %}Cliente final{% endif %}</small>
+          </div>
+          {% if not is_agencia and cotacao.agencia_nome and cotacao.agencia_id %}
+          <div class="pp-deal-agency" title="{{ cotacao.agencia_nome }}">
+            <i class="fa-regular fa-building" aria-hidden="true"></i>
+            <span>{{ cotacao.agencia_nome }}</span>
+          </div>
           {% endif %}
         </div>
-        {{ pp_avatar(cotacao) }}
       </div>
       {% if cotacao.nome_campanha %}
       <div class="pp-deal-campaign" title="{{ cotacao.nome_campanha }}">{{ cotacao.nome_campanha }}</div>
       {% endif %}
-      {% if cotacao.objetivo_campanha %}
-      <p class="pp-deal-obj" title="{{ cotacao.objetivo_campanha }}">{{ cotacao.objetivo_campanha }}</p>
-      {% endif %}
-      {% if plats %}
-      <div class="pp-deal-plats" title="{{ plats }}">{{ plats }}</div>
-      {% endif %}
       <div class="pp-deal-foot">
-        <div class="pp-deal-dates">
-          {% if cotacao.periodo_inicio %}
-            {{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %}–{{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
-          {% else %}
-            {{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}
-          {% endif %}
-          <span class="pp-deal-num">{{ cotacao.numero_cotacao }}</span>
+        <div class="pp-deal-activity is-{% if dias > 30 %}stale{% elif dias > 7 %}warning{% else %}fresh{% endif %}" title="Tempo desde a última movimentação da proposta">
+          <i class="fa-regular fa-clock" aria-hidden="true"></i>
+          <span>{{ dias }}d sem movimento</span>
         </div>
+        {{ pp_avatar(cotacao) }}
         <div class="pp-deal-money">
           <strong>R$&nbsp;{{ money_br(bruto) }}</strong>
-          {% if liquido > 0 %}
-          <span>líq R$&nbsp;{{ money_br(liquido) }}</span>
-          {% endif %}
         </div>
       </div>
     </div>
@@ -144,19 +152,21 @@
 
   {% macro pp_hist_card(cotacao, status) %}
     {% set bruto = cotacao.valor_total_bruto|default(cotacao.valor_total_proposta, true)|float %}
+    {% set dias = cotacao.dias_sem_movimento|default(0, true)|int %}
+    {% set is_agencia = cotacao.agencia_key == true or (cotacao.agencia_key|string|lower) in ['true', 't', 'sim', 's', '1'] or (cotacao.agencia_display|string|lower) in ['sim', 's'] %}
     <div class="pp-card pp-hist-card kanban-card"
          draggable="true"
          data-cotacao-id="{{ cotacao.id }}"
          data-status="{{ status }}"
+         data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          ondragstart="handleCardDragStart(event)"
          ondragend="handleCardDragEnd(event)">
-      {{ pp_avatar(cotacao) }}
+      <i class="pp-hist-icon fa-solid {% if is_agencia %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
       <div class="pp-hist-body">
         <div class="pp-hist-name" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
         <div class="pp-hist-meta">
-          {{ cotacao.numero_cotacao }}
-          {% if cotacao.periodo_inicio %} · {{ cotacao.periodo_inicio.strftime('%d/%m/%y') }}{% endif %}
+          {{ dias }}d sem movimento
         </div>
       </div>
       <span class="pp-hist-val">R$&nbsp;{{ money_br(bruto) }}</span>
@@ -188,7 +198,10 @@
           <details class="pp-group">
             <summary>
               <div class="pp-group-title">
-                <span class="pp-kind {% if grupo.kind == 'final' %}is-final{% endif %}">{% if grupo.kind == 'agencia' %}Agência{% else %}Final{% endif %}</span>
+                <span class="pp-kind {% if grupo.kind == 'final' %}is-final{% endif %}">
+                  <i class="fa-solid {% if grupo.kind == 'agencia' %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
+                  {% if grupo.kind == 'agencia' %}Agência{% else %}Final{% endif %}
+                </span>
                 <span title="{{ grupo.label }}">{{ grupo.label }}</span>
               </div>
               <span class="pp-group-count">{{ grupo.cotacoes|length }} · R$&nbsp;{{ money_br(grupo.valor) }}</span>
@@ -227,7 +240,7 @@
           <p class="text-2xl font-bold text-gray-800" id="modal_valor">R$ 0</p>
           <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600" id="modal_status_badge">-</span>
         </div>
-        <button onclick="document.getElementById('modal_cotacao').close()" class="p-2 hover:bg-gray-200 rounded">
+        <button onclick="fecharDetalheCotacao()" class="p-2 hover:bg-gray-200 rounded" aria-label="Fechar detalhes">
           <i class="fa-solid fa-xmark text-gray-500"></i>
         </button>
       </div>
@@ -236,6 +249,7 @@
     <!-- Tabs -->
     <div class="flex border-b border-gray-200 px-6 bg-gray-50" id="modal_tabs">
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">Resumo</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="atividades" onclick="trocarAbaModal('atividades')">Atividades</button>
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="comunicacao_ia" onclick="trocarAbaModal('comunicacao_ia')">Comunicação IA</button>
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="briefing" onclick="trocarAbaModal('briefing')">Briefing</button>
     </div>
@@ -342,6 +356,49 @@
         </div>
       </div>
       
+      <!-- Aba Atividades -->
+      <div id="tab_atividades" class="modal-tab-content hidden">
+        <form id="atividade_proposta_form" class="pp-activity-form" onsubmit="criarAtividadeProposta(event)">
+          <div class="pp-section-heading">
+            <div>
+              <h4>Próxima atividade</h4>
+              <p>Registre um próximo passo diretamente nesta proposta.</p>
+            </div>
+          </div>
+          <label>
+            <span>Título</span>
+            <input class="cx-input" id="atividade_titulo" type="text" maxlength="120" placeholder="Ex.: Retornar sobre ajustes da proposta" required>
+          </label>
+          <div class="pp-activity-form-row">
+            <label>
+              <span>Tipo</span>
+              <select class="cx-select" id="atividade_tipo">
+                <option value="follow_up">Follow-up</option>
+                <option value="ligacao">Ligação</option>
+                <option value="email">E-mail</option>
+                <option value="reuniao">Reunião</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </label>
+            <label>
+              <span>Data</span>
+              <input class="cx-input" id="atividade_data" type="date" required>
+            </label>
+          </div>
+          <label>
+            <span>Observação</span>
+            <textarea class="cx-textarea" id="atividade_descricao" rows="3" placeholder="Contexto e resultado esperado"></textarea>
+          </label>
+          <button class="cx-btn cx-btn-primary" id="atividade_submit" type="submit">Criar atividade</button>
+        </form>
+        <div class="pp-activity-list-wrap">
+          <div class="pp-section-heading">
+            <h4>Histórico da proposta</h4>
+          </div>
+          <div id="atividades_lista" class="pp-activity-list"></div>
+        </div>
+      </div>
+
       <!-- Aba Comunicação IA -->
       <div id="tab_comunicacao_ia" class="modal-tab-content hidden">
         <!-- Header com info do contato -->
@@ -456,8 +513,8 @@
 </dialog>
 
 <!-- Modal Confirmar Ação -->
-<dialog id="modal_confirmar" class="modal">
-  <div class="modal-box max-w-md bg-white p-6 rounded-lg">
+<dialog id="modal_confirmar" class="cx-modal pp-confirm-dialog">
+  <div class="pp-confirm-box">
     <h3 class="font-semibold text-lg text-gray-800 mb-2" id="confirmar_titulo">Confirmar</h3>
     <p class="text-sm text-gray-600 mb-4" id="confirmar_mensagem">Deseja continuar?</p>
     <div class="mb-4">
@@ -465,13 +522,10 @@
       <textarea id="confirmar_motivo" class="w-full border border-gray-200 rounded px-3 py-2 text-sm mt-1 focus:outline-none focus:border-gray-400" rows="2" placeholder="Adicione uma observação..."></textarea>
     </div>
     <div class="flex justify-end gap-2">
-      <button onclick="document.getElementById('modal_confirmar').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</button>
-      <button id="confirmar_btn" class="px-4 py-2 text-sm text-white rounded" onclick="executarAcaoConfirmada()">Confirmar</button>
+      <button onclick="document.getElementById('modal_confirmar').close()" class="cx-btn cx-btn-secondary">Cancelar</button>
+      <button id="confirmar_btn" class="cx-btn cx-btn-primary" onclick="executarAcaoConfirmada()">Confirmar</button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/30">
-    <button>close</button>
-  </form>
 </dialog>
 
 <style>
@@ -497,6 +551,17 @@ function aplicarFiltros() {
   if (mes) params.set('mes', mes);
   if (status) params.set('status', status);
   window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
+}
+
+function filtrarCards() {
+  const termo = (document.getElementById('filtro_busca').value || '').trim().toLocaleLowerCase('pt-BR');
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.hidden = termo && !(card.dataset.search || '').includes(termo);
+  });
+  document.querySelectorAll('.kanban-column').forEach(coluna => {
+    const visiveis = coluna.querySelectorAll('.kanban-card:not([hidden])').length;
+    coluna.classList.toggle('is-filter-empty', visiveis === 0);
+  });
 }
 
 (function restoreCrmFilters() {
@@ -607,16 +672,40 @@ function atualizarContadores() {
   });
 }
 
-// ==================== MODAL ====================
+// ==================== DRAWER DE DETALHES ====================
 let cotacaoAtualId = null;
 let cotacaoAtualData = null;
 let acaoPendente = null;
+let pipelineDrawerId = null;
+const pipelineModalSource = document.getElementById('modal_cotacao');
+const pipelineDrawerTemplate = pipelineModalSource.querySelector('.modal-box').cloneNode(true);
+pipelineModalSource.remove();
+
+function garantirDrawerDetalhe() {
+  if (pipelineDrawerId && window.cxDrawer.isOpen(pipelineDrawerId)) return;
+  const content = pipelineDrawerTemplate.cloneNode(true);
+  content.classList.add('pp-detail-content');
+  pipelineDrawerId = window.cxDrawer.open({
+    size: 'md',
+    split: false,
+    contentEl: content,
+    onOpen: function (_id, drawer) {
+      drawer.classList.add('pp-detail-drawer');
+    },
+    onClose: function () {
+      pipelineDrawerId = null;
+    }
+  });
+}
+
+function fecharDetalheCotacao() {
+  if (pipelineDrawerId) window.cxDrawer.close(pipelineDrawerId);
+}
 
 async function abrirModalCotacao(cotacaoId) {
   cotacaoAtualId = cotacaoId;
-  const modal = document.getElementById('modal_cotacao');
+  garantirDrawerDetalhe();
   document.getElementById('modal_titulo').textContent = 'Carregando...';
-  modal.showModal();
   
   try {
     const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoId}`);
@@ -626,17 +715,21 @@ async function abrirModalCotacao(cotacaoId) {
       preencherModal(result.cotacao);
     } else {
       showToast(result.message || 'Erro ao carregar', 'error');
-      modal.close();
+      fecharDetalheCotacao();
     }
   } catch (error) {
     showToast('Erro ao carregar cotação', 'error');
-    modal.close();
+    fecharDetalheCotacao();
   }
 }
 
 function preencherModal(c) {
-  document.getElementById('modal_titulo').textContent = c.numero_cotacao;
-  document.getElementById('modal_subtitulo').textContent = c.cliente_nome || 'Sem cliente';
+  document.getElementById('modal_titulo').textContent = c.cliente_nome || 'Sem cliente';
+  document.getElementById('modal_subtitulo').textContent = [
+    c.nome_campanha,
+    c.agencia_nome ? `via ${c.agencia_nome}` : null,
+    c.numero_cotacao
+  ].filter(Boolean).join(' · ');
   document.getElementById('modal_valor').textContent = `R$ ${formatarMoeda(c.valor_total_proposta)}`;
   document.getElementById('modal_status_badge').textContent = c.status;
   
@@ -663,6 +756,10 @@ function preencherModal(c) {
   document.getElementById('resumo_desconto').textContent = `- R$ ${formatarMoeda(c.valor_desconto || 0)}`;
   document.getElementById('resumo_impostos').textContent = `R$ ${formatarMoeda(c.valor_impostos || 0)}`;
   document.getElementById('resumo_total').textContent = `R$ ${formatarMoeda(c.valor_total_proposta || 0)}`;
+
+  renderizarAtividades(c.atividades || []);
+  const atividadeData = document.getElementById('atividade_data');
+  if (atividadeData) atividadeData.value = new Date().toISOString().slice(0, 10);
   
   // Resumo de itens
   const itensLista = document.getElementById('resumo_itens_lista');
@@ -755,6 +852,73 @@ function preencherModal(c) {
   }
   
   trocarAbaModal('resumo');
+}
+
+function escapeHtml(valor) {
+  return String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  })[caractere]);
+}
+
+function renderizarAtividades(atividades) {
+  const lista = document.getElementById('atividades_lista');
+  if (!lista) return;
+  if (!atividades.length) {
+    lista.innerHTML = '<div class="pp-empty-state"><i class="fa-regular fa-calendar-check"></i><span>Nenhuma atividade vinculada a esta proposta.</span></div>';
+    return;
+  }
+  lista.innerHTML = atividades.map(atividade => {
+    const data = atividade.data_prazo || atividade.data_atividade;
+    const status = atividade.status === 'concluida' ? 'Concluída' : 'Pendente';
+    return `<article class="pp-activity-item">
+      <span class="pp-activity-marker ${atividade.status === 'concluida' ? 'is-done' : ''}"></span>
+      <div>
+        <strong>${escapeHtml(atividade.titulo || atividade.descricao || 'Atividade')}</strong>
+        <p>${escapeHtml(atividade.descricao || '')}</p>
+        <small>${escapeHtml(data ? formatarData(data) : 'Sem data')} · ${escapeHtml(status)}</small>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+async function criarAtividadeProposta(event) {
+  event.preventDefault();
+  if (!cotacaoAtualId || !cotacaoAtualData) return;
+  const botao = document.getElementById('atividade_submit');
+  const payload = {
+    titulo: document.getElementById('atividade_titulo').value.trim(),
+    descricao: document.getElementById('atividade_descricao').value.trim(),
+    tipo: document.getElementById('atividade_tipo').value,
+    data_atividade: document.getElementById('atividade_data').value,
+    data_prazo: document.getElementById('atividade_data').value,
+    contato_id: cotacaoAtualData.contato_id,
+    executivo_id: cotacaoAtualData.executivo_id
+  };
+  if (!payload.titulo || !payload.data_atividade) return;
+  botao.disabled = true;
+  botao.textContent = 'Criando...';
+  try {
+    const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoAtualId}/atividades`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || 'Erro ao criar atividade');
+    document.getElementById('atividade_proposta_form').reset();
+    document.getElementById('atividade_data').value = new Date().toISOString().slice(0, 10);
+    showToast('Atividade criada para esta proposta', 'success');
+    const detalhes = await fetch(`/api/crm/pipeline/cotacao/${cotacaoAtualId}`).then(r => r.json());
+    if (detalhes.success) {
+      cotacaoAtualData = detalhes.cotacao;
+      renderizarAtividades(detalhes.cotacao.atividades || []);
+    }
+  } catch (error) {
+    showToast(error.message || 'Erro ao criar atividade', 'error');
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Criar atividade';
+  }
 }
 
 function trocarAbaModal(tab) {
@@ -890,7 +1054,7 @@ async function moverCotacaoStatus(novoStatus) {
       } else {
         showToast('Status atualizado', 'success');
       }
-      document.getElementById('modal_cotacao').close();
+      fecharDetalheCotacao();
       location.reload();
     } else {
       showToast(result.message || 'Erro', 'error');
@@ -907,7 +1071,7 @@ function aprovarCotacao() {
     `Confirma a aprovação da cotação <strong>${cotacaoAtualData?.numero_cotacao}</strong>?<br><br>` +
     `<span class="text-amber-600 text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>` +
     `Um Pedido de Inserção será gerado automaticamente. Após a geração, não será possível reverter o status.</span>`;
-  document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-green-600 hover:bg-green-700';
+  document.getElementById('confirmar_btn').className = 'cx-btn cx-btn-primary';
   document.getElementById('confirmar_btn').textContent = 'Aprovar e Gerar PI';
   document.getElementById('confirmar_motivo').value = '';
   document.getElementById('modal_confirmar').showModal();
@@ -917,7 +1081,7 @@ function rejeitarCotacao() {
   acaoPendente = 'rejeitar';
   document.getElementById('confirmar_titulo').textContent = 'Rejeitar Cotação';
   document.getElementById('confirmar_mensagem').textContent = `Confirma a rejeição da cotação ${cotacaoAtualData?.numero_cotacao}?`;
-  document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-red-600 hover:bg-red-700';
+  document.getElementById('confirmar_btn').className = 'cx-btn cx-btn-danger';
   document.getElementById('confirmar_btn').textContent = 'Rejeitar';
   document.getElementById('confirmar_motivo').value = '';
   document.getElementById('modal_confirmar').showModal();
@@ -954,7 +1118,7 @@ async function executarAcaoConfirmada() {
         showToast(`Cotação ${novoStatus.toLowerCase()}`, 'success');
       }
       document.getElementById('modal_confirmar').close();
-      document.getElementById('modal_cotacao').close();
+      fecharDetalheCotacao();
       location.reload();
     } else {
       showToast(result.message || 'Erro', 'error');
@@ -983,8 +1147,8 @@ function formatarDataHora(dataStr) {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    document.getElementById('modal_confirmar').close();
-    document.getElementById('modal_cotacao').close();
+    const confirmar = document.getElementById('modal_confirmar');
+    if (confirmar.open) confirmar.close();
   }
 });
 </script>

@@ -5823,7 +5823,12 @@ def _atividades_tem_hora(cur):
     return _has_column(cur, "sales_atividades", "hora_atividade")
 
 
-def obter_atividades_cliente(cliente_id, contato_id=None):
+def _atividades_tem_cotacao(cur):
+    """Detecta o vínculo opcional entre uma atividade e uma cotação."""
+    return _has_column(cur, "sales_atividades", "cotacao_id")
+
+
+def obter_atividades_cliente(cliente_id, contato_id=None, cotacao_id=None):
     """Lista atividades do cliente, com contato/responsável populados.
 
     Espelha o SELECT de `crm.routes.api_cliente_atividades` (L1548–1590),
@@ -5834,6 +5839,7 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
     with conn.cursor() as cur:
         has_new = _atividades_tem_colunas_novas(cur)
         has_hora = _atividades_tem_hora(cur)
+        has_cotacao = _atividades_tem_cotacao(cur)
         select_extra = (
             "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
             if has_new
@@ -5843,6 +5849,9 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
         # antigas devolvem NULL — o mapper trata como string vazia.
         select_extra += (
             ", sa.hora_atividade" if has_hora else ", NULL AS hora_atividade"
+        )
+        select_extra += (
+            ", sa.cotacao_id" if has_cotacao else ", NULL AS cotacao_id"
         )
         order = (
             "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
@@ -5869,6 +5878,11 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
         if contato_id:
             query += " AND sa.contato_id = %s"
             params.append(contato_id)
+        if cotacao_id is not None:
+            if not has_cotacao:
+                return []
+            query += " AND sa.cotacao_id = %s"
+            params.append(int(cotacao_id))
         query += f" ORDER BY {order}"
         cur.execute(query, params)
         rows = cur.fetchall() or []
@@ -5878,7 +5892,7 @@ def obter_atividades_cliente(cliente_id, contato_id=None):
 def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
                             contato_id=None, tipo="atividade", titulo=None,
                             data_prazo=None, hora_atividade=None,
-                            status="pendente"):
+                            status="pendente", cotacao_id=None):
     """INSERT em sales_atividades. Retorna dict {id}.
 
     Espelha `crm.routes.api_criar_atividade` (L1620–1638). `descricao` e
@@ -5895,41 +5909,30 @@ def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
         with conn.cursor() as cur:
             has_new = _atividades_tem_colunas_novas(cur)
             has_hora = _atividades_tem_hora(cur)
-            if has_new and has_hora:
-                cur.execute(
-                    """
-                    INSERT INTO sales_atividades
-                        (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                         tipo, titulo, data_prazo, hora_atividade, status)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                     tipo or "atividade", titulo or None, data_prazo or None,
-                     hora_atividade or None, status),
-                )
-            elif has_new:
-                cur.execute(
-                    """
-                    INSERT INTO sales_atividades
-                        (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                         tipo, titulo, data_prazo, status)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (cliente_id, contato_id, executivo_id, descricao, data_atividade,
-                     tipo or "atividade", titulo or None, data_prazo or None, status),
-                )
-            else:
-                cur.execute(
-                    """
-                    INSERT INTO sales_atividades
-                        (cliente_id, contato_id, executivo_id, descricao, data_atividade, status)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (cliente_id, contato_id, executivo_id, descricao, data_atividade, status),
-                )
+            has_cotacao = _atividades_tem_cotacao(cur)
+            columns = [
+                "cliente_id", "contato_id", "executivo_id", "descricao",
+                "data_atividade", "status",
+            ]
+            values = [
+                cliente_id, contato_id, executivo_id, descricao,
+                data_atividade, status,
+            ]
+            if has_new:
+                columns.extend(["tipo", "titulo", "data_prazo"])
+                values.extend([tipo or "atividade", titulo or None, data_prazo or None])
+            if has_hora:
+                columns.append("hora_atividade")
+                values.append(hora_atividade or None)
+            if has_cotacao:
+                columns.append("cotacao_id")
+                values.append(int(cotacao_id) if cotacao_id else None)
+            placeholders = ", ".join(["%s"] * len(columns))
+            cur.execute(
+                f"INSERT INTO sales_atividades ({', '.join(columns)}) "
+                f"VALUES ({placeholders}) RETURNING id",
+                values,
+            )
             row = cur.fetchone()
         conn.commit()
         return row
@@ -9425,8 +9428,14 @@ def obter_cotacoes_pipeline(filtros=None):
     
     try:
         with conn.cursor() as cursor:
+            has_atividade_cotacao = _atividades_tem_cotacao(cursor)
+            ultima_atividade_expr = (
+                "(SELECT MAX(COALESCE(sa.created_at, sa.data_atividade::timestamp)) "
+                "FROM sales_atividades sa WHERE sa.cotacao_id = cot.id)"
+                if has_atividade_cotacao else "NULL::timestamp"
+            )
             # Query base com cálculo de dias na fase
-            sql = '''
+            sql = f'''
                 SELECT 
                     cot.id,
                     cot.numero_cotacao,
@@ -9445,7 +9454,13 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.agencia_id,
                     cot.objetivo_campanha,
                     cot.plataforma_campanha,
-                    EXTRACT(DAY FROM (NOW() - COALESCE(cot.updated_at, cot.created_at)))::INTEGER as dias_na_fase,
+                    EXTRACT(DAY FROM (
+                        NOW() - GREATEST(
+                            COALESCE(cot.updated_at, cot.created_at),
+                            COALESCE({ultima_atividade_expr}, cot.updated_at, cot.created_at)
+                        )
+                    ))::INTEGER AS dias_sem_movimento,
+                    {ultima_atividade_expr} AS ultima_atividade_em,
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao,
                     ag_perfil.key AS agencia_key,
@@ -9576,12 +9591,17 @@ def obter_cotacao_detalhes_pipeline(cotacao_id):
                     cot.*,
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao,
+                    ag_perfil.key AS agencia_key,
+                    ag_perfil.display AS agencia_display,
+                    COALESCE(ag_emp.nome_fantasia, ag_emp.razao_social) AS agencia_nome,
                     exec.nome_completo as executivo_nome,
                     exec.email as executivo_email,
                     contact.nome_completo as contato_nome,
                     contact.email as contato_email
                 FROM cadu_cotacoes cot
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
+                LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = cli.pk_id_tbl_agencia
+                LEFT JOIN tbl_cliente ag_emp ON ag_emp.id_cliente = cot.agencia_id
                 LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
                 LEFT JOIN tbl_contato_cliente contact ON contact.id_contato_cliente = cot.client_user_id
                 WHERE cot.id = %s AND cot.deleted_at IS NULL
@@ -9637,6 +9657,14 @@ def obter_cotacao_detalhes_pipeline(cotacao_id):
                 ORDER BY ca.ordem_exibicao, ca.id
             ''', (cotacao_id,))
             cotacao['audiencias'] = cursor.fetchall()
+
+            # Atividades passam a poder pertencer à proposta sem deixar de
+            # pertencer ao cliente/contato. Em bases ainda não migradas,
+            # devolvemos uma lista vazia.
+            cotacao['atividades'] = obter_atividades_cliente(
+                cotacao.get('client_id'),
+                cotacao_id=cotacao_id,
+            )
             
             return cotacao
             
@@ -15224,10 +15252,22 @@ def get_dashboard_comercial_ano(year=2026):
         'resumo_atual': dict(empty_summary),
         'resumo_anterior': dict(empty_summary),
     }
+    # `tbl_agencia.key` pode ser boolean ou texto; nunca usar `key IS TRUE`.
     agencia_sql = (
-        "(COALESCE((ag.key IS TRUE), false) OR "
-        "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
+        "("
+        "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's') OR "
+        "LOWER(TRIM(COALESCE(ag.key::text, ''))) IN ('t', 'true', 'sim', 's', '1')"
+        ")"
     )
+    # status em cadu_cotacoes pode ser FK numérica ou o texto da fase.
+    status_join = "LEFT JOIN cadu_cotacoes_status st ON TRIM(c.status::text) = st.id::text"
+    status_nome_sql = """
+                    COALESCE(
+                        NULLIF(TRIM(st.descricao), ''),
+                        NULLIF(TRIM(c.status::text), ''),
+                        'Sem status'
+                    )
+    """
 
     def _month_key(value):
         return value.strftime('%Y-%m') if hasattr(value, 'strftime') else str(value or '')[:7]
@@ -15242,7 +15282,18 @@ def get_dashboard_comercial_ano(year=2026):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f'''
+            def _fetch(label, sql, params=()):
+                try:
+                    cursor.execute(sql, params)
+                    return [dict(row) for row in (cursor.fetchall() or [])]
+                except Exception as query_exc:
+                    conn.rollback()
+                    current_app.logger.error(
+                        "Erro dashboard comercial anual [%s]: %s", label, query_exc
+                    )
+                    return []
+
+            top_rows = _fetch('top_executivos', f'''
                 SELECT
                     vend.id_contato_cliente AS executivo_id,
                     COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
@@ -15258,14 +15309,13 @@ def get_dashboard_comercial_ano(year=2026):
                 ORDER BY total_clientes DESC, executivo
                 LIMIT 3
             ''')
-            top_rows = [dict(row) for row in (cursor.fetchall() or [])]
             executive_ids = [
                 row['executivo_id'] for row in top_rows if row.get('executivo_id') is not None
             ]
             if not executive_ids:
                 return empty_result
 
-            cursor.execute(f'''
+            carteira_rows = _fetch('carteira', f'''
                 SELECT
                     cli.vendas_central_comm AS executivo_id,
                     CASE WHEN {agencia_sql} THEN 'agencias' ELSE 'clientes_finais' END AS perfil,
@@ -15277,9 +15327,8 @@ def get_dashboard_comercial_ano(year=2026):
                   AND cli.vendas_central_comm = ANY(%s)
                 GROUP BY cli.vendas_central_comm, perfil, classificacao
             ''', (executive_ids,))
-            carteira_rows = [dict(row) for row in (cursor.fetchall() or [])]
 
-            cursor.execute(f'''
+            clientes_mensais = _fetch('clientes_mensais', f'''
                 SELECT
                     TO_CHAR(DATE_TRUNC('month', cli.data_cadastro), 'YYYY-MM') AS mes,
                     cli.vendas_central_comm AS executivo_id,
@@ -15294,49 +15343,38 @@ def get_dashboard_comercial_ano(year=2026):
                 GROUP BY mes, cli.vendas_central_comm, perfil, classificacao
                 ORDER BY mes
             ''', (executive_ids, year))
-            clientes_mensais = [dict(row) for row in (cursor.fetchall() or [])]
 
-            cursor.execute('''
+            cotacoes_mensais = _fetch('cotacoes_mensais', f'''
                 SELECT
                     TO_CHAR(DATE_TRUNC('month', c.created_at), 'YYYY-MM') AS mes,
-                    c.vendas_central_comm AS executivo_id,
-                    COALESCE(
-                        NULLIF(TRIM(st.descricao), ''),
-                        NULLIF(TRIM(c.status::text), ''),
-                        'Sem status'
-                    ) AS status_nome,
+                    c.responsavel_comercial AS executivo_id,
+                    {status_nome_sql} AS status_nome,
                     COUNT(*) AS total,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
                 FROM cadu_cotacoes c
-                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+                {status_join}
                 WHERE c.deleted_at IS NULL
-                  AND c.vendas_central_comm = ANY(%s)
+                  AND c.responsavel_comercial = ANY(%s)
                   AND EXTRACT(YEAR FROM c.created_at) = %s
-                GROUP BY mes, c.vendas_central_comm, status_nome
+                GROUP BY mes, c.responsavel_comercial, status_nome
                 ORDER BY mes
             ''', (executive_ids, year))
-            cotacoes_mensais = [dict(row) for row in (cursor.fetchall() or [])]
 
-            cursor.execute('''
+            cotacoes_semanais_raw = _fetch('cotacoes_semanais', f'''
                 SELECT
                     DATE_TRUNC('week', c.created_at)::date AS semana,
-                    COALESCE(
-                        NULLIF(TRIM(st.descricao), ''),
-                        NULLIF(TRIM(c.status::text), ''),
-                        'Sem status'
-                    ) AS status_nome,
+                    {status_nome_sql} AS status_nome,
                     COUNT(*) AS total,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
                 FROM cadu_cotacoes c
-                LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
+                {status_join}
                 WHERE c.deleted_at IS NULL
-                  AND c.vendas_central_comm = ANY(%s)
+                  AND c.responsavel_comercial = ANY(%s)
                   AND c.created_at >= MAKE_DATE(%s, 1, 1)
                   AND c.created_at < MAKE_DATE(%s + 1, 1, 1)
                 GROUP BY DATE_TRUNC('week', c.created_at), status_nome
                 ORDER BY semana, status_nome
             ''', (executive_ids, year, year))
-            cotacoes_semanais_raw = [dict(row) for row in (cursor.fetchall() or [])]
 
             liquido_expr = _parse_varchar_to_numeric('p.vr_liquido_pi')
             pi_month_expr = '''
@@ -15348,7 +15386,7 @@ def get_dashboard_comercial_ano(year=2026):
                     ELSE DATE_TRUNC('month', p.created_at)::date
                 END
             '''
-            cursor.execute(f'''
+            pis_mensais = _fetch('pis_mensais', f'''
                 SELECT
                     TO_CHAR(({pi_month_expr}), 'YYYY-MM') AS mes,
                     COALESCE(NULLIF(p.id_resp_comercial, 0), cli.vendas_central_comm) AS executivo_id,
@@ -15361,9 +15399,8 @@ def get_dashboard_comercial_ano(year=2026):
                 GROUP BY mes, executivo_id
                 ORDER BY mes
             ''', (executive_ids, year))
-            pis_mensais = [dict(row) for row in (cursor.fetchall() or [])]
 
-            cursor.execute('''
+            campanhas_mensais = _fetch('campanhas_mensais', '''
                 SELECT
                     TO_CHAR(
                         DATE_TRUNC('month', COALESCE(c.periodo_inicio, c.created_at)),
@@ -15378,7 +15415,6 @@ def get_dashboard_comercial_ano(year=2026):
                 GROUP BY mes, plataforma
                 ORDER BY mes, total DESC
             ''', (year,))
-            campanhas_mensais = [dict(row) for row in (cursor.fetchall() or [])]
 
         executives = []
         for top in top_rows:
@@ -15580,7 +15616,7 @@ def get_dashboard_comercial_ano(year=2026):
         }
     except Exception as e:
         conn.rollback()
-        current_app.logger.error(f"Erro dashboard comercial anual: {e}")
+        current_app.logger.exception("Erro dashboard comercial anual: %s", e)
         return empty_result
 
 

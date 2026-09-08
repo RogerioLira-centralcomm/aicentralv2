@@ -20,7 +20,7 @@
       navegador mesmo quando `npm run build` é rodado sem apontar para
       enterprise-system.css. Auto-contido, ordem depois do output.css.
     -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=13">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=14">
 
     <script>
     function setCookie(name, value, days) {
@@ -849,7 +849,9 @@
                 </div>
                 {% if is_centralcomm_user %}
                 <button type="button" id="cx-agent-trigger" class="erp-nav-trigger cx-agent-trigger" aria-label="Abrir Agente CentralX" aria-controls="cx-agent-dock" aria-expanded="false" title="Agente CentralX">
-                    <img src="{{ url_for('static', filename='images/agent-centralx.png') }}" alt="" aria-hidden="true">
+                    <span class="cx-agent-trigger-icon" aria-hidden="true">
+                        <img src="{{ url_for('static', filename='images/agent-centralx.png', v=2) }}" alt="">
+                    </span>
                     <span class="hidden xl:inline">Agente</span>
                 </button>
                 {% endif %}

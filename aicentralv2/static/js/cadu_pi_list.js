@@ -13,6 +13,7 @@
   let currentPiSidebar = null;
   let filterDebounceTimer = null;
   let clientDebounceTimer = null;
+  let sidebarCloseTimer = null;
   let subStatusAtual = new URLSearchParams(window.location.search).get('id_sub_status_pi') || '';
   let visaoComercial = new URLSearchParams(window.location.search).get('visao') || '';
   const origemLista = new URLSearchParams(window.location.search).get('origem') || '';
@@ -292,13 +293,13 @@
     const precoReal = c.preco_unitario_realizado_brl != null ? Number(c.preco_unitario_realizado_brl) : null;
     const sigla = siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade);
 
-    const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+    const periodoLinha1 = '<strong class="pi-inner-flight">' + (c.periodo_inicio || '—') + (c.periodo_fim ? ' — ' + c.periodo_fim : '') + '</strong>';
     const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
-      ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>' : '';
+      ? '<span class="pi-inner-muted">' + c.periodo_dias + ' dias</span>' : '';
     const pctPeriodo = c.periodo_pct_elapsed != null ? Number(c.periodo_pct_elapsed) : null;
     let celPeriodo = periodoLinha1 + periodoLinha2;
     if (pctPeriodo != null && !isNaN(pctPeriodo)) {
-      celPeriodo += '<div class="mt-1">' + UI.buildProgressHtml(pctPeriodo, { small: true }) + '</div>';
+      celPeriodo += '<div class="pi-inner-progress">' + UI.buildProgressHtml(pctPeriodo, { small: true }) + '</div>';
     }
 
     const payload = encodeURIComponent(JSON.stringify(c));
@@ -307,41 +308,41 @@
 
     let celCustos = UI.cellEmptyHtml('empty-na');
     if (precoOrc != null || precoReal != null) {
-      celCustos = '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>';
+      celCustos = '<span class="pi-inner-kpi">' + sigla + '</span>';
       if (precoOrc != null) {
-        celCustos += '<span class="block text-[10px] text-gray-500">Orç. ' + fmtBrl(precoOrc) + '</span>';
+        celCustos += '<span class="pi-inner-muted">Orçado ' + fmtBrl(precoOrc) + '</span>';
       }
       if (precoReal != null) {
-        celCustos += '<span class="block text-xs font-semibold tabular-nums text-gray-800">Real. ' + fmtBrl(precoReal) + '</span>';
+        celCustos += '<strong class="pi-inner-value">Realizado ' + fmtBrl(precoReal) + '</strong>';
       }
     }
 
     let celObjetivo = UI.cellEmptyHtml('empty-na');
     if (objContratadoNum > 0) {
       celObjetivo = UI.buildProgressHtml(pctObj, { small: true }) +
-        '<div class="text-[11px] text-gray-600 mt-0.5">' + fmtInt(objAtingidoNum) + '</div>' +
-        '<div class="text-[10px] text-gray-400">' + fmtInt(objContratadoNum) + '</div>';
+        '<strong class="pi-inner-value">' + fmtInt(objAtingidoNum) + ' entregues</strong>' +
+        '<span class="pi-inner-muted">de ' + fmtInt(objContratadoNum) + ' contratados</span>';
     }
 
     let celMidia = UI.cellEmptyHtml('empty-pending');
     if (previsto > 0 || gasto > 0) {
       celMidia = UI.buildProgressHtml(pctMidia, { small: true }) +
-        '<div class="text-xs font-semibold tabular-nums text-gray-800 mt-0.5">' + fmtBrl(gasto) + '</div>' +
-        '<div class="text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</div>';
+        '<strong class="pi-inner-value">' + fmtBrl(gasto) + ' investidos</strong>' +
+        '<span class="pi-inner-muted">de ' + fmtBrl(previsto) + ' previstos</span>';
     }
 
     const linkCount = (c.googled_pi_princ ? 1 : 0) + (c.link_dash ? 1 : 0);
 
     return '<tr class="pi-campaign-row" data-plataforma-id="' + platId + '" data-plataforma-nome="' + platNome + '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
-      '<td data-label="Campanha"><span class="pi-campaign-name">' + (c.nome_campanha || 'Campanha sem nome') + '</span>' +
+      '<td data-label="Campanha" class="pi-inner-campaign"><span class="pi-campaign-name">' + (c.nome_campanha || 'Campanha sem nome') + '</span>' +
       '<span class="pi-campaign-status">' + (c.status_nome || 'Status não informado') + '</span></td>' +
-      '<td data-label="Plataforma" class="platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
+      '<td data-label="Plataforma" class="platform-cell pi-inner-platform"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
       '<span class="link-count-badge' + (linkCount === 0 ? ' empty' : '') + '">L' + linkCount + '</span></div>' +
       '<span class="pi-campaign-platform">' + (c.plataforma_nome || 'Não informado') + '</span></td>' +
-      '<td data-label="Período">' + celPeriodo + '</td>' +
-      '<td data-label="Custos unitários">' + celCustos + '</td>' +
-      '<td data-label="Entrega">' + celObjetivo + '</td>' +
-      '<td data-label="Custo de mídia">' + celMidia + '</td>' +
+      '<td data-label="Veiculação" class="pi-inner-flight-cell">' + celPeriodo + '</td>' +
+      '<td data-label="Custo unitário" class="pi-inner-unit-cost">' + celCustos + '</td>' +
+      '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
+      '<td data-label="Investimento" class="pi-inner-investment">' + celMidia + '</td>' +
       '</tr>';
   }
 
@@ -385,11 +386,11 @@
               } catch (err) { console.error(err); }
             });
           }
-          let html = '<table class="camp-table"><colgroup>' +
-            '<col style="width:22%"><col style="width:12%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:18%">' +
+          let html = '<table class="camp-table camp-table--operational"><colgroup>' +
+            '<col style="width:24%"><col style="width:12%"><col style="width:18%"><col style="width:14%"><col style="width:16%"><col style="width:16%">' +
             '</colgroup><thead><tr>' +
-            '<th class="text-left">Campanha</th><th class="text-center">Plataforma</th><th class="text-center">Período</th>' +
-            '<th class="text-right">Custos Unitários</th><th class="text-right">Objetivo</th><th class="text-right">Custo de Mídia</th>' +
+            '<th class="text-left">Campanha</th><th class="text-left">Plataforma</th><th class="text-left">Veiculação</th>' +
+            '<th class="text-left">Custo unitário</th><th class="text-left">Entrega</th><th class="text-left">Investimento</th>' +
             '</tr></thead><tbody>';
           const campIds = [];
           data.campanhas.forEach(function (c) {
@@ -530,8 +531,18 @@
     const panel = document.getElementById('piSidebarPanel');
     const overlay = document.getElementById('piSidebarOverlay');
     if (!panel || !overlay) return;
-    panel.classList.add('open');
-    overlay.classList.add('open');
+    clearTimeout(sidebarCloseTimer);
+    panel.hidden = false;
+    overlay.hidden = false;
+    panel.setAttribute('aria-hidden', 'false');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sidebar-open');
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        panel.classList.add('open');
+        overlay.classList.add('open');
+      });
+    });
     switchPiSidebarTab('resumo');
     document.getElementById('piSidebarTitle').textContent = (SOMENTE_LEITURA ? 'Visualizar PI #' : 'PI #') + idPi;
     aplicarSidebarSomenteLeitura();
@@ -574,6 +585,14 @@
     const overlay = document.getElementById('piSidebarOverlay');
     if (panel) panel.classList.remove('open');
     if (overlay) overlay.classList.remove('open');
+    if (panel) panel.setAttribute('aria-hidden', 'true');
+    if (overlay) overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sidebar-open');
+    clearTimeout(sidebarCloseTimer);
+    sidebarCloseTimer = window.setTimeout(function () {
+      if (panel && !panel.classList.contains('open')) panel.hidden = true;
+      if (overlay && !overlay.classList.contains('open')) overlay.hidden = true;
+    }, 360);
     currentPiSidebar = null;
   };
 

@@ -19,6 +19,16 @@
     <th>Status</th>
     <th class="text-center">Ações</th>
   </tr>
+  {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
+  <tr class="pi-billing-head">
+    <th>PI e título</th>
+    <th>Cliente e relacionamento</th>
+    <th>Responsável</th>
+    <th>Veiculação</th>
+    <th>Campanhas</th>
+    <th>Financeiro</th>
+    <th>Documentos</th>
+  </tr>
   {% else %}
   <tr>
     <th>PI e título</th>

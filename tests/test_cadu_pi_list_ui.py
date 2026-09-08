@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "aicentralv2/templates/cadu_pi.html"
 PARTIALS = ROOT / "aicentralv2/templates/cadu_pi"
 CSS = ROOT / "aicentralv2/static/css/cadu-pi-list.css"
+SHARED_CSS = ROOT / "aicentralv2/static/css/campanhas-ui.css"
 JS = ROOT / "aicentralv2/static/js/cadu_pi_list.js"
 
 
@@ -15,6 +16,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.template = TEMPLATE.read_text()
         cls.css = CSS.read_text()
+        cls.shared_css = SHARED_CSS.read_text()
         cls.js = JS.read_text()
 
     def test_list_is_componentized_without_changing_modal_area(self):
@@ -25,6 +27,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "_campaign_rows.html",
             "_agency_group.html",
             "_summary.html",
+            "_operation_billing_cells.html",
         }
         self.assertTrue(expected.issubset({path.name for path in PARTIALS.glob("*.html")}))
         for name in expected - {"_pi_row.html"}:
@@ -85,6 +88,38 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("overflow-y: visible", self.css)
         self.assertNotIn("pi-row-sticky-expanded", self.js)
 
+    def test_operation_billing_view_groups_finance_documents_and_nf(self):
+        table = (PARTIALS / "_table.html").read_text()
+        billing = (PARTIALS / "_operation_billing_cells.html").read_text()
+        campaign = (PARTIALS / "_campaign_rows.html").read_text()
+        self.assertIn("pi-billing-head", table)
+        self.assertIn("Cliente e relacionamento", table)
+        self.assertIn("Financeiro", table)
+        self.assertIn("Documentos", table)
+        self.assertIn("pi-billing-finance", billing)
+        self.assertIn("Valor líquido", billing)
+        self.assertIn("Valor bruto", billing)
+        self.assertIn("pi-billing-document-actions", billing)
+        self.assertIn("fa-file-invoice", billing)
+        self.assertIn("Sem NF", billing)
+        self.assertIn("origem_lista == 'operacao' %}7", campaign)
+        self.assertIn("pi-row--billing", self.template)
+        self.assertIn("pi-list-table--billing", self.template)
+
+    def test_internal_campaign_grid_matches_operational_tracking(self):
+        for marker in (
+            "camp-table--operational",
+            "pi-inner-flight-cell",
+            "pi-inner-unit-cost",
+            "pi-inner-delivery",
+            "pi-inner-investment",
+        ):
+            self.assertIn(marker, self.js)
+        for label in ("Veiculação", "Custo unitário", "Entrega", "Investimento"):
+            self.assertIn(label, self.js)
+        self.assertIn(".pi-page .camp-table--operational", self.css)
+        self.assertIn("border-left: 4px solid #5f8f89", self.css)
+
     def test_mobile_cards_and_reduced_motion_are_explicit(self):
         self.assertIn("@media (max-width: 720px)", self.css)
         self.assertIn("content: attr(data-label)", self.css)
@@ -114,6 +149,22 @@ class CaduPiListUiContractTest(unittest.TestCase):
         )
         self.assertIn(".pi-config-head th:nth-child(4) { width: 16%; }", self.css)
         self.assertIn(".pi-config-head th:nth-child(7) { width: 10%; }", self.css)
+
+    def test_closed_sidebar_is_removed_from_layout_and_viewport(self):
+        self.assertIn(
+            'id="piSidebarOverlay" onclick="fecharSidebarPi()" hidden aria-hidden="true"',
+            self.template,
+        )
+        self.assertIn(
+            'id="piSidebarPanel" hidden aria-hidden="true"',
+            self.template,
+        )
+        self.assertIn("transform: translateX(calc(100% + 2rem))", self.shared_css)
+        self.assertIn(".sidebar-panel[hidden]", self.shared_css)
+        self.assertNotIn("right: -480px", self.shared_css)
+        self.assertIn("panel.hidden = false", self.js)
+        self.assertIn("panel.hidden = true", self.js)
+        self.assertIn("document.body.classList.add('sidebar-open')", self.js)
 
     def test_new_list_css_has_no_text_smaller_than_twelve_pixels(self):
         small_px = re.findall(r"font-size:\s*(?:[0-9]|1[01])px", self.css)

@@ -240,20 +240,39 @@
 }
 
 /* Sidebar (compartilhado PI + Campanhas) */
+body.sidebar-open {
+  overflow: hidden;
+}
+
 .sidebar-panel {
   position: fixed;
   top: 0;
-  right: -480px;
+  right: 0 !important;
   width: 480px;
   height: 100vh;
   background: #fff;
   border-left: 1px solid #e5e7eb;
   box-shadow: -8px 0 32px rgba(0,0,0,0.08);
   z-index: 40;
-  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(calc(100% + 2rem));
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.35s;
   overflow-y: auto;
+  will-change: transform;
 }
-.sidebar-panel.open { right: 0; }
+.sidebar-panel.open {
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 0s;
+}
+.sidebar-panel[hidden],
+.sidebar-overlay[hidden] {
+  display: none !important;
+}
 .sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -453,7 +472,7 @@
   .camp-list-toolbar { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
 }
 @media (max-width: 768px) {
-  .sidebar-panel { width: 100vw; right: -100vw; }
+  .sidebar-panel { width: 100vw; }
   .camp-filter-field, .camp-filter-control { width: 100%; }
   .camp-filter-control input { min-width: 0; }
   .camp-list-total { border-left: 0; padding-left: 0; }

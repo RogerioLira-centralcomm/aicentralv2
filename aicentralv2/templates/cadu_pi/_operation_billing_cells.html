@@ -1,0 +1,91 @@
+<td class="pi-billing-identity">
+  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}"
+     class="pi-code-link"
+     title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">
+    {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
+  </a>
+  {% if pi.get('titulo_pi') %}
+  <span class="pi-billing-title" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
+  {% endif %}
+  {% if pi.get('mes_ref_comp') %}
+  <span class="pi-billing-reference">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-billing-client-cell">
+  <strong class="pi-billing-client">{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
+  {% if pi.get('agencia_nome') %}
+  <span class="pi-billing-relation"><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>
+  {% endif %}
+  {% if pi.get('parceiro_nome') %}
+  <span class="pi-billing-relation"><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-billing-owner">
+  {{ pi_row.executive(pi) }}
+</td>
+
+<td class="pi-billing-flight">
+  {% if pi.get('periodo_inicio') %}
+  <strong>
+    {{ pi.periodo_inicio.strftime('%d/%m/%Y') }}
+    {% if pi.get('periodo_fim') %}<span aria-hidden="true">—</span> {{ pi.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}
+  </strong>
+  {% if pi.get('periodo_fim') %}
+  {% set dias_veiculacao = (pi.periodo_fim - pi.periodo_inicio).days %}
+  <span>{{ dias_veiculacao }} dia{% if dias_veiculacao != 1 %}s{% endif %}</span>
+  {% endif %}
+  {% else %}
+  <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>
+  {% endif %}
+</td>
+
+<td class="pi-billing-campaigns">
+  {{ pi_row.campaign_toggle(pi) }}
+</td>
+
+<td class="pi-billing-finance">
+  <div>
+    <span>Valor líquido</span>
+    <strong class="is-net">{{ pi.valor_liquido|format_brl if pi.get('valor_liquido') else 'Pendente' }}</strong>
+  </div>
+  <div>
+    <span>Valor bruto</span>
+    <strong>{{ pi.valor_bruto|format_brl if pi.get('valor_bruto') else 'Pendente' }}</strong>
+  </div>
+</td>
+
+<td class="pi-billing-documents" onclick="event.stopPropagation()">
+  {% set pi_info = {
+    'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
+    'titulo': pi.titulo_pi or '',
+    'cliente': pi.cliente_nome or '',
+    'cnpj': pi.cliente_cnpj or '',
+    'mesRef': pi.mes_ref_comp or '',
+    'valorLiquido': pi.valor_liquido or ''
+  } %}
+  <div class="pi-billing-document-actions">
+    <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})"
+            class="pi-document-action" title="Dados complementares" aria-label="Dados complementares">
+      <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+    </button>
+    {% if pi.get('googled_pi_princ') %}
+    <a href="{{ pi.googled_pi_princ }}" target="_blank" rel="noopener"
+       class="pi-document-action" title="Pasta Google Drive" aria-label="Abrir pasta Google Drive">
+      <i class="fa-solid fa-folder" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+    {% if pi.get('nf_id') %}
+    <button type="button"
+            onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
+            class="pi-document-action pi-document-action--nf"
+            title="Ver nota fiscal" aria-label="Ver nota fiscal">
+      <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+    </button>
+    <span class="pi-document-state is-issued">{{ pi.nf_status_descricao or 'NF vinculada' }}</span>
+    {% else %}
+    <span class="pi-document-state"><i class="fa-solid fa-file-circle-xmark" aria-hidden="true"></i>Sem NF</span>
+    {% endif %}
+  </div>
+</td>

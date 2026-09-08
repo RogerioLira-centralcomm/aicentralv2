@@ -9,7 +9,12 @@ from aicentralv2 import is_erp_nav_item_active
 
 class ErpNavbarTestCase(unittest.TestCase):
     def setUp(self):
-        templates = Path(__file__).resolve().parents[1] / "aicentralv2" / "templates"
+        root = Path(__file__).resolve().parents[1]
+        templates = root / "aicentralv2" / "templates"
+        self.base_template = (templates / "base_erp.html").read_text()
+        self.enterprise_css = (
+            root / "aicentralv2" / "static" / "css" / "tailwind" / "enterprise-system.css"
+        ).read_text()
         self.app = Flask(__name__, template_folder=str(templates))
         self.app.config.update(TESTING=True, SECRET_KEY="erp-navbar-test")
 
@@ -100,6 +105,16 @@ class ErpNavbarTestCase(unittest.TestCase):
         )
         self.assertIn("Migrations do banco", super_html)
         self.assertIn("Gestão de reembolsos", super_html)
+
+    def test_agente_usa_novo_icone_compacto_na_navbar_mobile(self):
+        self.assertIn('class="cx-agent-trigger-icon"', self.base_template)
+        self.assertIn("filename='images/agent-centralx.png', v=2", self.base_template)
+        self.assertIn('aria-label="Abrir Agente CentralX"', self.base_template)
+        self.assertIn("@media (max-width: 899px)", self.enterprise_css)
+        self.assertIn(".erp-topbar .cx-agent-trigger-icon", self.enterprise_css)
+        self.assertIn("width: 1.125rem", self.enterprise_css)
+        self.assertIn("height: 1.125rem", self.enterprise_css)
+        self.assertIn("flex: 0 0 2.25rem", self.enterprise_css)
 
 
 if __name__ == "__main__":

@@ -40,11 +40,11 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
         {% include 'cadu_pi/_table.html' %}
         <tbody class="text-[11px]">
           {% for pi in pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% endif %}">
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}">
           {% if sub_status_atual|string == '1' %}
             <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
@@ -183,6 +183,8 @@
                 </button>
               </div>
             </td>
+          {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
+            {% include 'cadu_pi/_operation_billing_cells.html' %}
           {% else %}
             {% set status_lower = (pi.get('status_descricao') or '')|lower %}
             <td class="py-2 px-2 align-top">
@@ -423,8 +425,8 @@
 </div>
 
 {# ====== SIDEBAR PI — dados complementares ====== #}
-<div class="sidebar-overlay" id="piSidebarOverlay" onclick="fecharSidebarPi()"></div>
-<div class="sidebar-panel" id="piSidebarPanel">
+<div class="sidebar-overlay" id="piSidebarOverlay" onclick="fecharSidebarPi()" hidden aria-hidden="true"></div>
+<div class="sidebar-panel" id="piSidebarPanel" hidden aria-hidden="true">
   <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
     <h3 class="font-bold text-gray-800 text-base truncate" id="piSidebarTitle">Detalhes do PI</h3>
     <button type="button" onclick="fecharSidebarPi()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">

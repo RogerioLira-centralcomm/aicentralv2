@@ -1026,6 +1026,281 @@
   font-size: 0.8125rem;
 }
 
+/* Operação financeira: PI pronto para faturamento */
+.pi-page .pi-list-table--billing {
+  min-width: 62rem;
+}
+
+.pi-billing-head th:nth-child(1) { width: 16%; }
+.pi-billing-head th:nth-child(2) { width: 25%; }
+.pi-billing-head th:nth-child(3) { width: 12%; }
+.pi-billing-head th:nth-child(4) { width: 14%; }
+.pi-billing-head th:nth-child(5) { width: 10%; }
+.pi-billing-head th:nth-child(6) { width: 12%; }
+.pi-billing-head th:nth-child(7) { width: 11%; }
+
+.pi-page .pi-list-table tbody .pi-row--billing > td {
+  padding: 0.75rem 0.7rem;
+  vertical-align: middle;
+}
+
+.pi-billing-identity,
+.pi-billing-client-cell,
+.pi-billing-flight,
+.pi-billing-finance {
+  min-width: 0;
+}
+
+.pi-billing-title,
+.pi-billing-reference,
+.pi-billing-client,
+.pi-billing-relation,
+.pi-billing-flight > strong,
+.pi-billing-flight > span {
+  display: block;
+}
+
+.pi-billing-title {
+  display: -webkit-box;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  color: #334155;
+  font-size: 0.75rem !important;
+  font-weight: 650;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.pi-billing-reference {
+  margin-top: 0.35rem;
+  color: #829093;
+  font-size: 0.75rem !important;
+}
+
+.pi-billing-client {
+  color: #172d32;
+  font-size: 0.8125rem !important;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.pi-billing-relation {
+  margin-top: 0.3rem;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.75rem !important;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-billing-relation i {
+  width: 1rem;
+  margin-right: 0.25rem;
+  color: #819295;
+  text-align: center;
+}
+
+.pi-billing-owner .pi-executive {
+  align-items: center;
+}
+
+.pi-billing-owner .pi-executive > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-billing-flight > strong {
+  color: #243d42;
+  font-size: 0.75rem !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.pi-billing-flight > strong span {
+  color: #93a1a4;
+  font-weight: 500;
+}
+
+.pi-billing-flight > span {
+  margin-top: 0.2rem;
+  color: #718083;
+  font-size: 0.75rem !important;
+}
+
+.pi-billing-campaigns .pi-expand-chip {
+  min-height: 2rem;
+  white-space: nowrap;
+}
+
+.pi-billing-finance {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pi-billing-finance > div {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.pi-billing-finance span {
+  color: #718083;
+  font-size: 0.75rem !important;
+}
+
+.pi-billing-finance strong {
+  color: #1e293b;
+  font-size: 0.8125rem !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pi-billing-finance strong.is-net {
+  color: #08734f;
+}
+
+.pi-billing-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pi-document-action {
+  display: inline-grid;
+  width: 2rem;
+  min-width: 2rem !important;
+  height: 2rem;
+  min-height: 2rem !important;
+  place-items: center;
+  border: 1px solid #d6e0e1;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: #607377;
+}
+
+.pi-document-action:hover {
+  border-color: var(--pi-brand);
+  background: #edf5f4;
+  color: var(--pi-brand);
+}
+
+.pi-document-action--nf {
+  border-color: #b8d7cb;
+  color: #176044;
+}
+
+.pi-document-state {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  background: #f1f4f5;
+  padding: 0.25rem 0.5rem;
+  color: #718083;
+  font-size: 0.75rem !important;
+  white-space: nowrap;
+}
+
+.pi-document-state.is-issued {
+  background: #e9f5ef;
+  color: #176044;
+}
+
+/* Campanhas internas: subgrade de acompanhamento */
+.pi-page .pi-camp-block {
+  overflow: hidden;
+  margin: 0.75rem 1rem;
+  border: 1px solid #d5e1e1;
+  border-left: 4px solid #5f8f89;
+  border-radius: 0.55rem;
+  background: #fff;
+  padding: 0;
+}
+
+.pi-page .camp-table--operational {
+  table-layout: fixed;
+}
+
+.pi-page .camp-table--operational th {
+  border-bottom: 1px solid #dbe5e5;
+  background: #edf3f3;
+  color: #3d5557;
+  font-weight: 750;
+  text-align: left !important;
+}
+
+.pi-page .camp-table--operational td {
+  border-bottom: 1px solid #e8eeee;
+  background: #fff;
+  text-align: left !important;
+  vertical-align: middle;
+}
+
+.pi-page .camp-table--operational tr:last-child td {
+  border-bottom: 0;
+}
+
+.pi-page .camp-table--operational .flex.items-center.justify-end {
+  justify-content: flex-start !important;
+}
+
+.pi-page .camp-table--operational .camp-progress {
+  width: 4.75rem;
+  min-width: 4.75rem;
+}
+
+.pi-inner-flight,
+.pi-inner-muted {
+  display: block;
+}
+
+.pi-inner-flight {
+  color: #334155;
+  font-size: 0.75rem !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pi-inner-muted {
+  margin-top: 0.15rem;
+  color: #7d8b8e;
+  font-size: 0.75rem !important;
+}
+
+.pi-inner-progress {
+  margin-top: 0.4rem;
+}
+
+.pi-inner-unit-cost,
+.pi-inner-delivery,
+.pi-inner-investment {
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-inner-kpi,
+.pi-inner-value {
+  display: block;
+}
+
+.pi-inner-kpi {
+  margin-bottom: 0.25rem;
+  color: #176b5a;
+  font-size: 0.75rem !important;
+  font-weight: 800;
+}
+
+.pi-inner-value {
+  margin-top: 0.3rem;
+  color: #263a3f;
+  font-size: 0.75rem !important;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 @media (max-width: 1080px) {
   .pi-list-header {
     position: static;

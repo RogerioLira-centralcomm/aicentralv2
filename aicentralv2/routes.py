@@ -12382,7 +12382,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             )
             auxiliares = _carregar_auxiliares_campanha()
             return_url = request.args.get('return_url', '').strip()
-            if not return_url.startswith('/campanhas-pi'):
+            pi_return_url = url_for('cadu_pi_editar', id_pi=id_pi)
+            if (
+                not return_url.startswith('/campanhas-pi')
+                and return_url != pi_return_url
+            ):
                 return_url = url_for('campanhas_pi_lista')
 
             from datetime import datetime as dt_cls

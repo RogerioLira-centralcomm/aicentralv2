@@ -35,6 +35,9 @@ class PiOperacaoRepository:
             conn.rollback()
             raise
 
+    def rollback(self):
+        self.conn.rollback()
+
     def obter_pi(self, id_pi):
         with self.conn.cursor() as cursor:
             cursor.execute(
@@ -147,16 +150,23 @@ class PiOperacaoRepository:
 
     def listar_contatos_disponiveis(self, id_pi):
         pi = self.obter_pi(id_pi)
-        empresas = [pi["id_cliente"]]
-        if pi.get("id_agencia"):
-            empresas.append(pi["id_agencia"])
+        empresas = []
+        for empresa_id in (pi.get("id_cliente"), pi.get("id_agencia")):
+            if empresa_id is None:
+                continue
+            empresa_id = int(empresa_id)
+            if empresa_id not in empresas:
+                empresas.append(empresa_id)
+        if not empresas:
+            return []
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT id_contato_cliente, pk_id_tbl_cliente, nome_completo,
                        email, telefone
                   FROM tbl_contato_cliente
-                 WHERE status = TRUE AND pk_id_tbl_cliente = ANY(%s)
+                 WHERE COALESCE(status, TRUE) = TRUE
+                   AND pk_id_tbl_cliente = ANY(%s)
                  ORDER BY nome_completo
                 """,
                 (empresas,),
@@ -249,20 +259,29 @@ class PiOperacaoRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT id_contato_cliente, pk_id_tbl_cliente
+                    SELECT id_contato_cliente, pk_id_tbl_cliente, email
                       FROM tbl_contato_cliente
-                     WHERE status = TRUE AND id_contato_cliente = ANY(%s)
+                     WHERE COALESCE(status, TRUE) = TRUE
+                       AND id_contato_cliente = ANY(%s)
                     """,
                     (ids,),
                 )
                 contatos = {
-                    row["id_contato_cliente"]: row["pk_id_tbl_cliente"]
+                    row["id_contato_cliente"]: {
+                        "empresa_id": row["pk_id_tbl_cliente"],
+                        "email": str(row.get("email") or "").strip(),
+                    }
                     for row in cursor.fetchall()
                 }
         for contato_id, papel, _ in normalizados:
-            if contatos.get(contato_id) != esperado[papel]:
+            contato = contatos.get(contato_id)
+            if not contato or contato["empresa_id"] != esperado[papel]:
                 raise PropriedadeInvalidaError(
                     "Contato não pertence à empresa indicada pelo papel."
+                )
+            if not contato["email"]:
+                raise PropriedadeInvalidaError(
+                    "Contato selecionado não possui e-mail cadastrado."
                 )
 
         with self._write() as cursor:

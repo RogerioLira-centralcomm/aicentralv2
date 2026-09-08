@@ -3,7 +3,7 @@
 {% block title %}{{ campanha.nome_campanha or 'Campanha' }} - Operação{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=6">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
 {% endblock %}
 
@@ -178,6 +178,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=6"></script>
 <script src="{{ url_for('static', filename='js/campanha_pi_detalhe.js') }}?v=1"></script>
 {% endblock %}

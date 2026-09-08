@@ -35,6 +35,15 @@
     return Array.isArray(value) ? value : [];
   }
 
+  function piDetailUrl() {
+    return '/cadu_pi/editar/' + encodeURIComponent(piId);
+  }
+
+  function campaignDetailUrl(id) {
+    return '/campanhas-pi/' + encodeURIComponent(Number(id)) +
+      '?return_url=' + encodeURIComponent(piDetailUrl());
+  }
+
   async function request(url, options) {
     var response = await fetch(url, Object.assign({ credentials: 'same-origin' }, options || {}));
     var type = response.headers.get('content-type') || '';
@@ -126,6 +135,11 @@
     var id = item.id || item.id_item || index;
     var checked = Boolean(item.concluido || item.completed);
     var automatic = item.modo_conclusao === 'automatico';
+    var evidence = item.evidencia || (
+      checked
+        ? (automatic ? 'Confirmado pelos dados do CentralX' : 'Confirmado pela equipe')
+        : (automatic ? 'Aguardando evidência no CentralX' : 'Marque quando esta etapa for concluída')
+    );
     var control = automatic
       ? '<span class="pi-op-check__status" aria-hidden="true"><i class="fa-solid ' +
         (checked ? 'fa-circle-check' : 'fa-clock') + '"></i></span>'
@@ -134,7 +148,7 @@
     return '<label class="pi-op-check' + (checked ? ' is-complete' : '') +
       (automatic ? ' is-automatic' : '') + '">' + control + '<span><strong>' +
       esc(item.titulo || item.descricao || item.label || 'Item') + '</strong>' +
-      (item.evidencia ? '<small class="block">' + esc(item.evidencia) + '</small>' : '') +
+      '<small class="block">' + esc(evidence) + '</small>' +
       '</span></label>';
   }
 
@@ -173,14 +187,37 @@
           var items = list(campaign.itens);
           return '<details class="pi-op-campaign-checklist"' +
             (!campaign.completo && campaignIndex === 0 ? ' open' : '') + '><summary>' +
-            '<span><strong>' + esc(campaign.nome) + '</strong><small>' +
-            esc(campaign.plataforma || 'Sem plataforma') + '</small></span>' +
+            '<a class="pi-op-campaign-checklist__link" data-campaign-link href="' +
+            esc(campaignDetailUrl(campaign.id_campanha)) + '"><strong>' +
+            esc(campaign.nome) + '</strong><small>' +
+            esc(campaign.plataforma || 'Sem plataforma') + '</small></a>' +
             '<span class="pi-op-campaign-checklist__count">' + esc(campaign.concluidos) + '/' +
             esc(campaign.total) + '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span>' +
             '</summary><div class="pi-op-campaign-checklist__items">' +
             items.map(checklistItemHtml).join('') + '</div></details>';
         }).join('')
       : '<div class="pi-op-state">Nenhuma campanha vinculada ao PI.</div>';
+  }
+
+  function renderRelatedCampaigns(data) {
+    var target = document.getElementById('pi-related-campaigns');
+    if (!target) return;
+    var back = document.getElementById('pi-related-back');
+    if (back) back.href = piDetailUrl();
+    var campaigns = list(data.campanhas_relacionadas);
+    target.className = '';
+    target.innerHTML = campaigns.length
+      ? '<div class="pi-op-related__list">' + campaigns.map(function (campaign) {
+          var current = Boolean(campaign.atual) ||
+            Number(campaign.id_campanha) === campaignId;
+          return '<a class="pi-op-related__item' + (current ? ' is-current' : '') +
+            '" href="' + esc(campaignDetailUrl(campaign.id_campanha)) + '"' +
+            (current ? ' aria-current="page"' : '') + '><span>' +
+            esc(campaign.nome || ('Campanha ' + campaign.id_campanha)) +
+            '</span><small>' + esc(current ? 'Atual' : (campaign.plataforma || 'Abrir')) +
+            '</small></a>';
+        }).join('') + '</div>'
+      : '<div class="pi-op-state">Nenhuma outra campanha neste PI.</div>';
   }
 
   function renderTimeline(data) {
@@ -211,6 +248,7 @@
   function renderRecipients(data) {
     var target = document.getElementById('pi-recipient-options');
     if (!target) return;
+    data = data && typeof data === 'object' ? data : {};
     var count = document.getElementById('pi-recipient-count');
     var form = document.getElementById('pi-recipients-form');
     var submit = form && form.querySelector('button[type="submit"]');
@@ -271,7 +309,8 @@
         items.map(function (entry) {
           var item = entry.item;
           var hasEmail = Boolean(String(item.email || '').trim());
-          var disabled = readOnly || (item.indisponivel && !entry.active);
+          var disabled = readOnly || (!hasEmail && !entry.active) ||
+            (item.indisponivel && !entry.active);
           var detail = hasEmail ? esc(item.email) : '<span class="pi-op-recipient-missing">Sem e-mail cadastrado</span>';
           if (item.indisponivel) detail += ' <span class="pi-op-recipient-unavailable">Contato inativo</span>';
           return '<label class="pi-op-check pi-op-recipient' + (!hasEmail ? ' has-warning' : '') + '">' +
@@ -285,15 +324,21 @@
     target.className = 'pi-op-recipient-groups';
     target.innerHTML = groupHtml('cliente_final', 'Cliente') + groupHtml('agencia', 'Agência');
     updateRecipientCount();
-    if (submit) submit.disabled = readOnly;
   }
 
   function updateRecipientCount() {
     var form = document.getElementById('pi-recipients-form');
     var count = document.getElementById('pi-recipient-count');
     if (!form || !count) return;
-    var total = form.querySelectorAll('[data-recipient-id]:checked').length;
-    count.textContent = total + (total === 1 ? ' selecionado' : ' selecionados');
+    var checked = form.querySelectorAll('[data-recipient-id]:checked');
+    var invalid = Array.prototype.some.call(checked, function (input) {
+      return input.dataset.hasEmail !== 'true';
+    });
+    var total = checked.length;
+    count.textContent = total + (total === 1 ? ' selecionado' : ' selecionados') +
+      (invalid ? ' · revisar e-mail' : '');
+    var submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = readOnly || total === 0 || invalid;
   }
 
   function communicationName(item) {
@@ -324,12 +369,14 @@
       operationData = await request(stateUrl);
       renderRecommendation(operationData);
       renderChecklist(operationData);
+      renderRelatedCampaigns(operationData);
       renderTimeline(operationData);
       renderRecipients(operationData);
     } catch (error) {
       var target = document.getElementById('pi-operation-recommendation');
       if (target) target.innerHTML = errorHtml(error.message);
       renderChecklist({});
+      renderRelatedCampaigns({});
       renderTimeline({});
       renderRecipients({ recipient_error: error.message });
     }
@@ -730,6 +777,11 @@
   }
 
   document.addEventListener('click', function (event) {
+    var campaignLink = event.target.closest('[data-campaign-link]');
+    if (campaignLink) {
+      event.stopPropagation();
+      return;
+    }
     var retryRecipients = event.target.closest('[data-retry-recipients]');
     if (retryRecipients) {
       var recipientTarget = document.getElementById('pi-recipient-options');

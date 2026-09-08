@@ -273,11 +273,48 @@ class PiOperacaoServiceTest(unittest.TestCase):
         self.assertEqual(estado["checklist_operacional"]["progresso"]["total"], 5)
         self.assertEqual(len(estado["checklist_operacional"]["campanhas"]), 1)
         self.assertEqual(estado["checklist_operacional"]["itens_pi"], [])
+        self.assertEqual(
+            [item["id_campanha"] for item in estado["campanhas_relacionadas"]],
+            [30, 31],
+        )
+        self.assertTrue(estado["campanhas_relacionadas"][0]["atual"])
+        self.assertFalse(estado["campanhas_relacionadas"][1]["atual"])
 
     def test_estado_campanha_rejeita_pi_incorreto(self):
         service = PiOperacaoService(repository=FakeRepository())
         with self.assertRaisesRegex(PropriedadeInvalidaError, "não pertence"):
             service.estado_campanha(999, 30)
+
+    def test_falha_em_destinatarios_nao_interrompe_estado_operacional(self):
+        class RecipientFailureRepository(FakeRepository):
+            def __init__(self):
+                super().__init__()
+                self.rollback_calls = 0
+
+            def listar_destinatarios(self, id_pi):
+                raise RuntimeError("tabela indisponível")
+
+            def listar_contatos_disponiveis(self, id_pi):
+                return [
+                    {
+                        "id_contato_cliente": 40,
+                        "pk_id_tbl_cliente": 20,
+                        "nome_completo": "Cliente Teste",
+                        "email": "cliente@example.com",
+                    }
+                ]
+
+            def rollback(self):
+                self.rollback_calls += 1
+
+        repo = RecipientFailureRepository()
+        estado = PiOperacaoService(repository=repo).estado_completo(10)
+
+        self.assertEqual(repo.rollback_calls, 1)
+        self.assertEqual(estado["destinatarios"], [])
+        self.assertEqual(len(estado["contatos_disponiveis"]), 1)
+        self.assertIn("Não foi possível carregar", estado["recipient_error"])
+        self.assertIn("checklist_operacional", estado)
 
     def test_marcos_de_objetivo_sao_automaticos_por_campanha(self):
         repo = FakeRepository(substatus=3)

@@ -1,5 +1,6 @@
 """Regras de negócio da Operação do PI."""
 
+import logging
 from datetime import date, datetime
 from html import escape
 
@@ -8,6 +9,9 @@ from flask import has_request_context, render_template, url_for
 from .campanha_pi_metrics import parse_brl_float, parse_volume_float
 from .pi_operacao_repository import PiOperacaoRepository, PropriedadeInvalidaError
 from .services.brevo_service import get_brevo_service
+
+
+logger = logging.getLogger(__name__)
 
 
 ETAPAS = (
@@ -392,9 +396,37 @@ class PiOperacaoService:
             campanhas,
             pi,
         )
-        destinatarios = self.repository.listar_destinatarios(id_pi)
-        if not destinatarios:
-            destinatarios = self.repository.listar_destinatarios_sugeridos(id_pi)
+        recipient_error = None
+        try:
+            destinatarios = self.repository.listar_destinatarios(id_pi)
+            if not destinatarios:
+                destinatarios = self.repository.listar_destinatarios_sugeridos(id_pi)
+        except Exception:
+            logger.exception("Falha ao carregar destinatários do PI %s", id_pi)
+            if hasattr(self.repository, "rollback"):
+                try:
+                    self.repository.rollback()
+                except Exception:
+                    logger.exception("Falha ao reverter leitura de destinatários")
+            destinatarios = []
+            recipient_error = (
+                "Não foi possível carregar os destinatários. "
+                "Tente novamente ou revise os contatos do PI."
+            )
+        try:
+            contatos_disponiveis = self.repository.listar_contatos_disponiveis(id_pi)
+        except Exception:
+            logger.exception("Falha ao carregar contatos disponíveis do PI %s", id_pi)
+            if hasattr(self.repository, "rollback"):
+                try:
+                    self.repository.rollback()
+                except Exception:
+                    logger.exception("Falha ao reverter leitura de contatos")
+            contatos_disponiveis = []
+            recipient_error = (
+                "Não foi possível carregar os contatos disponíveis. "
+                "Tente novamente ou revise os vínculos do cliente e da agência."
+            )
         etapas_gravadas = self.repository.listar_etapas(id_pi)
         timeline = self._timeline(
             pi, campanhas, checklist, emails, etapas_gravadas
@@ -407,7 +439,8 @@ class PiOperacaoService:
             "pi": pi,
             "campanhas": campanhas,
             "destinatarios": destinatarios,
-            "contatos_disponiveis": self.repository.listar_contatos_disponiveis(id_pi),
+            "contatos_disponiveis": contatos_disponiveis,
+            "recipient_error": recipient_error,
             "checklist": checklist,
             "checklist_operacional": self._estrutura_checklist(
                 checklist, campanhas
@@ -438,6 +471,16 @@ class PiOperacaoService:
             raise PropriedadeInvalidaError("Campanha não pertence ao PI informado.")
 
         estado = self.estado_completo(id_pi)
+        campanhas_relacionadas = [
+            {
+                "id_campanha": item["id_campanha"],
+                "nome": item.get("nome_campanha")
+                or f"Campanha {item['id_campanha']}",
+                "plataforma": item.get("plataforma_nome") or "Sem plataforma",
+                "atual": int(item["id_campanha"]) == int(id_campanha),
+            }
+            for item in estado["campanhas"]
+        ]
         campanha_estado = next(
             (
                 item
@@ -476,6 +519,7 @@ class PiOperacaoService:
         return {
             **estado,
             "campanhas": [campanha_estado],
+            "campanhas_relacionadas": campanhas_relacionadas,
             "campanha": campanha_estado,
             "checklist": itens,
             "checklist_operacional": {

@@ -1,7 +1,8 @@
 <aside id="pi-operation-sidebar" class="pi-op-sidebar" aria-label="Contexto da operação">
   <div class="pi-op-sidebar__head">
     <div>
-      <h2 id="pi-sidebar-title">{% if operacao_modo|default('pi') == 'campanha' %}Operação da campanha{% else %}Operação do PI{% endif %}</h2>
+      <h2 id="pi-sidebar-title">Acompanhamento</h2>
+      <p>{% if operacao_modo|default('pi') == 'campanha' %}Pendências e evidências desta campanha.{% else %}Pendências, comunicações e histórico deste PI.{% endif %}</p>
     </div>
     <button type="button" class="pi-op-icon-btn pi-op-sidebar-close" data-sidebar-close aria-label="Fechar painel">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -21,9 +22,10 @@
 
     <section class="pi-op-panel pi-op-workflow" aria-labelledby="pi-checklist-title">
       <div class="pi-op-panel__title pi-op-panel__title--actions">
-        <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3 id="pi-checklist-title">{% if operacao_modo|default('pi') == 'campanha' %}Checklist da campanha{% else %}Checklist da operação{% endif %}</h3></span>
+        <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3 id="pi-checklist-title">Checklist</h3></span>
         <button type="button" id="pi-checklist-generate" class="pi-op-text-btn">Atualizar</button>
       </div>
+      <p class="pi-op-section-help">O relógio indica validação automática. As caixas dependem da confirmação da equipe.</p>
       <div class="pi-op-progress" aria-live="polite">
         <div class="pi-op-progress__label">
           <strong id="pi-checklist-progress-label">Carregando progresso…</strong>
@@ -48,6 +50,16 @@
         </div>
         <div id="pi-checklist-campaigns" class="pi-op-state">Nenhuma campanha disponível.</div>
       </div>
+      {% if operacao_modo|default('pi') == 'campanha' %}
+      <nav class="pi-op-related" aria-labelledby="pi-related-title">
+        <div class="pi-op-checklist-group__head">
+          <h4 id="pi-related-title">Campanhas deste PI</h4>
+          <a id="pi-related-back" class="pi-op-related__back" href="/cadu_pi/editar/{{ pi.id_pi if pi else '' }}">Voltar ao PI</a>
+        </div>
+        <p class="pi-op-section-help">Alterne de campanha sem perder o vínculo com o PI.</p>
+        <div id="pi-related-campaigns" class="pi-op-state">Carregando campanhas…</div>
+      </nav>
+      {% endif %}
     </section>
 
     {% if operacao_modo|default('pi') != 'campanha' %}
@@ -67,6 +79,7 @@
         </span>
         <strong id="pi-recipient-count" class="pi-op-recipient-count" aria-live="polite"></strong>
       </div>
+      <p class="pi-op-section-help">Estes contatos receberão as comunicações enviadas por esta operação.</p>
       <form id="pi-recipients-form" class="pi-op-stack">
         <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
         {% if not somente_leitura %}

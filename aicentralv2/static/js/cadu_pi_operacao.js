@@ -390,6 +390,51 @@
       : '<div class="pi-op-state">Nenhuma atividade registrada.</div>';
   }
 
+  function recipientId(item) {
+    if (item == null) return '';
+    if (typeof item !== 'object') return String(item);
+    return String(item.id_contato_cliente || item.contato_id || item.id || '');
+  }
+
+  function savedEmailRecipients(data) {
+    if (!data || data.destinatarios_confirmados !== true) return [];
+    return list(data && (data.destinatarios || data.recipients)).filter(function (item) {
+      return item && typeof item === 'object' && recipientId(item) &&
+        Boolean(String(item.email || '').trim());
+    });
+  }
+
+  function recipientSignature(items) {
+    return list(items).map(function (item) {
+      return recipientId(item) + ':' + String(item.papel || item.role || '');
+    }).filter(function (item) {
+      return item.charAt(0) !== ':';
+    }).sort().join('|');
+  }
+
+  function selectedRecipientSignature(form) {
+    if (!form) return '';
+    return Array.prototype.map.call(
+      form.querySelectorAll('[data-recipient-id]:checked'),
+      function (input) {
+        return String(input.dataset.recipientId || '') + ':' +
+          String(input.dataset.recipientRole || '');
+      }
+    ).sort().join('|');
+  }
+
+  function focusRecipientSelection() {
+    var form = document.getElementById('pi-recipients-form');
+    var panel = form && form.closest('.pi-op-panel');
+    openSidebar();
+    if (panel) scrollSidebarTo(panel);
+    notify('Selecione e salve ao menos um destinatário antes de preparar o e-mail.', 'warning');
+    window.setTimeout(function () {
+      var first = form && form.querySelector('[data-recipient-id]:not(:disabled)');
+      if (first) first.focus({ preventScroll: true });
+    }, 0);
+  }
+
   function renderRecipients(data) {
     var target = document.getElementById('pi-recipient-options');
     if (!target) return;
@@ -402,16 +447,17 @@
       target.innerHTML = errorHtml(data.recipient_error) +
         '<button type="button" class="pi-op-text-btn pi-op-recipient-retry" data-retry-recipients>Tentar novamente</button>';
       if (count) count.textContent = '';
+      if (form) form.dataset.savedRecipientSignature = '';
       if (submit) submit.disabled = true;
       return;
     }
     var selected = list(data.destinatarios || data.recipients);
     var available = list(data.contatos_disponiveis || data.available_contacts);
-    var recipientId = function (item) {
-      if (item == null) return '';
-      if (typeof item !== 'object') return String(item);
-      return String(item.id_contato_cliente || item.contato_id || item.id || '');
-    };
+    if (form) {
+      form.dataset.savedRecipientSignature = data.destinatarios_confirmados
+        ? recipientSignature(selected)
+        : '';
+    }
     var selectedById = {};
     selected.forEach(function (item) {
       var id = recipientId(item);
@@ -483,7 +529,12 @@
     count.textContent = total + (total === 1 ? ' selecionado' : ' selecionados') +
       (invalid ? ' · revisar e-mail' : '');
     var submit = form.querySelector('button[type="submit"]');
-    if (submit) submit.disabled = readOnly || total === 0 || invalid;
+    if (submit) {
+      var dirty = selectedRecipientSignature(form) !==
+        String(form.dataset.savedRecipientSignature || '');
+      submit.disabled = readOnly || total === 0 || invalid || !dirty;
+      submit.textContent = dirty ? 'Salvar destinatários' : 'Destinatários salvos';
+    }
   }
 
   function communicationName(item) {
@@ -501,11 +552,22 @@
       target.innerHTML = '<div class="pi-op-state">Nenhum tipo de comunicação disponível para esta etapa.</div>';
       return;
     }
-    target.innerHTML = '<div class="pi-op-stack">' + communicationCatalog.map(function (item) {
+    var recipientsReady = savedEmailRecipients(operationData).length > 0;
+    var guidance = recipientsReady ? '' :
+      '<div class="pi-op-communication-warning">' +
+        '<strong>Defina quem receberá os e-mails</strong>' +
+        '<span>Selecione e salve ao menos um destinatário para liberar as comunicações.</span>' +
+        '<button type="button" class="pi-op-text-btn" data-choose-recipients>Selecionar destinatários</button>' +
+      '</div>';
+    target.innerHTML = guidance + '<div class="pi-op-communication-list">' + communicationCatalog.map(function (item) {
       return '<button type="button" class="pi-op-btn pi-op-btn--secondary" data-communication="' +
         esc(communicationId(item)) + '"><i class="fa-regular fa-envelope" aria-hidden="true"></i>' +
-        esc(communicationName(item)) + '</button>';
+        '<span>' + esc(communicationName(item)) + '</span></button>';
     }).join('') + '</div>';
+    target.querySelectorAll('[data-communication]').forEach(function (button) {
+      button.disabled = !recipientsReady;
+      button.title = recipientsReady ? '' : 'Selecione e salve os destinatários primeiro';
+    });
   }
 
   async function loadOperation() {
@@ -520,6 +582,7 @@
       renderRouteMap(operationData);
       renderTimeline(operationData);
       renderRecipients(operationData);
+      renderCommunications();
     } catch (error) {
       var target = document.getElementById('pi-operation-recommendation');
       if (target) target.innerHTML = errorHtml(error.message);
@@ -650,6 +713,10 @@
       return;
     }
     if (action === 'email') {
+      if (!savedEmailRecipients(operationData).length) {
+        focusRecipientSelection();
+        return;
+      }
       var communications = document.getElementById('pi-communications-panel');
       scrollSidebarTo(communications);
       if (!communicationCatalog.length) notify('Nenhuma comunicação disponível para esta etapa.', 'warning');
@@ -677,6 +744,10 @@
   }
 
   async function previewEmail(type, campaignId, draft) {
+    if (!savedEmailRecipients(operationData).length) {
+      focusRecipientSelection();
+      return;
+    }
     var target = document.getElementById('pi-context-content');
     try {
       var payload = Object.assign({ tipo: type, id_campanha: campaignId || null }, draft || {});
@@ -949,7 +1020,10 @@
         notify(data.message || 'Destinatários salvos.', 'success');
         await loadOperation();
       } catch (error) { notify(error.message, 'error'); }
-      finally { setBusy(button, false); }
+      finally {
+        setBusy(button, false);
+        updateRecipientCount();
+      }
     });
   }
 
@@ -971,8 +1045,17 @@
     }
     var communication = event.target.closest('[data-communication]');
     if (communication) {
+      if (!savedEmailRecipients(operationData).length) {
+        focusRecipientSelection();
+        return;
+      }
       previewEmail(communication.dataset.communication, selectedCampaign && selectedCampaign.id_campanha);
       openSidebar();
+      return;
+    }
+    var chooseRecipients = event.target.closest('[data-choose-recipients]');
+    if (chooseRecipients) {
+      focusRecipientSelection();
       return;
     }
     var send = event.target.closest('[data-send-email]');
@@ -1012,6 +1095,10 @@
 
   var previewAll = document.getElementById('pi-preview-emails');
   if (previewAll) previewAll.addEventListener('click', function () {
+    if (!savedEmailRecipients(operationData).length) {
+      focusRecipientSelection();
+      return;
+    }
     var communications = document.getElementById('pi-communications-panel');
     openSidebar();
     if (communications) sidebarScroll.scrollTop = communications.offsetTop - 12;

@@ -316,6 +316,33 @@ class PiOperacaoServiceTest(unittest.TestCase):
         self.assertIn("Não foi possível carregar", estado["recipient_error"])
         self.assertIn("checklist_operacional", estado)
 
+    def test_destinatario_sugerido_precisa_ser_salvo_antes_do_email(self):
+        class SuggestedRecipientRepository(FakeRepository):
+            def __init__(self):
+                super().__init__(substatus=3)
+                self.destinatarios = []
+
+            def listar_destinatarios_sugeridos(self, id_pi):
+                return [{
+                    "id_contato_cliente": 40,
+                    "nome_completo": "Cliente Teste",
+                    "email": "cliente@example.com",
+                    "papel": "cliente_final",
+                    "padrao": True,
+                }]
+
+        repo = SuggestedRecipientRepository()
+        service = PiOperacaoService(
+            repository=repo,
+            renderer=lambda *args, **kwargs: "<p>ok</p>",
+        )
+        estado = service.estado_completo(10)
+
+        self.assertFalse(estado["destinatarios_confirmados"])
+        self.assertEqual(len(estado["destinatarios"]), 1)
+        with self.assertRaisesRegex(ValueError, "Nenhum destinatário operacional"):
+            service.preview_email(10, {"tipo": "campanha_iniciada"})
+
     def test_marcos_de_objetivo_sao_automaticos_por_campanha(self):
         repo = FakeRepository(substatus=3)
         service = PiOperacaoService(repository=repo)

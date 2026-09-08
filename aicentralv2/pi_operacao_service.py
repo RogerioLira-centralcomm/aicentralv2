@@ -397,9 +397,11 @@ class PiOperacaoService:
             pi,
         )
         recipient_error = None
+        destinatarios_confirmados = False
         try:
             destinatarios = self.repository.listar_destinatarios(id_pi)
-            if not destinatarios:
+            destinatarios_confirmados = bool(destinatarios)
+            if not destinatarios_confirmados:
                 destinatarios = self.repository.listar_destinatarios_sugeridos(id_pi)
         except Exception:
             logger.exception("Falha ao carregar destinatários do PI %s", id_pi)
@@ -409,6 +411,7 @@ class PiOperacaoService:
                 except Exception:
                     logger.exception("Falha ao reverter leitura de destinatários")
             destinatarios = []
+            destinatarios_confirmados = False
             recipient_error = (
                 "Não foi possível carregar os destinatários. "
                 "Tente novamente ou revise os contatos do PI."
@@ -439,6 +442,7 @@ class PiOperacaoService:
             "pi": pi,
             "campanhas": campanhas,
             "destinatarios": destinatarios,
+            "destinatarios_confirmados": destinatarios_confirmados,
             "contatos_disponiveis": contatos_disponiveis,
             "recipient_error": recipient_error,
             "checklist": checklist,
@@ -677,8 +681,6 @@ class PiOperacaoService:
 
     def _destinatarios(self, id_pi, ids=None):
         vinculados = self.repository.listar_destinatarios(id_pi)
-        if not vinculados:
-            vinculados = self.repository.listar_destinatarios_sugeridos(id_pi)
         if ids is not None:
             ids = {int(item) for item in ids}
             vinculados = [

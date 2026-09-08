@@ -142,6 +142,7 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-op-recipient-count { color: #587073; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .pi-op-recipient-groups { display: grid; gap: 12px; }
 .pi-op-recipient-group {
+  width: 100%;
   min-width: 0;
   margin: 0;
   border: 1px solid #e2e9e8;
@@ -154,6 +155,28 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   color: #4f696b;
   font-size: 10px;
   font-weight: 750;
+}
+.pi-op-recipient {
+  width: 100%;
+  min-width: 0;
+}
+.pi-op-stack .pi-op-recipient input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border: 0;
+  border-radius: 3px;
+  padding: 0;
+  background: transparent;
+}
+.pi-op-recipient > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pi-op-recipient strong,
+.pi-op-recipient small {
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .pi-op-recipient.has-warning strong { color: #7a5415; }
 .pi-op-recipient-missing { color: #a36a0a; font-weight: 650; }
@@ -211,6 +234,30 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-op-campaign-facts strong { display: block; margin-top: 2px; color: #294749; font-size: 12px; }
 .pi-op-context-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 7px; margin-top: 12px; }
 .pi-op-email-actions .pi-op-btn { flex: 0 0 auto; justify-content: flex-start; }
+.pi-op-communication-list { display: grid; gap: 8px; }
+.pi-op-communication-list .pi-op-btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  line-height: 1.35;
+}
+.pi-op-communication-list .pi-op-btn > i { flex: 0 0 auto; }
+.pi-op-communication-list .pi-op-btn > span { min-width: 0; flex: 1 1 auto; }
+.pi-op-communication-warning {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+  border-left: 3px solid #b7791f;
+  background: #fff9eb;
+  padding: 9px 10px;
+  color: #65502c;
+  line-height: 1.4;
+}
+.pi-op-communication-warning strong { color: #704b13; }
+.pi-op-communication-warning .pi-op-text-btn {
+  width: max-content;
+  margin: 3px 0 0 -7px;
+}
 .pi-op-email-audience { border-left: 3px solid #9bbab6; background: #f3f7f7; padding: 9px 10px; color: #4b6063; line-height: 1.4; }
 .pi-op-email-audience > strong { display: block; margin-bottom: 6px; color: #294749; }
 .pi-op-email-audience ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }

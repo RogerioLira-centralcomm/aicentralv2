@@ -608,6 +608,7 @@ class CrmTestApiTest(unittest.TestCase):
                 "tipo": "reuniao",
                 "foco": "entender_necessidades",
                 "tom": "consultivo",
+                "descricao": "ROTEIRO ANTIGO GERADO POR IA NÃO PODE VOLTAR AO PROMPT",
                 "instrucoes": "Antecipar objeções sobre prazo",
             })
         finally:
@@ -618,6 +619,7 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertIn("Foco principal: Entender necessidades", captured["user"])
         self.assertIn("Tom da comunicação: Consultivo", captured["user"])
         self.assertIn("Antecipar objeções sobre prazo", captured["user"])
+        self.assertNotIn("ROTEIRO ANTIGO GERADO POR IA", captured["user"])
 
     def test_contexto_ia_nao_expoe_dados_pessoais(self):
         contexto = store.get_ai_context("auto-shopping", "comunicacao")

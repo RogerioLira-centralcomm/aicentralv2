@@ -933,11 +933,14 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
 
 
 def _montar_roteiro(data: dict) -> dict:
-    """Gera roteiro de execução a partir do título/tipo + contexto do cliente."""
+    """Gera roteiro sem reutilizar o campo de descrição editável."""
     titulo = texto_sem_markdown(data.get("titulo") or "").strip()
     tipo = (data.get("tipo") or "atividade").strip()
     formato = (data.get("formato") or "").strip().lower()
-    descricao = texto_sem_markdown(data.get("descricao") or data.get("texto") or "").strip()
+    # `descricao` pode conter uma saída de IA aplicada anteriormente. Reutilizá-la
+    # criaria um ciclo de realimentação e textos progressivamente mais longos.
+    # Somente notas enviadas explicitamente para esta finalidade entram no prompt.
+    notas_executivo = texto_sem_markdown(data.get("notas_executivo") or "").strip()[:1000]
     foco = (data.get("foco") or "").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
@@ -969,8 +972,8 @@ def _montar_roteiro(data: dict) -> dict:
                 f"Foco principal: {foco_label}\n"
                 f"Tom da comunicação: {tom_label}\n"
             )
-            if descricao:
-                user += f"Notas do executivo:\n{descricao}\n"
+            if notas_executivo:
+                user += f"Notas exclusivas do executivo:\n{notas_executivo}\n"
             if instrucoes:
                 user += f"Instrução adicional do executivo:\n{instrucoes}\n"
             system_prompt = (
@@ -1052,7 +1055,7 @@ def api_ia_melhorar_texto():
 @login_required_api
 def api_ia_gerar_roteiro():
     data = request.get_json(silent=True) or {}
-    if not (data.get("titulo") or data.get("descricao") or data.get("tipo")):
+    if not str(data.get("titulo") or "").strip():
         return _err("Informe o título da atividade para gerar o roteiro", 400)
     out = _montar_roteiro(data)
     return _ok(_registrar_saida_ia(data, "gerar-roteiro", {

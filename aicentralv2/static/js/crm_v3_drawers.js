@@ -933,6 +933,12 @@
         payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
         var endpoint = action;
+        if (action === 'gerar-roteiro') {
+            // A descrição pode ser um roteiro aplicado anteriormente. Nunca a
+            // envie novamente ao gerador, evitando realimentação de texto de IA.
+            delete payload.descricao;
+            payload.objetivo = payload.titulo || '';
+        }
         if (action === 'gerar-comunicacao') {
             var fmt = String(payload.formato || payload.tipo || '').toLowerCase();
             if (fmt === 'sequencia') endpoint = 'touchpoints';
@@ -961,11 +967,15 @@
                         source: data.source === 'openrouter' ? 'IA' : 'fallback',
                         historyId: data.history_id
                     });
-                    if (applyTextSafely(form, texto)) {
-                        output.textContent = (endpoint === 'melhorar-texto' ? 'Texto revisado' : 'Roteiro aplicado') +
-                            '. Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
+                    if (endpoint === 'gerar-roteiro') {
+                        output.textContent = 'Roteiro pronto como sugestão. A descrição não foi alterada.' +
+                            '\nOrigem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
                             (data.motivo ? '\nPor quê: ' + stripMarkdown(data.motivo) : '') +
                             ((data.contexto_utilizado || []).length ? '\nDados considerados: ' + data.contexto_utilizado.join(', ') : '') +
+                            '\nRevise em “Sugestões desta edição” e aplique somente se desejar.';
+                    } else if (applyTextSafely(form, texto)) {
+                        output.textContent = 'Texto revisado' +
+                            '. Origem: ' + (data.source === 'openrouter' ? 'IA contextual' : 'fallback local') +
                             '\nRevise antes de salvar.';
                     } else {
                         output.textContent = 'Sugestão guardada no histórico sem substituir seu texto.';

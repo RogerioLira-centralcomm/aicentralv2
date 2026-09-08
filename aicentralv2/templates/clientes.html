@@ -1658,7 +1658,7 @@ async function toggleStatus(clienteId, badgeElement, statusAtual) {
     if (response.ok) {
       // Atualizar o badge
       badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
-      badgeElement.className = 'badge badge-sm cursor-pointer transition-all hover:scale-105';
+      badgeElement.className = 'cx-badge cursor-pointer transition-all hover:scale-105';
       badgeElement.style = novoStatus ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
       badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
       badgeElement.setAttribute('onclick', `toggleStatus(${clienteId}, this, ${novoStatus})`);
@@ -2146,7 +2146,7 @@ async function togglePlanoStatus(planoId, badgeElement, statusAtual) {
 
       // Atualizar o badge
       badgeElement.textContent = novoStatus === 'active' ? 'Ativo' : novoStatus === 'suspended' ? 'Suspenso' : 'Cancelado';
-      badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
+      badgeElement.className = 'cx-badge cursor-pointer transition-all hover:scale-105';
 
       if (novoStatus === 'active') {
         badgeElement.style = 'background-color: #72cd80; color: white; border-color: #72cd80;';
@@ -2545,7 +2545,7 @@ async function toggleContatoStatus(contatoId, clienteId, badgeElement, statusAtu
 
       // Atualizar o badge
       badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
-      badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
+      badgeElement.className = 'cx-badge cursor-pointer transition-all hover:scale-105';
       badgeElement.style = novoStatus ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
       badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
       badgeElement.setAttribute('onclick', `toggleContatoStatus(${contatoId}, ${clienteId}, this, ${novoStatus})`);

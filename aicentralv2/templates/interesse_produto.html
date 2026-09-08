@@ -9,7 +9,7 @@
   /* Badge styles */
   .badge-notificado { background-color: #10b981; color: white; }
   .badge-pendente { background-color: #f59e0b; color: white; }
-  
+
   /* Produto badges */
   .badge-produto { background-color: #e5e7eb; color: #374151; }
 </style>
@@ -23,11 +23,11 @@
         <h1 class="text-lg font-semibold text-gray-800">Leads & Interesses</h1>
         {% if interesses %}<span class="text-xs text-gray-500">({{ interesses|length }})</span>{% endif %}
       </div>
-      
+
       <!-- Filtros Inline -->
       <form id="filtros_form" method="GET" action="{{ url_for('interesse_produto_listar') }}" class="flex items-center gap-3">
         <!-- Tipo de Produto -->
-        <select name="tipo_produto" onchange="this.form.submit()" 
+        <select name="tipo_produto" onchange="this.form.submit()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
           <option value="">Todos produtos</option>
           <option value="regenerar_resposta" {% if filtro_tipo == 'regenerar_resposta' %}selected{% endif %}>Regenerar Resposta</option>
@@ -36,7 +36,7 @@
           <option value="self_media" {% if filtro_tipo == 'self_media' %}selected{% endif %}>Self Media</option>
           <option value="estrategias" {% if filtro_tipo == 'estrategias' %}selected{% endif %}>Estratégias</option>
         </select>
-        
+
         <!-- Busca Cliente -->
         <div class="relative">
           <input type="hidden" name="cliente_id" id="cliente_id_interesse" value="{{ filtro_cliente_id }}">
@@ -53,34 +53,34 @@
           >
           <div id="resultados_clientes_interesse" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-gray-200"></div>
         </div>
-        
+
         <!-- Hidden filter para notificado -->
         <input type="hidden" name="notificado" id="notificado_filter" value="{{ filtro_notificado or '' }}">
-        
+
         <!-- Status Notificação Icons -->
         <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          <button type="button" onclick="filtrarNotificado('')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if not filtro_notificado %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarNotificado('')"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if not filtro_notificado %}bg-gray-200{% endif %}"
                   title="Todos">
             <i class="fa-solid fa-list text-sm text-gray-{% if not filtro_notificado %}800{% else %}400{% endif %}"></i>
           </button>
-          <button type="button" onclick="filtrarNotificado('true')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'true' %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarNotificado('true')"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'true' %}bg-gray-200{% endif %}"
                   title="Notificados">
             <i class="fa-solid fa-bell text-sm text-gray-{% if filtro_notificado == 'true' %}800{% else %}400{% endif %}"></i>
           </button>
-          <button type="button" onclick="filtrarNotificado('false')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'false' %}bg-gray-200{% endif %}" 
+          <button type="button" onclick="filtrarNotificado('false')"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'false' %}bg-gray-200{% endif %}"
                   title="Pendentes">
             <i class="fa-solid fa-bell-slash text-sm text-gray-{% if filtro_notificado == 'false' %}800{% else %}400{% endif %}"></i>
           </button>
         </div>
-        
+
         <!-- Limpar Filtros -->
         {% if filtro_tipo or filtro_notificado or filtro_cliente_id %}
         <div class="border-l border-gray-200 pl-3">
-          <a href="{{ url_for('interesse_produto_listar') }}" 
-             class="p-1.5 rounded hover:bg-gray-100 transition-colors inline-flex items-center justify-center" 
+          <a href="{{ url_for('interesse_produto_listar') }}"
+             class="p-1.5 rounded hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
              title="Limpar filtros">
             <i class="fa-solid fa-times text-sm text-gray-500"></i>
           </a>
@@ -94,7 +94,7 @@
     {% if messages %}
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}cx-alert-danger{% elif category == 'success' %}cx-alert-success{% elif category == 'warning' %}cx-alert-warning{% else %}cx-alert-info{% endif %}">
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -167,7 +167,7 @@
               <span class="text-xs px-2 py-1 rounded-full badge-pendente">Não</span>
             {% endif %}
           </div>
-          
+
           <div class="grid grid-cols-2 gap-3 mt-3">
             <div>
               <span class="text-xs text-gray-400 uppercase">Cliente</span>
@@ -180,13 +180,13 @@
               </div>
             </div>
           </div>
-          
+
           {% if interesse.observacoes %}
           <div class="text-xs text-gray-600 mt-3 p-2 bg-gray-50 rounded border border-gray-100">
             <i class="fas fa-comment mr-1 text-gray-400"></i>{{ interesse.observacoes }}
           </div>
           {% endif %}
-          
+
           <div class="text-xs text-gray-400 mt-3 flex items-center">
             <i class="fas fa-calendar mr-1"></i>{{ interesse.data_registro.strftime('%d/%m/%Y %H:%M') if interesse.data_registro else '-' }}
           </div>

@@ -21,64 +21,64 @@
         <h1 class="text-lg font-semibold text-gray-800">Categorias</h1>
         {% if categorias %}<span class="text-xs text-gray-500">({{ categorias|length }})</span>{% endif %}
       </div>
-      
+
       <!-- Filtros Inline -->
       <div class="flex items-center gap-3">
         <!-- Pesquisa -->
         <div class="relative">
-          <input 
-            type="text" 
-            id="pesquisa_categoria" 
-            oninput="filtrarCategorias()" 
+          <input
+            type="text"
+            id="pesquisa_categoria"
+            oninput="filtrarCategorias()"
             placeholder="Buscar categoria..."
-            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 pl-8 text-gray-700 focus:outline-none focus:border-gray-400" 
+            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 pl-8 text-gray-700 focus:outline-none focus:border-gray-400"
             style="min-width: 200px;"
           >
           <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
         </div>
-        
+
         <!-- Status Icons -->
         <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          <button type="button" onclick="filtrarStatus('')" 
+          <button type="button" onclick="filtrarStatus('')"
                   id="btn_todos"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200"
                   title="Todos">
             <i class="fa-solid fa-list text-sm text-gray-800"></i>
           </button>
-          <button type="button" onclick="filtrarStatus('ativa')" 
+          <button type="button" onclick="filtrarStatus('ativa')"
                   id="btn_ativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors"
                   title="Ativas">
             <i class="fa-solid fa-circle-check text-sm text-gray-400"></i>
           </button>
-          <button type="button" onclick="filtrarStatus('inativa')" 
+          <button type="button" onclick="filtrarStatus('inativa')"
                   id="btn_inativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors"
                   title="Inativas">
             <i class="fa-solid fa-circle-xmark text-sm text-gray-400"></i>
           </button>
         </div>
-        
+
         <!-- Destaque toggle -->
         <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          <button type="button" onclick="filtrarDestaque('')" 
+          <button type="button" onclick="filtrarDestaque('')"
                   id="btn_destaque_todos"
-                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors bg-gray-200 text-gray-800" 
+                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors bg-gray-200 text-gray-800"
                   title="Todas">
             <i class="fas fa-th-list"></i>
           </button>
-          <button type="button" onclick="filtrarDestaque('sim')" 
+          <button type="button" onclick="filtrarDestaque('sim')"
                   id="btn_destaque_sim"
-                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors text-gray-400" 
+                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors text-gray-400"
                   title="Com destaque">
             <i class="fas fa-star"></i>
           </button>
         </div>
       </div>
-      
+
       <!-- Botão Novo -->
       <div class="flex gap-2">
-        <a href="{{ url_for('cadu_categorias_novo') }}" 
+        <a href="{{ url_for('cadu_categorias_novo') }}"
            class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
           <i class="fas fa-plus mr-1"></i>Nova Categoria
         </a>
@@ -90,7 +90,7 @@
     {% if messages %}
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}cx-alert-danger{% elif category == 'success' %}cx-alert-success{% elif category == 'warning' %}cx-alert-warning{% else %}cx-alert-info{% endif %}">
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -120,7 +120,7 @@
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% for cat in categorias %}
-            <tr class="hover:bg-gray-50 transition-colors {% if not cat.is_active %}opacity-60{% endif %}" 
+            <tr class="hover:bg-gray-50 transition-colors {% if not cat.is_active %}opacity-60{% endif %}"
                 data-status="{{ 'ativa' if cat.is_active else 'inativa' }}"
                 data-destaque="{{ 'sim' if cat.is_featured else 'nao' }}">
               <td class="py-2 px-3">
@@ -161,18 +161,18 @@
                 <span class="text-xs text-gray-600">{{ cat.ordem_exibicao or 0 }}</span>
               </td>
               <td class="text-center py-2 px-2">
-                <span class="badge badge-sm {% if cat.is_active %}badge-ativa{% else %}badge-inativa{% endif %}">
+                <span class="cx-badge {% if cat.is_active %}badge-ativa{% else %}badge-inativa{% endif %}">
                   {{ 'Ativa' if cat.is_active else 'Inativa' }}
                 </span>
               </td>
               <td class="text-center py-2 px-2">
                 <div class="flex items-center justify-center gap-1">
-                  <a href="{{ url_for('cadu_categorias_detalhes', id_categoria=cat.id) }}" 
+                  <a href="{{ url_for('cadu_categorias_detalhes', id_categoria=cat.id) }}"
                      class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                      title="Ver detalhes">
                     <i class="fas fa-eye text-sm"></i>
                   </a>
-                  <a href="{{ url_for('cadu_categorias_editar', id_categoria=cat.id) }}" 
+                  <a href="{{ url_for('cadu_categorias_editar', id_categoria=cat.id) }}"
                      class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                      title="Editar">
                     <i class="fas fa-edit text-sm"></i>
@@ -202,18 +202,18 @@ let destaqueFiltroAtual = '';
 
 function filtrarStatus(status) {
   statusFiltroAtual = status;
-  
+
   // Atualizar visual dos botões
   const btnTodos = document.getElementById('btn_todos');
   const btnAtiva = document.getElementById('btn_ativa');
   const btnInativa = document.getElementById('btn_inativa');
-  
+
   [btnTodos, btnAtiva, btnInativa].forEach(btn => {
     btn.classList.remove('bg-gray-200');
     btn.querySelector('i').classList.remove('text-gray-800');
     btn.querySelector('i').classList.add('text-gray-400');
   });
-  
+
   if (status === '') {
     btnTodos.classList.add('bg-gray-200');
     btnTodos.querySelector('i').classList.remove('text-gray-400');
@@ -227,22 +227,22 @@ function filtrarStatus(status) {
     btnInativa.querySelector('i').classList.remove('text-gray-400');
     btnInativa.querySelector('i').classList.add('text-gray-800');
   }
-  
+
   filtrarCategorias();
 }
 
 function filtrarDestaque(destaque) {
   destaqueFiltroAtual = destaque;
-  
+
   // Atualizar visual dos botões
   const btnTodos = document.getElementById('btn_destaque_todos');
   const btnSim = document.getElementById('btn_destaque_sim');
-  
+
   [btnTodos, btnSim].forEach(btn => {
     btn.classList.remove('bg-gray-200', 'text-gray-800');
     btn.classList.add('text-gray-400');
   });
-  
+
   if (destaque === '') {
     btnTodos.classList.add('bg-gray-200', 'text-gray-800');
     btnTodos.classList.remove('text-gray-400');
@@ -250,7 +250,7 @@ function filtrarDestaque(destaque) {
     btnSim.classList.add('bg-gray-200', 'text-gray-800');
     btnSim.classList.remove('text-gray-400');
   }
-  
+
   filtrarCategorias();
 }
 
@@ -261,40 +261,40 @@ function filtrarCategorias() {
   setCookie('cat_pesq', document.getElementById('pesquisa_categoria').value.trim(), 30);
   setCookie('cat_status', statusFiltroAtual, 30);
   setCookie('cat_destaque', destaqueFiltroAtual, 30);
-  
+
   if (!tabela) return;
-  
+
   const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-  
+
   let visivel = 0;
   let total = linhas.length;
-  
+
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const nome = linha.cells[0].textContent.toLowerCase();
     const descricao = linha.cells[1].textContent.toLowerCase();
     const statusLinha = linha.getAttribute('data-status');
     const destaqueLinha = linha.getAttribute('data-destaque');
-    
+
     let mostrarPesquisa = true;
     let mostrarStatus = true;
     let mostrarDestaque = true;
-    
+
     // Filtro de pesquisa
     if (pesquisa) {
       mostrarPesquisa = nome.includes(pesquisa) || descricao.includes(pesquisa);
     }
-    
+
     // Filtro de status
     if (statusFiltroAtual) {
       mostrarStatus = statusLinha === statusFiltroAtual;
     }
-    
+
     // Filtro de destaque
     if (destaqueFiltroAtual) {
       mostrarDestaque = destaqueLinha === destaqueFiltroAtual;
     }
-    
+
     if (mostrarPesquisa && mostrarStatus && mostrarDestaque) {
       linha.style.display = '';
       visivel++;
@@ -302,7 +302,7 @@ function filtrarCategorias() {
       linha.style.display = 'none';
     }
   }
-  
+
   // Atualizar contador
   const contador = document.getElementById('contador_filtro');
   if (pesquisa || statusFiltroAtual || destaqueFiltroAtual) {

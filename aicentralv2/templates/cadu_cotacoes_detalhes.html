@@ -6461,7 +6461,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const selPlat = document.createElement('select');
           const ocrPlat = (it.plataforma || '').toString().trim();
           const platResolved = it.id_plataforma != null && it.id_plataforma !== '';
-          selPlat.className = 'select select-bordered select-xs w-40 text-xs import-sel-plataforma'
+          selPlat.className = 'cx-select cx-select-xs w-40 text-xs import-sel-plataforma'
             + (platResolved || !ocrPlat ? '' : ' border-red-300');
           selPlat.setAttribute('data-idx', String(idx));
           if (!platResolved && ocrPlat) {
@@ -6498,7 +6498,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const selKpi = document.createElement('select');
           const ocrKpi = (it.objetivo_kpi || '').toString().trim();
           const kpiResolved = it.id_objetivo_kpi != null && it.id_objetivo_kpi !== '';
-          selKpi.className = 'select select-bordered select-xs w-28 text-xs import-sel-kpi'
+          selKpi.className = 'cx-select cx-select-xs w-28 text-xs import-sel-kpi'
             + (kpiResolved || !ocrKpi ? '' : ' border-red-300');
           selKpi.setAttribute('data-idx', String(idx));
           if (!kpiResolved && ocrKpi) {

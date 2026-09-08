@@ -9,14 +9,14 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-base-content">
+      <h1 class="text-2xl font-bold text-slate-900">
         {% if categoria %}Editar Categoria{% else %}Nova Categoria{% endif %}
       </h1>
-      <p class="text-sm text-base-content/70 mt-1">
+      <p class="text-sm text-slate-600 mt-1">
         Preencha os dados para {% if categoria %}atualizar a{% else %}cadastrar uma nova{% endif %} categoria de audiência
       </p>
     </div>
-    <a href="{{ url_for('cadu_categorias') }}" class="btn btn-ghost btn-sm">
+    <a href="{{ url_for('cadu_categorias') }}" class="cx-btn cx-btn-ghost cx-btn-sm">
       <i class="fas fa-arrow-left mr-2"></i>Voltar
     </a>
   </div>
@@ -25,7 +25,7 @@
     {% if messages %}
       <div class="space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}cx-alert-danger{% elif category == 'success' %}cx-alert-success{% elif category == 'warning' %}cx-alert-warning{% else %}cx-alert-info{% endif %}">
             <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
             <span>{{ message }}</span>
           </div>
@@ -36,57 +36,57 @@
 
   <form method="POST" class="space-y-6">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      
+
       <!-- Card: Informações Básicas -->
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">
+      <div class="cx-card bg-white shadow-xl">
+        <div class="cx-card-body">
+          <h2 class="cx-card-title text-base">
             <i class="fas fa-info-circle text-primary"></i>
             Informações Básicas
           </h2>
           <div class="divider my-1"></div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Nome <span class="text-error">*</span></span>
+
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Nome <span class="text-error">*</span></span>
             </label>
-            <input 
-              type="text" 
-              name="nome" 
+            <input
+              type="text"
+              name="nome"
               value="{{ categoria.nome if categoria else '' }}"
-              class="input input-bordered"
+              class="cx-input"
               required
               placeholder="Ex: Comportamento de Compra"
               autofocus
             >
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Slug <span class="text-error">*</span></span>
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Slug <span class="text-error">*</span></span>
             </label>
-            <input 
-              type="text" 
-              name="slug" 
+            <input
+              type="text"
+              name="slug"
               value="{{ categoria.slug if categoria else '' }}"
-              class="input input-bordered font-mono"
+              class="cx-input font-mono"
               required
               placeholder="comportamento-de-compra"
               pattern="[a-z0-9\-]+"
             >
-            <label class="label">
-              <span class="label-text-alt text-base-content/60">Apenas letras minúsculas, números e hífen</span>
+            <label class="cx-label-row">
+              <span class="cx-help text-slate-500">Apenas letras minúsculas, números e hífen</span>
             </label>
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Descrição</span>
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Descrição</span>
             </label>
-            <textarea 
-              name="descricao" 
+            <textarea
+              name="descricao"
               rows="4"
-              class="textarea textarea-bordered"
+              class="cx-textarea"
               placeholder="Descreva o propósito e escopo desta categoria..."
             >{{ categoria.descricao if categoria else '' }}</textarea>
           </div>
@@ -94,33 +94,33 @@
       </div>
 
       <!-- Card: Aparência -->
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-base">
+      <div class="cx-card bg-white shadow-xl">
+        <div class="cx-card-body">
+          <h2 class="cx-card-title text-base">
             <i class="fas fa-palette text-secondary"></i>
             Aparência
           </h2>
           <div class="divider my-1"></div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Ícone FontAwesome</span>
+
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Ícone FontAwesome</span>
             </label>
-            <div class="join w-full">
-              <input 
-                type="text" 
-                name="icone" 
+            <div class="cx-join w-full">
+              <input
+                type="text"
+                name="icone"
                 id="icone"
                 value="{{ categoria.icone if categoria else '' }}"
-                class="input input-bordered join-item flex-1 font-mono"
+                class="cx-input cx-join-item flex-1 font-mono"
                 placeholder="fas fa-shopping-cart"
               >
-              <button type="button" class="btn join-item" onclick="previewIcon()">
+              <button type="button" class="cx-btn cx-join-item" onclick="previewIcon()">
                 <i id="icon-preview" class="{{ categoria.icone if categoria else 'fas fa-icons' }}"></i>
               </button>
             </div>
-            <label class="label">
-              <span class="label-text-alt text-base-content/60">
+            <label class="cx-label-row">
+              <span class="cx-help text-slate-500">
                 <a href="https://fontawesome.com/icons" target="_blank" class="link link-primary">
                   <i class="fas fa-external-link-alt mr-1"></i>Buscar ícones
                 </a>
@@ -128,42 +128,42 @@
             </label>
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Cor (Hexadecimal)</span>
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Cor (Hexadecimal)</span>
             </label>
-            <div class="join w-full">
-              <input 
-                type="color" 
-                name="cor_hex" 
+            <div class="cx-join w-full">
+              <input
+                type="color"
+                name="cor_hex"
                 id="cor_hex"
                 value="{{ categoria.cor_hex if categoria else '#3B82F6' }}"
-                class="join-item w-16 h-12 cursor-pointer"
+                class="cx-join-item w-16 h-12 cursor-pointer"
               >
-              <input 
-                type="text" 
+              <input
+                type="text"
                 id="cor_hex_text"
                 value="{{ categoria.cor_hex if categoria else '#3B82F6' }}"
-                class="input input-bordered join-item flex-1 font-mono uppercase"
+                class="cx-input cx-join-item flex-1 font-mono uppercase"
                 readonly
               >
             </div>
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Ordem de Exibição</span>
+          <div class="cx-field">
+            <label class="cx-label-row">
+              <span class="cx-label font-semibold">Ordem de Exibição</span>
             </label>
-            <input 
-              type="number" 
-              name="ordem_exibicao" 
+            <input
+              type="number"
+              name="ordem_exibicao"
               value="{{ categoria.ordem_exibicao if categoria else 0 }}"
-              class="input input-bordered"
+              class="cx-input"
               min="0"
               placeholder="0"
             >
-            <label class="label">
-              <span class="label-text-alt text-base-content/60">Menor número aparece primeiro</span>
+            <label class="cx-label-row">
+              <span class="cx-help text-slate-500">Menor número aparece primeiro</span>
             </label>
           </div>
         </div>
@@ -172,41 +172,41 @@
     </div>
 
     <!-- Card: Configurações -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title text-base">
+    <div class="cx-card bg-white shadow-xl">
+      <div class="cx-card-body">
+        <h2 class="cx-card-title text-base">
           <i class="fas fa-cog text-accent"></i>
           Configurações
         </h2>
         <div class="divider my-1"></div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input 
-                type="checkbox" 
-                name="is_active" 
-                class="checkbox checkbox-primary"
+          <div class="cx-field">
+            <label class="cx-label-row cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                name="is_active"
+                class="cx-checkbox"
                 {% if not categoria or categoria.is_active %}checked{% endif %}
               >
               <div>
-                <span class="label-text font-semibold">Categoria Ativa</span>
-                <p class="text-xs text-base-content/60">Disponível para uso no sistema</p>
+                <span class="cx-label font-semibold">Categoria Ativa</span>
+                <p class="text-xs text-slate-500">Disponível para uso no sistema</p>
               </div>
             </label>
           </div>
 
-          <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input 
-                type="checkbox" 
-                name="is_featured" 
-                class="checkbox checkbox-warning"
+          <div class="cx-field">
+            <label class="cx-label-row cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                name="is_featured"
+                class="cx-checkbox"
                 {% if categoria and categoria.is_featured %}checked{% endif %}
               >
               <div>
-                <span class="label-text font-semibold">Categoria em Destaque</span>
-                <p class="text-xs text-base-content/60">Aparece em posição de destaque</p>
+                <span class="cx-label font-semibold">Categoria em Destaque</span>
+                <p class="text-xs text-slate-500">Aparece em posição de destaque</p>
               </div>
             </label>
           </div>
@@ -215,40 +215,40 @@
     </div>
 
     <!-- Card: SEO -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title text-base">
+    <div class="cx-card bg-white shadow-xl">
+      <div class="cx-card-body">
+        <h2 class="cx-card-title text-base">
           <i class="fas fa-search text-success"></i>
           SEO & Metadados
         </h2>
         <div class="divider my-1"></div>
-        
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Meta Título</span>
-            <span class="label-text-alt" id="meta-titulo-counter">0/200</span>
+
+        <div class="cx-field">
+          <label class="cx-label-row">
+            <span class="cx-label font-semibold">Meta Título</span>
+            <span class="cx-help" id="meta-titulo-counter">0/200</span>
           </label>
-          <input 
-            type="text" 
-            name="meta_titulo" 
+          <input
+            type="text"
+            name="meta_titulo"
             id="meta_titulo"
             value="{{ categoria.meta_titulo if categoria else '' }}"
-            class="input input-bordered"
+            class="cx-input"
             maxlength="200"
             placeholder="Título otimizado para mecanismos de busca"
           >
         </div>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Meta Descrição</span>
-            <span class="label-text-alt" id="meta-descricao-counter">0/300</span>
+        <div class="cx-field">
+          <label class="cx-label-row">
+            <span class="cx-label font-semibold">Meta Descrição</span>
+            <span class="cx-help" id="meta-descricao-counter">0/300</span>
           </label>
-          <textarea 
-            name="meta_descricao" 
+          <textarea
+            name="meta_descricao"
             id="meta_descricao"
             rows="3"
-            class="textarea textarea-bordered"
+            class="cx-textarea"
             maxlength="300"
             placeholder="Descrição otimizada para resultados de busca..."
           >{{ categoria.meta_descricao if categoria else '' }}</textarea>
@@ -258,10 +258,10 @@
 
     <!-- Ações -->
     <div class="flex items-center justify-end gap-3">
-      <a href="{{ url_for('cadu_categorias') }}" class="btn btn-ghost">
+      <a href="{{ url_for('cadu_categorias') }}" class="cx-btn cx-btn-ghost">
         <i class="fas fa-times mr-2"></i>Cancelar
       </a>
-      <button type="submit" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
+      <button type="submit" class="cx-btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
         <i class="fas fa-save mr-2"></i>
         {% if categoria %}Atualizar{% else %}Cadastrar{% endif %}
       </button>
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Auto-gerar slug do nome
   const nomeInput = document.querySelector('input[name="nome"]');
   const slugInput = document.querySelector('input[name="slug"]');
-  
+
   if (nomeInput && slugInput && !slugInput.value) {
     nomeInput.addEventListener('input', function() {
       const slug = this.value
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Sincronizar color picker com input text
   const corPicker = document.getElementById('cor_hex');
   const corText = document.getElementById('cor_hex_text');
-  
+
   if (corPicker && corText) {
     corPicker.addEventListener('input', function() {
       corText.value = this.value.toUpperCase();
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
       updateCounter();
     }
   }
-  
+
   setupCounter('meta_titulo', 'meta-titulo-counter');
   setupCounter('meta_descricao', 'meta-descricao-counter');
 });

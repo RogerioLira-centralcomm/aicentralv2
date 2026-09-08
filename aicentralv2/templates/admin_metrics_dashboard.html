@@ -66,26 +66,26 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-base-content">
+            <h1 class="text-2xl font-bold text-slate-900">
                 <i class="fas fa-chart-line text-primary mr-2"></i>
                 Dashboard de Métricas
             </h1>
-            <p class="text-base-content/60 text-sm mt-1">Visão geral de uso e performance da plataforma</p>
+            <p class="text-slate-500 text-sm mt-1">Visão geral de uso e performance da plataforma</p>
         </div>
-        
+
         <!-- Filtro de período -->
         <div class="flex items-center gap-3">
-            <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">Período</label>
-                <select id="periodoSelect" class="select select-bordered w-full min-w-[180px]" style="min-width: 180px;">
+            <div class="cx-field">
+                <label class="text-xs text-slate-500 mb-1">Período</label>
+                <select id="periodoSelect" class="cx-select w-full min-w-[180px]" style="min-width: 180px;">
                     <option value="7">Últimos 7 dias</option>
                     <option value="30" selected>Últimos 30 dias</option>
                     <option value="90">Últimos 90 dias</option>
                 </select>
             </div>
-            <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">&nbsp;</label>
-                <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Atualizar">
+            <div class="cx-field">
+                <label class="text-xs text-slate-500 mb-1">&nbsp;</label>
+                <button id="refreshBtn" class="cx-btn cx-btn-ghost cx-btn-sm" title="Atualizar">
                     <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
@@ -93,28 +93,28 @@
     </div>
 
     <!-- Status: Cadu + DV360 (cartão branco; verde só no indicador + badge) -->
-    <div id="status-monitors-shell" class="bg-base-200/40 rounded-xl border border-base-300 overflow-hidden p-2 md:p-3">
+    <div id="status-monitors-shell" class="bg-slate-100/40 rounded-xl border border-slate-300 overflow-hidden p-2 md:p-3">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-2 md:gap-3">
             <!-- Cadu -->
-            <div id="status-monitor" class="p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm">
+            <div id="status-monitor" class="p-3 md:p-4 rounded-lg border border-slate-300 bg-white transition-colors shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                     <div class="flex items-start gap-2.5 min-w-0">
                         <div id="status-indicator" class="relative flex h-4 w-4 shrink-0 mt-0.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400/30 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-4 w-4 bg-slate-400/30"></span>
                         </div>
                         <div class="min-w-0 space-y-0.5">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span class="font-semibold text-base-content text-sm whitespace-nowrap">Cadu Login</span>
-                                <span id="status-badge" class="badge badge-sm badge-ghost shrink-0">Verificando...</span>
+                                <span class="font-semibold text-slate-900 text-sm whitespace-nowrap">Cadu Login</span>
+                                <span id="status-badge" class="cx-badge cx-badge-muted shrink-0">Verificando...</span>
                             </div>
-                            <a href="https://cadu.centralcomm.media/login" target="_blank" rel="noopener noreferrer" class="text-xs text-base-content/50 hover:text-primary transition-colors inline-flex items-center gap-1">
+                            <a href="https://cadu.centralcomm.media/login" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-500 hover:text-primary transition-colors inline-flex items-center gap-1">
                                 cadu.centralcomm.media/login
-                                <i class="fas fa-external-link-alt text-[10px]"></i>
+                                <i class="fas fa-external-link-alt text-xs"></i>
                             </a>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-base-content/60 shrink-0">
+                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-slate-500 shrink-0">
                         <div id="status-response-time" class="flex items-center gap-1" title="Tempo de resposta">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>--</span>
@@ -127,33 +127,33 @@
                             <i class="fas fa-clock"></i>
                             <span>--</span>
                         </div>
-                        <button id="pingNowBtn" class="btn btn-ghost btn-xs" title="Verificar agora" onclick="checkCaduStatus()">
+                        <button id="pingNowBtn" class="cx-btn cx-btn-ghost cx-btn-xs" title="Verificar agora" onclick="checkCaduStatus()">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                 </div>
             </div>
             <!-- DV360 -->
-            <div id="dv360-status-monitor" class="p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm">
+            <div id="dv360-status-monitor" class="p-3 md:p-4 rounded-lg border border-slate-300 bg-white transition-colors shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                     <div class="flex items-start gap-2.5 min-w-0 flex-1">
                         <div id="dv360-status-indicator" class="relative flex h-4 w-4 shrink-0 mt-0.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400/30 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-4 w-4 bg-slate-400/30"></span>
                         </div>
                         <div class="min-w-0 space-y-0.5">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span class="font-semibold text-base-content text-sm whitespace-nowrap">DV360 (Google)</span>
-                                <span id="dv360-status-badge" class="badge badge-sm badge-ghost shrink-0">Verificando...</span>
+                                <span class="font-semibold text-slate-900 text-sm whitespace-nowrap">DV360 (Google)</span>
+                                <span id="dv360-status-badge" class="cx-badge cx-badge-muted shrink-0">Verificando...</span>
                             </div>
-                            <p id="dv360-status-sub" class="text-xs text-base-content/50 leading-snug">OAuth (refresh token) — não usa quota da API Display Video.</p>
-                            <a href="https://displayvideo.google.com/" target="_blank" rel="noopener noreferrer" class="text-xs text-base-content/50 hover:text-primary transition-colors inline-flex items-center gap-1">
+                            <p id="dv360-status-sub" class="text-xs text-slate-500 leading-snug">OAuth (refresh token) — não usa quota da API Display Video.</p>
+                            <a href="https://displayvideo.google.com/" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-500 hover:text-primary transition-colors inline-flex items-center gap-1">
                                 displayvideo.google.com
-                                <i class="fas fa-external-link-alt text-[10px]"></i>
+                                <i class="fas fa-external-link-alt text-xs"></i>
                             </a>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-base-content/60 shrink-0">
+                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-slate-500 shrink-0">
                         <div id="dv360-status-response-time" class="flex items-center gap-1" title="Tempo da última verificação">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>--</span>
@@ -166,7 +166,7 @@
                             <i class="fas fa-clock"></i>
                             <span>--</span>
                         </div>
-                        <button id="dv360PingNowBtn" class="btn btn-ghost btn-xs" title="Testar OAuth agora (chama Google)" type="button">
+                        <button id="dv360PingNowBtn" class="cx-btn cx-btn-ghost cx-btn-xs" title="Testar OAuth agora (chama Google)" type="button">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
@@ -178,71 +178,71 @@
     <!-- KPI Cards Row 1 -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <!-- DAU -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-users"></i>
                 <span>DAU (Hoje)</span>
             </div>
             <div class="text-2xl font-bold text-primary" id="kpi-dau">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
             <div class="text-xs mt-1">
-                <span id="kpi-dau-change" class="badge badge-sm badge-ghost">--</span>
+                <span id="kpi-dau-change" class="cx-badge cx-badge-muted">--</span>
             </div>
         </div>
 
         <!-- WAU -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-calendar-week"></i>
                 <span>WAU</span>
             </div>
             <div class="text-2xl font-bold text-secondary" id="kpi-wau">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
 
         <!-- MAU -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-calendar-alt"></i>
                 <span>MAU</span>
             </div>
             <div class="text-2xl font-bold text-accent" id="kpi-mau">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
 
         <!-- Sessões Hoje -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-clock"></i>
                 <span>Sessões Hoje</span>
             </div>
             <div class="text-2xl font-bold text-info" id="kpi-sessions">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
 
         <!-- Pageviews -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-eye"></i>
                 <span>Pageviews</span>
             </div>
             <div class="text-2xl font-bold text-warning" id="kpi-pageviews">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
 
         <!-- Tempo Médio -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+        <div class="stat-card bg-white rounded-xl p-4 border border-slate-300">
+            <div class="flex items-center gap-2 text-slate-500 text-xs mb-1">
                 <i class="fas fa-stopwatch"></i>
                 <span>Tempo Médio</span>
             </div>
             <div class="text-2xl font-bold text-success" id="kpi-avgtime">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
     </div>
@@ -256,9 +256,9 @@
                 <span>Briefings (Hoje)</span>
             </div>
             <div class="text-2xl font-bold text-blue-600" id="kpi-briefings">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
-            <div class="text-xs text-base-content/50" id="kpi-briefings-sent">-- enviados</div>
+            <div class="text-xs text-slate-500" id="kpi-briefings-sent">-- enviados</div>
         </div>
 
         <!-- Cotações -->
@@ -268,9 +268,9 @@
                 <span>Cotações (Hoje)</span>
             </div>
             <div class="text-2xl font-bold text-green-600" id="kpi-cotacoes">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
-            <div class="text-xs text-base-content/50" id="kpi-cotacoes-valor">R$ --</div>
+            <div class="text-xs text-slate-500" id="kpi-cotacoes-valor">R$ --</div>
         </div>
 
         <!-- Audiências Visualizadas -->
@@ -280,7 +280,7 @@
                 <span>Audiências Vistas</span>
             </div>
             <div class="text-2xl font-bold text-purple-600" id="kpi-audiencias">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
 
@@ -291,7 +291,7 @@
                 <span>Págs/Sessão</span>
             </div>
             <div class="text-2xl font-bold text-orange-600" id="kpi-pages-session">
-                <span class="loading loading-spinner loading-sm"></span>
+                <span class="cx-spinner cx-spinner-sm"></span>
             </div>
         </div>
     </div>
@@ -299,8 +299,8 @@
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Gráfico de Sessões Diárias -->
-        <div class="bg-base-100 rounded-xl p-6 border border-base-300">
-            <h3 class="font-semibold text-base-content mb-4">
+        <div class="bg-white rounded-xl p-6 border border-slate-300">
+            <h3 class="font-semibold text-slate-900 mb-4">
                 <i class="fas fa-chart-area text-primary mr-2"></i>
                 Sessões Diárias
             </h3>
@@ -310,8 +310,8 @@
         </div>
 
         <!-- Gráfico de Briefings/Cotações -->
-        <div class="bg-base-100 rounded-xl p-6 border border-base-300">
-            <h3 class="font-semibold text-base-content mb-4">
+        <div class="bg-white rounded-xl p-6 border border-slate-300">
+            <h3 class="font-semibold text-slate-900 mb-4">
                 <i class="fas fa-chart-bar text-secondary mr-2"></i>
                 Briefings & Cotações
             </h3>
@@ -324,15 +324,15 @@
     <!-- Tables Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Top Audiências -->
-        <div class="bg-base-100 rounded-xl border border-base-300">
-            <div class="p-4 border-b border-base-300">
-                <h3 class="font-semibold text-base-content">
+        <div class="bg-white rounded-xl border border-slate-300">
+            <div class="p-4 border-b border-slate-300">
+                <h3 class="font-semibold text-slate-900">
                     <i class="fas fa-trophy text-warning mr-2"></i>
                     Top 10 Audiências
                 </h3>
             </div>
             <div class="overflow-x-auto">
-                <table class="table table-sm">
+                <table class="cx-table cx-table-dense">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -345,7 +345,7 @@
                     <tbody id="topAudienciasTable">
                         <tr>
                             <td colspan="5" class="text-center py-8">
-                                <span class="loading loading-spinner loading-md"></span>
+                                <span class="cx-spinner"></span>
                             </td>
                         </tr>
                     </tbody>
@@ -354,15 +354,15 @@
         </div>
 
         <!-- Top Páginas -->
-        <div class="bg-base-100 rounded-xl border border-base-300">
-            <div class="p-4 border-b border-base-300">
-                <h3 class="font-semibold text-base-content">
+        <div class="bg-white rounded-xl border border-slate-300">
+            <div class="p-4 border-b border-slate-300">
+                <h3 class="font-semibold text-slate-900">
                     <i class="fas fa-file text-info mr-2"></i>
                     Top 10 Páginas
                 </h3>
             </div>
             <div class="overflow-x-auto">
-                <table class="table table-sm">
+                <table class="cx-table cx-table-dense">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -375,7 +375,7 @@
                     <tbody id="topPagesTable">
                         <tr>
                             <td colspan="5" class="text-center py-8">
-                                <span class="loading loading-spinner loading-md"></span>
+                                <span class="cx-spinner"></span>
                             </td>
                         </tr>
                     </tbody>
@@ -385,14 +385,14 @@
     </div>
 
     <!-- Users Engagement -->
-    <div class="bg-base-100 rounded-xl border border-base-300">
-        <div class="p-4 border-b border-base-300 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div class="bg-white rounded-xl border border-slate-300">
+        <div class="p-4 border-b border-slate-300 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0 flex-1">
-                <h3 class="font-semibold text-base-content">
+                <h3 class="font-semibold text-slate-900">
                     <i class="fas fa-user-clock text-success mr-2"></i>
                     Usuários Mais Ativos
                 </h3>
-                <p id="activeUsersFilterHint" class="text-xs text-base-content/60 mt-1 max-w-xl leading-relaxed">
+                <p id="activeUsersFilterHint" class="text-xs text-slate-500 mt-1 max-w-xl leading-relaxed">
                     Ranking geral por sessões. Filtre por equipe interna ou por contatos de clientes.
                 </p>
             </div>
@@ -403,17 +403,17 @@
                         Todos
                     </button>
                     <button type="button" role="tab" id="activeUsersSegExt" class="tab gap-1 px-3" data-segment="external" aria-selected="false" title="Demais clientes e contatos sem empresa">
-                        <i class="fas fa-handshake text-[10px] opacity-80" aria-hidden="true"></i>Clientes
+                        <i class="fas fa-handshake text-xs opacity-80" aria-hidden="true"></i>Clientes
                     </button>
                     <button type="button" role="tab" id="activeUsersSegCc" class="tab gap-1 px-3" data-segment="centralcomm" aria-selected="false" title="Somente contatos do cliente CENTRALCOMM">
-                        <i class="fas fa-building text-[10px] opacity-80" aria-hidden="true"></i>Equipe CC
+                        <i class="fas fa-building text-xs opacity-80" aria-hidden="true"></i>Equipe CC
                     </button>
                 </div>
-                <span class="badge badge-ghost whitespace-nowrap self-center">Top 20</span>
+                <span class="cx-badge cx-badge-muted whitespace-nowrap self-center">Top 20</span>
             </div>
         </div>
         <div class="overflow-x-auto">
-            <table class="table table-sm">
+            <table class="cx-table cx-table-dense">
                 <thead>
                     <tr id="activeUsersTableHead">
                         <th>#</th>
@@ -430,7 +430,7 @@
                 <tbody id="activeUsersTable">
                     <tr>
                         <td colspan="9" class="text-center py-8">
-                            <span class="loading loading-spinner loading-md"></span>
+                            <span class="cx-spinner"></span>
                         </td>
                     </tr>
                 </tbody>
@@ -439,28 +439,28 @@
     </div>
 
     <!-- Funil de Audiências -->
-    <div class="bg-base-100 rounded-xl p-6 border border-base-300">
-        <h3 class="font-semibold text-base-content mb-4">
+    <div class="bg-white rounded-xl p-6 border border-slate-300">
+        <h3 class="font-semibold text-slate-900 mb-4">
             <i class="fas fa-filter text-accent mr-2"></i>
             Funil de Conversão - Audiências
         </h3>
         <div class="flex flex-col md:flex-row items-center justify-center gap-4 py-6">
             <div class="text-center">
-                <div class="text-3xl font-bold text-base-content" id="funnel-views">--</div>
-                <div class="text-sm text-base-content/60">Visualizadas</div>
+                <div class="text-3xl font-bold text-slate-900" id="funnel-views">--</div>
+                <div class="text-sm text-slate-500">Visualizadas</div>
             </div>
-            <i class="fas fa-chevron-right text-base-content/30 text-2xl hidden md:block"></i>
-            <i class="fas fa-chevron-down text-base-content/30 text-2xl md:hidden"></i>
+            <i class="fas fa-chevron-right text-slate-900/30 text-2xl hidden md:block"></i>
+            <i class="fas fa-chevron-down text-slate-900/30 text-2xl md:hidden"></i>
             <div class="text-center">
                 <div class="text-3xl font-bold text-warning" id="funnel-cart">--</div>
-                <div class="text-sm text-base-content/60">Add. Carrinho</div>
+                <div class="text-sm text-slate-500">Add. Carrinho</div>
                 <div class="text-xs text-success" id="funnel-cart-rate">--%</div>
             </div>
-            <i class="fas fa-chevron-right text-base-content/30 text-2xl hidden md:block"></i>
-            <i class="fas fa-chevron-down text-base-content/30 text-2xl md:hidden"></i>
+            <i class="fas fa-chevron-right text-slate-900/30 text-2xl hidden md:block"></i>
+            <i class="fas fa-chevron-down text-slate-900/30 text-2xl md:hidden"></i>
             <div class="text-center">
                 <div class="text-3xl font-bold text-success" id="funnel-quoted">--</div>
-                <div class="text-sm text-base-content/60">Cotadas</div>
+                <div class="text-sm text-slate-500">Cotadas</div>
                 <div class="text-xs text-success" id="funnel-quoted-rate">--%</div>
             </div>
         </div>
@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDays = parseInt(this.value);
         loadDashboardData();
     });
-    
+
     document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
 });
 
@@ -567,8 +567,8 @@ async function loadDashboardData() {
     try {
         // Mostrar loading no botão
         const refreshBtn = document.getElementById('refreshBtn');
-        refreshBtn.classList.add('loading');
-        
+        refreshBtn.classList.add('is-loading');
+
         // Carregar dados em paralelo
         await Promise.all([
             loadOverview(),
@@ -579,8 +579,8 @@ async function loadDashboardData() {
             loadActiveUsers(),
             loadAudienciasFunnel()
         ]);
-        
-        refreshBtn.classList.remove('loading');
+
+        refreshBtn.classList.remove('is-loading');
     } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
         showToast('Erro ao carregar dados do dashboard', 'error');
@@ -608,7 +608,7 @@ async function loadOverview() {
     try {
         const response = await fetch('/api/admin/metrics/overview');
         const result = await response.json();
-        
+
         if (!result.success) {
             console.warn('Overview API retornou erro:', result.message);
             fallback();
@@ -616,27 +616,27 @@ async function loadOverview() {
         }
 
         const data = result.data;
-        
+
         document.getElementById('kpi-dau').textContent = formatNumber(data.dau?.value || 0);
         document.getElementById('kpi-wau').textContent = formatNumber(data.wau?.value || 0);
         document.getElementById('kpi-mau').textContent = formatNumber(data.mau?.value || 0);
         document.getElementById('kpi-sessions').textContent = formatNumber(data.sessions_today || 0);
         document.getElementById('kpi-pageviews').textContent = formatNumber(data.pageviews_hoje || 0);
         document.getElementById('kpi-avgtime').textContent = formatDuration(data.avg_session_duration || 0);
-        
+
         const dauChange = data.dau?.change_percent || 0;
         const dauBadge = document.getElementById('kpi-dau-change');
         if (dauChange > 0) {
-            dauBadge.className = 'badge badge-sm badge-success';
+            dauBadge.className = 'cx-badge cx-badge-success';
             dauBadge.textContent = `+${dauChange}%`;
         } else if (dauChange < 0) {
-            dauBadge.className = 'badge badge-sm badge-error';
+            dauBadge.className = 'cx-badge cx-badge-danger';
             dauBadge.textContent = `${dauChange}%`;
         } else {
-            dauBadge.className = 'badge badge-sm badge-ghost';
+            dauBadge.className = 'cx-badge cx-badge-muted';
             dauBadge.textContent = '0%';
         }
-        
+
         document.getElementById('kpi-briefings').textContent = formatNumber(data.briefings_criados_hoje || 0);
         document.getElementById('kpi-briefings-sent').textContent = `${data.briefings_enviados_hoje || 0} enviados`;
         document.getElementById('kpi-cotacoes').textContent = formatNumber(data.cotacoes_criadas_hoje || 0);
@@ -654,16 +654,16 @@ async function loadSessionsChart() {
     try {
         const response = await fetch(`/api/admin/metrics/sessions/daily?days=${currentDays}`);
         const result = await response.json();
-        
+
         if (result.success) {
             const data = result.data;
-            
+
             const ctx = document.getElementById('sessionsChart').getContext('2d');
-            
+
             if (sessionsChart) {
                 sessionsChart.destroy();
             }
-            
+
             sessionsChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -712,10 +712,10 @@ async function loadBriefingsCotacoesChart() {
             fetch(`/api/admin/metrics/briefings?days=${currentDays}`),
             fetch(`/api/admin/metrics/cotacoes?days=${currentDays}`)
         ]);
-        
+
         const briefingsResult = await briefingsRes.json();
         const cotacoesResult = await cotacoesRes.json();
-        
+
         if (briefingsResult.success && cotacoesResult.success) {
             const briefingsData = briefingsResult.data;
             const cotacoesData = cotacoesResult.data;
@@ -731,11 +731,11 @@ async function loadBriefingsCotacoesChart() {
             ])].sort();
 
             const ctx = document.getElementById('briefingsCotacoesChart').getContext('2d');
-            
+
             if (briefingsCotacoesChart) {
                 briefingsCotacoesChart.destroy();
             }
-            
+
             briefingsCotacoesChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -780,21 +780,21 @@ async function loadTopAudiencias() {
     try {
         const response = await fetch(`/api/admin/metrics/audiencias/top?limit=10&days=${currentDays}`);
         const result = await response.json();
-        
+
         const tbody = document.getElementById('topAudienciasTable');
-        
+
         if (result.success && result.data.length > 0) {
             tbody.innerHTML = result.data.map((a, i) => `
                 <tr>
                     <td class="font-medium">${i + 1}</td>
                     <td class="max-w-xs truncate" title="${a.audiencia_nome}">${a.audiencia_nome}</td>
-                    <td><span class="badge badge-ghost badge-sm">${a.categoria || '-'}</span></td>
+                    <td><span class="cx-badge cx-badge-muted">${a.categoria || '-'}</span></td>
                     <td class="text-right font-medium">${formatNumber(a.total_views)}</td>
                     <td class="text-right">${formatNumber(a.unique_users)}</td>
                 </tr>
             `).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-8">Nenhum dado disponível</td></tr>';
         }
     } catch (error) {
         console.error('Erro ao carregar top audiências:', error);
@@ -806,21 +806,21 @@ async function loadTopPages() {
     try {
         const response = await fetch(`/api/admin/metrics/pages/top?limit=10&days=${currentDays}`);
         const result = await response.json();
-        
+
         const tbody = document.getElementById('topPagesTable');
-        
+
         if (result.success && result.data.length > 0) {
             tbody.innerHTML = result.data.map((p, i) => `
                 <tr>
                     <td class="font-medium">${i + 1}</td>
                     <td class="max-w-xs truncate" title="${p.page_path}">${p.page_path}</td>
-                    <td><span class="badge badge-ghost badge-sm">${p.page_type || '-'}</span></td>
+                    <td><span class="cx-badge cx-badge-muted">${p.page_type || '-'}</span></td>
                     <td class="text-right font-medium">${formatNumber(p.total_views)}</td>
                     <td class="text-right">${formatDuration(p.avg_time_on_page)}</td>
                 </tr>
             `).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-8">Nenhum dado disponível</td></tr>';
         }
     } catch (error) {
         console.error('Erro ao carregar top páginas:', error);
@@ -834,24 +834,24 @@ async function loadActiveUsers() {
     const showPerfil = activeUsersSegment === 'all';
     try {
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-8"><span class="loading loading-spinner loading-md"></span></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-8"><span class="cx-spinner"></span></td></tr>`;
         }
         const response = await fetch(`/api/admin/metrics/users/active?limit=20&segment=${encodeURIComponent(activeUsersSegment)}&days=${currentDays}`);
         const result = await response.json();
-        
+
         if (result.success && result.data.length > 0) {
             tbody.innerHTML = result.data.map((u, i) => {
                 const perfilCell = showPerfil
                     ? (u.is_centralcomm
-                        ? '<td><span class="badge badge-primary badge-sm gap-1"><i class="fas fa-building text-[10px]"></i>Equipe CC</span></td>'
-                        : '<td><span class="badge badge-ghost badge-sm gap-1"><i class="fas fa-user text-[10px]"></i>Cliente</span></td>')
+                        ? '<td><span class="cx-badge cx-badge-info gap-1"><i class="fas fa-building text-xs"></i>Equipe CC</span></td>'
+                        : '<td><span class="cx-badge cx-badge-muted gap-1"><i class="fas fa-user text-xs"></i>Cliente</span></td>')
                     : '';
                 return `
                 <tr>
                     <td class="font-medium">${i + 1}</td>
                     <td>
                         <div class="font-medium">${u.user_name || u.user_email}</div>
-                        <div class="text-xs text-base-content/50">${u.user_email}</div>
+                        <div class="text-xs text-slate-500">${u.user_email}</div>
                     </td>
                     ${perfilCell}
                     <td>${u.client_name || '-'}</td>
@@ -864,12 +864,12 @@ async function loadActiveUsers() {
             `;
             }).join('');
         } else {
-            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-slate-500 py-8">Nenhum dado disponível</td></tr>`;
         }
     } catch (error) {
         console.error('Erro ao carregar usuários ativos:', error);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-base-content/50 py-8">Erro ao carregar</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-slate-500 py-8">Erro ao carregar</td></tr>`;
         }
     }
 }
@@ -879,10 +879,10 @@ async function loadAudienciasFunnel() {
     try {
         const response = await fetch(`/api/admin/metrics/audiencias/funnel?days=${currentDays}`);
         const result = await response.json();
-        
+
         if (result.success) {
             const data = result.data;
-            
+
             document.getElementById('funnel-views').textContent = formatNumber(data.visualizadas || 0);
             document.getElementById('funnel-cart').textContent = formatNumber(data.adicionadas_carrinho || 0);
             document.getElementById('funnel-quoted').textContent = formatNumber(data.cotadas || 0);
@@ -901,7 +901,7 @@ let pingHistory = [];
 
 async function checkCaduStatus() {
     const btn = document.getElementById('pingNowBtn');
-    btn.classList.add('loading', 'loading-spinner');
+    btn.classList.add('is-loading');
     btn.disabled = true;
 
     try {
@@ -911,7 +911,7 @@ async function checkCaduStatus() {
     } catch {
         updateStatusUI({ is_up: false, error: 'Falha na requisição', status_code: null, response_time_ms: null, checked_at: new Date().toISOString() });
     } finally {
-        btn.classList.remove('loading', 'loading-spinner');
+        btn.classList.remove('is-loading');
         btn.disabled = false;
     }
 }
@@ -924,20 +924,20 @@ function updateStatusUI(data) {
     const lastCheck = document.getElementById('status-last-check').querySelector('span');
     const monitor = document.getElementById('status-monitor');
 
-    const cellOk = 'p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm';
-    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-base-100 transition-colors shadow-sm';
+    const cellOk = 'p-3 md:p-4 rounded-lg border border-slate-300 bg-white transition-colors shadow-sm';
+    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-white transition-colors shadow-sm';
     if (data.is_up) {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
-        badge.className = 'badge badge-sm badge-success';
+        badge.className = 'cx-badge cx-badge-success';
         badge.textContent = 'Online';
         monitor.className = cellOk;
     } else {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-error"></span>`;
-        badge.className = 'badge badge-sm badge-error';
+        badge.className = 'cx-badge cx-badge-danger';
         badge.textContent = data.error || 'Offline';
         monitor.className = cellErr;
     }
@@ -974,7 +974,7 @@ let dv360PingTimer = null;
 async function checkDv360Status(kind) {
     const btn = document.getElementById('dv360PingNowBtn');
     if (btn && (kind === 'refresh')) {
-        btn.classList.add('loading', 'loading-spinner');
+        btn.classList.add('is-loading');
         btn.disabled = true;
     }
     let url = '/api/admin/dv360-status?mode=config';
@@ -998,7 +998,7 @@ async function checkDv360Status(kind) {
         });
     } finally {
         if (btn && kind === 'refresh') {
-            btn.classList.remove('loading', 'loading-spinner');
+            btn.classList.remove('is-loading');
             btn.disabled = false;
         }
     }
@@ -1015,27 +1015,27 @@ function updateDv360StatusUI(data) {
 
     const mode = data.mode || '';
     const up = data.success !== false && !!data.is_up;
-    const cellOk = 'p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm';
-    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-base-100 transition-colors shadow-sm';
+    const cellOk = 'p-3 md:p-4 rounded-lg border border-slate-300 bg-white transition-colors shadow-sm';
+    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-white transition-colors shadow-sm';
 
     if (up && mode === 'live') {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
-        badge.className = 'badge badge-sm badge-success';
+        badge.className = 'cx-badge cx-badge-success';
         badge.textContent = 'OAuth OK';
         monitor.className = cellOk;
     } else if (up && mode === 'config') {
         indicator.innerHTML = `
             <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
-        badge.className = 'badge badge-sm badge-success';
+        badge.className = 'cx-badge cx-badge-success';
         badge.textContent = '.env OK';
         monitor.className = cellOk;
     } else {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-error"></span>`;
-        badge.className = 'badge badge-sm badge-error';
+        badge.className = 'cx-badge cx-badge-danger';
         badge.textContent = (data.detail || 'Offline').slice(0, 48);
         monitor.className = cellErr;
     }
@@ -1075,11 +1075,11 @@ function formatCurrency(value) {
 
 function formatDuration(seconds) {
     if (!seconds || seconds === 0) return '0s';
-    
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
         return `${hours}h ${minutes}m`;
     }
@@ -1098,9 +1098,9 @@ function formatDateShort(dateStr) {
 function formatDateFull(dateStr) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
         year: '2-digit',
         hour: '2-digit',
         minute: '2-digit'

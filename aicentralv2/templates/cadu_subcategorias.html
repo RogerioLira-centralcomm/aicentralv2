@@ -14,43 +14,43 @@
         <h1 class="text-lg font-semibold text-gray-800">Subcategorias</h1>
         {% if subcategorias %}<span class="text-xs text-gray-500">({{ subcategorias|length }})</span>{% endif %}
       </div>
-      
+
       <!-- Filtros Inline -->
       <div class="flex items-center gap-3">
         <!-- Pesquisa -->
-        <input type="text" id="pesquisa_subcategoria" oninput="filtrarSubcategorias()" 
+        <input type="text" id="pesquisa_subcategoria" oninput="filtrarSubcategorias()"
                placeholder="Buscar subcategoria..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
-        
+
         <!-- Categoria -->
-        <select id="filtro_categoria" onchange="filtrarSubcategorias()" 
+        <select id="filtro_categoria" onchange="filtrarSubcategorias()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
           <option value="">Todas categorias</option>
           {% for cat in categorias %}
             <option value="{{ cat.nome }}">{{ cat.nome }}</option>
           {% endfor %}
         </select>
-        
+
         <!-- Status Icons -->
         <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
           <button type="button" onclick="filtrarStatus('ativa')" id="btn_ativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors"
                   title="Ativas">
             <i class="fa-solid fa-circle-check text-sm text-gray-400" id="icon_ativa"></i>
           </button>
           <button type="button" onclick="filtrarStatus('inativa')" id="btn_inativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors"
                   title="Inativas">
             <i class="fa-solid fa-circle-xmark text-sm text-gray-400" id="icon_inativa"></i>
           </button>
           <button type="button" onclick="filtrarStatus('')" id="btn_todos"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200"
                   title="Todos">
             <i class="fa-solid fa-list text-sm text-gray-800" id="icon_todos"></i>
           </button>
         </div>
       </div>
-      
+
       <!-- Botão Novo -->
       <div class="flex gap-2">
         <a href="{{ url_for('cadu_subcategorias_novo') }}" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
@@ -64,7 +64,7 @@
     {% if messages %}
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}cx-alert-danger{% elif category == 'success' %}cx-alert-success{% elif category == 'warning' %}cx-alert-warning{% else %}cx-alert-info{% endif %}">
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -89,7 +89,7 @@
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% for sub in subcategorias %}
-            <tr class="hover:bg-gray-50 transition-colors {% if not sub.is_active %}opacity-60{% endif %}" 
+            <tr class="hover:bg-gray-50 transition-colors {% if not sub.is_active %}opacity-60{% endif %}"
                 data-categoria="{{ sub.categoria_nome or '' }}"
                 data-status="{{ 'ativa' if sub.is_active else 'inativa' }}">
               <td class="py-2 px-3">
@@ -135,12 +135,12 @@
               </td>
               <td class="text-center py-2 px-2">
                 <div class="flex items-center justify-center gap-1">
-                  <a href="{{ url_for('cadu_subcategorias_detalhes', id_subcategoria=sub.id) }}" 
+                  <a href="{{ url_for('cadu_subcategorias_detalhes', id_subcategoria=sub.id) }}"
                      class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                      title="Ver detalhes">
                     <i class="fas fa-eye text-sm"></i>
                   </a>
-                  <a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=sub.id) }}" 
+                  <a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=sub.id) }}"
                      class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                      title="Editar">
                     <i class="fas fa-edit text-sm"></i>
@@ -157,7 +157,7 @@
           </tbody>
         </table>
       </div>
-      
+
       <!-- Rodapé com contador -->
       <div class="flex justify-between items-center px-4 py-3 border-t border-gray-200 bg-gray-50">
         <span id="contador_filtro" class="text-xs text-gray-500"></span>
@@ -194,7 +194,7 @@ function atualizarBotoesStatus() {
   document.getElementById('icon_inativa').classList.add('text-gray-400');
   document.getElementById('icon_todos').classList.remove('text-gray-800');
   document.getElementById('icon_todos').classList.add('text-gray-400');
-  
+
   // Ativar botão selecionado
   if (filtroStatusAtual === 'ativa') {
     document.getElementById('btn_ativa').classList.add('bg-gray-200');
@@ -226,30 +226,30 @@ function filtrarSubcategorias() {
   setCookie('subcat_status', filtroStatusAtual, 30);
   const tabela = document.getElementById('tabela_subcategorias');
   if (!tabela) return;
-  
+
   const tbody = tabela.querySelector('tbody');
   if (!tbody) return;
-  
+
   const linhas = tbody.getElementsByTagName('tr');
-  
+
   let visiveis = 0;
   const total = linhas.length;
-  
+
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const colunas = linha.getElementsByTagName('td');
-    
+
     if (colunas.length > 0) {
       const nomeElement = colunas[0].querySelector('.font-medium');
       const nome = nomeElement ? nomeElement.textContent.toLowerCase().trim() : '';
       const categoriaAttr = linha.getAttribute('data-categoria') || '';
       const statusAttr = linha.getAttribute('data-status') || '';
       const descricao = colunas[2] ? colunas[2].textContent.toLowerCase().trim() : '';
-      
+
       const matchPesquisa = pesquisa === '' || nome.includes(pesquisa) || descricao.includes(pesquisa);
       const matchCategoria = categoriaFiltro === '' || categoriaAttr === categoriaFiltro;
       const matchStatus = filtroStatusAtual === '' || statusAttr === filtroStatusAtual;
-      
+
       if (matchPesquisa && matchCategoria && matchStatus) {
         linha.style.display = '';
         visiveis++;
@@ -258,7 +258,7 @@ function filtrarSubcategorias() {
       }
     }
   }
-  
+
   // Atualizar contador
   const contador = document.getElementById('contador_filtro');
   if (contador) {

@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = [
     *sorted((ROOT / "aicentralv2/templates").glob("cadu_audiencias*.html")),
+    *sorted((ROOT / "aicentralv2/templates").glob("cadu_categorias*.html")),
+    *sorted((ROOT / "aicentralv2/templates").glob("cadu_subcategorias*.html")),
     *sorted((ROOT / "aicentralv2/templates/crm_v3").glob("*.html")),
     ROOT / "aicentralv2/templates/briefing_list.html",
     ROOT / "aicentralv2/templates/briefing_form.html",
@@ -19,6 +21,9 @@ FILES = [
     ROOT / "aicentralv2/templates/cadu_cotacoes_form.html",
     ROOT / "aicentralv2/templates/campanhas_pi_lista.html",
     ROOT / "aicentralv2/templates/campanhas_pi.html",
+    ROOT / "aicentralv2/templates/interesse_produto.html",
+    ROOT / "aicentralv2/templates/up_audiencia.html",
+    ROOT / "aicentralv2/templates/admin_metrics_dashboard.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes_legado.html",
     ROOT / "aicentralv2/templates/cadu_pi.html",
@@ -46,6 +51,7 @@ FILES = [
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)
 CLASS_LIST_CALL = re.compile(r"""classList\.(?:add|remove|toggle|contains)\((.*?)\)""", re.DOTALL)
+CLASS_NAME_ASSIGNMENT = re.compile(r"""className\s*=\s*(['"])(.*?)\1""", re.DOTALL)
 QUOTED_TOKEN = re.compile(r"""(['"])([^'"]+)\1""")
 FORBIDDEN = re.compile(
     r"^(?:"
@@ -79,6 +85,11 @@ def violations(path: Path) -> list[tuple[int, str]]:
         for quoted in QUOTED_TOKEN.finditer(match.group(1)):
             token = quoted.group(2)
             if not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
+                found.append((line, token))
+    for match in CLASS_NAME_ASSIGNMENT.finditer(source):
+        line = source.count("\n", 0, match.start()) + 1
+        for token in re.split(r"\s+", match.group(2).strip()):
+            if token and not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
                 found.append((line, token))
     return found
 

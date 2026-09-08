@@ -140,8 +140,11 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-drive-tabs { display: flex; gap: 3px; padding: 8px 14px 0; border-bottom: 1px solid var(--pi-border); overflow-x: auto; }
 .pi-drive-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: #627477; padding: 9px 13px; cursor: pointer; font-weight: 650; white-space: nowrap; }
 .pi-drive-tabs button[aria-selected="true"] { border-bottom-color: var(--pi-primary); color: var(--pi-primary); }
-.pi-drive-content { min-height: 0; background: #f3f6f6; }
-.pi-drive-content iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.pi-drive-content { display: flex; flex-direction: column; min-height: 0; height: 100%; overflow: hidden; background: #f3f6f6; }
+.pi-drive-embed-wrap { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 420px; height: 100%; }
+.pi-drive-fallback { flex: 0 0 auto; padding: 10px 16px; border-bottom: 1px solid var(--pi-border); background: #fff; color: #5c7072; font-size: 12px; line-height: 1.45; }
+.pi-drive-fallback a { color: var(--pi-primary); font-weight: 650; text-decoration: underline; }
+.pi-drive-content iframe { display: block; flex: 1 1 auto; width: 100%; min-height: 360px; height: 100%; border: 0; background: #fff; }
 .pi-drive-content > .pi-op-state, .pi-drive-content > .pi-op-error { margin: 28px; }
 body.pi-op-lock { overflow: hidden; }
 .pi-confirm-dialog { width: min(430px, calc(100vw - 28px)); max-width: none; border: 0; border-radius: 14px; padding: 0; background: transparent; box-shadow: 0 24px 70px rgba(8,30,32,.3); }

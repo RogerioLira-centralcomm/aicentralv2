@@ -452,40 +452,59 @@
     var content = document.getElementById('pi-drive-content');
     var external = document.getElementById('pi-drive-external');
 
-    function validDrive(url) {
+    function folderIdFromUrl(url) {
       try {
         var parsed = new URL(url);
-        return parsed.protocol === 'https:' && parsed.hostname === 'drive.google.com';
-      } catch (_) { return false; }
+        if (parsed.protocol !== 'https:' || parsed.hostname !== 'drive.google.com') return null;
+        var pathMatch = parsed.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        if (pathMatch) return pathMatch[1];
+        var fileMatch = parsed.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileMatch) return fileMatch[1];
+        return parsed.searchParams.get('id');
+      } catch (_) { return null; }
     }
+
+    function validDrive(url) {
+      return Boolean(folderIdFromUrl(url));
+    }
+
     function embedUrl(url) {
-      if (!validDrive(url)) return null;
-      var match = new URL(url).pathname.match(/\/drive\/folders\/([^/?#]+)/);
-      return match ? 'https://drive.google.com/embeddedfolderview?id=' + encodeURIComponent(match[1]) + '#grid' : null;
+      var folderId = folderIdFromUrl(url);
+      return folderId
+        ? 'https://drive.google.com/embeddedfolderview?id=' + encodeURIComponent(folderId) + '#grid'
+        : null;
     }
+
     function showTab(button) {
       dialog.querySelectorAll('[data-drive-tab]').forEach(function (tab) {
         tab.setAttribute('aria-selected', tab === button ? 'true' : 'false');
       });
       var raw = button.dataset.driveUrl || '';
-      external.hidden = !validDrive(raw);
-      external.href = validDrive(raw) ? raw : '#';
+      var folderId = folderIdFromUrl(raw);
+      var hasDriveLink = Boolean(folderId);
+      external.hidden = !hasDriveLink;
+      external.href = hasDriveLink ? raw : '#';
       var embedded = embedUrl(raw);
       if (!raw) {
         content.innerHTML = '<div class="pi-op-state">Esta pasta ainda não foi gerada.</div>';
       } else if (!embedded) {
         content.innerHTML = errorHtml('O endereço informado não é uma pasta permitida do Google Drive.');
       } else {
-        content.innerHTML = '<div class="pi-op-state pi-op-state--loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Carregando pasta…</span></div>';
+        content.innerHTML = '';
+        var wrap = document.createElement('div');
+        wrap.className = 'pi-drive-embed-wrap';
+        var fallback = document.createElement('div');
+        fallback.className = 'pi-drive-fallback';
+        fallback.innerHTML = 'Se a visualização abaixo não carregar, ' +
+          '<a href="' + esc(raw) + '" target="_blank" rel="noopener noreferrer">abra esta pasta no Google Drive</a>.';
+        wrap.appendChild(fallback);
         var iframe = document.createElement('iframe');
         iframe.title = 'Conteúdo da pasta ' + button.textContent.trim();
-        iframe.loading = 'lazy';
-        iframe.referrerPolicy = 'no-referrer';
+        iframe.loading = 'eager';
+        iframe.allow = 'autoplay';
         iframe.src = embedded;
-        iframe.addEventListener('load', function () { content.replaceChildren(iframe); });
-        setTimeout(function () {
-          if (!iframe.isConnected) content.replaceChildren(iframe);
-        }, 700);
+        wrap.appendChild(iframe);
+        content.appendChild(wrap);
       }
     }
     window.abrirArquivosPi = function () {

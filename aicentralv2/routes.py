@@ -12357,7 +12357,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             import traceback
             app.logger.error(f"Erro ao listar campanhas PI (lista): {str(e)}\n{traceback.format_exc()}")
             flash('Erro ao carregar lista de campanhas PI. Tente de novo ou contate o suporte.', 'error')
-            return redirect(url_for('campanhas_pi_lista'))
+            return redirect(url_for('campanhas_pi'))
 
     @app.route('/campanhas-pi/novo', methods=['POST'])
     @login_required

@@ -16,6 +16,7 @@
   var sidebarBackdrop = document.getElementById('pi-sidebar-backdrop');
   var feedback = document.getElementById('pi-operation-feedback');
   var confirmDialog = document.getElementById('pi-confirm-dialog');
+  var emailDialog = document.getElementById('pi-email-dialog');
   var scrollKey = 'cx:pi-operacao:' + piId + ':sidebar-scroll';
   var selectedCampaign = null;
   var operationData = null;
@@ -24,6 +25,9 @@
   var feedbackTimer = null;
   var confirmationResolve = null;
   var sidebarOpener = null;
+  var emailDialogOpener = null;
+  var currentEmailType = '';
+  var currentEmailCampaignId = null;
   var mobileMedia = window.matchMedia('(max-width: 720px)');
   var mobileTabs = Array.prototype.slice.call(root.querySelectorAll('[data-mobile-tab]'));
   var mobileViews = ['summary', 'edit', 'operation'];
@@ -305,6 +309,33 @@
       : '<div class="pi-op-state">Nenhuma campanha vinculada ao PI.</div>';
   }
 
+  function shortDate(value) {
+    if (!value) return '';
+    var raw = String(value).slice(0, 10);
+    var parts = raw.split('-');
+    return parts.length === 3 ? [parts[2], parts[1], parts[0]].join('/') : raw;
+  }
+
+  function renderPiOrigin(data) {
+    var pi = data.pi || {};
+    var summary = data.resumo || {};
+    var setText = function (id, value, fallback) {
+      var target = document.getElementById(id);
+      if (target) target.textContent = value || fallback || '—';
+    };
+    setText('pi-origin-code', pi.codigo_pi_cc || (pi.id_pi ? 'PI ' + pi.id_pi : ''), 'Abrir PI');
+    setText('pi-origin-title', pi.titulo_pi, 'Título não informado');
+    setText('pi-origin-status', pi.sub_status_descricao || pi.status_descricao, 'Sem status');
+    setText('pi-origin-client', pi.cliente_nome || pi.nome_cliente, 'Não informado');
+    setText('pi-origin-owner', summary.executivo_vendas || pi.responsavel_comercial_nome, 'Não informado');
+    setText('pi-origin-campaign-count', String(summary.total_campanhas == null
+      ? list(data.campanhas).length
+      : summary.total_campanhas), '0');
+    var start = shortDate(pi.periodo_inicio);
+    var finish = shortDate(pi.periodo_fim);
+    setText('pi-origin-period', start || finish ? (start || '—') + ' a ' + (finish || '—') : '', 'Não informado');
+  }
+
   function renderRouteMap(data) {
     var target = document.getElementById('pi-route-campaigns');
     if (!target) return;
@@ -579,6 +610,7 @@
       }
       renderRecommendation(operationData);
       renderChecklist(operationData);
+      renderPiOrigin(operationData);
       renderRouteMap(operationData);
       renderTimeline(operationData);
       renderRecipients(operationData);
@@ -748,7 +780,32 @@
       focusRecipientSelection();
       return;
     }
-    var target = document.getElementById('pi-context-content');
+    if (!emailDialog) {
+      notify('Não foi possível abrir a preparação do e-mail.', 'error');
+      return;
+    }
+    currentEmailType = type;
+    currentEmailCampaignId = campaignId || null;
+    if (!emailDialog.open) emailDialogOpener = document.activeElement;
+    var context = document.getElementById('pi-email-context');
+    var title = document.getElementById('pi-email-title');
+    var previewState = document.getElementById('pi-email-preview-state');
+    var frame = document.getElementById('pi-email-frame');
+    var textPreview = document.getElementById('pi-email-text-preview');
+    var status = document.getElementById('pi-email-status');
+    if (context) context.textContent = campaignId && selectedCampaign
+      ? selectedCampaign.nome_campanha || 'Comunicação da campanha'
+      : 'Comunicação do PI';
+    if (title) title.textContent = 'Preparar e-mail';
+    if (status) status.textContent = '';
+    if (previewState) {
+      previewState.className = 'pi-op-state pi-op-state--loading';
+      previewState.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…';
+      previewState.hidden = false;
+    }
+    if (frame) frame.hidden = true;
+    if (textPreview) textPreview.hidden = true;
+    if (!emailDialog.open) emailDialog.showModal();
     try {
       var payload = Object.assign({ tipo: type, id_campanha: campaignId || null }, draft || {});
       var data = await request(base + '/email/preview', {
@@ -756,31 +813,38 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (target) {
-        emailPreviewData = data;
-        var recipients = list(data.destinatarios);
-        var audience = recipients.length
-          ? '<div class="pi-op-email-audience"><strong>Para quem será enviado</strong>' +
-            '<ul>' + recipients.map(recipientLabel).join('') + '</ul></div>'
+      emailPreviewData = data;
+      var recipients = list(data.destinatarios);
+      var subject = document.getElementById('pi-email-subject');
+      var message = document.getElementById('pi-email-message');
+      var audience = document.getElementById('pi-email-audience');
+      if (subject) subject.value = data.assunto || payload.assunto || '';
+      if (message) message.value = payload.mensagem || '';
+      if (audience) {
+        audience.innerHTML = recipients.length
+          ? '<strong>Para quem será enviado</strong><ul>' +
+            recipients.map(recipientLabel).join('') + '</ul>'
           : '<div class="pi-op-error">Selecione ao menos um destinatário antes de enviar.</div>';
-        target.innerHTML = '<div class="pi-op-stack">' +
-          '<label for="pi-email-subject"><strong>Assunto</strong></label>' +
-          '<input id="pi-email-subject" maxlength="180" value="' + esc(data.assunto || payload.assunto || '') + '">' +
-          '<label for="pi-email-message"><strong>Mensagem complementar</strong></label>' +
-          '<textarea id="pi-email-message" rows="4" maxlength="5000" placeholder="Inclua contexto adicional, se necessário.">' + esc(payload.mensagem || '') + '</textarea>' +
-          audience +
-          (data.html
-            ? '<iframe class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" srcdoc="' + esc(data.html) + '"></iframe>'
-            : '<div class="pi-op-email-preview">' + esc(data.corpo_texto || data.corpo || data.preview || 'Preview sem conteúdo.') + '</div>') +
-          (!readOnly
-            ? '<div class="pi-op-context-actions pi-op-email-actions">' +
-                '<button type="button" class="pi-op-btn pi-op-btn--secondary" data-refresh-email="' + esc(type) + '">Atualizar prévia</button>' +
-                '<button type="button" class="pi-op-btn pi-op-btn--primary" data-send-email="' + esc(type) + '">Enviar e-mail</button>' +
-              '</div>'
-            : '') + '</div>';
-        document.getElementById('pi-context-panel').hidden = false;
       }
-    } catch (error) { notify(error.message, 'error'); }
+      if (previewState) previewState.hidden = true;
+      if (data.html && frame) {
+        frame.srcdoc = data.html;
+        frame.hidden = false;
+      } else if (textPreview) {
+        textPreview.textContent = data.corpo_texto || data.corpo || data.preview || 'Prévia sem conteúdo.';
+        textPreview.hidden = false;
+      }
+      if (status) status.textContent = 'Prévia atualizada.';
+      if (subject) subject.focus({ preventScroll: true });
+    } catch (error) {
+      if (previewState) {
+        previewState.className = 'pi-op-error';
+        previewState.textContent = error.message;
+        previewState.hidden = false;
+      }
+      if (status) status.textContent = 'Não foi possível gerar a prévia.';
+      notify(error.message, 'error');
+    }
   }
 
   async function sendEmail(type, campaignId, button) {
@@ -805,6 +869,7 @@
         body: JSON.stringify(emailDraft(type, campaignId))
       });
       notify(data.message || 'E-mail enviado com sucesso.', 'success');
+      if (emailDialog && emailDialog.open) emailDialog.close('sent');
       loadOperation();
     } catch (error) { notify(error.message, 'error'); }
     finally { setBusy(button, false); }
@@ -894,6 +959,32 @@
       var resolve = confirmationResolve;
       confirmationResolve = null;
       resolve(confirmDialog.returnValue === 'confirm');
+    });
+  }
+  if (emailDialog) {
+    emailDialog.querySelectorAll('[data-email-close]').forEach(function (button) {
+      button.addEventListener('click', function () { emailDialog.close('cancel'); });
+    });
+    emailDialog.addEventListener('click', function (event) {
+      if (event.target === emailDialog) emailDialog.close('cancel');
+    });
+    emailDialog.addEventListener('close', function () {
+      if (emailDialogOpener && typeof emailDialogOpener.focus === 'function') {
+        emailDialogOpener.focus({ preventScroll: true });
+      }
+      emailDialogOpener = null;
+    });
+    var refreshEmail = document.getElementById('pi-email-refresh');
+    if (refreshEmail) refreshEmail.addEventListener('click', function () {
+      previewEmail(
+        currentEmailType,
+        currentEmailCampaignId,
+        emailDraft(currentEmailType, currentEmailCampaignId)
+      );
+    });
+    var sendEmailButton = document.getElementById('pi-email-send');
+    if (sendEmailButton) sendEmailButton.addEventListener('click', function () {
+      sendEmail(currentEmailType, currentEmailCampaignId, sendEmailButton);
     });
   }
   document.querySelectorAll('[data-sidebar-close]').forEach(function (button) { button.addEventListener('click', closeSidebar); });
@@ -1099,6 +1190,7 @@
       focusRecipientSelection();
       return;
     }
+    if (!campaignId) selectedCampaign = null;
     var communications = document.getElementById('pi-communications-panel');
     openSidebar();
     if (communications) sidebarScroll.scrollTop = communications.offsetTop - 12;

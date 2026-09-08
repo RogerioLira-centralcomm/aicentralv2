@@ -83,6 +83,9 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn('id="pi-route-next"', sidebar)
         self.assertIn("function renderRouteMap(", operation_js)
         self.assertIn("% campaigns.length", operation_js)
+        self.assertIn('id="pi-origin-facts"', sidebar)
+        self.assertIn('id="pi-origin-client"', sidebar)
+        self.assertIn("function renderPiOrigin(", operation_js)
 
     def test_sidebar_desktop_usa_rolagem_unica_e_mobile_preserva_drawer(self):
         css = self._source(STATIC / "css" / "pi-operacao.css")
@@ -98,10 +101,29 @@ class PiMobileUiContractTest(unittest.TestCase):
         css = self._source(STATIC / "css" / "pi-operacao.css")
 
         self.assertIn('id="pi-confirm-details"', sidebar)
+        self.assertIn('id="pi-email-dialog"', sidebar)
+        self.assertIn('id="pi-email-frame"', sidebar)
+        self.assertIn('sandbox=""', sidebar)
         self.assertIn("details: recipients", operation_js)
         self.assertIn("Revise quem receberá esta comunicação", operation_js)
-        self.assertIn("pi-op-email-actions", operation_js)
+        self.assertIn("emailDialog.showModal()", operation_js)
+        self.assertIn("frame.srcdoc = data.html", operation_js)
+        self.assertIn(".pi-email-dialog {", css)
         self.assertIn(".pi-confirm-dialog.is-email .pi-confirm-dialog__actions { justify-content: flex-start; }", css)
+
+    def test_edicao_do_pi_usa_superficie_vanilla_semantica(self):
+        pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+
+        for class_name in (
+            "pi-edit-surface",
+            "pi-origin-quote",
+            "pi-edit-section",
+            "pi-edit-card",
+            "pi-edit-disclosure",
+        ):
+            self.assertIn(class_name, pi_detail)
+            self.assertIn(f".{class_name}", css)
 
 
 if __name__ == "__main__":

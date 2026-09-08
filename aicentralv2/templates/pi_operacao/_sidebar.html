@@ -23,8 +23,19 @@
       </div>
       <a id="pi-route-pi" class="pi-op-route-map__pi" href="/cadu_pi/editar/{{ pi.id_pi if pi else '' }}">
         <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
-        <span><small>PI de origem</small><strong>{{ pi.codigo_pi_cc or pi.titulo_pi or ('PI ' ~ pi.id_pi) if pi else 'Abrir PI' }}</strong></span>
+        <span>
+          <small>PI de origem</small>
+          <strong id="pi-origin-code">{{ pi.codigo_pi_cc or ('PI ' ~ pi.id_pi) if pi else 'Abrir PI' }}</strong>
+          <em id="pi-origin-title">{{ pi.titulo_pi or 'Título não informado' if pi else '' }}</em>
+        </span>
+        <b id="pi-origin-status">{{ pi.sub_status_descricao or pi.status_descricao or '' if pi else '' }}</b>
       </a>
+      <div id="pi-origin-facts" class="pi-op-origin-facts" aria-label="Resumo do PI">
+        <div><span>Cliente</span><strong id="pi-origin-client">{{ pi.cliente_nome or 'Não informado' if pi else '—' }}</strong></div>
+        <div><span>Período</span><strong id="pi-origin-period">—</strong></div>
+        <div><span>Responsável</span><strong id="pi-origin-owner">{{ pi.responsavel_comercial_nome or 'Não informado' if pi else '—' }}</strong></div>
+        <div><span>Campanhas</span><strong id="pi-origin-campaign-count">{{ pi.total_campanhas or 0 if pi else 0 }}</strong></div>
+      </div>
       <div id="pi-route-campaigns" class="pi-op-route-map__campaigns" aria-live="polite">
         <span class="pi-op-state">Carregando campanhas…</span>
       </div>
@@ -130,6 +141,56 @@
   <i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Operação</span>
 </button>
 <div id="pi-sidebar-backdrop" class="pi-op-sidebar-backdrop" data-sidebar-close aria-hidden="true"></div>
+
+<dialog id="pi-email-dialog" class="pi-email-dialog" aria-labelledby="pi-email-title">
+  <div class="pi-email-modal">
+    <header class="pi-email-modal__header">
+      <div>
+        <span id="pi-email-context">Comunicação do PI</span>
+        <h2 id="pi-email-title">Preparar e-mail</h2>
+      </div>
+      <button type="button" class="pi-op-icon-btn" data-email-close aria-label="Fechar e-mail">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="pi-email-modal__body">
+      <section class="pi-email-compose" aria-label="Conteúdo e destinatários">
+        <label for="pi-email-subject"><strong>Assunto</strong></label>
+        <input id="pi-email-subject" maxlength="180" autocomplete="off">
+        <label for="pi-email-message">
+          <strong>Mensagem complementar</strong>
+          <small>Inclua apenas o contexto que não está no modelo.</small>
+        </label>
+        <textarea id="pi-email-message" rows="5" maxlength="5000" placeholder="Inclua contexto adicional, se necessário."></textarea>
+        <div id="pi-email-audience" class="pi-op-email-audience">
+          <strong>Destinatários</strong>
+          <div class="pi-op-state">Carregando contatos…</div>
+        </div>
+      </section>
+      <section class="pi-email-preview-pane" aria-label="Pré-visualização do e-mail">
+        <div class="pi-email-preview-pane__head">
+          <strong>Pré-visualização</strong>
+          <span>Conteúdo que será enviado</span>
+        </div>
+        <div id="pi-email-preview-state" class="pi-op-state pi-op-state--loading">
+          <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…
+        </div>
+        <iframe id="pi-email-frame" class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" hidden></iframe>
+        <div id="pi-email-text-preview" class="pi-op-email-preview" hidden></div>
+      </section>
+    </div>
+    <footer class="pi-email-modal__footer">
+      <span id="pi-email-status" role="status" aria-live="polite"></span>
+      <div>
+        <button type="button" class="pi-op-btn pi-op-btn--secondary" data-email-close>Voltar</button>
+        <button type="button" id="pi-email-refresh" class="pi-op-btn pi-op-btn--secondary">Atualizar prévia</button>
+        {% if not somente_leitura %}
+        <button type="button" id="pi-email-send" class="pi-op-btn pi-op-btn--primary">Enviar e-mail</button>
+        {% endif %}
+      </div>
+    </footer>
+  </div>
+</dialog>
 
 <dialog id="pi-confirm-dialog" class="pi-confirm-dialog" aria-labelledby="pi-confirm-title" aria-describedby="pi-confirm-message">
   <form method="dialog" class="pi-confirm-dialog__surface">

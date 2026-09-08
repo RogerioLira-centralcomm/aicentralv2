@@ -4,7 +4,7 @@
 {% block page_label %}Operação do PI{% endblock %}
 {% block page_subtitle %}Gestão de campanhas e comunicações{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=10">
 {% endblock %}
 
 {% block content %}
@@ -126,7 +126,7 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-white rounded border border-gray-200 p-3">
+  <div class="pi-edit-surface">
     <form id="pi_form" method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}">
       <input type="hidden" name="return_url" value="{{ return_url|default('', true) }}">
       {% if modo == 'editar' and pi %}
@@ -144,9 +144,9 @@
       {% endif %}
 
       {% if modo == 'editar' and pi and pi.cotacao_id %}
-      <div class="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/60 px-2 py-1.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-        <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] min-w-0">
-          <span class="font-semibold text-indigo-900 shrink-0"><i class="fas fa-file-invoice-dollar mr-1 text-indigo-600"></i>Cotação de origem</span>
+      <div class="pi-origin-quote">
+        <div class="pi-origin-quote__identity">
+          <span class="pi-origin-quote__label"><i class="fas fa-file-invoice-dollar"></i>Cotação de origem</span>
           <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-indigo-700 hover:text-indigo-900 hover:underline font-medium shrink-0">
             {{ pi.cotacao_numero or ('#' ~ pi.cotacao_id) }}
           </a>
@@ -157,19 +157,19 @@
           <span class="text-[9px] text-gray-500">({{ pi.cotacao_status }})</span>
           {% endif %}
         </div>
-        <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-[9px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap shrink-0">
-          Abrir cotação <i class="fas fa-external-link-alt ml-0.5 text-[8px]"></i>
+        <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="pi-origin-quote__action">
+          Abrir cotação <i class="fas fa-external-link-alt"></i>
         </a>
       </div>
       {% elif modo == 'editar' and pi %}
-      <div class="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[10px] text-gray-500">
+      <div class="pi-origin-quote is-empty">
         <i class="fas fa-unlink mr-1 text-gray-400"></i>Este PI não está vinculado a nenhuma cotação.
       </div>
       {% endif %}
 
       <!-- LINHA 1: Dados Principais -->
-      <div class="mb-3" id="pi-edit-data">
-        <h2 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-200">Dados do PI</h2>
+      <section class="pi-edit-section" id="pi-edit-data">
+        <div class="pi-edit-section__head"><div><h2>Dados do PI</h2><p>Identificação comercial e responsáveis pela autorização.</p></div></div>
         <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div class="col-span-1 md:col-span-2">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Código PI <span class="text-red-500">*</span></label>
@@ -198,10 +198,10 @@
             <input type="text" name="titulo_pi" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ">
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- LINHA 2: Cliente + Agência + Parceiro (3 colunas, alinhado com Contatos) -->
-      <div class="mb-3">
+      <section class="pi-edit-section pi-edit-parties">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div class="relative">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Cliente <span class="text-red-500">*</span></label>
@@ -237,11 +237,11 @@
             <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- COLLAPSE: Contatos -->
-      <details id="details_contatos" class="mb-2 border border-gray-200 rounded">
-        <summary class="px-3 py-1.5 bg-gray-50 cursor-pointer text-[10px] font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
+      <details id="details_contatos" class="pi-edit-disclosure">
+        <summary>
           <span class="ml-1">Contatos</span>
         </summary>
         <div class="p-3">
@@ -296,8 +296,9 @@
       </details>
 
       <!-- Período (card estilo cotação) -->
-      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-3 mb-3" id="pi-edit-period">
-        <h2 class="text-[10px] font-semibold text-gray-800 mb-2">Período</h2>
+      <section class="pi-edit-card" id="pi-edit-period">
+        <div class="pi-edit-section__head"><div><h2>Período</h2><p>Janela contratada para veiculação das campanhas.</p></div></div>
+        <div class="pi-edit-card__body">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Início <span class="text-red-500">*</span></label>
@@ -318,7 +319,8 @@
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </section>
 
       {% if modo == 'editar' and pi and pi.id_sub_status_pi|string in ['1', '2'] and not pi.valor_bruto and not somente_leitura %}
       <div id="banner_valores_pendentes" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-800">
@@ -329,7 +331,8 @@
       {% endif %}
 
       <!-- Calculadora / Valores Financeiros -->
-      <div class="mb-3 bg-white border border-gray-200 shadow-sm rounded-lg p-3" id="calculadora_pi_block">
+      <section class="pi-edit-card pi-edit-finance" id="calculadora_pi_block">
+        <div class="pi-edit-card__body">
         <div class="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-gray-100">
           <h2 class="text-[10px] font-semibold text-gray-800">Valores Financeiros</h2>
           <div class="text-right min-w-[120px]">
@@ -469,11 +472,12 @@
             <span id="card_imp_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
           </div>
         </div>
-      </div>
+        </div>
+      </section>
 
       <!-- Comissões de intermediários -->
-      <div class="mb-3" id="comissoes_intermediarios_block">
-        <h2 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-200">Comissões de Intermediários</h2>
+      <section class="pi-edit-section" id="comissoes_intermediarios_block">
+        <div class="pi-edit-section__head"><div><h2>Comissões de intermediários</h2><p>Distribuição comercial e valores líquidos do PI.</p></div></div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Agência</label>
@@ -523,12 +527,12 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {% if modo == 'editar' and pi %}
       <!-- Dados Campanhas -->
-      <div class="mb-2 bg-white border border-gray-200 rounded overflow-hidden" id="pi-edit-campaigns">
-        <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200 gap-1.5 flex-wrap">
+      <section class="pi-edit-card pi-edit-campaigns" id="pi-edit-campaigns">
+        <div class="pi-edit-card__head">
           <span class="text-[10px] font-semibold text-gray-700">
             <i class="fa-solid fa-bullhorn mr-1 text-indigo-500"></i>Dados Campanhas
             <span id="camp_count_badge" class="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500">...</span>
@@ -548,17 +552,17 @@
           </div>
         </div>
         <div id="pi_campanhas_container" class="p-4">
-          <div class="flex items-center justify-center py-4">
-            <i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-2"></i>
-            <span class="text-xs text-gray-500">Carregando campanhas...</span>
+          <div class="pi-campaign-state">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <span>Carregando campanhas…</span>
           </div>
         </div>
-      </div>
+      </section>
       {% endif %}
 
       <!-- COLLAPSE: Observações -->
-      <details class="mb-3 border border-gray-200 rounded">
-        <summary class="px-4 py-2 bg-gray-50 cursor-pointer text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
+      <details class="pi-edit-disclosure">
+        <summary>
           <span class="ml-1">Observações</span>
         </summary>
         <div class="p-4">
@@ -2418,7 +2422,7 @@ function abrirViewCampanha(c) {
     var container = document.getElementById('pi_campanhas_container');
     var badge = document.getElementById('camp_count_badge');
     if (!container) return;
-    container.innerHTML = '<div class="flex items-center justify-center py-4"><i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-2"></i><span class="text-xs text-gray-500">Carregando campanhas...</span></div>';
+    container.innerHTML = '<div class="pi-campaign-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Carregando campanhas…</span></div>';
 
     fetch('/api/cadu-pi/{{ pi.id_pi }}/campanhas')
       .then(function(r) { return r.json(); })
@@ -2426,7 +2430,7 @@ function abrirViewCampanha(c) {
         if (!data.success || !data.campanhas || data.campanhas.length === 0) {
           badge.textContent = '0';
           badge.className = 'ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500';
-          container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-inbox text-gray-300 text-2xl mb-2"></i><p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
+          container.innerHTML = '<div class="pi-campaign-state"><i class="fa-solid fa-inbox"></i><span>Nenhuma campanha vinculada a este PI.</span></div>';
           return;
         }
         var camps = data.campanhas;
@@ -2448,7 +2452,7 @@ function abrirViewCampanha(c) {
         camps.forEach(function(c) {
           var periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
           var periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
-            ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
+            ? '<span class="pi-campaign-metric__sub">(' + c.periodo_dias + ' dias)</span>'
             : '';
           var rawAt = c.totalizador_atingido;
           var rawCt = c.obj_contratados;
@@ -2459,63 +2463,62 @@ function abrirViewCampanha(c) {
           var dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
           var gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
           var previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
-          var pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
+          var pctColor = pctObj >= 100 ? 'is-success' : pctObj >= 70 ? 'is-warning' : 'is-danger';
           var payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
           var botoesExtra = '';
           if (piCampanhasEditaveis) {
             botoesExtra =
-              '<button type="button" data-camp-edit="' + payload + '" class="btn-editar-camp text-indigo-600 hover:text-indigo-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                '<i class="fa-solid fa-pen text-[10px]"></i>Editar</button>' +
-              '<button type="button" data-camp-context="' + payload + '" class="btn-duplicar-camp text-slate-600 hover:text-slate-800 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                '<i class="fa-regular fa-copy text-[10px]"></i>Duplicar</button>' +
-              '<button type="button" data-camp-delete="' + payload + '" class="btn-excluir-camp text-red-500 hover:text-red-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                '<i class="fa-solid fa-trash text-[10px]"></i>Excluir</button>';
+              '<button type="button" data-camp-edit="' + payload + '" class="btn-editar-camp pi-campaign-action">' +
+                '<i class="fa-solid fa-pen"></i>Editar</button>' +
+              '<button type="button" data-camp-context="' + payload + '" class="btn-duplicar-camp pi-campaign-action">' +
+                '<i class="fa-regular fa-copy"></i>Duplicar</button>' +
+              '<button type="button" data-camp-delete="' + payload + '" class="btn-excluir-camp pi-campaign-action is-danger">' +
+                '<i class="fa-solid fa-trash"></i>Excluir</button>';
           }
 
           var openAttr = window.innerWidth > 720 ? ' open' : '';
-          html += '<details' + openAttr + ' class="border border-gray-200 rounded-lg mb-2">' +
-            '<summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none [&::-webkit-details-marker]:hidden">' +
-              '<div class="flex items-center gap-2 min-w-0">' +
-                '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400 transition-transform details-open-rotate"></i>' +
-                '<span class="font-medium text-gray-800 truncate">' + (c.nome_campanha || '-') + '</span>' +
-                '<span class="text-[10px] text-gray-400">' + (c.status_nome || '') + '</span>' +
+          html += '<details' + openAttr + ' class="pi-campaign-card">' +
+            '<summary class="pi-campaign-card__summary">' +
+              '<div class="pi-campaign-card__identity">' +
+                '<i class="fa-solid fa-chevron-right details-open-rotate"></i>' +
+                '<span>' + (c.nome_campanha || '-') + '</span>' +
+                '<small>' + (c.status_nome || '') + '</small>' +
               '</div>' +
-              '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
+              '<em>' + (c.plataforma_nome || '-') + '</em>' +
             '</summary>' +
-            '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
-              '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">' +
-                '<div>' +
-                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
-                  '<span class="text-gray-600 text-xs">' + periodoLinha1 + periodoLinha2 + '</span>' +
+            '<div class="pi-campaign-card__body">' +
+              '<div class="pi-campaign-metrics">' +
+                '<div class="pi-campaign-metric">' +
+                  '<span>Período</span>' +
+                  '<strong>' + periodoLinha1 + periodoLinha2 + '</strong>' +
                 '</div>' +
-                '<div>' +
-                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</span>' +
+                '<div class="pi-campaign-metric">' +
+                  '<span>Preço</span>' +
                   (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))
-                    ? '<span class="text-[10px] font-semibold text-emerald-800">' + siglaMetricaPrecoLista(c.objetivo_nome, c.preco_metrica_modalidade) + '</span>' +
-                      '<div class="text-xs font-semibold text-gray-800 mt-0.5">' + fmtBrl(c.preco_metrica_brl) + '</div>'
-                    : '<span class="text-[10px] text-gray-400">—</span>') +
+                    ? '<strong>' + siglaMetricaPrecoLista(c.objetivo_nome, c.preco_metrica_modalidade) + ' ' + fmtBrl(c.preco_metrica_brl) + '</strong>'
+                    : '<strong>—</strong>') +
                 '</div>' +
-                '<div>' +
-                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Meta</span>' +
-                  '<span class="' + pctColor + ' font-semibold text-xs">' + dispAting + ' / ' + dispContr + '</span>' +
-                  '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span>' +
+                '<div class="pi-campaign-metric">' +
+                  '<span>Meta</span>' +
+                  '<strong class="' + pctColor + '">' + dispAting + ' / ' + dispContr + '</strong>' +
+                  '<small class="pi-campaign-metric__sub">' + pctObj + '% entregue</small>' +
                 '</div>' +
-                '<div>' +
-                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</span>' +
-                  '<span class="font-semibold text-gray-800 text-xs">' + fmtBrl(previsto) + '</span>' +
-                  '<span class="block text-[10px] text-gray-400">Obj: ' + dispContr + '</span>' +
+                '<div class="pi-campaign-metric">' +
+                  '<span>Valor da plataforma</span>' +
+                  '<strong>' + fmtBrl(previsto) + '</strong>' +
+                  '<small class="pi-campaign-metric__sub">Objetivo ' + dispContr + '</small>' +
                 '</div>' +
-                '<div>' +
-                  '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
-                  '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
-                  '<span class="block text-[10px] text-gray-400">gasto realizado</span>' +
+                '<div class="pi-campaign-metric">' +
+                  '<span>Investimento</span>' +
+                  '<strong>' + fmtBrl(gasto) + '</strong>' +
+                  '<small class="pi-campaign-metric__sub">Gasto realizado</small>' +
                 '</div>' +
-                '<div class="flex flex-wrap items-end gap-2">' +
-                  '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                    '<i class="fa-solid fa-chart-line text-[10px]"></i>Acompanhar</button>' +
+                '<div class="pi-campaign-actions">' +
+                  '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp pi-campaign-action is-primary">' +
+                    '<i class="fa-solid fa-chart-line"></i>Acompanhar</button>' +
                   botoesExtra +
-                  '<button type="button" data-camp-context="' + payload + '" class="btn-email-camp text-emerald-700 hover:text-emerald-900 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
-                    '<i class="fa-regular fa-envelope text-[10px]"></i>E-mail</button>' +
+                  '<button type="button" data-camp-context="' + payload + '" class="btn-email-camp pi-campaign-action">' +
+                    '<i class="fa-regular fa-envelope"></i>E-mail</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -2525,7 +2528,7 @@ function abrirViewCampanha(c) {
         bindCampanhaListEvents(container);
       })
       .catch(function() {
-        container.innerHTML = '<div class="text-center py-4 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
+        container.innerHTML = '<div class="pi-campaign-state is-error"><i class="fa-solid fa-triangle-exclamation"></i><span>Não foi possível carregar as campanhas.</span></div>';
       });
   };
 
@@ -2909,7 +2912,7 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=10"></script>
 {% if pi and pi.id_pi %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

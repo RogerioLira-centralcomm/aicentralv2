@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "tailwindcss -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --watch",
-    "build": "tailwindcss -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify"
+    "build:vanilla": "tailwindcss -c ./tailwind.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify",
+    "build:legacy": "tailwindcss -c ./tailwind.legacy.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output-legacy.css --minify",
+    "build": "npm run build:vanilla && npm run build:legacy"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

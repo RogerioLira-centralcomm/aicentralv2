@@ -128,7 +128,7 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_config():
         from flask import session
-        from .erp_page_context import resolve_page_context
+        from .erp_page_context import resolve_page_context, uses_legacy_daisy
         
         # Verificar se usuário é CENTRALCOMM; reutiliza o mesmo contato para o modal Meu perfil
         is_cc_user = False
@@ -149,6 +149,7 @@ def create_app(config_class=Config):
             is_centralcomm_user=is_cc_user,
             perfil_contato=perfil_contato,
             cx_page_context=resolve_page_context(),
+            cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
         )
 

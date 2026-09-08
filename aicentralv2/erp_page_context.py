@@ -93,3 +93,8 @@ def resolve_page_context():
         "entity_label": "",
         "endpoint": endpoint,
     }
+
+
+def uses_legacy_daisy():
+    """Restringe DaisyUI às áreas antigas explicitamente fora da migração."""
+    return resolve_page_context()["module"] == "parametros"

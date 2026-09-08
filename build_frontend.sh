@@ -1,5 +1,5 @@
 #!/bin/bash
-# build_frontend.sh - Gera o CSS do Tailwind + daisyUI para produção
+# build_frontend.sh - Gera os bundles vanilla e legado para produção
 # Uso: ./build_frontend.sh [--clean]
 #   --clean  Força reinstalação das dependências (npm ci)
 
@@ -58,13 +58,13 @@ fi
 
 chmod +x node_modules/.bin/* 2>/dev/null || true
 
-echo "[INFO] Gerando CSS de produção..."
+echo "[INFO] Gerando CSS vanilla e legado..."
 npm run build
 
-if [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
-  echo "[OK] CSS de produção gerado com sucesso."
+if [ -f "aicentralv2/static/css/tailwind/output.css" ] && [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then
+  echo "[OK] Bundles vanilla e legado gerados com sucesso."
 else
-  echo "[ERRO] Falha ao gerar o CSS de produção."
+  echo "[ERRO] Falha ao gerar um dos bundles CSS."
   exit 1
 fi
 

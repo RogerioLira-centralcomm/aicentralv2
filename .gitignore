@@ -62,3 +62,4 @@ dist/
 
 # Tailwind — gerado por npm run build (nao versionar; evita conflito no deploy)
 aicentralv2/static/css/tailwind/output.css
+aicentralv2/static/css/tailwind/output-legacy.css

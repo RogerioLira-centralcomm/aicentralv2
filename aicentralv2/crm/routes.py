@@ -3,7 +3,7 @@ import csv
 import io
 import os
 from datetime import datetime
-from flask import render_template, request, jsonify, session, current_app, Response
+from flask import render_template, request, jsonify, session, current_app, Response, redirect, url_for
 from ..auth import login_required
 from ..db import get_db, listar_clientes_vinculados_agencia, _cliente_id_eh_empresa_agencia
 from . import bp
@@ -124,27 +124,7 @@ def _wasender_provider_status(payload):
 @bp.route('/')
 @login_required
 def index():
-    from .. import db
-    from ..cotacoes_routes import FREQUENCIA_IMPACTO_DEFAULT, OBSERVACOES_GERAIS_DEFAULT, PREMISSAS_DEFAULT
-    executivos = db.obter_vendedores_centralcomm()
-    vendedores_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
-    agencias = db.obter_aux_agencia()
-    tipos_cliente = db.obter_tipos_cliente()
-    estados = db.obter_estados()
-    clientes_cotacao = db.obter_clientes_simples()
-    return render_template(
-        'crm/crm.html',
-        executivos=executivos,
-        vendedores_cc=vendedores_cc,
-        agencias=agencias,
-        tipos_cliente=tipos_cliente,
-        estados=estados,
-        clientes_cotacao=clientes_cotacao,
-        FREQUENCIA_IMPACTO_DEFAULT=FREQUENCIA_IMPACTO_DEFAULT,
-        PREMISSAS_DEFAULT=PREMISSAS_DEFAULT,
-        OBSERVACOES_GERAIS_DEFAULT=OBSERVACOES_GERAIS_DEFAULT,
-        logged_user_id=session.get('user_id', 0),
-    )
+    return redirect(url_for('crm_v3.crm_v3'), code=302)
 
 
 # --------------- Column 1: Clientes ---------------
@@ -2246,17 +2226,13 @@ def api_cliente_contatos_importar_confirmado(cliente_id):
 @bp.route('/atividades-consolidadas')
 @login_required
 def atividades_consolidadas():
-    from .. import db
-    executivos = db.obter_vendedores_centralcomm()
-    return render_template('crm/atividades_consolidadas.html', executivos=executivos)
+    return redirect(url_for('crm_v3.crm_v3'), code=302)
 
 
 @bp.route('/objetivos-consolidadas')
 @login_required
 def objetivos_consolidadas():
-    from .. import db
-    executivos = db.obter_vendedores_centralcomm()
-    return render_template('crm/objetivos_consolidadas.html', executivos=executivos)
+    return redirect(url_for('crm_v3.crm_v3'), code=302)
 
 
 @bp.route('/api/atividades-consolidadas')

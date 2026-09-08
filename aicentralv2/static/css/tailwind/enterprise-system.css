@@ -341,6 +341,12 @@
   background: var(--cx-info-soft);
 }
 
+.cx-alert-success {
+  border-color: rgba(22, 101, 52, 0.2);
+  background: var(--cx-success-soft);
+  color: var(--cx-success);
+}
+
 .cx-alert-warning {
   border-color: rgba(180, 83, 9, 0.24);
   background: var(--cx-warning-soft);
@@ -2805,7 +2811,8 @@ dialog.cx-modal-shell::backdrop {
   width: min(100%, 38rem);
   max-height: calc(100vh - 2rem);
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid var(--cx-border);
   border-radius: var(--cx-radius-xl);
   background: var(--cx-surface);

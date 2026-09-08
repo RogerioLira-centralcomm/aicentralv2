@@ -51,19 +51,19 @@ body, html {
 }
 
 /* Melhorar visibilidade dos selects */
-select.select {
+select.cx-select {
   background-color: white !important;
   color: #1f2937 !important;
   font-weight: 500;
 }
 
-select.select option {
+select.cx-select option {
   background-color: white;
   color: #1f2937;
   padding: 8px;
 }
 
-select.select:focus {
+select.cx-select:focus {
   outline: 2px solid #72cd80;
   outline-offset: 2px;
 }
@@ -161,7 +161,7 @@ select.select:focus {
     {% if messages %}
       <div class="mb-6 space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -414,35 +414,35 @@ select.select:focus {
   <div class="block md:hidden space-y-4">
     {% if audiencias %}
       {% for audiencia in audiencias %}
-      <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
+      <div class="cx-card bg-white shadow-lg hover:shadow-xl transition-shadow"
            data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
            data-categoria-id="{{ audiencia.categoria_id or '' }}"
            data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
            data-plataforma-id="{{ audiencia.plataforma_id or '' }}"
            data-titulo-chamativo="{{ audiencia.titulo_chamativo or '' }}">
-        <div class="card-body p-4">
+        <div class="cx-card-body p-4">
           <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-3">
             <div class="flex items-start justify-between">
               <div class="flex-1">
-                <h3 class="font-semibold text-sm mb-1 text-primary hover:underline">{{ audiencia.nome }}</h3>
-                <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+                <h3 class="font-semibold text-sm mb-1 text-[#1e4d4f] hover:underline">{{ audiencia.nome }}</h3>
+                <code class="text-xs bg-slate-100 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
                 <div class="text-xs text-base-content/50 mt-1">Toque para ver/editar</div>
               </div>
-              <span class="badge badge-sm badge-outline ml-2">{{ audiencia.fonte }}</span>
+              <span class="cx-badge ml-2">{{ audiencia.fonte }}</span>
             </div>
           </a>
 
           <div class="space-y-2 text-xs">
             <div class="flex justify-between">
-              <span class="text-base-content/60">Categoria:</span>
+              <span class="text-slate-500">Categoria:</span>
               <span class="font-medium">{{ audiencia.categoria_nome or '-' }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-base-content/60">Subcategoria:</span>
+              <span class="text-slate-500">Subcategoria:</span>
               <span class="font-medium">{{ audiencia.subcategoria_nome or '-' }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-base-content/60">CPMC:</span>
+              <span class="text-slate-500">CPMC:</span>
               {% if audiencia.cpm_custo %}
                 <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
               {% else %}
@@ -450,7 +450,7 @@ select.select:focus {
               {% endif %}
             </div>
             <div class="flex justify-between">
-              <span class="text-base-content/60">CPMV:</span>
+              <span class="text-slate-500">CPMV:</span>
               {% if audiencia.cpm_venda %}
                 <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
               {% else %}
@@ -458,9 +458,9 @@ select.select:focus {
               {% endif %}
             </div>
             <div class="flex justify-between">
-              <span class="text-base-content/60">Status:</span>
+              <span class="text-slate-500">Status:</span>
               <button type="button"
-                      class="badge badge-sm cursor-pointer transition-all hover:scale-105 btn-toggle-status"
+                      class="cx-badge cursor-pointer transition-all hover:scale-105 btn-toggle-status"
                       style="{% if audiencia.is_active %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #ef4444; color: white; border-color: #ef4444;{% endif %}"
                       data-audiencia-id="{{ audiencia.id }}"
                       title="Clique para {% if audiencia.is_active %}desativar{% else %}ativar{% endif %}">
@@ -471,7 +471,7 @@ select.select:focus {
 
           <div class="flex gap-2 mt-4">
             <button type="button" 
-                    class="btn btn-sm btn-outline btn-gerar-imagem flex-1"
+                    class="cx-btn cx-btn-sm cx-btn-outline btn-gerar-imagem flex-1"
                     style="{% if not audiencia.imagem_url %}color: #72cd80; border-color: #72cd80;{% else %}color: #22c55e; border-color: #22c55e;{% endif %}"
                     data-audiencia-id="{{ audiencia.id }}"
                     data-audiencia-nome="{{ audiencia.nome }}"
@@ -481,7 +481,7 @@ select.select:focus {
               <i class="fas fa-image mr-1"></i>{% if audiencia.imagem_url %}Editar{% else %}Imagem{% endif %}
             </button>
             <button type="button" 
-                    class="btn btn-sm btn-circle btn-outline btn-error btn-delete"
+                    class="cx-btn cx-btn-sm cx-btn-icon cx-btn-outline cx-btn-danger btn-delete"
                     data-audiencia-id="{{ audiencia.id }}"
                     data-audiencia-nome="{{ audiencia.nome }}">
               <i class="fas fa-trash"></i>
@@ -491,29 +491,29 @@ select.select:focus {
       </div>
       {% endfor %}
     {% else %}
-      <div class="text-center py-8 bg-base-100 rounded-xl shadow-lg">
-        <p class="text-base-content/60">Nenhuma audiência cadastrada.</p>
+      <div class="text-center py-8 bg-white rounded-xl shadow-lg">
+        <p class="text-slate-500">Nenhuma audiência cadastrada.</p>
       </div>
     {% endif %}
   </div>
 </div>
 
 <!-- Modal de Confirmação de Exclusão -->
-<dialog id="modal-delete" class="modal">
-  <div class="modal-box">
+<dialog id="modal-delete" class="cx-modal-shell">
+  <div class="cx-modal-panel">
     <h3 class="font-bold text-lg mb-4">Confirmar Exclusão</h3>
     <p class="py-4">Tem certeza que deseja excluir a audiência <strong id="delete-audiencia-nome"></strong>?</p>
     <p class="text-sm text-error">Esta ação não pode ser desfeita.</p>
-    <div class="modal-action">
+    <div class="cx-modal-actions">
       <form method="dialog">
-        <button class="btn btn-ghost">Cancelar</button>
+        <button class="cx-btn cx-btn-ghost">Cancelar</button>
       </form>
-      <button id="confirm-delete-btn" class="btn btn-error">
+      <button id="confirm-delete-btn" class="cx-btn cx-btn-danger">
         <i class="fas fa-trash mr-2"></i>Excluir
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="cx-modal-dismiss">
     <button>Fechar</button>
   </form>
 </dialog>
@@ -1502,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const btnConfirmar = document.querySelector('#acoes-imagem button');
     btnConfirmar.disabled = true;
-    btnConfirmar.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Salvando...';
+    btnConfirmar.innerHTML = '<span class="cx-spinner cx-spinner-sm"></span> Salvando...';
     
     try {
       const response = await fetch('/api/salvar-imagem-audiencia', {
@@ -1611,18 +1611,18 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- Modal Gerar Imagem -->
-<dialog id="modal-gerar-imagem" class="modal">
-  <div class="modal-box max-w-5xl w-full p-4">
+<dialog id="modal-gerar-imagem" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-xl w-full p-4">
     
     <!-- Header -->
     <div class="flex items-center justify-between mb-3">
       <div>
         <h3 class="font-bold text-base" id="modal-titulo">Gerar Imagem</h3>
-        <p class="text-xs text-base-content/60">
-          <span class="badge badge-xs" id="modal-categoria">Categoria</span>
+        <p class="text-xs text-slate-500">
+          <span class="cx-badge" id="modal-categoria">Categoria</span>
         </p>
       </div>
-      <button onclick="fecharModalImagem()" class="btn btn-xs btn-circle btn-ghost">
+      <button onclick="fecharModalImagem()" class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost" aria-label="Fechar geração de imagem">
         <i class="fas fa-times"></i>
       </button>
     </div>
@@ -1635,8 +1635,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         <!-- Seletor de Modelo -->
         <div>
-          <label class="label py-0">
-            <span class="label-text text-xs font-semibold">Modelo de Geração</span>
+          <label class="cx-label-row py-0">
+            <span class="cx-label text-xs font-semibold">Modelo de Geração</span>
           </label>
           <select id="modelo-imagem" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" style="background-color: #ffffff !important; color: #1f2937 !important; font-weight: 500 !important;">
             <option value="google/gemini-2.5-flash-image" style="background-color: #ffffff; color: #1f2937;">Gemini 2.5 Flash Image (Recomendado)</option>
@@ -1647,16 +1647,16 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         
         <div>
-          <label class="label py-0">
-            <span class="label-text text-xs font-semibold">Prompt para Geração</span>
-            <span class="label-text-alt text-[10px] text-base-content/60">Editável</span>
+          <label class="cx-label-row py-0">
+            <span class="cx-label text-xs font-semibold">Prompt para Geração</span>
+            <span class="cx-help text-[10px] text-slate-500">Editável</span>
           </label>
           <textarea 
             id="prompt-textarea" 
-            class="textarea textarea-bordered w-full h-40 font-mono text-xs"
+            class="cx-textarea w-full h-40 font-mono text-xs"
             placeholder="Carregando prompt..."></textarea>
-          <div class="label py-0">
-            <span class="label-text-alt text-[10px]">150-500 caracteres, em inglês, formato 16:9</span>
+          <div class="cx-label-row py-0">
+            <span class="cx-help text-[10px]">150-500 caracteres, em inglês, formato 16:9</span>
           </div>
         </div>
         
@@ -1665,14 +1665,14 @@ document.addEventListener('DOMContentLoaded', function() {
           <button 
             onclick="regenerarPrompt()" 
             id="btn-regenerar-prompt"
-            class="btn btn-xs btn-outline gap-1 flex-1">
+            class="cx-btn cx-btn-xs cx-btn-outline gap-1 flex-1">
             <i class="fas fa-sync-alt"></i>
             Novo Prompt
           </button>
           <button 
             onclick="gerarImagem()" 
             id="btn-gerar-imagem"
-            class="btn btn-xs gap-1 flex-1 text-white" style="background-color: #72cd80; border-color: #72cd80;">
+            class="cx-btn cx-btn-xs gap-1 flex-1 text-white" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-magic"></i>
             Gerar Imagem
           </button>
@@ -1682,25 +1682,25 @@ document.addEventListener('DOMContentLoaded', function() {
       <!-- COLUNA 2: Preview da Imagem -->
       <div class="space-y-2">
         <div>
-          <label class="label py-0">
-            <span class="label-text text-xs font-semibold">Preview da Imagem</span>
-            <span class="label-text-alt text-[10px] text-base-content/60" id="status-geracao"></span>
+          <label class="cx-label-row py-0">
+            <span class="cx-label text-xs font-semibold">Preview da Imagem</span>
+            <span class="cx-help text-[10px] text-slate-500" id="status-geracao"></span>
           </label>
           
           <!-- Container com aspect ratio 16:9 - REDUZIDO -->
-          <div class="w-full bg-base-200 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 180px; max-height: 220px;">
+          <div class="w-full bg-slate-100 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 180px; max-height: 220px;">
             
             <!-- Estado Inicial -->
             <div id="preview-vazio" class="text-center p-4 absolute inset-0 flex flex-col items-center justify-center">
               <i class="fas fa-image text-2xl text-base-content/40 mb-1 block"></i>
-              <p class="text-xs text-base-content/60">A imagem aparecerá aqui após a geração</p>
+              <p class="text-xs text-slate-500">A imagem aparecerá aqui após a geração</p>
             </div>
             
             <!-- Loading State (oculto por padrão) -->
             <div id="preview-loading" class="absolute inset-0 flex flex-col items-center justify-center p-4" style="display: none;">
-              <span class="loading loading-spinner loading-md text-primary mb-2"></span>
+              <span class="cx-spinner text-[#1e4d4f] mb-2"></span>
               <p id="preview-loading-title" class="text-xs font-semibold mb-1">A gerar...</p>
-              <p id="preview-loading-hint" class="text-[10px] text-base-content/60 text-center px-2">Aguarde</p>
+              <p id="preview-loading-hint" class="text-[10px] text-slate-500 text-center px-2">Aguarde</p>
             </div>
             
             <!-- Imagem Gerada (oculto por padrão) -->
@@ -1713,7 +1713,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div id="acoes-imagem" class="hidden">
           <button 
             onclick="confirmarImagem()" 
-            class="btn btn-success btn-sm w-full gap-2">
+            class="cx-btn cx-btn-success cx-btn-sm w-full gap-2">
             <i class="fas fa-check-circle"></i>
             Confirmar e Salvar Imagem
           </button>
@@ -1729,14 +1729,14 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
   
   <!-- Backdrop -->
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="cx-modal-dismiss">
     <button onclick="fecharModalImagem()">fechar</button>
   </form>
 </dialog>
 
 <!-- Modal de Audiência -->
-<dialog id="modal_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-5xl w-[90vw] p-4 max-h-none overflow-visible">
+<dialog id="modal_audiencia" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-xl w-[90vw] p-4 max-h-none overflow-visible">
     
     <h3 class="font-bold text-base mb-3">
       <span id="modal_audiencia_title">Nova Audiência</span>
@@ -1747,168 +1747,168 @@ document.addEventListener('DOMContentLoaded', function() {
       
       <!-- LINHA 1: ID + Nome + Slug + Categoria + Subcategoria + Fonte -->
       <div class="grid grid-cols-6 gap-2 mb-2">
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">ID Plataforma *</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">ID Plataforma *</label>
           <input type="text" name="id_audiencia_plataforma" id="id_audiencia_plataforma" required 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="1234567890">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="1234567890">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Nome *</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Nome *</label>
           <input type="text" name="nome" id="nome_audiencia" required 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Nome da audiência">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Nome da audiência">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Slug *</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Slug *</label>
           <input type="text" name="slug" id="slug_audiencia" required 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="slug-automatico">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="slug-automatico">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Categoria *</label>
-          <select name="categoria_id" id="categoria_id_modal" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Categoria *</label>
+          <select name="categoria_id" id="categoria_id_modal" class="cx-select h-8 min-h-[2rem] text-sm leading-tight w-full" required>
             <option value="">Selecione</option>
             {% for categoria in categorias %}
               <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Subcategoria</label>
-          <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Subcategoria</label>
+          <select name="subcategoria_id" id="subcategoria_id_modal" class="cx-select h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="">Selecione</option>
           </select>
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Fonte</label>
-          <input type="text" name="fonte" id="fonte" class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Navegg">
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Fonte</label>
+          <input type="text" name="fonte" id="fonte" class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Navegg">
         </div>
       </div>
 
       <!-- LINHA 2: Perfil + Público + Tamanho + Propensão + CPMs -->
       <div class="grid grid-cols-7 gap-2 mb-2">
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Perfil Socioecon.</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Perfil Socioecon.</label>
           <input type="text" name="perfil_socioeconomico" id="perfil_socioeconomico" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="A e B">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="A e B">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Público Est.</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Público Est.</label>
           <input type="text" name="publico_estimado" id="publico_estimado" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="5M">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="5M">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Público Nº</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Público Nº</label>
           <input type="number" name="publico_numero" id="publico_numero" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Tamanho</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Tamanho</label>
           <input type="text" name="tamanho" id="tamanho" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Grande">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Grande">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Propensão</label>
-          <select name="propensao_compra" id="propensao_compra" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Propensão</label>
+          <select name="propensao_compra" id="propensao_compra" class="cx-select h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="">-</option>
             <option value="Baixa">Baixa</option>
             <option value="Média">Média</option>
             <option value="Alta">Alta</option>
           </select>
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">CPM Custo</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">CPM Custo</label>
           <input type="number" step="0.01" name="cpm_custo" id="cpm_custo" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">CPM Venda</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">CPM Venda</label>
           <input type="number" step="0.01" name="cpm_venda" id="cpm_venda" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
         </div>
       </div>
 
       <!-- LINHA 3: Demografia + Idade + Dispositivos -->
       <div class="grid grid-cols-9 gap-2 mb-2">
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Homens %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Homens %</label>
           <input type="number" step="0.01" name="demografia_homens" id="demografia_homens" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Mulheres %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Mulheres %</label>
           <input type="number" step="0.01" name="demografia_mulheres" id="demografia_mulheres" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">18-24 %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">18-24 %</label>
           <input type="number" step="0.01" name="idade_18_24" id="idade_18_24" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">25-34 %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">25-34 %</label>
           <input type="number" step="0.01" name="idade_25_34" id="idade_25_34" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">35-44 %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">35-44 %</label>
           <input type="number" step="0.01" name="idade_35_44" id="idade_35_44" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">45+ %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">45+ %</label>
           <input type="number" step="0.01" name="idade_45_mais" id="idade_45_mais" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Mobile %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Mobile %</label>
           <input type="number" step="0.01" name="dispositivo_mobile" id="dispositivo_mobile" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Desktop %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Desktop %</label>
           <input type="number" step="0.01" name="dispositivo_desktop" id="dispositivo_desktop" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Tablet %</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Tablet %</label>
           <input type="number" step="0.01" name="dispositivo_tablet" id="dispositivo_tablet" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
       </div>
 
       <!-- LINHA 4: Título + Descrições -->
       <div class="grid grid-cols-4 gap-2 mb-2">
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Título Chamativo</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Título Chamativo</label>
           <input type="text" name="titulo_chamativo" id="titulo_chamativo" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Título de impacto">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Título de impacto">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Descrição Curta</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Descrição Curta</label>
           <input type="text" name="descricao_curta" id="descricao_curta" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Resumo">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Resumo">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Descrição Completa</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Descrição Completa</label>
           <input type="text" name="descricao" id="descricao_audiencia" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Descrição detalhada">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Descrição detalhada">
         </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Descrição Comercial</label>
+        <div class="cx-field">
+          <label class="cx-label-row py-0 text-xs font-semibold">Descrição Comercial</label>
           <input type="text" name="descricao_comercial" id="descricao_comercial" 
-                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Pitch de vendas">
+                 class="cx-input h-8 min-h-[2rem] text-sm w-full" placeholder="Pitch de vendas">
         </div>
       </div>
 
       <!-- Botões -->
-      <div class="modal-action mt-3 pt-3 border-t">
-        <button type="button" onclick="modal_audiencia.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+      <div class="cx-modal-actions mt-3 pt-3 border-t">
+        <button type="button" onclick="modal_audiencia.close()" class="cx-btn cx-btn-ghost cx-btn-sm">Cancelar</button>
+        <button type="submit" class="cx-btn cx-btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-1"></i><span id="btn_submit_audiencia_text">Cadastrar</span>
         </button>
       </div>
     </form>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="cx-modal-dismiss">
     <button>close</button>
   </form>
 </dialog>

@@ -26,11 +26,18 @@ FILES = [
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)
 FORBIDDEN = re.compile(
     r"^(?:"
-    r"modal(?:-.+)?|btn(?:-.+)?|badge(?:-.+)?|card(?:-.+)?|"
-    r"form-control|label(?:-.+)?|input(?:-.+)?|select(?:-.+)?|textarea(?:-.+)?|"
-    r"alert(?:-.+)?|loading(?:-.+)?|toggle(?:-.+)?|checkbox(?:-.+)?|radio(?:-.+)?|"
-    r"range(?:-.+)?|steps?|step(?:-.+)?|table(?:-.+)?|progress(?:-.+)?|"
-    r"join(?:-.+)?|dropdown(?:-.+)?|toast(?:-.+)?"
+    r"modal(?:-(?:box|action|backdrop|compact|bottom|middle|open))?|"
+    r"btn(?:-(?:primary|secondary|accent|ghost|outline|error|success|warning|info|neutral|sm|xs|lg|circle|square|wide|block|link|disabled))?|"
+    r"badge(?:-(?:primary|secondary|accent|ghost|outline|error|success|warning|info|neutral|sm|xs|lg))?|"
+    r"card(?:-(?:body|title|actions|compact|side))?|form-control|"
+    r"label(?:-(?:text|text-alt))?|input(?:-(?:bordered|sm|xs|lg|error|ghost))?|"
+    r"select(?:-(?:bordered|sm|xs|lg|error|ghost))?|textarea(?:-(?:bordered|sm|xs|lg|error|ghost))?|"
+    r"alert(?:-(?:error|success|warning|info))?|loading(?:-(?:spinner|dots|ring|ball|bars|infinity|xs|sm|md|lg))?|"
+    r"toggle(?:-(?:primary|success|warning|error|sm|xs|lg))?|checkbox(?:-(?:primary|success|warning|error|sm|xs|lg))?|"
+    r"radio(?:-(?:primary|success|warning|error|sm|xs|lg))?|range(?:-(?:primary|success|warning|error|xs|sm|md|lg))?|"
+    r"steps?|step(?:-(?:primary|success|warning|error|info))?|table(?:-(?:xs|sm|md|lg|zebra|pin-rows|pin-cols))?|"
+    r"progress(?:-(?:primary|success|warning|error|info))?|join(?:-(?:item|vertical|horizontal))?|"
+    r"dropdown(?:-(?:content|end|top|bottom|left|right|hover|open))?|toast(?:-(?:top|bottom|start|center|end|middle))?"
     r")$"
 )
 

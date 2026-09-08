@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS cx_clients (
     logo_upload_path TEXT,
     primary_color VARCHAR(20),
     secondary_color VARCHAR(20),
+    website_url TEXT,
+    brand_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
+    analysis_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     price_policy VARCHAR(30) NOT NULL DEFAULT 'hide_price',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_cx_client_price_policy
@@ -345,7 +348,10 @@ ALTER TABLE cx_format_templates
 
 ALTER TABLE cx_clients
     ADD COLUMN IF NOT EXISTS primary_color VARCHAR(20),
-    ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(20);
+    ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS website_url TEXT,
+    ADD COLUMN IF NOT EXISTS brand_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS analysis_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE cx_campaigns
     ADD COLUMN IF NOT EXISTS budget_usd NUMERIC(12, 6) NOT NULL DEFAULT 0,

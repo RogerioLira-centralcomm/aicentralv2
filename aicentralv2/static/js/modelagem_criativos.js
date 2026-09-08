@@ -28,6 +28,7 @@
     formatJobs: [],
     viewerProfiles: [],
     selectedViewerProfileId: null,
+    generatorFormatId: null,
     placementDraft: null,
     originalPlacement: null,
     locks: new Set(),
@@ -103,17 +104,27 @@
   // ====== LOADERS ======
   async function loadBaseData() {
     setPageError('');
-    try {
-      [state.formats, state.clients, state.campaigns, state.viewerProfiles] = await Promise.all([
-        api(API.formats), api(API.clients), api(API.campaigns), api(API.viewerProfiles),
-      ]);
-      renderClientOptions();
-      renderCampaignOptions();
-      renderFormatBrowser();
-      renderLibrary();
-      renderClients();
-    } catch (error) {
-      setPageError(error.message);
+    const resources = [
+      ['formats', 'formatos', API.formats],
+      ['clients', 'clientes', API.clients],
+      ['campaigns', 'campanhas', API.campaigns],
+      ['viewerProfiles', 'ambientes de mídia', API.viewerProfiles],
+    ];
+    const results = await Promise.allSettled(resources.map(([, , url]) => api(url)));
+    const failures = [];
+    results.forEach((result, index) => {
+      const [key, label] = resources[index];
+      if (result.status === 'fulfilled') state[key] = result.value;
+      else failures.push(`${label}: ${result.reason.message}`);
+    });
+    renderClientOptions();
+    renderCampaignOptions();
+    renderFormatBrowser();
+    renderGeneratorFormats();
+    renderLibrary();
+    renderClients();
+    if (failures.length) {
+      setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
   }
 
@@ -161,10 +172,81 @@
       </div>`;
   }
 
+  function generatorSelectedFormat() {
+    return state.formats.find((item) => String(item.id) === String(state.generatorFormatId));
+  }
+
+  function renderGeneratorFormats() {
+    const root = $('#mcGeneratorFormatList');
+    if (!root) return;
+    const category = $('#mcGeneratorFormatCategory')?.value || '';
+    const formats = state.formats.filter((format) => !category || format.category === category);
+    if (!formats.some((format) => String(format.id) === String(state.generatorFormatId))) {
+      state.generatorFormatId = formats[0]?.id || null;
+    }
+    root.innerHTML = formats.map((format) => `
+      <button class="mc-generator-format ${String(format.id) === String(state.generatorFormatId) ? 'is-active' : ''}"
+              type="button" data-generator-format="${format.id}">
+        <span class="mc-generator-format-icon"><i class="fa-solid ${format.media_type === 'video' ? 'fa-circle-play' : 'fa-image'}"></i></span>
+        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</small></span>
+        ${engineBadge(format)}
+      </button>`).join('') || '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
+    renderGeneratorFormatPreview();
+    renderGeneratorSummary();
+  }
+
+  function renderGeneratorFormatPreview() {
+    const root = $('#mcGeneratorFormatPreview');
+    if (!root) return;
+    const format = generatorSelectedFormat();
+    if (!format) {
+      root.innerHTML = '<p>Escolha um formato para definir o primeiro step.</p>';
+      return;
+    }
+    const placement = clonePlacement(format);
+    const context = placement.context || 'portal';
+    const mockup = $('#mcGeneratorMockup');
+    if (mockup) {
+      mockup.value = ['portal', 'tv', 'celular', 'tablet'].includes(context) ? context : 'portal';
+    }
+    root.innerHTML = `
+      <div class="mc-generator-preview-screen is-${escapeHtml(context)}">
+        <span class="mc-generator-preview-chrome">${context === 'tv' ? 'CTV / streaming' : 'Portal / display'}</span>
+        <span class="mc-generator-preview-slot" style="left:${placement.slot.x}%;top:${placement.slot.y}%;width:${placement.slot.width}%;height:${placement.slot.height}%">
+          <i class="fa-solid ${format.media_type === 'video' ? 'fa-play' : 'fa-bullseye'}"></i>
+        </span>
+      </div>
+      <div class="mc-generator-preview-copy">
+        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.mechanic || 'Estático')}</small></span>
+        <span class="cx-badge cx-badge-muted">${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</span>
+      </div>`;
+  }
+
+  function renderGeneratorSummary() {
+    const root = $('#mcGeneratorSummary');
+    const form = $('#mcCampaignForm');
+    if (!root || !form) return;
+    const client = state.clients.find((item) => String(item.id) === $('#mcCampaignClient')?.value);
+    const format = generatorSelectedFormat();
+    const name = form.elements.name?.value.trim();
+    const budget = form.elements.budget_usd?.value;
+    root.innerHTML = `
+      <span><small>Marca</small><strong>${escapeHtml(client?.name || 'Não selecionada')}</strong></span>
+      <span><small>Campanha</small><strong>${escapeHtml(name || 'Sem nome')}</strong></span>
+      <span><small>Primeiro step</small><strong>${escapeHtml(format?.name_pt || 'Não selecionado')}</strong></span>
+      <span><small>Limite inicial</small><strong>${money(budget)}</strong></span>`;
+  }
+
   async function createCampaign(event) {
     event.preventDefault();
     const form = event.currentTarget;
-    const button = $('button[type="submit"]', form);
+    const button = $('#mcCampaignFormSubmit');
+    $('#mcCampaignFormStatus').textContent = '';
+    const format = generatorSelectedFormat();
+    if (!format) {
+      $('#mcCampaignFormStatus').textContent = 'Escolha o formato do primeiro step.';
+      return;
+    }
     await withLock('create-campaign', button, async () => {
       const data = Object.fromEntries(new FormData(form));
       data.client_id = Number(data.client_id);
@@ -175,7 +257,28 @@
         state.campaigns = await api(API.campaigns);
         renderCampaignOptions();
         await selectCampaign(created.id);
+        const firstVariation = state.campaign?.variations?.[0];
+        if (firstVariation) {
+          try {
+            await api(`/parametros/api/variations/${firstVariation.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                notes: 'Sequência inicial criada no Gerador',
+                steps: [{
+                  format_template_id: Number(format.id),
+                  mockup: $('#mcGeneratorMockup')?.value || clonePlacement(format).context || 'portal',
+                  scene_description: null,
+                }],
+              }),
+            });
+            await selectCampaign(created.id);
+          } catch (stepError) {
+            toast(`Campanha criada, mas o primeiro step falhou: ${stepError.message}`, 'warning');
+          }
+        }
         form.reset();
+        renderClientPreview();
+        renderGeneratorSummary();
         toast('Campanha criada com a variação A.', 'success');
         activateTab('variacoes');
       } catch (error) {
@@ -1065,6 +1168,12 @@
   async function handleClick(event) {
     const tab = event.target.closest('[data-tab]');
     if (tab) return activateTab(tab.dataset.tab);
+    const generatorFormat = event.target.closest('[data-generator-format]');
+    if (generatorFormat) {
+      state.generatorFormatId = Number(generatorFormat.dataset.generatorFormat);
+      renderGeneratorFormats();
+      return;
+    }
     const formatButton = event.target.closest('[data-format-id]');
     if (formatButton) {
       const format = state.formats.find((item) => String(item.id) === formatButton.dataset.formatId);
@@ -1390,7 +1499,13 @@
     });
     $('#mcCampaignForm').addEventListener('submit', createCampaign);
     $('#mcClientForm').addEventListener('submit', createClient);
-    $('#mcCampaignClient').addEventListener('change', renderClientPreview);
+    $('#mcCampaignClient').addEventListener('change', () => {
+      renderClientPreview();
+      renderGeneratorSummary();
+    });
+    $('#mcCampaignForm').addEventListener('input', renderGeneratorSummary);
+    $('#mcGeneratorFormatCategory').addEventListener('change', renderGeneratorFormats);
+    $('#mcGeneratorMockup').addEventListener('change', renderGeneratorSummary);
     $('#mcCampaignSelect').addEventListener('change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
     $('#mcAddVariation').addEventListener('click', (event) => addVariation(event.currentTarget));
     $('#mcCreatePublicLink').addEventListener('click', () => {

@@ -75,6 +75,10 @@ def main():
                   FROM cx_format_templates f
                   LEFT JOIN cx_channels ch ON ch.id = f.channel_id
                  WHERE f.is_active = TRUE
+                   AND (
+                       COALESCE(f.placement_spec, '{}'::jsonb) = '{}'::jsonb
+                       OR COALESCE(f.behavior_spec, '{}'::jsonb) = '{}'::jsonb
+                   )
                 """
             )
             rows = cursor.fetchall()
@@ -86,7 +90,14 @@ def main():
                 cursor.execute(
                     """
                     UPDATE cx_format_templates
-                       SET placement_spec = %s, behavior_spec = %s
+                       SET placement_spec = CASE
+                               WHEN COALESCE(placement_spec, '{}'::jsonb) = '{}'::jsonb
+                               THEN %s ELSE placement_spec
+                           END,
+                           behavior_spec = CASE
+                               WHEN COALESCE(behavior_spec, '{}'::jsonb) = '{}'::jsonb
+                               THEN %s ELSE behavior_spec
+                           END
                      WHERE id = %s
                     """,
                     (Json(_placement(row)), Json(behavior), row["id"]),

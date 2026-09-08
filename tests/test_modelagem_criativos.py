@@ -611,10 +611,12 @@ class CreativeRoutesTest(unittest.TestCase):
         response = self.client.get("/parametros/api/formats")
         self.assertEqual(response.status_code, 403)
 
-    def test_apis_de_formatos_e_visualizadores_retornam_200(self):
+    def test_apis_iniciais_retornam_200(self):
         service = Mock()
         service.list_formats.return_value = [{"id": 7, "name_pt": "Leaderboard"}]
         service.list_viewer_profiles.return_value = [{"id": 1, "slug": "g1"}]
+        service.list_clients.return_value = [{"id": 10, "name": "Marca"}]
+        service.list_campaigns.return_value = [{"id": 30, "name": "Campanha"}]
         with self.client.session_transaction() as session:
             session["user_id"] = 1
             session["user_type"] = "admin"
@@ -624,10 +626,11 @@ class CreativeRoutesTest(unittest.TestCase):
         ):
             formats = self.client.get("/parametros/api/formats")
             viewers = self.client.get("/parametros/api/viewer-profiles")
-        self.assertEqual(formats.status_code, 200)
-        self.assertEqual(viewers.status_code, 200)
-        self.assertTrue(formats.get_json()["success"])
-        self.assertTrue(viewers.get_json()["success"])
+            clients = self.client.get("/parametros/api/clients")
+            campaigns = self.client.get("/parametros/api/campaigns")
+        for response in (formats, viewers, clients, campaigns):
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.get_json()["success"])
 
 
 class CreativeFilesContractTest(unittest.TestCase):
@@ -649,6 +652,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
+        self.assertIn("modelagem_criativos.css') }}?v=5", page)
+        self.assertIn("modelagem_criativos.js') }}?v=5", page)
+        generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
+        self.assertIn("mc-generator-workspace", generator)
+        self.assertIn('id="mcGeneratorFormatList"', generator)
+        self.assertIn('form="mcCampaignForm"', generator)
         public_page = (
             root
             / "aicentralv2"
@@ -697,6 +706,12 @@ class CreativeFilesContractTest(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS cx_format_modeling_jobs",
             studio_migration,
         )
+        layout_seed = (
+            root / "migrations" / "run_seed_creative_format_layouts.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("COALESCE(f.placement_spec", layout_seed)
+        self.assertIn("THEN %s ELSE placement_spec", layout_seed)
+        self.assertIn("THEN %s ELSE behavior_spec", layout_seed)
         viewer_migration = (
             root / "migrations" / "add_creative_viewer_profiles.sql"
         ).read_text(encoding="utf-8")
@@ -722,6 +737,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn(migration_call, deploy)
         self.assertIn(seed_call, deploy)
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_create_creative_modeling.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_format_studio.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py',
+            deploy,
+        )
         self.assertIn(verify_call, deploy)
         self.assertIn('VENV_PYTHON="$(dirname "$VENV_PIP")/python"', deploy)
         self.assertIn("restore_service_on_error", deploy)
@@ -737,6 +764,19 @@ class CreativeFilesContractTest(unittest.TestCase):
             verifier.index("sys.path.insert"),
             verifier.index("from run import app"),
         )
+        for path in (
+            "/parametros/api/viewer-profiles",
+            "/parametros/api/formats",
+            "/parametros/api/clients",
+            "/parametros/api/campaigns",
+        ):
+            self.assertIn(path, verifier)
+
+        frontend = (
+            root / "aicentralv2" / "static" / "js" / "modelagem_criativos.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Promise.allSettled", frontend)
+        self.assertIn("failures.join", frontend)
 
 
 if __name__ == "__main__":

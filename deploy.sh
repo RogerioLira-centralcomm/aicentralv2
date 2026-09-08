@@ -155,7 +155,10 @@ echo "  > OK"
 
 # 8. Atualizar schema e dados idempotentes
 echo ""
-echo "[7/9] Atualizando schema dos visualizadores..."
+echo "[7/9] Atualizando schema da Modelagem de Criativos..."
+"$VENV_PYTHON" migrations/run_create_creative_modeling.py
+"$VENV_PYTHON" migrations/run_add_creative_format_studio.py
+"$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py
 "$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py
 "$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py
 echo "  > OK"

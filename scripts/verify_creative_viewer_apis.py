@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Valida as APIs dos visualizadores contra o banco do ambiente."""
+"""Valida as APIs iniciais da Modelagem de Criativos contra o banco."""
 
 import sys
 from pathlib import Path
@@ -16,6 +16,8 @@ def main():
     paths = (
         "/parametros/api/viewer-profiles",
         "/parametros/api/formats",
+        "/parametros/api/clients",
+        "/parametros/api/campaigns",
     )
     with app.test_client() as client:
         with client.session_transaction() as session:

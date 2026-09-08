@@ -1,29 +1,47 @@
-<div class="mc-two-column">
-  <form class="cx-section mc-form" id="mcCampaignForm">
-    <div class="cx-section-header">
-      <div>
-        <h2>Nova campanha</h2>
-        <p>Defina o brief e o limite de custo antes de montar as variações.</p>
+<section class="mc-generator-intro">
+  <div>
+    <span class="mc-generator-kicker">Nova produção</span>
+    <h2>Do briefing ao primeiro criativo</h2>
+    <p>Combine marca, mensagem e inventário. O Gerador abre a variação A pronta para produzir.</p>
+  </div>
+  <ol class="mc-generator-path" aria-label="Etapas da configuração">
+    <li><span>1</span>Marca</li>
+    <li><span>2</span>Brief</li>
+    <li><span>3</span>Formato</li>
+  </ol>
+</section>
+
+<div class="mc-generator-workspace">
+  <aside class="mc-generator-brand">
+    <header>
+      <i class="fa-regular fa-building" aria-hidden="true"></i>
+      <div><strong>Contexto da marca</strong><small>Identidade aplicada aos prompts</small></div>
+    </header>
+    <label class="cx-field">
+      <span class="cx-label">Cliente</span>
+      <select class="cx-select" name="client_id" id="mcCampaignClient" form="mcCampaignForm" required>
+        <option value="">Carregando clientes…</option>
+      </select>
+    </label>
+    <div id="mcClientPreview" class="mc-generator-brand-preview">
+      <div class="mc-generator-empty">
+        <i class="fa-solid fa-fingerprint" aria-hidden="true"></i>
+        <p>Selecione uma marca para carregar logo, cores e tom de voz.</p>
       </div>
     </div>
-    <div class="cx-section-body mc-form-grid">
+  </aside>
+
+  <form class="mc-generator-brief" id="mcCampaignForm">
+    <header class="mc-generator-pane-head">
+      <div><strong>Brief da campanha</strong><small>O que a primeira sequência precisa comunicar</small></div>
+      <span class="cx-badge cx-badge-info">Variação A</span>
+    </header>
+    <div class="mc-generator-brief-fields">
       <label class="cx-field mc-span-2">
-        <span class="cx-label">Cliente</span>
-        <select class="cx-select" name="client_id" id="mcCampaignClient" required>
-          <option value="">Carregando clientes…</option>
-        </select>
-        <span class="cx-help">Logo, cores e tom entram automaticamente na modelagem.</span>
-      </label>
-      <label class="cx-field">
         <span class="cx-label">Nome da campanha</span>
-        <input class="cx-input" name="name" maxlength="200" required placeholder="Ex.: Lançamento Q4">
+        <input class="cx-input" name="name" maxlength="200" required placeholder="Ex.: Lançamento de primavera">
       </label>
       <label class="cx-field">
-        <span class="cx-label">Orçamento de IA (USD)</span>
-        <input class="cx-input" name="budget_usd" type="number" min="0" step="0.01" value="5.00" required>
-        <span class="cx-help">Reserva prompts, imagens e roteiros desta campanha.</span>
-      </label>
-      <label class="cx-field mc-span-2">
         <span class="cx-label">Objetivo</span>
         <select class="cx-select" name="objective">
           <option value="">Selecione</option>
@@ -34,9 +52,14 @@
           <option>Engajamento</option>
         </select>
       </label>
+      <label class="cx-field">
+        <span class="cx-label">Limite de IA (USD)</span>
+        <input class="cx-input" name="budget_usd" type="number" min="0" step="0.01" value="5.00" required>
+        <span class="cx-help">Prompts, imagens e roteiros usam este saldo.</span>
+      </label>
       <label class="cx-field mc-span-2">
         <span class="cx-label">Mensagem principal</span>
-        <textarea class="cx-textarea" name="campaign_text" maxlength="12000" placeholder="O que a campanha precisa comunicar?"></textarea>
+        <textarea class="cx-textarea mc-generator-message" name="campaign_text" maxlength="12000" placeholder="Descreva a oferta, o benefício e o público que deve perceber a mensagem."></textarea>
       </label>
       <label class="cx-field">
         <span class="cx-label">Chamada para ação</span>
@@ -44,32 +67,50 @@
       </label>
       <label class="mc-check">
         <input type="checkbox" name="show_price">
-        <span>Pode exibir preço</span>
+        <span>O criativo pode exibir preço</span>
       </label>
     </div>
-    <footer class="mc-form-footer">
-      <span class="mc-form-status" id="mcCampaignFormStatus" aria-live="polite"></span>
-      <button class="cx-btn cx-btn-primary" type="submit">
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        Criar campanha e variação A
-      </button>
-    </footer>
   </form>
 
-  <aside class="cx-section mc-identity-preview">
-    <div class="cx-section-header">
-      <div>
-        <h2>Contexto de criação</h2>
-        <p>Informações que serão combinadas no prompt.</p>
-      </div>
+  <aside class="mc-generator-format-pane">
+    <header class="mc-generator-pane-head">
+      <div><strong>Primeiro formato</strong><small>Step inicial da sequência</small></div>
+      <select class="cx-select cx-select-sm" id="mcGeneratorFormatCategory" aria-label="Categoria do formato">
+        <option value="">Todos</option>
+        <option value="programatica">Programática</option>
+        <option value="streaming">Streaming</option>
+      </select>
+    </header>
+    <div class="mc-generator-format-list" id="mcGeneratorFormatList">
+      <div class="mc-generator-no-format">Carregando inventário…</div>
     </div>
-    <div class="cx-section-body" id="mcClientPreview">
-      <div class="cx-empty-state">
-        <div>
-          <i class="fa-regular fa-building" aria-hidden="true"></i>
-          <p>Escolha um cliente para conferir sua identidade.</p>
-        </div>
-      </div>
+    <div class="mc-generator-format-preview" id="mcGeneratorFormatPreview">
+      <p>Escolha um formato para definir o primeiro step.</p>
     </div>
+    <label class="cx-field mc-generator-environment">
+      <span class="cx-label">Ambiente inicial</span>
+      <select class="cx-select" id="mcGeneratorMockup">
+        <option value="portal">Portal</option>
+        <option value="tv">Smart TV</option>
+        <option value="celular">Celular</option>
+        <option value="tablet">Tablet</option>
+      </select>
+    </label>
   </aside>
 </div>
+
+<footer class="mc-generator-launch">
+  <div class="mc-generator-summary" id="mcGeneratorSummary" aria-live="polite">
+    <span><small>Marca</small><strong>Não selecionada</strong></span>
+    <span><small>Campanha</small><strong>Sem nome</strong></span>
+    <span><small>Primeiro step</small><strong>Não selecionado</strong></span>
+    <span><small>Limite inicial</small><strong>US$ 5,00</strong></span>
+  </div>
+  <div class="mc-generator-launch-action">
+    <span class="mc-form-status" id="mcCampaignFormStatus" aria-live="polite"></span>
+    <button class="cx-btn cx-btn-primary" id="mcCampaignFormSubmit" type="submit" form="mcCampaignForm">
+      Criar sequência inicial
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+    </button>
+  </div>
+</footer>

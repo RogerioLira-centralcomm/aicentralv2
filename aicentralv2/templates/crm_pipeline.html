@@ -713,6 +713,15 @@ async function abrirModalCotacao(cotacaoId) {
     if (result.success) {
       cotacaoAtualData = result.cotacao;
       preencherModal(result.cotacao);
+      if (window.CentralXAgent) {
+        window.CentralXAgent.setContext({
+          module: 'comercial',
+          screen: 'cotacao',
+          entity_type: 'cotacao',
+          entity_id: String(cotacaoId),
+          entity_label: result.cotacao.numero_cotacao || result.cotacao.cliente_nome || 'Cotação'
+        });
+      }
     } else {
       showToast(result.message || 'Erro ao carregar', 'error');
       fecharDetalheCotacao();

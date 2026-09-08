@@ -1,16 +1,112 @@
-"""
-Serviço OpenRouter para processamento de texto com Gemini
-"""
+"""Cliente OpenRouter compartilhado pelo Agente CentralX e serviços legados."""
 import os
 import json
 import requests
-from typing import Dict, Any
-
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-if not OPENROUTER_API_KEY:
-    raise ValueError("OPENROUTER_API_KEY não encontrada no .env")
+from typing import Dict, Any, List, Optional
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+DEFAULT_CHAT_MODEL = os.getenv("AGENT_OPENROUTER_MODEL", "openai/gpt-4o-mini")
+DEFAULT_TEMPERATURE = _env_float("AGENT_TEMPERATURE", 0.15)
+DEFAULT_TOP_P = _env_float("AGENT_TOP_P", 0.9)
+DEFAULT_TOP_K = _env_int("AGENT_TOP_K", 40)
+DEFAULT_FREQUENCY_PENALTY = _env_float("AGENT_FREQUENCY_PENALTY", 0.1)
+DEFAULT_PRESENCE_PENALTY = _env_float("AGENT_PRESENCE_PENALTY", 0.0)
+
+
+class OpenRouterError(RuntimeError):
+    """Erro seguro e recuperável do provedor."""
+
+
+def _api_key() -> str:
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        raise OpenRouterError("OpenRouter não está configurado.")
+    return key
+
+
+def chat_completion(
+    messages: List[Dict[str, Any]],
+    tools: Optional[List[Dict[str, Any]]] = None,
+    plugins: Optional[List[Dict[str, Any]]] = None,
+    *,
+    model: Optional[str] = None,
+    timeout: int = 90,
+    max_tokens: int = 2200,
+    temperature: Optional[float] = None,
+    top_p: Optional[float] = None,
+    top_k: Optional[int] = None,
+    frequency_penalty: Optional[float] = None,
+    presence_penalty: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Executa chat/tool-calling com parâmetros conservadores para uso operacional."""
+    payload = {
+        "model": model or DEFAULT_CHAT_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": DEFAULT_TEMPERATURE if temperature is None else max(0.0, min(float(temperature), 2.0)),
+        "top_p": DEFAULT_TOP_P if top_p is None else max(0.0, min(float(top_p), 1.0)),
+        "top_k": DEFAULT_TOP_K if top_k is None else max(1, min(int(top_k), 100)),
+        "frequency_penalty": (
+            DEFAULT_FREQUENCY_PENALTY
+            if frequency_penalty is None
+            else max(-2.0, min(float(frequency_penalty), 2.0))
+        ),
+        "presence_penalty": (
+            DEFAULT_PRESENCE_PENALTY
+            if presence_penalty is None
+            else max(-2.0, min(float(presence_penalty), 2.0))
+        ),
+        "stream": False,
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+        payload["parallel_tool_calls"] = False
+    if plugins:
+        payload["plugins"] = plugins
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "Agente CentralX",
+    }
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                OPENROUTER_URL, headers=headers, json=payload,
+                timeout=max(5, min(int(timeout), 90)),
+            )
+            response.raise_for_status()
+            result = response.json()
+            message = result["choices"][0]["message"]
+            return {
+                "message": message,
+                "model": result.get("model") or payload["model"],
+                "usage": result.get("usage") or {},
+            }
+        except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+            last_error = exc
+            if attempt == 0 and isinstance(exc, requests.RequestException):
+                continue
+            break
+    raise OpenRouterError("Não foi possível consultar o provedor de IA.") from last_error
 
 # Prompt otimizado para transformar texto em FAQ estruturado
 ANALYSIS_PROMPT = {
@@ -52,8 +148,17 @@ def process_text_with_gemini(text: str) -> Dict[str, Any]:
     Returns:
         Dict com o texto processado e metadados
     """
+    try:
+        key = _api_key()
+    except OpenRouterError as exc:
+        return {
+            "success": False,
+            "error": str(exc),
+            "processed_text": text,
+            "metadata": {"error_details": str(exc)},
+        }
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {key}",
         "HTTP-Referer": "https://centralcomm.media",
         "X-Title": "CentralComm AI"
     }

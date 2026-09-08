@@ -466,6 +466,18 @@ class CrmV3Repository:
 
         return items
 
+    def search_clientes(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Busca paginada para consumidores server-side, sem carregar toda a base."""
+        term = (query or "").strip()
+        if not term:
+            return []
+        page = _db().obter_clientes_paginado(
+            page=1,
+            per_page=max(1, min(int(limit or 20), 20)),
+            filtros={"search": term},
+        ) or {}
+        return [_map_cliente(dict(row)) for row in (page.get("clientes") or [])]
+
     def list_lookups(self) -> Dict[str, Any]:
         """Consolida todos os combos "de dominio" usados pela UI (drawers,
         modais, filtros) em UMA única chamada.
@@ -1373,6 +1385,22 @@ class CrmV3Repository:
         )
         return [self._map_cotacao(r) for r in rows]
 
+    def get_cotacao(self, cotacao_id: str) -> Optional[Dict[str, Any]]:
+        """Obtém uma cotação usando a mesma normalização da listagem CRM v3."""
+        row = _db().obter_cotacao_por_id(cotacao_id)
+        if not row:
+            return None
+        cliente_id = row.get("client_id")
+        if cliente_id is not None:
+            cotacoes = self.list_cotacoes(str(cliente_id), include_vinculados=False) or []
+            found = next((item for item in cotacoes if str(item.get("id")) == str(cotacao_id)), None)
+            if found:
+                return found
+        raw = dict(row)
+        raw["vendedor_nome"] = raw.get("responsavel_nome") or ""
+        raw["contato_nome"] = raw.get("contato_cliente_nome") or ""
+        return self._map_cotacao(raw)
+
     def _prepare_cotacao_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Normaliza o JSON do frontend v3 para os kwargs de `db.criar/atualizar_cotacao`.
 
@@ -1581,6 +1609,7 @@ class CrmV3Repository:
 
         return {
             "id": str(row.get("id")),
+            "cliente_id": str(row.get("client_id")) if row.get("client_id") else "",
             "numero_cotacao": row.get("numero_cotacao") or "",
             "nome_campanha": row.get("nome_campanha") or "",
             "titulo": row.get("nome_campanha") or "Cotação sem título",

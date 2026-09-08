@@ -104,6 +104,7 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_config():
         from flask import session
+        from .erp_page_context import resolve_page_context
         
         # Verificar se usuário é CENTRALCOMM; reutiliza o mesmo contato para o modal Meu perfil
         is_cc_user = False
@@ -122,7 +123,8 @@ def create_app(config_class=Config):
         return dict(
             APP_CONFIG=app.config,
             is_centralcomm_user=is_cc_user,
-            perfil_contato=perfil_contato
+            perfil_contato=perfil_contato,
+            cx_page_context=resolve_page_context(),
         )
 
     # Registrar teardown (fechar conexão)
@@ -169,6 +171,9 @@ def create_app(config_class=Config):
 
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)
+
+        from .agent import bp as agent_bp
+        app.register_blueprint(agent_bp)
 
         # Painel administrativo de migrations — permite executar
         # `migrations/*.sql` e `migrations/run_*.py` pelo navegador

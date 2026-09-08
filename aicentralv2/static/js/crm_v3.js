@@ -3707,6 +3707,15 @@
         opts = opts || {};
         if (!clienteId) return;
         if (String(state.clienteId) === String(clienteId) && state.cliente) {
+            if (window.CentralXAgent) {
+                window.CentralXAgent.setContext({
+                    module: 'crm',
+                    screen: 'cliente_detalhe',
+                    entity_type: 'cliente',
+                    entity_id: String(clienteId),
+                    entity_label: state.cliente.nome || state.cliente.nome_fantasia || 'Cliente'
+                });
+            }
             if (isMobileCrm() && !opts.fromHistory) {
                 setMobileView('detail');
                 syncClienteHash(clienteId, !!opts.replaceUrl);
@@ -3715,6 +3724,15 @@
         }
         state.clienteId = clienteId;
         state.cliente = state.clientes.find(function (c) { return String(c.id) === String(clienteId); });
+        if (window.CentralXAgent) {
+            window.CentralXAgent.setContext({
+                module: 'crm',
+                screen: 'cliente_detalhe',
+                entity_type: 'cliente',
+                entity_id: String(clienteId),
+                entity_label: (state.cliente && (state.cliente.nome || state.cliente.nome_fantasia)) || 'Cliente'
+            });
+        }
         state.atividades = [];
         state.objetivos = [];
         state.cotacoes = [];
@@ -3742,6 +3760,13 @@
                 var prevBadgeType = state.cliente && state.cliente.badge_type;
                 var prevProx = state.cliente && state.cliente.proxima_atividade;
                 state.cliente = Object.assign({}, state.cliente || {}, data.cliente);
+                if (window.CentralXAgent) {
+                    window.CentralXAgent.setContext({
+                        entity_type: 'cliente',
+                        entity_id: String(clienteId),
+                        entity_label: state.cliente.nome || state.cliente.nome_fantasia || 'Cliente'
+                    });
+                }
                 if (!state.cliente.site_url && prevSite) state.cliente.site_url = prevSite;
                 if (!state.cliente.web_logo_url && prevLogo) state.cliente.web_logo_url = prevLogo;
                 if (!state.cliente.badge && prevBadge) {

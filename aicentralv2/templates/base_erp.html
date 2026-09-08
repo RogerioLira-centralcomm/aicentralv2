@@ -456,7 +456,12 @@
     </style>
     {% block styles %}{% endblock %}
 </head>
-<body class="cx-erp-shell">
+<body class="cx-erp-shell"
+      data-cx-module="{{ cx_page_context.module|e }}"
+      data-cx-screen="{{ cx_page_context.screen|e }}"
+      data-cx-entity-type="{{ cx_page_context.entity_type|e }}"
+      data-cx-entity-id="{{ cx_page_context.entity_id|e }}"
+      data-cx-entity-label="{{ cx_page_context.entity_label|e }}">
     <div id="toast-container" aria-live="polite"></div>
     <div id="erp-backdrop" class="erp-backdrop" aria-hidden="true"></div>
 
@@ -692,6 +697,12 @@
                     <input type="text" id="nav-busca-pi-input" maxlength="200" placeholder="Buscar PI por código ou título" autocomplete="off">
                     <button type="button" id="nav-busca-pi-btn" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Buscar</button>
                 </div>
+                {% if is_centralcomm_user %}
+                <button type="button" id="cx-agent-trigger" class="erp-nav-trigger cx-agent-trigger" aria-label="Abrir Agente CentralX" aria-controls="cx-agent-dock" aria-expanded="false" title="Agente CentralX">
+                    <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                    <span class="hidden xl:inline">Agente</span>
+                </button>
+                {% endif %}
                 <div class="relative">
                     <button type="button" class="erp-user-trigger" id="erp-user-trigger" aria-haspopup="menu" aria-expanded="false">
                         <span class="erp-avatar">
@@ -717,6 +728,10 @@
             </main>
         </div>
     </div>
+
+    {% if is_centralcomm_user %}
+        {% include 'agent/shell.html' %}
+    {% endif %}
 
     <dialog id="modal-meu-perfil" class="rounded-2xl border border-slate-200 p-0 shadow-2xl backdrop:bg-slate-950/40">
         <div class="w-[min(100vw-2rem,32rem)]">
@@ -929,6 +944,9 @@
 
     <!-- cxDrawer: componente global do design system enterprise -->
     <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=2"></script>
+    {% if is_centralcomm_user %}
+    <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=1"></script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 </body>

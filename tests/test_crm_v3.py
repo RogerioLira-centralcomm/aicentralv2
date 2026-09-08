@@ -448,6 +448,29 @@ class CrmTestApiTest(unittest.TestCase):
             404,
         )
 
+    def test_novo_tipo_fica_em_rascunho_sem_montagem_de_midia(self):
+        created = self.client.post(
+            "/crm-v3/api/clientes/auto-shopping/cotacoes",
+            json={
+                "titulo": "Projeto de dados",
+                "tipo_comercial": "dados",
+                "status": "Rascunho",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        body = created.get_json()
+        cotacao = body["cotacao"]
+        self.assertEqual(cotacao["tipo_comercial"], "dados")
+        self.assertEqual(cotacao["tipo_comercial_label"], "Dados")
+        self.assertTrue(body["redirect_url"].endswith(f"/{cotacao['id']}/editar"))
+
+        approval = self.client.patch(
+            f"/crm-v3/api/cotacoes/{cotacao['id']}",
+            json={"status": "Aprovada"},
+        )
+        self.assertEqual(approval.status_code, 400)
+        self.assertIn("rascunho", approval.get_json()["error"])
+
     def test_cotacao_aceita_apenas_statuses_canonicos_e_aliases(self):
         created = self.client.post(
             "/crm-v3/api/clientes/auto-shopping/cotacoes",

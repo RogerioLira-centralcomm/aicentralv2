@@ -4,6 +4,11 @@ import copy
 import uuid
 from datetime import date
 
+from .cotacao_tipos import (
+    normalizar_tipo_comercial,
+    rotulo_tipo_comercial,
+    validar_status_tipo_comercial,
+)
 from .crm_v3_helpers import pluralizar_contatos
 
 CLASSIFICACOES_CLIENTE = ("Prospecção", "Ativo", "Geladeira")
@@ -803,6 +808,10 @@ class CrmTestStore:
         self.atividades = copy.deepcopy(_INITIAL_ATIVIDADES)
         self.objetivos = copy.deepcopy(_INITIAL_OBJETIVOS)
         self.cotacoes = copy.deepcopy(_INITIAL_COTACOES)
+        for cotacoes in self.cotacoes.values():
+            for cotacao in cotacoes:
+                cotacao.setdefault("tipo_comercial", "midia")
+                cotacao.setdefault("tipo_comercial_label", "Mídia")
         self.notas = copy.deepcopy(_INITIAL_NOTAS)
         self._ai_history = {}
 
@@ -1429,6 +1438,8 @@ class CrmTestStore:
         status, status_canonico = _cotacao_status(
             data.get("status_canonico") or data.get("status") or "Rascunho"
         )
+        tipo_comercial = normalizar_tipo_comercial(data.get("tipo_comercial"))
+        validar_status_tipo_comercial(tipo_comercial, status_canonico)
         periodo_inicio = _validate_iso_date(
             data.get("periodo_inicio"), "periodo_inicio"
         )
@@ -1461,6 +1472,8 @@ class CrmTestStore:
             "data": str(data.get("data") or "").strip(),
             "objetivo": str(data.get("objetivo") or "").strip(),
             "plataformas": _normalize_plataformas(data.get("plataformas")),
+            "tipo_comercial": tipo_comercial,
+            "tipo_comercial_label": rotulo_tipo_comercial(tipo_comercial),
         }
         self.cotacoes.setdefault(cliente_id, []).append(cotacao)
         return cotacao
@@ -1498,6 +1511,19 @@ class CrmTestStore:
                     updated["objetivo"] = str(data.get("objetivo") or "").strip()
                 if "plataformas" in data:
                     updated["plataformas"] = _normalize_plataformas(data.get("plataformas"))
+                if "tipo_comercial" in data:
+                    updated["tipo_comercial"] = normalizar_tipo_comercial(
+                        data.get("tipo_comercial")
+                    )
+                    updated["tipo_comercial_label"] = rotulo_tipo_comercial(
+                        updated["tipo_comercial"]
+                    )
+                tipo_comercial = normalizar_tipo_comercial(
+                    updated.get("tipo_comercial")
+                )
+                validar_status_tipo_comercial(
+                    tipo_comercial, updated.get("status_canonico")
+                )
                 if (
                     updated.get("periodo_inicio")
                     and updated.get("periodo_fim")

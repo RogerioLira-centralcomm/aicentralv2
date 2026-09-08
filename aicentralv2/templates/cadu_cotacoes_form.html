@@ -311,6 +311,19 @@
                    {% if modo == 'editar' %}readonly{% endif %}>
           </div>
 
+          <div>
+            <label class="block text-xs font-medium text-gray-500">Tipo de cotação <span class="text-red-500">*</span></label>
+            <select name="tipo_comercial" required
+                    class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
+              {% set tipo_atual = cotacao.tipo_comercial if cotacao and cotacao.tipo_comercial else 'midia' %}
+              <option value="midia" {% if tipo_atual == 'midia' %}selected{% endif %}>Mídia</option>
+              <option value="parceiros" {% if tipo_atual == 'parceiros' %}selected{% endif %}>Parceiros</option>
+              <option value="formatos_interativos" {% if tipo_atual == 'formatos_interativos' %}selected{% endif %}>Formatos interativos</option>
+              <option value="dados" {% if tipo_atual == 'dados' %}selected{% endif %}>Dados</option>
+            </select>
+            <p class="mt-0.5 text-[10px] text-gray-400">Tipos diferentes de Mídia permanecem em rascunho nesta fase.</p>
+          </div>
+
           <!-- Objetivo da Campanha -->
           <div>
             <label class="block text-xs font-medium text-gray-500">
@@ -422,13 +435,23 @@
         <span class="secao-num flex items-center justify-center rounded-full bg-green-500 text-white font-semibold flex-shrink-0">1</span>
         <h2 class="secao-titulo font-semibold text-gray-800">Dados da campanha</h2>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Nome da campanha <span class="text-red-500">*</span></label>
           <input type="text" name="nome_campanha" id="nome_campanha"
                  value="{{ cotacao.nome_campanha if cotacao else '' }}"
                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none"
                  placeholder="Ex: Campanha Verão 2025" required>
+        </div>
+        <div>
+          <label class="block font-medium text-gray-500 mb-0.5">Tipo de cotação <span class="text-red-500">*</span></label>
+          <select name="tipo_comercial" required
+                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
+            <option value="midia" selected>Mídia</option>
+            <option value="parceiros">Parceiros</option>
+            <option value="formatos_interativos">Formatos interativos</option>
+            <option value="dados">Dados</option>
+          </select>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Responsável comercial <span class="text-red-500">*</span></label>

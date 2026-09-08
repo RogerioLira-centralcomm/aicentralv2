@@ -18,6 +18,10 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
+from .cotacao_tipos import (
+    normalizar_tipo_comercial,
+    validar_status_tipo_comercial,
+)
 import re
 import secrets
 
@@ -6336,10 +6340,20 @@ def obter_cotacoes_cliente(cliente_id):
         cursor.execute('''
             SELECT 
                 c.*,
+                cli.nome_fantasia as cliente_final_nome,
+                agn.nome_fantasia as agencia_nome,
+                web_cli.logo_url as cliente_logo_url,
+                web_agn.logo_url as agencia_logo_url,
                 cont.nome_completo as contato_nome,
                 vend.nome_completo as vendedor_nome,
                 c.status as status_descricao
             FROM cadu_cotacoes c
+            LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+            LEFT JOIN tbl_cliente agn ON c.agencia_id = agn.id_cliente
+            LEFT JOIN cliente_web_info web_cli
+                   ON web_cli.id_cliente = c.client_id AND web_cli.status = 'ok'
+            LEFT JOIN cliente_web_info web_agn
+                   ON web_agn.id_cliente = c.agencia_id AND web_agn.status = 'ok'
             LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
             LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
             WHERE c.client_id = %s AND c.deleted_at IS NULL
@@ -6456,6 +6470,10 @@ def obter_cotacoes_cliente_com_vinculos(cliente_id):
             SELECT
                 c.*,
                 COALESCE(cli.nome_fantasia, agn.nome_fantasia) as cliente_nome,
+                cli.nome_fantasia as cliente_final_nome,
+                agn.nome_fantasia as agencia_nome,
+                web_cli.logo_url as cliente_logo_url,
+                web_agn.logo_url as agencia_logo_url,
                 cont.nome_completo as contato_nome,
                 vend.nome_completo as vendedor_nome,
                 c.status as status_descricao,
@@ -6463,6 +6481,10 @@ def obter_cotacoes_cliente_com_vinculos(cliente_id):
             FROM cadu_cotacoes c
             LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
             LEFT JOIN tbl_cliente agn ON c.agencia_id = agn.id_cliente
+            LEFT JOIN cliente_web_info web_cli
+                   ON web_cli.id_cliente = c.client_id AND web_cli.status = 'ok'
+            LEFT JOIN cliente_web_info web_agn
+                   ON web_agn.id_cliente = c.agencia_id AND web_agn.status = 'ok'
             LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
             LEFT JOIN tbl_contato_cliente vend ON c.responsavel_comercial = vend.id_contato_cliente
             WHERE c.deleted_at IS NULL
@@ -8136,6 +8158,9 @@ def obter_cotacao_por_id(cotacao_id):
 
 def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
     """Cria uma nova cotação"""
+    tipo_comercial = normalizar_tipo_comercial(kwargs.get('tipo_comercial'))
+    validar_status_tipo_comercial(tipo_comercial, kwargs.get('status'))
+    kwargs['tipo_comercial'] = tipo_comercial
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -8165,7 +8190,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'id_parceiro', 'parceiro_user_id',
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
-                'plataforma_campanha', 'imposto_percentual',
+                'plataforma_campanha', 'imposto_percentual', 'tipo_comercial',
             ]
             
             for campo in campos_opcionais:
@@ -8191,6 +8216,21 @@ def atualizar_cotacao(cotacao_id, **kwargs):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT tipo_comercial, status FROM cadu_cotacoes WHERE id = %s',
+                (cotacao_id,),
+            )
+            atual = cursor.fetchone()
+            if not atual:
+                return False
+            tipo_resultante = normalizar_tipo_comercial(
+                kwargs.get('tipo_comercial', atual.get('tipo_comercial'))
+            )
+            status_resultante = kwargs.get('status', atual.get('status'))
+            validar_status_tipo_comercial(tipo_resultante, status_resultante)
+            if 'tipo_comercial' in kwargs:
+                kwargs['tipo_comercial'] = tipo_resultante
+
             updates = ["updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)"]
             params = []
             
@@ -8205,7 +8245,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
-                'plataforma_campanha',
+                'plataforma_campanha', 'tipo_comercial',
             ]
             
             # Campos que podem ser setados para NULL explicitamente
@@ -9681,6 +9721,7 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.periodo_inicio,
                     cot.periodo_fim,
                     cot.agencia_id,
+                    cot.tipo_comercial,
                     cot.objetivo_campanha,
                     cot.plataforma_campanha,
                     EXTRACT(DAY FROM (
@@ -9692,9 +9733,11 @@ def obter_cotacoes_pipeline(filtros=None):
                     {ultima_atividade_expr} AS ultima_atividade_em,
                     cli.nome_fantasia as cliente_nome,
                     cli.razao_social as cliente_razao,
+                    web_cli.logo_url AS cliente_logo_url,
                     ag_perfil.key AS agencia_key,
                     ag_perfil.display AS agencia_display,
                     COALESCE(ag_emp.nome_fantasia, ag_emp.razao_social) AS agencia_nome,
+                    web_agn.logo_url AS agencia_logo_url,
                     exec.nome_completo as executivo_nome,
                     exec.foto_url as executivo_foto_url,
                     CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing,
@@ -9718,6 +9761,10 @@ def obter_cotacoes_pipeline(filtros=None):
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
                 LEFT JOIN tbl_agencia ag_perfil ON ag_perfil.id_agencia = cli.pk_id_tbl_agencia
                 LEFT JOIN tbl_cliente ag_emp ON ag_emp.id_cliente = cot.agencia_id
+                LEFT JOIN cliente_web_info web_cli
+                       ON web_cli.id_cliente = cot.client_id AND web_cli.status = 'ok'
+                LEFT JOIN cliente_web_info web_agn
+                       ON web_agn.id_cliente = cot.agencia_id AND web_agn.status = 'ok'
                 LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
                 WHERE cot.deleted_at IS NULL
                     AND (cot.origem IS DISTINCT FROM %s)
@@ -12551,6 +12598,12 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     cotacao = obter_cotacao_por_id(cotacao_id)
     if not cotacao:
         raise ValueError(f'Cotação {cotacao_id} não encontrada')
+    tipo_comercial = normalizar_tipo_comercial(cotacao.get('tipo_comercial'))
+    if tipo_comercial != 'midia':
+        raise ValueError(
+            'O PI automático atual é exclusivo para cotações de Mídia. '
+            'Este tipo terá um fluxo operacional próprio.'
+        )
 
     linhas = obter_linhas_cotacao(cotacao_id)
     try:

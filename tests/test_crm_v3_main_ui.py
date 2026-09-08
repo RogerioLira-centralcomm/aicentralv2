@@ -12,6 +12,10 @@ DRAWER = ROOT / "aicentralv2/templates/crm_v3/_drawer_cotacao.html"
 CLIENT_DRAWER = ROOT / "aicentralv2/templates/crm_v3/_drawer_cliente.html"
 MODALS = ROOT / "aicentralv2/templates/crm_v3/_modals.html"
 ENTERPRISE_CSS = ROOT / "aicentralv2/static/css/tailwind/enterprise-system.css"
+COTACOES_FORM = ROOT / "aicentralv2/templates/cadu_cotacoes_form.html"
+COTACAO_TIPOS = ROOT / "aicentralv2/cotacao_tipos.py"
+DB = ROOT / "aicentralv2/db.py"
+DEPLOY = ROOT / "deploy.sh"
 
 
 class CrmV3MainUiContractTest(unittest.TestCase):
@@ -25,6 +29,10 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         cls.client_drawer = CLIENT_DRAWER.read_text()
         cls.modals = MODALS.read_text()
         cls.enterprise_css = ENTERPRISE_CSS.read_text()
+        cls.cotacoes_form = COTACOES_FORM.read_text()
+        cls.cotacao_tipos = COTACAO_TIPOS.read_text()
+        cls.db = DB.read_text()
+        cls.deploy = DEPLOY.read_text()
 
     def test_workspace_is_not_artificially_scaled(self):
         self.assertNotIn("zoom: 0.8", self.css)
@@ -53,6 +61,26 @@ class CrmV3MainUiContractTest(unittest.TestCase):
             r"overflow-y:\s*auto",
         )
         self.assertIn("scrollbar-gutter: stable", self.css)
+
+    def test_activity_composer_prioritizes_user_input_and_date(self):
+        self.assertIn("crm-v3-ativ-composer-main", self.template)
+        self.assertIn("crm-v3-ativ-composer-controls", self.template)
+        self.assertIn('data-activity-date-offset="0"', self.template)
+        self.assertIn('data-activity-date-offset="1"', self.template)
+        self.assertIn("function syncDatePresets()", self.js)
+        self.assertIn("e.key === 'Enter' && e.shiftKey", self.js)
+        self.assertIn(".crm-v3-ativ-composer-input", self.css)
+        self.assertIn("font-size: 15px", self.css)
+
+    def test_only_contextual_suggestion_remains_in_activity_column(self):
+        render = self.js.split("function renderAtividades()", 1)[1].split(
+            "// renderSidebarAtividades", 1
+        )[0]
+        self.assertNotIn("renderQuickAtividadesHTML", render)
+        self.assertNotIn("bindQuickAtividades", render)
+        self.assertIn("recomendação contextual", render)
+        self.assertIn("crm-v3-next-action-details", self.js)
+        self.assertIn(".crm-v3-next-action-details > summary", self.css)
 
     def test_tablet_keeps_client_navigation(self):
         tablet = re.search(
@@ -93,18 +121,50 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertNotIn('id="crm-v3-modal-cotacao"', self.modals)
         self.assertNotIn("openCotacaoModal", self.js)
 
+    def test_quote_type_is_single_and_media_remains_the_legacy_flow(self):
+        for slug in ("midia", "parceiros", "formatos_interativos", "dados"):
+            self.assertIn(f'value="{slug}"', self.drawer)
+            self.assertIn(f'value="{slug}"', self.cotacoes_form)
+        self.assertIn('data-field="tipo_comercial"', self.drawer)
+        self.assertIn("validar_status_tipo_comercial", self.db)
+        self.assertIn("O PI automático atual é exclusivo", self.db)
+        self.assertIn(
+            "migrations/run_add_tipo_comercial_to_cotacoes.py",
+            self.deploy,
+        )
+
+    def test_quote_cards_show_type_and_company_identity(self):
+        self.assertIn("cotacaoTipoHtml(c)", self.js)
+        self.assertIn("cotacaoIdentidadeHtml(c)", self.js)
+        self.assertIn("data-cotacao-logo", self.js)
+        self.assertIn(".crm-v3-cotacao-entity-avatar", self.css)
+        self.assertIn(
+            "linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%)",
+            self.css,
+        )
+
     def test_agency_clients_can_be_managed_inside_quote_drawer(self):
         for element_id in (
             "cx-cot-agency-clients",
             "cx-cot-agency-list",
             "cx-cot-agency-add",
-            "cx-cot-unlink-dialog",
         ):
             self.assertIn(f'id="{element_id}"', self.drawer)
+        self.assertNotIn('id="cx-cot-unlink-dialog"', self.drawer)
         self.assertIn("wireAgencyClientManager", self.drawer_js)
         self.assertIn("changeAgencyClientLink", self.drawer_js)
+        self.assertIn("changeAgencyClientLink(wrapper, selected, false)", self.drawer_js)
         self.assertIn("method: active ? 'POST' : 'DELETE'", self.drawer_js)
         self.assertIn(".cx-agency-client-row", self.enterprise_css)
+
+    def test_crm_does_not_use_blocking_confirmations_or_alerts(self):
+        scripts = self.js + "\n" + self.drawer_js
+        self.assertIsNone(re.search(r"\b(?:window\.)?confirm\s*\(", scripts))
+        self.assertIsNone(re.search(r"\b(?:window\.)?alert\s*\(", scripts))
+        self.assertNotIn('id="crm-v3-modal-confirm-obj"', self.modals)
+        self.assertNotIn('id="cx-cot-unlink-dialog"', self.drawer)
+        self.assertNotIn('role="alert"', self.template + self.modals)
+        self.assertNotIn("cx-alert", self.modals)
 
     def test_client_editor_is_a_single_responsive_drawer(self):
         self.assertIn("crm-v3-cliente-editor-grid", self.client_drawer)
@@ -139,6 +199,13 @@ class CrmV3MainUiContractTest(unittest.TestCase):
             r"\.crm-v3-cliente-form-grid\s*\{[\s\S]*?"
             r"grid-template-columns:\s*1fr",
         )
+
+    def test_web_tab_renders_social_links_only_when_available(self):
+        self.assertIn('id="crm-v3-web-social-section"', self.template)
+        self.assertIn('id="crm-v3-web-social-links"', self.template)
+        self.assertIn("webExtras.social_links", self.js)
+        self.assertIn("socialSec.hidden = validSocialLinks.length === 0", self.js)
+        self.assertIn(".crm-v3-web-social-link:focus-visible", self.css)
 
 
 if __name__ == "__main__":

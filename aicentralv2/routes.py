@@ -5506,6 +5506,7 @@ def init_routes(app):
 
                 # Coletar todos os campos opcionais
                 kwargs = {
+                    'tipo_comercial': request.form.get('tipo_comercial', 'midia').strip(),
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                     'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
                     'status': request.form.get('status', 'Rascunho').strip(),
@@ -5602,6 +5603,10 @@ def init_routes(app):
                 # Coletar todos os campos opcionais
                 update_kwargs = {
                     'nome_campanha': nome_campanha,
+                    'tipo_comercial': request.form.get(
+                        'tipo_comercial',
+                        cotacao.get('tipo_comercial') or 'midia',
+                    ).strip(),
                     'periodo_inicio': periodo_inicio,
                     'valor_total_proposta': valor_total,
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),

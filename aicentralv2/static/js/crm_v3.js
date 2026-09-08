@@ -1856,9 +1856,15 @@
 
         // Domínio clicável (target=_blank).
         var domEl = $('#crm-v3-web-domain');
+        var webExtras = info.dados_extras && typeof info.dados_extras === 'object'
+            ? info.dados_extras
+            : {};
         if (domEl) {
             var d = info.dominio || '';
-            domEl.href = d ? 'https://' + d : '#';
+            var sourceUrl = String(webExtras.source_url || '');
+            domEl.href = /^https?:\/\//i.test(sourceUrl)
+                ? sourceUrl
+                : (d ? 'https://' + d : '#');
             var spanD = domEl.querySelector('span');
             if (spanD) spanD.textContent = d;
         }
@@ -1896,6 +1902,33 @@
         var descEl = $('#crm-v3-web-descricao');
         if (descEl) {
             descEl.textContent = info.descricao || 'Sem descrição disponível no site.';
+        }
+
+        // Perfis sociais encontrados nos links da home.
+        var socialSec = $('#crm-v3-web-social-section');
+        var socialWrap = $('#crm-v3-web-social-links');
+        var socialLinks = Array.isArray(webExtras.social_links) ? webExtras.social_links : [];
+        var socialIcons = {
+            instagram: 'fa-brands fa-instagram',
+            linkedin: 'fa-brands fa-linkedin-in',
+            youtube: 'fa-brands fa-youtube',
+            tiktok: 'fa-brands fa-tiktok',
+            facebook: 'fa-brands fa-facebook-f',
+            x: 'fa-brands fa-x-twitter'
+        };
+        if (socialSec && socialWrap) {
+            var validSocialLinks = socialLinks.filter(function (link) {
+                return link && socialIcons[link.platform] && /^https:\/\//i.test(String(link.url || ''));
+            });
+            socialSec.hidden = validSocialLinks.length === 0;
+            socialWrap.innerHTML = validSocialLinks.map(function (link) {
+                return '<a class="crm-v3-web-social-link crm-v3-web-social-link--' +
+                    escapeHtml(link.platform) + '" href="' + escapeHtml(link.url) +
+                    '" target="_blank" rel="noopener noreferrer">' +
+                    '<i class="' + socialIcons[link.platform] + '" aria-hidden="true"></i>' +
+                    '<span>' + escapeHtml(link.label || link.platform) + '</span>' +
+                    '</a>';
+            }).join('');
         }
 
         // Menu principal — chips clicáveis.
@@ -2613,15 +2646,25 @@
         if (!s) {
             el.innerHTML = '<button type="button" class="crm-v3-next-action-refresh" data-next-action="refresh"><i class="fa-solid fa-wand-magic-sparkles"></i> Recomendar próximo passo</button>';
         } else {
-            var origem = s.source === 'openrouter' ? 'IA contextual' : 'Sugestão local';
+            var origem = s.source === 'openrouter' ? 'IA contextual' : 'Contexto comercial';
             el.innerHTML =
-                '<div class="crm-v3-next-action-kicker"><i class="fa-solid fa-compass"></i> Próxima melhor ação <span>' + escapeHtml(origem) + '</span></div>' +
-                '<strong>' + escapeHtml(s.titulo || s.acao_sugerida || 'Próximo passo') + '</strong>' +
-                '<p>' + escapeHtml(s.motivo || s.descricao || '') + '</p>' +
-                '<div class="crm-v3-next-action-actions">' +
-                    '<button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" data-next-action="apply">Preparar atividade</button>' +
-                    '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" data-next-action="refresh" title="Atualizar recomendação"><i class="fa-solid fa-rotate"></i></button>' +
-                '</div>';
+                '<details class="crm-v3-next-action-details">' +
+                  '<summary>' +
+                    '<span class="crm-v3-next-action-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>' +
+                    '<span><small>Próxima ação sugerida</small><strong>' +
+                      escapeHtml(s.titulo || s.acao_sugerida || 'Próximo passo') +
+                    '</strong></span>' +
+                    '<em>' + escapeHtml(origem) + '</em>' +
+                    '<i class="fa-solid fa-chevron-down crm-v3-next-action-chevron" aria-hidden="true"></i>' +
+                  '</summary>' +
+                  '<div class="crm-v3-next-action-body">' +
+                    '<p>' + escapeHtml(s.motivo || s.descricao || '') + '</p>' +
+                    '<div class="crm-v3-next-action-actions">' +
+                      '<button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-next-action="apply">Preparar atividade</button>' +
+                      '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" data-next-action="refresh" title="Atualizar recomendação"><i class="fa-solid fa-rotate"></i></button>' +
+                    '</div>' +
+                  '</div>' +
+                '</details>';
         }
         if (!el._nextActionBound) {
             el._nextActionBound = true;
@@ -2663,10 +2706,11 @@
         }
 
         if (!filtrados.length) {
-            // Empty state: sugestões em destaque com heading grande.
-            // O composer fica em cima; aqui embaixo vem o convite.
-            container.innerHTML = renderQuickAtividadesHTML({ compact: false });
-            bindQuickAtividades(container);
+            container.innerHTML =
+                '<div class="crm-v3-ativ-empty">' +
+                  '<strong>Nenhuma atividade registrada.</strong>' +
+                  '<span>Digite a próxima ação no campo acima ou abra a recomendação contextual.</span>' +
+                '</div>';
             updateTabCounts();
             return;
         }
@@ -2699,18 +2743,8 @@
             '</div>';
         });
 
-        // Set/2026: sugestões SEMPRE visíveis (não só no empty state).
-        // Filosofia do CRM v3: o executivo de vendas tem que ter um
-        // próximo passo à mão a cada momento — mais touchpoints =
-        // mais vendas. As sugestões vão no rodapé da coluna, em
-        // modo compacto (sem heading grande, sem competir visualmente
-        // com as atividades reais acima), e só as que ainda NÃO
-        // foram feitas pelo cliente (filtro em getSuggestionsForClient).
-        html += renderQuickAtividadesHTML({ compact: true });
-
         container.innerHTML = html;
         bindAtividadeEvents(container);
-        bindQuickAtividades(container);
         updateTabCounts();
     }
 
@@ -3043,6 +3077,34 @@
             dataInput.min = hojeISO;
             if (!dataInput.value) dataInput.value = hojeISO;
         }
+        var datePresets = $$('[data-activity-date-offset]', form);
+        function dateFromOffset(offset) {
+            var date = new Date();
+            date.setHours(12, 0, 0, 0);
+            date.setDate(date.getDate() + Number(offset || 0));
+            return date.toISOString().slice(0, 10);
+        }
+        function syncDatePresets() {
+            datePresets.forEach(function (button) {
+                var active = dataInput && dataInput.value === dateFromOffset(
+                    button.getAttribute('data-activity-date-offset')
+                );
+                button.classList.toggle('is-active', Boolean(active));
+                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+        datePresets.forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!dataInput) return;
+                dataInput.value = dateFromOffset(
+                    button.getAttribute('data-activity-date-offset')
+                );
+                syncDatePresets();
+                titulo.focus();
+            });
+        });
+        if (dataInput) dataInput.addEventListener('change', syncDatePresets);
+        syncDatePresets();
 
         // Ciclo de tipos de atividade
         var tipos = [
@@ -3126,6 +3188,17 @@
         // Atalhos: Ctrl+T alterna tipo, Escape limpa
         titulo.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { titulo.value = ''; titulo.blur(); }
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                if (window.crmV3Drawer && typeof window.crmV3Drawer.openAtividade === 'function') {
+                    window.crmV3Drawer.openAtividade({
+                        titulo: titulo.value.trim(),
+                        tipo: tipoBtn.getAttribute('data-tipo') || 'atividade',
+                        data: dataInput && dataInput.value || hojeISO,
+                        status: 'pendente'
+                    }, state.clienteId);
+                }
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
                 e.preventDefault();
                 tipoBtn.click();
@@ -3227,6 +3300,63 @@
         }
     }
 
+    function cotacaoEmpresaHtml(nome, logo, papel) {
+        nome = String(nome || '').trim();
+        if (!nome) return '';
+        var inicial = avatarIniciais(nome).slice(0, 1);
+        return (
+            '<span class="crm-v3-cotacao-entity" title="' + escapeHtml(papel + ': ' + nome) + '">' +
+                '<span class="crm-v3-cotacao-entity-avatar">' +
+                    '<span class="crm-v3-cotacao-entity-fallback">' + escapeHtml(inicial) + '</span>' +
+                    (logo
+                        ? '<img alt="" hidden data-cotacao-logo="1" src="' + escapeHtml(logo) + '">'
+                        : '') +
+                '</span>' +
+                '<span class="crm-v3-cotacao-entity-name">' + escapeHtml(nome) + '</span>' +
+            '</span>'
+        );
+    }
+
+    function cotacaoIdentidadeHtml(c) {
+        var cliente = cotacaoEmpresaHtml(
+            c.cliente_final_nome || c.cliente_nome,
+            c.cliente_logo_url,
+            'Cliente final'
+        );
+        var agencia = cotacaoEmpresaHtml(c.agencia_nome, c.agencia_logo_url, 'Agência');
+        if (agencia && cliente) {
+            return '<span class="crm-v3-cotacao-identidade">' + agencia +
+                '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>' + cliente + '</span>';
+        }
+        return agencia || cliente;
+    }
+
+    function cotacaoTipoHtml(c) {
+        var slug = c.tipo_comercial || 'midia';
+        var label = c.tipo_comercial_label || {
+            midia: 'Mídia',
+            parceiros: 'Parceiros',
+            formatos_interativos: 'Formatos interativos',
+            dados: 'Dados'
+        }[slug] || 'Mídia';
+        return '<span class="crm-v3-cotacao-tipo crm-v3-cotacao-tipo--' +
+            escapeHtml(slug) + '">' + escapeHtml(label) + '</span>';
+    }
+
+    function bindCotacaoLogos(root) {
+        $$('img[data-cotacao-logo]', root || document).forEach(function (img) {
+            function reveal() {
+                if (!img.naturalWidth) return;
+                img.hidden = false;
+                var fallback = img.previousElementSibling;
+                if (fallback) fallback.hidden = true;
+            }
+            img.addEventListener('load', reveal);
+            img.addEventListener('error', function () { img.hidden = true; });
+            if (img.complete) reveal();
+        });
+    }
+
     function cotacaoCardAberta(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
         var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
@@ -3247,6 +3377,8 @@
                 (valor ? '<span class="crm-v3-cotacao-valor">' + escapeHtml(valor) + '</span>' : '') +
             '</span>' +
             '<span class="crm-v3-cotacao-compact-meta">' +
+                cotacaoTipoHtml(c) +
+                cotacaoIdentidadeHtml(c) +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
                     '<i class="' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
                     escapeHtml(statusLabel) +
@@ -3278,7 +3410,8 @@
                         '<span class="crm-v3-cotacao-linha-nome">' + escapeHtml(titulo) + '</span>' +
                         (valor ? '<span class="crm-v3-cotacao-linha-valor">' + escapeHtml(valor) + '</span>' : '') +
                     '</span>' +
-                    (meta ? '<span class="crm-v3-cotacao-linha-meta">' + escapeHtml(meta) + '</span>' : '') +
+                    '<span class="crm-v3-cotacao-linha-meta">' + cotacaoTipoHtml(c) +
+                        cotacaoIdentidadeHtml(c) + (meta ? escapeHtml(meta) : '') + '</span>' +
                 '</span>' +
                 '<i class="fa-solid fa-chevron-right crm-v3-cotacao-linha-chevron" aria-hidden="true"></i>' +
             '</button>'
@@ -3393,6 +3526,7 @@
                     '</div>';
         }
         container.innerHTML = html;
+        bindCotacaoLogos(container);
 
         // Delegação de clique para abrir detalhes (funciona para todos
         // os grupos: card aberto, card aprovada e linha histórico).
@@ -3435,6 +3569,8 @@
                 (valor ? '<span class="crm-v3-cotacao-aprovada-valor">' + escapeHtml(valor) + '</span>' : '') +
             '</div>' +
             '<div class="crm-v3-cotacao-aprovada-meta">' +
+                cotacaoTipoHtml(c) +
+                cotacaoIdentidadeHtml(c) +
                 (periodo ? '<span>' + escapeHtml(periodo) + '</span>' : '') +
                 origemPill +
             '</div>' +

@@ -1556,6 +1556,7 @@ class CrmV3Repository:
         - `plataformas` (lista) → string CSV em `plataforma_campanha`.
         - Datas: aceita YYYY-MM-DD ou DD/MM/YYYY.
         """
+        from .cotacao_tipos import normalizar_tipo_comercial
         from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
 
         payload: Dict[str, Any] = {}
@@ -1612,6 +1613,10 @@ class CrmV3Repository:
             else:
                 plats = []
             payload["plataforma_campanha"] = ", ".join(plats)
+        if "tipo_comercial" in data:
+            payload["tipo_comercial"] = normalizar_tipo_comercial(
+                data.get("tipo_comercial")
+            )
         agencia_raw = data.get("agencia_id")
         if agencia_raw not in (None, ""):
             try:
@@ -1687,6 +1692,8 @@ class CrmV3Repository:
             return None, None
         try:
             ok = _db().atualizar_cotacao(cotacao_id, **payload)
+        except ValueError:
+            raise
         except Exception:
             return None, None
         if not ok:
@@ -1726,6 +1733,10 @@ class CrmV3Repository:
 
     def _map_cotacao(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """Converte um registro de `cadu_cotacoes` para o shape do v3 UI."""
+        from .cotacao_tipos import (
+            normalizar_tipo_comercial,
+            rotulo_tipo_comercial,
+        )
         from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
 
         # Set/2026 — bug corrigido: `cadu_cotacoes.status` é FK numérica
@@ -1757,6 +1768,9 @@ class CrmV3Repository:
 
         created = row.get("created_at")
         data_display = created.strftime("%d/%m/%Y") if hasattr(created, "strftime") else ""
+        tipo_comercial = normalizar_tipo_comercial(
+            row.get("tipo_comercial"), estrito=False
+        )
 
         return {
             "id": str(row.get("id")),
@@ -1783,6 +1797,16 @@ class CrmV3Repository:
             "contato_nome": row.get("contato_nome") or "",
             "origem": row.get("origem") or "proprio",
             "cliente_nome": row.get("cliente_nome") or "",
+            "cliente_final_nome": (
+                row.get("cliente_final_nome")
+                or row.get("cliente_nome")
+                or ""
+            ),
+            "cliente_logo_url": row.get("cliente_logo_url") or "",
+            "agencia_nome": row.get("agencia_nome") or "",
+            "agencia_logo_url": row.get("agencia_logo_url") or "",
+            "tipo_comercial": tipo_comercial,
+            "tipo_comercial_label": rotulo_tipo_comercial(tipo_comercial),
         }
 
     # ---------------- Notas / histórico (sales_historico_cliente) ------------

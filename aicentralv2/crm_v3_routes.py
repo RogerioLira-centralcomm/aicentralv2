@@ -569,11 +569,8 @@ def api_incentivos_agencia(cliente_id):
 def api_create_cotacao(cliente_id):
     """Cria o cabeçalho da cotação (Caminho A).
 
-    Após criar, devolvemos `redirect_url` apontando para a tela dedicada
-    de montagem (`/cotacoes/<id>/detalhes`), onde o usuário completa
-    audiência, produtos, valores e comissões. O CRM v3 usa esse campo
-    para abrir a próxima etapa em nova aba quando o usuário escolhe
-    "Salvar e montar cotação".
+    Mídia devolve a montagem atual; os demais tipos devolvem somente a
+    edição de cabeçalho enquanto seus módulos próprios não existem.
     """
     try:
         cotacao = store.create_cotacao(cliente_id, request.get_json(silent=True) or {})
@@ -585,11 +582,19 @@ def api_create_cotacao(cliente_id):
             try:
                 # Rota do módulo legado — mantém a URL estável independente
                 # de refactors internos do CRM v3.
-                redirect_url = url_for(
-                    "cotacoes.cotacao_detalhes", cotacao_id=cot_id
+                endpoint = (
+                    "cotacoes.cotacao_detalhes"
+                    if cotacao.get("tipo_comercial", "midia") == "midia"
+                    else "cotacoes.cotacao_editar"
                 )
+                redirect_url = url_for(endpoint, cotacao_id=cot_id)
             except Exception:  # noqa: BLE001 — rota ausente em testes/dev sem blueprint
-                redirect_url = f"/cotacoes/{cot_id}/detalhes"
+                sufixo = (
+                    "detalhes"
+                    if cotacao.get("tipo_comercial", "midia") == "midia"
+                    else "editar"
+                )
+                redirect_url = f"/cotacoes/{cot_id}/{sufixo}"
             cotacao["detalhes_url"] = redirect_url
         payload = {"cotacao": cotacao}
         if redirect_url:

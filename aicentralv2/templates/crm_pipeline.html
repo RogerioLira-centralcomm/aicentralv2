@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -107,6 +107,21 @@
     {% endif %}
   {% endmacro %}
 
+  {% macro pp_company_avatar(nome, logo_url) %}
+    <span class="pp-company-avatar" aria-hidden="true">
+      <span>{{ (nome or '?')|trim|first|upper }}</span>
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="" loading="lazy" onerror="this.hidden=true">
+      {% endif %}
+    </span>
+  {% endmacro %}
+
+  {% macro pp_quote_type(tipo) %}
+    {% set slug = tipo or 'midia' %}
+    {% set labels = {'midia': 'Mídia', 'parceiros': 'Parceiros', 'formatos_interativos': 'Interativos', 'dados': 'Dados'} %}
+    <span class="pp-quote-type is-{{ slug }}">{{ labels.get(slug, 'Mídia') }}</span>
+  {% endmacro %}
+
   {% macro pp_deal_card(cotacao, status) %}
     {% set bruto = cotacao.valor_total_bruto|default(cotacao.valor_total_proposta, true)|float %}
     {% set dias = cotacao.dias_sem_movimento|default(0, true)|int %}
@@ -122,20 +137,23 @@
       <div class="pp-deal-top">
         <div class="pp-deal-who">
           <div class="pp-deal-client" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
-            <i class="fa-solid {% if is_agencia %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
-            <span>{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
+            {{ pp_company_avatar(cotacao.cliente_nome, cotacao.cliente_logo_url) }}
+            <span class="pp-company-name">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
             <small>{% if is_agencia %}Agência{% else %}Cliente final{% endif %}</small>
           </div>
           {% if not is_agencia and cotacao.agencia_nome and cotacao.agencia_id %}
           <div class="pp-deal-agency" title="{{ cotacao.agencia_nome }}">
-            <i class="fa-regular fa-building" aria-hidden="true"></i>
-            <span>{{ cotacao.agencia_nome }}</span>
+            {{ pp_company_avatar(cotacao.agencia_nome, cotacao.agencia_logo_url) }}
+            <span class="pp-company-name">{{ cotacao.agencia_nome }}</span>
           </div>
           {% endif %}
         </div>
       </div>
       {% if cotacao.nome_campanha %}
-      <div class="pp-deal-campaign" title="{{ cotacao.nome_campanha }}">{{ cotacao.nome_campanha }}</div>
+      <div class="pp-deal-campaign" title="{{ cotacao.nome_campanha }}">
+        {{ pp_quote_type(cotacao.tipo_comercial) }}
+        <span>{{ cotacao.nome_campanha }}</span>
+      </div>
       {% endif %}
       <div class="pp-deal-foot">
         <div class="pp-deal-activity is-{% if dias > 30 %}stale{% elif dias > 7 %}warning{% else %}fresh{% endif %}" title="Tempo desde a última movimentação da proposta">
@@ -162,10 +180,11 @@
          onclick="abrirModalCotacao({{ cotacao.id }})"
          ondragstart="handleCardDragStart(event)"
          ondragend="handleCardDragEnd(event)">
-      <i class="pp-hist-icon fa-solid {% if is_agencia %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
+      {{ pp_company_avatar(cotacao.cliente_nome, cotacao.cliente_logo_url) }}
       <div class="pp-hist-body">
         <div class="pp-hist-name" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
         <div class="pp-hist-meta">
+          {{ pp_quote_type(cotacao.tipo_comercial) }}
           {{ dias }}d sem movimento
         </div>
       </div>

@@ -51,6 +51,19 @@
                      required autocomplete="off">
             </div>
             <div class="cx-drawer-field cx-drawer-field-span-2">
+              <label for="cx-cot-tipo">Tipo de cotação *</label>
+              <select id="cx-cot-tipo" name="tipo_comercial"
+                      data-field="tipo_comercial" required>
+                <option value="midia">Mídia</option>
+                <option value="parceiros">Parceiros</option>
+                <option value="formatos_interativos">Formatos interativos</option>
+                <option value="dados">Dados</option>
+              </select>
+              <span class="cx-drawer-field-hint" id="cx-cot-tipo-hint">
+                Mídia usa a montagem e a calculadora atuais.
+              </span>
+            </div>
+            <div class="cx-drawer-field cx-drawer-field-span-2">
               <label for="cx-cot-objetivo">Objetivo da campanha</label>
               <textarea id="cx-cot-objetivo" name="objetivo" data-field="objetivo"
                         rows="4" placeholder="Descreva o resultado esperado e o contexto da proposta."></textarea>
@@ -132,7 +145,7 @@
           </p>
         </section>
 
-        <section class="cx-drawer-section cx-drawer-note">
+        <section class="cx-drawer-section cx-drawer-note" id="cx-cot-montagem-note">
           <div class="cx-drawer-note-icon" aria-hidden="true">
             <i class="fa-solid fa-file-invoice-dollar"></i>
           </div>

@@ -678,15 +678,14 @@ dialog.modal[open] {
   text-align: center;
 }
 
-.pp-deal-client > span,
-.pp-deal-agency > span {
+.pp-company-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pp-deal-client > span { flex: 1; }
+.pp-deal-client > .pp-company-name { flex: 1; }
 
 .pp-deal-client small {
   flex: 0 0 auto;
@@ -700,7 +699,6 @@ dialog.modal[open] {
 
 .pp-deal-agency {
   margin-top: 0.2rem;
-  padding-left: 1.15rem;
   font-size: 0.65625rem;
 }
 
@@ -710,7 +708,9 @@ dialog.modal[open] {
 }
 
 .pp-deal-campaign {
-  padding-left: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   color: #475569;
   font-size: 0.71875rem;
   font-weight: 550;
@@ -776,6 +776,63 @@ dialog.modal[open] {
   width: 1.5rem;
   color: #64748b;
   text-align: center;
+}
+
+.pp-company-avatar {
+  position: relative;
+  display: inline-grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 1.4rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.35rem;
+  background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.pp-company-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.1rem;
+  object-fit: contain;
+}
+
+.pp-deal-agency .pp-company-avatar {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-basis: 1.1rem;
+  border-radius: 0.25rem;
+  font-size: 0.5rem;
+}
+
+.pp-quote-type {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 1rem;
+  padding: 0 0.3rem;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 0.55rem;
+  font-weight: 750;
+}
+
+.pp-quote-type.is-parceiros { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+.pp-quote-type.is-formatos_interativos { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+.pp-quote-type.is-dados { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+
+.pp-hist-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .kanban-card[hidden] { display: none !important; }

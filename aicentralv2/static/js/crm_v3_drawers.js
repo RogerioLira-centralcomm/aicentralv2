@@ -1443,6 +1443,7 @@
 
     function submitCotacaoCaminhoA(form, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
+        payload.tipo_comercial = payload.tipo_comercial || 'midia';
         payload.plataformas = String(payload.plataformas || '')
             .split(',')
             .map(function (item) { return item.trim(); })
@@ -1450,6 +1451,13 @@
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
+        if (payload.tipo_comercial !== 'midia') {
+            payload.status = 'rascunho';
+            if (abrirMontagem) {
+                toast('Salve o rascunho. A montagem deste tipo terá um módulo próprio.', true);
+                return;
+            }
+        }
 
         var isEdit = !!(cotacao && cotacao.id);
         var targetId = String(payload.client_id || clienteId || '').trim();
@@ -1488,6 +1496,42 @@
                 }
             }
         }).catch(function (err) { toast(err.message, true); });
+    }
+
+    function wireTipoCotacao(wrapper) {
+        var tipo = wrapper.querySelector('#cx-cot-tipo');
+        var status = wrapper.querySelector('#cx-cot-status');
+        var hint = wrapper.querySelector('#cx-cot-tipo-hint');
+        var note = wrapper.querySelector('#cx-cot-montagem-note');
+        var fullLink = wrapper.querySelector('#cx-cot-open-full');
+        if (!tipo) return;
+
+        function update() {
+            var isMidia = (tipo.value || 'midia') === 'midia';
+            if (status) {
+                if (!isMidia) status.value = 'rascunho';
+                status.disabled = !isMidia;
+            }
+            if (hint) {
+                hint.textContent = isMidia
+                    ? 'Mídia usa a montagem e a calculadora atuais.'
+                    : 'Primeira fase: cabeçalho em rascunho. Precificação e PI terão módulo próprio.';
+            }
+            if (note) {
+                var title = note.querySelector('strong');
+                var body = note.querySelector('.cx-drawer-note-body > div');
+                if (title) title.textContent = isMidia ? 'Montagem completa' : 'Módulo próprio em preparação';
+                if (body) {
+                    body.textContent = isMidia
+                        ? 'Audiência, produtos, valores detalhados, comissões e PI ficam na tela de montagem.'
+                        : 'Esta categoria não usa a calculadora nem o PI de Mídia.';
+                }
+            }
+            if (fullLink) fullLink.hidden = !isMidia || !fullLink.getAttribute('href');
+        }
+
+        tipo.addEventListener('change', update);
+        update();
     }
 
     /* ------------------------------------------------------------
@@ -1989,7 +2033,7 @@
         // ter as <option>s renderizadas para conseguir setar o valor).
         populateResponsaveis(wrapper.querySelector('#cx-cot-responsavel'), cotacao);
 
-        fillForm(form, cotacao || {});
+        fillForm(form, Object.assign({ tipo_comercial: 'midia' }, cotacao || {}));
 
         var isEdit = !!(cotacao && cotacao.id);
 
@@ -2000,6 +2044,7 @@
             fullLink.href = '/cotacoes/' + encodeURIComponent(cotacao.id) + '/detalhes';
             fullLink.hidden = false;
         }
+        wireTipoCotacao(wrapper);
 
         // Defaults de data: hoje / hoje+30d — só em criação e só se
         // o valor ainda estiver vazio (não sobrescreve dados de

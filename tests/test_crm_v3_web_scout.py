@@ -86,6 +86,56 @@ class WebScoutFirecrawlTest(unittest.TestCase):
             scout._firecrawl_scrape("https://cliente.com.br")
         self.assertEqual(post.call_count, 1)
 
+    def test_variantes_priorizam_host_original(self):
+        self.assertEqual(
+            scout._urls_candidatas("cliente.com.br"),
+            ["https://cliente.com.br", "https://www.cliente.com.br"],
+        )
+        self.assertEqual(
+            scout._urls_candidatas("https://www.cliente.com.br/sobre"),
+            ["https://www.cliente.com.br", "https://cliente.com.br"],
+        )
+
+    @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_tenta_www_quando_apex_falha_no_dns(self, scrape):
+        scrape.side_effect = [
+            RuntimeError('Firecrawl: DNS resolution failed for hostname "cliente.com.br"'),
+            {"metadata": {"title": "Cliente"}},
+        ]
+
+        data, effective_url = scout._firecrawl_scrape_com_variantes("cliente.com.br")
+
+        self.assertEqual(data["metadata"]["title"], "Cliente")
+        self.assertEqual(effective_url, "https://www.cliente.com.br")
+        self.assertEqual(
+            [call.args[0] for call in scrape.call_args_list],
+            ["https://cliente.com.br", "https://www.cliente.com.br"],
+        )
+
+    @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_tenta_apex_quando_www_falha_no_dns(self, scrape):
+        scrape.side_effect = [RuntimeError("hostname não resolvido"), {"links": []}]
+
+        _, effective_url = scout._firecrawl_scrape_com_variantes("www.cliente.com.br")
+
+        self.assertEqual(effective_url, "https://cliente.com.br")
+
+    @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_nao_repete_erro_definitivo(self, scrape):
+        scrape.side_effect = RuntimeError("Firecrawl: credencial inválida")
+
+        with self.assertRaisesRegex(RuntimeError, "credencial inválida"):
+            scout._firecrawl_scrape_com_variantes("cliente.com.br")
+        scrape.assert_called_once_with("https://cliente.com.br")
+
+    @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_resume_erro_quando_ambos_hosts_nao_resolvem(self, scrape):
+        scrape.side_effect = RuntimeError("DNS resolution failed for hostname")
+
+        with self.assertRaisesRegex(RuntimeError, "com e sem www"):
+            scout._firecrawl_scrape_com_variantes("cliente.com.br")
+        self.assertEqual(scrape.call_count, 2)
+
     def test_branding_tem_prioridade_e_normaliza_url_relativa(self):
         result = scout._montar_registro(
             "cliente.com.br",
@@ -107,6 +157,31 @@ class WebScoutFirecrawlTest(unittest.TestCase):
         self.assertEqual(result["favicon_url"], "https://cliente.com.br/favicon.ico")
         self.assertEqual(result["titulo"], "Cliente")
         self.assertEqual(result["menu_links"][0]["label"], "Sobre")
+
+    def test_registro_usa_url_efetiva_e_separa_redes_sociais(self):
+        result = scout._montar_registro(
+            "cliente.com.br",
+            {
+                "branding": {"logo": "/logo.svg"},
+                "links": [
+                    "https://www.cliente.com.br/sobre",
+                    "https://instagram.com/cliente/",
+                    "https://www.linkedin.com/company/cliente",
+                    "https://youtube.com/@cliente",
+                    "https://www.tiktok.com/@cliente",
+                    "https://instagram.com/cliente/?utm_source=site",
+                ],
+            },
+            "https://www.cliente.com.br",
+        )
+
+        self.assertEqual(result["logo_url"], "https://www.cliente.com.br/logo.svg")
+        self.assertEqual(result["dados_extras"]["source_url"], "https://www.cliente.com.br")
+        self.assertEqual(
+            [item["platform"] for item in result["dados_extras"]["social_links"]],
+            ["instagram", "linkedin", "youtube", "tiktok"],
+        )
+        self.assertEqual(len(result["dados_extras"]["social_links"]), 4)
 
     def test_metadata_e_fallback_quando_branding_nao_tem_logo(self):
         result = scout._montar_registro(

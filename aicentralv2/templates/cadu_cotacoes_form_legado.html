@@ -70,6 +70,18 @@
                  {% if modo == 'editar' %}readonly{% endif %}>
         </div>
 
+        <div class="w-full md:w-1/2 mb-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tipo de cotação *</label>
+          {% set tipo_atual = cotacao.tipo_comercial if cotacao and cotacao.tipo_comercial else 'midia' %}
+          <select name="tipo_comercial" required class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+            <option value="midia" {% if tipo_atual == 'midia' %}selected{% endif %}>Mídia</option>
+            <option value="parceiros" {% if tipo_atual == 'parceiros' %}selected{% endif %}>Parceiros</option>
+            <option value="formatos_interativos" {% if tipo_atual == 'formatos_interativos' %}selected{% endif %}>Formatos interativos</option>
+            <option value="dados" {% if tipo_atual == 'dados' %}selected{% endif %}>Dados</option>
+          </select>
+          <p class="mt-1 text-xs text-gray-500">Tipos diferentes de Mídia permanecem em rascunho nesta fase.</p>
+        </div>
+
         <div class="w-full md:w-1/2">
           <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
           <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">

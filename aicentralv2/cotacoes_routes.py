@@ -25,6 +25,7 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import login_required
+from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
 
 from aicentralv2.db import PLATAFORMA_CATEGORIAS_CANONICAS as _ORDEM_CATEGORIA_PLATAFORMA
 
@@ -859,6 +860,9 @@ def cotacao_nova():
             valor_total = float(valor_total_str) if valor_total_str else 0.0
 
             kwargs = {
+                'tipo_comercial': normalizar_tipo_comercial(
+                    request.form.get('tipo_comercial')
+                ),
                 'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                 'apresentacao_dados': request.form.get('apresentacao_dados', '').strip() or None,
                 'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
@@ -938,7 +942,12 @@ def cotacao_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-            return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=resultado['id']))
+            destino = (
+                'cotacoes.cotacao_detalhes'
+                if kwargs['tipo_comercial'] == 'midia'
+                else 'cotacoes.cotacao_editar'
+            )
+            return redirect(url_for(destino, cotacao_id=resultado['id']))
 
         except Exception as e:
             current_app.logger.error(f"cotacao_nova POST: {e}", exc_info=True)
@@ -1062,6 +1071,10 @@ def cotacao_editar(cotacao_id):
 
             update_kwargs = {
                 'nome_campanha': nome_campanha,
+                'tipo_comercial': normalizar_tipo_comercial(
+                    request.form.get('tipo_comercial')
+                    or cotacao.get('tipo_comercial')
+                ),
                 'periodo_inicio': periodo_inicio,
                 'valor_total_proposta': valor_total,
                 'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
@@ -1123,7 +1136,12 @@ def cotacao_editar(cotacao_id):
                 dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total},
             )
 
-            return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao_id))
+            destino = (
+                'cotacoes.cotacao_detalhes'
+                if update_kwargs['tipo_comercial'] == 'midia'
+                else 'cotacoes.cotacao_editar'
+            )
+            return redirect(url_for(destino, cotacao_id=cotacao_id))
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores_centralcomm()
@@ -1172,6 +1190,15 @@ def cotacao_detalhes(cotacao_id):
         if not cotacao:
             flash('Cotação não encontrada.', 'error')
             return redirect(url_for('cotacoes.cotacoes_list'))
+        if normalizar_tipo_comercial(cotacao.get('tipo_comercial')) != 'midia':
+            flash(
+                'A montagem e a calculadora atuais são exclusivas para Mídia. '
+                'Este rascunho terá um módulo próprio.',
+                'warning',
+            )
+            return redirect(
+                url_for('cotacoes.cotacao_editar', cotacao_id=cotacao_id)
+            )
 
         if request.method == 'POST':
             try:

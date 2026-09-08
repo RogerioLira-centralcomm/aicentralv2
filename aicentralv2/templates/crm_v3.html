@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=85">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=86">
 {% endblock %}
 
 {% block content %}
@@ -233,18 +233,26 @@
                 <div class="crm-v3-next-action" id="crm-v3-next-action" hidden aria-live="polite"></div>
 
                 <form class="crm-v3-ativ-composer" id="crm-v3-ativ-composer" autocomplete="off">
-                  <button type="button" class="crm-v3-ativ-composer-type" id="crm-v3-composer-tipo" data-tipo="atividade" title="Alterar tipo (Ctrl+T)" aria-label="Tipo da atividade">
-                    <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
-                  </button>
-                  <input type="text" class="crm-v3-ativ-composer-input" id="crm-v3-composer-titulo" placeholder="Adicionar atividade rápida... (Enter salva, Shift+Enter descrição)" aria-label="Título da atividade" />
-                  {# Data: default hoje, mínimo hoje. Hora ficou apenas no
-                     drawer de edição — no composer rápido não faz sentido
-                     pedir horário para uma atividade que pode nem ter um.
-                  #}
-                  <input type="date" class="crm-v3-ativ-composer-date" id="crm-v3-composer-data" aria-label="Data" />
-                  <button type="submit" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" id="crm-v3-composer-submit" aria-label="Adicionar atividade">
-                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-                  </button>
+                  <div class="crm-v3-ativ-composer-main">
+                    <button type="button" class="crm-v3-ativ-composer-type" id="crm-v3-composer-tipo" data-tipo="atividade" title="Alterar tipo (Ctrl+T)" aria-label="Tipo da atividade">
+                      <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+                    </button>
+                    <input type="text" class="crm-v3-ativ-composer-input" id="crm-v3-composer-titulo" placeholder="O que precisa ser feito?" aria-label="Título da atividade" />
+                  </div>
+                  <div class="crm-v3-ativ-composer-controls">
+                    <span class="crm-v3-ativ-composer-help">Enter adiciona · Shift+Enter detalha</span>
+                    <div class="crm-v3-ativ-date-presets" aria-label="Atalhos de data">
+                      <button type="button" data-activity-date-offset="0">Hoje</button>
+                      <button type="button" data-activity-date-offset="1">Amanhã</button>
+                    </div>
+                    <label class="crm-v3-ativ-date-field" for="crm-v3-composer-data">
+                      <span>Data</span>
+                      <input type="date" class="crm-v3-ativ-composer-date" id="crm-v3-composer-data" aria-label="Data da atividade" />
+                    </label>
+                    <button type="submit" class="crm-v3-btn crm-v3-btn-primary" id="crm-v3-composer-submit" aria-label="Adicionar atividade">
+                      <i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span>
+                    </button>
+                  </div>
                 </form>
 
                 <div class="crm-v3-ativ-list" role="list" id="crm-v3-ativ-list">
@@ -709,6 +717,11 @@
               <p class="crm-v3-web-descricao" id="crm-v3-web-descricao">—</p>
             </div>
 
+            <div class="crm-v3-sidebar-section" data-web-state="ok" hidden id="crm-v3-web-social-section">
+              <div class="crm-v3-sidebar-section-title">Redes sociais</div>
+              <div class="crm-v3-web-social-links" id="crm-v3-web-social-links"></div>
+            </div>
+
             <div class="crm-v3-sidebar-section" data-web-state="ok" hidden id="crm-v3-web-menu-section">
               <div class="crm-v3-sidebar-section-title">Páginas do site</div>
               <div class="crm-v3-web-links" id="crm-v3-web-menu-links"></div>
@@ -744,7 +757,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=62"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=63"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=20"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

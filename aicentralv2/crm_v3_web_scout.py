@@ -136,6 +136,67 @@ def _dominio_para_url(dominio: str) -> str:
     return f"https://{d}"
 
 
+def _host_original(raw: Optional[str]) -> str:
+    """Extrai o hostname informado sem apagar o prefixo www."""
+    value = str(raw or "").strip().lower()
+    if not value:
+        return ""
+    try:
+        parsed = urlparse(value if "://" in value else f"//{value}")
+        return (parsed.hostname or "").strip(".")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _urls_candidatas(raw: Optional[str]) -> list[str]:
+    """Retorna apex/www em ordem, priorizando a forma informada."""
+    apex = _normalizar_dominio(raw)
+    if not apex:
+        return []
+    original = _host_original(raw)
+    hosts = [f"www.{apex}", apex] if original.startswith("www.") else [apex, f"www.{apex}"]
+    return [f"https://{host}" for host in dict.fromkeys(hosts)]
+
+
+_DNS_ERROR_HINTS = (
+    "dns resolution failed",
+    "could not resolve host",
+    "name or service not known",
+    "name resolution",
+    "hostname",
+    "nxdomain",
+)
+
+
+def _eh_erro_dns(exc: Exception) -> bool:
+    message = str(exc or "").lower()
+    return any(hint in message for hint in _DNS_ERROR_HINTS)
+
+
+def _firecrawl_scrape_com_variantes(raw: Optional[str]) -> tuple[Dict[str, Any], str]:
+    """Tenta apex e www, usando fallback apenas para falha de DNS."""
+    urls = _urls_candidatas(raw)
+    if not urls:
+        raise RuntimeError("Domínio inválido")
+    try:
+        return _firecrawl_scrape(urls[0]), urls[0]
+    except Exception as first_error:
+        if len(urls) < 2 or not _eh_erro_dns(first_error):
+            raise
+        logger.info("host %s não resolveu; tentando %s", urls[0], urls[1])
+        try:
+            return _firecrawl_scrape(urls[1]), urls[1]
+        except Exception as second_error:
+            if _eh_erro_dns(second_error):
+                raise RuntimeError(
+                    "Não encontramos o domínio. Testamos os endereços com e sem www."
+                ) from second_error
+            raise RuntimeError(
+                "Não foi possível ler o site. Testamos os endereços com e sem www. "
+                f"{str(second_error)[:220]}"
+            ) from second_error
+
+
 def _firecrawl_timeout() -> int:
     """Timeout configurável, limitado para não prender workers Flask."""
     raw = os.environ.get("FIRECRAWL_TIMEOUT_S", str(FIRECRAWL_TIMEOUT_S))
@@ -207,6 +268,74 @@ def _extrair_menu_links(fc_links: list, dominio: str, limite: int = 8) -> list:
             seg = chave.strip("/").split("/")[-1]
             texto = seg.replace("-", " ").replace("_", " ").title() or chave
         resultado.append({"label": texto[:60], "url": parsed.geturl()})
+        if len(resultado) >= limite:
+            break
+    return resultado
+
+
+_SOCIAL_PLATFORMS = (
+    ("instagram", ("instagram.com",), ()),
+    ("linkedin", ("linkedin.com",), ("/company/", "/in/", "/school/")),
+    ("youtube", ("youtube.com",), ("/@", "/channel/", "/c/", "/user/")),
+    ("tiktok", ("tiktok.com",), ("/@",)),
+    ("facebook", ("facebook.com", "fb.com"), ()),
+    ("x", ("x.com", "twitter.com"), ()),
+)
+
+
+def _extrair_redes_sociais(fc_links: list, limite: int = 8) -> list:
+    """Extrai perfis sociais públicos presentes nos links da página."""
+    if not isinstance(fc_links, list):
+        return []
+    resultado = []
+    vistos = set()
+    for item in fc_links:
+        raw_url = item.get("url") if isinstance(item, dict) else item
+        url = str(raw_url or "").strip()
+        if not url:
+            continue
+        if url.startswith("//"):
+            url = "https:" + url
+        if not url.startswith(("http://", "https://")):
+            continue
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            continue
+        host = (parsed.hostname or "").lower()
+        path = re.sub(r"/+", "/", parsed.path or "/")
+        platform = ""
+        for candidate, domains, required_prefixes in _SOCIAL_PLATFORMS:
+            if not any(host == domain or host.endswith("." + domain) for domain in domains):
+                continue
+            if required_prefixes and not path.lower().startswith(required_prefixes):
+                break
+            platform = candidate
+            break
+        if not platform:
+            continue
+        lower_path = path.lower()
+        if any(fragment in lower_path for fragment in (
+            "/share", "/sharer", "/intent/", "/watch", "/shorts/", "/reel/", "/p/"
+        )):
+            continue
+        normalized = f"https://{host}{path.rstrip('/') or '/'}"
+        key = (platform, normalized.lower())
+        if key in vistos:
+            continue
+        vistos.add(key)
+        resultado.append({
+            "platform": platform,
+            "label": {
+                "instagram": "Instagram",
+                "linkedin": "LinkedIn",
+                "youtube": "YouTube",
+                "tiktok": "TikTok",
+                "facebook": "Facebook",
+                "x": "X",
+            }[platform],
+            "url": normalized,
+        })
         if len(resultado) >= limite:
             break
     return resultado
@@ -305,7 +434,11 @@ def _firecrawl_scrape(url: str) -> Dict[str, Any]:
     raise RuntimeError(f"Firecrawl indisponível: {last_error or 'falha desconhecida'}")
 
 
-def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
+def _montar_registro(
+    dominio: str,
+    fc_data: Dict[str, Any],
+    base_url_efetiva: Optional[str] = None,
+) -> Dict[str, Any]:
     """Traduz o payload do Firecrawl para o shape da tabela.
 
     Prioridades de logo (ordem de fallback):
@@ -316,7 +449,9 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
     meta = fc_data.get("metadata") or {}
     branding = fc_data.get("branding") or {}
     branding_images = branding.get("images") or {}
-    base_url = _dominio_para_url(dominio)
+    source_url = str(meta.get("sourceURL") or meta.get("url") or "").strip()
+    base_url = source_url if source_url.startswith(("http://", "https://")) else ""
+    base_url = base_url or base_url_efetiva or _dominio_para_url(dominio)
 
     logo = (
         branding.get("logo")
@@ -346,7 +481,9 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
         or ""
     )
 
-    menu_links = _extrair_menu_links(fc_data.get("links") or [], dominio)
+    links = fc_data.get("links") or []
+    menu_links = _extrair_menu_links(links, dominio)
+    social_links = _extrair_redes_sociais(links)
 
     return {
         "logo_url": urljoin(base_url + "/", logo or og_image) if (logo or og_image) else None,
@@ -354,7 +491,10 @@ def _montar_registro(dominio: str, fc_data: Dict[str, Any]) -> Dict[str, Any]:
         "titulo": (titulo or "").strip()[:255] or None,
         "descricao": (descricao or "").strip() or None,
         "menu_links": menu_links,
-        "dados_extras": None,  # Reservado para Fase C.
+        "dados_extras": {
+            "social_links": social_links,
+            "source_url": base_url,
+        },
     }
 
 
@@ -526,9 +666,8 @@ def refresh_web_info(cliente_id, dominio: str) -> Dict[str, Any]:
     if not d:
         return _upsert_erro(cliente_id, dominio or "", "Domínio inválido")
 
-    url = _dominio_para_url(d)
     try:
-        fc_data = _firecrawl_scrape(url)
+        fc_data, effective_url = _firecrawl_scrape_com_variantes(dominio)
     except Exception as e:
         logger.warning(
             "refresh_web_info %s (%s) falhou no Firecrawl: %s: %s",
@@ -536,7 +675,7 @@ def refresh_web_info(cliente_id, dominio: str) -> Dict[str, Any]:
         )
         return _upsert_erro(cliente_id, d, str(e))
 
-    payload = _montar_registro(d, fc_data)
+    payload = _montar_registro(d, fc_data, effective_url)
     anterior = obter_web_info(cliente_id) or {}
     local = _persistir_logo_cliente(cliente_id, payload.get("logo_url"))
     if local:

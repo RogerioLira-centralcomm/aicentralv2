@@ -130,6 +130,7 @@
           </td>
 
           <td class="is-center col-periodo">
+            {% if cotacao.periodo_inicio %}
             <div>{{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}</div>
             {% if status_enviada and dias_para_inicio is not none %}
               {% if dias_para_inicio < 0 %}

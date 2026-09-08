@@ -162,16 +162,26 @@ def add_message(conversation_id, user_id, role, content, display=None, model=Non
             ),
         )
         row = cur.fetchone()
-        title = content.strip().replace("\n", " ")[:70] if role == "user" else None
-        cur.execute(
-            """
-            UPDATE agent_conversations
-            SET updated_at = NOW(),
-                title = CASE WHEN title = 'Nova conversa' AND %s IS NOT NULL THEN %s ELSE title END
-            WHERE id = %s AND user_id = %s
-            """,
-            (title, title, conversation_id, user_id),
-        )
+        if role == "user":
+            title = content.strip().replace("\n", " ")[:70]
+            cur.execute(
+                """
+                UPDATE agent_conversations
+                SET updated_at = NOW(),
+                    title = CASE WHEN title = 'Nova conversa' THEN %s ELSE title END
+                WHERE id = %s AND user_id = %s
+                """,
+                (title, conversation_id, user_id),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE agent_conversations
+                SET updated_at = NOW()
+                WHERE id = %s AND user_id = %s
+                """,
+                (conversation_id, user_id),
+            )
     conn.commit()
     return row
 

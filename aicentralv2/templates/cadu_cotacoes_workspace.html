@@ -1,0 +1,150 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}{{ cotacao.numero_cotacao }} · {{ cotacao.tipo_comercial_label }}{% endblock %}
+{% block page_label %}Cotações{% endblock %}
+{% block page_subtitle %}{{ cotacao.tipo_comercial_label }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=1">
+{% endblock %}
+
+{% macro dinheiro(valor) -%}
+  {% if valor is not none %}
+    R$ {{ "{:,.2f}".format(valor|float).replace(',', '_').replace('.', ',').replace('_', '.') }}
+  {% else %}—{% endif %}
+{%- endmacro %}
+
+{% macro data_br(valor) -%}
+  {{ valor.strftime('%d/%m/%Y') if valor and valor.strftime is defined else (valor or '—') }}
+{%- endmacro %}
+
+{% block content %}
+<div class="cot-workspace" data-workspace-type="{{ cotacao.tipo_comercial }}">
+  <header class="cot-workspace-head">
+    <div class="cot-workspace-title">
+      <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="cot-workspace-back">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        Cotações
+      </a>
+      <div>
+        <div class="cot-workspace-identity">
+          <span class="cot-workspace-number">{{ cotacao.numero_cotacao }}</span>
+          <span class="cot-workspace-type">{{ cotacao.tipo_comercial_label }}</span>
+          <span class="cot-workspace-status">{{ cotacao.status or 'Rascunho' }}</span>
+        </div>
+        <h1>{{ cotacao.nome_campanha or workspace.titulo }}</h1>
+        <p>{{ workspace.orientacao }}</p>
+      </div>
+    </div>
+    <a href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
+       class="cx-btn cx-btn-primary">
+      <i class="fa-solid fa-pen" aria-hidden="true"></i>
+      Editar cabeçalho
+    </a>
+  </header>
+
+  <div class="cot-workspace-layout">
+    <aside class="cot-workspace-sidebar" aria-label="Navegação da cotação">
+      <div class="cot-workspace-next">
+        <span>Próximo passo</span>
+        <strong>{{ workspace.proximo_passo }}</strong>
+        <p>O PI deste produto será independente do fluxo e da calculadora de Mídia.</p>
+      </div>
+      <nav>
+        <a href="#visao-geral" class="is-active">Visão geral</a>
+        <a href="#escopo">Escopo comercial</a>
+        <a href="#condicoes">Condições</a>
+        <a href="#anexos">Anexos <span>{{ anexos|length }}</span></a>
+      </nav>
+      <div class="cot-workspace-guard">
+        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+        <div>
+          <strong>Fluxo isolado</strong>
+          <span>Sem linhas, audiências ou cálculo de Mídia.</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="cot-workspace-main">
+      <section id="visao-geral" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Visão geral</h2>
+          <p>Identificação e controle comercial da proposta.</p>
+        </div>
+        <div class="cot-workspace-table-wrap">
+          <table class="cot-workspace-table">
+            <tbody>
+              <tr><th>Cliente final</th><td>{{ cotacao.cliente_nome or '—' }}</td><th>Agência</th><td>{{ cotacao.agencia_nome or '—' }}</td></tr>
+              <tr><th>Responsável</th><td>{{ cotacao.responsavel_nome or 'Sem responsável' }}</td><th>Status</th><td>{{ cotacao.status or 'Rascunho' }}</td></tr>
+              <tr><th>Período</th><td>{{ data_br(cotacao.periodo_inicio) }} a {{ data_br(cotacao.periodo_fim) }}</td><th>Tipo</th><td>{{ cotacao.tipo_comercial_label }}</td></tr>
+              <tr><th>Budget estimado</th><td>{{ dinheiro(cotacao.budget_estimado) }}</td><th>Valor da proposta</th><td>{{ dinheiro(cotacao.valor_total_proposta) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="escopo" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Escopo comercial</h2>
+          <p>Base de trabalho para a proposta e para o futuro PI deste produto.</p>
+        </div>
+        <dl class="cot-workspace-copy">
+          <div>
+            <dt>Objetivo</dt>
+            <dd>{{ cotacao.objetivo_campanha or 'Objetivo ainda não informado.' }}</dd>
+          </div>
+          <div>
+            <dt>Briefing e refinamento</dt>
+            <dd>{{ cotacao.apresentacao_dados or 'Briefing ainda não informado.' }}</dd>
+          </div>
+          <div>
+            <dt>Observações</dt>
+            <dd>{{ cotacao.observacoes or 'Sem observações.' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section id="condicoes" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Condições e premissas</h2>
+          <p>Referências que orientam entrega, preço e aprovação.</p>
+        </div>
+        <div class="cot-workspace-table-wrap">
+          <table class="cot-workspace-table cot-workspace-table-copy">
+            <tbody>
+              <tr><th>Condições comerciais</th><td>{{ cotacao.condicoes_comerciais or 'Não informadas.' }}</td></tr>
+              <tr><th>Premissas</th><td>{{ cotacao.premissas or 'Não informadas.' }}</td></tr>
+              <tr><th>Observações gerais</th><td>{{ cotacao.observacoes_gerais or 'Não informadas.' }}</td></tr>
+              <tr><th>Notas internas</th><td>{{ cotacao.observacoes_internas or 'Sem notas internas.' }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="anexos" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Anexos</h2>
+          <p>Documentos de apoio vinculados à cotação.</p>
+        </div>
+        <div class="cot-workspace-table-wrap">
+          <table class="cot-workspace-table cot-workspace-files">
+            <thead><tr><th>Arquivo</th><th>Descrição</th><th>Tipo</th><th></th></tr></thead>
+            <tbody>
+              {% for anexo in anexos %}
+              <tr>
+                <td>{{ anexo.nome_original or anexo.nome_arquivo or 'Arquivo' }}</td>
+                <td>{{ anexo.descricao or '—' }}</td>
+                <td>{{ anexo.mime_type or '—' }}</td>
+                <td><a href="{{ anexo.url_arquivo }}" target="_blank" rel="noopener">Abrir</a></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="cot-workspace-empty">Nenhum anexo vinculado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

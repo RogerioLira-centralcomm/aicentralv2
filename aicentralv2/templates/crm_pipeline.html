@@ -865,13 +865,16 @@ function preencherModal(c) {
   tipoComunicacaoAtual = 'email';
   selecionarTipoComunicacao('email');
   
-  document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/detalhes`;
-  document.getElementById('modal_mover_status').value = '';
+  document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/abrir`;
+  const moverStatus = document.getElementById('modal_mover_status');
+  const isMidia = (c.tipo_comercial || 'midia') === 'midia';
+  moverStatus.value = '';
+  moverStatus.disabled = !isMidia;
   
   // Botões de ação
   const btnAprovar = document.getElementById('btn_aprovar');
   const btnRejeitar = document.getElementById('btn_rejeitar');
-  if (c.status === 'Aprovada' || c.status === 'Rejeitada') {
+  if (!isMidia || c.status === 'Aprovada' || c.status === 'Rejeitada') {
     btnAprovar.style.display = 'none';
     btnRejeitar.style.display = 'none';
   } else {

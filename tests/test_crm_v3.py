@@ -462,7 +462,7 @@ class CrmTestApiTest(unittest.TestCase):
         cotacao = body["cotacao"]
         self.assertEqual(cotacao["tipo_comercial"], "dados")
         self.assertEqual(cotacao["tipo_comercial_label"], "Dados")
-        self.assertTrue(body["redirect_url"].endswith(f"/{cotacao['id']}/editar"))
+        self.assertTrue(body["redirect_url"].endswith(f"/{cotacao['id']}/abrir"))
 
         approval = self.client.patch(
             f"/crm-v3/api/cotacoes/{cotacao['id']}",

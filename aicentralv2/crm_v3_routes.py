@@ -8,7 +8,7 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 from flask import Blueprint, current_app, g, jsonify, render_template, request, session, url_for
 
 from .auth import admin_required_api, login_required, login_required_api
-from .cotacao_tipos import destino_tipo_comercial, normalizar_tipo_comercial
+from .cotacao_tipos import normalizar_tipo_comercial
 from .crm_v3_helpers import normalizar_telefone, parse_texto_contatos, texto_sem_markdown
 from .crm_v3_repository import StoreUnavailable, get_store, store_diagnostic
 
@@ -181,11 +181,10 @@ def _err(message, status=400):
 def _cotacao_redirect_url(cotacao):
     if not cotacao or not cotacao.get("id"):
         return None
-    endpoint, sufixo = destino_tipo_comercial(cotacao.get("tipo_comercial"))
     try:
-        return url_for(endpoint, cotacao_id=cotacao["id"])
+        return url_for("cotacoes.cotacao_abrir", cotacao_id=cotacao["id"])
     except Exception:  # blueprint reduzido em testes e desenvolvimento
-        return f"/cotacoes/{cotacao['id']}/{sufixo}"
+        return f"/cotacoes/{cotacao['id']}/abrir"
 
 
 def _cotacao_com_url(cotacao):

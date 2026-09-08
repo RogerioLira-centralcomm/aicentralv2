@@ -1426,7 +1426,31 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   border-right: 1px solid var(--cx-border);
 }
 .cx-cotacao-editor-side {
-  background: #f4f7f7;
+  background: #eef3f3;
+}
+.cx-cot-control {
+  position: relative;
+  padding: 16px;
+  border: 1px solid #d7e2e2;
+  border-radius: 10px;
+  background: var(--cx-surface);
+  box-shadow: 0 12px 32px rgba(15, 47, 49, .07);
+}
+.cx-cot-control::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--cx-brand);
+  content: "";
+}
+.cx-cot-control .cx-drawer-section-title,
+.cx-cot-control .cx-drawer-section-subtitle {
+  padding-left: 2px;
+}
+.cx-cot-control .cx-drawer-section-subtitle {
+  margin: 3px 0 14px;
+  max-width: 34ch;
 }
 .cx-cotacao-editor .cx-drawer-section:first-child {
   padding-top: 0;

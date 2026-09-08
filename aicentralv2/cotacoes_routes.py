@@ -25,7 +25,12 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import login_required
-from aicentralv2.cotacao_tipos import destino_tipo_comercial, normalizar_tipo_comercial
+from aicentralv2.cotacao_tipos import (
+    destino_tipo_comercial,
+    normalizar_tipo_comercial,
+    rotulo_tipo_comercial,
+    workspace_tipo_comercial,
+)
 
 from aicentralv2.db import PLATAFORMA_CATEGORIAS_CANONICAS as _ORDEM_CATEGORIA_PLATAFORMA
 
@@ -942,8 +947,9 @@ def cotacao_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-            destino, _ = destino_tipo_comercial(kwargs['tipo_comercial'])
-            return redirect(url_for(destino, cotacao_id=resultado['id']))
+            return redirect(
+                url_for('cotacoes.cotacao_abrir', cotacao_id=resultado['id'])
+            )
 
         except Exception as e:
             current_app.logger.error(f"cotacao_nova POST: {e}", exc_info=True)
@@ -1132,8 +1138,9 @@ def cotacao_editar(cotacao_id):
                 dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total},
             )
 
-            destino, _ = destino_tipo_comercial(update_kwargs['tipo_comercial'])
-            return redirect(url_for(destino, cotacao_id=cotacao_id))
+            return redirect(
+                url_for('cotacoes.cotacao_abrir', cotacao_id=cotacao_id)
+            )
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores_centralcomm()
@@ -1174,6 +1181,48 @@ def cotacao_editar(cotacao_id):
         return redirect(url_for('cotacoes.cotacoes_list'))
 
 
+@bp.route('/cotacoes/<int:cotacao_id>/abrir')
+@login_required
+def cotacao_abrir(cotacao_id):
+    """Resolve a tela correta sem expor a calculadora aos novos produtos."""
+    cotacao = db.obter_cotacao_por_id(cotacao_id)
+    if not cotacao:
+        flash('Cotação não encontrada.', 'error')
+        return redirect(url_for('cotacoes.cotacoes_list'))
+    destino, _ = destino_tipo_comercial(cotacao.get('tipo_comercial'))
+    return redirect(url_for(destino, cotacao_id=cotacao_id))
+
+
+@bp.route('/cotacoes/<int:cotacao_id>/workspace')
+@login_required
+def cotacao_workspace(cotacao_id):
+    """Workspace comercial compartilhado pelos tipos que não são Mídia."""
+    try:
+        cotacao = db.obter_cotacao_por_id(cotacao_id)
+        if not cotacao:
+            flash('Cotação não encontrada.', 'error')
+            return redirect(url_for('cotacoes.cotacoes_list'))
+
+        tipo = normalizar_tipo_comercial(cotacao.get('tipo_comercial'))
+        if tipo == 'midia':
+            return redirect(
+                url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao_id)
+            )
+
+        cotacao['tipo_comercial'] = tipo
+        cotacao['tipo_comercial_label'] = rotulo_tipo_comercial(tipo)
+        return render_template(
+            'cadu_cotacoes_workspace.html',
+            cotacao=cotacao,
+            workspace=workspace_tipo_comercial(tipo),
+            anexos=db.obter_anexos_cotacao(cotacao_id) or [],
+        )
+    except Exception as e:
+        current_app.logger.error(f"cotacao_workspace: {e}", exc_info=True)
+        flash('Erro ao carregar o workspace da cotação.', 'error')
+        return redirect(url_for('cotacoes.cotacoes_list'))
+
+
 @bp.route('/cotacoes/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
 @login_required
 def cotacao_detalhes(cotacao_id):
@@ -1183,13 +1232,8 @@ def cotacao_detalhes(cotacao_id):
             flash('Cotação não encontrada.', 'error')
             return redirect(url_for('cotacoes.cotacoes_list'))
         if normalizar_tipo_comercial(cotacao.get('tipo_comercial')) != 'midia':
-            flash(
-                'A montagem e a calculadora atuais são exclusivas para Mídia. '
-                'Este rascunho terá um módulo próprio.',
-                'warning',
-            )
             return redirect(
-                url_for('cotacoes.cotacao_editar', cotacao_id=cotacao_id)
+                url_for('cotacoes.cotacao_workspace', cotacao_id=cotacao_id)
             )
 
         if request.method == 'POST':

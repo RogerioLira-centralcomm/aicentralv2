@@ -115,10 +115,10 @@
         {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
 
         <tr class="{% if urgente %}is-urgente{% endif %}"
-            onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
+            onclick="window.location.href='/cotacoes/{{ cotacao.id }}/abrir'">
 
           <td class="col-cotacao" onclick="event.stopPropagation()">
-            <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
+            <a href="/cotacoes/{{ cotacao.id }}/abrir" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
             <div class="cot-lista-sub">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
           </td>
 
@@ -416,8 +416,16 @@ async function abrirModalCotacao(cotacaoId) {
     document.getElementById('mcl_total_audiencias').textContent = totalAudiencias;
     document.getElementById('mcl_total_anexos').textContent = totalAnexos;
 
-    document.getElementById('mcl_link_itens').href = `/cotacoes/${c.id}/detalhes`;
-    document.getElementById('mcl_link_audiencias').href = `/cotacoes/${c.id}/detalhes`;
+    const linkCotacao = `/cotacoes/${c.id}/abrir`;
+    const isMidia = (c.tipo_comercial || 'midia') === 'midia';
+    const linkItens = document.getElementById('mcl_link_itens');
+    const linkAudiencias = document.getElementById('mcl_link_audiencias');
+    linkItens.href = linkCotacao;
+    linkAudiencias.href = linkCotacao;
+    linkItens.innerHTML = isMidia
+      ? '<i class="fa-solid fa-list text-xs"></i>Itens da Proposta'
+      : '<i class="fa-solid fa-folder-open text-xs"></i>Abrir cotação';
+    linkAudiencias.classList.toggle('hidden', !isMidia);
 
     const btnDeletar = document.getElementById('mcl_btn_deletar');
     const avisoPi = document.getElementById('mcl_aviso_pi');
@@ -488,7 +496,7 @@ function duplicarCotacao(cotacaoId) {
   .then(data => {
     if (data.success) {
       showToast('Cotação duplicada com sucesso!', 'success');
-      window.location.href = `/cotacoes/${data.nova_cotacao_id}/detalhes`;
+      window.location.href = `/cotacoes/${data.nova_cotacao_id}/abrir`;
     } else {
       showToast(data.message || 'Erro ao duplicar', 'error');
     }

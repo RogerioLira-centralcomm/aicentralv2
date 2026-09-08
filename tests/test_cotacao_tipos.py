@@ -5,6 +5,7 @@ from aicentralv2.cotacao_tipos import (
     normalizar_tipo_comercial,
     rotulo_tipo_comercial,
     validar_status_tipo_comercial,
+    workspace_tipo_comercial,
 )
 
 
@@ -44,9 +45,18 @@ class CotacaoTiposTest(unittest.TestCase):
         for tipo in ("parceiros", "formatos_interativos", "dados"):
             with self.subTest(tipo=tipo):
                 self.assertEqual(
-                    ("cotacoes.cotacao_editar", "editar"),
+                    ("cotacoes.cotacao_workspace", "workspace"),
                     destino_tipo_comercial(tipo),
                 )
+
+    def test_novos_tipos_tem_workspace_proprio(self):
+        self.assertIsNone(workspace_tipo_comercial("midia"))
+        for tipo in ("parceiros", "formatos_interativos", "dados"):
+            with self.subTest(tipo=tipo):
+                workspace = workspace_tipo_comercial(tipo)
+                self.assertTrue(workspace["titulo"])
+                self.assertTrue(workspace["orientacao"])
+                self.assertTrue(workspace["proximo_passo"])
 
 
 if __name__ == "__main__":

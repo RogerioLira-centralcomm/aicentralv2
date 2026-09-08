@@ -181,6 +181,29 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("changeAgencyClientLink(wrapper, selected, false)", self.drawer_js)
         self.assertIn("method: active ? 'POST' : 'DELETE'", self.drawer_js)
         self.assertIn(".cx-agency-client-row", self.enterprise_css)
+        self.assertIn('data-cot-media-only hidden', self.drawer)
+
+    def test_non_media_drawer_preserves_media_fields_and_legacy_data(self):
+        self.assertIn('data-field="plataformas"', self.drawer)
+        self.assertIn("payload.tipo_comercial === 'midia'", self.drawer_js)
+        self.assertIn("delete payload.plataformas", self.drawer_js)
+        self.assertIn("element.id === 'cx-cot-agency-clients'", self.drawer_js)
+
+    def test_quote_budget_uses_brl_mask_and_canonical_payload(self):
+        self.assertIn('id="cx-cot-budget"', self.drawer)
+        self.assertIn('inputmode="decimal"', self.drawer)
+        self.assertIn('id="cx-cot-budget-value"', self.drawer)
+        self.assertIn("function parseBudgetBr", self.drawer_js)
+        self.assertIn("style: 'currency'", self.drawer_js)
+        self.assertIn("wireBudgetCotacao(wrapper)", self.drawer_js)
+
+    def test_quote_duration_excludes_start_day(self):
+        duration = self.drawer_js.split("function contarDias", 1)[1].split(
+            "function wireBudgetCotacao", 1
+        )[0]
+        self.assertIn("Math.round((b - a) / 86400000)", duration)
+        self.assertNotIn("/ 86400000) + 1", duration)
+        self.assertIn("cursor.setDate(cursor.getDate() + 1)", duration)
 
     def test_crm_does_not_use_blocking_confirmations_or_alerts(self):
         scripts = self.js + "\n" + self.drawer_js

@@ -87,7 +87,7 @@
               <textarea id="cx-cot-objetivo" name="objetivo" data-field="objetivo"
                         rows="4" placeholder="Descreva o resultado esperado e o contexto da proposta."></textarea>
             </div>
-            <div class="cx-drawer-field cx-drawer-field-span-2">
+            <div class="cx-drawer-field cx-drawer-field-span-2" data-cot-media-only>
               <label for="cx-cot-plataformas">Plataformas</label>
               <input id="cx-cot-plataformas" type="text" name="plataformas"
                      data-field="plataformas" placeholder="TV, OOH, Meta Ads">
@@ -182,7 +182,8 @@
           </div>
         </details>
 
-        <section class="cx-drawer-section cx-agency-clients" id="cx-cot-agency-clients" hidden>
+        <section class="cx-drawer-section cx-agency-clients" id="cx-cot-agency-clients"
+                 data-cot-media-only hidden>
           <div class="cx-agency-clients-head">
             <div>
               <div class="cx-drawer-section-title">Clientes da agência</div>
@@ -219,8 +220,9 @@
           <div class="cx-cot-agent-result" id="cx-cot-agent-result" hidden aria-live="polite"></div>
         </section>
 
-        <section class="cx-drawer-section">
-          <div class="cx-drawer-section-title">Condição comercial</div>
+        <section class="cx-drawer-section cx-cot-control">
+          <div class="cx-drawer-section-title">Controle da cotação</div>
+          <div class="cx-drawer-section-subtitle">Responsabilidade, investimento e período desta proposta.</div>
           <div class="cx-drawer-grid">
             <div class="cx-drawer-field">
               <label for="cx-cot-status">Status</label>
@@ -235,8 +237,10 @@
             </div>
             <div class="cx-drawer-field">
               <label for="cx-cot-budget">Budget estimado</label>
-              <input id="cx-cot-budget" type="number" min="0" step="0.01"
-                     name="budget_estimado" data-field="budget_estimado" placeholder="0,00">
+              <input id="cx-cot-budget" type="text" inputmode="decimal"
+                     autocomplete="off" placeholder="R$ 0,00">
+              <input id="cx-cot-budget-value" type="hidden" name="budget_estimado"
+                     data-field="budget_estimado">
             </div>
             <div class="cx-drawer-field cx-drawer-field-span-2">
               <label for="cx-cot-responsavel">Responsável comercial</label>
@@ -264,7 +268,8 @@
           </p>
         </section>
 
-        <section class="cx-drawer-section cx-drawer-note" id="cx-cot-montagem-note">
+        <section class="cx-drawer-section cx-drawer-note" id="cx-cot-montagem-note"
+                 data-cot-media-only>
           <div class="cx-drawer-note-icon" aria-hidden="true">
             <i class="fa-solid fa-file-invoice-dollar"></i>
           </div>

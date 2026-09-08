@@ -466,7 +466,7 @@
             const titulo = c.numero_cotacao || `#${c.id}`;
             const campanha = c.nome_campanha || 'Campanha sem nome';
             return `
-                <a class="crm-cot-card" href="/cotacoes/${c.id}/detalhes">
+                <a class="crm-cot-card" href="/cotacoes/${c.id}/abrir">
                     <div class="crm-cot-top">
                         <span class="crm-cot-numero">${escapeHtml(titulo)}</span>
                         ${badgeStatusCotacao(c.status)}

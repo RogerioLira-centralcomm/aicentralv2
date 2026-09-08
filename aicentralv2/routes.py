@@ -5481,6 +5481,7 @@ def init_routes(app):
                 'executivo_id': cotacao.get('responsavel_comercial'),
                 'numero_cotacao': cotacao['numero_cotacao'],
                 'nome_campanha': cotacao['nome_campanha'],
+                'tipo_comercial': cotacao.get('tipo_comercial') or 'midia',
                 'status': cotacao['status'],
                 'valor_total_proposta': float(cotacao.get('valor_total_proposta') or 0),
                 'valor_bruto': float(cotacao.get('valor_bruto') or cotacao.get('valor_total_proposta') or 0),

@@ -1918,10 +1918,15 @@
     function submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
         payload.tipo_comercial = payload.tipo_comercial || 'midia';
-        payload.plataformas = String(payload.plataformas || '')
-            .split(',')
-            .map(function (item) { return item.trim(); })
-            .filter(Boolean);
+        if (payload.tipo_comercial === 'midia' &&
+                form.querySelector('[data-field="plataformas"]')) {
+            payload.plataformas = String(payload.plataformas || '')
+                .split(',')
+                .map(function (item) { return item.trim(); })
+                .filter(Boolean);
+        } else {
+            delete payload.plataformas;
+        }
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
@@ -1961,7 +1966,7 @@
                     || null;
                 if (!url) {
                     var novoId = (resp && resp.cotacao && resp.cotacao.id) || (cotacao && cotacao.id);
-                    var sufixo = payload.tipo_comercial === 'midia' ? 'detalhes' : 'editar';
+                    var sufixo = payload.tipo_comercial === 'midia' ? 'detalhes' : 'workspace';
                     if (novoId) url = '/cotacoes/' + encodeURIComponent(novoId) + '/' + sufixo;
                 }
                 if (url) {
@@ -2000,6 +2005,19 @@
 
         function update() {
             var isMidia = (tipo.value || 'midia') === 'midia';
+            var agent = wrapper.querySelector('.cx-cot-agent');
+            var main = wrapper.querySelector('.cx-cotacao-editor-main');
+            var side = wrapper.querySelector('.cx-cotacao-editor-side');
+            var refine = wrapper.querySelector('.cx-cot-refine');
+            var control = wrapper.querySelector('.cx-cot-control');
+            if (agent && main && side) {
+                if (isMidia && control) side.insertBefore(agent, control);
+                if (!isMidia && refine) main.insertBefore(agent, refine);
+            }
+            $$('[data-cot-media-only]', wrapper).forEach(function (element) {
+                element.hidden = !isMidia ||
+                    (element.id === 'cx-cot-agency-clients' && !wrapper._cotAgencyId);
+            });
             if (status) {
                 if (!isMidia) status.value = 'rascunho';
                 status.disabled = !isMidia;
@@ -2465,7 +2483,7 @@
     }
 
     function contarDias(inicioIso, fimIso) {
-        // Retorna { corridos, uteis } inclusivos.
+        // Retorna a diferença entre as datas, sem contar o dia inicial.
         // Considera "dia útil" apenas seg-sex; feriados ficam fora
         // desta fase para manter paridade com o campo "Duração" do
         // form legado `/cotacoes/nova` (que também não desconta
@@ -2477,17 +2495,62 @@
         var b = new Date(Number(pFim[0]), Number(pFim[1]) - 1, Number(pFim[2]));
         if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
         if (b < a) return null;
-        var corridos = Math.round((b - a) / 86400000) + 1;
+        var corridos = Math.round((b - a) / 86400000);
         // Loop de dias úteis. 30 dias médios × ~2 anos = ~700 iter
         // máx num caso patológico; ainda barato.
         var uteis = 0;
         var cursor = new Date(a);
+        cursor.setDate(cursor.getDate() + 1);
         for (var i = 0; i < corridos; i++) {
             var dow = cursor.getDay();
             if (dow !== 0 && dow !== 6) uteis++;
             cursor.setDate(cursor.getDate() + 1);
         }
         return { corridos: corridos, uteis: uteis };
+    }
+
+    function parseBudgetBr(value) {
+        var raw = String(value == null ? '' : value).trim();
+        if (!raw) return '';
+        raw = raw.replace(/[R$\s]/g, '');
+        if (raw.indexOf(',') >= 0) {
+            raw = raw.replace(/\./g, '').replace(',', '.');
+        }
+        var number = Number(raw);
+        return Number.isFinite(number) && number >= 0 ? number.toFixed(2) : '';
+    }
+
+    function formatBudgetBr(value) {
+        var canonical = parseBudgetBr(value);
+        if (!canonical) return '';
+        return Number(canonical).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function wireBudgetCotacao(wrapper) {
+        var display = wrapper.querySelector('#cx-cot-budget');
+        var hidden = wrapper.querySelector('#cx-cot-budget-value');
+        if (!display || !hidden) return;
+
+        function setValue(value) {
+            var canonical = parseBudgetBr(value);
+            hidden.value = canonical;
+            display.value = canonical ? formatBudgetBr(canonical) : '';
+        }
+        function syncRaw() {
+            hidden.value = parseBudgetBr(display.value);
+        }
+        display.addEventListener('input', syncRaw);
+        display.addEventListener('blur', function () { setValue(display.value); });
+        display.addEventListener('focus', function () {
+            if (hidden.value) display.value = Number(hidden.value).toFixed(2).replace('.', ',');
+        });
+        wrapper._setCotBudget = setValue;
+        setValue(hidden.value);
     }
 
     function wireDuracaoCotacao(wrapper) {
@@ -2612,12 +2675,17 @@
             periodo_inicio: '[data-field="periodo_inicio"]',
             periodo_fim: '[data-field="periodo_fim"]',
             budget_estimado: '[data-field="budget_estimado"]',
-            plataformas: '[data-field="plataformas"]',
             apresentacao_dados: '[data-field="apresentacao_dados"]'
         };
         if (key === 'tipo_comercial') {
             if ((force || !wrapper._cotTypeTouched) && wrapper._selectCotacaoTipo) {
                 wrapper._selectCotacaoTipo(suggestion[key] || 'midia', false);
+            }
+            return;
+        }
+        if (key === 'budget_estimado' && wrapper._setCotBudget) {
+            if (force || !wrapper.querySelector('#cx-cot-budget-value').value) {
+                wrapper._setCotBudget(suggestion[key]);
             }
             return;
         }
@@ -2652,9 +2720,11 @@
                         periodo_inicio: 'Início',
                         periodo_fim: 'Fim',
                         budget_estimado: 'Budget',
-                        plataformas: 'Plataformas',
                         apresentacao_dados: 'Briefing'
                     };
+                    if ((wrapper.querySelector('#cx-cot-tipo').value || 'midia') === 'midia') {
+                        fieldLabels.plataformas = 'Plataformas';
+                    }
                     Object.keys(fieldLabels).forEach(function (key) {
                         applyCotacaoSuggestion(wrapper, suggestion, key, false);
                     });
@@ -2720,12 +2790,13 @@
         if (fullLink && isEdit) {
             fullLink.href = cotacao.detalhes_url || (
                 '/cotacoes/' + encodeURIComponent(cotacao.id) + '/' +
-                ((cotacao.tipo_comercial || 'midia') === 'midia' ? 'detalhes' : 'editar')
+                ((cotacao.tipo_comercial || 'midia') === 'midia' ? 'detalhes' : 'workspace')
             );
             fullLink.hidden = false;
         }
         wireTipoCotacao(wrapper);
         wireCotacaoParticipants(wrapper, cotacao || {});
+        wireBudgetCotacao(wrapper);
         wireCotacaoAgent(wrapper);
 
         // Defaults de data: hoje / hoje+30d — só em criação e só se
@@ -2747,14 +2818,14 @@
         var actions = [
             { label: 'Cancelar', variant: 'ghost', close: true },
             {
-                label: isEdit ? 'Salvar alterações' : 'Salvar rascunho',
+                label: 'Salvar',
                 variant: 'ghost',
                 onClick: function (ev, id) {
                     submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, id, false);
                 }
             },
             {
-                label: isEdit ? 'Salvar e continuar' : 'Criar rascunho e continuar',
+                label: 'Salvar e continuar',
                 variant: 'primary',
                 onClick: function (ev, id) {
                     submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, id, true);

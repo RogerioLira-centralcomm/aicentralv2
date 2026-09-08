@@ -14,6 +14,24 @@ COTACAO_TIPOS = {
 
 TIPO_COMERCIAL_PADRAO = "midia"
 
+COTACAO_WORKSPACES = {
+    "parceiros": {
+        "titulo": "Proposta de parceiros",
+        "orientacao": "Organize escopo, participação comercial e condições antes de estruturar o PI próprio.",
+        "proximo_passo": "Definir entregas e responsabilidades do parceiro",
+    },
+    "formatos_interativos": {
+        "titulo": "Proposta de formatos interativos",
+        "orientacao": "Consolide experiência, produção e requisitos técnicos antes de estruturar o PI próprio.",
+        "proximo_passo": "Detalhar formato, produção e critérios de aceite",
+    },
+    "dados": {
+        "titulo": "Proposta de dados",
+        "orientacao": "Registre fonte, cobertura, finalidade e regras de uso antes de estruturar o PI próprio.",
+        "proximo_passo": "Definir escopo, governança e forma de entrega",
+    },
+}
+
 
 def normalizar_tipo_comercial(valor, *, estrito=True):
     """Retorna o slug canônico; dados legados vazios são sempre Mídia."""
@@ -34,7 +52,13 @@ def destino_tipo_comercial(valor):
     slug = normalizar_tipo_comercial(valor, estrito=False)
     if slug == TIPO_COMERCIAL_PADRAO:
         return "cotacoes.cotacao_detalhes", "detalhes"
-    return "cotacoes.cotacao_editar", "editar"
+    return "cotacoes.cotacao_workspace", "workspace"
+
+
+def workspace_tipo_comercial(valor):
+    """Retorna o conteúdo comercial do workspace dos novos produtos."""
+    slug = normalizar_tipo_comercial(valor)
+    return COTACAO_WORKSPACES.get(slug)
 
 
 def validar_status_tipo_comercial(tipo, status):

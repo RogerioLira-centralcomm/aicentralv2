@@ -8,6 +8,19 @@ fi
 
 # Script de Deploy - AIcentral v2
 set -e
+SERVICE_STOPPED=0
+
+restore_service_on_error() {
+    local exit_code=$?
+    trap - ERR
+    if [ "$SERVICE_STOPPED" = "1" ]; then
+        echo ""
+        echo "  > Falha no deploy; tentando restaurar o serviço..."
+        sudo systemctl start aicentralv2 2>/dev/null || true
+    fi
+    exit "$exit_code"
+}
+trap restore_service_on_error ERR
 export SYSTEMD_PAGER=""
 export PAGER="cat"
 export SYSTEMD_LESS=""
@@ -22,6 +35,7 @@ echo ""
 # 1. Parar servico ANTES de tudo
 echo "[1/7] Parando servico..."
 sudo systemctl stop aicentralv2 2>/dev/null || true
+SERVICE_STOPPED=1
 sleep 2
 
 # Garantir que nenhum gunicorn ficou vivo
@@ -72,7 +86,11 @@ echo ""
 echo "[3/7] Atualizando dependencias..."
 VENV_PIP="venv/bin/pip"
 [ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
-VENV_PYTHON="${VENV_PIP%/pip}python"
+VENV_PYTHON="$(dirname "$VENV_PIP")/python"
+[ ! -x "$VENV_PYTHON" ] && {
+    echo "  > ERRO: Python do ambiente virtual não encontrado em $VENV_PYTHON"
+    exit 1
+}
 
 # Pastas ~pacote em site-packages = uninstall do pip interrompido (ex.: ~vidia-cusparselt-cu13)
 cleanup_pip_orphans() {
@@ -149,6 +167,8 @@ sudo systemctl start aicentralv2
 sleep 3
 
 if sudo systemctl is-active --quiet aicentralv2; then
+    SERVICE_STOPPED=0
+    trap - ERR
     echo "  > Servico ativo!"
 else
     echo "  > ERRO ao iniciar servico"

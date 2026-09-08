@@ -723,9 +723,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn(migration_call, deploy)
         self.assertIn(seed_call, deploy)
         self.assertIn(verify_call, deploy)
-        self.assertLess(deploy.index(migration_call), deploy.index(start_call))
-        self.assertLess(deploy.index(seed_call), deploy.index(start_call))
-        self.assertLess(deploy.index(start_call), deploy.index(verify_call))
+        self.assertIn('VENV_PYTHON="$(dirname "$VENV_PIP")/python"', deploy)
+        self.assertIn("restore_service_on_error", deploy)
+        normal_start = deploy.index(start_call, deploy.index(migration_call))
+        self.assertLess(deploy.index(migration_call), normal_start)
+        self.assertLess(deploy.index(seed_call), normal_start)
+        self.assertLess(normal_start, deploy.index(verify_call))
 
 
 if __name__ == "__main__":

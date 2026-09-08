@@ -162,10 +162,11 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("cotacaoIdentidadeHtml(c)", self.js)
         self.assertIn("data-cotacao-logo", self.js)
         self.assertIn(".crm-v3-cotacao-entity-avatar", self.css)
-        self.assertIn(
-            "linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%)",
-            self.css,
-        )
+        self.assertIn(".crm-v3-cotacao-entity-avatar img", self.css)
+        self.assertIn("background: #fff;", self.css)
+        self.assertIn("crm-v3-cotacao-company-row", self.js)
+        self.assertIn("Data inicial da campanha", self.js)
+        self.assertNotIn("Cliente vinculado:", self.js)
 
     def test_agency_clients_can_be_managed_inside_quote_drawer(self):
         for element_id in (

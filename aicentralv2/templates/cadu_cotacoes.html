@@ -5,10 +5,23 @@
 {% block page_subtitle %}Propostas comerciais{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
+{% macro cot_empresa(nome, logo_url, papel) %}
+  {% if nome %}
+  <span class="cot-lista-empresa" title="{{ papel }}: {{ nome }}">
+    <span class="cot-lista-logo" aria-hidden="true">
+      <span>{{ nome|trim|first|upper }}</span>
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="" loading="lazy" onerror="this.hidden=true">
+      {% endif %}
+    </span>
+    <span class="cot-lista-empresa-nome">{{ nome }}</span>
+  </span>
+  {% endif %}
+{% endmacro %}
 <div class="cot-lista-page">
 
   <div class="cot-lista-header">
@@ -110,7 +123,15 @@
           </td>
 
           <td>
-            <div>{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
+            <div class="cot-lista-identidade">
+              {% if cotacao.agencia_nome %}
+                {{ cot_empresa(cotacao.agencia_nome, cotacao.agencia_logo_url, 'Agência') }}
+                {% if cotacao.cliente_nome %}
+                <i class="fa-solid fa-arrow-right cot-lista-identidade-seta" aria-hidden="true"></i>
+                {% endif %}
+              {% endif %}
+              {{ cot_empresa(cotacao.cliente_nome or 'Sem cliente', cotacao.cliente_logo_url, 'Cliente final') }}
+            </div>
             <div class="cot-lista-sub">{{ cotacao.nome_campanha or '—' }}</div>
           </td>
 

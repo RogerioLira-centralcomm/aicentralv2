@@ -8349,6 +8349,9 @@ def obter_cotacoes_filtradas(
                 SELECT 
                     c.*,
                     cli.nome_fantasia as cliente_nome,
+                    agn.nome_fantasia as agencia_nome,
+                    web_cli.logo_url as cliente_logo_url,
+                    web_agn.logo_url as agencia_logo_url,
                     resp.nome_completo as responsavel_nome,
                     {foto_expr} as responsavel_foto_url,
                     {status_expr} as status_display,
@@ -8359,6 +8362,11 @@ def obter_cotacoes_filtradas(
                     ({liquido_linhas_expr}) + ({audiencia_valor_expr}) as valor_total_liquido
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+                LEFT JOIN tbl_cliente agn ON c.agencia_id = agn.id_cliente
+                LEFT JOIN cliente_web_info web_cli
+                       ON web_cli.id_cliente = c.client_id AND web_cli.status = 'ok'
+                LEFT JOIN cliente_web_info web_agn
+                       ON web_agn.id_cliente = c.agencia_id AND web_agn.status = 'ok'
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
                 {status_join}
                 WHERE {'c.deleted_at IS NULL' if 'deleted_at' in cotacao_cols else 'TRUE'}
@@ -8388,9 +8396,9 @@ def obter_cotacoes_filtradas(
                 params.append(int(mes))
             
             if busca:
-                query += ' AND (cli.nome_fantasia ILIKE %s OR c.nome_campanha ILIKE %s OR c.numero_cotacao ILIKE %s)'
+                query += ' AND (cli.nome_fantasia ILIKE %s OR agn.nome_fantasia ILIKE %s OR c.nome_campanha ILIKE %s OR c.numero_cotacao ILIKE %s)'
                 busca_param = f'%{busca}%'
-                params.extend([busca_param, busca_param, busca_param])
+                params.extend([busca_param, busca_param, busca_param, busca_param])
             
             if status:
                 if status == 'Rascunho':

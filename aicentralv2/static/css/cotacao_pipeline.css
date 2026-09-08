@@ -801,6 +801,7 @@ dialog.modal[open] {
   height: 100%;
   padding: 0.1rem;
   object-fit: contain;
+  background: #fff;
 }
 
 .pp-deal-agency .pp-company-avatar {

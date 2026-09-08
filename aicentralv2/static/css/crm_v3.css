@@ -1824,7 +1824,7 @@ img.crm-v3-avatar-mini {
     border-radius: 8px;
     overflow: hidden;
     flex-shrink: 0;
-    background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
+    background: #f1f5f9;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1866,7 +1866,7 @@ img.crm-v3-avatar-mini {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: transparent;
+    background: #fff;
     padding: 3px;
     display: block;
 }
@@ -1890,7 +1890,7 @@ img.crm-v3-avatar-mini {
     flex-shrink: 0;
     border-radius: 6px;
     border: 1px solid var(--crm-border-light);
-    background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
+    background: #fff;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -1901,7 +1901,7 @@ img.crm-v3-avatar-mini {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: transparent;
+    background: #fff;
     padding: 2px;
     border-radius: 0;
 }
@@ -1914,7 +1914,7 @@ img.crm-v3-avatar-mini {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
+    background: #fff;
     padding: 2px;
     border-radius: 999px;
 }
@@ -6222,8 +6222,8 @@ img.crm-v3-avatar-mini {
 
 .crm-v3-cotacao-card {
     width: 100%;
-    gap: 4px;
-    padding: 7px 8px;
+    gap: 7px;
+    padding: 10px;
     color: inherit;
     font: inherit;
     text-align: left;
@@ -6238,6 +6238,7 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-cotacao-compact-head,
+.crm-v3-cotacao-company-row,
 .crm-v3-cotacao-compact-meta {
     display: flex;
     align-items: center;
@@ -6252,6 +6253,11 @@ img.crm-v3-avatar-mini {
 .crm-v3-cotacao-compact-meta {
     gap: 7px;
     color: var(--crm-text-subtle);
+}
+
+.crm-v3-cotacao-company-row {
+    min-height: 24px;
+    overflow: hidden;
 }
 
 .crm-v3-cotacao-titulo {
@@ -6336,13 +6342,13 @@ img.crm-v3-avatar-mini {
 
 .crm-v3-cotacao-entity-avatar {
     position: relative;
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
     overflow: hidden;
     border: 1px solid #cbd5e1;
     border-radius: 5px;
-    background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
+    background: #f1f5f9;
 }
 
 .crm-v3-cotacao-entity-avatar img,
@@ -6356,13 +6362,14 @@ img.crm-v3-avatar-mini {
 .crm-v3-cotacao-entity-avatar img {
     object-fit: contain;
     padding: 2px;
+    background: #fff;
 }
 
 .crm-v3-cotacao-entity-fallback {
     display: grid;
     place-items: center;
-    color: #fff;
-    font-size: 9px;
+    color: #475569;
+    font-size: 10px;
     font-weight: 800;
 }
 
@@ -6372,11 +6379,11 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-cotacao-entity-name {
-    max-width: 92px;
+    max-width: 118px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--crm-text-muted);
 }
@@ -6395,8 +6402,8 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-cotacao-card-aprovada {
-    gap: 3px;
-    padding: 7px 8px;
+    gap: 6px;
+    padding: 10px;
 }
 
 .crm-v3-cotacao-aprovada-meta {

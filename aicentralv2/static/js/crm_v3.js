@@ -3359,15 +3359,9 @@
 
     function cotacaoCardAberta(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
-        var periodo = [dataParaExibicao(c.periodo_inicio), dataParaExibicao(c.periodo_fim)].filter(Boolean).join(' – ');
+        var inicioCampanha = dataParaExibicao(c.periodo_inicio);
         var statusLabel = c.status_label || c.status_canonico || c.status || '';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
-        var origem = '';
-        if (c.origem === 'vinculado' && c.cliente_nome) {
-            origem = '<span class="crm-v3-cotacao-origem" title="Cliente vinculado: ' + escapeHtml(c.cliente_nome) + '">' +
-                '<i class="fas fa-link" aria-hidden="true"></i> ' + escapeHtml(c.cliente_nome) +
-            '</span>';
-        }
         return (
             '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta crm-v3-cotacao-detalhes' +
                 (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') +
@@ -3376,15 +3370,19 @@
                 '<span class="crm-v3-cotacao-titulo">' + escapeHtml(titulo) + '</span>' +
                 (valor ? '<span class="crm-v3-cotacao-valor">' + escapeHtml(valor) + '</span>' : '') +
             '</span>' +
+            '<span class="crm-v3-cotacao-company-row">' +
+                cotacaoIdentidadeHtml(c) +
+            '</span>' +
             '<span class="crm-v3-cotacao-compact-meta">' +
                 cotacaoTipoHtml(c) +
-                cotacaoIdentidadeHtml(c) +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
                     '<i class="' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
                     escapeHtml(statusLabel) +
                 '</span>' +
-                (periodo ? '<span class="crm-v3-cotacao-data">' + escapeHtml(periodo) + '</span>' : '') +
-                origem +
+                (inicioCampanha
+                    ? '<span class="crm-v3-cotacao-data" title="Data inicial da campanha">Início ' +
+                        escapeHtml(inicioCampanha) + '</span>'
+                    : '') +
             '</span>' +
             '</button>'
         );
@@ -3440,9 +3438,9 @@
      *      todas as linhas).
      *
      * Vínculos (agência ↔ cliente final): cada cotação vem com
-     * `origem: 'proprio' | 'vinculado'` do backend. `cliente_nome`
-     * aparece no card como pill "🔗 Griletto" quando vinculado.
-     * Nada muda aqui — só a agrupação.
+     * `origem: 'proprio' | 'vinculado'` do backend. A relação aparece
+     * diretamente como agência → cliente final, sem um segundo rótulo
+     * que repita ou contradiga o nome mostrado na identidade.
      */
     function renderCotacoes() {
         var container = $('#crm-v3-cotacao-list');
@@ -3545,20 +3543,15 @@
 
     /**
      * Card compacto para cotação APROVADA — destaque verde estilo
-     * Pipedrive-won. Mostra título + valor + período; sem plataformas
+     * Pipedrive-won. Mostra título + valor + início da campanha; sem plataformas
      * detalhadas (já foi ganha, o executivo revisa se quiser detalhe
-     * clicando). Se for cotação vinculada, pill do cliente.
+     * clicando). A identidade agência → cliente já informa o vínculo,
+     * sem repetir um pill com nome potencialmente ambíguo.
      */
     function cotacaoCardAprovada(c) {
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
-        var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
-        var origemPill = '';
-        if (c.origem === 'vinculado' && c.cliente_nome) {
-            origemPill = '<span class="crm-v3-cotacao-origem" title="Cotação de ' + escapeHtml(c.cliente_nome) + '">' +
-                '<i class="fas fa-link" aria-hidden="true"></i> ' + escapeHtml(c.cliente_nome) +
-                '</span>';
-        }
+        var inicioCampanha = dataParaExibicao(c.periodo_inicio);
         return (
             '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aprovada crm-v3-cotacao-detalhes"' +
                 ' data-cotacao-id="' + escapeHtml(c.id) + '"' +
@@ -3571,8 +3564,10 @@
             '<div class="crm-v3-cotacao-aprovada-meta">' +
                 cotacaoTipoHtml(c) +
                 cotacaoIdentidadeHtml(c) +
-                (periodo ? '<span>' + escapeHtml(periodo) + '</span>' : '') +
-                origemPill +
+                (inicioCampanha
+                    ? '<span class="crm-v3-cotacao-data" title="Data inicial da campanha">Início ' +
+                        escapeHtml(inicioCampanha) + '</span>'
+                    : '') +
             '</div>' +
             '</button>'
         );

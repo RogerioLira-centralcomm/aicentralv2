@@ -774,6 +774,7 @@
     <div class="camp-modal-body">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="campanhas_retorno" value="lista">
+        {% if false %}
         <input type="hidden" name="_camp_form_has_under" value="1">
         <input type="hidden" id="id_centralx" name="id_centralx" value="">
         <input type="hidden" id="id_pi" name="id_pi" value="">
@@ -891,6 +892,8 @@
             <div class="camp-field"><label for="val_impostos">Impostos</label><input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1"></div>
           </div>
         </div>
+        {% endif %}
+        {% include 'campanhas_pi/_form_fields.html' %}
 
         <div id="campanha_timestamps" class="grid grid-cols-2 gap-2 mt-2 hidden">
           <div>
@@ -1105,6 +1108,13 @@
 
   document.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
   document.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+  document.querySelectorAll('[data-open-date]').forEach(function(button) {
+    button.addEventListener('click', function() {
+      const input = document.getElementById(button.dataset.openDate);
+      if (input && typeof input.showPicker === 'function') input.showPicker();
+      else if (input) input.focus();
+    });
+  });
 
   // ==================== DISTRIBUIÇÃO % ====================
   var vrPlatMax = 0;
@@ -1344,11 +1354,22 @@
         row.addEventListener('keydown', function(event) {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            row.click();
+            window.location.href = row.dataset.detailUrl;
           }
         });
         const editButton = row.querySelector('[data-row-edit]');
-        if (editButton) editButton.addEventListener('click', function() { row.click(); });
+        if (editButton) {
+          editButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            try {
+              abrirModalEditar(JSON.parse(row.dataset.camp));
+            } catch (error) {
+              console.error('Erro ao abrir edição:', error);
+              notifyCampAction('Não foi possível abrir a edição desta campanha.', 'error');
+            }
+          });
+        }
         const diariosButton = row.querySelector('[data-open-diarios]');
         if (diariosButton) {
           diariosButton.addEventListener('click', function() {

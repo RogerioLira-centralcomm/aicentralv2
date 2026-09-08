@@ -5,9 +5,11 @@
   if (!root) return;
 
   var piId = Number(root.dataset.piId || 0);
+  var campaignId = Number(root.dataset.campanhaId || 0);
   var stage = String(root.dataset.stage || '');
   var readOnly = root.dataset.readonly === 'true';
   var base = '/api/cadu_pi/' + piId + '/operacao';
+  var stateUrl = campaignId ? base + '/campanhas/' + campaignId : base;
   var sidebar = document.getElementById('pi-operation-sidebar');
   var sidebarScroll = document.getElementById('pi-sidebar-scroll');
   var sidebarTrigger = document.getElementById('pi-sidebar-mobile-trigger');
@@ -160,9 +162,11 @@
     var campaigns = list(structure.campanhas);
     var completedCampaigns = campaigns.filter(function (item) { return item.completo; }).length;
     var count = document.getElementById('pi-checklist-campaign-count');
-    if (count) count.textContent = campaigns.length
-      ? completedCampaigns + '/' + campaigns.length + ' prontas'
-      : '';
+    if (count) {
+      count.textContent = campaignId && campaigns.length
+        ? progress.concluidos + '/' + progress.total + ' etapas'
+        : (campaigns.length ? completedCampaigns + '/' + campaigns.length + ' prontas' : '');
+    }
     campaignTarget.className = '';
     campaignTarget.innerHTML = campaigns.length
       ? campaigns.map(function (campaign, campaignIndex) {
@@ -317,7 +321,7 @@
   async function loadOperation() {
     if (!piId) return;
     try {
-      operationData = await request(base);
+      operationData = await request(stateUrl);
       renderRecommendation(operationData);
       renderChecklist(operationData);
       renderTimeline(operationData);
@@ -619,9 +623,18 @@
     checklistGenerate.addEventListener('click', async function () {
       setBusy(this, true, 'Atualizando…');
       try {
-        var data = await request(base + '/checklist/gerar', { method: 'POST' });
-        renderChecklist(data);
-        renderRecommendation(data);
+        var options = { method: 'POST' };
+        if (campaignId) {
+          options.headers = { 'Content-Type': 'application/json' };
+          options.body = JSON.stringify({ campanhas: [campaignId] });
+        }
+        var data = await request(base + '/checklist/gerar', options);
+        if (campaignId) {
+          await loadOperation();
+        } else {
+          renderChecklist(data);
+          renderRecommendation(data);
+        }
         notify(data.message || 'Checklist atualizado.', 'success');
       } catch (error) { notify(error.message, 'error'); }
       finally { setBusy(this, false); }
@@ -778,7 +791,7 @@
   initDrive();
   if (piId) {
     loadOperation();
-    loadCatalog();
+    if (document.getElementById('pi-operation-communications')) loadCatalog();
   }
 
   window.piOperacao = {

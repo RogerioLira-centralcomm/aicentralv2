@@ -71,6 +71,21 @@ class CampanhasPiContractTest(unittest.TestCase):
             / "_lista_row.html"
         ).read_text(encoding="utf-8")
         Environment().parse(row_source)
+        detail_source = (
+            project_root
+            / "aicentralv2"
+            / "templates"
+            / "campanhas_pi_detalhe.html"
+        ).read_text(encoding="utf-8")
+        form_source = (
+            project_root
+            / "aicentralv2"
+            / "templates"
+            / "campanhas_pi"
+            / "_form_fields.html"
+        ).read_text(encoding="utf-8")
+        Environment().parse(detail_source)
+        Environment().parse(form_source)
 
         self.assertIn("data-history-container", source)
         self.assertIn("camp-list-header", source)
@@ -83,6 +98,25 @@ class CampanhasPiContractTest(unittest.TestCase):
             self.assertIn(visible_metric, row_source)
         self.assertIn("camp-investment-bar", row_source)
         self.assertIn("camp-progress", row_source)
+        self.assertIn("campanha_pi_detalhe", row_source)
+        self.assertIn('role="link"', row_source)
+        self.assertNotIn("abrirModalEditar(JSON.parse(this.dataset.camp))", row_source)
+        self.assertIn("abrirModalEditar(JSON.parse(row.dataset.camp))", source)
+        self.assertIn("campanhas_pi/_form_fields.html", source)
+        self.assertIn("campaign-flight-deck", detail_source)
+        self.assertIn("data-campanha-id", detail_source)
+        self.assertIn("pi_operacao/_sidebar.html", detail_source)
+        self.assertIn('name="campanhas_retorno" value="detalhe"', detail_source)
+
+        detail_js = (
+            project_root
+            / "aicentralv2"
+            / "static"
+            / "js"
+            / "campanha_pi_detalhe.js"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("window.alert(", detail_js)
+        self.assertNotIn("window.confirm(", detail_js)
 
     def test_rota_usa_consulta_completa(self):
         project_root = Path(__file__).resolve().parents[1]
@@ -92,6 +126,15 @@ class CampanhasPiContractTest(unittest.TestCase):
 
         self.assertIn("db.obter_campanhas_pi(filtros or None)", route_source)
         self.assertNotIn("obter_campanhas_pi_acompanhamento", route_source)
+
+    def test_rota_detalhe_e_retorno_pos_edicao(self):
+        project_root = Path(__file__).resolve().parents[1]
+        source = (project_root / "aicentralv2" / "routes.py").read_text(encoding="utf-8")
+
+        self.assertIn("@app.route('/campanhas-pi/<int:id_camp>')", source)
+        self.assertIn("def campanha_pi_detalhe(id_camp):", source)
+        self.assertIn("return_to_detail = request.form.get('campanhas_retorno') == 'detalhe'", source)
+        self.assertIn("url_for('campanha_pi_detalhe', id_camp=id_camp)", source)
 
 
 if __name__ == "__main__":

@@ -79,6 +79,14 @@ def obter_operacao(id_pi):
     return _executar(lambda: _ok(_service().estado_completo(id_pi)))
 
 
+@bp.get("/<int:id_pi>/operacao/campanhas/<int:id_campanha>")
+@operacao_required_api
+def obter_operacao_campanha(id_pi, id_campanha):
+    return _executar(
+        lambda: _ok(_service().estado_campanha(id_pi, id_campanha))
+    )
+
+
 @bp.get("/<int:id_pi>/operacao/comunicacoes/catalogo")
 @bp.get("/<int:id_pi>/operacao/comunicacoes")
 @operacao_required_api

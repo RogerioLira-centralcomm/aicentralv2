@@ -1,7 +1,7 @@
 <aside id="pi-operation-sidebar" class="pi-op-sidebar" aria-label="Contexto da operação">
   <div class="pi-op-sidebar__head">
     <div>
-      <h2 id="pi-sidebar-title">Operação do PI</h2>
+      <h2 id="pi-sidebar-title">{% if operacao_modo|default('pi') == 'campanha' %}Operação da campanha{% else %}Operação do PI{% endif %}</h2>
     </div>
     <button type="button" class="pi-op-icon-btn pi-op-sidebar-close" data-sidebar-close aria-label="Fechar painel">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -9,6 +9,7 @@
   </div>
   <div id="pi-sidebar-scroll" class="pi-op-sidebar__scroll">
     <div id="pi-operation-feedback" class="pi-op-feedback" role="status" aria-live="polite" hidden></div>
+    {% if operacao_modo|default('pi') != 'campanha' %}
     <section id="pi-context-panel" class="pi-op-panel pi-op-context" hidden aria-labelledby="pi-context-title">
       <div class="pi-op-panel__title">
         <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
@@ -16,10 +17,11 @@
       </div>
       <div id="pi-context-content"></div>
     </section>
+    {% endif %}
 
     <section class="pi-op-panel pi-op-workflow" aria-labelledby="pi-checklist-title">
       <div class="pi-op-panel__title pi-op-panel__title--actions">
-        <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3 id="pi-checklist-title">Checklist da operação</h3></span>
+        <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3 id="pi-checklist-title">{% if operacao_modo|default('pi') == 'campanha' %}Checklist da campanha{% else %}Checklist da operação{% endif %}</h3></span>
         <button type="button" id="pi-checklist-generate" class="pi-op-text-btn">Atualizar</button>
       </div>
       <div class="pi-op-progress" aria-live="polite">
@@ -35,19 +37,20 @@
         <span>Próxima ação</span>
         <div id="pi-operation-recommendation" class="pi-op-state">Aguardando dados reais.</div>
       </div>
-      <div class="pi-op-checklist-group">
+      <div class="pi-op-checklist-group"{% if operacao_modo|default('pi') == 'campanha' %} hidden{% endif %}>
         <h4>Etapas do PI</h4>
         <div id="pi-checklist-pi" class="pi-op-state">Nenhum item disponível.</div>
       </div>
       <div class="pi-op-checklist-group">
         <div class="pi-op-checklist-group__head">
-          <h4>Campanhas</h4>
+          <h4>{% if operacao_modo|default('pi') == 'campanha' %}Etapas operacionais{% else %}Campanhas{% endif %}</h4>
           <span id="pi-checklist-campaign-count"></span>
         </div>
         <div id="pi-checklist-campaigns" class="pi-op-state">Nenhuma campanha disponível.</div>
       </div>
     </section>
 
+    {% if operacao_modo|default('pi') != 'campanha' %}
     <section id="pi-communications-panel" class="pi-op-panel" aria-labelledby="pi-communications-title">
       <div class="pi-op-panel__title">
         <i class="fa-regular fa-envelope" aria-hidden="true"></i>
@@ -91,6 +94,7 @@
         <button type="submit" class="pi-op-btn pi-op-btn--secondary">Registrar</button>
       </form>
     </section>
+    {% endif %}
   </div>
 </aside>
 <button type="button" id="pi-sidebar-mobile-trigger" class="pi-op-sidebar-trigger" aria-controls="pi-operation-sidebar" aria-expanded="false">

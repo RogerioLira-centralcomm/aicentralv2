@@ -1,0 +1,183 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}{{ campanha.nome_campanha or 'Campanha' }} - Operação{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set obj_val = campanha.obj_contratados|parse_volume_campanha %}
+{% set ating_val = campanha.totalizador_atingido|parse_volume_campanha %}
+{% set pct_obj = campanha.pct_objetivo if campanha.pct_objetivo is not none else (((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0) %}
+{% set previsto_val = campanha.custo_midia_previsto|parse_brl_float if campanha.custo_midia_previsto is not none else campanha.valor_plataforma|parse_brl_float %}
+{% set gasto_val = campanha.totalizador_gasto|parse_brl_float %}
+{% set pct_inv = campanha.pct_custo_midia if campanha.pct_custo_midia is not none else (((gasto_val / previsto_val) * 100)|round(0)|int if previsto_val > 0 else 0) %}
+{% set pct_periodo = campanha.periodo_pct_elapsed if campanha.periodo_pct_elapsed is not none else 0 %}
+{% set dias_restantes = (campanha.periodo_fim - agora).days if campanha.periodo_fim else none %}
+{% set restante_obj = [obj_val - ating_val, 0]|max %}
+
+<div id="pi-operacao-app"
+     class="pi-operation campaign-detail-page"
+     data-pi-id="{{ campanha.id_pi or 0 }}"
+     data-campanha-id="{{ campanha.id_campanha }}"
+     data-base-plataformas="{{ campanha.valor_plataformas_pi or '' }}"
+     data-stage="{{ pi.id_sub_status_pi if pi else '' }}"
+     data-readonly="{{ 'true' if somente_leitura else 'false' }}">
+  <header class="pi-op-header campaign-detail-header">
+    <div class="pi-op-header__row">
+      <div class="pi-op-title-wrap">
+        <a href="{{ return_url }}" class="pi-op-icon-btn" aria-label="Voltar ao acompanhamento" title="Voltar">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div>
+          <div class="campaign-detail-kicker">
+            <span>{{ campanha.codigo_pi or 'PI sem código' }}</span>
+            <span>{{ campanha.cliente_nome or 'Cliente não informado' }}</span>
+          </div>
+          <h1>{{ campanha.nome_campanha or 'Campanha sem nome' }}</h1>
+          <p>{{ campanha.plataforma_nome or 'Plataforma não informada' }}{% if campanha.objetivo_nome %} · {{ campanha.objetivo_nome }}{% endif %}</p>
+        </div>
+      </div>
+      <div class="pi-op-actions">
+        <span class="camp-status-badge" data-status="{{ (campanha.status_nome or '')|lower }}">{{ campanha.status_nome or 'Sem status' }}</span>
+        {% if pi %}
+        <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-op-btn pi-op-btn--secondary">
+          <i class="fa-regular fa-file-lines" aria-hidden="true"></i> Abrir PI
+        </a>
+        {% endif %}
+        {% if campanha.googled_pi_princ %}
+        <a href="{{ campanha.googled_pi_princ }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">
+          <i class="fa-brands fa-google-drive" aria-hidden="true"></i> Drive
+        </a>
+        {% endif %}
+        {% if campanha.link_dash %}
+        <a href="{{ campanha.link_dash }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--primary">
+          <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="pi-op-layout campaign-detail-layout">
+    <main class="pi-op-main campaign-detail-main">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="campaign-detail-notice is-{{ category }}" role="status">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <section class="campaign-flight-deck" aria-label="Resumo operacional">
+        <article class="campaign-flight-period">
+          <div class="campaign-flight-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Período</div>
+          <strong>
+            {% if campanha.periodo_inicio %}{{ campanha.periodo_inicio.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+            <span>a</span>
+            {% if campanha.periodo_fim %}{{ campanha.periodo_fim.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+          </strong>
+          <div class="campaign-flight-progress">
+            <span style="width: {{ [pct_periodo, 100]|min if pct_periodo > 0 else 0 }}%"></span>
+          </div>
+          <small>
+            {{ pct_periodo }}% do período
+            {% if dias_restantes is not none %} · {% if dias_restantes >= 0 %}{{ dias_restantes }} dias restantes{% else %}encerrada há {{ dias_restantes|abs }} dias{% endif %}{% endif %}
+          </small>
+        </article>
+
+        <article class="campaign-flight-metric">
+          <div class="campaign-flight-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Entrega</div>
+          <div class="campaign-flight-value">
+            <strong>{{ pct_obj }}%</strong>
+            <span>{{ ating_val|format_volume_ptbr }} de {{ obj_val|format_volume_ptbr }}</span>
+          </div>
+          <div class="campaign-flight-progress is-delivery">
+            <span style="width: {{ [pct_obj, 100]|min if pct_obj > 0 else 0 }}%"></span>
+          </div>
+          <small>{% if obj_val > 0 %}Faltam {{ restante_obj|format_volume_ptbr }}{% else %}Meta ainda não informada{% endif %}</small>
+        </article>
+
+        <article class="campaign-flight-metric">
+          <div class="campaign-flight-label"><i class="fa-solid fa-coins" aria-hidden="true"></i> Investimento</div>
+          <div class="campaign-flight-value">
+            <strong class="{% if pct_inv > 100 %}is-over{% endif %}">{{ pct_inv }}%</strong>
+            <span>{{ gasto_val|format_brl_ptbr }} utilizados</span>
+          </div>
+          <div class="campaign-flight-progress is-investment{% if pct_inv > 100 %} is-over{% endif %}">
+            <span style="width: {{ [pct_inv, 100]|min if pct_inv > 0 else 0 }}%"></span>
+          </div>
+          <small>Previsto {{ previsto_val|format_brl_ptbr }}</small>
+        </article>
+      </section>
+
+      <section class="campaign-detail-section" aria-labelledby="campaign-config-title">
+        <div class="campaign-detail-section-head">
+          <div>
+            <h2 id="campaign-config-title">Configuração da campanha</h2>
+            <p>Dados de veiculação, entrega e composição financeira.</p>
+          </div>
+          {% if somente_leitura %}<span class="campaign-readonly-badge"><i class="fa-solid fa-lock" aria-hidden="true"></i> Somente leitura</span>{% endif %}
+        </div>
+        <form id="campanhaDetalheForm" method="POST" action="{{ url_for('campanha_pi_editar', id_camp=campanha.id_campanha) }}">
+          <input type="hidden" name="campanhas_retorno" value="detalhe">
+          <fieldset {% if somente_leitura %}disabled{% endif %}>
+            {% include 'campanhas_pi/_form_fields.html' %}
+          </fieldset>
+          <div class="campaign-detail-form-foot">
+            <span id="campanhaDetalheStatus" role="status" aria-live="polite"></span>
+            {% if not somente_leitura %}
+            <button type="submit" class="pi-op-btn pi-op-btn--primary" id="salvarCampanhaDetalhe">
+              <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i> Salvar alterações
+            </button>
+            {% endif %}
+          </div>
+        </form>
+      </section>
+
+      <section class="campaign-detail-section" aria-labelledby="campaign-daily-title">
+        <div class="campaign-detail-section-head">
+          <div>
+            <h2 id="campaign-daily-title">Atualizações diárias</h2>
+            <p>Histórico de entrega e investimento acumulados.</p>
+          </div>
+          <span class="campaign-daily-count" id="campaignDailyCount">{{ diarios|length }} registro{% if diarios|length != 1 %}s{% endif %}</span>
+        </div>
+        {% if not somente_leitura %}
+        <form id="campaignDailyForm" class="campaign-daily-form">
+          <label>Data<input type="date" name="data_evento" required value="{{ agora.strftime('%Y-%m-%d') }}"></label>
+          <label>Atingido acumulado<input type="text" name="atingido" data-mask="numero" value="{{ campanha.totalizador_atingido or '' }}" placeholder="0"></label>
+          <label>Gasto acumulado<input type="text" name="gasto" data-mask="real" value="{{ campanha.totalizador_gasto or '' }}" placeholder="R$ 0,00"></label>
+          <button type="submit" class="pi-op-btn pi-op-btn--accent"><i class="fa-solid fa-plus" aria-hidden="true"></i> Registrar atualização</button>
+        </form>
+        {% endif %}
+        <div class="campaign-daily-table-wrap">
+          <table class="campaign-daily-table">
+            <thead><tr><th>Data</th><th>Atingido</th><th>Variação</th><th>Gasto</th><th>Variação</th></tr></thead>
+            <tbody id="campaignDailyRows">
+              {% for diario in diarios %}
+              <tr>
+                <td>{{ diario.data_evento.strftime('%d/%m/%Y') if diario.data_evento else '—' }}</td>
+                <td>{{ diario.atingido|format_volume_ptbr if diario.atingido is not none else '—' }}</td>
+                <td>{{ diario.dif_atingido|format_volume_ptbr if diario.dif_atingido is not none else '—' }}</td>
+                <td>{{ diario.gasto|format_brl_ptbr if diario.gasto is not none else '—' }}</td>
+                <td>{{ diario.dif_gasto|format_brl_ptbr if diario.dif_gasto is not none else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr class="campaign-daily-empty"><td colspan="5">Nenhuma atualização registrada. Use o formulário acima para iniciar o histórico.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    {% include 'pi_operacao/_sidebar.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/campanha_pi_detalhe.js') }}?v=1"></script>
+{% endblock %}

@@ -12359,6 +12359,52 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flash('Erro ao carregar lista de campanhas PI. Tente de novo ou contate o suporte.', 'error')
             return redirect(url_for('campanhas_pi'))
 
+    @app.route('/campanhas-pi/<int:id_camp>')
+    @login_required
+    def campanha_pi_detalhe(id_camp):
+        """Cockpit operacional e edição completa de uma campanha."""
+        try:
+            campanha_base = db.obter_campanha_pi_por_id(id_camp)
+            if not campanha_base:
+                flash('Campanha não encontrada.', 'error')
+                return redirect(url_for('campanhas_pi_lista'))
+
+            id_pi = campanha_base.get('id_pi')
+            pi = db.obter_cadu_pi_por_id(int(id_pi)) if id_pi else None
+            campanhas_pi = db.obter_campanhas_pi({'id_pi': id_pi}) if id_pi else []
+            campanha = next(
+                (
+                    _anexar_preco_metrica_campanha(item)
+                    for item in (campanhas_pi or [])
+                    if int(item.get('id_campanha')) == int(id_camp)
+                ),
+                _anexar_preco_metrica_campanha(campanha_base),
+            )
+            auxiliares = _carregar_auxiliares_campanha()
+            return_url = request.args.get('return_url', '').strip()
+            if not return_url.startswith('/campanhas-pi'):
+                return_url = url_for('campanhas_pi_lista')
+
+            from datetime import datetime as dt_cls
+            return render_template(
+                'campanhas_pi_detalhe.html',
+                campanha=campanha,
+                pi=pi,
+                diarios=db.obter_diarios_campanha(id_camp) or [],
+                agora=dt_cls.now(),
+                return_url=return_url,
+                somente_leitura=_pi_somente_leitura(pi) if pi else False,
+                operacao_modo='campanha',
+                **auxiliares,
+            )
+        except Exception as e:
+            app.logger.error(
+                f"Erro ao carregar campanha PI {id_camp}: {str(e)}",
+                exc_info=True,
+            )
+            flash('Erro ao carregar a campanha.', 'error')
+            return redirect(url_for('campanhas_pi_lista'))
+
     @app.route('/campanhas-pi/novo', methods=['POST'])
     @login_required
     def campanha_pi_nova():
@@ -12439,6 +12485,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def campanha_pi_editar(id_camp):
         """Editar campanha PI"""
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        return_to_detail = request.form.get('campanhas_retorno') == 'detalhe'
+
+        def redirect_after_edit():
+            if return_to_detail:
+                return redirect(url_for('campanha_pi_detalhe', id_camp=id_camp))
+            return _redirect_campanhas_pi_preservar_filtros()
+
         try:
             campanha = db.obter_campanha_pi_por_id(id_camp)
 
@@ -12446,7 +12499,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'Campanha não encontrada!'}), 404
                 flash('Campanha não encontrada!', 'error')
-                return _redirect_campanhas_pi_preservar_filtros()
+                return redirect_after_edit()
 
             if campanha.get('id_pi'):
                 pi_ref = db.obter_cadu_pi_por_id(int(campanha['id_pi']))
@@ -12455,7 +12508,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     if is_ajax:
                         return jsonify({'success': False, 'error': msg}), 403
                     flash(msg, 'error')
-                    return _redirect_campanhas_pi_preservar_filtros()
+                    return redirect_after_edit()
 
             data = _extrair_dados_campanha()
             data = _preservar_valores_campanha_pi(data, campanha)
@@ -12468,14 +12521,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
                 flash('O nome da campanha é obrigatório!', 'error')
-                return _redirect_campanhas_pi_preservar_filtros()
+                return redirect_after_edit()
 
             if not data.get('periodo_inicio') or not data.get('periodo_fim'):
                 msg = 'Data Início e Data Fim são obrigatórias!'
                 if is_ajax:
                     return jsonify({'success': False, 'error': msg}), 400
                 flash(msg, 'error')
-                return _redirect_campanhas_pi_preservar_filtros()
+                return redirect_after_edit()
 
             valor_antigo = campanha.get('valor_plataforma')
 
@@ -12520,7 +12573,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'error': str(e)}), 500
             flash('Erro ao atualizar campanha.', 'error')
 
-        return _redirect_campanhas_pi_preservar_filtros()
+        return redirect_after_edit()
 
     @app.route('/campanhas-pi/<int:id_camp>/excluir', methods=['POST'])
     @login_required

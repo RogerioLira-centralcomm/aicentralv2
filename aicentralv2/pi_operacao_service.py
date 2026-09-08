@@ -6,7 +6,7 @@ from html import escape
 from flask import has_request_context, render_template, url_for
 
 from .campanha_pi_metrics import parse_brl_float, parse_volume_float
-from .pi_operacao_repository import PiOperacaoRepository
+from .pi_operacao_repository import PiOperacaoRepository, PropriedadeInvalidaError
 from .services.brevo_service import get_brevo_service
 
 
@@ -428,6 +428,64 @@ class PiOperacaoService:
             },
             "recomendacoes": self._recomendacoes(
                 pi, campanhas, checklist, destinatarios, saude
+            ),
+        }
+
+    def estado_campanha(self, id_pi, id_campanha):
+        """Projeta a operação para uma campanha sem misturar seu checklist."""
+        campanha = self.repository.obter_campanha(id_campanha)
+        if int(campanha["id_pi"]) != int(id_pi):
+            raise PropriedadeInvalidaError("Campanha não pertence ao PI informado.")
+
+        estado = self.estado_completo(id_pi)
+        campanha_estado = next(
+            (
+                item
+                for item in estado["campanhas"]
+                if int(item["id_campanha"]) == int(id_campanha)
+            ),
+            campanha,
+        )
+        itens = [
+            item
+            for item in estado["checklist"]
+            if item.get("id_campanha") is not None
+            and int(item["id_campanha"]) == int(id_campanha)
+        ]
+        concluidos = sum(bool(item.get("concluido")) for item in itens)
+        pendentes = sorted(
+            (item for item in itens if not item.get("concluido")),
+            key=lambda item: (int(item.get("ordem") or 0), int(item.get("id") or 0)),
+        )
+        grupo = {
+            "id_campanha": campanha_estado["id_campanha"],
+            "nome": campanha_estado.get("nome_campanha")
+            or f"Campanha {id_campanha}",
+            "plataforma": campanha_estado.get("plataforma_nome")
+            or "Sem plataforma",
+            "concluidos": concluidos,
+            "total": len(itens),
+            "completo": bool(itens) and concluidos == len(itens),
+            "itens": itens,
+        }
+        progresso = {
+            "concluidos": concluidos,
+            "total": len(itens),
+            "percentual": round((concluidos / len(itens)) * 100) if itens else 0,
+        }
+        return {
+            **estado,
+            "campanhas": [campanha_estado],
+            "campanha": campanha_estado,
+            "checklist": itens,
+            "checklist_operacional": {
+                "progresso": progresso,
+                "proxima_pendencia": dict(pendentes[0]) if pendentes else None,
+                "itens_pi": [],
+                "campanhas": [grupo],
+            },
+            "saude": self._calcular_saude(
+                [campanha_estado], estado["pi"].get("desvio_aceitavel_pct")
             ),
         }
 

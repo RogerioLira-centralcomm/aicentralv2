@@ -62,6 +62,12 @@ class FakeRepository:
     def listar_campanhas(self, id_pi):
         return [dict(item) for item in self.campanhas]
 
+    def obter_campanha(self, id_campanha):
+        for item in self.campanhas:
+            if int(item["id_campanha"]) == int(id_campanha):
+                return dict(item)
+        raise LookupError("Campanha não encontrada.")
+
     def listar_checklist(self, id_pi):
         return [dict(item) for item in self.checklist]
 
@@ -238,6 +244,41 @@ class PiOperacaoServiceTest(unittest.TestCase):
             all(len(campanha["itens"]) == 5 for campanha in estrutura["campanhas"])
         )
 
+    def test_estado_campanha_isola_checklist_e_progresso(self):
+        repo = FakeRepository()
+        repo.campanhas.append(
+            {
+                **repo.campanhas[0],
+                "id_campanha": 31,
+                "nome_campanha": "Vídeo",
+                "plataforma_nome": "YouTube",
+            }
+        )
+        service = PiOperacaoService(repository=repo)
+        service.gerar_checklist(10, {}, autor_id=99)
+        manual = next(
+            item
+            for item in repo.checklist
+            if item.get("id_campanha") == 30
+            and item["codigo"] == "verificar_criativos"
+        )
+        service.atualizar_item(10, manual["id"], True, autor_id=99)
+
+        estado = service.estado_campanha(10, 30)
+
+        self.assertEqual([item["id_campanha"] for item in estado["campanhas"]], [30])
+        self.assertTrue(
+            all(item.get("id_campanha") == 30 for item in estado["checklist"])
+        )
+        self.assertEqual(estado["checklist_operacional"]["progresso"]["total"], 5)
+        self.assertEqual(len(estado["checklist_operacional"]["campanhas"]), 1)
+        self.assertEqual(estado["checklist_operacional"]["itens_pi"], [])
+
+    def test_estado_campanha_rejeita_pi_incorreto(self):
+        service = PiOperacaoService(repository=FakeRepository())
+        with self.assertRaisesRegex(PropriedadeInvalidaError, "não pertence"):
+            service.estado_campanha(999, 30)
+
     def test_marcos_de_objetivo_sao_automaticos_por_campanha(self):
         repo = FakeRepository(substatus=3)
         service = PiOperacaoService(repository=repo)
@@ -355,6 +396,11 @@ class PiOperacaoRoutesTest(unittest.TestCase):
 
     def test_api_exige_login_json(self):
         response = self.client.get("/api/cadu_pi/10/operacao")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(response.get_json()["success"])
+
+    def test_api_campanha_exige_login_json(self):
+        response = self.client.get("/api/cadu_pi/10/operacao/campanhas/30")
         self.assertEqual(response.status_code, 401)
         self.assertFalse(response.get_json()["success"])
 

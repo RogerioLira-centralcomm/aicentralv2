@@ -96,6 +96,35 @@ class PiOperacaoRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def obter_campanha(self, id_campanha):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id_campanha, c.id_pi, c.id_cliente, c.nome_campanha,
+                       c.id_plataforma, c.id_objetivos_campanha,
+                       c.valor_plataforma, c.custo_midia_orcado,
+                       c.link_dash, c.id_status,
+                       c.id_responsavel_operacao, c.periodo_inicio, c.periodo_fim,
+                       c.obj_contratados, c.totalizador_atingido,
+                       c.totalizador_gasto, c.updated_at,
+                       st.descricao AS status_descricao,
+                       plt.descricao AS plataforma_nome,
+                       resp.nome_completo AS responsavel_operacao_nome
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
+                  LEFT JOIN cadu_pi_camp_plataforma plt
+                         ON plt.id_plataforma = c.id_plataforma
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = c.id_responsavel_operacao
+                 WHERE c.id_campanha = %s
+                """,
+                (id_campanha,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise LookupError("Campanha não encontrada.")
+        return dict(row)
+
     def validar_campanhas(self, id_pi, ids_campanha):
         ids = sorted({int(item) for item in ids_campanha})
         if not ids:

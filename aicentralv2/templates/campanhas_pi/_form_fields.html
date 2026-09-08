@@ -1,0 +1,142 @@
+{% set form_camp = campanha if campanha is defined and campanha else none %}
+<input type="hidden" name="_camp_form_has_under" value="1">
+<input type="hidden" id="id_centralx" name="id_centralx" value="{{ form_camp.id_centralx if form_camp else '' }}">
+<input type="hidden" id="id_pi" name="id_pi" value="{{ form_camp.id_pi if form_camp else '' }}">
+<input type="hidden" id="mes_ref" name="mes_ref" value="{{ form_camp.mes_ref.strftime('%Y-%m-%d') if form_camp and form_camp.mes_ref else '' }}">
+<input type="hidden" id="mes_ref_comp" name="mes_ref_comp" value="{{ form_camp.mes_ref_comp if form_camp else '' }}">
+
+<h4 class="camp-form-section-title">Configuração e entrega</h4>
+<div class="camp-form-grid">
+  <div class="camp-field camp-col-2">
+    <label for="nome_campanha">Nome da campanha</label>
+    <input type="text" id="nome_campanha" name="nome_campanha" required
+           value="{{ form_camp.nome_campanha if form_camp else '' }}" placeholder="Nome da campanha">
+  </div>
+  <div class="camp-field camp-col-2">
+    <label for="id_cliente">Cliente</label>
+    <select id="id_cliente" name="id_cliente" disabled>
+      <option value="">Selecione...</option>
+      {% for cli in clientes %}
+        <option value="{{ cli.id_cliente }}" {% if form_camp and form_camp.id_cliente|string == cli.id_cliente|string %}selected{% endif %}>{{ cli.nome_fantasia or cli.razao_social }}</option>
+      {% endfor %}
+    </select>
+    <input type="hidden" id="id_cliente_hidden" name="id_cliente" value="{{ form_camp.id_cliente if form_camp else '' }}">
+  </div>
+
+  <div class="camp-field">
+    <label for="obj_contratados">Objetivo contratado</label>
+    <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
+           data-mask="numero" value="{{ form_camp.obj_contratados if form_camp and form_camp.obj_contratados is not none else '' }}"
+           placeholder="0" class="text-right">
+  </div>
+  <div class="camp-field">
+    <label for="valor_plataforma">Valor da plataforma <span class="text-red-400">*</span></label>
+    <input type="text" id="valor_plataforma" name="valor_plataforma" required data-mask="real"
+           value="{{ form_camp.valor_plataforma if form_camp and form_camp.valor_plataforma is not none else '' }}"
+           placeholder="R$ 0,00">
+  </div>
+  <div class="camp-field">
+    <label for="custo_midia_orcado">Custo de mídia orçado</label>
+    <input type="text" id="custo_midia_orcado" name="custo_midia_orcado" data-mask="real"
+           value="{{ form_camp.custo_midia_orcado if form_camp and form_camp.custo_midia_orcado is not none else '' }}"
+           placeholder="R$ 0,00" title="Orçamento operacional de mídia, distinto do valor comercial da plataforma">
+  </div>
+  <div class="camp-field">
+    <label for="dist_pct">Distribuição</label>
+    <input type="text" id="dist_pct" readonly tabindex="-1" class="text-right" value="0,00%">
+  </div>
+  <div class="camp-field">
+    <label for="id_status">Status</label>
+    <select id="id_status" name="id_status">
+      {% for st in statuses %}
+        <option value="{{ st.id }}" {% if (form_camp and form_camp.id_status|string == st.id|string) or (not form_camp and st.descricao|lower == 'aguardando') %}selected{% endif %}>{{ st.descricao }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="camp-field">
+    <label for="periodo_inicio">Data de início <span class="text-red-400">*</span></label>
+    <div class="camp-date-wrap">
+      <input type="date" id="periodo_inicio" name="periodo_inicio" required
+             value="{{ form_camp.periodo_inicio.strftime('%Y-%m-%d') if form_camp and form_camp.periodo_inicio else '' }}">
+      <button type="button" data-open-date="periodo_inicio" aria-label="Abrir calendário de início"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <div class="camp-field">
+    <label for="periodo_fim">Data de término <span class="text-red-400">*</span></label>
+    <div class="camp-date-wrap">
+      <input type="date" id="periodo_fim" name="periodo_fim" required
+             value="{{ form_camp.periodo_fim.strftime('%Y-%m-%d') if form_camp and form_camp.periodo_fim else '' }}">
+      <button type="button" data-open-date="periodo_fim" aria-label="Abrir calendário de término"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <div class="camp-field">
+    <label for="id_plataforma">Plataforma</label>
+    <select id="id_plataforma" name="id_plataforma">
+      <option value="">Selecione...</option>
+      {% for plt in plataformas %}
+        <option value="{{ plt.id_plataforma }}" {% if form_camp and form_camp.id_plataforma|string == plt.id_plataforma|string %}selected{% endif %}>{{ plt.descricao }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="camp-field">
+    <label for="id_objetivos_campanha">Objetivo</label>
+    <select id="id_objetivos_campanha" name="id_objetivos_campanha">
+      <option value="">Selecione...</option>
+      {% for obj in objetivos %}
+        <option value="{{ obj.id_objetivos_campanha }}" {% if form_camp and form_camp.id_objetivos_campanha|string == obj.id_objetivos_campanha|string %}selected{% endif %}>{{ obj.descricao }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="camp-field">
+    <label for="totalizador_atingido">Atingido</label>
+    <input type="text" id="totalizador_atingido" name="totalizador_atingido" data-mask="numero"
+           value="{{ form_camp.totalizador_atingido if form_camp and form_camp.totalizador_atingido is not none else '' }}"
+           placeholder="0" class="text-right">
+  </div>
+  <div class="camp-field">
+    <label for="totalizador_gasto">Gasto</label>
+    <input type="text" id="totalizador_gasto" name="totalizador_gasto" data-mask="real"
+           value="{{ form_camp.totalizador_gasto if form_camp and form_camp.totalizador_gasto is not none else '' }}"
+           placeholder="R$ 0,00">
+  </div>
+  <div class="camp-field camp-field-check">
+    <label class="inline-flex items-center gap-1 cursor-pointer select-none m-0">
+      <input type="checkbox" id="under" name="under" {% if form_camp and form_camp.under %}checked{% endif %}>
+      <span>Under</span>
+    </label>
+  </div>
+  <div class="camp-field camp-col-4">
+    <label for="link_dash">Link do dashboard</label>
+    <input type="url" id="link_dash" name="link_dash"
+           value="{{ form_camp.link_dash if form_camp else '' }}" placeholder="https://...">
+  </div>
+</div>
+
+<div class="camp-margem-section">
+  <h4 class="camp-form-section-title">Composição financeira</h4>
+  <div class="camp-margem-grid">
+    {% for field, label in [
+      ('perc_margem_cc', '% Margem'), ('perc_tech_fee', '% Tech Fee'),
+      ('perc_com_vendas', '% Comissão'), ('perc_pl_incentivos', '% PL incentivos'),
+      ('perc_impostos', '% Impostos')
+    ] %}
+      <div class="camp-field">
+        <label for="{{ field }}">{{ label }}</label>
+        <input type="text" id="{{ field }}" name="{{ field }}"
+               value="{{ form_camp[field] if form_camp and form_camp[field] is not none else '' }}" placeholder="0,00">
+      </div>
+    {% endfor %}
+    {% for field, label in [
+      ('val_margem_cc', 'Margem'), ('val_tech_fee', 'Tech Fee'),
+      ('val_com_vendas', 'Comissão'), ('val_pl_incentivos', 'PL incentivos'),
+      ('val_impostos', 'Impostos')
+    ] %}
+      <div class="camp-field">
+        <label for="{{ field }}">{{ label }}</label>
+        <input type="text" id="{{ field }}" name="{{ field }}"
+               value="{{ form_camp[field] if form_camp and form_camp[field] is not none else '' }}"
+               placeholder="R$ 0,00" readonly tabindex="-1">
+      </div>
+    {% endfor %}
+  </div>
+</div>

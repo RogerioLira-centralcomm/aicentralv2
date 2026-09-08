@@ -2659,3 +2659,294 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-sequence-preview-row { grid-template-columns: 1fr; }
   .cx-sequence-preview-row textarea { grid-column: auto; }
 }
+
+/* --------------------------------------------------------------------------
+ * Componentes de transição DaisyUI -> vanilla
+ * Mantêm o DOM e os contratos JS das telas operacionais durante a migração.
+ * -------------------------------------------------------------------------- */
+.cx-btn-success {
+  background: var(--cx-success);
+  color: #fff;
+}
+.cx-btn-warning {
+  background: var(--cx-warning);
+  color: #fff;
+}
+.cx-btn-info {
+  background: var(--cx-info);
+  color: #fff;
+}
+.cx-btn-xs {
+  min-height: 1.625rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+.cx-btn-icon {
+  width: 2.25rem;
+  padding-inline: 0;
+  flex: 0 0 auto;
+}
+.cx-btn-xs.cx-btn-icon {
+  width: 1.625rem;
+}
+
+.cx-label-row {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.cx-input-sm,
+.cx-select-sm {
+  min-height: 2.125rem;
+  font-size: 0.8125rem;
+}
+.cx-input-xs,
+.cx-select-xs {
+  min-height: 1.875rem;
+  font-size: 0.75rem;
+}
+.cx-textarea-sm {
+  min-height: 5rem;
+  font-size: 0.8125rem;
+}
+.cx-input-error,
+.cx-select-error,
+.cx-textarea-error {
+  border-color: var(--cx-danger);
+}
+
+.cx-checkbox,
+.cx-radio,
+.cx-toggle {
+  accent-color: var(--cx-brand);
+}
+.cx-checkbox,
+.cx-radio {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+.cx-checkbox-sm,
+.cx-radio-sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.cx-toggle {
+  width: 2.5rem;
+  height: 1.375rem;
+  cursor: pointer;
+}
+.cx-range {
+  width: 100%;
+  accent-color: var(--cx-brand);
+}
+
+.cx-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: cx-spin 700ms linear infinite;
+}
+.cx-spinner-sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.cx-spinner-lg {
+  width: 2rem;
+  height: 2rem;
+  border-width: 3px;
+}
+@keyframes cx-spin {
+  to { transform: rotate(360deg); }
+}
+.cx-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(248, 250, 252, 0.86);
+  color: var(--cx-brand);
+  backdrop-filter: blur(2px);
+}
+
+dialog.cx-modal-shell {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  padding: 1rem;
+  color: var(--cx-text);
+  overflow: visible;
+}
+dialog.cx-modal-shell:not([open]) {
+  display: none;
+}
+dialog.cx-modal-shell[open] {
+  display: grid;
+  place-items: center;
+}
+dialog.cx-modal-shell::backdrop {
+  background: rgba(15, 23, 42, 0.48);
+}
+.cx-modal-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 38rem);
+  max-height: calc(100vh - 2rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-xl);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-shadow-md);
+}
+.cx-modal-panel-sm { width: min(100%, 30rem); }
+.cx-modal-panel-lg { width: min(100%, 56rem); }
+.cx-modal-panel-xl { width: min(100%, 72rem); }
+.cx-modal-compact { font-size: 0.8125rem; }
+.cx-modal-title {
+  margin: 0;
+  color: var(--cx-text);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.cx-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+.cx-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  border-top: 1px solid var(--cx-border);
+  background: var(--cx-surface-muted);
+  padding: 0.875rem 1.25rem;
+}
+.cx-modal-dismiss {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  background: transparent;
+}
+
+.cx-card-body {
+  display: grid;
+  gap: 0.75rem;
+}
+.cx-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.cx-progress {
+  width: 100%;
+  height: 0.5rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cx-border);
+  color: var(--cx-brand);
+}
+.cx-progress::-webkit-progress-bar { background: var(--cx-border); }
+.cx-progress::-webkit-progress-value { background: currentColor; }
+.cx-progress::-moz-progress-bar { background: currentColor; }
+
+.cx-join {
+  display: inline-flex;
+  align-items: stretch;
+}
+.cx-join > .cx-join-item:not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.cx-join > .cx-join-item:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.cx-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.cx-table-dense th,
+.cx-table-dense td {
+  padding: 0.5rem 0.625rem;
+}
+.cx-table-multiline td {
+  white-space: normal;
+  vertical-align: top;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.cx-table-multiline th {
+  white-space: nowrap;
+}
+.cx-table-zebra tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.cx-steps {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cx-step {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cx-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.cx-step::before {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  border: 2px solid var(--cx-border-strong);
+  border-radius: 999px;
+  content: "";
+}
+.cx-step-active { color: var(--cx-brand); }
+.cx-step-active::before {
+  border-color: var(--cx-brand);
+  background: var(--cx-brand);
+}
+
+@media (max-width: 640px) {
+  dialog.cx-modal-shell { padding: 0; }
+  .cx-modal-panel,
+  .cx-modal-panel-sm,
+  .cx-modal-panel-lg,
+  .cx-modal-panel-xl {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .cx-modal-actions {
+    position: sticky;
+    bottom: 0;
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-spinner { animation-duration: 1.4s; }
+}

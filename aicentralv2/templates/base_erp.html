@@ -17,7 +17,7 @@
       navegador mesmo quando `npm run build` é rodado sem apontar para
       enterprise-system.css. Auto-contido, ordem depois do output.css.
     -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=10">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=11">
 
     <script>
     function setCookie(name, value, days) {
@@ -644,6 +644,7 @@
         {'group': 'Mídia e PI', 'label': 'Faixas de cálculo do PI', 'endpoint': 'faixas_calculo_pi_lista', 'url': url_for('faixas_calculo_pi_lista'), 'icon': 'fa-scale-balanced'},
         {'group': 'Mídia e PI', 'label': 'Incentivos', 'endpoint': 'incentivos_lista', 'url': url_for('incentivos_lista'), 'icon': 'fa-percent'},
         {'group': 'Mídia e PI', 'label': 'Plataformas de campanha', 'endpoint': 'plataformas_campanha', 'url': url_for('plataformas_campanha'), 'icon': 'fa-bullhorn'},
+        {'group': 'Mídia e PI', 'label': 'Modelagem de Criativos', 'endpoint': 'parametros.modelagem_criativos', 'url': url_for('parametros.modelagem_criativos'), 'icon': 'fa-photo-film'},
         {'group': 'Operação e legado', 'label': 'Comissões', 'endpoint': 'cadu_pi_com_vendas_lista', 'url': url_for('cadu_pi_com_vendas_lista'), 'icon': 'fa-hand-holding-dollar'},
         {'group': 'Operação e legado', 'label': 'Cotações (legado)', 'endpoint': 'cotacoes_list', 'match_endpoints': ['cotacao_nova', 'cotacao_editar', 'cotacao_detalhes'], 'url': url_for('cotacoes_list'), 'icon': 'fa-file-invoice'},
         {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'match_prefix': 'intelligence.', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
@@ -1234,7 +1235,8 @@
     };
     </script>
 
-    <!-- cxDrawer: componente global do design system enterprise -->
+    <!-- Componentes globais do design system enterprise -->
+    <script src="{{ url_for('static', filename='js/cx_ui.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/cx_drawer.js') }}?v=2"></script>
     {% if is_centralcomm_user %}
     <script src="{{ url_for('static', filename='js/agent/agent.js') }}?v=3"></script>

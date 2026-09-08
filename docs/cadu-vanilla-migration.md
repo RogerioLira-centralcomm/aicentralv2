@@ -54,6 +54,32 @@ Este documento guia a migração incremental das páginas do menu Cadu para comp
 - Validar renderização Jinja.
 - Testar fluxo principal da página antes de migrar a próxima.
 
+## Componentes Compartilhados
+
+- Modais novos usam `<dialog>` nativo. Use `.cx-modal` quando o próprio
+  `dialog` for o painel e `.cx-modal-shell` + `.cx-modal-panel` quando o DOM
+  legado mantiver um invólucro.
+- Abertura, fechamento e tabs declarativas usam `static/js/cx_ui.js` com
+  `data-cx-modal-open`, `data-cx-modal-close` e `data-cx-tab`.
+- Checkbox, radio, toggle, range, spinner e loading usam exclusivamente os
+  equivalentes `cx-*` de `enterprise-system.css`.
+- Ícones usam Font Awesome 6. Botões somente com ícone devem ter `aria-label`.
+- Tabelas operacionais podem combinar `.cx-table-dense`,
+  `.cx-table-scroll` e `.cx-table-multiline`, sem ocultar colunas.
+- Mensagens globais usam `showToast`; confirmações simples usam `showConfirm`.
+
+## Verificação Automatizada
+
+Execute após cada fase prioritária:
+
+```bash
+python3 scripts/check_priority_daisyui.py
+```
+
+O verificador cobre templates e JavaScript dinâmico de audiências, leads,
+clientes, CRM v3, PI e cotações. DaisyUI só deve sair do compilador depois de
+uma auditoria global, não apenas deste conjunto.
+
 ## Regressão
 
 Se uma página migrada apresentar problema, manter os templates antigos no histórico Git e reverter apenas o template da página afetada. Não remover DaisyUI até todas as páginas críticas passarem por validação.

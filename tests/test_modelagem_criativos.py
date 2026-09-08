@@ -710,8 +710,11 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "migrations" / "run_seed_creative_format_layouts.py"
         ).read_text(encoding="utf-8")
         self.assertIn("COALESCE(f.placement_spec", layout_seed)
-        self.assertIn("THEN %s ELSE placement_spec", layout_seed)
-        self.assertIn("THEN %s ELSE behavior_spec", layout_seed)
+        self.assertIn("from psycopg.types.json import Jsonb", layout_seed)
+        self.assertIn("Jsonb(_placement(row))", layout_seed)
+        self.assertIn("Jsonb(behavior)", layout_seed)
+        self.assertIn("THEN %s::jsonb ELSE placement_spec", layout_seed)
+        self.assertIn("THEN %s::jsonb ELSE behavior_spec", layout_seed)
         viewer_migration = (
             root / "migrations" / "add_creative_viewer_profiles.sql"
         ).read_text(encoding="utf-8")

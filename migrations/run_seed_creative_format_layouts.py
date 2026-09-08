@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
-from psycopg.types.json import Json
+from psycopg.types.json import Jsonb
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,15 +92,15 @@ def main():
                     UPDATE cx_format_templates
                        SET placement_spec = CASE
                                WHEN COALESCE(placement_spec, '{}'::jsonb) = '{}'::jsonb
-                               THEN %s ELSE placement_spec
+                               THEN %s::jsonb ELSE placement_spec
                            END,
                            behavior_spec = CASE
                                WHEN COALESCE(behavior_spec, '{}'::jsonb) = '{}'::jsonb
-                               THEN %s ELSE behavior_spec
+                               THEN %s::jsonb ELSE behavior_spec
                            END
                      WHERE id = %s
                     """,
-                    (Json(_placement(row)), Json(behavior), row["id"]),
+                    (Jsonb(_placement(row)), Jsonb(behavior), row["id"]),
                 )
         conn.commit()
         print(f"Especificações técnicas populadas para {len(rows)} formatos.")

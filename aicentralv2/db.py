@@ -19993,9 +19993,10 @@ def obter_relatorio_incentivos_agencias(
     id_status_pi=None,
     id_sub_status_pi=None,
 ):
-    """Relatório de incentivos: agências em cadu_pi_incentivos com volume de PIs no período.
+    """Relatório de incentivos por cliente_id com volume de PIs no período.
 
-    Volume agregado exclusivamente por p.id_agencia (= i.cliente_id).
+    Volume agregado exclusivamente por p.id_cliente (= i.cliente_id).
+    O ID, e não o nome da entidade, separa cadastros homônimos.
     id_status_pi / id_sub_status_pi são opcionais (não aplicados por padrão).
     """
     conn = get_db()
@@ -20005,8 +20006,8 @@ def obter_relatorio_incentivos_agencias(
     agg_where = [
         "p.mes_ref_comp IS NOT NULL",
         "p.mes_ref_comp != ''",
-        'p.id_agencia IS NOT NULL',
-        'p.id_agencia > 0',
+        'p.id_cliente IS NOT NULL',
+        'p.id_cliente > 0',
     ]
     agg_params = []
 
@@ -20049,13 +20050,13 @@ def obter_relatorio_incentivos_agencias(
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
                 LEFT JOIN (
                     SELECT
-                        p.id_agencia,
+                        p.id_cliente,
                         COUNT(p.id_pi) AS total_pis,
                         SUM({parse_bruto}) AS volume_bruto
                     FROM cadu_pi p
                     WHERE {agg_where_sql}
-                    GROUP BY p.id_agencia
-                ) agg ON agg.id_agencia = i.cliente_id
+                    GROUP BY p.id_cliente
+                ) agg ON agg.id_cliente = i.cliente_id
                 ORDER BY COALESCE(agg.volume_bruto, 0) DESC, i.cliente_id ASC NULLS LAST
                 ''',
                 tuple(agg_params),
@@ -20112,16 +20113,16 @@ def obter_pis_relatorio_incentivo_agencia(
     id_status_pi=None,
     id_sub_status_pi=None,
 ):
-    """Lista PIs de uma agência (id_agencia) para o modal do relatório de incentivos."""
+    """Lista PIs do cliente_id exato cadastrado no incentivo."""
     if not cliente_id:
         return []
 
     where = [
         "p.mes_ref_comp IS NOT NULL",
         "p.mes_ref_comp != ''",
-        'p.id_agencia IS NOT NULL',
-        'p.id_agencia > 0',
-        'p.id_agencia = %s',
+        'p.id_cliente IS NOT NULL',
+        'p.id_cliente > 0',
+        'p.id_cliente = %s',
     ]
     params = [int(cliente_id)]
 

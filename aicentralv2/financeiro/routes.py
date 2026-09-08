@@ -228,7 +228,7 @@ def gestao_reembolsos():
 @bp.route('/relatorio-incentivos')
 @login_required
 def relatorio_incentivos():
-    """Relatório de incentivos por agência — volume de PIs, faixa e pagamentos."""
+    """Relatório por cliente_id incentivado — volume de PIs, faixa e pagamentos."""
     mes_ref_comp = request.args.get('mes_ref_comp', '').strip() or None
     ano_raw = request.args.get('ano', '').strip()
     ano_ref = None
@@ -248,7 +248,7 @@ def relatorio_incentivos():
         'volume_bruto': sum(l['volume_bruto'] for l in linhas),
         'incentivo_provisionado': sum(l['incentivo_provisionado'] for l in linhas),
         'total_entidades': len(linhas),
-        'modo_contagem': 'agencia',
+        'modo_contagem': 'cliente_id',
         'com_incentivo': True,
     }
     anos_disponiveis = main_db.obter_anos_ref_pi()
@@ -268,7 +268,7 @@ def relatorio_incentivos():
 @bp.route('/api/relatorio-incentivos/pis')
 @login_required_api
 def api_relatorio_incentivos_pis():
-    """PIs de uma agência c/ incentivo — códigos CC/AG para modal do relatório."""
+    """PIs do cliente_id com incentivo — códigos CC/AG para o modal."""
     cliente_id = request.args.get('cliente_id', type=int)
     if not cliente_id:
         return jsonify({'success': False, 'message': 'cliente_id obrigatório.'}), 400
@@ -292,7 +292,7 @@ def api_relatorio_incentivos_pis():
         mes_ref_comp=mes_ref_comp,
     )
     cli = main_db.obter_cliente_por_id(cliente_id) or {}
-    agencia_nome = cli.get('nome_fantasia') or cli.get('razao_social') or '—'
+    entidade_nome = cli.get('nome_fantasia') or cli.get('razao_social') or '—'
 
     pis = []
     for r in rows:
@@ -303,14 +303,15 @@ def api_relatorio_incentivos_pis():
             'titulo_pi': r.get('titulo_pi') or None,
             'mes_ref_comp': r.get('mes_ref_comp') or None,
             'cliente_nome': r.get('cliente_nome') or None,
-            'agencia_nome': r.get('agencia_nome') or agencia_nome,
+            'agencia_nome': r.get('agencia_nome') or entidade_nome,
             'valor_bruto': float(r['valor_bruto']) if r.get('valor_bruto') is not None else None,
             'valor_liquido': float(r['valor_liquido']) if r.get('valor_liquido') is not None else None,
         })
 
     return jsonify({
         'success': True,
-        'agencia_nome': agencia_nome,
+        'agencia_nome': entidade_nome,
+        'entidade_nome': entidade_nome,
         'cliente_id': cliente_id,
         'pis': pis,
     })

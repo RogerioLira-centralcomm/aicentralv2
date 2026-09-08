@@ -22,7 +22,7 @@
         <h1 class="text-lg font-semibold text-gray-800">Relatório de Incentivos</h1>
         {% if linhas %}
         <span class="text-xs text-gray-500">
-          ({{ totais.total_entidades }} agência{% if totais.total_entidades != 1 %}s{% endif %} c/ incentivo)
+          ({{ totais.total_entidades }} cadastro{% if totais.total_entidades != 1 %}s{% endif %} c/ incentivo)
         </span>
         {% endif %}
       </div>
@@ -46,7 +46,7 @@
             {% endfor %}
           </select>
         </form>
-        <input type="text" id="searchInput" placeholder="Buscar agência ou ID..."
+        <input type="text" id="searchInput" placeholder="Buscar cliente ou ID..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
       </div>
     </div>
@@ -70,7 +70,7 @@
 
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
     <div class="bg-white border border-gray-200 rounded-lg p-3">
-      <div class="text-xs text-gray-500 uppercase">Agências c/ incentivo</div>
+      <div class="text-xs text-gray-500 uppercase">Cadastros c/ incentivo</div>
       <div class="text-lg font-semibold text-gray-800">{{ totais.total_entidades }}</div>
     </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
@@ -94,7 +94,7 @@
           <thead class="bg-gray-100">
             <tr>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">
-                Agência
+                Cliente / entidade
               </th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">PIs</th>
               <th class="text-right py-2 px-2 text-xs font-medium text-gray-600 uppercase">Volume bruto</th>
@@ -164,7 +164,7 @@
     {% else %}
       <div class="p-8 text-center text-gray-500">
         <i class="fas fa-chart-bar text-3xl mb-3 opacity-40"></i>
-        <p>Nenhuma agência com incentivo cadastrado.</p>
+        <p>Nenhum cliente com incentivo cadastrado.</p>
       </div>
     {% endif %}
   </div>
@@ -176,7 +176,7 @@
   <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg max-h-[90vh] overflow-hidden flex flex-col">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50 shrink-0">
       <div>
-        <h3 class="font-semibold text-base text-gray-800" id="modal_pis_titulo">PIs da agência</h3>
+        <h3 class="font-semibold text-base text-gray-800" id="modal_pis_titulo">PIs do cadastro incentivado</h3>
         <p class="text-xs text-gray-500 mt-0.5" id="modal_pis_subtitulo"></p>
       </div>
       <button type="button" onclick="document.getElementById('modal_pis_incentivo').close()" class="p-2 hover:bg-gray-200 rounded transition-colors" aria-label="Fechar">
@@ -468,7 +468,7 @@ function abrirModalPisIncentivo(clienteId, agenciaNome) {
         erro.classList.remove('hidden');
         return;
       }
-      var nomeAgencia = res.data.agencia_nome || agenciaNome || 'Agência';
+      var nomeAgencia = res.data.entidade_nome || res.data.agencia_nome || agenciaNome || 'Cliente';
       var qtd = (res.data.pis || []).length;
       titulo.textContent = nomeAgencia;
       subtitulo.textContent = '#' + res.data.cliente_id + ' · ' + qtd + ' PI' + (qtd !== 1 ? 's' : '');

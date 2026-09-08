@@ -200,6 +200,205 @@ def _json_forbid():
     ), 403
 
 
+def montar_estado_comercial_cotacao(cotacao, linhas=None, audiencias=None, anexos=None):
+    """Monta pendências comerciais somente a partir do estado atual da cotação."""
+    cotacao = cotacao or {}
+    linhas = linhas or []
+    audiencias = audiencias or []
+    anexos = anexos or []
+
+    def _tem_valor(item, *campos):
+        return any(_to_float(item.get(campo)) > 0 for campo in campos)
+
+    campos_dados = (
+        ('client_id', 'cliente'),
+        ('responsavel_comercial', 'executivo responsável'),
+        ('nome_campanha', 'nome da campanha'),
+        ('objetivo_campanha', 'objetivo'),
+        ('periodo_inicio', 'data de início'),
+        ('periodo_fim', 'data de término'),
+        ('budget_estimado', 'budget'),
+    )
+    dados_faltantes = [
+        rotulo for campo, rotulo in campos_dados
+        if not cotacao.get(campo) or (campo == 'budget_estimado' and _to_float(cotacao.get(campo)) <= 0)
+    ]
+
+    itens_reais = [
+        linha for linha in linhas
+        if not linha.get('is_header') and not linha.get('is_subtotal')
+    ]
+    itens_incompletos = [
+        linha for linha in itens_reais
+        if not (
+            linha.get('plataforma')
+            and linha.get('segmentacao')
+            and linha.get('objetivo_kpi')
+            and linha.get('data_inicio')
+            and linha.get('data_fim')
+            and _tem_valor(linha, 'investimento_bruto', 'investimento_liquido')
+        )
+    ]
+
+    audiencias_incompletas = [
+        audiencia for audiencia in audiencias
+        if not (
+            audiencia.get('audiencia_nome')
+            and (
+                not audiencia.get('incluido_proposta', True)
+                or (
+                    audiencia.get('audiencia_calculo_plataforma')
+                    and _tem_valor(
+                        audiencia,
+                        'investimento_bruto',
+                        'investimento_liquido',
+                        'investimento_sugerido',
+                    )
+                )
+            )
+        )
+    ]
+
+    descricoes_anexos = {
+        (anexo.get('descricao') or '').strip()
+        for anexo in anexos
+        if not anexo.get('deleted_at')
+    }
+    tem_pdf = DESCRICAO_ANEXO_PROPOSTA_PDF in descricoes_anexos
+    briefing_necessario = bool(cotacao.get('briefing_id'))
+    tem_briefing = (
+        not briefing_necessario
+        or DESCRICAO_ANEXO_BRIEFING in descricoes_anexos
+        or bool(cotacao.get('briefing_id'))
+    )
+    status = (cotacao.get('status') or 'Rascunho').strip()
+    proposta_enviada = bool(cotacao.get('proposta_enviada_em')) or status in {
+        'Enviada', 'Aprovada', 'Rejeitada', 'Expirada',
+    }
+    link_ativo = bool(cotacao.get('link_publico_token') and cotacao.get('link_publico_ativo'))
+
+    checklist = [
+        {
+            'codigo': 'dados',
+            'titulo': 'Dados da proposta revisados',
+            'concluido': not dados_faltantes,
+            'evidencia': (
+                'Cadastro comercial completo.'
+                if not dados_faltantes
+                else 'Faltam: ' + ', '.join(dados_faltantes) + '.'
+            ),
+            'acao': {'tipo': 'hash', 'alvo': 'resumo'},
+        },
+        {
+            'codigo': 'itens',
+            'titulo': 'Itens e valores conferidos',
+            'concluido': bool(itens_reais) and not itens_incompletos,
+            'evidencia': (
+                f'{len(itens_reais)} item(ns) com período, KPI e valores.'
+                if itens_reais and not itens_incompletos
+                else (
+                    f'{len(itens_incompletos)} item(ns) precisam de revisão.'
+                    if itens_reais
+                    else 'Adicione ao menos um item com valor.'
+                )
+            ),
+            'acao': {'tipo': 'hash', 'alvo': 'itens'},
+        },
+        {
+            'codigo': 'audiencias',
+            'titulo': 'Audiências validadas',
+            'concluido': bool(audiencias) and not audiencias_incompletas,
+            'opcional': not audiencias,
+            'evidencia': (
+                'Nenhuma audiência adicionada; etapa opcional.'
+                if not audiencias
+                else (
+                    f'{len(audiencias)} audiência(s) validada(s).'
+                    if not audiencias_incompletas
+                    else f'{len(audiencias_incompletas)} audiência(s) precisam de revisão.'
+                )
+            ),
+            'acao': {'tipo': 'hash', 'alvo': 'audiencias'},
+        },
+        {
+            'codigo': 'anexos',
+            'titulo': 'Proposta e anexos conferidos',
+            'concluido': tem_pdf and tem_briefing,
+            'evidencia': (
+                'PDF da proposta disponível.'
+                if tem_pdf and tem_briefing
+                else 'Gere o PDF final da proposta antes do envio.'
+            ),
+            'acao': {'tipo': 'modal', 'alvo': 'modal_proposta_pdf'},
+        },
+        {
+            'codigo': 'link',
+            'titulo': 'Link público ativo',
+            'concluido': link_ativo,
+            'evidencia': 'Link pronto para compartilhar.' if link_ativo else 'Gere e ative o link público.',
+            'acao': {'tipo': 'modal', 'alvo': 'modal_link_publico'},
+        },
+        {
+            'codigo': 'envio',
+            'titulo': 'Proposta enviada ao cliente',
+            'concluido': proposta_enviada,
+            'evidencia': (
+                'Envio registrado na cotação.'
+                if proposta_enviada
+                else 'Envio ainda não registrado.'
+            ),
+            'acao': {'tipo': 'funcao', 'alvo': 'abrirModalEnviarProposta'},
+        },
+        {
+            'codigo': 'decisao',
+            'titulo': 'Decisão do cliente registrada',
+            'concluido': status in {'Aprovada', 'Rejeitada', 'Expirada'},
+            'opcional': not proposta_enviada,
+            'evidencia': (
+                f'Decisão registrada: {status}.'
+                if status in {'Aprovada', 'Rejeitada', 'Expirada'}
+                else (
+                    'Aguardando aprovação ou rejeição do cliente.'
+                    if proposta_enviada
+                    else 'Disponível depois do envio da proposta.'
+                )
+            ),
+            'acao': {'tipo': 'funcao', 'alvo': 'toggleAcoesPopover'},
+        },
+    ]
+
+    obrigatorios = [item for item in checklist if not item.get('opcional')]
+    concluidos = sum(1 for item in obrigatorios if item['concluido'])
+    total = len(obrigatorios)
+    proxima = next(
+        (item for item in checklist if not item['concluido'] and not item.get('opcional')),
+        None,
+    )
+
+    if status == 'Aprovada':
+        recomendacao = 'Cotação aprovada. Acompanhe a geração e a operação do PI.'
+        proxima = None
+    elif status == 'Rejeitada':
+        recomendacao = 'Cotação rejeitada. Revise o motivo antes de duplicar ou retomar a proposta.'
+        proxima = None
+    elif proxima:
+        recomendacao = proxima['titulo']
+    else:
+        recomendacao = 'Proposta pronta para acompanhamento comercial.'
+
+    return {
+        'status': status,
+        'recomendacao': recomendacao,
+        'proxima_pendencia': proxima,
+        'checklist': checklist,
+        'progresso': {
+            'concluidos': concluidos,
+            'total': total,
+            'percentual': round((concluidos / total) * 100) if total else 100,
+        },
+    }
+
+
 def _guard_cotacao_teste(cotacao_id: int):
     # Fluxo oficial: aceita qualquer cotação existente (teste ou não).
     if not db.obter_cotacao_por_id(cotacao_id):
@@ -1144,6 +1343,33 @@ def cotacao_proposta_pdf(cotacao_id):
 
 
 # --- API ---
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/workspace-comercial', methods=['GET'])
+@login_required
+def api_workspace_comercial_cotacao(cotacao_id):
+    """Pendências e próxima ação do executivo, sem persistência paralela."""
+    err = _guard_cotacao_teste(cotacao_id)
+    if err:
+        return err
+    try:
+        cotacao = db.obter_cotacao_por_id(cotacao_id)
+        estado = montar_estado_comercial_cotacao(
+            cotacao,
+            linhas=db.obter_linhas_cotacao(cotacao_id) or [],
+            audiencias=db.obter_audiencias_cotacao(cotacao_id) or [],
+            anexos=db.obter_anexos_cotacao(cotacao_id) or [],
+        )
+        return jsonify({'success': True, 'data': _serializar(estado)})
+    except Exception as e:
+        current_app.logger.error(
+            f'api_workspace_comercial_cotacao {cotacao_id}: {e}',
+            exc_info=True,
+        )
+        return jsonify({
+            'success': False,
+            'message': 'Não foi possível carregar as pendências comerciais.',
+        }), 500
 
 
 @bp.route('/api/cotacoes/<int:cotacao_id>/preco-calculo', methods=['GET'])

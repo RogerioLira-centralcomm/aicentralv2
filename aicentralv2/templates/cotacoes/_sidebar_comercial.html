@@ -1,0 +1,55 @@
+<aside id="cot-operation-sidebar" class="cot-op-sidebar" aria-label="Pendências comerciais">
+  <div class="cot-op-sidebar__head">
+    <div>
+      <span class="cot-op-sidebar__eyebrow">Apoio ao executivo</span>
+      <h2>Pendências da proposta</h2>
+    </div>
+    <button type="button" class="cot-op-icon-btn cot-op-sidebar-close" data-cot-sidebar-close aria-label="Fechar pendências">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div id="cot-sidebar-scroll" class="cot-op-sidebar__scroll">
+    <div id="cot-operation-feedback" class="cot-op-feedback" role="status" aria-live="polite" hidden></div>
+
+    <section class="cot-op-next" aria-labelledby="cot-next-title">
+      <div class="cot-op-panel__title">
+        <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+        <h3 id="cot-next-title">Próxima ação recomendada</h3>
+      </div>
+      <div id="cot-operation-recommendation" class="cot-op-state cot-op-state--loading">
+        <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+        Analisando a proposta…
+      </div>
+      <button type="button" id="cot-next-action" class="cot-op-btn cot-op-btn--primary" hidden>
+        Resolver pendência
+      </button>
+    </section>
+
+    <section class="cot-op-panel cot-op-workflow" aria-labelledby="cot-checklist-title">
+      <div class="cot-op-panel__title cot-op-panel__title--actions">
+        <span>
+          <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+          <h3 id="cot-checklist-title">Prontidão comercial</h3>
+        </span>
+        <button type="button" id="cot-checklist-refresh" class="cot-op-text-btn">Atualizar</button>
+      </div>
+      <div class="cot-op-progress" aria-live="polite">
+        <div class="cot-op-progress__label">
+          <strong id="cot-checklist-progress-label">Carregando…</strong>
+          <span id="cot-checklist-progress-value"></span>
+        </div>
+        <div class="cot-op-progress__track" role="progressbar" aria-label="Prontidão da proposta" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="cot-checklist-progress-bar"></span>
+        </div>
+      </div>
+      <div id="cot-checklist-items" class="cot-op-state">Nenhuma verificação disponível.</div>
+    </section>
+  </div>
+</aside>
+
+<button type="button" id="cot-sidebar-mobile-trigger" class="cot-op-sidebar-trigger" aria-controls="cot-operation-sidebar" aria-expanded="false">
+  <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+  <span>Pendências</span>
+</button>
+<div id="cot-sidebar-backdrop" class="cot-op-sidebar-backdrop" data-cot-sidebar-close aria-hidden="true"></div>

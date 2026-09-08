@@ -4,6 +4,10 @@
 
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=1">
+{% endblock %}
+
 {% block content %}
 {% macro opcoes_plataforma_campanha(selecionada='') %}
 <option value="">Selecione...</option>
@@ -2175,7 +2179,7 @@ function calcularVolumeEdit() {
 {% set _pa = cotacao.agencia_percentual|float if (cotacao and cotacao.agencia_percentual) else 0 %}
 {% set _pp = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
 {% set fator_liquido = ((1 - _pa / 100) * (1 - _pp / 100)) if (_pa or _pp) else 1 %}
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
+<div id="cotacao-operacao-app" class="cot-op-page" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
 
   <style>
     .tab-nav-item { border-bottom:2px solid transparent; }
@@ -2184,7 +2188,7 @@ function calcularVolumeEdit() {
   </style>
 
   <!-- ==================== HEADER COMPACTO (estilo CRM) ==================== -->
-  <div class="bg-white border-b border-gray-200 px-2 py-0.5 mb-2 sticky top-0 z-40 erp-content-sticky">
+  <div class="cot-op-header bg-white border-b border-gray-200 px-2 py-0.5 mb-2 sticky top-0 z-40 erp-content-sticky">
     <div class="flex items-center justify-between gap-4">
       <!-- Voltar + Título + Código -->
       <div class="flex items-center gap-2 min-w-0">
@@ -2376,9 +2380,9 @@ function calcularVolumeEdit() {
         {% endif %}
 
         {% if modo == 'editar' %}
-        <a id="btn_editar_header" href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
-          <i class="fas fa-edit mr-1"></i>Editar
-        </a>
+        <button id="btn_editar_header" type="button" onclick="abrirModalEditarCampanha()" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
+          <i class="fas fa-edit mr-1"></i>Editar proposta
+        </button>
         {% endif %}
       </div>
     </div>
@@ -2386,7 +2390,7 @@ function calcularVolumeEdit() {
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-3 space-y-2">
+      <div class="cot-op-flashes mb-3 space-y-2">
         {% for category, message in messages %}
           <div class="px-4 py-2 rounded border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% elif category == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
             {{ message }}
@@ -2442,6 +2446,8 @@ function calcularVolumeEdit() {
   } %}
   {% set _status_cor = _status_cores.get(_status, 'bg-gray-300') %}
   {# ==================== BARRA DE MÉTRICAS (6 cards) ==================== #}
+  <div class="cot-op-layout">
+  <main class="cot-op-main" aria-label="Workspace da cotação">
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
     <!-- Status -->
     <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
@@ -2516,7 +2522,7 @@ function calcularVolumeEdit() {
   </div>
 
   <!-- ==================== ABAS HORIZONTAIS ==================== -->
-  <div class="bg-white border border-gray-200 rounded-lg mb-2 px-2 sticky top-9 z-30">
+  <div class="cot-op-tabs bg-white border border-gray-200 rounded-lg mb-2 px-2 sticky top-9 z-30">
     <nav class="flex items-center gap-1 overflow-x-auto">
       <button type="button" data-tab="resumo" onclick="mostrarTabCotacao('resumo')"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
@@ -2549,7 +2555,7 @@ function calcularVolumeEdit() {
       window.mostrarTabCotacao = function(nome) {
         if (nome === 'visao_geral') nome = 'resumo';
         var mapa = {
-          resumo: ['resumo_comercial','itens','audiencias','historico','anexos'],
+          resumo: ['resumo_comercial','parametros_proposta','itens','audiencias','historico','anexos'],
           itens: ['itens'],
           audiencias: ['audiencias'],
           historico: ['historico'],
@@ -2774,6 +2780,43 @@ function calcularVolumeEdit() {
 
       </div>
 
+      <!-- PARÂMETROS E TEXTOS DA PROPOSTA -->
+      <div data-section="parametros_proposta" class="bg-white rounded border border-gray-200 p-3">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
+            <i class="fas fa-file-signature text-gray-400"></i>
+            Parâmetros e textos da proposta
+          </h2>
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %}
+          <button type="button" onclick="abrirModalEditarCampanha(); window.setTimeout(function(){ var aba = document.querySelector('#modal_editar_campanha [data-tab-trigger=&quot;proposta&quot;]'); if (aba) aba.click(); }, 0)" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700">
+            <i class="fas fa-edit mr-1"></i>Editar textos
+          </button>
+          {% endif %}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+          <div class="rounded border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="text-[10px] text-gray-500 uppercase">Frequência de impacto</span>
+            <p class="font-semibold text-gray-800 mt-0.5">{{ cotacao.frequencia_impacto or FREQUENCIA_IMPACTO_DEFAULT }}</p>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="text-[10px] text-gray-500 uppercase">Observações comerciais</span>
+            <p class="text-gray-700 mt-0.5 whitespace-pre-wrap">{{ cotacao.observacoes if cotacao and cotacao.observacoes else 'Nenhuma observação comercial.' }}</p>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="text-[10px] text-gray-500 uppercase">Premissas</span>
+            <p class="text-gray-700 mt-1 whitespace-pre-wrap leading-relaxed">{{ cotacao.premissas if cotacao and cotacao.premissas else PREMISSAS_DEFAULT }}</p>
+          </div>
+          <div class="rounded border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="text-[10px] text-gray-500 uppercase">Observações gerais</span>
+            <p class="text-gray-700 mt-1 whitespace-pre-wrap leading-relaxed">{{ cotacao.observacoes_gerais if cotacao and cotacao.observacoes_gerais else OBSERVACOES_GERAIS_DEFAULT }}</p>
+          </div>
+          <div class="lg:col-span-2 rounded border border-amber-100 bg-amber-50/50 p-2.5">
+            <span class="text-[10px] text-amber-700 uppercase">Observações internas</span>
+            <p class="text-gray-700 mt-0.5 whitespace-pre-wrap">{{ cotacao.observacoes_internas if cotacao and cotacao.observacoes_internas else 'Nenhuma observação interna.' }}</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ITENS DA PROPOSTA -->
       <div data-section="itens" class="bg-white rounded border border-gray-200 p-2">
         <div class="flex items-center justify-between mb-1">
@@ -2794,6 +2837,7 @@ function calcularVolumeEdit() {
             {% endif %}
           </div>
         </div>
+        <div class="cot-op-table-wrap" role="region" aria-label="Itens da proposta" tabindex="0">
         <table class="w-full text-xs">
           <thead class="bg-gray-100">
             <tr class="text-[10px] text-gray-600 uppercase">
@@ -2852,6 +2896,7 @@ function calcularVolumeEdit() {
           </tfoot>
           {% endif %}
         </table>
+        </div>
       </div>
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
@@ -2874,6 +2919,7 @@ function calcularVolumeEdit() {
           </div>
         </div>
         <div id="audiencias_content" {% if not audiencias %}style="display: none;"{% endif %}>
+        <div class="cot-op-table-wrap cot-op-table-wrap--audiencias" role="region" aria-label="Audiências selecionadas" tabindex="0">
         <table class="w-full text-xs">
           <thead class="bg-gray-100">
             <tr class="text-[10px] text-gray-600 uppercase">
@@ -2911,6 +2957,7 @@ function calcularVolumeEdit() {
             {% endif %}
           </tbody>
         </table>
+        </div>
         </div>
       </div>
 
@@ -2974,6 +3021,9 @@ function calcularVolumeEdit() {
       </div>
 
     </div>
+  </main>
+  {% include 'cotacoes/_sidebar_comercial.html' %}
+  </div>
 </div>
 
 <!-- ==================== MODAL ENVIAR PROPOSTA ==================== -->
@@ -4116,6 +4166,7 @@ function calcularVolumeEdit() {
       <div class="px-6 flex gap-1 text-sm">
         <button type="button" data-tab-trigger="basico" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Básico</button>
         <button type="button" data-tab-trigger="cronograma" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Cronograma &amp; Budget</button>
+        <button type="button" data-tab-trigger="proposta" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Textos da proposta</button>
       </div>
     </div>
 
@@ -4162,6 +4213,33 @@ function calcularVolumeEdit() {
           <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
                  placeholder="0,00" inputmode="decimal" autocomplete="off">
           <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho ou Em Acompanhamento.</span></label>
+        </div>
+      </div>
+
+      <!-- Aba: textos e parâmetros da proposta -->
+      <div data-tabpanel="proposta" class="space-y-4 hidden">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Frequência de impacto</span></label>
+          <input type="number" min="1" step="1" id="edit_frequencia_impacto" class="input input-bordered w-full"
+                 value="{{ cotacao.frequencia_impacto or FREQUENCIA_IMPACTO_DEFAULT if cotacao else FREQUENCIA_IMPACTO_DEFAULT }}">
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Premissas</span></label>
+          <textarea id="edit_premissas" class="textarea textarea-bordered w-full" rows="7">{{ cotacao.premissas if cotacao and cotacao.premissas else PREMISSAS_DEFAULT }}</textarea>
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Observações gerais</span></label>
+          <textarea id="edit_observacoes_gerais" class="textarea textarea-bordered w-full" rows="9">{{ cotacao.observacoes_gerais if cotacao and cotacao.observacoes_gerais else OBSERVACOES_GERAIS_DEFAULT }}</textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Observações comerciais</span></label>
+            <textarea id="edit_observacoes" class="textarea textarea-bordered w-full" rows="4">{{ cotacao.observacoes if cotacao and cotacao.observacoes else '' }}</textarea>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Observações internas</span></label>
+            <textarea id="edit_observacoes_internas" class="textarea textarea-bordered w-full" rows="4">{{ cotacao.observacoes_internas if cotacao and cotacao.observacoes_internas else '' }}</textarea>
+          </div>
         </div>
       </div>
     </form>
@@ -4768,7 +4846,7 @@ function atualizarElementosEdicao(novoStatus) {
   // Botão Editar no header
   const btnEditarHeader = document.getElementById('btn_editar_header');
   if (btnEditarHeader) {
-    btnEditarHeader.style.display = podeEditarAgora ? '' : 'none';
+    btnEditarHeader.style.display = STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus) ? '' : 'none';
   }
   
   // Botão editar cliente
@@ -4940,6 +5018,7 @@ async function alterarStatusCotacao(novoStatus) {
       atualizarBotoesAprovarRejeitar(novoStatus);
       atualizarElementosEdicao(novoStatus);
       atualizarSelectTipoEmail(novoStatus);
+      document.dispatchEvent(new CustomEvent('cotacao:updated'));
     } else {
       showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
       if (selectEl) selectEl.value = statusAnterior;
@@ -6027,7 +6106,12 @@ async function salvarEdicaoCampanha() {
     periodo_inicio: document.getElementById('edit_periodo_inicio').value || null,
     periodo_fim: document.getElementById('edit_periodo_fim').value || null,
     objetivo_campanha: objetivoVal || null,
-    budget_estimado: budgetNum
+    budget_estimado: budgetNum,
+    frequencia_impacto: parseInt(document.getElementById('edit_frequencia_impacto').value, 10) || null,
+    premissas: document.getElementById('edit_premissas').value.trim(),
+    observacoes_gerais: document.getElementById('edit_observacoes_gerais').value.trim(),
+    observacoes: document.getElementById('edit_observacoes').value.trim(),
+    observacoes_internas: document.getElementById('edit_observacoes_internas').value.trim()
   };
   
   try {
@@ -8789,4 +8873,8 @@ async function recalcularValorTotalCotacao() {
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=1"></script>
 {% endblock %}

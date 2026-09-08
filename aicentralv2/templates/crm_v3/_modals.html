@@ -138,7 +138,7 @@
        específico (POST /clientes/<id>/contatos/importar). O chip deixa
        explícito PARA QUEM os contatos vão — antes o usuário tinha que
        lembrar qual cliente estava aberto na coluna 1.
-       Estado "não selecionado" mostra alerta em vermelho e o step 1
+       Estado "não selecionado" mostra orientação em vermelho e o step 1
        fica desabilitado. #}
     <div class="crm-v3-import-target" id="crm-v3-import-target" aria-live="polite">
       <div class="crm-v3-import-target-ok" id="crm-v3-import-target-ok" hidden>
@@ -321,18 +321,6 @@
   <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
 </dialog>
 
-<dialog id="crm-v3-modal-confirm-obj" class="cx-modal-shell crm-v3-modal">
-  <div class="cx-modal-panel crm-v3-modal-box max-w-sm">
-    <h3 class="font-semibold text-lg mb-2">Excluir objetivo</h3>
-    <p class="text-sm text-slate-900/80 mb-4" id="crm-v3-confirm-obj-text">Tem certeza que deseja excluir este objetivo?</p>
-    <div class="cx-modal-actions mt-0">
-      <button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-close-modal="crm-v3-modal-confirm-obj">Cancelar</button>
-      <button type="button" class="crm-v3-btn crm-v3-btn-danger crm-v3-btn-sm" id="crm-v3-confirm-obj-btn">Excluir</button>
-    </div>
-  </div>
-  <form method="dialog" class="cx-modal-dismiss crm-v3-modal-backdrop"><button aria-label="Fechar">close</button></form>
-</dialog>
-
 <div id="crm-v3-toast" class="crm-v3-toast cx-toast cx-toast-top cx-toast-end z-[100]" role="status" aria-live="polite" hidden>
-  <div class="cx-alert cx-alert-success shadow-lg text-sm"><span id="crm-v3-toast-text"></span></div>
+  <div class="crm-v3-toast-surface crm-v3-toast-success shadow-lg text-sm"><span id="crm-v3-toast-text"></span></div>
 </div>

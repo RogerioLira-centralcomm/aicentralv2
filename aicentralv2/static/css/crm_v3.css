@@ -1651,9 +1651,9 @@ img.crm-v3-avatar-mini {
     line-height: 1;
 }
 
-/* Variante 'alert' — cliente SEM atividade agendada. Âmbar como o
+/* Variante 'sem-atividade' — cliente SEM atividade agendada. Âmbar como o
    Pipedrive (é um chamado à ação, não um erro crítico). */
-.crm-v3-sit--alert {
+.crm-v3-sit--sem-atividade {
     background: #fef3c7;
     color: #b45309;
     box-shadow: 0 0 0 1px #fde68a;
@@ -5725,6 +5725,32 @@ img.crm-v3-avatar-mini {
 
 .crm-v3-toast[hidden] {
     display: none !important;
+}
+
+.crm-v3-toast-surface {
+    display: flex;
+    min-width: 220px;
+    max-width: min(420px, calc(100vw - 32px));
+    align-items: center;
+    gap: 8px;
+    border: 1px solid;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.crm-v3-toast-success {
+    border-color: #86efac;
+    background: #dcfce7;
+    color: #166534;
+}
+
+.crm-v3-toast-error {
+    border-color: #fca5a5;
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 /* =====================================================================

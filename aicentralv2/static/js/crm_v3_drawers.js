@@ -839,11 +839,6 @@
         var desc = form.querySelector('[data-field="descricao"]');
         texto = stripMarkdown(texto || '');
         if (!desc || !texto) return false;
-        var atual = (desc.value || '').trim();
-        if (atual && atual !== texto) {
-            var ok = window.confirm('Aplicar esta sugestão no registro da atividade? O texto atual será substituído.');
-            if (!ok) return false;
-        }
         desc.value = texto;
         desc.focus();
         return true;
@@ -1761,7 +1756,13 @@
                 var selected = current.find(function (item) {
                     return item.id === button.getAttribute('data-remove-client');
                 });
-                openAgencyUnlinkConfirm(wrapper, selected);
+                if (!selected) return;
+                button.disabled = true;
+                changeAgencyClientLink(wrapper, selected, false)
+                    .catch(function (err) {
+                        button.disabled = false;
+                        toast(err.message, true);
+                    });
             });
         });
     }
@@ -1799,33 +1800,6 @@
             toast(active ? 'Cliente adicionado à agência' : 'Cliente retirado da agência');
             return response;
         });
-    }
-
-    function openAgencyUnlinkConfirm(wrapper, client) {
-        if (!client) return;
-        var dialog = wrapper.querySelector('#cx-cot-unlink-dialog');
-        var message = wrapper.querySelector('#cx-cot-unlink-message');
-        var confirm = wrapper.querySelector('#cx-cot-unlink-confirm');
-        var cancel = wrapper.querySelector('#cx-cot-unlink-cancel');
-        if (!dialog || !confirm) return;
-        if (message) {
-            message.textContent = 'O vínculo de ' + (client.nome || 'este cliente') +
-                ' será removido permanentemente. Cotações anteriores não serão alteradas.';
-        }
-        wrapper._cotPendingUnlink = client;
-        if (!dialog._cotWired) {
-            dialog._cotWired = true;
-            if (cancel) cancel.addEventListener('click', function () { dialog.close(); });
-            confirm.addEventListener('click', function () {
-                var pending = wrapper._cotPendingUnlink;
-                confirm.disabled = true;
-                changeAgencyClientLink(wrapper, pending, false)
-                    .then(function () { dialog.close(); })
-                    .catch(function (err) { toast(err.message, true); })
-                    .finally(function () { confirm.disabled = false; });
-            });
-        }
-        dialog.showModal();
     }
 
     function wireAgencyClientManager(wrapper) {

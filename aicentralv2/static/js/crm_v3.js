@@ -26,7 +26,6 @@
         buscaCliente: '',
         buscaAtividade: '',
         importRows: [],
-        pendingObjetivoId: null,
         overlayTimer: null,
         // Cache do web-info por cliente. Chave = clienteId, valor =
         // registro do endpoint /web-info. Guardamos aqui para:
@@ -277,7 +276,7 @@
      *
      * Variantes visuais (ver crm_v3.css .crm-v3-sit--*):
      *   - atrasado : amarelo com !  → há atividade vencida
-     *   - alert    : amarelo com !  → cliente SEM atividade agendada
+     *   - sem-atividade: amarelo com ! → cliente SEM atividade agendada
      *   - hoje     : verde com sino → atividade prevista pra hoje
      *   - agenda   : azul com cal.  → atividade futura (amanhã / em N dias)
      *   - Se cliente é geladeira / sem info, retorna string vazia
@@ -505,7 +504,7 @@
             // como bolinha âmbar com "!" indicando que o executivo
             // precisa marcar próximo passo. Não é erro, é chamado à ação.
             icon = 'fa-solid fa-exclamation';
-            variante = 'alert';
+            variante = 'sem-atividade';
             title = 'Sem atividade agendada · marque um próximo passo';
         } else if (/conclu/i.test(badge)) {
             icon = 'fa-solid fa-check';
@@ -878,12 +877,12 @@
     function showToast(msg, isError) {
         var wrap = $('#crm-v3-toast');
         var text = $('#crm-v3-toast-text');
-        var alert = wrap && wrap.querySelector('.alert');
+        var surface = wrap && wrap.querySelector('.crm-v3-toast-surface');
         if (!wrap || !text) return;
         text.textContent = msg;
-        if (alert) {
-            alert.classList.toggle('cx-alert-danger', !!isError);
-            alert.classList.toggle('cx-alert-success', !isError);
+        if (surface) {
+            surface.classList.toggle('crm-v3-toast-error', !!isError);
+            surface.classList.toggle('crm-v3-toast-success', !isError);
         }
         wrap.hidden = false;
         wrap.classList.add('crm-v3-toast-visible');
@@ -2064,7 +2063,6 @@
         if (limpar) {
             limpar.addEventListener('click', function () {
                 if (!state.clienteId) return;
-                if (!confirm('Remover o site salvo? O logo volta a ser inferido do contato principal.')) return;
                 limpar.disabled = true;
                 api('/clientes/' + encodeURIComponent(state.clienteId), {
                     method: 'PATCH',
@@ -2969,10 +2967,13 @@
                     openAtividadeModal(a);
                 }
             } else if (action === 'excluir') {
-                if (!window.confirm('Excluir esta atividade?')) return;
+                btn.disabled = true;
                 api('/atividades/' + encodeURIComponent(id), { method: 'DELETE' })
                     .then(function () { loadAtividades(state.clienteId); showToast('Atividade excluída'); })
-                    .catch(function (err) { showToast(err.message, true); });
+                    .catch(function (err) {
+                        btn.disabled = false;
+                        showToast(err.message, true);
+                    });
             }
         });
     }
@@ -3169,11 +3170,18 @@
         });
         $$('.crm-v3-obj-delete', container).forEach(function (btn) {
             btn.addEventListener('click', function () {
-                state.pendingObjetivoId = btn.getAttribute('data-objetivo-id');
-                var o = state.objetivos.find(function (x) { return x.id === state.pendingObjetivoId; });
-                var txt = $('#crm-v3-confirm-obj-text');
-                if (txt && o) txt.textContent = 'Excluir objetivo “' + o.texto + '”?';
-                openModal('crm-v3-modal-confirm-obj');
+                var id = btn.getAttribute('data-objetivo-id');
+                if (!id) return;
+                btn.disabled = true;
+                api('/objetivos/' + encodeURIComponent(id), { method: 'DELETE' })
+                    .then(function () {
+                        showToast('Objetivo excluído');
+                        return loadObjetivos(state.clienteId);
+                    })
+                    .catch(function (err) {
+                        btn.disabled = false;
+                        showToast(err.message, true);
+                    });
             });
         });
     }
@@ -4020,7 +4028,7 @@
 
     function openImportModal() {
         // Guard-rail: sem cliente selecionado, o modal abre em modo
-        // "vazio" (alerta vermelho + botão Processar desabilitado)
+        // "vazio" (orientação em vermelho + botão Processar desabilitado)
         // em vez de crashar no submit. Antes o usuário só descobria
         // que faltava selecionar cliente após colar 100 linhas.
         var cliente = state.clienteId
@@ -4540,19 +4548,6 @@
             });
         }
 
-        var confirmObj = $('#crm-v3-confirm-obj-btn');
-        if (confirmObj) {
-            confirmObj.addEventListener('click', function () {
-                if (!state.pendingObjetivoId) return;
-                api('/objetivos/' + encodeURIComponent(state.pendingObjetivoId), { method: 'DELETE' })
-                    .then(function () {
-                        closeModal('crm-v3-modal-confirm-obj');
-                        showToast('Objetivo excluído');
-                        return loadObjetivos(state.clienteId);
-                    })
-                    .catch(function (err) { showToast(err.message, true); });
-            });
-        }
     }
 
     function renderImportTable() {

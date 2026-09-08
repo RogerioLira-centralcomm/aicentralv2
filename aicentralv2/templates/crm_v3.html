@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=83">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=85">
 {% endblock %}
 
 {% block content %}
@@ -28,7 +28,7 @@
    - `mock` (amarelo): apenas dev, quando o operador setou
      USE_CRM_V3_STORE=mock explicitamente. Deixa claro que não é real. #}
 {% if store_mode == 'unavailable' %}
-  <div class="crm-v3-status-banner crm-v3-status-banner-error" role="alert" aria-live="assertive">
+  <div class="crm-v3-status-banner crm-v3-status-banner-error" role="status" aria-live="polite">
     <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
     <div class="crm-v3-status-banner-body">
       <strong>Banco indisponível</strong>
@@ -45,7 +45,7 @@
     {% endif %}
   </div>
 {% elif store_mode == 'mock' %}
-  <div class="crm-v3-status-banner crm-v3-status-banner-warn" role="alert" aria-live="polite">
+  <div class="crm-v3-status-banner crm-v3-status-banner-warn" role="status" aria-live="polite">
     <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
     <div class="crm-v3-status-banner-body">
       <strong>Modo dev (dados fictícios)</strong>
@@ -744,7 +744,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=60"></script>
-<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=19"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=62"></script>
+<script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=20"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>
 {% endblock %}

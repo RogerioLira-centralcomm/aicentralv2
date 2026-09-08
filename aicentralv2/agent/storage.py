@@ -140,6 +140,38 @@ def get_conversation(conversation_id, user_id):
     return {"conversation": conversation, "messages": messages}
 
 
+def update_conversation_context(conversation_id, user_id, context):
+    _ensure_tables()
+    context = context or {}
+    conn = db.get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE agent_conversations
+               SET context_module = %s,
+                   context_screen = %s,
+                   context_entity_type = %s,
+                   context_entity_id = %s,
+                   context_entity_label = %s,
+                   updated_at = NOW()
+             WHERE id = %s AND user_id = %s
+         RETURNING *
+            """,
+            (
+                context.get("module") or None,
+                context.get("screen") or None,
+                context.get("entity_type") or None,
+                str(context.get("entity_id") or "") or None,
+                (context.get("entity_label") or "")[:200] or None,
+                conversation_id,
+                user_id,
+            ),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return row
+
+
 def add_message(conversation_id, user_id, role, content, display=None, model=None, usage=None):
     owned = get_conversation(conversation_id, user_id)
     if not owned:

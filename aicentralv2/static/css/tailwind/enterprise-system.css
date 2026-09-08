@@ -3579,3 +3579,298 @@ dialog.cx-modal-shell::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .cx-spinner { animation-duration: 1.4s; }
 }
+
+/* Parede contextual inteligente: conversa compacta, contexto sob demanda. */
+@media (min-width: 1100px) {
+  .cx-agent-dock:not(.is-minimized) {
+    width: min(27rem, 100vw);
+    transition:
+      width 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 240ms;
+  }
+  .cx-agent-dock[data-context-wall="open"]:not(.is-minimized) {
+    width: min(72rem, calc(100vw - 2rem));
+  }
+  .cx-agent-workspace-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cx-agent-record {
+    display: none;
+  }
+  .cx-agent-dock[data-context-wall="open"] .cx-agent-workspace-columns {
+    grid-template-columns: minmax(20rem, 0.82fr) minmax(27rem, 1.18fr);
+  }
+  .cx-agent-dock[data-context-wall="open"] .cx-agent-record {
+    display: flex;
+  }
+}
+
+.cx-agent-record-head-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cx-agent-context-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--agent-line);
+  padding: 0.2rem 0 1rem;
+}
+
+.cx-agent-context-identity > span {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: var(--agent-teal);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.cx-agent-context-identity.is-contato > span { background: #355d75; }
+.cx-agent-context-identity.is-cotacao > span { background: #695c36; }
+.cx-agent-context-identity.is-pi > span { background: #5d4b78; }
+.cx-agent-context-identity.is-campanha > span { background: #8a4c3b; }
+.cx-agent-context-identity > div { display: grid; min-width: 0; }
+.cx-agent-context-identity small {
+  color: #687a7b;
+  font-size: 0.75rem;
+}
+.cx-agent-context-identity strong {
+  overflow: hidden;
+  color: var(--agent-ink);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-agent-context-identity p {
+  margin: 0.15rem 0 0;
+  color: #687a7b;
+  font-size: 0.78rem;
+}
+
+.cx-agent-context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--agent-line);
+  padding: 0.75rem 0;
+}
+.cx-agent-context-actions a,
+.cx-agent-context-actions button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #cbd7d7;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: #fff;
+  color: var(--agent-teal);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.cx-agent-context-actions a:hover,
+.cx-agent-context-actions button:hover { background: #edf4f3; }
+.cx-agent-context-actions .is-copied,
+[data-copy-value].is-copied { border-color: #1f9d69; color: #15704d; }
+
+.cx-agent-context-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-bottom: 1px solid var(--agent-line);
+  padding: 0.75rem 0;
+}
+.cx-agent-context-facts > div {
+  min-width: 0;
+  border-left: 2px solid #d9e4e3;
+  padding: 0.4rem 0.65rem;
+}
+.cx-agent-context-facts dt {
+  color: #687a7b;
+  font-size: 0.75rem;
+}
+.cx-agent-context-facts dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0;
+  color: var(--agent-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.cx-agent-context-facts dd span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cx-agent-context-facts dd button,
+.cx-agent-result-contact button {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #6b7d7e;
+  cursor: pointer;
+}
+.cx-agent-context-facts dd button:hover,
+.cx-agent-result-contact button:hover { background: #eaf1f0; color: var(--agent-teal); }
+
+.cx-agent-context-section {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--agent-line);
+  padding-top: 0.8rem;
+}
+.cx-agent-context-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.cx-agent-context-section h3 {
+  margin: 0;
+  color: var(--agent-ink);
+  font-size: 0.82rem;
+}
+.cx-agent-context-section header > span {
+  border-radius: 999px;
+  background: #e9f1f0;
+  padding: 0.12rem 0.45rem;
+  color: var(--agent-teal);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.cx-agent-context-list { display: grid; gap: 0.3rem; }
+.cx-agent-context-list > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.6rem;
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.6rem;
+  background: #fff;
+  color: var(--agent-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.cx-agent-context-list > button:hover { background: #eaf1f0; }
+.cx-agent-context-list > button > i:first-child {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.45rem;
+  background: #e7f0ef;
+  color: var(--agent-teal);
+}
+.cx-agent-context-list > button > i:last-child {
+  margin-left: auto;
+  color: #8a999a;
+  font-size: 0.65rem;
+}
+.cx-agent-context-list > button > span { display: grid; min-width: 0; }
+.cx-agent-context-list strong { font-size: 0.78rem; }
+.cx-agent-context-list small {
+  overflow: hidden;
+  color: #687a7b;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-agent-confirmation {
+  border: 1px solid #cdd9d8;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 1rem;
+}
+.cx-agent-confirmation > header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.cx-agent-confirmation > header > i {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border-radius: 0.55rem;
+  background: #e7f0ef;
+  color: var(--agent-teal);
+}
+.cx-agent-confirmation header div { display: grid; }
+.cx-agent-confirmation header span,
+.cx-agent-confirmation > p { color: #687a7b; font-size: 0.78rem; }
+.cx-agent-confirmation-diff { display: grid; gap: 0.55rem; margin-top: 0.85rem; }
+.cx-agent-confirmation-diff > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  border-top: 1px solid var(--agent-line);
+  padding-top: 0.55rem;
+  font-size: 0.78rem;
+}
+.cx-agent-confirmation-diff span { color: #687a7b; }
+.cx-agent-confirmation-diff del { color: #9a5650; }
+.cx-agent-confirmation-diff strong { color: #15704d; }
+.cx-agent-confirmation footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.cx-agent-confirmation footer button {
+  min-height: 2.35rem;
+  border: 1px solid #cbd7d7;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  color: var(--agent-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cx-agent-confirmation footer [data-contact-confirm] {
+  border-color: var(--agent-teal);
+  background: var(--agent-teal);
+  color: #fff;
+}
+
+.cx-agent-result-contact {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #526667;
+}
+.cx-agent-result-contact > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.cx-agent-markdown a { color: var(--agent-teal); text-decoration: underline; text-underline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .cx-agent-context-facts { grid-template-columns: 1fr; }
+  .cx-agent-confirmation-diff { grid-template-columns: 1fr; }
+  .cx-agent-confirmation-diff > div { grid-template-columns: 1fr; }
+  .cx-agent-confirmation footer { flex-direction: column-reverse; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-agent-dock:not(.is-minimized) { transition: none; }
+}

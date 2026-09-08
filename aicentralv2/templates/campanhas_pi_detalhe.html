@@ -3,7 +3,7 @@
 {% block title %}{{ campanha.nome_campanha or 'Campanha' }} - Operação{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=7">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
 {% endblock %}
 
@@ -19,9 +19,10 @@
 {% set restante_obj = [obj_val - ating_val, 0]|max %}
 
 <div id="pi-operacao-app"
-     class="pi-operation campaign-detail-page"
+     class="pi-operation pi-has-mobile-tabs campaign-detail-page"
      data-pi-id="{{ campanha.id_pi or 0 }}"
      data-campanha-id="{{ campanha.id_campanha }}"
+     data-campanha-label="{{ (campanha.nome_campanha or 'Campanha')|e }}"
      data-base-plataformas="{{ campanha.valor_plataformas_pi or '' }}"
      data-stage="{{ pi.id_sub_status_pi if pi else '' }}"
      data-readonly="{{ 'true' if somente_leitura else 'false' }}">
@@ -61,6 +62,8 @@
     </div>
   </header>
 
+  {% include 'pi_operacao/_mobile_tabs.html' %}
+
   <div class="pi-op-layout campaign-detail-layout">
     <main class="pi-op-main campaign-detail-main">
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -69,7 +72,10 @@
         {% endfor %}
       {% endwith %}
 
-      <section class="campaign-flight-deck" aria-label="Resumo operacional">
+      <section id="pi-mobile-summary" class="campaign-flight-deck"
+               aria-label="Resumo operacional" role="tabpanel"
+               aria-labelledby="pi-mobile-tab-summary"
+               data-mobile-panel="summary" tabindex="0">
         <article class="campaign-flight-period">
           <div class="campaign-flight-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Período</div>
           <strong>
@@ -111,7 +117,9 @@
         </article>
       </section>
 
-      <section class="campaign-detail-section" aria-labelledby="campaign-config-title">
+      <section id="pi-mobile-edit" class="campaign-detail-section"
+               aria-labelledby="campaign-config-title pi-mobile-tab-edit"
+               role="tabpanel" data-mobile-panel="edit" tabindex="0">
         <div class="campaign-detail-section-head">
           <div>
             <h2 id="campaign-config-title">Configuração da campanha</h2>
@@ -135,7 +143,8 @@
         </form>
       </section>
 
-      <section class="campaign-detail-section" aria-labelledby="campaign-daily-title">
+      <section class="campaign-detail-section" aria-labelledby="campaign-daily-title"
+               data-mobile-panel="summary">
         <div class="campaign-detail-section-head">
           <div>
             <h2 id="campaign-daily-title">Atualizações diárias</h2>
@@ -157,11 +166,11 @@
             <tbody id="campaignDailyRows">
               {% for diario in diarios %}
               <tr>
-                <td>{{ diario.data_evento.strftime('%d/%m/%Y') if diario.data_evento else '—' }}</td>
-                <td>{{ diario.atingido|format_volume_ptbr if diario.atingido is not none else '—' }}</td>
-                <td>{{ diario.dif_atingido|format_volume_ptbr if diario.dif_atingido is not none else '—' }}</td>
-                <td>{{ diario.gasto|format_brl_ptbr if diario.gasto is not none else '—' }}</td>
-                <td>{{ diario.dif_gasto|format_brl_ptbr if diario.dif_gasto is not none else '—' }}</td>
+                <td data-label="Data">{{ diario.data_evento.strftime('%d/%m/%Y') if diario.data_evento else '—' }}</td>
+                <td data-label="Atingido">{{ diario.atingido|format_volume_ptbr if diario.atingido is not none else '—' }}</td>
+                <td data-label="Variação entrega">{{ diario.dif_atingido|format_volume_ptbr if diario.dif_atingido is not none else '—' }}</td>
+                <td data-label="Gasto">{{ diario.gasto|format_brl_ptbr if diario.gasto is not none else '—' }}</td>
+                <td data-label="Variação gasto">{{ diario.dif_gasto|format_brl_ptbr if diario.dif_gasto is not none else '—' }}</td>
               </tr>
               {% else %}
               <tr class="campaign-daily-empty"><td colspan="5">Nenhuma atualização registrada. Use o formulário acima para iniciar o histórico.</td></tr>
@@ -178,6 +187,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=6"></script>
-<script src="{{ url_for('static', filename='js/campanha_pi_detalhe.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/campanha_pi_detalhe.js') }}?v=2"></script>
 {% endblock %}

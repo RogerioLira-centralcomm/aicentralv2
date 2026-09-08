@@ -27,7 +27,9 @@
     loadingTimer: null,
     record: null,
     recordKey: '',
-    activeView: 'conversation'
+    activeView: 'conversation',
+    contextWallOpen: false,
+    contextPersistTimer: null
   };
 
   var els = {
@@ -74,6 +76,7 @@
     record: document.getElementById('cx-agent-record'),
     recordTitle: document.getElementById('cx-agent-record-title'),
     recordOpen: document.getElementById('cx-agent-record-open'),
+    recordClose: document.getElementById('cx-agent-record-close'),
     recordBody: document.getElementById('cx-agent-record-body')
   };
 
@@ -154,7 +157,13 @@
   }
 
   function entityTypeLabel(type) {
-    var map = { cliente: 'Cliente', client: 'Cliente', cotacao: 'Cotação', quote: 'Cotação', pi: 'PI' };
+    var map = {
+      cliente: 'Cliente', client: 'Cliente',
+      contato: 'Contato', contact: 'Contato',
+      cotacao: 'Cotação', quote: 'Cotação',
+      pi: 'PI',
+      campanha: 'Campanha', campaign: 'Campanha'
+    };
     return map[String(type || '').toLowerCase()] || 'Registro';
   }
 
@@ -168,32 +177,47 @@
   function commercialContext() {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
-    return ['cliente', 'client', 'cotacao', 'quote'].indexOf(type) >= 0 && ctx.entity_id
+    return ['cliente', 'client', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) >= 0 && ctx.entity_id
       ? ctx : null;
+  }
+
+  function persistConversationContext() {
+    window.clearTimeout(state.contextPersistTimer);
+    if (!state.bootstrapped || !state.conversationId) return;
+    state.contextPersistTimer = window.setTimeout(function () {
+      api('/api/agent/conversations/' + encodeURIComponent(state.conversationId) + '/context', {
+        method: 'PATCH',
+        body: JSON.stringify({ context: outgoingContext() })
+      }).catch(function () {
+        showComposerFeedback('O contexto continua disponível nesta tela, mas não pôde ser salvo na conversa.', true);
+      });
+    }, 240);
   }
 
   function updateContext() {
     var ctx = outgoingContext();
-    var hasEntity = Boolean(ctx.entity_id && ctx.entity_label);
+    var hasEntity = Boolean(ctx.entity_id);
     els.contextLabel.textContent = hasEntity ? ctx.entity_label : 'Nenhum registro na tela';
-    els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque no chat ou abra um cliente';
+    els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque ou peça detalhes ao agente';
     els.entity.classList.toggle('is-empty', !hasEntity);
     var icon = els.entity.querySelector('.cx-agent-entity-icon i');
     if (icon) {
       icon.className = 'fa-regular ' + (
-        String(ctx.entity_type || '').toLowerCase() === 'cotacao' ? 'fa-file-lines' :
-        String(ctx.entity_type || '').toLowerCase() === 'pi' ? 'fa-file-lines' : 'fa-building'
+        String(ctx.entity_type || '').toLowerCase() === 'contato' ? 'fa-user' :
+        String(ctx.entity_type || '').toLowerCase() === 'campanha' ? 'fa-bullhorn' :
+        ['cotacao', 'pi'].indexOf(String(ctx.entity_type || '').toLowerCase()) >= 0 ? 'fa-file-lines' : 'fa-building'
       );
     }
     renderActions();
-    loadCommercialRecord();
+    if (state.contextWallOpen) loadCommercialRecord();
+    persistConversationContext();
   }
 
   function openEntity() {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
-    if ((type === 'cliente' || type === 'client') && ctx.entity_id) {
-      window.location.href = '/crm-v3/#cliente=' + encodeURIComponent(ctx.entity_id);
+    if (ctx.entity_id && commercialContext()) {
+      openContextWall();
       return;
     }
     switchTab('chat');
@@ -201,6 +225,14 @@
   }
 
   function switchWorkspaceView(name) {
+    if (name === 'record') {
+      openContextWall();
+      return;
+    }
+    closeContextWall();
+  }
+
+  function syncWorkspaceView(name) {
     state.activeView = name === 'record' ? 'record' : 'conversation';
     els.workspace.dataset.activeView = state.activeView;
     dock.querySelectorAll('[data-agent-view]').forEach(function (button) {
@@ -210,15 +242,36 @@
     });
   }
 
+  function openContextWall(context) {
+    if (context) setAgentContext(context, true);
+    if (!commercialContext()) {
+      switchTab('chat');
+      els.input.focus();
+      return;
+    }
+    state.contextWallOpen = true;
+    dock.dataset.contextWall = 'open';
+    els.record.setAttribute('aria-hidden', 'false');
+    syncWorkspaceView('record');
+    loadCommercialRecord();
+  }
+
+  function closeContextWall() {
+    state.contextWallOpen = false;
+    dock.dataset.contextWall = 'closed';
+    els.record.setAttribute('aria-hidden', 'true');
+    syncWorkspaceView('conversation');
+  }
+
   function setRecordEmpty(message) {
     state.record = null;
-    els.recordTitle.textContent = 'Selecione um cliente ou cotação';
+    els.recordTitle.textContent = 'Selecione um registro';
     els.recordOpen.hidden = true;
     els.recordBody.innerHTML =
       '<div class="cx-agent-record-empty">' +
       '<i class="fa-regular fa-address-card" aria-hidden="true"></i>' +
-      '<strong>O contexto comercial aparece aqui</strong>' +
-      '<p>' + escapeHtml(message || 'Busque pelo nome, campanha ou número da cotação para começar.') + '</p>' +
+      '<strong>O contexto aparece quando for útil</strong>' +
+      '<p>' + escapeHtml(message || 'Selecione um registro ou peça detalhes ao agente.') + '</p>' +
       '</div>';
   }
 
@@ -321,19 +374,117 @@
         '"><i class="fa-regular fa-building"></i> Ver cliente no painel</button>' : '');
   }
 
+  function contextIcon(type) {
+    return {
+      cliente: 'fa-building',
+      contato: 'fa-user',
+      cotacao: 'fa-file-lines',
+      pi: 'fa-receipt',
+      campanha: 'fa-bullhorn'
+    }[String(type || '').toLowerCase()] || 'fa-address-card';
+  }
+
+  function contextValue(value) {
+    if (value == null || value === '') return '';
+    if (typeof value === 'number') {
+      return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    }
+    return String(value);
+  }
+
+  function safeActionUrl(url, allowExternal) {
+    if (safeInternalUrl(url)) return url;
+    if (!allowExternal || typeof url !== 'string') return '';
+    try {
+      var parsed = new URL(url, window.location.origin);
+      return ['http:', 'https:'].indexOf(parsed.protocol) >= 0 ? parsed.href : '';
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function renderContextFacts(facts) {
+    var valid = (facts || []).filter(function (item) { return contextValue(item.value); });
+    if (!valid.length) return '';
+    return '<dl class="cx-agent-context-facts">' + valid.map(function (item) {
+      var value = contextValue(item.value);
+      return '<div><dt>' + escapeHtml(item.label || '') + '</dt><dd>' +
+        '<span>' + escapeHtml(value) + '</span>' +
+        (item.copy ? '<button type="button" data-copy-value="' + escapeHtml(value) +
+          '" aria-label="Copiar ' + escapeHtml(item.label || 'valor') + '"><i class="fa-regular fa-copy"></i></button>' : '') +
+        '</dd></div>';
+    }).join('') + '</dl>';
+  }
+
+  function renderContextRelations(relations) {
+    return (relations || []).filter(function (section) {
+      return Array.isArray(section.items) && section.items.length;
+    }).map(function (section) {
+      return '<section class="cx-agent-context-section"><header><h3>' +
+        escapeHtml(section.title || 'Relacionados') + '</h3><span>' +
+        escapeHtml(String(section.count == null ? section.items.length : section.count)) +
+        '</span></header><div class="cx-agent-context-list">' +
+        section.items.map(function (item) {
+          return '<button type="button" data-select-record="' + escapeHtml(item.type || '') +
+            '" data-record-id="' + escapeHtml(item.id || '') +
+            '" data-record-label="' + escapeHtml(item.title || 'Registro') + '">' +
+            '<i class="fa-regular ' + contextIcon(item.type) + '"></i><span><strong>' +
+            escapeHtml(item.title || 'Registro') + '</strong>' +
+            (item.subtitle ? '<small>' + escapeHtml(item.subtitle) + '</small>' : '') +
+            (item.phone ? '<small><i class="fa-solid fa-phone"></i> ' + escapeHtml(item.phone) + '</small>' : '') +
+            (item.email ? '<small><i class="fa-regular fa-envelope"></i> ' + escapeHtml(item.email) + '</small>' : '') +
+            '</span><i class="fa-solid fa-chevron-right"></i></button>';
+        }).join('') + '</div></section>';
+    }).join('');
+  }
+
+  function renderContextActions(actions) {
+    var html = (actions || []).map(function (action) {
+      if (action.kind === 'open') {
+        var href = safeActionUrl(action.url, action.external);
+        if (!href) return '';
+        return '<a href="' + escapeHtml(href) + '"' +
+          (action.external ? ' target="_blank" rel="noopener noreferrer"' : '') +
+          '><i class="fa-solid fa-arrow-up-right-from-square"></i>' + escapeHtml(action.label || 'Abrir') + '</a>';
+      }
+      if (action.kind === 'copy' && action.value) {
+        return '<button type="button" data-copy-value="' + escapeHtml(action.value) +
+          '"><i class="fa-regular fa-copy"></i>' + escapeHtml(action.label || 'Copiar') + '</button>';
+      }
+      if (action.kind === 'prompt' && action.prompt) {
+        return '<button type="button" data-record-prompt="' + escapeHtml(action.prompt) +
+          '"><i class="fa-regular fa-message"></i>' + escapeHtml(action.label || 'Usar no chat') + '</button>';
+      }
+      return '';
+    }).join('');
+    return html ? '<div class="cx-agent-context-actions">' + html + '</div>' : '';
+  }
+
   function renderCommercialRecord(data) {
     state.record = data;
-    var record = data.record || {};
-    els.recordTitle.textContent = record.nome || record.titulo || record.numero_cotacao || 'Registro';
-    els.recordOpen.href = data.url || '/crm-v3/';
-    els.recordOpen.hidden = false;
-    els.recordBody.innerHTML = data.type === 'cliente' ? renderClientRecord(data) : renderQuoteRecord(data);
+    var identity = data.identity || {};
+    var title = identity.title || 'Registro';
+    var openUrl = safeActionUrl(data.url, false);
+    els.recordTitle.textContent = title;
+    els.recordOpen.href = openUrl || '#';
+    els.recordOpen.hidden = !openUrl;
+    els.recordBody.innerHTML =
+      '<div class="cx-agent-context-identity is-' + escapeHtml(data.type || 'record') + '">' +
+        '<span><i class="fa-regular ' + contextIcon(data.type) + '"></i></span>' +
+        '<div><small>' + escapeHtml(identity.type_label || entityTypeLabel(data.type)) + '</small>' +
+        '<strong>' + escapeHtml(title) + '</strong>' +
+        (identity.subtitle ? '<p>' + escapeHtml(identity.subtitle) + '</p>' : '') + '</div>' +
+      '</div>' +
+      renderContextActions(data.actions) +
+      renderContextFacts(data.facts) +
+      renderContextRelations(data.relations);
   }
 
   function loadCommercialRecord(force) {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
-    if (!ctx.entity_id || ['cliente', 'client', 'cotacao', 'quote'].indexOf(type) === -1) {
+    if (!state.contextWallOpen) return Promise.resolve();
+    if (!ctx.entity_id || ['cliente', 'client', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) === -1) {
       state.recordKey = '';
       setRecordEmpty();
       return Promise.resolve();
@@ -343,8 +494,8 @@
     state.recordKey = key;
     els.recordTitle.textContent = 'Carregando registro...';
     els.recordOpen.hidden = true;
-    els.recordBody.innerHTML = '<div class="cx-agent-record-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Sincronizando com o CRM...</span></div>';
-    return api('/api/agent/commercial/record/' + encodeURIComponent(type) + '/' + encodeURIComponent(ctx.entity_id))
+    els.recordBody.innerHTML = '<div class="cx-agent-record-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Organizando contexto...</span></div>';
+    return api('/api/agent/context/' + encodeURIComponent(type) + '/' + encodeURIComponent(ctx.entity_id))
       .then(function (payload) { renderCommercialRecord(payload.data || {}); })
       .catch(function (error) {
         state.record = null;
@@ -354,44 +505,71 @@
   }
 
   function selectCommercialRecord(type, id, label) {
-    window.CentralXAgent.setContext({
-      module: type === 'cotacao' ? 'comercial' : 'crm',
-      screen: type === 'cotacao' ? 'cotacao' : 'cliente_detalhe',
-      entity_type: type,
+    var normalized = type === 'client' ? 'cliente' : type === 'quote' ? 'cotacao' :
+      type === 'contact' ? 'contato' : type === 'campaign' ? 'campanha' : type;
+    var operational = ['pi', 'campanha'].indexOf(normalized) >= 0;
+    setAgentContext({
+      module: operational ? 'operacao' : (normalized === 'cotacao' ? 'comercial' : 'crm'),
+      screen: normalized,
+      entity_type: normalized,
       entity_id: String(id || ''),
       entity_label: String(label || '')
-    });
+    }, true);
     els.commercialResults.hidden = true;
     els.commercialQuery.value = '';
-    switchWorkspaceView('record');
+    openContextWall();
   }
 
   function renderCommercialResults(data) {
     var clients = data.clients || [];
+    var contacts = data.contacts || [];
     var quotes = data.quotes || [];
-    if (!clients.length && !quotes.length) {
-      els.commercialResults.innerHTML = '<p class="cx-agent-commercial-empty">Nenhum cliente ou cotação encontrado.</p>';
+    var pis = data.pis || [];
+    var campaigns = data.campaigns || [];
+    if (!clients.length && !contacts.length && !quotes.length && !pis.length && !campaigns.length) {
+      els.commercialResults.innerHTML = '<p class="cx-agent-commercial-empty">Nenhum registro encontrado.</p>';
       els.commercialResults.hidden = false;
       return;
     }
     var groups = [];
-    if (clients.length) {
-      groups.push('<section><h3>Clientes</h3>' + clients.map(function (item) {
-        return '<button type="button" data-search-record="cliente" data-record-id="' + escapeHtml(item.id) +
-          '" data-record-label="' + escapeHtml(item.nome || 'Cliente') + '"><i class="fa-regular fa-building"></i>' +
-          '<span><strong>' + escapeHtml(item.nome || 'Cliente') + '</strong><small>' +
-          escapeHtml([item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')) + '</small></span></button>';
+    function addGroup(title, type, items, mapper) {
+      if (!items.length) return;
+      groups.push('<section><h3>' + escapeHtml(title) + '</h3>' + items.map(function (raw) {
+        var item = mapper(raw);
+        return '<button type="button" data-search-record="' + type + '" data-record-id="' + escapeHtml(item.id) +
+          '" data-record-label="' + escapeHtml(item.title) + '"><i class="fa-regular ' + contextIcon(type) + '"></i>' +
+          '<span><strong>' + escapeHtml(item.title) + '</strong>' +
+          (item.subtitle ? '<small>' + escapeHtml(item.subtitle) + '</small>' : '') +
+          (item.phone ? '<small><i class="fa-solid fa-phone"></i> ' + escapeHtml(item.phone) + '</small>' : '') +
+          (item.email ? '<small><i class="fa-regular fa-envelope"></i> ' + escapeHtml(item.email) + '</small>' : '') +
+          '</span></button>';
       }).join('') + '</section>');
     }
-    if (quotes.length) {
-      groups.push('<section><h3>Cotações</h3>' + quotes.map(function (item) {
-        return '<button type="button" data-search-record="cotacao" data-record-id="' + escapeHtml(item.id) +
-          '" data-record-label="' + escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') +
-          '"><i class="fa-regular fa-file-lines"></i><span><strong>' +
-          escapeHtml(item.titulo || item.numero_cotacao || 'Cotação') + '</strong><small>' +
-          escapeHtml([item.cliente_nome, item.status_label, item.valor].filter(Boolean).join(' · ')) + '</small></span></button>';
-      }).join('') + '</section>');
-    }
+    addGroup('Clientes', 'cliente', clients, function (item) {
+      return {
+        id: item.id,
+        title: item.nome || 'Cliente',
+        subtitle: [item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')
+      };
+    });
+    addGroup('Contatos', 'contato', contacts, function (item) {
+      return {
+        id: item.id,
+        title: item.nome || 'Contato',
+        subtitle: [item.cargo, item.setor, item.cliente_nome].filter(Boolean).join(' · '),
+        phone: item.telefone,
+        email: item.email
+      };
+    });
+    addGroup('Cotações', 'cotacao', quotes, function (item) {
+      return {
+        id: item.id,
+        title: item.titulo || item.numero_cotacao || 'Cotação',
+        subtitle: [item.cliente_nome, item.status_label, item.valor].filter(Boolean).join(' · ')
+      };
+    });
+    addGroup('PIs', 'pi', pis, function (item) { return item; });
+    addGroup('Campanhas', 'campanha', campaigns, function (item) { return item; });
     els.commercialResults.innerHTML = groups.join('');
     els.commercialResults.hidden = false;
   }
@@ -712,14 +890,28 @@
 
   function appendInline(parent, text) {
     var source = String(text || '');
-    var pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g;
+    var pattern = /(\[[^\]\n]+\]\((?:https?:\/\/|mailto:|tel:|\/)[^)\s]+\)|`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g;
     var cursor = 0;
     var match;
     while ((match = pattern.exec(source))) {
       if (match.index > cursor) parent.appendChild(document.createTextNode(source.slice(cursor, match.index)));
       var token = match[0];
       var node;
-      if (token.startsWith('`')) {
+      if (token.startsWith('[')) {
+        var linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        var href = linkMatch && safeMarkdownHref(linkMatch[2]);
+        if (!href) {
+          node = document.createTextNode(linkMatch ? linkMatch[1] : token);
+        } else {
+          node = document.createElement('a');
+          node.href = href;
+          node.textContent = linkMatch[1];
+          if (/^https?:/i.test(href) && !href.startsWith(window.location.origin)) {
+            node.target = '_blank';
+            node.rel = 'noopener noreferrer';
+          }
+        }
+      } else if (token.startsWith('`')) {
         node = document.createElement('code');
         node.textContent = token.slice(1, -1);
       } else if (token.startsWith('**')) {
@@ -733,6 +925,17 @@
       cursor = match.index + token.length;
     }
     if (cursor < source.length) parent.appendChild(document.createTextNode(source.slice(cursor)));
+  }
+
+  function safeMarkdownHref(value) {
+    var href = String(value || '').trim();
+    if (/^(mailto:|tel:)/i.test(href) || safeInternalUrl(href)) return href;
+    try {
+      var parsed = new URL(href);
+      return ['http:', 'https:'].indexOf(parsed.protocol) >= 0 ? parsed.href : '';
+    } catch (_error) {
+      return '';
+    }
   }
 
   function markdownCells(line) {
@@ -750,7 +953,13 @@
   function renderMarkdown(content) {
     var root = document.createElement('div');
     root.className = 'cx-agent-markdown';
-    var lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+    var normalized = String(content || '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p\s*>/gi, '\n\n')
+      .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<\/li\s*>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+    var lines = normalized.replace(/\r\n/g, '\n').split('\n');
     var i = 0;
     while (i < lines.length) {
       var line = lines[i];
@@ -1040,6 +1249,29 @@
           line.textContent = item.responsible;
           card.appendChild(line);
         }
+        var contactLines = [
+          { icon: 'fa-phone', value: item.phone || item.telefone, label: 'Copiar telefone' },
+          { icon: 'fa-envelope', value: item.email, label: 'Copiar e-mail' }
+        ].filter(function (entry) { return entry.value; });
+        contactLines.forEach(function (entry) {
+          var contactLine = document.createElement('div');
+          contactLine.className = 'cx-agent-result-contact';
+          var text = document.createElement('span');
+          text.innerHTML = '<i class="fa-solid ' + entry.icon + '" aria-hidden="true"></i>';
+          text.appendChild(document.createTextNode(' ' + entry.value));
+          var copy = document.createElement('button');
+          copy.type = 'button';
+          copy.setAttribute('aria-label', entry.label);
+          copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
+          copy.addEventListener('click', function () {
+            copyText(entry.value).then(function () {
+              copy.classList.add('is-copied');
+              window.setTimeout(function () { copy.classList.remove('is-copied'); }, 900);
+            });
+          });
+          contactLine.append(text, copy);
+          card.appendChild(contactLine);
+        });
         results.appendChild(card);
       });
       var more = (group.links && group.links[0]) || (items.length > 8 ? { url: (items[0] || {}).url, label: 'Ver todas' } : null);
@@ -1053,9 +1285,22 @@
     });
   }
 
+  function setAgentContext(patch, persist) {
+    state.context = Object.assign({}, state.context, patch || {});
+    Object.keys(state.context).forEach(function (key) {
+      state.context[key] = String(state.context[key] || '').slice(0, key === 'entity_label' ? 200 : 80);
+    });
+    updateContext();
+    if (persist === false) window.clearTimeout(state.contextPersistTimer);
+    if (state.bootstrapped) loadInsights();
+  }
+
   function loadConversation(id) {
     return api('/api/agent/conversations/' + encodeURIComponent(id))
       .then(function (payload) {
+        var conversation = payload.data.conversation || {};
+        setAgentContext(conversation.context || readBodyContext(), false);
+        closeContextWall();
         clearConversationView();
         (payload.data.messages || []).forEach(function (message) {
           appendMessage(message.role, message.content, message.display);
@@ -1068,6 +1313,80 @@
         clearConversationView();
         setStatus('Online', true);
       });
+  }
+
+  function renderContactConfirmation(confirmation) {
+    var labels = {
+      nome: 'Nome',
+      email: 'E-mail',
+      telefone: 'Telefone',
+      telefone_secundario: 'Telefone secundário'
+    };
+    var changes = confirmation.changes || {};
+    var before = confirmation.before || {};
+    var rows = Object.keys(changes).map(function (key) {
+      return '<div><span>' + escapeHtml(labels[key] || key) + '</span><del>' +
+        escapeHtml(before[key] || 'Não informado') + '</del><strong>' +
+        escapeHtml(changes[key] || 'Remover') + '</strong></div>';
+    }).join('');
+    state.pendingConfirmation = confirmation;
+    els.recordTitle.textContent = confirmation.title || 'Revisar contato';
+    els.recordOpen.hidden = true;
+    els.recordBody.innerHTML =
+      '<section class="cx-agent-confirmation">' +
+        '<header><i class="fa-regular fa-address-card"></i><div><strong>' +
+        escapeHtml(confirmation.title || 'Revisar contato') + '</strong><span>' +
+        escapeHtml(confirmation.client_label || '') + '</span></div></header>' +
+        '<p>Confira os dados antes de salvar no CRM.</p>' +
+        '<div class="cx-agent-confirmation-diff">' + rows + '</div>' +
+        '<footer><button type="button" data-contact-cancel>Cancelar</button>' +
+        '<button type="button" data-contact-confirm><i class="fa-solid fa-check"></i> Confirmar e salvar</button></footer>' +
+      '</section>';
+    state.contextWallOpen = true;
+    dock.dataset.contextWall = 'open';
+    els.record.setAttribute('aria-hidden', 'false');
+    syncWorkspaceView('record');
+  }
+
+  function applyContactConfirmation() {
+    var confirmation = state.pendingConfirmation;
+    if (!confirmation) return;
+    var button = els.recordBody.querySelector('[data-contact-confirm]');
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando';
+    }
+    api('/api/agent/context/contact-changes', {
+      method: 'POST',
+      body: JSON.stringify({
+        confirmed: true,
+        operation: confirmation.operation,
+        cliente_id: confirmation.cliente_id,
+        contato_id: confirmation.contato_id,
+        changes: confirmation.changes
+      })
+    }).then(function (payload) {
+      state.pendingConfirmation = null;
+      setAgentContext(payload.data.context || {}, true);
+      showComposerFeedback('Contato atualizado no CRM.');
+      openContextWall();
+    }).catch(function (error) {
+      showComposerFeedback(error.message, true);
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = '<i class="fa-solid fa-check"></i> Confirmar e salvar';
+      }
+    });
+  }
+
+  function handleAssistantUi(message) {
+    var display = message.display || {};
+    var ui = message.ui || display.ui || {};
+    if (ui.context_focus) {
+      setAgentContext(ui.context_focus, true);
+      openContextWall();
+    }
+    if (ui.confirmation) renderContactConfirmation(ui.confirmation);
   }
 
   function dayLabel(iso) {
@@ -1360,7 +1679,9 @@
       clearLoadingProgress(loading);
       hideExtract();
       var message = payload.data.message;
-      return appendProgressiveMessage(message.content, message.display);
+      return appendProgressiveMessage(message.content, message.display).then(function () {
+        handleAssistantUi(message);
+      });
     }).catch(function (error) {
       clearLoadingProgress(loading);
       hideExtract();
@@ -1379,14 +1700,12 @@
   window.CentralXAgent = {
     open: function () { setOpen(true); },
     close: function () { setOpen(false); },
-    setContext: function (patch) {
-      state.context = Object.assign({}, state.context, patch || {});
-      Object.keys(state.context).forEach(function (key) {
-        state.context[key] = String(state.context[key] || '').slice(0, key === 'entity_label' ? 200 : 80);
-      });
-      updateContext();
-      if (state.bootstrapped) loadInsights();
+    setContext: function (patch) { setAgentContext(patch, true); },
+    openContext: function (context) {
+      setOpen(true);
+      openContextWall(context);
     },
+    closeContext: closeContextWall,
     getContext: function () { return Object.assign({}, state.context); }
   };
 
@@ -1396,6 +1715,7 @@
   els.settings.addEventListener('click', function () { showSettings(true); });
   els.settingsBack.addEventListener('click', function () { showSettings(false); });
   els.entity.addEventListener('click', openEntity);
+  els.recordClose.addEventListener('click', closeContextWall);
   els.commercialQuery.addEventListener('input', searchCommercial);
   els.commercialScope.addEventListener('change', function () {
     syncCommercialScope(els.commercialScope.value);
@@ -1442,6 +1762,24 @@
     }
   });
   els.recordBody.addEventListener('click', function (event) {
+    var copy = event.target.closest('[data-copy-value]');
+    if (copy) {
+      copyText(copy.dataset.copyValue || '').then(function () {
+        copy.classList.add('is-copied');
+        window.setTimeout(function () { copy.classList.remove('is-copied'); }, 900);
+      });
+      return;
+    }
+    if (event.target.closest('[data-contact-confirm]')) {
+      applyContactConfirmation();
+      return;
+    }
+    if (event.target.closest('[data-contact-cancel]')) {
+      state.pendingConfirmation = null;
+      if (state.record) renderCommercialRecord(state.record);
+      else closeContextWall();
+      return;
+    }
     var selector = event.target.closest('[data-select-record]');
     if (selector) {
       selectCommercialRecord(
@@ -1453,7 +1791,7 @@
     }
     var prompt = event.target.closest('[data-record-prompt]');
     if (prompt) {
-      switchWorkspaceView('conversation');
+      closeContextWall();
       usePrompt(prompt.dataset.recordPrompt);
     }
   });
@@ -1506,6 +1844,9 @@
   els.newConversation.addEventListener('click', function () {
     state.conversationId = '';
     sessionStorage.removeItem('centralx_agent_conversation_id');
+    state.context = readBodyContext();
+    updateContext();
+    closeContextWall();
     clearConversationView();
     switchTab('chat');
     els.input.focus();
@@ -1541,11 +1882,12 @@
     if (event.key === 'Escape' && dock.classList.contains('is-open')) {
       if (!els.commercialResults.hidden) els.commercialResults.hidden = true;
       else if (!els.settingsPanel.hidden) showSettings(false);
+      else if (state.contextWallOpen) closeContextWall();
       else setOpen(false);
     }
   });
   window.addEventListener('centralx:contextchange', function (event) {
-    window.CentralXAgent.setContext((event && event.detail) || {});
+    setAgentContext((event && event.detail) || {}, true);
   });
   window.addEventListener('centralx:entity-updated', function (event) {
     var detail = (event && event.detail) || {};
@@ -1575,6 +1917,7 @@
   });
 
   applyPrefsUi();
+  closeContextWall();
   updateContext();
   renderActions();
   resizeInput();

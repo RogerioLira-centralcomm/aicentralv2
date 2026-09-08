@@ -128,6 +128,82 @@ class PiOperacaoRepository:
             raise LookupError("Campanha não encontrada.")
         return dict(row)
 
+    def listar_pis_cliente(self, cliente_id, limite=8):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
+                       p.id_cliente, p.cotacao_id, p.vr_bruto_pi,
+                       p.periodo_inicio, p.periodo_fim,
+                       ss.display AS sub_status_descricao
+                  FROM cadu_pi p
+                  LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                 WHERE p.id_cliente = %s
+                 ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
+                 LIMIT %s
+                """,
+                (cliente_id, max(1, min(int(limite or 8), 20))),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def buscar_pis(self, termo, limite=8):
+        termo = str(termo or "").strip()
+        if len(termo) < 2:
+            return []
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
+                       p.id_cliente, p.cotacao_id, p.vr_bruto_pi,
+                       p.periodo_inicio, p.periodo_fim,
+                       cli.nome_fantasia AS cliente_nome,
+                       ss.display AS sub_status_descricao
+                  FROM cadu_pi p
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                  LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                 WHERE CAST(p.id_pi AS TEXT) ILIKE %s
+                    OR COALESCE(p.codigo_pi_cc, '') ILIKE %s
+                    OR COALESCE(p.codigo_pi_ag, '') ILIKE %s
+                    OR COALESCE(p.titulo_pi, '') ILIKE %s
+                 ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
+                 LIMIT %s
+                """,
+                tuple([f"%{termo}%"] * 4)
+                + (max(1, min(int(limite or 8), 20)),),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def buscar_campanhas(self, termo, limite=8):
+        termo = str(termo or "").strip()
+        if len(termo) < 2:
+            return []
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id_campanha, c.id_pi, c.id_cliente, c.nome_campanha,
+                       c.link_dash, c.valor_plataforma, c.custo_midia_orcado,
+                       c.periodo_inicio, c.periodo_fim,
+                       st.descricao AS status_descricao,
+                       plt.descricao AS plataforma_nome,
+                       cli.nome_fantasia AS cliente_nome
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
+                  LEFT JOIN cadu_pi_camp_plataforma plt
+                         ON plt.id_plataforma = c.id_plataforma
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.id_cliente
+                 WHERE CAST(c.id_campanha AS TEXT) ILIKE %s
+                    OR COALESCE(c.nome_campanha, '') ILIKE %s
+                 ORDER BY c.updated_at DESC NULLS LAST, c.id_campanha DESC
+                 LIMIT %s
+                """,
+                (
+                    f"%{termo}%",
+                    f"%{termo}%",
+                    max(1, min(int(limite or 8), 20)),
+                ),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
     def validar_campanhas(self, id_pi, ids_campanha):
         ids = sorted({int(item) for item in ids_campanha})
         if not ids:

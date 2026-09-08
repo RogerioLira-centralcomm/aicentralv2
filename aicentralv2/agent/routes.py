@@ -8,8 +8,15 @@ import uuid
 from flask import current_app, jsonify, request, session
 
 from ..crm_v3_repository import get_store
+from ..pi_operacao_repository import PiOperacaoRepository
 from ..services.openrouter_service import DEFAULT_CHAT_MODEL
 from . import bp, storage
+from .context_records import (
+    ContextRecordError,
+    build_context_record,
+    canonical_type,
+    search_operational_records,
+)
 from .insights import build_insights, suggestion_prompts
 from .permissions import (
     agent_csrf_required,
@@ -45,6 +52,9 @@ CLIENT_EDITABLE_FIELDS = {
     "opera_midia",
     "demanda_dados",
     "demanda_programatica_canais",
+}
+CONTACT_EDITABLE_FIELDS = {
+    "nome", "email", "telefone", "telefone_secundario",
 }
 
 
@@ -295,6 +305,21 @@ def conversations_show(conversation_id):
     })
 
 
+@bp.patch("/conversations/<int:conversation_id>/context")
+@agent_internal_required_api
+@agent_csrf_required
+def conversations_update_context(conversation_id):
+    payload = request.get_json(silent=True) or {}
+    row = storage.update_conversation_context(
+        conversation_id,
+        session["user_id"],
+        _context(payload.get("context")),
+    )
+    if not row:
+        return jsonify({"success": False, "error": "Conversa não encontrada."}), 404
+    return jsonify({"success": True, "data": _conversation_payload(row)})
+
+
 @bp.post("/conversations/<int:conversation_id>/messages")
 @agent_internal_required_api
 @agent_csrf_required
@@ -313,6 +338,10 @@ def messages_create(conversation_id):
         if storage.count_recent_user_messages(session["user_id"], minutes=5) >= RATE_LIMIT_MESSAGES:
             return jsonify({"success": False, "error": "Muitas consultas. Aguarde alguns minutos."}), 429
         context = _context(payload.get("context"))
+        if not storage.update_conversation_context(
+            conversation_id, session["user_id"], context
+        ):
+            return jsonify({"success": False, "error": "Conversa não encontrada."}), 404
         attachment_display = {
             "attachments": [
                 {"name": item["name"], "mime": item["mime"], "size": item["size"]}
@@ -343,6 +372,7 @@ def messages_create(conversation_id):
                     "role": "assistant",
                     "content": assistant["content"],
                     "display": assistant.get("display_payload") or result.get("display") or {},
+                    "ui": result.get("ui") or {},
                 },
                 "request_id": request_id,
             },
@@ -422,7 +452,7 @@ def commercial_search():
             "data": {"clients": [], "quotes": [], "scope": "mine"},
         })
     kind = str(request.args.get("kind") or "all").casefold()
-    if kind not in {"all", "clients", "quotes"}:
+    if kind not in {"all", "clients", "contacts", "quotes", "pis", "campaigns"}:
         return jsonify({"success": False, "error": "Tipo de busca inválido."}), 400
     limit = max(1, min(request.args.get("limit", 8, type=int) or 8, 20))
     global_scope = _requested_global_scope()
@@ -438,38 +468,117 @@ def commercial_search():
         if kind in {"all", "quotes"}
         else []
     )
+    search_contacts = getattr(store, "search_contatos", None)
+    contacts = (
+        search_contacts(query, limit, executivo_id=executive_id)
+        if search_contacts and kind in {"all", "contacts"}
+        else []
+    )
+    operational = {"pis": [], "campaigns": []}
+    if kind in {"all", "pis", "campaigns"}:
+        try:
+            operational = search_operational_records(query, limit=limit)
+        except Exception:
+            current_app.logger.exception("Falha na busca operacional do agente")
     return jsonify({
         "success": True,
         "data": {
             "clients": clients,
+            "contacts": contacts,
             "quotes": quotes,
+            "pis": operational["pis"] if kind in {"all", "pis"} else [],
+            "campaigns": operational["campaigns"] if kind in {"all", "campaigns"} else [],
             "scope": "all" if global_scope else "mine",
         },
     })
 
 
+@bp.get("/context/<entity_type>/<entity_id>")
+@agent_internal_required_api
+def context_record(entity_type, entity_id):
+    try:
+        data = build_context_record(
+            entity_type,
+            entity_id,
+            get_store(),
+            _client_allowed,
+            _quote_allowed,
+            PiOperacaoRepository(),
+        )
+    except ContextRecordError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True, "data": data})
+
+
 @bp.get("/commercial/record/<entity_type>/<entity_id>")
 @agent_internal_required_api
 def commercial_record(entity_type, entity_id):
+    if canonical_type(entity_type) not in {"cliente", "cotacao"}:
+        return jsonify({"success": False, "error": "Tipo de registro inválido."}), 400
+    return context_record(entity_type, entity_id)
+
+
+@bp.post("/context/contact-changes")
+@agent_internal_required_api
+@agent_csrf_required
+def apply_contact_change():
+    raw = request.get_json(silent=True)
+    if not isinstance(raw, dict) or raw.get("confirmed") is not True:
+        return jsonify({"success": False, "error": "Confirme a alteração antes de salvar."}), 400
+    operation = str(raw.get("operation") or "").casefold()
+    if operation not in {"create_contact", "update_contact"}:
+        return jsonify({"success": False, "error": "Operação de contato inválida."}), 400
+    changes = raw.get("changes")
+    if not isinstance(changes, dict):
+        return jsonify({"success": False, "error": "Dados do contato inválidos."}), 400
+    changes = {
+        key: str(value or "").strip()[:500]
+        for key, value in changes.items()
+        if key in CONTACT_EDITABLE_FIELDS
+    }
+    if not changes or not changes.get("nome"):
+        return jsonify({"success": False, "error": "Informe o nome do contato."}), 400
     store = get_store()
-    entity_type = str(entity_type).casefold()
-    if entity_type in {"cliente", "client"}:
-        client = store.get_cliente(str(entity_id))
+    if operation == "create_contact":
+        client_id = str(raw.get("cliente_id") or "")
+        client = store.get_cliente(client_id)
         if not _client_allowed(client):
             return jsonify({"success": False, "error": "Cliente não encontrado."}), 404
-        return jsonify({
-            "success": True,
-            "data": _commercial_client_payload(store, client),
-        })
-    if entity_type in {"cotacao", "quote"}:
-        quote = store.get_cotacao(str(entity_id))
-        if not _quote_allowed(quote):
-            return jsonify({"success": False, "error": "Cotação não encontrada."}), 404
-        return jsonify({
-            "success": True,
-            "data": _commercial_quote_payload(store, quote),
-        })
-    return jsonify({"success": False, "error": "Tipo de registro inválido."}), 400
+        try:
+            contact = store.create_contato(client_id, changes)
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 400
+    else:
+        contact_id = str(raw.get("contato_id") or "")
+        current = getattr(store, "get_contato", lambda _id: None)(contact_id)
+        client = store.get_cliente(str((current or {}).get("cliente_id") or ""))
+        if not current or not _client_allowed(client):
+            return jsonify({"success": False, "error": "Contato não encontrado."}), 404
+        merged = {
+            key: changes.get(key, current.get(key, ""))
+            for key in CONTACT_EDITABLE_FIELDS
+        }
+        try:
+            contact, _client_id = store.update_contato(contact_id, merged)
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 400
+    if not contact:
+        return jsonify({"success": False, "error": "Não foi possível salvar o contato."}), 400
+    return jsonify({
+        "success": True,
+        "data": {
+            "contact": contact,
+            "context": {
+                "module": "crm",
+                "screen": "contato",
+                "entity_type": "contato",
+                "entity_id": str(contact["id"]),
+                "entity_label": contact.get("nome") or "Contato",
+            },
+        },
+    })
 
 
 @bp.patch("/commercial/clients/<cliente_id>")

@@ -25,7 +25,7 @@
       <label for="cx-agent-commercial-query">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input id="cx-agent-commercial-query" type="search" autocomplete="off"
-               placeholder="Buscar cliente, campanha ou cotação">
+               placeholder="Buscar cliente, contato, cotação, PI ou campanha">
         <kbd>⌘ K</kbd>
       </label>
       <select id="cx-agent-commercial-scope" aria-label="Escopo da busca" hidden>
@@ -40,7 +40,7 @@
 
     <div class="cx-agent-mobile-switch" role="tablist" aria-label="Área do workspace">
       <button type="button" class="is-active" data-agent-view="conversation" aria-selected="true">Agente</button>
-      <button type="button" data-agent-view="record" aria-selected="false">CRM</button>
+      <button type="button" data-agent-view="record" aria-selected="false">Contexto</button>
     </div>
 
     <div class="cx-agent-workspace-columns">
@@ -136,21 +136,26 @@
         </div>
       </div>
 
-      <aside id="cx-agent-record" class="cx-agent-record" aria-label="Registro CRM">
+      <aside id="cx-agent-record" class="cx-agent-record" aria-label="Contexto do registro" aria-hidden="true">
         <header class="cx-agent-record-head">
           <div>
-            <span>Registro CRM</span>
-            <strong id="cx-agent-record-title">Selecione um cliente ou cotação</strong>
+            <span>Contexto</span>
+            <strong id="cx-agent-record-title">Selecione um registro</strong>
           </div>
-          <a id="cx-agent-record-open" href="/crm-v3/" hidden>
-            Abrir completo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-          </a>
+          <div class="cx-agent-record-head-actions">
+            <a id="cx-agent-record-open" href="/crm-v3/" hidden>
+              Abrir <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+            </a>
+            <button type="button" id="cx-agent-record-close" class="cx-agent-icon-btn" aria-label="Fechar contexto">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
         </header>
         <div id="cx-agent-record-body" class="cx-agent-record-body" aria-live="polite">
           <div class="cx-agent-record-empty">
             <i class="fa-regular fa-address-card" aria-hidden="true"></i>
-            <strong>O contexto comercial aparece aqui</strong>
-            <p>Busque pelo nome, campanha ou número da cotação para começar.</p>
+            <strong>O contexto aparece quando for útil</strong>
+            <p>Selecione um registro ou peça detalhes ao agente.</p>
           </div>
         </div>
       </aside>

@@ -57,6 +57,16 @@ TOOLS = {
             commercial.listar_contatos, {"cliente_id": ID, "limit": LIMIT}, ("cliente_id",),
         ),
         Tool(
+            "buscar_contato", "Busca contatos por nome, e-mail ou telefone.",
+            commercial.buscar_contato,
+            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            ("query",),
+        ),
+        Tool(
+            "consultar_contato", "Consulta um contato específico por ID.",
+            commercial.consultar_contato, {"contato_id": ID}, ("contato_id",),
+        ),
+        Tool(
             "listar_atividades", "Lista atividades comerciais de um cliente.",
             commercial.listar_atividades,
             {"cliente_id": ID, "limit": LIMIT, "status": STATUS}, ("cliente_id",),
@@ -69,6 +79,44 @@ TOOLS = {
         Tool(
             "consultar_cotacao", "Consulta uma cotação específica por ID.",
             commercial.consultar_cotacao, {"cotacao_id": ID}, ("cotacao_id",),
+        ),
+        Tool(
+            "buscar_pi", "Busca PIs por ID, código ou título.",
+            commercial.buscar_pi,
+            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            ("query",),
+        ),
+        Tool(
+            "consultar_pi", "Consulta um PI específico por ID.",
+            commercial.consultar_pi, {"pi_id": ID}, ("pi_id",),
+        ),
+        Tool(
+            "buscar_campanha", "Busca campanhas operacionais por ID ou nome.",
+            commercial.buscar_campanha,
+            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            ("query",),
+        ),
+        Tool(
+            "consultar_campanha", "Consulta uma campanha operacional específica por ID.",
+            commercial.consultar_campanha, {"campanha_id": ID}, ("campanha_id",),
+        ),
+        Tool(
+            "preparar_alteracao_contato",
+            "Prepara criação ou atualização de contato para revisão humana; não salva dados.",
+            commercial.preparar_alteracao_contato,
+            {
+                "operation": {
+                    "type": "string",
+                    "enum": ["create_contact", "update_contact"],
+                },
+                "nome": {"type": "string", "minLength": 1, "maxLength": 200},
+                "cliente_id": ID,
+                "contato_id": ID,
+                "email": {"type": "string", "minLength": 1, "maxLength": 320},
+                "telefone": {"type": "string", "minLength": 1, "maxLength": 50},
+                "telefone_secundario": {"type": "string", "minLength": 1, "maxLength": 50},
+            },
+            ("operation", "nome"),
         ),
     )
 }

@@ -3855,6 +3855,15 @@
             ? state.contatos.find(function (x) { return x.id === contatoId; })
             : null;
         if (contatoId && !contato) return;
+        if (contato && window.CentralXAgent) {
+            window.CentralXAgent.setContext({
+                module: 'crm',
+                screen: 'contato',
+                entity_type: 'contato',
+                entity_id: String(contato.id),
+                entity_label: contato.nome || contato.email || 'Contato'
+            });
+        }
 
         if (typeof window.crmV3Drawer === 'object' && typeof window.crmV3Drawer.openContato === 'function') {
             window.crmV3Drawer.openContato(contato, state.clienteId);

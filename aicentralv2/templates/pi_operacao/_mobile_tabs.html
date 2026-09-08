@@ -1,0 +1,21 @@
+<nav class="pi-mobile-tabs" role="tablist" aria-label="Áreas do detalhe">
+  <button type="button" id="pi-mobile-tab-summary" role="tab"
+          aria-controls="pi-mobile-summary" aria-selected="true"
+          data-mobile-tab="summary">
+    <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+    <span>Resumo</span>
+  </button>
+  <button type="button" id="pi-mobile-tab-edit" role="tab"
+          aria-controls="pi-mobile-edit" aria-selected="false" tabindex="-1"
+          data-mobile-tab="edit">
+    <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+    <span>{% if somente_leitura|default(false) %}Dados{% else %}Editar{% endif %}</span>
+  </button>
+  <button type="button" id="pi-mobile-tab-operation" role="tab"
+          aria-controls="pi-operation-sidebar" aria-selected="false" tabindex="-1"
+          data-mobile-tab="operation">
+    <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+    <span>Operação</span>
+    <small id="pi-mobile-operation-count" aria-live="polite"></small>
+  </button>
+</nav>

@@ -1,0 +1,58 @@
+<section id="pi-mobile-summary" class="pi-mobile-summary"
+         role="tabpanel" aria-labelledby="pi-mobile-tab-summary"
+         data-mobile-panel="summary" tabindex="0">
+  <div class="pi-mobile-command">
+    <div>
+      <span class="pi-mobile-command__label">Visão operacional</span>
+      <strong>{{ pi.titulo_pi or pi.codigo_pi_cc or 'PI sem título' }}</strong>
+      <p>{{ pi.cliente_razao_social or pi.cliente_nome or 'Cliente não informado' }}</p>
+    </div>
+    {% if pi_status_label %}
+      <span class="pi-op-badge">{{ pi_status_label }}</span>
+    {% endif %}
+  </div>
+
+  <dl class="pi-mobile-summary-grid">
+    <div>
+      <dt>Período</dt>
+      <dd>
+        {{ pi.periodo_inicio.strftime('%d/%m/%Y') if pi.periodo_inicio else '—' }}
+        <span>a</span>
+        {{ pi.periodo_fim.strftime('%d/%m/%Y') if pi.periodo_fim else '—' }}
+      </dd>
+    </div>
+    <div>
+      <dt>Valor bruto</dt>
+      <dd class="pi-mobile-summary-grid__number">{{ pi.valor_bruto or '—' }}</dd>
+    </div>
+    <div>
+      <dt>Campanhas</dt>
+      <dd>{{ pi.total_campanhas or 0 }}</dd>
+    </div>
+    <div>
+      <dt>Código do PI</dt>
+      <dd>{{ pi.codigo_pi_cc or 'Não informado' }}</dd>
+    </div>
+  </dl>
+
+  {% if somente_leitura %}
+  <div class="pi-mobile-readonly-note">
+    <i class="fa-solid fa-lock" aria-hidden="true"></i>
+    <span>Este PI está disponível somente para consulta.</span>
+  </div>
+  {% else %}
+  <button type="button" class="pi-op-btn pi-op-btn--primary pi-mobile-summary-edit"
+          data-mobile-go="edit">
+    <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+    Editar dados do PI
+  </button>
+  {% endif %}
+
+  <div class="pi-mobile-summary-help">
+    <strong>Próximo passo</strong>
+    <p>Abra Operação para consultar pendências, comunicações e o checklist deste PI.</p>
+    <button type="button" class="pi-op-btn pi-op-btn--secondary" data-mobile-go="operation">
+      Ver operação
+    </button>
+  </div>
+</section>

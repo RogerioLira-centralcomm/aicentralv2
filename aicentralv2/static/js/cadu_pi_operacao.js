@@ -24,6 +24,9 @@
   var feedbackTimer = null;
   var confirmationResolve = null;
   var sidebarOpener = null;
+  var mobileMedia = window.matchMedia('(max-width: 720px)');
+  var mobileTabs = Array.prototype.slice.call(root.querySelectorAll('[data-mobile-tab]'));
+  var mobileViews = ['summary', 'edit', 'operation'];
 
   function esc(value) {
     var node = document.createElement('span');
@@ -98,6 +101,82 @@
       button.disabled = false;
       if (button.dataset.originalLabel) button.innerHTML = button.dataset.originalLabel;
     }
+  }
+
+  function mobileViewFromHash() {
+    var view = String(window.location.hash || '').replace(/^#/, '');
+    return mobileViews.indexOf(view) !== -1 ? view : '';
+  }
+
+  function setMobileView(view, options) {
+    options = options || {};
+    if (!mobileTabs.length || mobileViews.indexOf(view) === -1) return;
+    root.dataset.mobileView = view;
+    mobileTabs.forEach(function (tab) {
+      var selected = tab.dataset.mobileTab === view;
+      tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+      tab.tabIndex = selected ? 0 : -1;
+    });
+    root.querySelectorAll('[data-mobile-panel]').forEach(function (panel) {
+      panel.setAttribute('aria-hidden', panel.dataset.mobilePanel === view ? 'false' : 'true');
+    });
+    if (sidebar) sidebar.classList.remove('is-open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('is-open');
+    if (sidebarTrigger) sidebarTrigger.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('pi-op-lock');
+    if (options.updateHash !== false && window.location.hash !== '#' + view) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search + '#' + view);
+    }
+    if (options.focusPanel) {
+      var panel = root.querySelector('[data-mobile-panel="' + view + '"]');
+      if (panel) window.setTimeout(function () { panel.focus({ preventScroll: true }); }, 0);
+    }
+  }
+
+  function syncMobileWorkspace() {
+    if (!mobileTabs.length) return;
+    if (mobileMedia.matches) {
+      setMobileView(mobileViewFromHash() || root.dataset.mobileView || 'summary', { updateHash: false });
+      return;
+    }
+    root.querySelectorAll('[data-mobile-panel]').forEach(function (panel) {
+      panel.removeAttribute('aria-hidden');
+    });
+    document.body.classList.remove('pi-op-lock');
+  }
+
+  function initMobileWorkspace() {
+    if (!mobileTabs.length) return;
+    mobileTabs.forEach(function (tab, index) {
+      tab.addEventListener('click', function () {
+        setMobileView(tab.dataset.mobileTab, { focusPanel: false });
+      });
+      tab.addEventListener('keydown', function (event) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        var direction = event.key === 'ArrowRight' ? 1 : -1;
+        var next = mobileTabs[(index + direction + mobileTabs.length) % mobileTabs.length];
+        next.focus();
+        setMobileView(next.dataset.mobileTab);
+      });
+    });
+    root.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-mobile-go]');
+      if (button) setMobileView(button.dataset.mobileGo, { focusPanel: true });
+    });
+    root.addEventListener('invalid', function () {
+      if (mobileMedia.matches) setMobileView('edit');
+    }, true);
+    window.addEventListener('hashchange', function () {
+      var view = mobileViewFromHash();
+      if (view && mobileMedia.matches) setMobileView(view, { updateHash: false });
+    });
+    if (typeof mobileMedia.addEventListener === 'function') {
+      mobileMedia.addEventListener('change', syncMobileWorkspace);
+    } else {
+      mobileMedia.addListener(syncMobileWorkspace);
+    }
+    syncMobileWorkspace();
   }
 
   function errorHtml(message) {
@@ -180,6 +259,13 @@
       count.textContent = campaignId && campaigns.length
         ? progress.concluidos + '/' + progress.total + ' etapas'
         : (campaigns.length ? completedCampaigns + '/' + campaigns.length + ' prontas' : '');
+    }
+    var mobileCount = document.getElementById('pi-mobile-operation-count');
+    if (mobileCount) {
+      mobileCount.textContent = progress.total ? progress.concluidos + '/' + progress.total : '';
+      mobileCount.setAttribute('aria-label', progress.total
+        ? progress.concluidos + ' de ' + progress.total + ' etapas concluídas'
+        : '');
     }
     campaignTarget.className = '';
     campaignTarget.innerHTML = campaigns.length
@@ -401,6 +487,10 @@
 
   function openSidebar() {
     if (!sidebar) return;
+    if (mobileMedia.matches && mobileTabs.length) {
+      setMobileView('operation');
+      return;
+    }
     if (document.activeElement && !sidebar.contains(document.activeElement)) {
       sidebarOpener = document.activeElement;
     }
@@ -466,6 +556,10 @@
     if (!selectedCampaign) return;
     if (action === 'edit' && typeof window.abrirModalEditarCampanha === 'function') {
       window.abrirModalEditarCampanha(selectedCampaign);
+      return;
+    }
+    if (action === 'follow' && mobileMedia.matches) {
+      window.location.href = campaignDetailUrl(selectedCampaign.id_campanha);
       return;
     }
     if (action === 'follow' && typeof window.abrirViewCampanha === 'function') {
@@ -639,6 +733,7 @@
     });
   }
 
+  initMobileWorkspace();
   if (sidebarTrigger) sidebarTrigger.addEventListener('click', openSidebar);
   if (confirmDialog) {
     confirmDialog.addEventListener('close', function () {
@@ -825,6 +920,11 @@
       : button.classList.contains('btn-duplicar-camp') ? 'duplicate'
       : button.classList.contains('btn-email-camp') ? 'email'
       : 'follow';
+    if (action === 'follow' && mobileMedia.matches) {
+      selectedCampaign = campaign;
+      legacyCampaignAction('follow');
+      return;
+    }
     campaignPanel(campaign, action);
   }, true);
 
@@ -856,6 +956,9 @@
       });
     },
     confirmar: confirmAction,
+    mostrarArea: function (view, focusPanel) {
+      setMobileView(view, { focusPanel: Boolean(focusPanel) });
+    },
     etapa: stage
   };
 })();

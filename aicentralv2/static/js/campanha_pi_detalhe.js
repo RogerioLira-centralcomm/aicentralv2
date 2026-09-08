@@ -5,10 +5,21 @@
   if (!root || !root.classList.contains('campaign-detail-page')) return;
 
   var campaignId = Number(root.dataset.campanhaId || 0);
+  var readOnly = root.dataset.readonly === 'true';
   var form = document.getElementById('campanhaDetalheForm');
   var dailyForm = document.getElementById('campaignDailyForm');
   var status = document.getElementById('campanhaDetalheStatus');
   var saveButton = document.getElementById('salvarCampanhaDetalhe');
+
+  if (campaignId && window.CentralXAgent) {
+    window.CentralXAgent.setContext({
+      module: 'operacao',
+      screen: 'campanha',
+      entity_type: 'campanha',
+      entity_id: String(campaignId),
+      entity_label: root.dataset.campanhaLabel || 'Campanha'
+    });
+  }
 
   function parseNumber(value) {
     var raw = String(value == null ? '' : value)
@@ -51,6 +62,7 @@
   }
 
   document.querySelectorAll('[data-open-date]').forEach(function (button) {
+    if (readOnly) return;
     button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.openDate);
       if (input && typeof input.showPicker === 'function') input.showPicker();
@@ -59,6 +71,7 @@
   });
 
   document.querySelectorAll('[data-mask="numero"]').forEach(function (input) {
+    if (readOnly) return;
     input.addEventListener('input', function () {
       var digits = input.value.replace(/\D/g, '');
       input.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -66,6 +79,7 @@
   });
 
   document.querySelectorAll('[data-mask="real"]').forEach(function (input) {
+    if (readOnly) return;
     input.addEventListener('input', function () {
       var digits = input.value.replace(/\D/g, '');
       input.value = digits ? formatMoney(Number(digits) / 100) : '';
@@ -112,7 +126,10 @@
   if (form) {
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      if (!form.reportValidity()) {
+        if (window.piOperacao) window.piOperacao.mostrarArea('edit');
+        return;
+      }
       setBusy(saveButton, true, 'Salvando…');
       notify('Salvando alterações…', 'info');
       try {
@@ -127,9 +144,11 @@
           throw new Error(payload.error || 'Não foi possível salvar a campanha.');
         }
         notify(payload.message || 'Campanha atualizada com sucesso.', 'success');
+        window.history.replaceState(null, '', window.location.pathname + window.location.search + '#edit');
         window.setTimeout(function () { window.location.reload(); }, 650);
       } catch (error) {
         notify(error.message, 'error');
+        if (window.piOperacao) window.piOperacao.mostrarArea('edit');
         setBusy(saveButton, false);
       }
     });
@@ -138,7 +157,10 @@
   if (dailyForm) {
     dailyForm.addEventListener('submit', async function (event) {
       event.preventDefault();
-      if (!dailyForm.reportValidity()) return;
+      if (!dailyForm.reportValidity()) {
+        if (window.piOperacao) window.piOperacao.mostrarArea('summary');
+        return;
+      }
       var button = dailyForm.querySelector('button[type="submit"]');
       setBusy(button, true, 'Registrando…');
       try {
@@ -158,9 +180,11 @@
           throw new Error(payload.error || 'Não foi possível registrar a atualização.');
         }
         notify('Atualização diária registrada.', 'success');
+        window.history.replaceState(null, '', window.location.pathname + window.location.search + '#summary');
         window.setTimeout(function () { window.location.reload(); }, 500);
       } catch (error) {
         notify(error.message, 'error');
+        if (window.piOperacao) window.piOperacao.mostrarArea('summary');
         setBusy(button, false);
       }
     });

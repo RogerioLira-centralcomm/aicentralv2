@@ -762,6 +762,43 @@ class CrmV3Repository:
         rows = _db().obter_contatos_por_cliente(cliente_id) or []
         return [self._map_contato(r) for r in rows]
 
+    def get_contato(self, contato_id: str) -> Optional[Dict[str, Any]]:
+        return self._map_contato(_db().obter_contato_por_id(contato_id))
+
+    def search_contatos(
+        self, query: str, limit: int = 8, executivo_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        query = str(query or "").strip()
+        if len(query) < 2:
+            return []
+        conn = _db().get_db()
+        params: List[Any] = [f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"]
+        owner_clause = ""
+        if executivo_id is not None:
+            owner_clause = "AND cli.vendas_central_comm = %s"
+            params.append(executivo_id)
+        params.append(max(1, min(int(limit or 8), 20)))
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT contato.*, cli.nome_fantasia AS cliente_nome
+                  FROM tbl_contato_cliente contato
+                  JOIN tbl_cliente cli
+                    ON cli.id_cliente = contato.pk_id_tbl_cliente
+                 WHERE (
+                       COALESCE(contato.nome_completo, '') ILIKE %s
+                    OR COALESCE(contato.email, '') ILIKE %s
+                    OR COALESCE(contato.telefone, '') ILIKE %s
+                    OR COALESCE(contato.telefone_secundario, '') ILIKE %s
+                 )
+                   {owner_clause}
+                 ORDER BY contato.nome_completo
+                 LIMIT %s
+                """,
+                tuple(params),
+            )
+            return [self._map_contato(row) for row in cursor.fetchall()]
+
     def create_contato(self, cliente_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         cliente = _db().obter_cliente_por_id(cliente_id)
         if not cliente:
@@ -802,6 +839,8 @@ class CrmV3Repository:
         avatar = (parts[0][:1] + (parts[1][:1] if len(parts) > 1 else "")).upper() if parts else "?"
         return {
             "id": str(row.get("id_contato_cliente") or row.get("id")),
+            "cliente_id": str(row.get("pk_id_tbl_cliente") or row.get("cliente_id") or ""),
+            "cliente_nome": row.get("cliente_nome") or "",
             "nome": nome,
             "email": row.get("email") or "",
             "telefone": row.get("telefone") or "",

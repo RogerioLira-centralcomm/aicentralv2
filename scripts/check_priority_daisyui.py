@@ -30,6 +30,11 @@ FILES = [
     ROOT / "aicentralv2/templates/metricas_semanais.html",
     ROOT / "aicentralv2/templates/notas_fiscais_lista.html",
     ROOT / "aicentralv2/templates/index_tailwind.html",
+    ROOT / "aicentralv2/templates/base_auth_public.html",
+    ROOT / "aicentralv2/templates/login_tailwind.html",
+    ROOT / "aicentralv2/templates/forgot_password_tailwind.html",
+    ROOT / "aicentralv2/templates/reset_password_tailwind.html",
+    ROOT / "aicentralv2/templates/subscription_checkout.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes_legado.html",
     ROOT / "aicentralv2/templates/cadu_pi.html",
@@ -53,6 +58,8 @@ FILES = [
     ROOT / "aicentralv2/static/js/cotacao_detalhes.js",
     ROOT / "aicentralv2/static/js/financeiro.js",
     ROOT / "aicentralv2/static/js/financeiro_gestao.js",
+    ROOT / "aicentralv2/static/js/auth-public.js",
+    ROOT / "aicentralv2/static/js/subscription_checkout.js",
 ]
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)

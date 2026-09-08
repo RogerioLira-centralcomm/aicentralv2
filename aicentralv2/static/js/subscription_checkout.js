@@ -78,12 +78,14 @@
   window.selectPlan = function (card) {
     document.querySelectorAll('.plan-card').forEach(function (c) {
       c.classList.remove('selected');
+      c.setAttribute('aria-checked', 'false');
     });
     card.classList.add('selected');
+    card.setAttribute('aria-checked', 'true');
 
     document.getElementById('selectedPlanId').value = card.dataset.planId;
     document.getElementById('selectedPlanType').value = card.dataset.planType;
-    document.getElementById('planError').classList.add('hidden');
+    document.getElementById('planError').hidden = true;
 
     updateSummary();
   };
@@ -91,11 +93,11 @@
   function updateSummary() {
     var selected = document.querySelector('.plan-card.selected');
     if (!selected) {
-      document.getElementById('summarySection').classList.add('hidden');
+      document.getElementById('summarySection').hidden = true;
       return;
     }
 
-    document.getElementById('summarySection').classList.remove('hidden');
+    document.getElementById('summarySection').hidden = false;
     document.getElementById('summaryPlanName').textContent = selected.dataset.planName;
     document.getElementById('summaryPrice').textContent = 'R$ ' + parseFloat(selected.dataset.planPrice).toFixed(2).replace('.', ',') + '/mês';
 
@@ -113,7 +115,7 @@
   function validate() {
     var planId = document.getElementById('selectedPlanId').value;
     if (!planId) {
-      document.getElementById('planError').classList.remove('hidden');
+      document.getElementById('planError').hidden = false;
       var planCard = document.querySelector('.plan-card');
       if (window.scrollIntoViewSuave) {
         window.scrollIntoViewSuave(planCard, { block: 'center' });
@@ -126,19 +128,19 @@
     var required = document.querySelectorAll('#checkoutForm [required]');
     for (var i = 0; i < required.length; i++) {
       if (!required[i].value.trim()) {
-        required[i].classList.add('input-error', 'select-error');
+        required[i].classList.add('is-invalid');
         required[i].focus();
         if (typeof showToast === 'function') {
           showToast('Preencha todos os campos obrigatórios.', 'warning');
         }
         return false;
       }
-      required[i].classList.remove('input-error', 'select-error');
+      required[i].classList.remove('is-invalid');
     }
 
     var cnpj = document.getElementById('cnpj').value.replace(/\D/g, '');
     if (cnpj.length !== 14) {
-      document.getElementById('cnpj').classList.add('input-error');
+      document.getElementById('cnpj').classList.add('is-invalid');
       document.getElementById('cnpj').focus();
       if (typeof showToast === 'function') showToast('CNPJ inválido.', 'warning');
       return false;
@@ -146,7 +148,7 @@
 
     var emailField = document.getElementById('email_faturamento');
     if (emailField && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailField.value)) {
-      emailField.classList.add('input-error');
+      emailField.classList.add('is-invalid');
       emailField.focus();
       if (typeof showToast === 'function') showToast('Email inválido.', 'warning');
       return false;
@@ -162,7 +164,7 @@
     if (!validate()) return;
 
     var btn = document.getElementById('submitBtn');
-    btn.classList.add('loading');
+    btn.classList.add('is-loading');
     btn.disabled = true;
 
     var selected = document.querySelector('.plan-card.selected');
@@ -194,7 +196,7 @@
     })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
-        btn.classList.remove('loading');
+        btn.classList.remove('is-loading');
         btn.disabled = false;
 
         if (res.ok && res.data.success) {
@@ -205,7 +207,7 @@
         }
       })
       .catch(function (err) {
-        btn.classList.remove('loading');
+        btn.classList.remove('is-loading');
         btn.disabled = false;
         showToast('Erro de conexão. Tente novamente.', 'error');
       });

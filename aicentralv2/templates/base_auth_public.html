@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}CentralX — CentralComm{% endblock %}</title>
+  <link href="{{ url_for('static', filename='images/cc_logo.png') }}" rel="icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  {% block styles %}{% endblock %}
+</head>
+<body class="auth-public" data-auth-page="{% block page_name %}access{% endblock %}">
+  <main class="auth-layout">
+    <aside class="auth-scene" aria-label="Paisagem urbana da CentralComm">
+      <img
+        id="authCityImage"
+        class="auth-scene-image"
+        src="{{ url_for('static', filename='images/auth/belo-horizonte.webp') }}"
+        data-bh-src="{{ url_for('static', filename='images/auth/belo-horizonte.webp') }}"
+        data-rio-src="{{ url_for('static', filename='images/auth/rio-de-janeiro.webp') }}"
+        alt=""
+      >
+      <div class="auth-scene-shade"></div>
+      <div class="auth-scene-copy">
+        <p class="auth-scene-city">
+          <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+          <span id="authCityName">Belo Horizonte</span>
+        </p>
+        <p class="auth-scene-message">{% block scene_message %}Decisões melhores começam com uma visão clara.{% endblock %}</p>
+      </div>
+    </aside>
+
+    <section class="auth-workspace {% block workspace_class %}{% endblock %}">
+      <div class="auth-workspace-inner">
+        <a class="auth-brand" href="{{ url_for('login') }}" aria-label="CentralComm — ir para o login">
+          <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="">
+          <span><strong>CentralX</strong><small>CentralComm</small></span>
+        </a>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="auth-flashes" aria-live="polite">
+            {% for category, message in messages %}
+            <div class="auth-flash auth-flash--{{ category if category in ['success', 'warning', 'info'] else 'error' }}">
+              <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'warning' %}fa-triangle-exclamation{% elif category == 'info' %}fa-circle-info{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
+              <span>{{ message }}</span>
+              <button type="button" data-auth-flash-close aria-label="Fechar mensagem">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="auth-page-content">
+          {% block content %}{% endblock %}
+        </div>
+
+        <footer class="auth-footer">
+          <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ambiente seguro</span>
+          <span>CentralX © 2026</span>
+        </footer>
+      </div>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='js/auth-public.js') }}?v=1"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

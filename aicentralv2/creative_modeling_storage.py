@@ -111,6 +111,18 @@ class CreativeAssetStorage:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:{mime_type or 'image/png'};base64,{encoded}"
 
+    def generated_as_data_url(self, public_path):
+        path = self.absolute_generated_path(public_path)
+        if path is None:
+            raise ValueError("Mockup anterior não encontrado.")
+        mime = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+        }.get(path.suffix.lower(), "image/png")
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+
     def delete(self, public_path):
         prefixes = {
             REFERENCE_PREFIX: "creative_references",

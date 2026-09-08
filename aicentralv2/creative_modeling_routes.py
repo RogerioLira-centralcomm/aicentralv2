@@ -77,6 +77,57 @@ def api_update_format(format_id):
 
 
 @admin_required_api
+def api_format_modeling_jobs(format_id):
+    return _execute(lambda: _ok(_service().list_format_modeling_jobs(format_id)))
+
+
+@admin_required_api
+def api_generate_format_mockup(format_id):
+    return _execute(
+        lambda: _ok(
+            _service().generate_format_mockup(
+                format_id,
+                request.form.to_dict(),
+                request.files.getlist("references"),
+                session.get("user_id"),
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_refine_format_mockup(job_id):
+    return _execute(
+        lambda: _ok(
+            _service().refine_format_mockup(
+                job_id,
+                request.form.to_dict(),
+                request.files.getlist("references"),
+                session.get("user_id"),
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_approve_format_mockup(job_id):
+    return _execute(
+        lambda: _ok(_service().approve_format_mockup(job_id, _json()))
+    )
+
+
+@admin_required_api
+def api_archive_format_mockup(job_id):
+    def execute():
+        _service().archive_format_mockup(job_id)
+        return _ok()
+
+    return _execute(execute)
+
+
+@admin_required_api
 def api_clients():
     if request.method == "POST":
         return _execute(lambda: _ok(_service().create_client(_json()), 201))
@@ -377,6 +428,35 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_update_format",
         view_func=api_update_format,
         methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/formats/<int:format_id>/modeling-jobs",
+        endpoint="creative_format_modeling_jobs",
+        view_func=api_format_modeling_jobs,
+    )
+    blueprint.add_url_rule(
+        "/api/formats/<int:format_id>/mockups/generate",
+        endpoint="creative_generate_format_mockup",
+        view_func=api_generate_format_mockup,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-modeling-jobs/<int:job_id>/refine",
+        endpoint="creative_refine_format_mockup",
+        view_func=api_refine_format_mockup,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-modeling-jobs/<int:job_id>/approve",
+        endpoint="creative_approve_format_mockup",
+        view_func=api_approve_format_mockup,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-modeling-jobs/<int:job_id>",
+        endpoint="creative_archive_format_mockup",
+        view_func=api_archive_format_mockup,
+        methods=["DELETE"],
     )
     blueprint.add_url_rule(
         "/api/clients",

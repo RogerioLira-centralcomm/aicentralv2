@@ -24,6 +24,9 @@
     selectedAssets: new Set(),
     campaignAssets: [],
     publicLinks: [],
+    formatJobs: [],
+    placementDraft: null,
+    originalPlacement: null,
     locks: new Set(),
   };
 
@@ -515,30 +518,179 @@
     if (!root) return;
     const formats = filteredFormats('#mcLibrarySearch', '#mcLibraryCategory');
     root.innerHTML = formats.map((format) => `
-      <tr tabindex="0" data-library-format="${format.id}">
-        <td><strong>${escapeHtml(format.name_pt)}</strong><br><span class="mc-section-note">${escapeHtml(format.category)}</span></td>
-        <td>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</td>
-        <td>${escapeHtml(format.mechanic || '—')}</td>
-        <td>${engineBadge(format)}</td>
-        <td>${(format.references || []).length}/4</td>
-      </tr>`).join('') || '<tr><td colspan="5">Nenhum formato encontrado.</td></tr>';
+      <button class="mc-catalog-format ${String(format.id) === String(state.selectedFormatId) ? 'is-active' : ''}"
+              type="button" data-library-format="${format.id}">
+        <span class="mc-catalog-format-icon"><i class="fa-solid ${format.media_type === 'video' ? 'fa-circle-play' : 'fa-image'}" aria-hidden="true"></i></span>
+        <span>
+          <strong>${escapeHtml(format.name_pt)}</strong>
+          <small>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')} · ${escapeHtml(format.mechanic || 'Estático')}</small>
+        </span>
+        <em>${(format.references || []).length}/4</em>
+      </button>`).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
+  }
+
+  function clonePlacement(format) {
+    const fallback = {
+      context: format.channel && ['netflix', 'hbomax', 'disneyplus'].includes(format.channel) ? 'tv' : 'portal',
+      viewport: { width: 1280, height: 800 },
+      slot: { x: 65, y: 20, width: 28, height: 38 },
+      fit: 'contain',
+      responsive: 'scale',
+    };
+    return JSON.parse(JSON.stringify(Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback));
+  }
+
+  function behaviorDemo(spec = {}) {
+    const type = spec.type || 'static';
+    if (type === 'hotspot') return '<span class="mc-demo-hotspot">+</span><span class="mc-demo-copy">Descubra detalhes</span>';
+    if (type === 'flip') return '<span class="mc-demo-card"><b>Frente</b><i>Verso</i></span>';
+    if (type === 'quiz') return '<span class="mc-demo-question">Qual opção combina com você?</span><span class="mc-demo-options"><b>A</b><b>B</b></span>';
+    if (type === 'compare') return '<span class="mc-demo-compare"><i></i></span>';
+    if (type === 'reveal') return '<span class="mc-demo-reveal"><i></i></span>';
+    if (type === 'video') return '<span class="mc-demo-play"><i class="fa-solid fa-play"></i></span>';
+    return '<span class="mc-demo-static">Criativo<br>da marca</span>';
+  }
+
+  function renderFormatStage(format, preserveDraft = false) {
+    if (!format) return;
+    if (!preserveDraft || !state.placementDraft) {
+      state.placementDraft = clonePlacement(format);
+      state.originalPlacement = clonePlacement(format);
+    }
+    const placement = state.placementDraft;
+    const slot = placement.slot;
+    $('#mcStageEmpty').classList.add('hidden');
+    $('#mcFormatStage').classList.remove('hidden');
+    $('#mcStageTitle').textContent = format.name_pt;
+    $('#mcStageMetrics').innerHTML = `<span>${escapeHtml(placement.context)}</span><strong>${escapeHtml(format.default_size || format.aspect_ratio || '')}</strong>`;
+    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(placement.context)}`;
+    $('#mcDeviceFrame').style.aspectRatio = `${Number(placement.viewport.width) || 1280} / ${Number(placement.viewport.height) || 800}`;
+    $('#mcAdSlot').style.left = `${slot.x}%`;
+    $('#mcAdSlot').style.top = `${slot.y}%`;
+    $('#mcAdSlot').style.width = `${slot.width}%`;
+    $('#mcAdSlot').style.height = `${slot.height}%`;
+    $('#mcAdSlotContent').innerHTML = `${behaviorDemo(format.behavior_spec)}<small id="mcAdSlotSize"></small>`;
+    $('#mcAdSlotSize').textContent = `${Math.round(slot.width)}% × ${Math.round(slot.height)}%`;
+    $('#mcResetPlacement').disabled = false;
+    syncPlacementFields();
+  }
+
+  function syncPlacementFields() {
+    const form = $('#mcFormatModelForm');
+    if (!form || !state.placementDraft) return;
+    const placement = state.placementDraft;
+    ['x', 'y', 'width', 'height'].forEach((key) => {
+      if (form.elements[`slot_${key}`]) form.elements[`slot_${key}`].value = placement.slot[key];
+    });
+    if (form.elements.context) form.elements.context.value = placement.context;
+    if (form.elements.viewport_width) form.elements.viewport_width.value = placement.viewport.width;
+    if (form.elements.viewport_height) form.elements.viewport_height.value = placement.viewport.height;
+  }
+
+  function formatJobCard(job) {
+    const cost = job.actual_cost_usd ?? job.estimated_cost_usd;
+    return `
+      <article class="mc-model-job" data-model-job="${job.id}">
+        <div class="mc-model-job-preview">
+          ${job.asset_url ? `<img src="${escapeHtml(job.asset_url)}" alt="Mockup gerado para revisão">` : '<i class="fa-solid fa-circle-notch fa-spin"></i>'}
+          <span>${statusBadge(job.status)}</span>
+        </div>
+        <div class="mc-model-job-body">
+          <span><strong>Slot ${job.slot}</strong><small>${escapeHtml(job.reference_type === 'background' ? 'Ambiente' : 'Mockup completo')} · ${money(cost)}</small></span>
+          ${job.error_message ? `<p class="mc-job-error">${escapeHtml(job.error_message)}</p>` : ''}
+          ${job.asset_url && job.status !== 'approved' ? `
+            <label>Refinar esta versão
+              <textarea class="cx-textarea mc-refine-instruction" rows="2" placeholder="Ex.: preserve o layout e aumente o contraste da peça"></textarea>
+            </label>
+            <div class="mc-inspector-actions">
+              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="refine-format-mockup">Refinar</button>
+              <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-action="approve-format-mockup">Aprovar no slot ${job.slot}</button>
+              <button class="mc-icon-btn" type="button" data-action="archive-format-mockup" title="Arquivar versão"><i class="fa-solid fa-box-archive"></i></button>
+            </div>` : ''}
+        </div>
+      </article>`;
   }
 
   function renderLibraryDetail(format) {
     const refs = format.references || [];
     $('#mcLibraryDetail').innerHTML = `
-      <div class="mc-inspector-section"><h3>${escapeHtml(format.name_pt)}</h3>${engineBadge(format)}<span class="cx-badge">${escapeHtml(format.default_size || format.aspect_ratio || '')}</span></div>
-      <form class="mc-inspector-section" id="mcFormatModelForm" data-format-id="${format.id}">
+      <div class="mc-studio-detail-head">
+        <div><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.channel_name || format.category || '')}</small></div>
+        ${engineBadge(format)}
+      </div>
+      <div class="mc-detail-tabs" role="tablist">
+        <button class="is-active" type="button" data-studio-detail-tab="technical">Layout</button>
+        <button type="button" data-studio-detail-tab="visual">Image 2</button>
+      </div>
+      <form class="mc-studio-detail-pane" id="mcFormatModelForm" data-studio-detail-pane="technical" data-format-id="${format.id}">
+        <div class="mc-field-pair">
+          <label class="cx-field"><span class="cx-label">Contexto</span><select class="cx-select" name="context">
+            ${Object.entries(MOCKUPS).map(([value, item]) => `<option value="${value}">${item.label}</option>`).join('')}
+          </select></label>
+          <label class="cx-field"><span class="cx-label">Ajuste</span><select class="cx-select" name="fit">
+            <option value="contain">Conter</option><option value="cover">Cobrir</option><option value="fill">Preencher</option>
+          </select></label>
+        </div>
+        <div class="mc-field-pair">
+          <label class="cx-field"><span class="cx-label">Viewport L</span><input class="cx-input" name="viewport_width" type="number" min="240" max="7680"></label>
+          <label class="cx-field"><span class="cx-label">Viewport A</span><input class="cx-input" name="viewport_height" type="number" min="240" max="4320"></label>
+        </div>
+        <div class="mc-placement-fields">
+          ${['x', 'y', 'width', 'height'].map((key) => `<label><span>${key === 'x' ? 'X' : key === 'y' ? 'Y' : key === 'width' ? 'Largura' : 'Altura'} %</span><input class="cx-input" name="slot_${key}" type="number" min="${['width', 'height'].includes(key) ? 1 : 0}" max="100" step="0.5"></label>`).join('')}
+        </div>
+        <div class="mc-field-pair">
+          <label class="cx-field"><span class="cx-label">Mecânica</span><select class="cx-select" name="behavior_type">
+            ${['static', 'hotspot', 'flip', 'reveal', 'compare', 'quiz', 'video'].map((value) => `<option value="${value}">${value}</option>`).join('')}
+          </select></label>
+          <label class="cx-field"><span class="cx-label">Acionamento</span><select class="cx-select" name="behavior_trigger">
+            ${['none', 'hover_tap', 'click', 'drag_vertical', 'drag_horizontal', 'view'].map((value) => `<option value="${value}">${value}</option>`).join('')}
+          </select></label>
+        </div>
         <label class="cx-field"><span class="cx-label">Background/base</span><textarea class="cx-textarea" name="background_guidance">${escapeHtml(format.background_guidance || '')}</textarea></label>
         <label class="cx-field"><span class="cx-label">Foreground/conteúdo</span><textarea class="cx-textarea" name="foreground_guidance">${escapeHtml(format.foreground_guidance || '')}</textarea></label>
         <label class="cx-field"><span class="cx-label">Comportamento responsivo</span><textarea class="cx-textarea" name="responsive_rules">${escapeHtml(format.responsive_rules || '')}</textarea></label>
-        <label class="cx-field"><span class="cx-label">Área segura (JSON)</span><textarea class="cx-textarea" name="safe_area">${escapeHtml(JSON.stringify(format.safe_area || {}, null, 2))}</textarea></label>
-        <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-action="save-format-model">Salvar modelagem</button>
+        <button class="cx-btn cx-btn-primary" type="button" data-action="save-format-model">Salvar modelagem técnica</button>
       </form>
-      <div class="mc-reference-grid">${[1, 2, 3, 4].map((slot) => {
-        const ref = refs.find((item) => Number(item.slot) === slot);
-        return `<div class="mc-reference-slot">${ref ? `<img src="${escapeHtml(ref.asset_url)}" alt="Referência ${slot}">` : `<span>Slot ${slot}</span>`}</div>`;
-      }).join('')}</div>`;
+      <div class="mc-studio-detail-pane hidden" data-studio-detail-pane="visual">
+        <form class="mc-mockup-generator" id="mcMockupGenerator" data-format-id="${format.id}">
+          <div class="mc-field-pair">
+            <label class="cx-field"><span class="cx-label">Tipo</span><select class="cx-select" name="reference_type">
+              <option value="full_mockup">Mockup completo</option><option value="background">Somente ambiente</option>
+            </select></label>
+            <label class="cx-field"><span class="cx-label">Slot</span><select class="cx-select" name="slot">
+              ${[1, 2, 3, 4].map((slot) => `<option value="${slot}">${slot}</option>`).join('')}
+            </select></label>
+          </div>
+          <label class="cx-field"><span class="cx-label">Cliente opcional</span><select class="cx-select" name="client_id">
+            <option value="">Marca neutra</option>
+            ${state.clients.map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('')}
+          </select></label>
+          <label class="cx-field"><span class="cx-label">Direção adicional</span><textarea class="cx-textarea" name="instructions" rows="3" placeholder="Descreva acabamento, clima ou ajustes desejados"></textarea></label>
+          <label class="mc-reference-upload">
+            <input name="references" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
+            <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+            <span>Até duas referências visuais</span>
+          </label>
+          <button class="cx-btn cx-btn-primary" type="button" data-action="generate-format-mockup"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerar com Image 2</button>
+        </form>
+        <div class="mc-approved-reference-grid">
+          ${[1, 2, 3, 4].map((slot) => {
+            const ref = refs.find((item) => Number(item.slot) === slot);
+            return `<div class="mc-reference-slot">${ref ? `<img src="${escapeHtml(ref.asset_url)}" alt="Referência aprovada ${slot}"><span>Slot ${slot}</span>` : `<span>Slot ${slot}<small>Disponível</small></span>`}</div>`;
+          }).join('')}
+        </div>
+        <div class="mc-model-job-list">
+          <h3>Versões recentes</h3>
+          ${state.formatJobs.map(formatJobCard).join('') || '<div class="cx-empty-state"><p>Gere o primeiro mockup deste formato.</p></div>'}
+        </div>
+      </div>`;
+    const placement = state.placementDraft || clonePlacement(format);
+    const behavior = format.behavior_spec || { type: 'static', trigger: 'none', transition_ms: 0 };
+    const form = $('#mcFormatModelForm');
+    form.elements.fit.value = placement.fit || 'contain';
+    form.elements.behavior_type.value = behavior.type || 'static';
+    form.elements.behavior_trigger.value = behavior.trigger || 'none';
+    syncPlacementFields();
   }
 
   // ====== CLIENTES ======
@@ -605,6 +757,102 @@
     const kind = status === 'done' || status === 'approved' || status === 'ready_for_higgsfield'
       ? 'success' : status === 'failed' ? 'danger' : status === 'review' ? 'warning' : 'info';
     return `<span class="cx-badge cx-badge-${kind}">${escapeHtml(status)}</span>`;
+  }
+
+  function clamp(value, minimum, maximum) {
+    return Math.min(maximum, Math.max(minimum, Math.round(value * 10) / 10));
+  }
+
+  function selectedLibraryFormat() {
+    return state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+  }
+
+  function updatePlacementFromForm(form) {
+    if (!state.placementDraft) return;
+    const slot = state.placementDraft.slot;
+    slot.width = clamp(Number(form.elements.slot_width.value), 1, 100 - slot.x);
+    slot.height = clamp(Number(form.elements.slot_height.value), 1, 100 - slot.y);
+    slot.x = clamp(Number(form.elements.slot_x.value), 0, 100 - slot.width);
+    slot.y = clamp(Number(form.elements.slot_y.value), 0, 100 - slot.height);
+    state.placementDraft.context = form.elements.context.value;
+    state.placementDraft.fit = form.elements.fit.value;
+    state.placementDraft.viewport.width = Number(form.elements.viewport_width.value) || 1280;
+    state.placementDraft.viewport.height = Number(form.elements.viewport_height.value) || 800;
+    const format = selectedLibraryFormat();
+    if (format) {
+      format.behavior_spec = {
+        type: form.elements.behavior_type.value,
+        trigger: form.elements.behavior_trigger.value,
+        transition_ms: format.behavior_spec?.transition_ms || 220,
+      };
+      renderFormatStage(format, true);
+    }
+  }
+
+  function setupPlacementInteraction() {
+    const slotNode = $('#mcAdSlot');
+    const stageNode = $('#mcDeviceFrame');
+    let gesture = null;
+    let suppressDemoClick = false;
+    slotNode.addEventListener('pointerdown', (event) => {
+      if (!state.placementDraft || !selectedLibraryFormat()) return;
+      event.preventDefault();
+      const resizing = Boolean(event.target.closest('.mc-resize-handle'));
+      gesture = {
+        pointerId: event.pointerId,
+        resizing,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        slot: { ...state.placementDraft.slot },
+      };
+      slotNode.setPointerCapture(event.pointerId);
+      slotNode.classList.add(resizing ? 'is-resizing' : 'is-dragging');
+    });
+    slotNode.addEventListener('pointermove', (event) => {
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const rect = stageNode.getBoundingClientRect();
+      const dx = ((event.clientX - gesture.startX) / rect.width) * 100;
+      const dy = ((event.clientY - gesture.startY) / rect.height) * 100;
+      if (Math.abs(event.clientX - gesture.startX) > 3 || Math.abs(event.clientY - gesture.startY) > 3) {
+        gesture.moved = true;
+      }
+      const next = state.placementDraft.slot;
+      if (gesture.resizing) {
+        next.width = clamp(gesture.slot.width + dx, 1, 100 - gesture.slot.x);
+        next.height = clamp(gesture.slot.height + dy, 1, 100 - gesture.slot.y);
+      } else {
+        next.x = clamp(gesture.slot.x + dx, 0, 100 - gesture.slot.width);
+        next.y = clamp(gesture.slot.y + dy, 0, 100 - gesture.slot.height);
+      }
+      renderFormatStage(selectedLibraryFormat(), true);
+    });
+    function finishGesture(event) {
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      suppressDemoClick = gesture.moved;
+      slotNode.classList.remove('is-dragging', 'is-resizing');
+      gesture = null;
+    }
+    slotNode.addEventListener('pointerup', finishGesture);
+    slotNode.addEventListener('pointercancel', finishGesture);
+    slotNode.addEventListener('click', () => {
+      if (suppressDemoClick) {
+        suppressDemoClick = false;
+        return;
+      }
+      slotNode.classList.toggle('is-demo-active');
+    });
+    slotNode.addEventListener('keydown', (event) => {
+      if (!state.placementDraft || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      const slot = state.placementDraft.slot;
+      const amount = event.shiftKey ? 5 : 0.5;
+      if (event.key === 'ArrowLeft') slot.x = clamp(slot.x - amount, 0, 100 - slot.width);
+      if (event.key === 'ArrowRight') slot.x = clamp(slot.x + amount, 0, 100 - slot.width);
+      if (event.key === 'ArrowUp') slot.y = clamp(slot.y - amount, 0, 100 - slot.height);
+      if (event.key === 'ArrowDown') slot.y = clamp(slot.y + amount, 0, 100 - slot.height);
+      renderFormatStage(selectedLibraryFormat(), true);
+    });
   }
 
   // ====== ACTIONS ======
@@ -687,7 +935,25 @@
     const libraryRow = event.target.closest('[data-library-format]');
     if (libraryRow) {
       const format = state.formats.find((item) => String(item.id) === libraryRow.dataset.libraryFormat);
-      if (format) renderLibraryDetail(format);
+      if (format) {
+        state.selectedFormatId = format.id;
+        state.placementDraft = clonePlacement(format);
+        state.originalPlacement = clonePlacement(format);
+        renderLibrary();
+        renderFormatStage(format);
+        state.formatJobs = [];
+        renderLibraryDetail(format);
+        try {
+          state.formatJobs = await api(`${API.formats}/${format.id}/modeling-jobs`);
+          renderLibraryDetail(format);
+        } catch (error) { toast(error.message, 'error'); }
+      }
+      return;
+    }
+    const detailTab = event.target.closest('[data-studio-detail-tab]');
+    if (detailTab) {
+      $$('[data-studio-detail-tab]').forEach((item) => item.classList.toggle('is-active', item === detailTab));
+      $$('[data-studio-detail-pane]').forEach((pane) => pane.classList.toggle('hidden', pane.dataset.studioDetailPane !== detailTab.dataset.studioDetailTab));
       return;
     }
     const button = event.target.closest('[data-action]');
@@ -765,15 +1031,101 @@
       const form = button.closest('#mcFormatModelForm');
       try {
         const data = Object.fromEntries(new FormData(form));
-        data.safe_area = JSON.parse(data.safe_area || '{}');
+        data.safe_area = state.formats.find((item) => String(item.id) === form.dataset.formatId)?.safe_area || {};
+        data.placement_spec = {
+          context: data.context,
+          viewport: { width: Number(data.viewport_width), height: Number(data.viewport_height) },
+          slot: {
+            x: Number(data.slot_x), y: Number(data.slot_y),
+            width: Number(data.slot_width), height: Number(data.slot_height),
+          },
+          fit: data.fit,
+          responsive: state.placementDraft?.responsive || 'scale',
+        };
+        data.behavior_spec = {
+          type: data.behavior_type,
+          trigger: data.behavior_trigger,
+          transition_ms: 220,
+        };
         await api(`${API.formats}/${form.dataset.formatId}`, {
           method: 'PUT', body: JSON.stringify(data),
         });
         state.formats = await api(API.formats);
         const updated = state.formats.find((item) => String(item.id) === form.dataset.formatId);
+        state.placementDraft = clonePlacement(updated);
+        state.originalPlacement = clonePlacement(updated);
         renderLibrary();
+        renderFormatStage(updated);
         renderLibraryDetail(updated);
         toast('Modelagem do formato atualizada.', 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'generate-format-mockup') {
+      const form = button.closest('#mcMockupGenerator');
+      const files = Array.from(form.elements.references.files || []);
+      if (files.length > 2) return toast('Escolha no máximo duas referências.', 'error');
+      const run = async () => {
+        const data = new FormData(form);
+        try {
+          await withLock(`format-mockup-${form.dataset.formatId}`, button, () => api(
+            `${API.formats}/${form.dataset.formatId}/mockups/generate`,
+            { method: 'POST', body: data },
+          ));
+          state.formatJobs = await api(`${API.formats}/${form.dataset.formatId}/modeling-jobs`);
+          const format = state.formats.find((item) => String(item.id) === form.dataset.formatId);
+          renderLibraryDetail(format);
+          $$('[data-studio-detail-tab]')[1]?.click();
+          toast('Mockup gerado para revisão.', 'success');
+        } catch (error) { toast(error.message, 'error'); }
+      };
+      if (typeof window.showConfirm === 'function') {
+        window.showConfirm({
+          title: 'Gerar referência visual',
+          message: 'Criar uma nova versão com Image 2?',
+          detail: `Estimativa: ${money(0.15)}. O custo ficará registrado no catálogo.`,
+          confirmText: 'Gerar mockup',
+          onConfirm: run,
+        });
+      } else await run();
+    } else if (action === 'refine-format-mockup') {
+      const holder = button.closest('[data-model-job]');
+      const instruction = $('.mc-refine-instruction', holder).value.trim();
+      if (!instruction) return toast('Descreva o que deve ser refinado.', 'warning');
+      const data = new FormData();
+      data.append('instruction', instruction);
+      try {
+        await withLock(`refine-${holder.dataset.modelJob}`, button, () => api(
+          `/parametros/api/format-modeling-jobs/${holder.dataset.modelJob}/refine`,
+          { method: 'POST', body: data },
+        ));
+        state.formatJobs = await api(`${API.formats}/${state.selectedFormatId}/modeling-jobs`);
+        renderLibraryDetail(state.formats.find((item) => String(item.id) === String(state.selectedFormatId)));
+        $$('[data-studio-detail-tab]')[1]?.click();
+        toast('Nova versão criada.', 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'approve-format-mockup') {
+      const holder = button.closest('[data-model-job]');
+      const job = state.formatJobs.find((item) => String(item.id) === holder.dataset.modelJob);
+      try {
+        await api(`/parametros/api/format-modeling-jobs/${job.id}/approve`, {
+          method: 'PUT', body: JSON.stringify({ slot: job.slot }),
+        });
+        [state.formats, state.formatJobs] = await Promise.all([
+          api(API.formats),
+          api(`${API.formats}/${state.selectedFormatId}/modeling-jobs`),
+        ]);
+        const format = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+        renderLibrary(); renderLibraryDetail(format);
+        $$('[data-studio-detail-tab]')[1]?.click();
+        toast(`Referência aprovada no slot ${job.slot}.`, 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'archive-format-mockup') {
+      const holder = button.closest('[data-model-job]');
+      try {
+        await api(`/parametros/api/format-modeling-jobs/${holder.dataset.modelJob}`, { method: 'DELETE' });
+        state.formatJobs = await api(`${API.formats}/${state.selectedFormatId}/modeling-jobs`);
+        renderLibraryDetail(state.formats.find((item) => String(item.id) === String(state.selectedFormatId)));
+        $$('[data-studio-detail-tab]')[1]?.click();
+        toast('Versão arquivada.', 'success');
       } catch (error) { toast(error.message, 'error'); }
     } else if (action === 'asset-left' || action === 'asset-right') {
       const holder = button.closest('[data-plan-asset-id]');
@@ -858,6 +1210,20 @@
   // ====== EVENTS ======
   document.addEventListener('DOMContentLoaded', () => {
     $('#mcApp').addEventListener('click', handleClick);
+    setupPlacementInteraction();
+    $('#mcLibraryDetail').addEventListener('input', (event) => {
+      const form = event.target.closest('#mcFormatModelForm');
+      if (form && (
+        event.target.matches('[name^="slot_"]')
+        || event.target.matches('[name^="viewport_"]')
+        || event.target.matches('[name="context"], [name="fit"], [name="behavior_type"], [name="behavior_trigger"]')
+      )) updatePlacementFromForm(form);
+    });
+    $('#mcResetPlacement').addEventListener('click', () => {
+      if (!state.originalPlacement || !selectedLibraryFormat()) return;
+      state.placementDraft = JSON.parse(JSON.stringify(state.originalPlacement));
+      renderFormatStage(selectedLibraryFormat(), true);
+    });
     $('#mcCampaignForm').addEventListener('submit', createCampaign);
     $('#mcClientForm').addEventListener('submit', createClient);
     $('#mcCampaignClient').addEventListener('change', renderClientPreview);

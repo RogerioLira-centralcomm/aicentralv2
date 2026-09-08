@@ -117,6 +117,8 @@ class CreativeGenerationClient:
         aspect_ratio="16:9",
         quality="high",
         output_format="png",
+        resolution="2K",
+        background="opaque",
     ):
         references = list(input_references or [])
         if len(references) > 2:
@@ -130,6 +132,8 @@ class CreativeGenerationClient:
             "aspect_ratio": aspect_ratio,
             "quality": quality,
             "output_format": output_format,
+            "resolution": resolution,
+            "background": background,
             "n": 1,
         }
         if references:

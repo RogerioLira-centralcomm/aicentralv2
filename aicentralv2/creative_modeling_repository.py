@@ -48,6 +48,7 @@ class CreativeModelingRepository:
                        f.max_reference_variants,
                        f.layers, f.required_fields, f.optional_fields,
                        f.forbidden_elements, f.use_cases_by_market, f.status,
+                       f.placement_spec, f.behavior_spec,
                        COALESCE(cat.slug, 'programatica') AS category,
                        ch.slug AS channel, ch.name AS channel_name,
                        ch.screen_context_template, ch.partner_primary_color,
@@ -74,7 +75,8 @@ class CreativeModelingRepository:
                 """
                 SELECT f.*, COALESCE(cat.slug, 'programatica') AS category,
                        ch.slug AS channel, ch.name AS channel_name,
-                       ch.screen_context_template
+                       ch.screen_context_template, ch.partner_primary_color,
+                       ch.partner_secondary_color, ch.brand_guidelines
                   FROM cx_format_templates f
                   LEFT JOIN cx_channels ch ON ch.id = f.channel_id
                   LEFT JOIN cx_format_categories cat ON cat.id = ch.category_id
@@ -95,7 +97,9 @@ class CreativeModelingRepository:
                    SET safe_area = %s,
                        responsive_rules = %s,
                        background_guidance = %s,
-                       foreground_guidance = %s
+                       foreground_guidance = %s,
+                       placement_spec = %s,
+                       behavior_spec = %s
                  WHERE id = %s
                 RETURNING id
                 """,
@@ -104,6 +108,8 @@ class CreativeModelingRepository:
                     data.get("responsive_rules"),
                     data.get("background_guidance"),
                     data.get("foreground_guidance"),
+                    Json(data.get("placement_spec") or {}),
+                    Json(data.get("behavior_spec") or {}),
                     format_id,
                 ),
             )
@@ -981,6 +987,211 @@ class CreativeModelingRepository:
                 params,
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def create_format_modeling_job(
+        self,
+        format_template_id,
+        client_id,
+        parent_job_id,
+        slot,
+        reference_type,
+        model,
+        prompt,
+        input_references,
+        estimated_cost_usd,
+        refinement_instruction=None,
+        created_by=None,
+    ):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_format_modeling_jobs (
+                    format_template_id, client_id, parent_job_id, slot,
+                    reference_type, model, prompt, refinement_instruction,
+                    input_references, estimated_cost_usd, created_by
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    format_template_id,
+                    client_id,
+                    parent_job_id,
+                    slot,
+                    reference_type,
+                    model,
+                    prompt,
+                    refinement_instruction,
+                    Json(input_references or []),
+                    Decimal(str(estimated_cost_usd or 0)),
+                    created_by,
+                ),
+            )
+            return cursor.fetchone()["id"]
+
+    def mark_format_modeling_job_generating(self, job_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_format_modeling_jobs
+                   SET status = 'generating', updated_at = NOW()
+                 WHERE id = %s AND status = 'queued'
+                RETURNING id
+                """,
+                (job_id,),
+            )
+            if not cursor.fetchone():
+                raise CreativeConflictError("Job de modelagem indisponível.")
+
+    def complete_format_modeling_job(
+        self, job_id, asset_url, actual_cost_usd, response_metadata
+    ):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_format_modeling_jobs
+                   SET status = 'review', asset_url = %s,
+                       actual_cost_usd = %s, response_metadata = %s,
+                       updated_at = NOW()
+                 WHERE id = %s AND status = 'generating'
+                RETURNING id, format_template_id, client_id, parent_job_id,
+                          slot, reference_type, model, status, prompt,
+                          refinement_instruction, input_references, asset_url,
+                          estimated_cost_usd, actual_cost_usd,
+                          response_metadata, created_at, updated_at
+                """,
+                (
+                    asset_url,
+                    Decimal(str(actual_cost_usd or 0)),
+                    Json(response_metadata or {}),
+                    job_id,
+                ),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeConflictError("Job de modelagem não está gerando.")
+            return dict(row)
+
+    def fail_format_modeling_job(self, job_id, error_message):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_format_modeling_jobs
+                   SET status = 'failed', error_message = %s, updated_at = NOW()
+                 WHERE id = %s AND status IN ('queued', 'generating')
+                """,
+                (str(error_message)[:4000], job_id),
+            )
+
+    def get_format_modeling_job(self, job_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT j.*, f.name_pt AS format_name, f.aspect_ratio,
+                       f.default_size, f.placement_spec, f.behavior_spec,
+                       c.name AS client_name, c.logo_url, c.logo_upload_path,
+                       c.primary_color, c.secondary_color, c.tone_of_voice
+                  FROM cx_format_modeling_jobs j
+                  JOIN cx_format_templates f ON f.id = j.format_template_id
+                  LEFT JOIN cx_clients c ON c.id = j.client_id
+                 WHERE j.id = %s
+                """,
+                (job_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Job de modelagem não encontrado.")
+        return dict(row)
+
+    def list_format_modeling_jobs(self, format_template_id, limit=40):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT j.id, j.format_template_id, j.client_id, j.parent_job_id,
+                       j.slot, j.reference_type, j.model, j.status, j.prompt,
+                       j.refinement_instruction, j.asset_url,
+                       j.estimated_cost_usd, j.actual_cost_usd, j.error_message,
+                       j.created_at, j.updated_at, c.name AS client_name
+                  FROM cx_format_modeling_jobs j
+                  LEFT JOIN cx_clients c ON c.id = j.client_id
+                 WHERE j.format_template_id = %s
+                   AND j.status <> 'archived'
+                 ORDER BY j.created_at DESC, j.id DESC
+                 LIMIT %s
+                """,
+                (format_template_id, limit),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def approve_format_modeling_job(self, job_id, slot):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT id, format_template_id, reference_type, prompt, asset_url
+                  FROM cx_format_modeling_jobs
+                 WHERE id = %s AND status IN ('review', 'approved')
+                 FOR UPDATE
+                """,
+                (job_id,),
+            )
+            job = cursor.fetchone()
+            if not job or not job.get("asset_url"):
+                raise CreativeConflictError("Gere o mockup antes de aprová-lo.")
+            cursor.execute(
+                """
+                UPDATE cx_format_modeling_jobs
+                   SET status = CASE WHEN id = %s THEN 'approved' ELSE status END,
+                       slot = CASE WHEN id = %s THEN %s ELSE slot END,
+                       updated_at = NOW()
+                 WHERE id = %s
+                """,
+                (job_id, job_id, slot, job_id),
+            )
+            cursor.execute(
+                """
+                INSERT INTO cx_format_references (
+                    format_template_id, slot, reference_type, prompt, asset_url,
+                    status, source_modeling_job_id
+                )
+                VALUES (%s, %s, %s, %s, %s, 'approved', %s)
+                ON CONFLICT (format_template_id, slot) DO UPDATE SET
+                    reference_type = EXCLUDED.reference_type,
+                    prompt = EXCLUDED.prompt,
+                    asset_url = EXCLUDED.asset_url,
+                    status = 'approved',
+                    source_job_id = NULL,
+                    source_modeling_job_id = EXCLUDED.source_modeling_job_id,
+                    created_at = NOW()
+                RETURNING id, slot, asset_url, status
+                """,
+                (
+                    job["format_template_id"],
+                    slot,
+                    job["reference_type"],
+                    job["prompt"],
+                    job["asset_url"],
+                    job_id,
+                ),
+            )
+            return dict(cursor.fetchone())
+
+    def archive_format_modeling_job(self, job_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_format_modeling_jobs
+                   SET status = 'archived', updated_at = NOW()
+                 WHERE id = %s AND status <> 'approved'
+                RETURNING id, asset_url, input_references
+                """,
+                (job_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeConflictError(
+                    "Referências aprovadas devem ser substituídas antes de arquivar."
+                )
+            return dict(row)
 
     def upsert_format_reference(
         self, format_template_id, slot, reference_type, prompt, asset_url, job_id

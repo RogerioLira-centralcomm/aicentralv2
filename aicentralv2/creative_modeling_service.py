@@ -39,6 +39,16 @@ MOCKUPS = {
     ),
 }
 
+PLACEMENT_CONTEXTS = {"portal", "tv", "celular", "tablet"}
+PLACEMENT_FITS = {"contain", "cover", "fill"}
+RESPONSIVE_MODES = {"scale", "reflow", "fixed"}
+BEHAVIOR_TYPES = {
+    "static", "hotspot", "flip", "reveal", "compare", "quiz", "video"
+}
+BEHAVIOR_TRIGGERS = {
+    "none", "hover_tap", "click", "drag_vertical", "drag_horizontal", "view"
+}
+
 
 def _text(value, field, required=False, max_length=None):
     if value is None:
@@ -94,6 +104,71 @@ def _money(value, field="Orçamento"):
     return result.quantize(Decimal("0.000001"))
 
 
+def _number(value, field, minimum=0, maximum=100):
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} inválido.") from exc
+    if result < minimum or result > maximum:
+        raise ValueError(
+            f"{field} deve estar entre {minimum:g} e {maximum:g}."
+        )
+    return round(result, 3)
+
+
+def _placement_spec(value):
+    if not isinstance(value, dict):
+        raise ValueError("Especificação de posicionamento inválida.")
+    context = value.get("context")
+    fit = value.get("fit", "contain")
+    responsive = value.get("responsive", "scale")
+    if context not in PLACEMENT_CONTEXTS:
+        raise ValueError("Contexto do mockup inválido.")
+    if fit not in PLACEMENT_FITS:
+        raise ValueError("Ajuste da peça inválido.")
+    if responsive not in RESPONSIVE_MODES:
+        raise ValueError("Comportamento responsivo inválido.")
+    viewport = value.get("viewport")
+    slot = value.get("slot")
+    if not isinstance(viewport, dict) or not isinstance(slot, dict):
+        raise ValueError("Viewport e slot são obrigatórios.")
+    width = int(_number(viewport.get("width"), "Largura do viewport", 240, 7680))
+    height = int(_number(viewport.get("height"), "Altura do viewport", 240, 4320))
+    normalized_slot = {
+        "x": _number(slot.get("x"), "Posição X"),
+        "y": _number(slot.get("y"), "Posição Y"),
+        "width": _number(slot.get("width"), "Largura do slot", 1, 100),
+        "height": _number(slot.get("height"), "Altura do slot", 1, 100),
+    }
+    if normalized_slot["x"] + normalized_slot["width"] > 100:
+        raise ValueError("O slot ultrapassa a largura do viewport.")
+    if normalized_slot["y"] + normalized_slot["height"] > 100:
+        raise ValueError("O slot ultrapassa a altura do viewport.")
+    return {
+        "context": context,
+        "viewport": {"width": width, "height": height},
+        "slot": normalized_slot,
+        "fit": fit,
+        "responsive": responsive,
+    }
+
+
+def _behavior_spec(value):
+    if not isinstance(value, dict):
+        raise ValueError("Especificação de comportamento inválida.")
+    kind = value.get("type", "static")
+    trigger = value.get("trigger", "none")
+    if kind not in BEHAVIOR_TYPES or trigger not in BEHAVIOR_TRIGGERS:
+        raise ValueError("Comportamento ou acionamento inválido.")
+    return {
+        "type": kind,
+        "trigger": trigger,
+        "transition_ms": int(
+            _number(value.get("transition_ms", 0), "Duração da transição", 0, 5000)
+        ),
+    }
+
+
 class CreativeModelingService:
     def __init__(self, repository=None, generator=None, storage=None):
         self.repository = repository or CreativeModelingRepository()
@@ -106,6 +181,8 @@ class CreativeModelingService:
     def update_format_modeling(self, format_id, payload):
         if not isinstance(payload, dict):
             raise ValueError("Corpo JSON inválido.")
+        format_id = _integer(format_id, "Formato")
+        current = self.repository.get_format(format_id)
         safe_area = payload.get("safe_area") or {}
         if not isinstance(safe_area, dict):
             raise ValueError("Área segura deve ser um objeto JSON.")
@@ -126,8 +203,13 @@ class CreativeModelingService:
                 "Orientação de conteúdo",
                 max_length=8000,
             ),
+            "placement_spec": _placement_spec(
+                payload.get("placement_spec") or current.get("placement_spec") or {}
+            ),
+            "behavior_spec": _behavior_spec(
+                payload.get("behavior_spec") or current.get("behavior_spec") or {}
+            ),
         }
-        format_id = _integer(format_id, "Formato")
         self.repository.update_format_modeling(format_id, data)
         return {"id": format_id}
 
@@ -663,6 +745,251 @@ class CreativeModelingService:
             job_id, Decimal("0"), payload, "ready_for_higgsfield"
         )
         return {"job_id": job_id, "payload": payload}
+
+    @staticmethod
+    def build_format_mockup_prompt(format_data, client=None, reference_type="full_mockup"):
+        placement = format_data.get("placement_spec") or {}
+        slot = placement.get("slot") or {}
+        context = placement.get("context") or "portal"
+        viewport = placement.get("viewport") or {}
+        lines = [
+            "Create a premium, photorealistic advertising placement mockup.",
+            f"Placement context: {context}.",
+            (
+                "Technical viewport: "
+                f"{viewport.get('width', 1280)} by {viewport.get('height', 800)}."
+            ),
+            (
+                "Reserved advertising slot: "
+                f"x {slot.get('x', 0)}%, y {slot.get('y', 0)}%, "
+                f"width {slot.get('width', 100)}%, height {slot.get('height', 100)}%."
+            ),
+            f"Creative format: {format_data.get('name_pt') or ''}.",
+            f"Output aspect ratio: {format_data.get('aspect_ratio') or '16:9'}.",
+            f"Interaction behavior: {(format_data.get('behavior_spec') or {}).get('type', 'static')}.",
+            "Keep the placement boundaries clear and compositionally credible.",
+            "Do not reproduce third-party platform logos or proprietary interfaces.",
+        ]
+        if format_data.get("screen_context_template"):
+            lines.append(f"Environment guidance: {format_data['screen_context_template']}.")
+        if format_data.get("background_guidance"):
+            lines.append(f"Background guidance: {format_data['background_guidance']}.")
+        if reference_type == "background":
+            lines.extend(
+                [
+                    "Generate the environment only.",
+                    "Keep the advertising slot empty, neutral, and clearly reserved.",
+                    "Do not place a finished advertisement inside the slot.",
+                ]
+            )
+        else:
+            lines.append("Generate a complete example advertisement inside the reserved slot.")
+            if client:
+                lines.extend(
+                    [
+                        f"Advertiser: {client.get('name') or ''}.",
+                        f"Sector: {client.get('sector') or ''}.",
+                        f"Brand tone: {client.get('tone_of_voice') or ''}.",
+                        f"Primary color: {client.get('primary_color') or ''}.",
+                        f"Secondary color: {client.get('secondary_color') or ''}.",
+                    ]
+                )
+            else:
+                lines.append(
+                    "Use a fictional neutral brand with no recognizable logo or trademark."
+                )
+        lines.append("High detail, production-ready art direction, 2K quality.")
+        return "\n".join(lines)
+
+    def list_format_modeling_jobs(self, format_id):
+        format_id = _integer(format_id, "Formato")
+        self.repository.get_format(format_id)
+        return _serialize(self.repository.list_format_modeling_jobs(format_id))
+
+    def _run_format_modeling(
+        self,
+        format_data,
+        client,
+        slot,
+        reference_type,
+        prompt,
+        data_urls,
+        saved_paths,
+        created_by,
+        parent_job_id=None,
+        refinement_instruction=None,
+    ):
+        estimate = self._estimate("image")
+        job_id = self.repository.create_format_modeling_job(
+            format_data["id"],
+            client.get("id") if client else None,
+            parent_job_id,
+            slot,
+            reference_type,
+            DEFAULT_IMAGE_MODEL,
+            prompt,
+            saved_paths,
+            estimate,
+            refinement_instruction,
+            created_by,
+        )
+        generated_path = None
+        try:
+            self.repository.mark_format_modeling_job_generating(job_id)
+            generated = self.generator.generate_image(
+                prompt,
+                data_urls,
+                aspect_ratio=format_data.get("aspect_ratio") or "16:9",
+            )
+            generated_path = self.storage.save_generated_base64(
+                generated["b64_json"], generated.get("output_format", "png")
+            )
+            actual = generated.get("actual_cost_usd")
+            job = self.repository.complete_format_modeling_job(
+                job_id,
+                generated_path,
+                estimate if actual is None else actual,
+                {
+                    "model": generated.get("model"),
+                    "usage": generated.get("usage") or {},
+                    **(generated.get("response_metadata") or {}),
+                },
+            )
+            return _serialize(job)
+        except Exception as exc:
+            self.repository.fail_format_modeling_job(job_id, exc)
+            if generated_path:
+                self.storage.delete(generated_path)
+            raise
+
+    def generate_format_mockup(self, format_id, payload, files, created_by=None):
+        payload = payload if isinstance(payload, dict) else {}
+        format_data = self.repository.get_format(_integer(format_id, "Formato"))
+        slot = _integer(payload.get("slot", 1), "Slot")
+        if slot > 4:
+            raise ValueError("O slot deve estar entre 1 e 4.")
+        reference_type = payload.get("reference_type", "full_mockup")
+        if reference_type not in ("background", "full_mockup"):
+            raise ValueError("Tipo de referência inválido.")
+        client = None
+        if payload.get("client_id") not in (None, ""):
+            client = self.repository.get_client(
+                _integer(payload.get("client_id"), "Cliente")
+            )
+        references = list(files or [])
+        if len(references) > 2:
+            raise ValueError("Use no máximo duas imagens de referência.")
+        saved_paths = []
+        data_urls = []
+        try:
+            for file_storage in references:
+                saved = self.storage.save_reference(file_storage)
+                saved_paths.append(saved["asset_path"])
+                data_urls.append(
+                    self.storage.reference_as_data_url(
+                        saved["asset_path"], saved["mime_type"]
+                    )
+                )
+            prompt = self.build_format_mockup_prompt(
+                format_data, client, reference_type
+            )
+            instructions = _text(
+                payload.get("instructions"),
+                "Direção adicional",
+                max_length=4000,
+            )
+            if instructions:
+                prompt += f"\nAdditional art direction: {instructions}"
+            return self._run_format_modeling(
+                format_data,
+                client,
+                slot,
+                reference_type,
+                prompt,
+                data_urls,
+                saved_paths,
+                created_by,
+            )
+        except Exception:
+            for public_path in saved_paths:
+                self.storage.delete(public_path)
+            raise
+
+    def refine_format_mockup(self, job_id, payload, files, created_by=None):
+        payload = payload if isinstance(payload, dict) else {}
+        parent = self.repository.get_format_modeling_job(
+            _integer(job_id, "Job de modelagem")
+        )
+        if parent.get("status") not in ("review", "approved"):
+            raise ValueError("Apenas mockups concluídos podem ser refinados.")
+        instruction = _text(
+            payload.get("instruction"),
+            "Instrução de refinamento",
+            required=True,
+            max_length=4000,
+        )
+        extras = list(files or [])
+        if len(extras) > 1:
+            raise ValueError(
+                "O refinamento aceita uma referência adicional além do mockup atual."
+            )
+        format_data = self.repository.get_format(parent["format_template_id"])
+        client = (
+            self.repository.get_client(parent["client_id"])
+            if parent.get("client_id")
+            else None
+        )
+        data_urls = [self.storage.generated_as_data_url(parent["asset_url"])]
+        saved_paths = []
+        try:
+            for file_storage in extras:
+                saved = self.storage.save_reference(file_storage)
+                saved_paths.append(saved["asset_path"])
+                data_urls.append(
+                    self.storage.reference_as_data_url(
+                        saved["asset_path"], saved["mime_type"]
+                    )
+                )
+            prompt = (
+                f"{parent['prompt']}\n\nRefinement instruction: {instruction}\n"
+                "Preserve the placement geometry, format and brand identity. "
+                "Change only what the refinement instruction requests."
+            )
+            return self._run_format_modeling(
+                format_data,
+                client,
+                parent["slot"],
+                parent["reference_type"],
+                prompt,
+                data_urls,
+                saved_paths,
+                created_by,
+                parent_job_id=parent["id"],
+                refinement_instruction=instruction,
+            )
+        except Exception:
+            for public_path in saved_paths:
+                self.storage.delete(public_path)
+            raise
+
+    def approve_format_mockup(self, job_id, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        slot = _integer(payload.get("slot"), "Slot")
+        if slot > 4:
+            raise ValueError("O slot deve estar entre 1 e 4.")
+        return _serialize(
+            self.repository.approve_format_modeling_job(
+                _integer(job_id, "Job de modelagem"), slot
+            )
+        )
+
+    def archive_format_mockup(self, job_id):
+        archived = self.repository.archive_format_modeling_job(
+            _integer(job_id, "Job de modelagem")
+        )
+        self.storage.delete(archived.get("asset_url"))
+        for public_path in archived.get("input_references") or []:
+            self.storage.delete(public_path)
 
     def history(self, campaign_id=None):
         campaign = (

@@ -34,10 +34,87 @@ class FakeRepository:
             }
             for index in range(1, 5)
         ]
+        self.format_jobs = []
+        self.format_data = {
+            "id": 7,
+            "name_pt": "Leaderboard",
+            "aspect_ratio": "4:1",
+            "default_size": "728x90",
+            "screen_context_template": "Portal editorial em desktop",
+            "background_guidance": "Conteúdo editorial ao redor",
+            "placement_spec": {
+                "context": "portal",
+                "viewport": {"width": 1280, "height": 800},
+                "slot": {"x": 12, "y": 18, "width": 76, "height": 12},
+                "fit": "contain",
+                "responsive": "scale",
+            },
+            "behavior_spec": {
+                "type": "static",
+                "trigger": "none",
+                "transition_ms": 0,
+            },
+        }
 
     def create_client(self, data):
         self.clients.append(data)
         return 10
+
+    def get_format(self, format_id):
+        if format_id != 7:
+            raise LookupError("Formato não encontrado")
+        return dict(self.format_data)
+
+    def update_format_modeling(self, format_id, data):
+        self.format_data.update(data)
+
+    def get_client(self, client_id):
+        return {
+            "id": client_id,
+            "name": "Marca Exemplo",
+            "sector": "Imobiliário",
+            "tone_of_voice": "Seguro",
+            "primary_color": "#123ABC",
+            "secondary_color": "#FEDCBA",
+        }
+
+    def create_format_modeling_job(
+        self, format_id, client_id, parent_id, slot, reference_type, model,
+        prompt, references, estimate, refinement=None, created_by=None,
+    ):
+        job_id = len(self.format_jobs) + 1
+        self.format_jobs.append({
+            "id": job_id, "format_template_id": format_id,
+            "client_id": client_id, "parent_job_id": parent_id,
+            "slot": slot, "reference_type": reference_type,
+            "model": model, "prompt": prompt, "input_references": references,
+            "estimated_cost_usd": estimate, "status": "queued",
+            "refinement_instruction": refinement,
+        })
+        return job_id
+
+    def mark_format_modeling_job_generating(self, job_id):
+        self.format_jobs[job_id - 1]["status"] = "generating"
+
+    def complete_format_modeling_job(self, job_id, asset_url, cost, metadata):
+        self.format_jobs[job_id - 1].update(
+            status="review", asset_url=asset_url,
+            actual_cost_usd=cost, response_metadata=metadata,
+        )
+        return dict(self.format_jobs[job_id - 1])
+
+    def fail_format_modeling_job(self, job_id, error):
+        self.format_jobs[job_id - 1].update(status="failed", error=str(error))
+
+    def get_format_modeling_job(self, job_id):
+        return dict(self.format_jobs[job_id - 1])
+
+    def list_format_modeling_jobs(self, format_id):
+        return [dict(item) for item in self.format_jobs]
+
+    def approve_format_modeling_job(self, job_id, slot):
+        self.format_jobs[job_id - 1].update(status="approved", slot=slot)
+        return {"id": job_id, "slot": slot, "status": "approved"}
 
     def get_step_context(self, step_id):
         return {
@@ -205,6 +282,9 @@ class FakeStorage:
     def save_generated_base64(self, encoded, output_format):
         return "/generated.png"
 
+    def generated_as_data_url(self, path):
+        return "data:image/png;base64,aW1hZ2U="
+
     def delete(self, path):
         pass
 
@@ -276,6 +356,64 @@ class CreativeServiceTest(unittest.TestCase):
                 30, {"asset_ids": [1, 2, 2, 4]}
             )
 
+    def test_mockup_de_formato_funciona_sem_cliente_e_registra_custo(self):
+        result = self.service.generate_format_mockup(
+            7,
+            {"slot": "2", "reference_type": "background"},
+            [],
+            created_by=9,
+        )
+        self.assertEqual(result["status"], "review")
+        self.assertEqual(result["slot"], 2)
+        self.assertIsNone(self.repo.format_jobs[0]["client_id"])
+        self.assertIn("Keep the advertising slot empty", self.repo.format_jobs[0]["prompt"])
+
+    def test_refinamento_usa_mockup_anterior_como_referencia(self):
+        parent = self.service.generate_format_mockup(
+            7,
+            {"slot": "1", "reference_type": "full_mockup"},
+            [],
+        )
+        refined = self.service.refine_format_mockup(
+            parent["id"], {"instruction": "Aumente o contraste"}, []
+        )
+        self.assertEqual(refined["parent_job_id"], parent["id"])
+        self.assertEqual(refined["status"], "review")
+        self.assertIn("Aumente o contraste", refined["prompt"])
+
+    def test_layout_rejeita_slot_fora_do_viewport(self):
+        payload = {
+            "safe_area": {},
+            "placement_spec": {
+                "context": "portal",
+                "viewport": {"width": 1280, "height": 800},
+                "slot": {"x": 90, "y": 10, "width": 20, "height": 20},
+                "fit": "contain",
+                "responsive": "scale",
+            },
+            "behavior_spec": {
+                "type": "static", "trigger": "none", "transition_ms": 0
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "ultrapassa a largura"):
+            self.service.update_format_modeling(7, payload)
+
+    def test_layout_valido_persiste_geometria_e_comportamento(self):
+        placement = dict(self.repo.format_data["placement_spec"])
+        placement["slot"] = {"x": 10, "y": 15, "width": 70, "height": 20}
+        result = self.service.update_format_modeling(7, {
+            "safe_area": {},
+            "placement_spec": placement,
+            "behavior_spec": {
+                "type": "hotspot",
+                "trigger": "hover_tap",
+                "transition_ms": 220,
+            },
+        })
+        self.assertEqual(result["id"], 7)
+        self.assertEqual(self.repo.format_data["placement_spec"]["slot"]["width"], 70.0)
+        self.assertEqual(self.repo.format_data["behavior_spec"]["type"], "hotspot")
+
 
 class FakeHttpResponse:
     def raise_for_status(self):
@@ -306,6 +444,8 @@ class CreativeGenerationContractTest(unittest.TestCase):
         result = client.generate_image("prompt", ["ref1", "ref2"], "16:9")
         self.assertEqual(http.payload["model"], "openai/gpt-image-2")
         self.assertEqual(http.payload["input_references"], ["ref1", "ref2"])
+        self.assertEqual(http.payload["resolution"], "2K")
+        self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
 
     def test_payload_higgsfield_exige_quatro_assets(self):
@@ -370,6 +510,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("data-mechanic", public_page)
         self.assertIn("public_collection_asset", public_page)
         self.assertNotIn('src="{{ asset.asset_url }}"', public_page)
+        library = (template_dir / "_mc_biblioteca.html").read_text(encoding="utf-8")
+        self.assertIn("mcFormatStage", library)
+        self.assertIn("mcAdSlot", library)
+        self.assertIn("mcLibraryDetail", library)
 
     def test_migration_cobre_custos_referencias_iab_e_video(self):
         root = Path(__file__).resolve().parents[1]
@@ -392,6 +536,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         for size in ("300x250", "728x90", "300x600", "320x50"):
             self.assertIn(size, seed)
+        studio_migration = (
+            root / "migrations" / "add_creative_format_studio.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("placement_spec JSONB", studio_migration)
+        self.assertIn("behavior_spec JSONB", studio_migration)
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS cx_format_modeling_jobs",
+            studio_migration,
+        )
 
 
 if __name__ == "__main__":

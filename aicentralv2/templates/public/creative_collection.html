@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ collection.title }} | Centralcomm</title>
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=5">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
@@ -61,8 +61,13 @@
           </header>
 
           {% set palette = asset.viewer_palette or {} %}
+          {% set viewer_shell = asset.viewer_shell_spec or {} %}
+          {% set viewer_hero = viewer_shell.hero or {} %}
+          {% set viewer_sections = viewer_shell.sections or [] %}
           <div class="pv-environment is-{{ asset.viewer_kind or 'portal' }}"
                data-viewer="{{ asset.viewer_slug or 'automatico' }}"
+               data-layout="{{ viewer_shell.layout or 'standard' }}"
+               data-format="{{ asset.format_slug or '' }}"
                style="--viewer-primary: {{ palette.primary or '#1e4d4f' }}; --viewer-secondary: {{ palette.secondary or '#183436' }}; --viewer-canvas: {{ palette.canvas or '#edf2f1' }}; --viewer-surface: {{ palette.surface or '#ffffff' }}; --viewer-text: {{ palette.text or '#183436' }}">
             <div class="pv-environment-label">
               <span>
@@ -77,22 +82,37 @@
               <div class="pv-tv-shell" aria-hidden="true">
                 <header>
                   {% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}
-                  <nav><span>Início</span><span>Séries</span><span>Filmes</span><span>Minha lista</span></nav>
+                  <nav>
+                    {% for nav_item in viewer_shell.nav or ['Início', 'Séries', 'Filmes', 'Minha lista'] %}
+                      <span>{{ nav_item }}</span>
+                    {% endfor %}
+                  </nav>
                   <i class="fa-regular fa-user"></i>
                 </header>
-                <div class="pv-tv-hero"><small>Conteúdo em destaque</small><strong>Experiência de marca em tela grande</strong></div>
+                <div class="pv-tv-hero">
+                  <small>{{ viewer_hero.eyebrow or 'Conteúdo em destaque' }}</small>
+                  <strong>{{ viewer_hero.title or 'Uma história para continuar assistindo' }}</strong>
+                  {% if viewer_hero.description %}<p>{{ viewer_hero.description }}</p>{% endif %}
+                </div>
               </div>
             {% else %}
               <div class="pv-portal-shell" aria-hidden="true">
-                <div class="pv-portal-network"><span>notícias</span><span>ao vivo</span><span>conta</span></div>
-                <header><i class="fa-solid fa-bars"></i>{% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}<i class="fa-solid fa-magnifying-glass"></i></header>
-                <nav><span>Últimas</span><span>Brasil</span><span>Economia</span><span>Mundo</span></nav>
+                <div class="pv-portal-network">
+                  {% for network_item in viewer_shell.network_links or ['notícias', 'ao vivo', 'conta'] %}<span>{{ network_item }}</span>{% endfor %}
+                </div>
+                <header>
+                  <span class="pv-portal-brand"><i class="fa-solid fa-bars"></i>{% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}</span>
+                  {% if viewer_shell.edition_label %}<b>{{ viewer_shell.edition_label }}</b>{% endif %}
+                  <span class="pv-portal-actions"><i class="fa-solid fa-magnifying-glass"></i><small>{{ viewer_shell.account_label or 'Entrar' }}</small></span>
+                </header>
+                <nav>{% for nav_item in viewer_shell.nav or ['Últimas', 'Brasil', 'Economia', 'Mundo'] %}<span>{{ nav_item }}</span>{% endfor %}</nav>
                 <div class="pv-portal-ticker"><b>Agora</b><span>Ambiente editorial demonstrativo</span></div>
               </div>
             {% endif %}
             <div class="pv-environment-content">
               <div class="pv-editorial"><b></b><span></span><span></span><span></span></div>
               <div class="pv-media-frame">
+                {% if asset.viewer_slug == 'g1' %}<small class="pv-ad-label">Publicidade</small>{% endif %}
                 {% if asset.asset_type == 'video' %}
                   <video class="pv-video" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" preload="metadata" playsinline></video>
                   <div class="pv-player">
@@ -130,8 +150,56 @@
               </div>
               <div class="pv-editorial right"><b></b><span></span><span></span></div>
             </div>
+            {% if asset.viewer_slug == 'g1' %}
+              {% set highlights = viewer_sections[0] if viewer_sections else {} %}
+              {% set more_news = viewer_sections[1] if viewer_sections|length > 1 else {} %}
+              <section class="pv-g1-news" aria-label="Notícias fictícias do protótipo">
+                <article class="pv-g1-lead">
+                  <small>{{ viewer_hero.eyebrow or 'Destaque' }}</small>
+                  <strong>{{ viewer_hero.title or 'Notícia demonstrativa em destaque' }}</strong>
+                  <p>{{ viewer_hero.description or 'Conteúdo editorial fictício para contextualização do anúncio.' }}</p>
+                </article>
+                <div class="pv-g1-highlights">
+                  {% for item in highlights.get('items', [])[:2] %}
+                    <article>
+                      {% if item.image %}<img src="{{ item.image }}" alt="">{% endif %}
+                      <span>{{ item.category }}</span>
+                      <strong>{{ item.title }}</strong>
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+              <section class="pv-g1-feed" aria-label="{{ more_news.title or 'Mais notícias' }}">
+                {% if viewer_hero.image %}<img src="{{ viewer_hero.image }}" alt="Ônibus elétrico em avenida urbana">{% endif %}
+                <div>
+                  <strong>{{ more_news.title or 'Mais notícias' }}</strong>
+                  {% for item in more_news.get('items', []) %}
+                    <article>
+                      <span>{{ item.category }} · {{ item.time }}</span>
+                      <b>{{ item.title }}</b>
+                      {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endif %}
             {% if asset.viewer_kind == 'tv' %}
-              <div class="pv-tv-rail" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+              {% for catalog in viewer_sections or [{}] %}
+              <section class="pv-tv-catalog is-{{ catalog.card_shape or 'landscape' }}{% if catalog.ranked %} is-ranked{% endif %}" aria-label="{{ catalog.title or 'Catálogo demonstrativo' }}">
+                <strong>{{ catalog.title or 'Escolhas para você' }}</strong>
+                <div class="pv-tv-rail" style="--catalog-count: {{ catalog.get('items', [])|length or 5 }}">
+                  {% for item in catalog.get('items', []) %}
+                    <article>
+                      {% if catalog.ranked %}<i>{{ loop.index }}</i>{% endif %}
+                      {% if item.image %}<img src="{{ item.image }}" alt="">{% endif %}
+                      <span>{{ item.title }}</span>
+                    </article>
+                  {% else %}
+                    {% for index in range(5) %}<article><b></b><span>Conteúdo {{ index + 1 }}</span></article>{% endfor %}
+                  {% endfor %}
+                </div>
+              </section>
+              {% endfor %}
             {% endif %}
           </div>
 

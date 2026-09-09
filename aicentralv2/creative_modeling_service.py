@@ -18,6 +18,7 @@ from .creative_modeling_generation import (
 from .creative_modeling_repository import (
     CreativeModelingRepository,
     CreativeNotFoundError,
+    scene_count_for_format,
 )
 from .creative_modeling_storage import CreativeAssetStorage
 from .creative_modeling_prompts import compose_format_mockup_prompt
@@ -110,6 +111,41 @@ def _text_list(value, field, max_items=8, item_length=500):
         _text(item, field, required=True, max_length=item_length)
         for item in value
     ]
+
+
+def _quality_review_data(value):
+    if not isinstance(value, dict):
+        raise ValueError("Revisão visual inválida.")
+    try:
+        score = int(value.get("score"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Pontuação da revisão visual inválida.") from exc
+    if score < 0 or score > 100:
+        raise ValueError("Pontuação da revisão visual deve estar entre 0 e 100.")
+    warnings = _text_list(
+        value.get("warnings") or [],
+        "Avisos da revisão visual",
+        max_items=8,
+        item_length=300,
+    )
+    raw_checks = value.get("checks") or {}
+    if not isinstance(raw_checks, dict):
+        raise ValueError("Checks da revisão visual inválidos.")
+    allowed_checks = {
+        "language_pt_br", "cta_correct", "brand_consistent",
+        "price_authorized", "continuity", "safe_area",
+    }
+    checks = {
+        key: raw
+        for key, raw in raw_checks.items()
+        if key in allowed_checks and isinstance(raw, bool)
+    }
+    return {
+        "approved_recommendation": value.get("approved_recommendation") is True,
+        "score": score,
+        "warnings": warnings,
+        "checks": checks,
+    }
 
 
 def _money(value, field="Orçamento"):
@@ -211,12 +247,94 @@ def _viewer_profile_data(value):
     safe_shell = {
         key: _text(raw, f"Configuração {key}", max_length=50)
         for key, raw in shell.items()
-        if key in {"masthead", "density", "headline_style"} and raw is not None
+        if key in {
+            "masthead", "density", "headline_style", "layout",
+            "edition_label", "account_label",
+        }
+        and raw is not None
     }
     safe_shell["nav"] = [
         _text(item, "Item de navegação", required=True, max_length=40)
         for item in nav
     ]
+    network_links = shell.get("network_links") or []
+    if not isinstance(network_links, list) or len(network_links) > 10:
+        raise ValueError("Links da rede do ambiente inválidos.")
+    safe_shell["network_links"] = [
+        _text(item, "Link da rede", required=True, max_length=30)
+        for item in network_links
+    ]
+    hero = shell.get("hero") or {}
+    if hero:
+        if not isinstance(hero, dict):
+            raise ValueError("Hero do ambiente inválido.")
+        safe_shell["hero"] = {
+            "eyebrow": _text(hero.get("eyebrow"), "Chamada do hero", max_length=60),
+            "title": _text(
+                hero.get("title"), "Título do hero", required=True, max_length=100
+            ),
+            "description": _text(
+                hero.get("description"), "Descrição do hero", max_length=180
+            ),
+            "image": _text(hero.get("image"), "Imagem do hero", max_length=255),
+        }
+    sections = shell.get("sections") or []
+    if not isinstance(sections, list) or len(sections) > 3:
+        raise ValueError("Seções do catálogo inválidas.")
+    safe_sections = []
+    for section in sections:
+        if not isinstance(section, dict):
+            raise ValueError("Seção do catálogo inválida.")
+        items = section.get("items") or []
+        if not isinstance(items, list) or len(items) > 8:
+            raise ValueError("Itens do catálogo inválidos.")
+        safe_sections.append({
+            "title": _text(
+                section.get("title"),
+                "Título da seção",
+                required=True,
+                max_length=80,
+            ),
+            "ranked": section.get("ranked") is True,
+            "card_shape": (
+                section.get("card_shape")
+                if section.get("card_shape") in {"landscape", "portrait"}
+                else "landscape"
+            ),
+            "items": [
+                {
+                    "title": _text(
+                        item.get("title"),
+                        "Título do catálogo",
+                        required=True,
+                        max_length=80,
+                    ),
+                    "image": _text(
+                        item.get("image"),
+                        "Imagem do catálogo",
+                        max_length=255,
+                    ),
+                    "category": _text(
+                        item.get("category"),
+                        "Categoria editorial",
+                        max_length=40,
+                    ),
+                    "summary": _text(
+                        item.get("summary"),
+                        "Resumo editorial",
+                        max_length=180,
+                    ),
+                    "time": _text(
+                        item.get("time"),
+                        "Horário editorial",
+                        max_length=40,
+                    ),
+                }
+                for item in items
+                if isinstance(item, dict)
+            ],
+        })
+    safe_shell["sections"] = safe_sections
     logo = _text(value.get("logo_asset_ref"), "Logo do ambiente", max_length=255)
     if logo and not re.fullmatch(
         r"/static/images/creative-viewers/[a-z0-9.-]+", logo
@@ -248,7 +366,10 @@ class CreativeModelingService:
         self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
 
     def list_formats(self):
-        return _serialize(self.repository.list_formats())
+        formats = self.repository.list_formats()
+        for format_data in formats:
+            format_data["scene_count"] = scene_count_for_format(format_data)
+        return _serialize(formats)
 
     def list_viewer_profiles(self):
         return _serialize([
@@ -390,6 +511,93 @@ class CreativeModelingService:
     def analyze_brand(self, website_url=None, image=None):
         return _serialize(self.brand_analyzer.analyze(website_url, image))
 
+    def enhance_campaign_brief(self, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        scene_count = _integer(payload.get("scene_count", 4), "Quantidade de cenas")
+        if scene_count not in (1, 4):
+            raise ValueError("A quantidade de cenas deve ser 1 ou 4.")
+        context = {
+            "client": {
+                "name": _text(
+                    payload.get("client_name"), "Cliente", required=True, max_length=150
+                ),
+                "profile": payload.get("client_profile")
+                if isinstance(payload.get("client_profile"), dict)
+                else {},
+            },
+            "campaign": {
+                "name": _text(
+                    payload.get("name"), "Campanha", required=True, max_length=200
+                ),
+                "objective": _text(payload.get("objective"), "Objetivo", max_length=120),
+                "message": _text(
+                    payload.get("campaign_text"),
+                    "Mensagem principal",
+                    required=True,
+                    max_length=12000,
+                ),
+                "cta": _text(payload.get("cta_text"), "CTA", max_length=1000),
+            },
+            "format": {
+                "name": _text(payload.get("format_name"), "Formato", max_length=200),
+                "mechanic": _text(payload.get("mechanic"), "Mecânica", max_length=100),
+                "scene_count": scene_count,
+            },
+        }
+        generated = self.generator.generate_campaign_brief(context)
+        result = generated.get("result") or {}
+        scenes = result.get("scenes")
+        if not isinstance(scenes, list) or len(scenes) != scene_count:
+            raise OpenRouterError(
+                f"O briefing deve conter exatamente {scene_count} cena(s)."
+            )
+        normalized_scenes = []
+        for position, scene in enumerate(scenes, start=1):
+            if not isinstance(scene, dict):
+                raise OpenRouterError("O provedor retornou uma cena inválida.")
+            normalized_scenes.append({
+                "position": position,
+                "role": _text(
+                    scene.get("role"), "Função da cena", required=True, max_length=50
+                ),
+                "description": _text(
+                    scene.get("description"),
+                    "Descrição da cena",
+                    required=True,
+                    max_length=8000,
+                ),
+            })
+        return _serialize({
+            "campaign_text": _text(
+                result.get("campaign_text"),
+                "Mensagem aprimorada",
+                required=True,
+                max_length=12000,
+            ),
+            "cta_text": _text(result.get("cta_text"), "CTA", max_length=1000),
+            "visual_bible": _text(
+                result.get("visual_bible"),
+                "Bíblia visual",
+                required=True,
+                max_length=6000,
+            ),
+            "scenes": normalized_scenes,
+            "model": generated.get("model"),
+            "usage": generated.get("usage") or {},
+        })
+
+    @staticmethod
+    def fallback_scene_descriptions(campaign_text, scene_count):
+        message = campaign_text or "Comunicar a mensagem principal da campanha"
+        if scene_count == 1:
+            return [f"Composição final: {message}. Encerrar com reconhecimento de marca."]
+        return [
+            f"Gancho: apresentar uma situação visual que gere atenção para {message}.",
+            f"Contexto e produto: revelar a marca e conectar o produto a {message}.",
+            f"Benefício: tornar visualmente concreto o valor central de {message}.",
+            f"Fechamento: resolver a narrativa, reforçar a marca e apresentar o CTA.",
+        ]
+
     def delete_client(self, client_id):
         client_id = _integer(client_id, "Cliente")
         client = self.repository.get_client(client_id)
@@ -435,6 +643,16 @@ class CreativeModelingService:
                 raise ValueError(
                     f"Cenas da produção {index} devem ser uma lista de até 4 itens."
                 )
+            format_data = self.repository.get_format(format_id)
+            expected_scene_count = scene_count_for_format(format_data)
+            if not descriptions:
+                descriptions = self.fallback_scene_descriptions(
+                    payload.get("campaign_text"), expected_scene_count
+                )
+            if len(descriptions) != expected_scene_count:
+                raise ValueError(
+                    f"O formato exige exatamente {expected_scene_count} cena(s)."
+                )
             productions.append(
                 {
                     "format_template_id": format_id,
@@ -471,6 +689,20 @@ class CreativeModelingService:
             "cta_text": _text(payload.get("cta_text"), "CTA", max_length=1000),
             "show_price": show_price,
             "budget_usd": _money(payload.get("budget_usd")),
+            "creative_brief": {
+                "visual_bible": _text(
+                    payload.get("visual_bible"), "Bíblia visual", max_length=6000
+                ),
+                "scenes": [
+                    {
+                        "position": index,
+                        "description": description,
+                    }
+                    for index, description in enumerate(
+                        productions[0]["scene_descriptions"], start=1
+                    )
+                ],
+            },
             "productions": productions,
         }
         created = self.repository.create_campaign_with_productions(data)
@@ -505,6 +737,7 @@ class CreativeModelingService:
     def build_scene_prompt(context):
         description = context.get("description") or context.get("campaign_text") or ""
         total = context.get("scene_count") or 1
+        creative_brief = context.get("creative_brief") or {}
         lines = [
             "Create one premium advertising image.",
             f"Brand: {context.get('client_name') or ''}.",
@@ -516,6 +749,21 @@ class CreativeModelingService:
             f"Mechanic: {context.get('mechanic') or ''}.",
             f"Aspect ratio: {context.get('aspect_ratio') or '16:9'}.",
         ]
+        if creative_brief.get("visual_bible"):
+            lines.append(
+                "Shared visual bible for every scene: "
+                f"{creative_brief['visual_bible']}."
+            )
+        storyboard = context.get("storyboard") or creative_brief.get("scenes") or []
+        if storyboard:
+            lines.append(
+                "Full storyboard, preserve progression and do not collapse scenes: "
+                + " | ".join(
+                    f"{item.get('position')}: {item.get('description')}"
+                    for item in storyboard
+                    if isinstance(item, dict)
+                )
+            )
         if context.get("tone_of_voice"):
             lines.append(f"Brand tone: {context['tone_of_voice']}.")
         if context.get("primary_color"):
@@ -534,6 +782,10 @@ class CreativeModelingService:
             [
                 "Keep visual continuity with the campaign sequence while making "
                 "this scene independently reviewable.",
+                "All visible advertising copy must be Brazilian Portuguese. "
+                "Use the supplied call to action literally. Never invent an "
+                "English slogan; if text cannot be rendered correctly, omit it. "
+                "Registered product names may remain unchanged.",
                 "Do not reproduce third-party platform logos or interfaces.",
             ]
         )
@@ -557,6 +809,11 @@ class CreativeModelingService:
                 "scene_role": self.scene_role(
                     context["position"], context.get("scene_count") or 1
                 ),
+                "storyboard": context.get("storyboard") or [],
+                "visual_bible": (
+                    (context.get("creative_brief") or {}).get("visual_bible")
+                ),
+                "visible_language": "pt-BR",
             },
             "client_identity": {
                 "name": context["client_name"],
@@ -602,6 +859,14 @@ class CreativeModelingService:
             self.repository.mark_job_generating(job_id)
             generated = self.generator.generate_prompt(request_context)
             prompt = generated["result"]["prompt_en"].strip()
+            language_guard = (
+                "\n\nVISIBLE COPY REQUIREMENT: All advertising copy visible in the "
+                "image must be Brazilian Portuguese. Preserve supplied brand/product "
+                "names, use the CTA literally, never invent English slogans, and omit "
+                "text that cannot be rendered accurately."
+            )
+            if "VISIBLE COPY REQUIREMENT" not in prompt:
+                prompt += language_guard
             scene = self.repository.update_scene_prompt(
                 scene_id, prompt, "generated"
             )
@@ -676,6 +941,11 @@ class CreativeModelingService:
                         saved["asset_path"], saved["mime_type"]
                     )
                 )
+            previous_asset_url = context.get("previous_approved_asset_url")
+            if previous_asset_url and len(data_urls) < 2:
+                data_urls.insert(
+                    0, self.storage.generated_as_data_url(previous_asset_url)
+                )
             self.repository.mark_job_generating(job_id)
             generated = self.generator.generate_image(
                 prompt,
@@ -685,6 +955,36 @@ class CreativeModelingService:
             asset_url = self.storage.save_generated_base64(
                 generated["b64_json"], generated.get("output_format", "png")
             )
+            quality_review = {
+                "approved_recommendation": True,
+                "score": None,
+                "warnings": [],
+                "checks": {},
+            }
+            review_cost = 0
+            try:
+                review = self.generator.review_image(
+                    {
+                        "campaign": context.get("campaign_name"),
+                        "scene": context.get("position"),
+                        "scene_description": context.get("description"),
+                        "cta": context.get("cta_text"),
+                        "show_price": context.get("show_price"),
+                        "safe_area": context.get("safe_area"),
+                        "visual_bible": (
+                            (context.get("creative_brief") or {}).get("visual_bible")
+                        ),
+                        "required_language": "pt-BR",
+                    },
+                    self.storage.generated_as_data_url(asset_url),
+                )
+                quality_review = _quality_review_data(review.get("result"))
+                review_cost = float(review.get("actual_cost_usd") or 0)
+            except Exception as review_error:
+                quality_review["warnings"] = [
+                    "A revisão automática não pôde ser concluída; revise a imagem manualmente."
+                ]
+                quality_review["review_error"] = str(review_error)[:240]
             asset = self.repository.add_generated_asset(
                 job_id,
                 None,
@@ -694,13 +994,14 @@ class CreativeModelingService:
                     "model": generated.get("model"),
                     "production_id": context["production_id"],
                     "scene_position": context["position"],
+                    "quality_review": quality_review,
                 },
                 scene_id=scene_id,
             )
             actual = generated.get("actual_cost_usd")
             self.repository.complete_generation_job(
                 job_id,
-                estimate if actual is None else actual,
+                estimate if actual is None else float(actual) + review_cost,
                 {
                     "usage": generated.get("usage") or {},
                     **(generated.get("response_metadata") or {}),

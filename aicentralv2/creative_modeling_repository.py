@@ -346,9 +346,9 @@ class CreativeModelingRepository:
                 """
                 INSERT INTO cx_campaigns (
                     client_id, name, objective, campaign_text, cta_text,
-                    show_price, budget_usd
+                    show_price, budget_usd, creative_brief
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -359,6 +359,7 @@ class CreativeModelingRepository:
                     data.get("cta_text"),
                     data.get("show_price", False),
                     data.get("budget_usd", 0),
+                    Json(data.get("creative_brief") or {}),
                 ),
             )
             campaign_id = cursor.fetchone()["id"]
@@ -588,7 +589,28 @@ class CreativeModelingRepository:
                             WHERE sequence_scene.production_id = s.production_id
                        ) AS scene_count,
                        c.name AS campaign_name, c.objective, c.campaign_text,
-                       c.cta_text, c.show_price,
+                       c.cta_text, c.show_price, c.creative_brief,
+                       (
+                           SELECT jsonb_agg(
+                               jsonb_build_object(
+                                   'position', sequence_scene.position,
+                                   'description', sequence_scene.description
+                               )
+                               ORDER BY sequence_scene.position
+                           )
+                             FROM cx_creative_scenes sequence_scene
+                            WHERE sequence_scene.production_id = s.production_id
+                       ) AS storyboard,
+                       (
+                           SELECT previous_asset.asset_url
+                             FROM cx_creative_scenes previous_scene
+                             JOIN cx_generated_assets previous_asset
+                               ON previous_asset.id = previous_scene.approved_asset_id
+                            WHERE previous_scene.production_id = s.production_id
+                              AND previous_scene.position < s.position
+                            ORDER BY previous_scene.position DESC
+                            LIMIT 1
+                       ) AS previous_approved_asset_url,
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
                        cl.primary_color, cl.secondary_color, cl.brand_profile,
@@ -656,7 +678,8 @@ class CreativeModelingRepository:
             cursor.execute(
                 """
                 SELECT c.id, c.name, c.client_id, c.objective,
-                       c.campaign_text, c.cta_text, c.show_price, c.status,
+                       c.campaign_text, c.cta_text, c.show_price,
+                       c.creative_brief, c.status,
                        c.budget_usd, c.reserved_usd, c.spent_usd,
                        (c.budget_usd - c.reserved_usd - c.spent_usd) AS balance_usd,
                        c.created_at, cl.name AS client_name,
@@ -2070,7 +2093,8 @@ class CreativeModelingRepository:
                 """
                 SELECT a.id, a.asset_type, a.asset_url, a.title, a.caption,
                        a.status, ca.position, j.prompt, j.script_text,
-                       f.name_pt AS format_name, f.mechanic, f.media_type,
+                       f.slug AS format_slug, f.name_pt AS format_name,
+                       f.mechanic, f.media_type,
                        f.aspect_ratio, f.default_size, ch.name AS channel_name,
                        v.label AS variation_label, s.position AS step_position,
                        vp.id AS viewer_profile_id, vp.slug AS viewer_slug,

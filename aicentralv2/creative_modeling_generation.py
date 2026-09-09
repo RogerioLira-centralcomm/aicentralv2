@@ -24,7 +24,10 @@ somente as referências autorizadas do canal parceiro. Não copie logos ou
 interfaces de terceiros. Retorne JSON puro com:
 {"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
 O prompt_en deve descrever composição, hierarquia, conteúdo, cores, iluminação,
-texto permitido e restrições técnicas sem inventar preços ou claims."""
+texto permitido e restrições técnicas sem inventar preços ou claims.
+O prompt deve exigir explicitamente que toda copy publicitária visível esteja em
+português do Brasil, sem slogans em inglês inventados. Nomes registrados de
+marca ou produto podem ser preservados."""
 
 SCRIPT_SYSTEM = """Você é roteirista de publicidade digital premium.
 Crie um roteiro que conecte exatamente quatro imagens na ordem informada.
@@ -32,6 +35,26 @@ Retorne JSON puro com:
 {"title":"...", "duration_seconds":15, "voiceover_pt":"...",
 "shots":[{"position":1,"seconds":"0-3","direction":"..."}],
 "endcard":"..."}. Não cite plataformas como se fossem a marca anunciante."""
+
+BRIEF_SYSTEM = """Você é estrategista e diretor de criação publicitária.
+Reescreva o briefing em português do Brasil sem inventar ofertas, preços,
+benefícios ou alegações. Crie uma narrativa visual complementar com a quantidade
+exata de cenas solicitada. Cada cena deve avançar a história e compartilhar uma
+bíblia visual consistente. Retorne somente JSON puro:
+{"campaign_text":"...", "cta_text":"...", "visual_bible":"...",
+"scenes":[{"position":1,"role":"gancho","description":"..."}]}.
+Para quatro cenas, use nesta ordem: gancho, contexto_produto, beneficio e
+fechamento. Para uma cena, use composição_final. Descreva toda copy visível em
+português do Brasil e preserve nomes próprios da marca."""
+
+IMAGE_REVIEW_SYSTEM = """Você é revisor de qualidade de publicidade digital.
+Analise a imagem contra o briefing informado. Não presuma falhas que não estejam
+visíveis. Retorne somente JSON puro:
+{"approved_recommendation":true,"score":0,"warnings":[],
+"checks":{"language_pt_br":true,"cta_correct":true,"brand_consistent":true,
+"price_authorized":true,"continuity":true,"safe_area":true}}.
+O score deve ser inteiro de 0 a 100. Cada warning deve ser curto, em português,
+e explicar uma correção acionável."""
 
 
 def _json_content(content):
@@ -170,6 +193,56 @@ class CreativeGenerationClient:
         shots = result.get("shots")
         if not isinstance(shots, list) or len(shots) != 4:
             raise OpenRouterError("O roteiro deve conter exatamente quatro cenas.")
+        return {
+            "result": result,
+            "model": response.get("model") or DEFAULT_TEXT_MODEL,
+            "usage": response.get("usage") or {},
+            "actual_cost_usd": _usage_cost(response.get("usage")),
+        }
+
+    def generate_campaign_brief(self, context):
+        response = self.text_callable(
+            [
+                {"role": "system", "content": BRIEF_SYSTEM},
+                {
+                    "role": "user",
+                    "content": json.dumps(context, ensure_ascii=False, default=str),
+                },
+            ],
+            model=DEFAULT_TEXT_MODEL,
+            max_tokens=2200,
+            temperature=0.35,
+        )
+        result = _json_content(response["message"].get("content"))
+        return {
+            "result": result,
+            "model": response.get("model") or DEFAULT_TEXT_MODEL,
+            "usage": response.get("usage") or {},
+            "actual_cost_usd": _usage_cost(response.get("usage")),
+        }
+
+    def review_image(self, context, image_data_url):
+        response = self.text_callable(
+            [
+                {"role": "system", "content": IMAGE_REVIEW_SYSTEM},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                context, ensure_ascii=False, default=str
+                            ),
+                        },
+                        _image_reference(image_data_url),
+                    ],
+                },
+            ],
+            model=DEFAULT_TEXT_MODEL,
+            max_tokens=900,
+            temperature=0.1,
+        )
+        result = _json_content(response["message"].get("content"))
         return {
             "result": result,
             "model": response.get("model") or DEFAULT_TEXT_MODEL,

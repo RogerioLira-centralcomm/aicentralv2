@@ -157,6 +157,11 @@ def api_analyze_client_brand():
 
 
 @admin_required_api
+def api_enhance_campaign_brief():
+    return _execute(lambda: _ok(_service().enhance_campaign_brief(_json())))
+
+
+@admin_required_api
 def api_delete_client(cid):
     def execute():
         service = _service()
@@ -574,6 +579,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/clients/analyze-brand",
         endpoint="creative_analyze_client_brand",
         view_func=api_analyze_client_brand,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/enhance-brief",
+        endpoint="creative_enhance_campaign_brief",
+        view_func=api_enhance_campaign_brief,
         methods=["POST"],
     )
     blueprint.add_url_rule(

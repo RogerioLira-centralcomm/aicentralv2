@@ -305,6 +305,31 @@ class FakeRepository:
 
 
 class FakeGenerator:
+    def generate_campaign_brief(self, context):
+        count = context["format"]["scene_count"]
+        roles = (
+            ["composição_final"]
+            if count == 1
+            else ["gancho", "contexto_produto", "beneficio", "fechamento"]
+        )
+        return {
+            "result": {
+                "campaign_text": "Mensagem aprimorada em português.",
+                "cta_text": "Conheça agora",
+                "visual_bible": "Luz natural, fundo azul e produto sempre consistente.",
+                "scenes": [
+                    {
+                        "position": index,
+                        "role": role,
+                        "description": f"Cena complementar {index} em português.",
+                    }
+                    for index, role in enumerate(roles, start=1)
+                ],
+            },
+            "model": "openai/gpt-test",
+            "usage": {"total_tokens": 40},
+        }
+
     def generate_prompt(self, context):
         return {
             "result": {
@@ -338,6 +363,17 @@ class FakeGenerator:
             "model": "openai/gpt-test",
             "usage": {},
             "actual_cost_usd": 0.01,
+        }
+
+    def review_image(self, context, image_data_url):
+        return {
+            "result": {
+                "approved_recommendation": True,
+                "score": 94,
+                "warnings": [],
+                "checks": {"language_pt_br": True, "continuity": True},
+            },
+            "actual_cost_usd": 0.002,
         }
 
 
@@ -490,6 +526,150 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn(
             "CTA",
             CreativeModelingService.scene_role(4, 4),
+        )
+
+    def test_formatos_expoem_contagem_canonica_de_cenas(self):
+        repository = Mock()
+        repository.list_formats.return_value = [
+            {"mechanic": "static_display", "behavior_spec": {"type": "static"}},
+            {"mechanic": "reveal", "behavior_spec": {"type": "reveal"}},
+        ]
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        self.assertEqual(
+            [item["scene_count"] for item in service.list_formats()],
+            [1, 4],
+        )
+
+    def test_perfil_de_viewer_preserva_hero_e_catalogo_seguro(self):
+        self.repo.viewer_profiles[1]["shell_spec"] = {
+            "nav": ["Início", "Filmes"],
+            "network_links": ["globo.com", "g1"],
+            "edition_label": "Notícias",
+            "hero": {
+                "eyebrow": "Em destaque",
+                "title": "Cidade Invisível",
+                "description": "Uma produção fictícia.",
+                "image": "/static/images/creative-viewers/g1-mobilidade-eletrica.jpg",
+            },
+            "sections": [{
+                "title": "Em alta",
+                "items": [{
+                    "title": "Arquivo 27",
+                    "image": "/static/images/creative-viewers/catalog/hbo-catalog.svg",
+                    "category": "Cultura",
+                    "summary": "Uma notícia demonstrativa.",
+                    "time": "Há 1 hora",
+                }],
+            }],
+        }
+        profiles = self.service.list_viewer_profiles()
+        netflix = next(item for item in profiles if item["slug"] == "netflix")
+        self.assertEqual(netflix["shell_spec"]["hero"]["title"], "Cidade Invisível")
+        self.assertEqual(
+            netflix["shell_spec"]["sections"][0]["items"][0]["title"],
+            "Arquivo 27",
+        )
+        self.assertEqual(netflix["shell_spec"]["network_links"], ["globo.com", "g1"])
+        self.assertEqual(
+            netflix["shell_spec"]["sections"][0]["items"][0]["category"],
+            "Cultura",
+        )
+
+    def test_aprimora_briefing_em_quatro_cenas_complementares(self):
+        result = self.service.enhance_campaign_brief({
+            "client_name": "Marca Exemplo",
+            "name": "Lançamento",
+            "objective": "Consideração",
+            "campaign_text": "Apresentar o novo produto para famílias.",
+            "cta_text": "Conheça",
+            "format_name": "Pause Ad",
+            "mechanic": "interactive_on_pause",
+            "scene_count": 4,
+        })
+        self.assertEqual(len(result["scenes"]), 4)
+        self.assertEqual(result["scenes"][0]["role"], "gancho")
+        self.assertIn("português", result["campaign_text"])
+        self.assertTrue(result["visual_bible"])
+
+    def test_fallback_de_cenas_nao_repete_a_mesma_descricao(self):
+        scenes = self.service.fallback_scene_descriptions("Produto sustentável", 4)
+        self.assertEqual(len(scenes), 4)
+        self.assertEqual(len(set(scenes)), 4)
+        self.assertIn("Gancho", scenes[0])
+        self.assertIn("Fechamento", scenes[3])
+
+    def test_prompt_de_cena_exige_copy_em_portugues_e_storyboard(self):
+        prompt = self.service.build_scene_prompt({
+            "position": 2,
+            "scene_count": 4,
+            "description": "Apresentar o produto.",
+            "campaign_text": "Mensagem",
+            "storyboard": [
+                {"position": 1, "description": "Gancho"},
+                {"position": 2, "description": "Produto"},
+            ],
+            "creative_brief": {"visual_bible": "Luz suave e fundo azul"},
+        })
+        self.assertIn("Brazilian Portuguese", prompt)
+        self.assertIn("Full storyboard", prompt)
+        self.assertIn("Shared visual bible", prompt)
+
+    def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self):
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "production_id": 50,
+            "campaign_id": 30,
+            "format_template_id": 7,
+            "position": 2,
+            "description": "Apresentar o produto.",
+            "campaign_name": "Campanha",
+            "prompt": "Prompt aprovado em português.",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "16:9",
+            "previous_approved_asset_url": "/previous.png",
+            "creative_brief": {"visual_bible": "Luz natural"},
+        }
+        repository.create_generation_job.return_value = 90
+        repository.add_generated_asset.return_value = {
+            "id": 99,
+            "asset_url": "/generated.png",
+            "status": "review",
+        }
+        generator = Mock()
+        generator.generate_image.return_value = {
+            "b64_json": base64.b64encode(b"image").decode(),
+            "model": "openai/gpt-image-2",
+            "usage": {},
+            "actual_cost_usd": 0.13,
+            "output_format": "png",
+        }
+        generator.review_image.return_value = {
+            "result": {
+                "approved_recommendation": False,
+                "score": 78,
+                "warnings": ["Corrigir o CTA em inglês."],
+                "checks": {"language_pt_br": False, "continuity": True},
+            },
+            "actual_cost_usd": 0.002,
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=generator,
+            storage=FakeStorage(),
+        )
+        service.generate_scene(51, [], created_by=3)
+        references = generator.generate_image.call_args.args[1]
+        self.assertEqual(len(references), 1)
+        metadata = repository.add_generated_asset.call_args.args[4]
+        self.assertEqual(metadata["quality_review"]["score"], 78)
+        self.assertFalse(
+            metadata["quality_review"]["checks"]["language_pt_br"]
         )
 
     def test_campanha_crm_cria_primeiro_step_no_mesmo_comando(self):
@@ -796,6 +976,34 @@ class FakeHttpError:
 
 
 class CreativeGenerationContractTest(unittest.TestCase):
+    def test_revisao_multimodal_envia_imagem_e_retorna_checks(self):
+        captured = {}
+
+        def llm(messages, **kwargs):
+            captured["messages"] = messages
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "approved_recommendation": False,
+                        "score": 72,
+                        "warnings": ["CTA em inglês."],
+                        "checks": {"language_pt_br": False},
+                    })
+                },
+                "model": "openai/gpt-test",
+                "usage": {},
+            }
+
+        client = CreativeGenerationClient(text_callable=llm)
+        result = client.review_image(
+            {"required_language": "pt-BR"},
+            "data:image/png;base64,aW1hZ2U=",
+        )
+        content = captured["messages"][1]["content"]
+        self.assertEqual(content[1]["type"], "image_url")
+        self.assertEqual(result["result"]["score"], 72)
+        self.assertFalse(result["result"]["checks"]["language_pt_br"])
+
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
     def test_image_api_usa_modelo_e_duas_referencias(self):
         http = FakeHttp()
@@ -912,6 +1120,38 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(response.get_json()["data"]["created_step_id"], 8)
         service.create_campaign.assert_called_once_with(payload)
 
+    def test_api_aprimora_briefing_autenticado(self):
+        service = Mock()
+        service.enhance_campaign_brief.return_value = {
+            "campaign_text": "Mensagem aprimorada",
+            "cta_text": "Conheça",
+            "visual_bible": "Luz natural",
+            "scenes": [{"position": 1, "role": "composição_final", "description": "Cena"}],
+        }
+        payload = {
+            "client_name": "Marca",
+            "name": "Campanha",
+            "campaign_text": "Mensagem",
+            "scene_count": 1,
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/campaigns/enhance-brief",
+                json=payload,
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json()["data"]["campaign_text"],
+            "Mensagem aprimorada",
+        )
+        service.enhance_campaign_brief.assert_called_once_with(payload)
+
     def test_apis_de_producao_operam_cenas_individuais(self):
         service = Mock()
         service.create_production_plan.return_value = {
@@ -1018,8 +1258,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=9", page)
-        self.assertIn("modelagem_criativos.js') }}?v=9", page)
+        self.assertIn("modelagem_criativos.css') }}?v=12", page)
+        self.assertIn("modelagem_criativos.js') }}?v=12", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1028,6 +1268,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcGeneratorFormatList"', generator)
         self.assertIn('form="mcCampaignForm"', generator)
         self.assertIn('name="client_ref"', generator)
+        self.assertIn('id="mcEnhanceBrief"', generator)
+        self.assertIn('id="mcStoryboardEditor"', generator)
         self.assertIn("Iniciar produção", generator)
         self.assertNotIn("Variação A", generator)
         production = (
@@ -1058,6 +1300,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("pv-player", public_page)
         self.assertIn("data-mechanic", public_page)
         self.assertIn("public_collection_asset", public_page)
+        self.assertIn("viewer_shell.sections", public_page)
+        self.assertIn("pv-tv-catalog", public_page)
         self.assertNotIn('src="{{ asset.asset_url }}"', public_page)
         library = (template_dir / "_mc_biblioteca.html").read_text(encoding="utf-8")
         self.assertIn("mcFormatStage", library)
@@ -1066,6 +1310,24 @@ class CreativeFilesContractTest(unittest.TestCase):
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
         self.assertIn('id="mcAnalyzeBrand"', clients)
         self.assertIn('name="target_audience"', clients)
+        catalog_dir = (
+            root / "aicentralv2" / "static" / "images"
+            / "creative-viewers" / "catalog"
+        )
+        for filename in (
+            "disney-catalog.svg", "netflix-catalog.svg", "netflix-top10.svg",
+            "hbo-catalog.svg", "hbo-cinema.svg",
+        ):
+            self.assertTrue((catalog_dir / filename).is_file())
+        for filename in (
+            "g1-mobilidade-eletrica.jpg",
+            "g1-lobo-guara.jpg",
+            "g1-festival-gastronomia.jpg",
+        ):
+            self.assertTrue(
+                (root / "aicentralv2" / "static" / "images"
+                 / "creative-viewers" / filename).is_file()
+            )
 
     def test_migration_cria_vinculo_crm_antes_do_indice(self):
         root = Path(__file__).resolve().parents[1]
@@ -1125,6 +1387,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         for size in ("300x250", "728x90", "300x600", "320x50"):
             self.assertIn(size, seed)
+        self.assertIn('"netflix-pause-banner"', seed)
+        self.assertIn('"1920x300"', seed)
         studio_migration = (
             root / "migrations" / "add_creative_format_studio.sql"
         ).read_text(encoding="utf-8")
@@ -1157,6 +1421,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max"):
             self.assertIn(f'"slug": "{slug}"', viewer_seed)
+        self.assertIn('"layout": "ranked_portrait"', viewer_seed)
+        self.assertIn('"layout": "premium_layers"', viewer_seed)
+        self.assertIn('"ranked": True', viewer_seed)
         deploy = (root / "deploy.sh").read_text(encoding="utf-8")
         migration_call = (
             '"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py'
@@ -1186,6 +1453,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn(
             '"$VENV_PYTHON" scripts/seed_creative_formats.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py',
             deploy,
         )
         self.assertLess(

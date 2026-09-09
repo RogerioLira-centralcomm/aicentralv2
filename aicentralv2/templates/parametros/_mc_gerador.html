@@ -57,10 +57,18 @@
         <input class="cx-input" name="budget_usd" type="number" min="0" step="0.01" value="5.00" required>
         <span class="cx-help">Prompts, imagens e roteiros usam este saldo.</span>
       </label>
-      <label class="cx-field mc-span-2">
-        <span class="cx-label">Mensagem principal</span>
+      <label class="cx-field mc-span-2 mc-brief-message-field">
+        <span class="mc-brief-label-row">
+          <span class="cx-label">Mensagem principal</span>
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcEnhanceBrief" type="button">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            Aprimorar briefing com IA
+          </button>
+        </span>
         <textarea class="cx-textarea mc-generator-message" name="campaign_text" maxlength="12000" placeholder="Descreva a oferta, o benefício e o público que deve perceber a mensagem."></textarea>
+        <span class="cx-help">A IA organiza sua mensagem e propõe cenas complementares. Você poderá editar tudo antes de produzir.</span>
       </label>
+      <section class="mc-storyboard-editor mc-span-2 hidden" id="mcStoryboardEditor" aria-live="polite"></section>
       <label class="cx-field">
         <span class="cx-label">Chamada para ação</span>
         <input class="cx-input" name="cta_text" maxlength="1000" placeholder="Conheça agora">

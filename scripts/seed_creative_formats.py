@@ -49,6 +49,11 @@ LAYER_DESCRIPTIONS = {
         "context_card": "dark UI card in the visual language of a streaming platform content row, small eyebrow text with sponsor label, generous negative space, cinematic still",
         "brand_scene": "campaign scene shot in cinematic, moody, high-production-value style consistent with premium streaming original content, not commercial or salesy lighting",
     },
+    "netflix-pause-banner": {
+        "sponsor_icon": "compact brand or product visual anchored at the left edge, fully contained and immediately recognizable",
+        "message": "short Brazilian Portuguese headline and one supporting line centered vertically in a dark premium horizontal banner",
+        "cta": "small high-contrast call-to-action button aligned to the right with generous safe margins",
+    },
     "hbomax-pause-ad": {
         "pause_frame": "calm, static composition suited to a paused-screen moment, brand logo placed discreetly, low visual urgency, elegant and minimal",
     },
@@ -172,6 +177,14 @@ FORMATS = (
         "video",
     ),
     (
+        "netflix-pause-banner",
+        "Netflix — Banner na pausa",
+        "Netflix — Pause banner",
+        "netflix",
+        "static_on_pause",
+        "image",
+    ),
+    (
         "hbomax-pause-ad",
         "HBO Max — Pause Ad",
         "HBO Max — Pause Ad",
@@ -245,6 +258,12 @@ CHANNEL_BRAND = {
 }
 
 FORMAT_SPECS = {
+    "netflix-pause-banner": {
+        "aspect_ratio": "32:5",
+        "default_size": "1920x300",
+        "safe_area": {"top": 24, "right": 40, "bottom": 24, "left": 40, "unit": "px"},
+        "responsive_rules": "Keep a compact horizontal composition with product at left, short message in the center and CTA at right.",
+    },
     "iab-medium-rectangle": {
         "aspect_ratio": "6:5",
         "default_size": "300x250",

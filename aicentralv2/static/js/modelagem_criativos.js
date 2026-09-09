@@ -7,6 +7,7 @@
     clients: '/parametros/api/clients',
     campaignClients: '/parametros/api/campaign-clients',
     analyzeBrand: '/parametros/api/clients/analyze-brand',
+    enhanceBrief: '/parametros/api/campaigns/enhance-brief',
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
     viewerProfiles: '/parametros/api/viewer-profiles',
@@ -39,6 +40,7 @@
     placementDraft: null,
     originalPlacement: null,
     brandAnalysis: null,
+    enhancedBrief: null,
     locks: new Set(),
   };
 
@@ -292,6 +294,8 @@
   }
 
   function sceneCountForFormat(format) {
+    const canonical = Number(format?.scene_count);
+    if ([1, 4].includes(canonical)) return canonical;
     const behavior = String(format?.behavior_spec?.type || format?.mechanic || '').toLowerCase();
     const mechanic = String(format?.mechanic || '').toLowerCase();
     const name = String(format?.name_pt || '').toLowerCase();
@@ -300,6 +304,69 @@
         || name.includes('banner')
         || ['leaderboard', 'billboard', 'halfpage'].some((term) => name.includes(term)));
     return isStaticBanner ? 1 : 4;
+  }
+
+  function renderStoryboardEditor() {
+    const root = $('#mcStoryboardEditor');
+    const brief = state.enhancedBrief;
+    if (!root) return;
+    root.classList.toggle('hidden', !brief?.scenes?.length);
+    if (!brief?.scenes?.length) {
+      root.innerHTML = '';
+      return;
+    }
+    root.innerHTML = `
+      <header>
+        <div><strong>Storyboard proposto</strong><small>Revise a progressão antes de iniciar.</small></div>
+        <span>${brief.scenes.length} ${brief.scenes.length === 1 ? 'cena' : 'cenas'}</span>
+      </header>
+      <p class="mc-visual-bible"><strong>Bíblia visual</strong>${escapeHtml(brief.visual_bible || '')}</p>
+      <div class="mc-storyboard-grid">
+        ${brief.scenes.map((scene, index) => `
+          <label class="mc-storyboard-card">
+            <span><i>${index + 1}</i><strong>${escapeHtml(String(scene.role || 'cena').replaceAll('_', ' '))}</strong></span>
+            <textarea class="cx-textarea" rows="4" maxlength="8000" data-storyboard-scene="${index}">${escapeHtml(scene.description || '')}</textarea>
+          </label>`).join('')}
+      </div>`;
+  }
+
+  async function enhanceCampaignBrief(button) {
+    const form = $('#mcCampaignForm');
+    const format = generatorSelectedFormat();
+    const client = state.campaignClients.find(
+      (item) => item.selection_key === $('#mcCampaignClient')?.value,
+    );
+    const data = Object.fromEntries(new FormData(form));
+    if (!client || !format || !String(data.name || '').trim() || !String(data.campaign_text || '').trim()) {
+      toast('Selecione a marca e o formato e informe nome e mensagem da campanha.', 'warning');
+      return;
+    }
+    await withLock('enhance-brief', button, async () => {
+      try {
+        const improved = await api(API.enhanceBrief, {
+          method: 'POST',
+          body: JSON.stringify({
+            client_name: client.name,
+            client_profile: client.brand_profile || {},
+            name: data.name,
+            objective: data.objective,
+            campaign_text: data.campaign_text,
+            cta_text: data.cta_text,
+            format_name: format.name_pt,
+            mechanic: format.mechanic,
+            scene_count: sceneCountForFormat(format),
+          }),
+        });
+        state.enhancedBrief = improved;
+        form.elements.campaign_text.value = improved.campaign_text || data.campaign_text;
+        if (improved.cta_text) form.elements.cta_text.value = improved.cta_text;
+        renderStoryboardEditor();
+        renderGeneratorSummary();
+        toast('Briefing aprimorado. Revise o storyboard antes de produzir.', 'success');
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
   }
 
   function renderGeneratorSummary() {
@@ -343,11 +410,11 @@
       data.format_template_id = Number(format.id);
       data.productions = [{
         format_template_id: Number(format.id),
-        scene_descriptions: Array.from(
-          { length: sceneCountForFormat(format) },
-          () => data.campaign_text || '',
-        ),
+        scene_descriptions: state.enhancedBrief?.scenes?.length === sceneCountForFormat(format)
+          ? state.enhancedBrief.scenes.map((scene) => scene.description)
+          : [],
       }];
+      data.visual_bible = state.enhancedBrief?.visual_bible || '';
       data.first_step = {
         format_template_id: Number(format.id),
         mockup: clonePlacement(format).context || 'portal',
@@ -365,6 +432,8 @@
         if (production) state.productionByCampaign.set(String(campaign.id), production);
         await selectCampaign(campaign.id, production?.scenes?.[0]?.id || created.created_scene_id);
         form.reset();
+        state.enhancedBrief = null;
+        renderStoryboardEditor();
         renderClientPreview();
         renderGeneratorSummary();
         toast('Produção iniciada.', 'success');
@@ -507,6 +576,11 @@
           ${assets.map((asset) => `
             <article class="mc-scene-asset ${String(asset.id) === String(state.previewAssetId) ? 'is-preview' : ''}">
               <img src="${escapeHtml(assetUrl(asset))}" alt="Resultado da cena ${index + 1}">
+              ${asset.metadata?.quality_review?.warnings?.length
+                ? `<ul class="mc-quality-warnings">${asset.metadata.quality_review.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
+                : asset.metadata?.quality_review?.score != null
+                  ? `<p class="mc-quality-ok"><i class="fa-solid fa-circle-check"></i> Qualidade ${escapeHtml(asset.metadata.quality_review.score)}/100</p>`
+                  : ''}
               <div>
                 ${statusBadge(asset.status || 'review')}
                 ${asset.status === 'approved'
@@ -549,14 +623,18 @@
     const format = activeProductionFormat();
     const placement = clonePlacement(format);
     const profile = state.viewerProfiles.find((item) => String(item.id) === String(state.selectedViewerProfileId));
+    const hero = profile?.shell_spec?.hero || {};
     root.innerHTML = `
       <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}"
+           data-viewer="${escapeHtml(profile?.slug || 'automatico')}"
+           data-layout="${escapeHtml(profile?.shell_spec?.layout || 'standard')}"
            style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}">
         <div class="mc-production-context">
-          <header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">
-            ${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i>
-          </header>
-          <div class="mc-production-content"><b></b><b></b><b></b><b></b></div>
+          ${placement.context === 'tv'
+            ? `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><section class="mc-production-hero"><small>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</small><strong>${escapeHtml(hero.title || 'Entretenimento em destaque')}</strong></section>${viewerCatalogHtml(profile)}`
+            : profile?.slug === 'g1'
+              ? g1PortalShellHtml(profile)
+              : `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><div class="mc-production-content"><b></b><b></b><b></b><b></b></div>`}
         </div>
         <div class="mc-production-creative" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
           <img src="${escapeHtml(assetUrl(approved))}" alt="Imagem aprovada aplicada ao ambiente">
@@ -915,6 +993,64 @@
       : `<strong>${escapeHtml(profile?.name || 'Mídia')}</strong>`;
   }
 
+  function viewerCatalogHtml(profile) {
+    const sections = Array.isArray(profile?.shell_spec?.sections)
+      && profile.shell_spec.sections.length
+      ? profile.shell_spec.sections.slice(0, 3)
+      : [{ title: 'Escolhas para você', items: [] }];
+    return sections.map((section) => {
+      const items = Array.isArray(section.items) ? section.items.slice(0, 8) : [];
+      const fallback = Array.from({ length: 5 }, (_, index) => (
+        `<article><b></b><span>Conteúdo ${index + 1}</span></article>`
+      )).join('');
+      return `
+        <section class="mc-tv-catalog is-${escapeHtml(section.card_shape || 'landscape')} ${section.ranked ? 'is-ranked' : ''}">
+          <strong>${escapeHtml(section.title || 'Escolhas para você')}</strong>
+          <div class="mc-tv-rail" style="--catalog-count:${items.length || 5}">
+            ${items.length ? items.map((item, index) => `
+              <article>
+                ${section.ranked ? `<i>${index + 1}</i>` : ''}
+                ${item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : '<b></b>'}
+                <span>${escapeHtml(item.title)}</span>
+              </article>`).join('') : fallback}
+          </div>
+        </section>`;
+    }).join('');
+  }
+
+  function g1PortalShellHtml(profile) {
+    const shell = profile.shell_spec || {};
+    const hero = shell.hero || {};
+    const highlights = shell.sections?.[0]?.items || [];
+    const network = (shell.network_links || []).map(
+      (item) => `<span>${escapeHtml(item)}</span>`,
+    ).join('');
+    const nav = (shell.nav || []).map(
+      (item) => `<span>${escapeHtml(item)}</span>`,
+    ).join('');
+    return `
+      <div class="mc-g1-network">${network}</div>
+      <header class="mc-g1-masthead">
+        <span><i class="fa-solid fa-bars"></i>${viewerLogo(profile)}</span>
+        <b>${escapeHtml(shell.edition_label || 'Notícias')}</b>
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </header>
+      <nav class="mc-g1-nav">${nav}</nav>
+      <section class="mc-g1-news">
+        <article class="mc-g1-lead">
+          <small>${escapeHtml(hero.eyebrow || 'Destaque')}</small>
+          <strong>${escapeHtml(hero.title || 'Notícia demonstrativa')}</strong>
+          <span>${escapeHtml(hero.description || '')}</span>
+        </article>
+        <div>${highlights.slice(0, 2).map((item) => `
+          <article>
+            ${item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : ''}
+            <small>${escapeHtml(item.category || '')}</small>
+            <strong>${escapeHtml(item.title || '')}</strong>
+          </article>`).join('')}</div>
+      </section>`;
+  }
+
   function renderViewerShell(profile) {
     const shell = $('#mcViewerShell');
     const frame = $('#mcDeviceFrame');
@@ -925,6 +1061,7 @@
     }
     const palette = profile.palette || {};
     frame.dataset.viewer = profile.slug;
+    frame.dataset.layout = profile.shell_spec?.layout || 'standard';
     frame.style.setProperty('--viewer-primary', safeViewerColor(palette.primary, '#1e4d4f'));
     frame.style.setProperty('--viewer-secondary', safeViewerColor(palette.secondary, '#173436'));
     frame.style.setProperty('--viewer-surface', safeViewerColor(palette.surface, '#ffffff'));
@@ -933,16 +1070,19 @@
     const nav = Array.isArray(profile.shell_spec?.nav) ? profile.shell_spec.nav.slice(0, 5) : [];
     const navHtml = nav.map((item) => `<span>${escapeHtml(item)}</span>`).join('');
     if (profile.viewer_kind === 'tv') {
+      const hero = profile.shell_spec?.hero || {};
       shell.innerHTML = `
         <div class="mc-tv-backdrop"></div>
         <header class="mc-tv-nav">${viewerLogo(profile)}<nav>${navHtml}</nav><i class="fa-regular fa-user"></i></header>
         <section class="mc-tv-hero">
-          <span>Conteúdo em destaque</span>
-          <strong>Uma história para continuar assistindo</strong>
-          <small>Prévia ilustrativa do ambiente de streaming.</small>
+          <span>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</span>
+          <strong>${escapeHtml(hero.title || 'Uma história para continuar assistindo')}</strong>
+          <small>${escapeHtml(hero.description || 'Prévia ilustrativa do ambiente de streaming.')}</small>
         </section>
-        <div class="mc-tv-rail" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+        ${viewerCatalogHtml(profile)}
         <div class="mc-tv-controls"><i class="fa-solid fa-play"></i><span></span><i class="fa-solid fa-volume-high"></i></div>`;
+    } else if (profile.slug === 'g1') {
+      shell.innerHTML = g1PortalShellHtml(profile);
     } else {
       shell.innerHTML = `
         <div class="mc-portal-network"><span>notícias</span><span>ao vivo</span><span>conta</span></div>
@@ -1566,6 +1706,10 @@
     const generatorFormat = event.target.closest('[data-generator-format]');
     if (generatorFormat) {
       state.generatorFormatId = Number(generatorFormat.dataset.generatorFormat);
+      if (state.enhancedBrief?.scenes?.length !== sceneCountForFormat(generatorSelectedFormat())) {
+        state.enhancedBrief = null;
+        renderStoryboardEditor();
+      }
       renderGeneratorFormats();
       return;
     }
@@ -1899,6 +2043,12 @@
       renderFormatStage(selectedLibraryFormat(), true);
     });
     $('#mcCampaignForm').addEventListener('submit', createCampaign);
+    $('#mcEnhanceBrief').addEventListener('click', (event) => enhanceCampaignBrief(event.currentTarget));
+    $('#mcStoryboardEditor').addEventListener('input', (event) => {
+      const index = Number(event.target.dataset.storyboardScene);
+      if (!Number.isInteger(index) || !state.enhancedBrief?.scenes?.[index]) return;
+      state.enhancedBrief.scenes[index].description = event.target.value;
+    });
     $('#mcClientForm').addEventListener('submit', createClient);
     $('#mcAnalyzeBrand').addEventListener('click', analyzeBrand);
     $('#mcCampaignClient').addEventListener('change', () => {

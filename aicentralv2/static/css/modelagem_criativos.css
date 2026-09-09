@@ -246,6 +246,76 @@
   resize: vertical;
 }
 
+.mc-brief-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mc-storyboard-editor {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid #cfdcdb;
+  border-radius: 0.8rem;
+  padding: 1rem;
+  background: #f7faf9;
+}
+
+.mc-storyboard-editor > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mc-storyboard-editor > header div { display: grid; gap: 0.15rem; }
+.mc-storyboard-editor > header small { color: #64748b; font-size: 0.68rem; }
+.mc-storyboard-editor > header > span {
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: #dceceb;
+  color: #183436;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.mc-visual-bible {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  border-left: 3px solid #1e4d4f;
+  padding-left: 0.7rem;
+  color: #526566;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.mc-visual-bible strong { color: #183436; }
+.mc-storyboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+.mc-storyboard-card {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.65rem;
+  padding: 0.65rem;
+  background: #fff;
+}
+.mc-storyboard-card > span { display: flex; align-items: center; gap: 0.45rem; text-transform: capitalize; }
+.mc-storyboard-card i {
+  display: grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #183436;
+  color: #fff;
+  font-size: 0.65rem;
+  font-style: normal;
+}
+.mc-storyboard-card strong { color: #29494a; font-size: 0.72rem; }
+.mc-storyboard-card textarea { min-height: 5.6rem; font-size: 0.7rem; }
+
 .mc-generator-format-pane {
   border-left: 1px solid var(--cx-border, #e2e8f0);
   padding: 1rem;
@@ -631,6 +701,16 @@
 }
 .mc-scene-asset.is-preview { box-shadow: 0 0 0 2px #183436; }
 .mc-scene-asset img { width: 100%; height: 11rem; background: #edf2f1; object-fit: contain; }
+.mc-quality-warnings {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem 0.2rem 1.65rem;
+  color: #9a3412;
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+.mc-quality-ok { margin: 0; padding: 0.45rem 0.6rem 0; color: #166534; font-size: 0.66rem; }
 .mc-scene-asset > div {
   display: flex;
   min-height: 3.3rem;
@@ -700,6 +780,37 @@
 }
 .mc-production-context header span { height: 0.25rem; flex: 1; border-radius: 1rem; background: rgba(255,255,255,.42); }
 .mc-production-context header img { width: auto; max-width: 20%; height: 55%; object-fit: contain; }
+.mc-production-device.is-tv .mc-production-context {
+  color: #fff;
+  background: linear-gradient(140deg, #07101c, #101a35);
+}
+.mc-production-device.is-tv .mc-production-context header {
+  position: relative;
+  z-index: 1;
+  height: 12%;
+  background: transparent !important;
+}
+.mc-production-device.is-tv .mc-production-context header span { background: transparent; }
+.mc-production-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 34%;
+  gap: 0.2rem;
+  margin: 4% 0 0 5%;
+}
+.mc-production-hero small { color: rgba(255,255,255,.7); font-size: 0.38rem; }
+.mc-production-hero strong { font-size: clamp(0.5rem, 1.2vw, 0.9rem); line-height: 1.05; }
+.mc-production-device.is-tv .mc-tv-catalog { bottom: 4%; }
+.mc-production-device.is-tv[data-viewer="netflix"] .mc-production-context {
+  background: radial-gradient(circle at 76% 18%, rgba(229,9,20,.28), transparent 25%), linear-gradient(110deg, #050505, #21090b 65%, #000);
+}
+.mc-production-device.is-tv[data-viewer="disney-plus"] .mc-production-context {
+  background: radial-gradient(circle at 75% 10%, rgba(2,214,232,.25), transparent 30%), radial-gradient(circle at 18% 40%, rgba(17,60,207,.4), transparent 36%), #040714;
+}
+.mc-production-device.is-tv[data-viewer="hbo-max"] .mc-production-context {
+  background: radial-gradient(ellipse at 55% -5%, rgba(158,134,255,.38), transparent 38%), linear-gradient(145deg, #0b0714, #211534 60%, #09060f);
+}
 .mc-production-content {
   display: grid;
   height: 85%;
@@ -1551,6 +1662,7 @@
   .mc-generator-brief-fields {
     grid-template-columns: 1fr;
   }
+  .mc-storyboard-grid { grid-template-columns: 1fr; }
   .mc-generator-brief-fields .mc-span-2 {
     grid-column: auto;
   }
@@ -1838,6 +1950,93 @@
   color: var(--viewer-text, #1f2937);
 }
 
+.mc-device-frame[data-viewer="g1"] .mc-viewer-shell {
+  background: #f7f7f7;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.mc-g1-network {
+  display: flex;
+  height: 4%;
+  align-items: center;
+  gap: 2%;
+  padding-inline: 7%;
+  background: #fff;
+  color: #555;
+  font-size: clamp(0.18rem, 0.42vw, 0.34rem);
+  font-weight: 700;
+}
+.mc-g1-network span:nth-child(2) { color: #c4170c; }
+.mc-g1-masthead {
+  display: flex;
+  height: 10%;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 7%;
+  background: #c4170c;
+  color: #fff;
+}
+.mc-g1-masthead > span { display: flex; height: 100%; align-items: center; gap: 18%; }
+.mc-g1-masthead img { width: auto; max-width: 2.8rem; height: 52%; object-fit: contain; }
+.mc-g1-masthead b { font-size: clamp(0.32rem, 0.9vw, 0.72rem); font-weight: 400; }
+.mc-g1-masthead i { font-size: clamp(0.24rem, 0.55vw, 0.45rem); }
+.mc-g1-nav {
+  display: flex;
+  height: 5%;
+  align-items: center;
+  justify-content: center;
+  gap: 3%;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+  color: #555;
+  font-size: clamp(0.18rem, 0.42vw, 0.34rem);
+  font-weight: 700;
+}
+.mc-g1-news {
+  display: grid;
+  height: 81%;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 1%;
+  padding: 17% 7% 4%;
+}
+.mc-g1-lead {
+  display: grid;
+  align-content: end;
+  border: 1px solid #dedede;
+  border-radius: 0.28rem;
+  padding: 5%;
+  background: #fff;
+}
+.mc-g1-lead small { color: #666; font-size: clamp(0.18rem, 0.38vw, 0.3rem); }
+.mc-g1-lead strong {
+  max-width: 19ch;
+  color: #b5160d;
+  font-size: clamp(0.35rem, 1.05vw, 0.84rem);
+  line-height: 1.06;
+}
+.mc-g1-lead span { margin-top: 3%; color: #666; font-size: clamp(0.16rem, 0.34vw, 0.28rem); }
+.mc-g1-news > div { display: grid; gap: 2%; }
+.mc-g1-news > div article {
+  position: relative;
+  display: grid;
+  align-content: end;
+  overflow: hidden;
+  border-radius: 0.28rem;
+  padding: 5%;
+  background: #333;
+  color: #fff;
+}
+.mc-g1-news > div article::after {
+  position: absolute;
+  inset: 30% 0 0;
+  content: "";
+  background: linear-gradient(transparent, rgba(0,0,0,.88));
+}
+.mc-g1-news > div img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mc-g1-news > div small,
+.mc-g1-news > div strong { position: relative; z-index: 2; }
+.mc-g1-news > div small { color: rgba(255,255,255,.72); font-size: clamp(0.16rem, 0.34vw, 0.28rem); }
+.mc-g1-news > div strong { font-size: clamp(0.24rem, 0.58vw, 0.47rem); line-height: 1.08; }
+
 .mc-portal-network {
   display: flex;
   justify-content: flex-end;
@@ -1943,18 +2142,93 @@
 }
 .mc-tv-hero span, .mc-tv-hero small { color: rgba(255,255,255,.72); font-size: clamp(0.22rem, 0.52vw, 0.44rem); }
 .mc-tv-hero strong { font-size: clamp(0.45rem, 1.45vw, 1.2rem); line-height: 1.02; }
-.mc-tv-rail {
+.mc-tv-catalog {
   position: absolute;
   z-index: 1;
   right: 4%;
   bottom: 7%;
   left: 4%;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+.mc-tv-catalog > strong { font-size: clamp(0.24rem, 0.6vw, 0.5rem); }
+.mc-tv-rail {
+  display: grid;
+  grid-template-columns: repeat(var(--catalog-count, 5), minmax(0, 1fr));
   gap: 1.5%;
 }
-.mc-tv-rail b { aspect-ratio: 16 / 9; border-radius: 0.2rem; background: linear-gradient(135deg, var(--viewer-primary), var(--viewer-secondary)); }
-.mc-tv-rail b:first-child { outline: 1px solid #fff; outline-offset: 2px; }
+.mc-tv-rail article {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.2rem;
+  background: linear-gradient(135deg, var(--viewer-primary), var(--viewer-secondary));
+}
+.mc-tv-rail img, .mc-tv-rail b { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.mc-tv-rail article img[src$="-catalog.svg"] { width: 500%; max-width: none; object-fit: fill; }
+.mc-tv-rail article:nth-child(2) img[src$="-catalog.svg"] { transform: translateX(-20%); }
+.mc-tv-rail article:nth-child(3) img[src$="-catalog.svg"] { transform: translateX(-40%); }
+.mc-tv-rail article:nth-child(4) img[src$="-catalog.svg"] { transform: translateX(-60%); }
+.mc-tv-rail article:nth-child(5) img[src$="-catalog.svg"] { transform: translateX(-80%); }
+.mc-tv-rail article img[src$="hbo-cinema.svg"] { width: 500%; max-width: none; object-fit: fill; }
+.mc-tv-rail article:nth-child(2) img[src$="hbo-cinema.svg"] { transform: translateX(-20%); }
+.mc-tv-rail article:nth-child(3) img[src$="hbo-cinema.svg"] { transform: translateX(-40%); }
+.mc-tv-rail article:nth-child(4) img[src$="hbo-cinema.svg"] { transform: translateX(-60%); }
+.mc-tv-rail article:nth-child(5) img[src$="hbo-cinema.svg"] { transform: translateX(-80%); }
+.mc-tv-rail article img[src$="netflix-top10.svg"] { width: 700%; max-width: none; object-fit: fill; }
+.mc-tv-rail article:nth-child(2) img[src$="netflix-top10.svg"] { transform: translateX(-14.2857%); }
+.mc-tv-rail article:nth-child(3) img[src$="netflix-top10.svg"] { transform: translateX(-28.5714%); }
+.mc-tv-rail article:nth-child(4) img[src$="netflix-top10.svg"] { transform: translateX(-42.8571%); }
+.mc-tv-rail article:nth-child(5) img[src$="netflix-top10.svg"] { transform: translateX(-57.1428%); }
+.mc-tv-rail article:nth-child(6) img[src$="netflix-top10.svg"] { transform: translateX(-71.4285%); }
+.mc-tv-rail article:nth-child(7) img[src$="netflix-top10.svg"] { transform: translateX(-85.7142%); }
+.mc-tv-rail article > span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 9% 5% 4%;
+  background: linear-gradient(transparent, rgba(0,0,0,.88));
+  color: #fff;
+  font-size: clamp(0.18rem, 0.42vw, 0.34rem);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-tv-rail article:first-child { outline: 1px solid #fff; outline-offset: 2px; }
+.mc-tv-catalog + .mc-tv-catalog { display: none; }
+.mc-tv-catalog.is-portrait .mc-tv-rail article { aspect-ratio: 2 / 3; }
+.mc-tv-catalog.is-ranked .mc-tv-rail { gap: 2.5%; padding-left: 3%; }
+.mc-tv-catalog.is-ranked .mc-tv-rail article { overflow: visible; margin-left: 8%; }
+.mc-tv-catalog.is-ranked .mc-tv-rail article > i {
+  position: absolute;
+  z-index: 1;
+  bottom: -4%;
+  left: -18%;
+  color: #050505;
+  font-size: clamp(0.8rem, 3.2vw, 2.5rem);
+  font-style: normal;
+  font-weight: 950;
+  line-height: .82;
+  -webkit-text-stroke: 1px rgba(255,255,255,.82);
+}
+.mc-tv-catalog.is-ranked .mc-tv-rail article > img { position: relative; z-index: 2; }
+.mc-tv-catalog.is-ranked .mc-tv-rail article > span { z-index: 3; }
+.mc-device-frame[data-viewer="netflix"] .mc-viewer-shell {
+  background: radial-gradient(circle at 76% 18%, rgba(229,9,20,.3), transparent 26%), linear-gradient(110deg, #050505, #21090b 65%, #000);
+}
+.mc-device-frame[data-viewer="netflix"] .mc-tv-hero { display: none; }
+.mc-device-frame[data-viewer="netflix"] .mc-tv-catalog { bottom: 5%; }
+.mc-device-frame[data-viewer="netflix"] .mc-tv-rail article { border-radius: 0.08rem; }
+.mc-device-frame[data-viewer="disney-plus"] .mc-viewer-shell {
+  background: radial-gradient(circle at 75% 10%, rgba(2,214,232,.28), transparent 30%), radial-gradient(circle at 18% 40%, rgba(17,60,207,.42), transparent 36%), #040714;
+}
+.mc-device-frame[data-viewer="disney-plus"] .mc-tv-rail article { border-radius: 0.35rem; }
+.mc-device-frame[data-viewer="hbo-max"] .mc-viewer-shell {
+  background: radial-gradient(ellipse at 55% -5%, rgba(158,134,255,.4), transparent 38%), linear-gradient(145deg, #0b0714, #211534 60%, #09060f);
+}
+.mc-device-frame[data-viewer="hbo-max"] .mc-tv-rail { gap: 1%; }
 .mc-tv-controls { position: absolute; z-index: 2; right: 5%; bottom: 1.5%; left: 5%; display: flex; align-items: center; gap: 2%; font-size: 0.45rem; }
 .mc-tv-controls span { height: 2px; flex: 1; background: rgba(255,255,255,.35); }
 

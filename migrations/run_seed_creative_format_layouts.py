@@ -36,7 +36,19 @@ def _placement(row):
     context = _context(row)
     size = row.get("default_size") or ""
     if context == "tv":
-        slot = {"x": 6, "y": 7, "width": 88, "height": 86}
+        tv_slots = {
+            "disney-pause-plus": {"x": 22, "y": 22, "width": 56, "height": 48},
+            "disney-branded-slate": {"x": 20, "y": 18, "width": 60, "height": 54},
+            "hbomax-pause-ad": {"x": 18, "y": 21, "width": 64, "height": 50},
+            "hbomax-interactive-midroll": {"x": 14, "y": 18, "width": 72, "height": 54},
+            "netflix-logo-bumper": {"x": 26, "y": 24, "width": 48, "height": 44},
+            "netflix-anuncio-simulado": {"x": 16, "y": 19, "width": 68, "height": 52},
+            "netflix-pause-banner": {"x": 8, "y": 6, "width": 84, "height": 15},
+        }
+        slot = tv_slots.get(
+            row.get("slug"),
+            {"x": 18, "y": 20, "width": 64, "height": 50},
+        )
         viewport = {"width": 1600, "height": 900}
     elif size == "728x90":
         slot = {"x": 12, "y": 18, "width": 76, "height": 12}

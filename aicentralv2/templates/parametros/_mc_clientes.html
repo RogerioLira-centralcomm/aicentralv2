@@ -17,19 +17,32 @@
             <span class="cx-label">Site da marca</span>
             <input class="cx-input" name="website_url" type="url" placeholder="https://marca.com.br">
           </label>
-          <label class="cx-field">
-            <span class="cx-label">Logo ou peça de referência</span>
-            <input class="cx-input" name="brand_image" type="file" accept=".png,.jpg,.jpeg,.webp">
-          </label>
           <button class="cx-btn cx-btn-secondary mc-brand-analyze-button" id="mcAnalyzeBrand" type="button">
             <i class="fa-solid fa-sparkles" aria-hidden="true"></i> Analisar marca
           </button>
         </div>
-        <label class="mc-check mc-brand-use-image">
-          <input type="checkbox" name="use_image_as_logo">
-          <span>Usar a imagem enviada como logo deste perfil</span>
-        </label>
+        <div class="mc-brand-dropzone" id="mcBrandDropzone" role="button" tabindex="0">
+          <input class="mc-visually-hidden" name="brand_images" type="file" accept=".png,.jpg,.jpeg,.webp" multiple tabindex="-1">
+          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+          <span><strong>Arraste imagens ou uma peça complementar</strong><small>Solte aqui, cole da área de transferência ou escolha no dispositivo.</small></span>
+        </div>
+        <div class="mc-brand-dropped" id="mcBrandDropped" hidden></div>
         <div class="mc-brand-analysis-summary hidden" id="mcBrandAnalysisSummary" aria-live="polite"></div>
+        <section class="mc-brand-curator hidden" id="mcBrandCurator" aria-label="Imagens encontradas no site">
+          <header>
+            <div><strong>Imagens encontradas no site</strong><small>Escolha o logo e as referências que representam a marca.</small></div>
+            <span id="mcBrandAssetCount">0 selecionadas</span>
+          </header>
+          <div class="mc-brand-filters" id="mcBrandFilters" role="toolbar" aria-label="Filtrar imagens">
+            <button class="is-active" type="button" data-brand-filter="all">Todas</button>
+            <button type="button" data-brand-filter="Logo">Logo</button>
+            <button type="button" data-brand-filter="Produto">Produto</button>
+            <button type="button" data-brand-filter="Campanha">Campanha</button>
+            <button type="button" data-brand-filter="Ambiente">Ambiente</button>
+          </div>
+          <div class="mc-brand-asset-strip" id="mcBrandAssetStrip"></div>
+          <footer id="mcBrandSelectionTray"><span>Nenhuma referência selecionada.</span></footer>
+        </section>
       </section>
 
       <label class="cx-field mc-span-2">
@@ -76,6 +89,17 @@
         <span class="cx-label">Direção criativa</span>
         <textarea class="cx-textarea" name="creative_guidelines" maxlength="4000" placeholder="Estilo visual, tipos de imagem, hierarquia e cuidados com a marca."></textarea>
       </label>
+      <details class="mc-brand-context-extra mc-span-2">
+        <summary>Contexto estratégico extra</summary>
+        <div class="mc-brand-context-grid">
+          <label class="cx-field"><span class="cx-label">Produtos e serviços</span><textarea class="cx-textarea" name="products_services_text" maxlength="3000" placeholder="Um item por linha"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Diferenciais</span><textarea class="cx-textarea" name="differentiators_text" maxlength="3000" placeholder="Um diferencial por linha"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Provas e benefícios</span><textarea class="cx-textarea" name="proof_points_text" maxlength="3000" placeholder="Uma evidência por linha"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Motivos visuais</span><textarea class="cx-textarea" name="visual_motifs_text" maxlength="3000" placeholder="Um elemento por linha"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Elementos obrigatórios</span><textarea class="cx-textarea" name="mandatory_elements_text" maxlength="3000" placeholder="Um elemento por linha"></textarea></label>
+          <label class="cx-field"><span class="cx-label">Evitar na criação</span><textarea class="cx-textarea" name="forbidden_elements_text" maxlength="3000" placeholder="Uma restrição por linha"></textarea></label>
+        </div>
+      </details>
       <label class="mc-check mc-span-2">
         <input type="checkbox" name="show_price">
         <span>Cliente permite preço por padrão</span>
@@ -106,13 +130,14 @@
   </form>
   <form class="cx-modal-body" id="mcLogoForm">
     <input type="hidden" name="client_id">
-    <label class="cx-field">
-      <span class="cx-label">Arquivo de imagem</span>
-      <input class="cx-input" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" required>
-      <span class="cx-help">PNG, JPG ou WEBP, até 5 MB.</span>
-    </label>
+    <div class="mc-brand-dropzone" id="mcLogoDropzone" role="button" tabindex="0">
+      <input class="mc-visually-hidden" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" tabindex="-1">
+      <i class="fa-solid fa-image" aria-hidden="true"></i>
+      <span><strong>Arraste o novo logo</strong><small>Ou escolha uma imagem no dispositivo.</small></span>
+    </div>
+    <div class="mc-brand-dropped" id="mcLogoDropped" hidden></div>
     <footer class="cx-modal-footer">
-      <button class="cx-btn cx-btn-primary" type="submit">Enviar logo</button>
+      <button class="cx-btn cx-btn-primary" type="submit">Salvar logo</button>
     </footer>
   </form>
 </dialog>

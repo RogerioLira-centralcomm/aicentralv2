@@ -366,6 +366,42 @@ class CreativeModelingService:
         self.storage = storage or CreativeAssetStorage()
         self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
 
+    def _append_brand_references(self, client_id, data_urls, job_id=None):
+        if (
+            not client_id
+            or len(data_urls) >= 2
+            or not hasattr(self.repository, "list_client_brand_assets")
+        ):
+            return []
+        used = []
+        assets = self.repository.list_client_brand_assets(client_id)
+        for asset in assets:
+            if len(data_urls) >= 2:
+                break
+            path = asset.get("asset_path")
+            mime = asset.get("mime_type")
+            if not path or not mime:
+                continue
+            try:
+                data_url = self.storage.reference_as_data_url(path, mime)
+            except ValueError:
+                continue
+            data_urls.append(data_url)
+            used.append(asset)
+            if job_id is not None:
+                self.repository.add_job_reference(
+                    job_id,
+                    {
+                        "asset_path": path,
+                        "mime_type": mime,
+                        "original_name": (
+                            (asset.get("metadata") or {}).get("original_name")
+                            or f"brand-asset-{asset.get('id')}"
+                        ),
+                    },
+                )
+        return used
+
     def list_formats(self):
         formats = self.repository.list_formats()
         for format_data in formats:
@@ -431,13 +467,31 @@ class CreativeModelingService:
         return {"id": format_id}
 
     def list_clients(self):
-        return _serialize(self.repository.list_clients())
+        clients = self.repository.list_clients()
+        if hasattr(self.repository, "list_client_brand_assets"):
+            for client in clients:
+                client["brand_assets"] = self.repository.list_client_brand_assets(
+                    client["id"]
+                )
+        return _serialize(clients)
 
     def list_campaign_clients(self):
-        return _serialize(self.repository.list_campaign_clients())
+        clients = self.repository.list_campaign_clients()
+        if hasattr(self.repository, "list_client_brand_assets"):
+            for client in clients:
+                profile_id = client.get("profile_id")
+                client["brand_assets"] = (
+                    self.repository.list_client_brand_assets(profile_id)
+                    if profile_id else []
+                )
+        return _serialize(clients)
 
     def get_client(self, client_id):
-        return _serialize(self.repository.get_client(_integer(client_id, "Cliente")))
+        client_id = _integer(client_id, "Cliente")
+        client = self.repository.get_client(client_id)
+        if hasattr(self.repository, "list_client_brand_assets"):
+            client["brand_assets"] = self.repository.list_client_brand_assets(client_id)
+        return _serialize(client)
 
     def create_client(self, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -469,6 +523,24 @@ class CreativeModelingService:
                 "Oportunidades de campanha",
                 max_items=6,
             ),
+            "products_services": _text_list(
+                payload.get("products_services"), "Produtos e serviços", max_items=10
+            ),
+            "differentiators": _text_list(
+                payload.get("differentiators"), "Diferenciais", max_items=10
+            ),
+            "proof_points": _text_list(
+                payload.get("proof_points"), "Provas da marca", max_items=10
+            ),
+            "visual_motifs": _text_list(
+                payload.get("visual_motifs"), "Motivos visuais", max_items=10
+            ),
+            "mandatory_elements": _text_list(
+                payload.get("mandatory_elements"), "Elementos obrigatórios", max_items=10
+            ),
+            "forbidden_elements": _text_list(
+                payload.get("forbidden_elements"), "Restrições criativas", max_items=10
+            ),
         }
         analysis_metadata = payload.get("analysis_metadata") or {}
         if not isinstance(analysis_metadata, dict):
@@ -482,6 +554,8 @@ class CreativeModelingService:
                 "firecrawl_available",
                 "confidence",
                 "sources",
+                "pages_analyzed",
+                "assets_found",
             )
             if analysis_metadata.get(key) is not None
         }
@@ -507,10 +581,122 @@ class CreativeModelingService:
             "brand_profile": brand_profile,
             "analysis_metadata": analysis_metadata,
         }
-        return {"id": self.repository.create_client(data)}
+        client_id = self.repository.create_client(data)
+        saved_assets = []
+        for candidate in (payload.get("brand_assets") or [])[:9]:
+            if not isinstance(candidate, dict):
+                continue
+            role = candidate.get("role")
+            if role not in {"logo", "reference"}:
+                continue
+            source_url = _text(
+                candidate.get("source_url"), "Imagem da marca", max_length=2000
+            )
+            page_url = _text(
+                candidate.get("page_url"), "Página de origem", max_length=2000
+            )
+            stored = {}
+            try:
+                stored = self.storage.save_remote_reference(source_url, page_url)
+            except Exception:
+                stored = {"source_url": source_url}
+            asset_data = {
+                **stored,
+                "role": role,
+                "source_kind": "website",
+                "source_url": stored.get("source_url") or source_url,
+                "page_url": page_url,
+                "width": candidate.get("width"),
+                "height": candidate.get("height"),
+                "score": candidate.get("score"),
+                "status": "approved",
+                "is_primary": bool(candidate.get("is_primary") and role == "logo"),
+                "metadata": {
+                    "category": candidate.get("category"),
+                    "reason": candidate.get("reason"),
+                },
+            }
+            duplicate = (
+                self.repository.find_client_brand_asset_by_hash(
+                    client_id, asset_data.get("sha256")
+                )
+                if hasattr(self.repository, "find_client_brand_asset_by_hash")
+                else None
+            )
+            if duplicate:
+                self.storage.delete(asset_data.get("asset_path"))
+                if (
+                    asset_data["is_primary"]
+                    and duplicate.get("role") == "logo"
+                    and hasattr(self.repository, "set_primary_client_brand_asset")
+                ):
+                    self.repository.set_primary_client_brand_asset(
+                        client_id, duplicate["id"]
+                    )
+                continue
+            if hasattr(self.repository, "add_client_brand_asset"):
+                asset_id = self.repository.add_client_brand_asset(
+                    client_id, asset_data
+                )
+                asset_data["id"] = asset_id
+            if asset_data["is_primary"] and asset_data.get("asset_path"):
+                self.repository.set_client_logo(client_id, asset_data["asset_path"])
+            saved_assets.append(asset_data)
+        return {"id": client_id, "brand_assets": saved_assets}
 
     def analyze_brand(self, website_url=None, image=None):
         return _serialize(self.brand_analyzer.analyze(website_url, image))
+
+    def upload_client_brand_assets(self, client_id, files, primary_logo=False):
+        client_id = _integer(client_id, "Cliente")
+        self.repository.get_client(client_id)
+        saved = []
+        for position, file_storage in enumerate(list(files or [])[:8]):
+            item = self.storage.save_reference(file_storage)
+            role = "logo" if primary_logo and position == 0 else "reference"
+            data = {
+                **item,
+                "role": role,
+                "source_kind": "upload",
+                "status": "approved",
+                "is_primary": role == "logo",
+                "metadata": {"original_name": item.get("original_name")},
+            }
+            duplicate = (
+                self.repository.find_client_brand_asset_by_hash(
+                    client_id, data.get("sha256")
+                )
+                if hasattr(self.repository, "find_client_brand_asset_by_hash")
+                else None
+            )
+            if duplicate:
+                self.storage.delete(item["asset_path"])
+                continue
+            try:
+                asset_id = self.repository.add_client_brand_asset(client_id, data)
+            except Exception:
+                self.storage.delete(item["asset_path"])
+                raise
+            data["id"] = asset_id
+            if data["is_primary"]:
+                self.repository.set_client_logo(client_id, item["asset_path"])
+            saved.append(data)
+        return _serialize(saved)
+
+    def set_primary_brand_asset(self, client_id, asset_id):
+        return _serialize(
+            self.repository.set_primary_client_brand_asset(
+                _integer(client_id, "Cliente"),
+                _integer(asset_id, "Ativo"),
+            )
+        )
+
+    def delete_brand_asset(self, client_id, asset_id):
+        removed = self.repository.delete_client_brand_asset(
+            _integer(client_id, "Cliente"),
+            _integer(asset_id, "Ativo"),
+        )
+        self.storage.delete(removed.get("asset_path"))
 
     def enhance_campaign_brief(self, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -602,7 +788,13 @@ class CreativeModelingService:
     def delete_client(self, client_id):
         client_id = _integer(client_id, "Cliente")
         client = self.repository.get_client(client_id)
+        if hasattr(self.repository, "list_client_brand_assets"):
+            client["brand_assets"] = self.repository.list_client_brand_assets(
+                client_id, approved_only=False
+            )
         self.repository.delete_client(client_id)
+        for asset in client.get("brand_assets") or []:
+            self.storage.delete(asset.get("asset_path"))
         return client
 
     def set_client_logo(self, client_id, public_path):
@@ -689,7 +881,9 @@ class CreativeModelingService:
             ),
             "cta_text": _text(payload.get("cta_text"), "CTA", max_length=1000),
             "show_price": show_price,
-            "budget_usd": _money(payload.get("budget_usd")),
+            "budget_usd": _money(
+                5 if payload.get("budget_usd") in (None, "") else payload["budget_usd"]
+            ),
             "creative_brief": {
                 "visual_bible": _text(
                     payload.get("visual_bible"), "Bíblia visual", max_length=6000
@@ -957,9 +1151,12 @@ class CreativeModelingService:
                 )
             previous_asset_url = context.get("previous_approved_asset_url")
             if previous_asset_url and len(data_urls) < 2:
-                data_urls.insert(
-                    0, self.storage.generated_as_data_url(previous_asset_url)
+                data_urls.append(
+                    self.storage.generated_as_data_url(previous_asset_url)
                 )
+            self._append_brand_references(
+                context.get("client_id"), data_urls, job_id
+            )
             self.repository.mark_job_generating(job_id)
             generated = self.generator.generate_image(
                 prompt,
@@ -1113,7 +1310,9 @@ class CreativeModelingService:
             ),
             "cta_text": _text(payload.get("cta_text"), "CTA", max_length=1000),
             "show_price": show_price,
-            "budget_usd": _money(payload.get("budget_usd")),
+            "budget_usd": _money(
+                5 if payload.get("budget_usd") in (None, "") else payload["budget_usd"]
+            ),
             "first_step": {
                 "format_template_id": _integer(
                     raw_first_step.get("format_template_id"),
@@ -1223,6 +1422,19 @@ class CreativeModelingService:
             lines.append(
                 f"Direção criativa: {brand_profile['creative_guidelines']}"
             )
+        profile_labels = (
+            ("products_services", "Produtos/serviços verificados"),
+            ("differentiators", "Diferenciais"),
+            ("proof_points", "Provas e benefícios"),
+            ("visual_motifs", "Motivos visuais"),
+            ("mandatory_elements", "Elementos obrigatórios"),
+            ("forbidden_elements", "Restrições da marca"),
+            ("campaign_opportunities", "Oportunidades de campanha"),
+        )
+        for key, label in profile_labels:
+            values = brand_profile.get(key)
+            if isinstance(values, list) and values:
+                lines.append(f"{label}: " + " | ".join(map(str, values[:8])))
 
         lines.extend(
             [
@@ -1466,6 +1678,9 @@ class CreativeModelingService:
                         saved["asset_path"], saved["mime_type"]
                     )
                 )
+            self._append_brand_references(
+                context.get("client_id"), data_urls, job_id
+            )
             self.repository.mark_job_generating(job_id)
             generated = self.generator.generate_image(
                 step["rendered_prompt"],

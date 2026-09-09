@@ -42,6 +42,12 @@
     previewDevice: 'desktop',
     productionCarouselTimer: null,
     brandAnalysis: null,
+    brandAssetCandidates: [],
+    selectedBrandAssets: new Set(),
+    brandAssetFilter: 'all',
+    brandFiles: [],
+    primaryBrandAssetUrl: null,
+    primaryBrandFileIndex: -1,
     enhancedBrief: null,
     locks: new Set(),
   };
@@ -380,14 +386,12 @@
     );
     const format = generatorSelectedFormat();
     const name = form.elements.name?.value.trim();
-    const budget = form.elements.budget_usd?.value;
     const sceneCount = format ? sceneCountForFormat(format) : null;
     root.innerHTML = `
       <span><small>Marca</small><strong>${escapeHtml(client?.name || 'Não selecionada')}</strong></span>
       <span><small>Campanha</small><strong>${escapeHtml(name || 'Sem nome')}</strong></span>
       <span><small>Formato</small><strong>${escapeHtml(format?.name_pt || 'Não selecionado')}</strong></span>
-      <span><small>Cenas</small><strong>${sceneCount ? `${sceneCount} ${sceneCount === 1 ? 'imagem' : 'cenas'}` : '—'}</strong></span>
-      <span><small>Limite inicial</small><strong>${money(budget)}</strong></span>`;
+      <span><small>Cenas</small><strong>${sceneCount ? `${sceneCount} ${sceneCount === 1 ? 'imagem' : 'cenas'}` : '—'}</strong></span>`;
   }
 
   async function createCampaign(event) {
@@ -406,7 +410,6 @@
       delete data.client_ref;
       data.client_source = clientSource === 'crm' ? 'crm' : 'creative';
       data.client_id = Number(clientId);
-      data.budget_usd = Number(data.budget_usd || 0);
       data.show_price = new FormData(form).has('show_price');
       data.scene_count = sceneCountForFormat(format);
       data.format_template_id = Number(format.id);
@@ -1451,17 +1454,112 @@
     root.innerHTML = `
       <strong>Leitura concluída.</strong>
       ${percentages.map(([label, value]) => `<span class="cx-badge cx-badge-muted">${escapeHtml(label)} ${Math.round(Number(value) * 100)}%</span>`).join('')}
+      ${data.analysis_metadata?.pages_analyzed ? `<span>${escapeHtml(data.analysis_metadata.pages_analyzed)} páginas analisadas</span>` : ''}
+      ${data.analysis_metadata?.assets_found ? `<span>${escapeHtml(data.analysis_metadata.assets_found)} imagens encontradas</span>` : ''}
       ${sources.length ? `<span>Fontes: ${sources.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${index + 1}</a>`).join(', ')}</span>` : ''}
       <span>Revise os campos antes de salvar.</span>`;
     root.classList.remove('hidden');
+  }
+
+  function brandAssetKey(asset) {
+    return String(asset?.url || asset?.source_url || '');
+  }
+
+  function selectedBrandCandidates() {
+    return state.brandAssetCandidates.filter(
+      (asset) => state.selectedBrandAssets.has(brandAssetKey(asset)),
+    );
+  }
+
+  function renderBrandCandidates() {
+    const curator = $('#mcBrandCurator');
+    const strip = $('#mcBrandAssetStrip');
+    if (!curator || !strip) return;
+    const visible = state.brandAssetCandidates.filter(
+      (asset) => state.brandAssetFilter === 'all' || asset.category === state.brandAssetFilter,
+    );
+    curator.classList.toggle('hidden', !state.brandAssetCandidates.length);
+    strip.innerHTML = visible.map((asset) => {
+      const key = brandAssetKey(asset);
+      const selected = state.selectedBrandAssets.has(key);
+      const primary = state.primaryBrandAssetUrl === key;
+      const dimensions = asset.width && asset.height ? `${asset.width}×${asset.height}` : 'Dimensão não informada';
+      return `<article class="mc-brand-asset${selected ? ' is-selected' : ''}${primary ? ' is-primary' : ''}" data-brand-url="${escapeHtml(key)}">
+        <button class="mc-brand-asset-select" type="button" data-brand-select="${escapeHtml(key)}" aria-pressed="${selected}">
+          <img src="${escapeHtml(key)}" alt="${escapeHtml(asset.alt || asset.category || 'Imagem da marca')}" loading="lazy">
+          <span>${selected ? '<i class="fa-solid fa-check"></i> Selecionada' : 'Selecionar'}</span>
+        </button>
+        <div><strong>${escapeHtml(asset.category || 'Referência')}</strong><small>${escapeHtml(dimensions)} · confiança ${Math.round(Number(asset.score || 0))}%</small></div>
+        ${asset.kind === 'logo' ? `<button class="mc-brand-primary" type="button" data-brand-primary="${escapeHtml(key)}">${primary ? 'Logo principal' : 'Usar como logo'}</button>` : ''}
+        <a href="${escapeHtml(asset.page_url || key)}" target="_blank" rel="noopener noreferrer">Ver origem</a>
+      </article>`;
+    }).join('') || '<p class="mc-brand-empty-filter">Nenhuma imagem nesta categoria.</p>';
+    $$('img', strip).forEach((image) => {
+      image.addEventListener('error', () => image.closest('.mc-brand-asset')?.remove(), { once: true });
+    });
+    const selected = selectedBrandCandidates();
+    $('#mcBrandAssetCount').textContent = `${selected.length} ${selected.length === 1 ? 'selecionada' : 'selecionadas'}`;
+    $('#mcBrandSelectionTray').innerHTML = selected.length
+      ? `<span><strong>${selected.length}</strong> referências serão salvas com o perfil.</span>`
+      : '<span>Nenhuma referência selecionada.</span>';
+  }
+
+  function renderDroppedBrandFiles() {
+    const root = $('#mcBrandDropped');
+    if (!root) return;
+    root.hidden = !state.brandFiles.length;
+    root.innerHTML = state.brandFiles.map((file, index) => `
+      <article class="${state.primaryBrandFileIndex === index ? 'is-primary' : ''}">
+        <img src="${URL.createObjectURL(file)}" alt="">
+        <span><strong>${escapeHtml(file.name)}</strong><small>${Math.ceil(file.size / 1024)} KB</small></span>
+        <button type="button" data-dropped-logo="${index}">${state.primaryBrandFileIndex === index ? 'Logo principal' : 'Usar como logo'}</button>
+        <button type="button" data-dropped-remove="${index}" aria-label="Remover ${escapeHtml(file.name)}"><i class="fa-solid fa-xmark"></i></button>
+      </article>
+    `).join('');
+  }
+
+  function addBrandFiles(files) {
+    const accepted = Array.from(files || []).filter(
+      (file) => /^image\/(png|jpeg|webp)$/.test(file.type) && file.size <= 5 * 1024 * 1024,
+    );
+    state.brandFiles = [...state.brandFiles, ...accepted].slice(0, 8);
+    renderDroppedBrandFiles();
+    if (accepted.length !== Array.from(files || []).length) {
+      toast('Algumas imagens foram ignoradas. Use PNG, JPG ou WEBP de até 5 MB.', 'warning');
+    }
+  }
+
+  function setupBrandDropzone(rootSelector, inputSelector, onFiles) {
+    const root = $(rootSelector);
+    const input = $(inputSelector, root);
+    if (!root || !input) return;
+    root.addEventListener('click', (event) => {
+      if (event.target === input) return;
+      if (event.target.closest('[data-dropped-logo], [data-dropped-remove]')) return;
+      input.click();
+    });
+    root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      input.click();
+    });
+    input.addEventListener('change', () => onFiles(input.files));
+    ['dragenter', 'dragover'].forEach((type) => root.addEventListener(type, (event) => {
+      event.preventDefault();
+      root.classList.add('is-dragging');
+    }));
+    ['dragleave', 'drop'].forEach((type) => root.addEventListener(type, (event) => {
+      event.preventDefault();
+      root.classList.remove('is-dragging');
+    }));
+    root.addEventListener('drop', (event) => onFiles(event.dataTransfer.files));
   }
 
   async function analyzeBrand(event) {
     const button = event.currentTarget;
     const form = $('#mcClientForm');
     const websiteUrl = form.elements.website_url.value.trim();
-    const image = form.elements.brand_image.files[0];
-    if (!websiteUrl && !image) {
+    if (!websiteUrl && !state.brandFiles.length) {
       toast('Informe o site ou envie uma imagem de referência.', 'warning');
       form.elements.website_url.focus();
       return;
@@ -1469,11 +1567,29 @@
     await withLock('analyze-brand', button, async () => {
       const body = new FormData();
       if (websiteUrl) body.append('website_url', websiteUrl);
-      if (image) body.append('image', image);
-      $('#mcClientFormStatus').textContent = 'Lendo site, identidade e oportunidades…';
+      state.brandFiles.slice(0, 4).forEach((file) => body.append('images', file));
+      const phases = [
+        'Lendo a página inicial e a identidade…',
+        'Mapeando páginas relevantes da marca…',
+        'Verificando logos e imagens do site…',
+        'Refinando o contexto para campanhas…',
+      ];
+      let phase = 0;
+      $('#mcClientFormStatus').textContent = phases[phase];
+      const progressTimer = window.setInterval(() => {
+        phase = Math.min(phase + 1, phases.length - 1);
+        $('#mcClientFormStatus').textContent = phases[phase];
+      }, 3500);
       try {
         const data = await api(API.analyzeBrand, { method: 'POST', body });
         state.brandAnalysis = data;
+        state.brandAssetCandidates = Array.isArray(data.asset_candidates) ? data.asset_candidates : [];
+        state.selectedBrandAssets = new Set();
+        const logo = state.brandAssetCandidates.find(
+          (asset) => asset.kind === 'logo' && asset.url === data.logo_url,
+        ) || state.brandAssetCandidates.find((asset) => asset.kind === 'logo' && Number(asset.score) >= 70);
+        state.primaryBrandAssetUrl = logo ? brandAssetKey(logo) : null;
+        if (logo) state.selectedBrandAssets.add(brandAssetKey(logo));
         [
           'name', 'sector', 'website_url', 'logo_url', 'primary_color',
           'secondary_color', 'tone_of_voice', 'brand_summary',
@@ -1485,12 +1601,19 @@
           'campaign_opportunities_text',
           (data.campaign_opportunities || []).join('\n'),
         );
+        [
+          'products_services', 'differentiators', 'proof_points',
+          'visual_motifs', 'mandatory_elements', 'forbidden_elements',
+        ].forEach((name) => setFormValue(form, `${name}_text`, (data[name] || []).join('\n')));
         renderBrandAnalysisSummary(data);
+        renderBrandCandidates();
         $('#mcClientFormStatus').textContent = '';
         toast('Leitura da marca concluída. Revise as sugestões.', 'success');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
         toast(error.message, 'error');
+      } finally {
+        window.clearInterval(progressTimer);
       }
     });
   }
@@ -1514,16 +1637,43 @@
         ad_segments: lines(formData.get('ad_segments_text')),
         creative_guidelines: formData.get('creative_guidelines'),
         campaign_opportunities: lines(formData.get('campaign_opportunities_text')),
+        products_services: lines(formData.get('products_services_text')),
+        differentiators: lines(formData.get('differentiators_text')),
+        proof_points: lines(formData.get('proof_points_text')),
+        visual_motifs: lines(formData.get('visual_motifs_text')),
+        mandatory_elements: lines(formData.get('mandatory_elements_text')),
+        forbidden_elements: lines(formData.get('forbidden_elements_text')),
+        brand_assets: selectedBrandCandidates().map((asset) => ({
+          source_url: brandAssetKey(asset),
+          page_url: asset.page_url,
+          role: asset.kind === 'logo' ? 'logo' : 'reference',
+          category: asset.category,
+          reason: asset.reason,
+          width: asset.width,
+          height: asset.height,
+          score: asset.score,
+          is_primary: state.primaryBrandFileIndex < 0
+            && state.primaryBrandAssetUrl === brandAssetKey(asset),
+        })),
         analysis_metadata: state.brandAnalysis?.analysis_metadata || {},
         show_price: formData.has('show_price'),
       };
       try {
         const created = await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
-        const image = form.elements.brand_image.files[0];
-        if (image && formData.has('use_image_as_logo')) {
-          const logoBody = new FormData();
-          logoBody.append('logo', image);
-          await api(`${API.clients}/${created.id}/logo`, { method: 'POST', body: logoBody });
+        if (state.brandFiles.length) {
+          const assetBody = new FormData();
+          const ordered = state.primaryBrandFileIndex >= 0
+            ? [
+              state.brandFiles[state.primaryBrandFileIndex],
+              ...state.brandFiles.filter((_, index) => index !== state.primaryBrandFileIndex),
+            ]
+            : state.brandFiles;
+          ordered.forEach((file) => assetBody.append('images', file));
+          assetBody.append('primary_logo', String(state.primaryBrandFileIndex >= 0));
+          await api(`${API.clients}/${created.id}/brand-assets`, {
+            method: 'POST',
+            body: assetBody,
+          });
         }
         state.clients = await api(API.clients);
         state.campaignClients = await api(API.campaignClients);
@@ -1535,6 +1685,13 @@
         renderGeneratorSummary();
         form.reset();
         state.brandAnalysis = null;
+        state.brandAssetCandidates = [];
+        state.selectedBrandAssets = new Set();
+        state.primaryBrandAssetUrl = null;
+        state.primaryBrandFileIndex = -1;
+        state.brandFiles = [];
+        renderBrandCandidates();
+        renderDroppedBrandFiles();
         $('#mcBrandAnalysisSummary').classList.add('hidden');
         $('#mcBrandAnalysisSummary').innerHTML = '';
         $('#mcClientFormStatus').textContent = '';
@@ -2181,6 +2338,93 @@
     });
     $('#mcClientForm').addEventListener('submit', createClient);
     $('#mcAnalyzeBrand').addEventListener('click', analyzeBrand);
+    setupBrandDropzone(
+      '#mcBrandDropzone',
+      'input[name="brand_images"]',
+      addBrandFiles,
+    );
+    setupBrandDropzone(
+      '#mcLogoDropzone',
+      'input[name="logo"]',
+      (files) => {
+        const file = Array.from(files || [])[0];
+        if (!file) return;
+        const input = $('#mcLogoDropzone input[name="logo"]');
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        input.files = transfer.files;
+        const root = $('#mcLogoDropped');
+        root.hidden = false;
+        root.innerHTML = `<article><img src="${URL.createObjectURL(file)}" alt=""><span><strong>${escapeHtml(file.name)}</strong><small>Pronto para salvar</small></span></article>`;
+      },
+    );
+    $('#mcBrandCurator').addEventListener('click', (event) => {
+      const filter = event.target.closest('[data-brand-filter]');
+      if (filter) {
+        state.brandAssetFilter = filter.dataset.brandFilter;
+        $$('[data-brand-filter]', $('#mcBrandFilters')).forEach(
+          (button) => button.classList.toggle('is-active', button === filter),
+        );
+        renderBrandCandidates();
+        return;
+      }
+      const select = event.target.closest('[data-brand-select]');
+      if (select) {
+        const key = select.dataset.brandSelect;
+        if (state.selectedBrandAssets.has(key)) {
+          state.selectedBrandAssets.delete(key);
+          if (state.primaryBrandAssetUrl === key) state.primaryBrandAssetUrl = null;
+        } else {
+          if (state.selectedBrandAssets.size >= 9) {
+            toast('Use até oito referências e um logo por perfil.', 'warning');
+            return;
+          }
+          state.selectedBrandAssets.add(key);
+        }
+        renderBrandCandidates();
+        return;
+      }
+      const primary = event.target.closest('[data-brand-primary]');
+      if (primary) {
+        const key = primary.dataset.brandPrimary;
+        if (!state.selectedBrandAssets.has(key) && state.selectedBrandAssets.size >= 9) {
+          toast('Remova uma referência antes de definir outro logo.', 'warning');
+          return;
+        }
+        state.primaryBrandAssetUrl = key;
+        state.primaryBrandFileIndex = -1;
+        state.selectedBrandAssets.add(key);
+        setFormValue($('#mcClientForm'), 'logo_url', key);
+        renderBrandCandidates();
+        renderDroppedBrandFiles();
+      }
+    });
+    $('#mcBrandDropped').addEventListener('click', (event) => {
+      const logo = event.target.closest('[data-dropped-logo]');
+      const remove = event.target.closest('[data-dropped-remove]');
+      if (logo) {
+        state.primaryBrandFileIndex = Number(logo.dataset.droppedLogo);
+        state.primaryBrandAssetUrl = null;
+      }
+      if (remove) {
+        const index = Number(remove.dataset.droppedRemove);
+        state.brandFiles.splice(index, 1);
+        if (state.primaryBrandFileIndex === index) state.primaryBrandFileIndex = -1;
+        else if (state.primaryBrandFileIndex > index) state.primaryBrandFileIndex -= 1;
+      }
+      renderDroppedBrandFiles();
+      renderBrandCandidates();
+    });
+    document.addEventListener('paste', (event) => {
+      if (!$('#mcClientForm')?.offsetParent) return;
+      const images = Array.from(event.clipboardData?.files || []).filter(
+        (file) => file.type.startsWith('image/'),
+      );
+      if (images.length) {
+        event.preventDefault();
+        addBrandFiles(images);
+      }
+    });
     $('#mcCampaignClient').addEventListener('change', () => {
       renderClientPreview();
       renderGeneratorSummary();
@@ -2230,14 +2474,21 @@
       event.preventDefault();
       const form = event.currentTarget;
       const id = form.elements.client_id.value;
+      const logo = form.elements.logo.files[0];
+      if (!logo) {
+        toast('Arraste ou escolha uma imagem para o logo.', 'warning');
+        return;
+      }
       const data = new FormData();
-      data.append('logo', form.elements.logo.files[0]);
+      data.append('logo', logo);
       try {
         await api(`${API.clients}/${id}/logo`, { method: 'POST', body: data });
         state.clients = await api(API.clients);
         renderClients(); renderClientOptions();
         $('#mcLogoDialog').close();
         form.reset();
+        $('#mcLogoDropped').hidden = true;
+        $('#mcLogoDropped').innerHTML = '';
         toast('Logo atualizado.', 'success');
       } catch (error) { toast(error.message, 'error'); }
     });

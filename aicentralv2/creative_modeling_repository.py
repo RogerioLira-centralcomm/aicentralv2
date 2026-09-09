@@ -256,6 +256,154 @@ class CreativeModelingRepository:
             )
             return cursor.fetchone()["id"]
 
+    def list_client_brand_assets(self, client_id, approved_only=True):
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, client_id, role, source_kind, source_url, page_url,
+                           asset_path, mime_type, width, height, sha256, score,
+                           status, is_primary, metadata, created_at
+                      FROM cx_client_brand_assets
+                     WHERE client_id = %s
+                       AND (%s = FALSE OR status = 'approved')
+                     ORDER BY is_primary DESC, score DESC NULLS LAST, id
+                    """,
+                    (client_id, approved_only),
+                )
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as exc:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            if "cx_client_brand_assets" in str(exc):
+                return []
+            raise
+
+    def add_client_brand_asset(self, client_id, data):
+        with self._write() as cursor:
+            if data.get("is_primary") and data.get("role") == "logo":
+                cursor.execute(
+                    """
+                    UPDATE cx_client_brand_assets
+                       SET is_primary = FALSE, updated_at = NOW()
+                     WHERE client_id = %s AND role = 'logo'
+                    """,
+                    (client_id,),
+                )
+            cursor.execute(
+                """
+                INSERT INTO cx_client_brand_assets (
+                    client_id, role, source_kind, source_url, page_url,
+                    asset_path, mime_type, width, height, sha256, score,
+                    status, is_primary, metadata
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT DO NOTHING
+                RETURNING id
+                """,
+                (
+                    client_id,
+                    data["role"],
+                    data.get("source_kind") or "website",
+                    data.get("source_url"),
+                    data.get("page_url"),
+                    data.get("asset_path"),
+                    data.get("mime_type"),
+                    data.get("width"),
+                    data.get("height"),
+                    data.get("sha256"),
+                    data.get("score"),
+                    data.get("status") or "approved",
+                    bool(data.get("is_primary")),
+                    Json(data.get("metadata") or {}),
+                ),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row["id"]
+            if data.get("sha256"):
+                cursor.execute(
+                    """
+                    SELECT id
+                      FROM cx_client_brand_assets
+                     WHERE client_id = %s AND sha256 = %s
+                    """,
+                    (client_id, data["sha256"]),
+                )
+                existing = cursor.fetchone()
+                return existing["id"] if existing else None
+            return None
+
+    def find_client_brand_asset_by_hash(self, client_id, sha256):
+        if not sha256:
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, asset_path, role
+                  FROM cx_client_brand_assets
+                 WHERE client_id = %s AND sha256 = %s
+                """,
+                (client_id, sha256),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def set_primary_client_brand_asset(self, client_id, asset_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT id, asset_path
+                  FROM cx_client_brand_assets
+                 WHERE id = %s AND client_id = %s
+                   AND role = 'logo' AND status = 'approved'
+                """,
+                (asset_id, client_id),
+            )
+            asset = cursor.fetchone()
+            if not asset:
+                raise CreativeNotFoundError("Logo aprovado não encontrado.")
+            cursor.execute(
+                """
+                UPDATE cx_client_brand_assets
+                   SET is_primary = (id = %s), updated_at = NOW()
+                 WHERE client_id = %s AND role = 'logo'
+                """,
+                (asset_id, client_id),
+            )
+            if asset.get("asset_path"):
+                cursor.execute(
+                    "UPDATE cx_clients SET logo_upload_path = %s WHERE id = %s",
+                    (asset["asset_path"], client_id),
+                )
+            return dict(asset)
+
+    def delete_client_brand_asset(self, client_id, asset_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM cx_client_brand_assets
+                 WHERE id = %s AND client_id = %s
+                RETURNING asset_path, is_primary
+                """,
+                (asset_id, client_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Referência da marca não encontrada.")
+            if row.get("is_primary"):
+                cursor.execute(
+                    "UPDATE cx_clients SET logo_upload_path = NULL WHERE id = %s",
+                    (client_id,),
+                )
+            return dict(row)
+
     def set_client_logo(self, client_id, public_path):
         with self._write() as cursor:
             cursor.execute(
@@ -611,6 +759,7 @@ class CreativeModelingRepository:
                             ORDER BY previous_scene.position DESC
                             LIMIT 1
                        ) AS previous_approved_asset_url,
+                       cl.id AS client_id,
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
                        cl.primary_color, cl.secondary_color, cl.brand_profile,
@@ -975,6 +1124,7 @@ class CreativeModelingRepository:
                        c.name AS campaign_name, c.objective,
                        c.campaign_text, c.cta_text, c.show_price,
                        c.budget_usd, c.reserved_usd, c.spent_usd,
+                       cl.id AS client_id,
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
                        cl.primary_color, cl.secondary_color,

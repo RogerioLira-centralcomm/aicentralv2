@@ -146,11 +146,12 @@ def api_campaign_clients():
 
 @admin_required_api
 def api_analyze_client_brand():
+    images = request.files.getlist("images") or request.files.getlist("image")
     return _execute(
         lambda: _ok(
             _service().analyze_brand(
                 request.form.get("website_url"),
-                request.files.get("image"),
+                images,
             )
         )
     )
@@ -185,6 +186,36 @@ def api_upload_client_logo(cid):
             raise
         storage.delete(previous)
         return _ok({"logo_upload_path": new_path})
+
+    return _execute(execute)
+
+
+@admin_required_api
+def api_upload_client_brand_assets(cid):
+    return _execute(
+        lambda: _ok(
+            _service().upload_client_brand_assets(
+                cid,
+                request.files.getlist("images"),
+                request.form.get("primary_logo") == "true",
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_primary_client_brand_asset(cid, asset_id):
+    return _execute(
+        lambda: _ok(_service().set_primary_brand_asset(cid, asset_id))
+    )
+
+
+@admin_required_api
+def api_delete_client_brand_asset(cid, asset_id):
+    def execute():
+        _service().delete_brand_asset(cid, asset_id)
+        return _ok()
 
     return _execute(execute)
 
@@ -598,6 +629,24 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_client_logo",
         view_func=api_upload_client_logo,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/clients/<int:cid>/brand-assets",
+        endpoint="creative_client_brand_assets_upload",
+        view_func=api_upload_client_brand_assets,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/clients/<int:cid>/brand-assets/<int:asset_id>/primary",
+        endpoint="creative_client_brand_asset_primary",
+        view_func=api_primary_client_brand_asset,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/clients/<int:cid>/brand-assets/<int:asset_id>",
+        endpoint="creative_client_brand_asset_delete",
+        view_func=api_delete_client_brand_asset,
+        methods=["DELETE"],
     )
     blueprint.add_url_rule(
         "/api/campaigns",

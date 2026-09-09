@@ -454,7 +454,7 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         )
         result = CreativeBrandAnalyzer(llm=llm).analyze("marca.com.br", image)
 
-        self.assertEqual(captured["model"], "perplexity/sonar-pro")
+        self.assertEqual(captured["model"], "google/gemini-2.5-flash")
         self.assertEqual(result["primary_color"], "#123ABC")
         self.assertEqual(result["logo_url"], "https://marca.com.br/logo.svg")
         self.assertEqual(result["analysis_metadata"]["source_types"], ["url", "image"])
@@ -465,6 +465,80 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "site público"):
             CreativeBrandAnalyzer(llm=Mock()).analyze("http://127.0.0.1")
 
+    def test_coleta_paginas_e_imagens_do_dominio_oficial(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        home = {
+            "branding": {"logo": "/assets/logo.svg"},
+            "links": [
+                "https://marca.com.br/sobre",
+                "https://marca.com.br/produtos",
+                "https://terceiro.example/banner",
+            ],
+            "images": ["/hero.jpg", "/produtos/anel.webp"],
+            "markdown": "# Marca",
+        }
+        page = {
+            "images": ["/campanhas/presente.jpg"],
+            "markdown": "Joias para momentos importantes.",
+        }
+        with patch.object(
+            analysis,
+            "_firecrawl_scrape_com_variantes",
+            return_value=(home, "https://marca.com.br"),
+        ), patch.object(
+            analysis,
+            "_firecrawl_scrape",
+            return_value=page,
+        ) as scrape, patch.object(
+            analysis,
+            "_firecrawl_image_search",
+            return_value=[],
+        ):
+            evidence, record = analysis._compact_web_evidence(
+                "https://marca.com.br"
+            )
+
+        self.assertEqual(record["logo_url"], "https://marca.com.br/assets/logo.svg")
+        self.assertEqual(len(evidence["pages"]), 3)
+        self.assertEqual(scrape.call_count, 2)
+        urls = [item["url"] for item in evidence["asset_candidates"]]
+        self.assertIn("https://marca.com.br/produtos/anel.webp", urls)
+        self.assertNotIn("https://terceiro.example/banner", urls)
+
+    def test_og_image_nao_e_promovida_a_logo_sem_evidencia(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        with patch.object(
+            analysis,
+            "_firecrawl_scrape_com_variantes",
+            return_value=(
+                {"branding": {"images": {"ogImage": "/campanha.jpg"}}},
+                "https://marca.com.br",
+            ),
+        ), patch.object(analysis, "_firecrawl_image_search", return_value=[]):
+            evidence, record = analysis._compact_web_evidence(
+                "https://marca.com.br"
+            )
+
+        self.assertIsNone(record["logo_url"])
+        self.assertTrue(evidence["reference_images"])
+
+
+class CreativeBrandAssetStorageTest(unittest.TestCase):
+    def test_bloqueia_download_para_endereco_privado(self):
+        from aicentralv2 import creative_modeling_storage as storage
+
+        with patch.object(
+            storage.socket,
+            "getaddrinfo",
+            return_value=[(None, None, None, None, ("127.0.0.1", 443))],
+        ):
+            with self.assertRaisesRegex(ValueError, "endereço público"):
+                storage._validated_public_asset_url(
+                    "https://arquivos.marca.com/logo.png"
+                )
+
 
 class CreativeServiceTest(unittest.TestCase):
     def setUp(self):
@@ -474,6 +548,21 @@ class CreativeServiceTest(unittest.TestCase):
             generator=FakeGenerator(),
             storage=FakeStorage(),
         )
+
+    def test_referencias_aprovadas_da_marca_preenchem_vagas_da_geracao(self):
+        self.repo.list_client_brand_assets = lambda _client_id: [
+            {
+                "id": 31,
+                "asset_path": "/static/uploads/creative_references/marca.png",
+                "mime_type": "image/png",
+                "metadata": {"original_name": "marca.png"},
+            }
+        ]
+        urls = []
+        used = self.service._append_brand_references(10, urls, job_id=4)
+
+        self.assertEqual(len(urls), 1)
+        self.assertEqual(used[0]["id"], 31)
 
     def test_cliente_valida_cores_e_salva_identidade(self):
         result = self.service.create_client(
@@ -1265,7 +1354,7 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(response.get_json()["data"]["name"], "Marca")
         args = service.analyze_brand.call_args.args
         self.assertEqual(args[0], "https://marca.com.br")
-        self.assertEqual(args[1].filename, "marca.png")
+        self.assertEqual(args[1][0].filename, "marca.png")
 
 
 class CreativeFilesContractTest(unittest.TestCase):
@@ -1287,8 +1376,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=14", page)
-        self.assertIn("modelagem_criativos.js') }}?v=14", page)
+        self.assertIn("modelagem_criativos.css') }}?v=15", page)
+        self.assertIn("modelagem_criativos.js') }}?v=15", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1301,6 +1390,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcStoryboardEditor"', generator)
         self.assertIn("Iniciar produção", generator)
         self.assertNotIn("Variação A", generator)
+        self.assertNotIn("Limite de IA", generator)
+        self.assertNotIn("Limite inicial", generator)
+        self.assertNotIn('name="budget_usd"', generator)
         production = (
             template_dir / "_mc_variacoes.html"
         ).read_text(encoding="utf-8")
@@ -1349,6 +1441,13 @@ class CreativeFilesContractTest(unittest.TestCase):
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
         self.assertIn('id="mcAnalyzeBrand"', clients)
         self.assertIn('name="target_audience"', clients)
+        self.assertIn('id="mcBrandDropzone"', clients)
+        self.assertIn('id="mcBrandAssetStrip"', clients)
+        self.assertIn('id="mcBrandSelectionTray"', clients)
+        self.assertIn('class="mc-visually-hidden"', clients)
+        self.assertNotIn('class="cx-input" name="brand_image"', clients)
+        self.assertIn("setupBrandDropzone(", production_js)
+        self.assertIn("data-brand-select", production_js)
         catalog_dir = (
             root / "aicentralv2" / "static" / "images"
             / "creative-viewers" / "catalog"
@@ -1494,6 +1593,15 @@ class CreativeFilesContractTest(unittest.TestCase):
             '"$VENV_PYTHON" migrations/run_add_creative_scene_productions.py',
             deploy,
         )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_client_brand_assets.py',
+            deploy,
+        )
+        brand_assets_migration = (
+            root / "migrations" / "add_creative_client_brand_assets.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS cx_client_brand_assets", brand_assets_migration)
+        self.assertIn("uq_cx_client_brand_assets_primary_logo", brand_assets_migration)
         self.assertIn(
             '"$VENV_PYTHON" scripts/seed_creative_formats.py',
             deploy,

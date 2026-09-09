@@ -173,19 +173,31 @@ def _eh_erro_dns(exc: Exception) -> bool:
     return any(hint in message for hint in _DNS_ERROR_HINTS)
 
 
-def _firecrawl_scrape_com_variantes(raw: Optional[str]) -> tuple[Dict[str, Any], str]:
+def _firecrawl_scrape_com_variantes(
+    raw: Optional[str],
+    formats: Optional[list] = None,
+    timeout_s: Optional[int] = None,
+) -> tuple[Dict[str, Any], str]:
     """Tenta apex e www, usando fallback apenas para falha de DNS."""
     urls = _urls_candidatas(raw)
     if not urls:
         raise RuntimeError("Domínio inválido")
     try:
-        return _firecrawl_scrape(urls[0]), urls[0]
+        first = (
+            _firecrawl_scrape(urls[0], formats=formats, timeout_s=timeout_s)
+            if formats is not None else _firecrawl_scrape(urls[0])
+        )
+        return first, urls[0]
     except Exception as first_error:
         if len(urls) < 2 or not _eh_erro_dns(first_error):
             raise
         logger.info("host %s não resolveu; tentando %s", urls[0], urls[1])
         try:
-            return _firecrawl_scrape(urls[1]), urls[1]
+            second = (
+                _firecrawl_scrape(urls[1], formats=formats, timeout_s=timeout_s)
+                if formats is not None else _firecrawl_scrape(urls[1])
+            )
+            return second, urls[1]
         except Exception as second_error:
             if _eh_erro_dns(second_error):
                 raise RuntimeError(
@@ -340,7 +352,11 @@ def _extrair_redes_sociais(fc_links: list, limite: int = 8) -> list:
     return resultado
 
 
-def _firecrawl_scrape(url: str) -> Dict[str, Any]:
+def _firecrawl_scrape(
+    url: str,
+    formats: Optional[list] = None,
+    timeout_s: Optional[int] = None,
+) -> Dict[str, Any]:
     """Chama Firecrawl /v2/scrape e devolve `data` bruto.
 
     Lança RuntimeError com mensagem amigável em caso de falha (chave
@@ -351,13 +367,13 @@ def _firecrawl_scrape(url: str) -> Dict[str, Any]:
     if not api_key:
         raise RuntimeError("FIRECRAWL_API_KEY não configurada")
 
-    timeout_s = _firecrawl_timeout()
+    timeout_s = timeout_s or _firecrawl_timeout()
     payload = {
         "url": url,
         # `branding` separa o logo real do og:image promocional.
         # Não pedimos markdown: o CRM não o consome e ele torna o scrape
         # mais lento em sites grandes.
-        "formats": ["branding", "links"],
+        "formats": formats or ["branding", "links"],
         "onlyMainContent": False,
         "timeout": max(5_000, (timeout_s - 5) * 1_000),
         "maxAge": 3_600_000,

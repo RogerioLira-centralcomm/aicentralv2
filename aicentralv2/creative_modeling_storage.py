@@ -2,10 +2,15 @@
 
 import base64
 import binascii
+import hashlib
+import ipaddress
 import os
+import socket
 import uuid
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
+import requests
 from flask import current_app
 from werkzeug.utils import secure_filename
 
@@ -49,6 +54,40 @@ def validate_logo(file_storage):
     return extension
 
 
+def _validated_public_asset_url(raw):
+    value = str(raw or "").strip()
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("A referência deve usar uma URL pública HTTP ou HTTPS.")
+    try:
+        addresses = {
+            item[4][0]
+            for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+        }
+    except socket.gaierror as exc:
+        raise ValueError("Não foi possível resolver a imagem de referência.") from exc
+    for raw_address in addresses:
+        address = ipaddress.ip_address(raw_address)
+        if (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_reserved
+            or address.is_unspecified
+        ):
+            raise ValueError("A referência deve apontar para um endereço público.")
+    return value
+
+
+def _remote_extension(content_type):
+    return {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }.get(content_type)
+
+
 class ClientLogoStorage:
     def save(self, file_storage):
         extension = validate_logo(file_storage)
@@ -69,11 +108,13 @@ class CreativeAssetStorage:
     def save_reference(self, file_storage):
         extension = validate_logo(file_storage)
         filename = f"{uuid.uuid4().hex}{extension}"
-        file_storage.save(str(_root("creative_references") / filename))
+        path = _root("creative_references") / filename
+        file_storage.save(str(path))
         return {
             "asset_path": f"{REFERENCE_PREFIX}{filename}",
             "original_name": secure_filename(file_storage.filename),
             "mime_type": file_storage.mimetype or "application/octet-stream",
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
 
     def save_generated_base64(self, encoded, output_format="png"):
@@ -91,6 +132,59 @@ class CreativeAssetStorage:
         filename = f"{uuid.uuid4().hex}{extension}"
         (_root("creative_generated") / filename).write_bytes(content)
         return f"{GENERATED_PREFIX}{filename}"
+
+    def save_remote_reference(self, url, referer=None):
+        current = _validated_public_asset_url(url)
+        response = None
+        for _ in range(4):
+            response = requests.get(
+                current,
+                headers={
+                    "User-Agent": "CentralX-Brand-Curator/2026",
+                    "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.4",
+                    **({"Referer": referer} if referer else {}),
+                },
+                timeout=20,
+                stream=True,
+                allow_redirects=False,
+            )
+            if response.status_code in {301, 302, 303, 307, 308}:
+                location = response.headers.get("Location")
+                if not location:
+                    raise ValueError("Redirecionamento inválido na referência.")
+                current = _validated_public_asset_url(urljoin(current, location))
+                continue
+            break
+        if response is None or response.status_code // 100 != 2:
+            raise ValueError("Não foi possível baixar a imagem selecionada.")
+        content_type = (
+            response.headers.get("Content-Type") or ""
+        ).split(";", 1)[0].strip().lower()
+        extension = _remote_extension(content_type)
+        if not extension:
+            raise ValueError("A URL selecionada não retornou PNG, JPG ou WEBP.")
+        content = bytearray()
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                content.extend(chunk)
+            if len(content) > MAX_LOGO_SIZE:
+                raise ValueError("A imagem selecionada excede 5 MB.")
+        signatures = {
+            ".png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+            ".jpg": content.startswith(b"\xff\xd8\xff"),
+            ".webp": content.startswith(b"RIFF") and content[8:12] == b"WEBP",
+        }
+        if not content or not signatures.get(extension):
+            raise ValueError("O conteúdo baixado não corresponde a uma imagem válida.")
+        filename = f"{uuid.uuid4().hex}{extension}"
+        (_root("creative_references") / filename).write_bytes(content)
+        return {
+            "asset_path": f"{REFERENCE_PREFIX}{filename}",
+            "original_name": Path(urlparse(current).path).name[:255],
+            "mime_type": content_type,
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "source_url": current,
+        }
 
     def absolute_reference_path(self, public_path):
         if not public_path or not str(public_path).startswith(REFERENCE_PREFIX):

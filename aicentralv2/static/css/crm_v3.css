@@ -6498,3 +6498,102 @@ img.crm-v3-avatar-mini {
     font-size: 12px;
     font-weight: 700;
 }
+
+.crm-v3-next-action-request {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+}
+
+.crm-v3-next-action-request > div {
+    display: grid;
+    gap: 2px;
+}
+
+.crm-v3-next-action-request strong {
+    color: var(--crm-text);
+    font-size: 12px;
+}
+
+.crm-v3-next-action-request > div > span {
+    color: var(--crm-text-muted);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+.crm-v3-next-action-request label,
+.crm-v3-next-action-context {
+    display: grid;
+    gap: 4px;
+}
+
+.crm-v3-next-action-request label > span,
+.crm-v3-next-action-context > span {
+    color: var(--crm-text-muted);
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.crm-v3-next-action-request label em,
+.crm-v3-next-action-context em {
+    color: var(--crm-text-subtle);
+    font-style: normal;
+    font-weight: 500;
+}
+
+.crm-v3-next-action-request textarea,
+.crm-v3-next-action-context textarea {
+    width: 100%;
+    min-height: 44px;
+    resize: vertical;
+    border: 1px solid var(--crm-border);
+    border-radius: 6px;
+    background: #fff;
+    padding: 6px 7px;
+    color: var(--crm-text);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.crm-v3-next-action-request textarea:focus,
+.crm-v3-next-action-context textarea:focus {
+    outline: 2px solid color-mix(in srgb, var(--crm-primary) 22%, transparent);
+    border-color: var(--crm-primary);
+}
+
+.crm-v3-next-action-generate {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--crm-primary);
+    border-radius: 6px;
+    background: #fff;
+    padding: 6px 9px;
+    color: var(--crm-primary);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.crm-v3-next-action-generate:hover {
+    background: var(--crm-surface);
+}
+
+.crm-v3-next-action-caveat {
+    margin-top: -2px !important;
+    color: var(--crm-text-subtle) !important;
+    font-size: 9.5px !important;
+}
+
+.crm-v3-next-action-meta {
+    margin: 0 !important;
+    color: var(--crm-text-subtle) !important;
+    font-size: 9px !important;
+    font-weight: 650;
+}
+
+.crm-v3-next-action-context {
+    margin: 8px 0;
+}

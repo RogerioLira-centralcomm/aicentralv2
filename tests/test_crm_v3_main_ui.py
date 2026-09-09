@@ -93,6 +93,34 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("crm-v3-next-action-details", self.js)
         self.assertIn(".crm-v3-next-action-details > summary", self.css)
 
+    def test_commercial_analysis_reuses_cache_or_history_before_openrouter(self):
+        selection = self.js.split("function selectCliente(", 1)[1].split(
+            "function loadClientes()", 1
+        )[0]
+        self.assertIn("loadSavedNextAction(clienteId)", selection)
+        self.assertNotIn("generateNextAction(clienteId)", selection)
+        saved_loader = self.js.split("function loadSavedNextAction(", 1)[1].split(
+            "function generateNextAction(", 1
+        )[0]
+        self.assertIn("state.nextActionCache", saved_loader)
+        self.assertIn("/ia/historico?limit=10", saved_loader)
+        self.assertNotIn("/ia/sugerir-atividade", saved_loader)
+
+    def test_commercial_analysis_has_manual_cta_and_optional_context(self):
+        render = self.js.split("function renderNextAction()", 1)[1].split(
+            "function renderAtividades()", 1
+        )[0]
+        self.assertIn("Análise comercial sob demanda", render)
+        self.assertIn("Gerar análise com IA", render)
+        self.assertIn("O que a IA precisa considerar agora?", render)
+        self.assertIn('data-next-action=\"generate\"', render)
+        generator = self.js.split("function generateNextAction(", 1)[1].split(
+            "function loadObjetivos(", 1
+        )[0]
+        self.assertIn("/ia/sugerir-atividade", generator)
+        self.assertIn("contexto_executivo: executiveContext", generator)
+        self.assertIn(".crm-v3-next-action-request", self.css)
+
     def test_tablet_keeps_client_navigation(self):
         tablet = re.search(
             r"@media \(max-width: 992px\) \{(?P<body>[\s\S]*?)\n\}",

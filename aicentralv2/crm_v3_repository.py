@@ -2096,7 +2096,8 @@ class CrmV3Repository:
         """Registra saída sanitizada; retorna None quando a migration não existe."""
         allowed = {
             "texto", "mensagem", "assunto", "titulo", "tipo", "prioridade",
-            "motivo", "contexto_utilizado", "touchpoints", "objetivos", "source",
+            "descricao", "acao_sugerida", "data_sugerida", "motivo",
+            "contexto_utilizado", "touchpoints", "objetivos", "source",
         }
         conteudo = {k: data.get(k) for k in allowed if k in data}
         row = _db().registrar_interacao_ia(

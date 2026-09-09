@@ -111,6 +111,46 @@ class CrmTestApiTest(unittest.TestCase):
         data = json.loads(res.data)
         self.assertFalse(data["success"])
 
+    def test_sugestao_manual_inclui_contexto_do_executivo_e_persiste_campos(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        cliente_id = store.list_clientes()[0]["id"]
+        captured = {}
+        original_available = routes._openrouter_available
+        original_call = routes._call_openrouter
+
+        def fake_call(system_prompt, user_content, **kwargs):
+            captured["prompt"] = user_content
+            return json.dumps({
+                "tipo": "reuniao",
+                "titulo": "Revisar plano de mídia",
+                "descricao": "Validar a nova prioridade antes de revisar a proposta.",
+                "prioridade": "Alta",
+                "motivo": "O cliente alterou o calendário.",
+                "acao_sugerida": "Agendar alinhamento",
+            })
+
+        routes._openrouter_available = lambda: True
+        routes._call_openrouter = fake_call
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/sugerir-atividade",
+                json={
+                    "cliente_id": cliente_id,
+                    "contexto_executivo": "  Campanha adiada para outubro.  ",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+            routes._call_openrouter = original_call
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Campanha adiada para outubro.", captured["prompt"])
+        history = store.list_ai_history(cliente_id)
+        self.assertEqual(history[0]["function"], "sugerir-atividade")
+        for field in ("descricao", "acao_sugerida", "data_sugerida"):
+            self.assertIn(field, history[0]["content"])
+
     def test_pagina_crm_v3_injeta_executivos_no_contexto(self):
         """Valida o contrato: a view passa `executivos` ao template.
 
@@ -940,6 +980,21 @@ class CrmV3RepositoryUnitTest(unittest.TestCase):
         kwargs = self.db.obter_clientes_paginado.call_args.kwargs
         self.assertEqual(kwargs["filtros"]["search"], "Acme")
         self.assertEqual(kwargs["filtros"]["executivo_id"], 77)
+
+    def test_historico_preserva_campos_para_reconstruir_recomendacao(self):
+        self.db.registrar_interacao_ia.return_value = {"id": 12}
+        self.repo._current_executivo_id = lambda: 77
+        self.repo.register_ai_interaction("cliente-1", "sugerir-atividade", {
+            "titulo": "Reunião de alinhamento",
+            "descricao": "Revisar calendário e proposta.",
+            "acao_sugerida": "Agendar reunião",
+            "data_sugerida": "2026-10-02",
+            "source": "openrouter",
+        })
+        conteudo = self.db.registrar_interacao_ia.call_args.kwargs["conteudo"]
+        self.assertEqual(conteudo["descricao"], "Revisar calendário e proposta.")
+        self.assertEqual(conteudo["acao_sugerida"], "Agendar reunião")
+        self.assertEqual(conteudo["data_sugerida"], "2026-10-02")
 
     def test_search_cotacoes_aplica_filtro_e_limite(self):
         cursor = self.db.get_db.return_value.cursor.return_value.__enter__.return_value

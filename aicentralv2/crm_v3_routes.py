@@ -1065,16 +1065,25 @@ def _contexto_ia(data: dict, profile: str) -> dict:
     cliente_id = str(data.get("cliente_id") or "").strip()
     if not cliente_id:
         return {}
+    contexto_executivo = _texto_ia_limpo(
+        data.get("contexto_executivo")
+    )[:2000]
     try:
-        return store.get_ai_context(
+        contexto = store.get_ai_context(
             cliente_id, profile=profile, contato_id=data.get("contato_id")
         ) or {}
+        if contexto_executivo:
+            contexto["contexto_informado_pelo_executivo"] = contexto_executivo
+        return contexto
     except Exception as exc:  # pragma: no cover - proteção para bases antigas
         current_app.logger.exception(
             "Falha ao montar contexto IA profile=%s cliente=%s: %s",
             profile, cliente_id, exc,
         )
-        return {}
+        return (
+            {"contexto_informado_pelo_executivo": contexto_executivo}
+            if contexto_executivo else {}
+        )
 
 
 def _contexto_ia_json(data: dict, profile: str) -> str:

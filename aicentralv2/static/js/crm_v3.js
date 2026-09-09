@@ -15,6 +15,7 @@
         notas: [],
         nextAction: null,
         nextActionLoading: false,
+        nextActionLoadingMode: null,
         nextActionCache: {},
         filtroPill: 'classif-ativo',
         filtroSecundario: '',
@@ -2648,14 +2649,26 @@
         }
         el.hidden = false;
         if (state.nextActionLoading) {
-            el.innerHTML = '<div class="crm-v3-next-action-loading"><i class="fa-solid fa-spinner fa-spin"></i> Analisando contexto comercial…</div>';
+            var loadingText = state.nextActionLoadingMode === 'generate'
+                ? 'Gerando análise com IA…'
+                : 'Buscando análise salva…';
+            el.innerHTML = '<div class="crm-v3-next-action-loading"><i class="fa-solid fa-spinner fa-spin"></i> ' + loadingText + '</div>';
             return;
         }
         var s = state.nextAction;
         if (!s) {
-            el.innerHTML = '<button type="button" class="crm-v3-next-action-refresh" data-next-action="refresh"><i class="fa-solid fa-wand-magic-sparkles"></i> Recomendar próximo passo</button>';
+            el.innerHTML =
+                '<div class="crm-v3-next-action-request">' +
+                  '<div><strong>Análise comercial sob demanda</strong>' +
+                  '<span>Gere quando precisar de uma nova leitura dos dados disponíveis.</span></div>' +
+                  '<label><span>O que a IA precisa considerar agora? <em>Opcional</em></span>' +
+                  '<textarea id="crm-v3-next-action-context" rows="2" maxlength="2000" placeholder="Ex.: o cliente adiou a campanha e pediu nova conversa em outubro."></textarea></label>' +
+                  '<button type="button" class="crm-v3-next-action-generate" data-next-action="generate">' +
+                  '<i class="fa-solid fa-wand-magic-sparkles"></i> Gerar análise com IA</button>' +
+                '</div>';
         } else {
-            var origem = s.source === 'openrouter' ? 'IA contextual' : 'Contexto comercial';
+            var origem = s._from_history ? 'Análise salva' : (s.source === 'openrouter' ? 'IA contextual' : 'Contexto comercial');
+            var dataAnalise = s.saved_at ? formatDateBR(s.saved_at) : '';
             el.innerHTML =
                 '<details class="crm-v3-next-action-details">' +
                   '<summary>' +
@@ -2668,9 +2681,14 @@
                   '</summary>' +
                   '<div class="crm-v3-next-action-body">' +
                     '<p>' + escapeHtml(s.motivo || s.descricao || '') + '</p>' +
+                    '<p class="crm-v3-next-action-caveat">A sugestão considera somente os dados disponíveis. Revise antes de aplicar.</p>' +
+                    '<p class="crm-v3-next-action-meta">' + escapeHtml(origem) +
+                    (dataAnalise ? ' · gerada em ' + escapeHtml(dataAnalise) : '') + '</p>' +
+                    '<label class="crm-v3-next-action-context"><span>Acrescentar contexto para atualizar <em>Opcional</em></span>' +
+                    '<textarea id="crm-v3-next-action-context" rows="2" maxlength="2000" placeholder="Informe uma mudança recente ou prioridade que ainda não está no CRM."></textarea></label>' +
                     '<div class="crm-v3-next-action-actions">' +
                       '<button type="button" class="crm-v3-btn crm-v3-btn-outline crm-v3-btn-sm" data-next-action="apply">Preparar atividade</button>' +
-                      '<button type="button" class="crm-v3-icon-btn crm-v3-icon-btn-ghost" data-next-action="refresh" title="Atualizar recomendação"><i class="fa-solid fa-rotate"></i></button>' +
+                      '<button type="button" class="crm-v3-btn crm-v3-btn-ghost crm-v3-btn-sm" data-next-action="generate"><i class="fa-solid fa-rotate"></i> Atualizar análise</button>' +
                     '</div>' +
                   '</div>' +
                 '</details>';
@@ -2680,8 +2698,8 @@
             el.addEventListener('click', function (event) {
                 var btn = event.target.closest('[data-next-action]');
                 if (!btn) return;
-                if (btn.getAttribute('data-next-action') === 'refresh') {
-                    loadNextAction(state.clienteId, true);
+                if (btn.getAttribute('data-next-action') === 'generate') {
+                    generateNextAction(state.clienteId);
                     return;
                 }
                 if (btn.getAttribute('data-next-action') === 'apply' && state.nextAction) {
@@ -3790,29 +3808,78 @@
         }).catch(function (err) { showToast(err.message, true); });
     }
 
-    function loadNextAction(clienteId, force) {
+    function nextActionFromHistory(items) {
+        var history = Array.isArray(items) ? items : [];
+        var saved = history.find(function (item) {
+            return item && item.function === 'sugerir-atividade' && item.content && item.content.titulo;
+        });
+        if (!saved) return null;
+        return Object.assign({}, saved.content, {
+            source: saved.source || saved.content.source || 'fallback',
+            history_id: saved.id,
+            saved_at: saved.created_at || '',
+            _from_history: true
+        });
+    }
+
+    function loadSavedNextAction(clienteId) {
         if (!clienteId) return Promise.resolve();
-        if (!force && state.nextActionCache[String(clienteId)]) {
+        if (state.nextActionCache[String(clienteId)]) {
             state.nextAction = state.nextActionCache[String(clienteId)];
             state.nextActionLoading = false;
             renderNextAction();
             return Promise.resolve(state.nextAction);
         }
         state.nextActionLoading = true;
+        state.nextActionLoadingMode = 'saved';
         state.nextAction = null;
+        renderNextAction();
+        return api('/clientes/' + encodeURIComponent(clienteId) + '/ia/historico?limit=10')
+            .then(function (data) {
+                if (state.clienteId !== clienteId) return;
+                var saved = nextActionFromHistory(data.historico || data.data || []);
+                state.nextAction = saved;
+                if (saved) state.nextActionCache[String(clienteId)] = saved;
+                return saved;
+            }).catch(function () {
+                if (state.clienteId === clienteId) state.nextAction = null;
+                return null;
+            }).finally(function () {
+                if (state.clienteId !== clienteId) return;
+                state.nextActionLoading = false;
+                state.nextActionLoadingMode = null;
+                renderNextAction();
+            });
+    }
+
+    function generateNextAction(clienteId) {
+        if (!clienteId || state.nextActionLoading) return Promise.resolve();
+        var contextInput = $('#crm-v3-next-action-context');
+        var executiveContext = contextInput ? contextInput.value.trim() : '';
+        state.nextActionLoading = true;
+        state.nextActionLoadingMode = 'generate';
         renderNextAction();
         return api('/ia/sugerir-atividade', {
             method: 'POST',
-            body: { cliente_id: clienteId, contato_id: state.contatoId || null }
+            body: {
+                cliente_id: clienteId,
+                contato_id: state.contatoId || null,
+                contexto_executivo: executiveContext
+            }
         }).then(function (data) {
             if (state.clienteId !== clienteId) return;
             state.nextAction = data.data || data;
+            state.nextAction.saved_at = new Date().toISOString();
             state.nextActionCache[String(clienteId)] = state.nextAction;
         }).catch(function () {
-            if (state.clienteId === clienteId) state.nextAction = null;
+            if (state.clienteId === clienteId) {
+                state.nextAction = state.nextActionCache[String(clienteId)] || null;
+                showToast('Não foi possível gerar a análise agora.', true);
+            }
         }).finally(function () {
             if (state.clienteId !== clienteId) return;
             state.nextActionLoading = false;
+            state.nextActionLoadingMode = null;
             renderNextAction();
         });
     }
@@ -3882,6 +3949,7 @@
         state.notas = [];
         state.nextAction = null;
         state.nextActionLoading = false;
+        state.nextActionLoadingMode = null;
         updateClienteActiveCard();
         updateDetailPanel(state.cliente);
         renderAtividades();
@@ -3927,7 +3995,7 @@
         }).catch(function () { /* já temos um cliente base do listing */ });
         loadContatos(clienteId);
         loadAtividades(clienteId);
-        loadNextAction(clienteId);
+        loadSavedNextAction(clienteId);
         loadObjetivos(clienteId);
         loadCotacoes(clienteId);
         loadNotas(clienteId);

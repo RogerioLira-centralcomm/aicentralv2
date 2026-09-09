@@ -47,10 +47,11 @@ PLACEMENT_CONTEXTS = {"portal", "tv", "celular", "tablet"}
 PLACEMENT_FITS = {"contain", "cover", "fill"}
 RESPONSIVE_MODES = {"scale", "reflow", "fixed"}
 BEHAVIOR_TYPES = {
-    "static", "hotspot", "flip", "reveal", "compare", "quiz", "video"
+    "static", "hotspot", "flip", "reveal", "compare", "quiz", "carousel", "video"
 }
 BEHAVIOR_TRIGGERS = {
-    "none", "hover_tap", "click", "drag_vertical", "drag_horizontal", "view"
+    "none", "hover_tap", "click", "drag_vertical", "drag_horizontal",
+    "view", "auto",
 }
 VIEWER_KINDS = {"portal", "tv"}
 VIEWER_PALETTE_KEYS = {"primary", "secondary", "surface", "canvas", "text"}
@@ -764,6 +765,19 @@ class CreativeModelingService:
                     if isinstance(item, dict)
                 )
             )
+        behavior = context.get("behavior_spec") or {}
+        if total > 1:
+            lines.append(
+                "This image is one frame of an interactive image carousel. "
+                "Keep the same dimensions, brand system, characters, product "
+                "appearance and visual grammar across all frames. Show no video "
+                "player, playback controls, timeline or filmstrip."
+            )
+            if behavior.get("type") and behavior.get("type") != "static":
+                lines.append(
+                    f"Portal interaction represented by the sequence: "
+                    f"{behavior.get('type')}."
+                )
         if context.get("tone_of_voice"):
             lines.append(f"Brand tone: {context['tone_of_voice']}.")
         if context.get("primary_color"):
@@ -1980,14 +1994,36 @@ class CreativeModelingService:
         if not asset_ids:
             raise ValueError("Adicione ao menos um criativo antes de compartilhar.")
         available = {asset["id"]: asset for asset in assets}
+        unknown = [asset_id for asset_id in asset_ids if asset_id not in available]
+        if unknown:
+            raise ValueError("Um ou mais assets não pertencem à campanha.")
+        requested_asset_ids = set(asset_ids)
+        representatives = {}
+        representative_by_asset = {}
+        for asset_id in asset_ids:
+            asset = available[asset_id]
+            if asset.get("status") not in (None, "approved"):
+                continue
+            key = (
+                ("production", asset["production_id"])
+                if asset.get("production_id")
+                else ("asset", asset_id)
+            )
+            representative_id = representatives.setdefault(key, asset_id)
+            representative_by_asset[asset_id] = representative_id
+        asset_ids = list(representatives.values())
+        if not asset_ids:
+            raise ValueError("Aprove ao menos uma imagem antes de compartilhar.")
         requested_profiles = payload.get("viewer_profiles") or {}
         if not isinstance(requested_profiles, dict):
             raise ValueError("viewer_profiles deve ser um objeto.")
         viewer_profiles = {}
         for raw_asset_id, raw_profile_id in requested_profiles.items():
             asset_id = _integer(raw_asset_id, "Asset")
-            if asset_id not in asset_ids or asset_id not in available:
+            if asset_id not in requested_asset_ids or asset_id not in available:
                 raise ValueError("Ambiente informado para um asset inválido.")
+            if asset_id not in representative_by_asset:
+                continue
             if raw_profile_id in (None, "", "auto"):
                 continue
             profile_id = _integer(raw_profile_id, "Ambiente de mídia")
@@ -2000,7 +2036,7 @@ class CreativeModelingService:
                 raise ValueError(
                     "O ambiente escolhido não corresponde ao formato do criativo."
                 )
-            viewer_profiles[asset_id] = profile_id
+            viewer_profiles[representative_by_asset[asset_id]] = profile_id
         title = _text(
             payload.get("title"),
             "Título da apresentação",
@@ -2045,7 +2081,38 @@ class CreativeModelingService:
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,100}", token):
             raise CreativeNotFoundError("Apresentação não encontrada ou revogada.")
         collection = self.repository.get_public_collection(token)
+        deduplicated_assets = []
+        seen_sequences = set()
         for asset in collection.get("assets") or []:
+            frames = asset.get("carousel_assets") or []
+            sequence_key = (
+                tuple(frame.get("id") for frame in frames)
+                if len(frames) > 1
+                else ("asset", asset.get("id"))
+            )
+            if sequence_key in seen_sequences:
+                continue
+            seen_sequences.add(sequence_key)
+            deduplicated_assets.append(asset)
+        collection["assets"] = deduplicated_assets
+        for asset in deduplicated_assets:
+            try:
+                behavior = _behavior_spec(asset.get("behavior_spec") or {})
+            except ValueError:
+                behavior = {
+                    "type": "static",
+                    "trigger": "none",
+                    "transition_ms": 0,
+                }
+            if len(asset.get("carousel_assets") or []) > 1 and (
+                behavior["type"] == "static"
+            ):
+                behavior = {
+                    "type": "carousel",
+                    "trigger": "auto",
+                    "transition_ms": 420,
+                }
+            asset["behavior_spec"] = behavior
             if not asset.get("viewer_profile_id"):
                 continue
             profile = _viewer_profile_data(

@@ -745,6 +745,111 @@ h2 {
   object-fit: contain;
 }
 
+.pv-carousel { isolation: isolate; overflow: hidden; }
+.pv-carousel::after {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4.5rem;
+  content: "";
+  background: linear-gradient(transparent, rgba(0,0,0,.46));
+  pointer-events: none;
+}
+.pv-carousel-track { position: absolute; inset: 0; }
+.pv-carousel-slide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  margin: 0;
+  opacity: 0;
+  place-items: center;
+  transform: translateX(4%);
+  transition:
+    opacity var(--carousel-transition, 360ms) ease,
+    transform var(--carousel-transition, 360ms) ease;
+  visibility: hidden;
+}
+.pv-carousel-slide.is-active {
+  z-index: 1;
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
+}
+.pv-carousel-slide .pv-image { height: 100%; }
+.pv-carousel-slide figcaption {
+  position: absolute;
+  right: 0.65rem;
+  top: 0.55rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.48rem;
+  background: rgba(0,0,0,.68);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 750;
+  backdrop-filter: blur(8px);
+}
+.pv-carousel-controls {
+  position: absolute;
+  z-index: 8;
+  right: 0.6rem;
+  bottom: 0.55rem;
+  left: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.pv-carousel-controls > button,
+.pv-flip-trigger {
+  border: 1px solid rgba(255,255,255,.38);
+  border-radius: 999px;
+  background: rgba(0,0,0,.62);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+.pv-carousel-controls > button {
+  width: 2rem;
+  height: 2rem;
+}
+.pv-carousel-controls > span { display: flex; gap: 0.3rem; pointer-events: auto; }
+.pv-carousel-controls > span button {
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(255,255,255,.45);
+  cursor: pointer;
+}
+.pv-carousel-controls > span button[aria-current="true"] {
+  width: 1.15rem;
+  background: #fff;
+}
+.pv-carousel-controls button:focus-visible,
+.pv-flip-trigger:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.pv-flip-trigger {
+  position: absolute;
+  z-index: 9;
+  left: 50%;
+  bottom: 0.55rem;
+  padding: 0.48rem 0.75rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  transform: translateX(-50%);
+}
+.pv-carousel.is-flipping .pv-carousel-slide.is-active {
+  transform: perspective(900px) rotateY(-8deg) scale(.985);
+}
+.pv-piece[data-mechanic*="flip"] .pv-carousel-controls > span,
+.pv-piece[data-behavior="flip"] .pv-carousel-controls > span { visibility: hidden; }
+
 .pv-piece-foot {
   align-items: center;
   color: var(--muted);

@@ -35,8 +35,14 @@
 
       <aside class="mc-production-preview" aria-label="Simulação da peça">
         <header>
-          <div><strong>Simulação</strong><small>Imagem aprovada no ambiente escolhido</small></div>
-          <select class="cx-select cx-select-sm" id="mcProductionViewer" aria-label="Ambiente de simulação"></select>
+          <div><strong>Visualizador da campanha</strong><small id="mcProductionPreviewStatus">Aprove cenas para montar a sequência</small></div>
+          <div class="mc-production-preview-controls">
+            <span class="mc-viewer-device-switch" aria-label="Tamanho do portal">
+              <button type="button" data-preview-device="desktop" aria-label="Visualizar no desktop"><i class="fa-solid fa-desktop"></i><span>Desktop</span></button>
+              <button type="button" data-preview-device="mobile" aria-label="Visualizar no celular"><i class="fa-solid fa-mobile-screen"></i><span>Mobile</span></button>
+            </span>
+            <select class="cx-select cx-select-sm" id="mcProductionViewer" aria-label="Ambiente de simulação"></select>
+          </div>
         </header>
         <div class="mc-production-stage" id="mcProductionStage">
           <div class="mc-production-stage-empty">

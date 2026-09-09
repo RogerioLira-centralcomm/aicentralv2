@@ -1894,6 +1894,7 @@ class CreativeModelingRepository:
                        a.position, a.title, a.caption, a.status, a.metadata,
                        j.campaign_id, j.prompt, j.script_text, j.model,
                        j.actual_cost_usd, j.created_at,
+                       scene.production_id, scene.position AS scene_position,
                        v.label AS variation_label, s.position AS step_position,
                        f.id AS format_template_id, f.name_pt AS format_name,
                        f.mechanic, f.media_type, f.aspect_ratio, f.default_size,
@@ -1901,6 +1902,7 @@ class CreativeModelingRepository:
                        ch.name AS channel_name
                   FROM cx_generated_assets a
                   JOIN cx_generation_jobs j ON j.id = a.job_id
+                  LEFT JOIN cx_creative_scenes scene ON scene.id = a.scene_id
                   LEFT JOIN cx_variation_steps s ON s.id = a.step_id
                   LEFT JOIN cx_campaign_variations v ON v.id = s.variation_id
                   LEFT JOIN cx_format_templates f
@@ -2095,14 +2097,57 @@ class CreativeModelingRepository:
                        a.status, ca.position, j.prompt, j.script_text,
                        f.slug AS format_slug, f.name_pt AS format_name,
                        f.mechanic, f.media_type,
-                       f.aspect_ratio, f.default_size, ch.name AS channel_name,
+                       f.aspect_ratio, f.default_size,
+                       f.placement_spec, f.behavior_spec,
+                       ch.name AS channel_name,
                        v.label AS variation_label, s.position AS step_position,
                        vp.id AS viewer_profile_id, vp.slug AS viewer_slug,
                        vp.name AS viewer_name, vp.viewer_kind,
                        vp.logo_asset_ref AS viewer_logo_asset_ref,
                        vp.palette AS viewer_palette,
                        vp.shell_spec AS viewer_shell_spec,
-                       vp.disclaimer AS viewer_disclaimer
+                       vp.disclaimer AS viewer_disclaimer,
+                       COALESCE(
+                           (
+                               SELECT jsonb_agg(
+                                   jsonb_build_object(
+                                       'id', frame.id,
+                                       'position', frame.position,
+                                       'title', frame.title,
+                                       'asset_type', frame.asset_type
+                                   )
+                                   ORDER BY frame.position
+                               )
+                                 FROM (
+                                     SELECT DISTINCT ON (sibling_scene.position)
+                                            sibling_asset.id,
+                                            sibling_scene.position,
+                                            sibling_asset.title,
+                                            sibling_asset.asset_type,
+                                            sibling_asset.created_at
+                                       FROM cx_creative_scenes selected_scene
+                                       JOIN cx_creative_scenes sibling_scene
+                                         ON sibling_scene.production_id =
+                                            selected_scene.production_id
+                                       JOIN cx_generation_jobs sibling_job
+                                         ON sibling_job.scene_id = sibling_scene.id
+                                       JOIN cx_generated_assets sibling_asset
+                                         ON sibling_asset.job_id = sibling_job.id
+                                      WHERE selected_scene.id = j.scene_id
+                                        AND sibling_asset.status = 'approved'
+                                      ORDER BY sibling_scene.position,
+                                               sibling_asset.created_at DESC
+                                 ) frame
+                           ),
+                           jsonb_build_array(
+                               jsonb_build_object(
+                                   'id', a.id,
+                                   'position', COALESCE(s.position, 1),
+                                   'title', a.title,
+                                   'asset_type', a.asset_type
+                               )
+                           )
+                       ) AS carousel_assets
                   FROM cx_public_collection_assets ca
                   JOIN cx_generated_assets a ON a.id = ca.asset_id
                   JOIN cx_generation_jobs j ON j.id = a.job_id
@@ -2142,14 +2187,35 @@ class CreativeModelingRepository:
                 """
                 SELECT a.id, a.asset_url, a.asset_type
                   FROM cx_public_creative_collections pc
-                  JOIN cx_public_collection_assets ca
-                    ON ca.collection_id = pc.id
-                  JOIN cx_generated_assets a ON a.id = ca.asset_id
+                  JOIN cx_generated_assets a ON a.id = %s
                  WHERE pc.token = %s
                    AND pc.is_active = TRUE
-                   AND a.id = %s
+                   AND EXISTS (
+                       SELECT 1
+                         FROM cx_public_collection_assets ca
+                         JOIN cx_generated_assets selected_asset
+                           ON selected_asset.id = ca.asset_id
+                         JOIN cx_generation_jobs selected_job
+                           ON selected_job.id = selected_asset.job_id
+                         LEFT JOIN cx_creative_scenes selected_scene
+                           ON selected_scene.id = selected_job.scene_id
+                         JOIN cx_generation_jobs requested_job
+                           ON requested_job.id = a.job_id
+                         LEFT JOIN cx_creative_scenes requested_scene
+                           ON requested_scene.id = requested_job.scene_id
+                        WHERE ca.collection_id = pc.id
+                          AND (
+                              ca.asset_id = a.id
+                              OR (
+                                  a.status = 'approved'
+                                  AND selected_scene.production_id IS NOT NULL
+                                  AND selected_scene.production_id =
+                                      requested_scene.production_id
+                              )
+                          )
+                   )
                 """,
-                (token, asset_id),
+                (asset_id, token),
             )
             row = cursor.fetchone()
             if not row:

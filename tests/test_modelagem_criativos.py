@@ -613,10 +613,13 @@ class CreativeServiceTest(unittest.TestCase):
                 {"position": 2, "description": "Produto"},
             ],
             "creative_brief": {"visual_bible": "Luz suave e fundo azul"},
+            "behavior_spec": {"type": "carousel"},
         })
         self.assertIn("Brazilian Portuguese", prompt)
         self.assertIn("Full storyboard", prompt)
         self.assertIn("Shared visual bible", prompt)
+        self.assertIn("interactive image carousel", prompt)
+        self.assertIn("Show no video player", prompt)
 
     def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self):
         repository = Mock()
@@ -792,6 +795,15 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(self.repo.public_collection["asset_ids"], [4, 2, 1])
         self.assertEqual(result["asset_count"], 3)
 
+    def test_link_publico_agrupa_cenas_aprovadas_em_um_carrossel(self):
+        for index, asset in enumerate(self.repo.assets):
+            asset["production_id"] = 50 if index < 3 else 60
+        result = self.service.create_public_collection(
+            30, {"title": "Apresentação", "asset_ids": [1, 2, 3, 4]}
+        )
+        self.assertEqual(self.repo.public_collection["asset_ids"], [1, 4])
+        self.assertEqual(result["asset_count"], 2)
+
     def test_link_publico_persiste_ambiente_por_criativo(self):
         self.service.create_public_collection(
             30,
@@ -814,6 +826,23 @@ class CreativeServiceTest(unittest.TestCase):
                     "default_viewer_profile_id": 2,
                 },
             )
+
+    def test_formato_aceita_carrossel_automatico(self):
+        self.service.update_format_modeling(
+            7,
+            {
+                "safe_area": {},
+                "placement_spec": self.repo.format_data["placement_spec"],
+                "behavior_spec": {
+                    "type": "carousel",
+                    "trigger": "auto",
+                    "transition_ms": 2800,
+                },
+                "default_viewer_profile_id": 1,
+            },
+        )
+        self.assertEqual(self.repo.format_data["behavior_spec"]["type"], "carousel")
+        self.assertEqual(self.repo.format_data["behavior_spec"]["trigger"], "auto")
 
     def test_reordenacao_rejeita_assets_duplicados(self):
         with self.assertRaisesRegex(ValueError, "duplicados"):
@@ -1258,8 +1287,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=12", page)
-        self.assertIn("modelagem_criativos.js') }}?v=12", page)
+        self.assertIn("modelagem_criativos.css') }}?v=14", page)
+        self.assertIn("modelagem_criativos.js') }}?v=14", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1277,6 +1306,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('id="mcSceneRail"', production)
         self.assertIn('id="mcProductionStage"', production)
+        self.assertIn('data-preview-device="desktop"', production)
+        self.assertIn('data-preview-device="mobile"', production)
         self.assertIn("Bancada de produção", production)
         self.assertNotIn("mcBudgetStrip", production)
         self.assertNotIn("Orçamento", production)
@@ -1302,6 +1333,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("public_collection_asset", public_page)
         self.assertIn("viewer_shell.sections", public_page)
         self.assertIn("pv-tv-catalog", public_page)
+        self.assertIn("data-carousel", public_page)
+        self.assertIn("asset.carousel_assets", public_page)
+        self.assertIn("data-behavior", public_page)
+        repository_source = (
+            root / "aicentralv2" / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("f.behavior_spec", repository_source)
+        self.assertIn("AS carousel_assets", repository_source)
         self.assertNotIn('src="{{ asset.asset_url }}"', public_page)
         library = (template_dir / "_mc_biblioteca.html").read_text(encoding="utf-8")
         self.assertIn("mcFormatStage", library)
@@ -1389,6 +1428,8 @@ class CreativeFilesContractTest(unittest.TestCase):
             self.assertIn(size, seed)
         self.assertIn('"netflix-pause-banner"', seed)
         self.assertIn('"1920x300"', seed)
+        self.assertIn('"portal_generico", "click_expand", "image"', seed)
+        self.assertIn('"image_carousel"', seed)
         studio_migration = (
             root / "migrations" / "add_creative_format_studio.sql"
         ).read_text(encoding="utf-8")
@@ -1405,6 +1446,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("from psycopg.types.json import Jsonb", layout_seed)
         self.assertIn("Jsonb(_placement(row))", layout_seed)
         self.assertIn("Jsonb(behavior)", layout_seed)
+        self.assertIn('row.get("slug")', layout_seed)
+        self.assertIn('"type": "carousel"', layout_seed)
         self.assertIn("THEN %s::jsonb ELSE placement_spec", layout_seed)
         self.assertIn("THEN %s::jsonb ELSE behavior_spec", layout_seed)
         viewer_migration = (
@@ -1459,6 +1502,17 @@ class CreativeFilesContractTest(unittest.TestCase):
             '"$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py',
             deploy,
         )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_convert_interactive_formats_to_image_carousels.py',
+            deploy,
+        )
+        carousel_migration = (
+            root / "migrations"
+            / "convert_interactive_formats_to_image_carousels.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("'portal_generico'", carousel_migration)
+        self.assertIn("'image_carousel'", carousel_migration)
+        self.assertIn('"type":"carousel"', carousel_migration)
         self.assertLess(
             deploy.index('"$VENV_PYTHON" scripts/seed_creative_formats.py'),
             deploy.index(

@@ -39,6 +39,8 @@
     generatorFormatId: null,
     placementDraft: null,
     originalPlacement: null,
+    previewDevice: 'desktop',
+    productionCarouselTimer: null,
     brandAnalysis: null,
     enhancedBrief: null,
     locks: new Set(),
@@ -233,8 +235,8 @@
     root.innerHTML = formats.map((format) => `
       <button class="mc-generator-format ${String(format.id) === String(state.generatorFormatId) ? 'is-active' : ''}"
               type="button" data-generator-format="${format.id}">
-        <span class="mc-generator-format-icon"><i class="fa-solid fa-image"></i></span>
-        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</small></span>
+        <span class="mc-generator-format-icon"><i class="fa-solid ${formatExperienceIcon(format)}"></i></span>
+        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(formatExperienceLabel(format))}</small></span>
         ${engineBadge(format)}
       </button>`).join('') || '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
     renderGeneratorFormatPreview();
@@ -282,14 +284,14 @@
         </span>
       </div>
       <div class="mc-generator-preview-copy">
-        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.mechanic || 'Estático')}</small></span>
+        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${sceneCount > 1 ? 'Carrossel interativo' : 'Peça estática'}</small></span>
         <span class="cx-badge cx-badge-muted">${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</span>
       </div>`;
     $('#mcGeneratorScenePlan').innerHTML = `
       <strong>${sceneCount === 1 ? '1 imagem' : '4 cenas'}</strong>
       <span>${sceneCount === 1
         ? 'Banner estático: uma composição final para revisão.'
-        : 'O formato será produzido como uma narrativa visual em quatro cenas.'}</span>
+        : 'Quatro imagens complementares formam o carrossel exibido no portal.'}</span>
       <div>${Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>`;
   }
 
@@ -612,8 +614,26 @@
 
   function renderProductionStage() {
     const root = $('#mcProductionStage');
+    $$('[data-preview-device]').forEach((button) => {
+      const active = button.dataset.previewDevice === state.previewDevice;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    if (state.productionCarouselTimer) {
+      window.clearInterval(state.productionCarouselTimer);
+      state.productionCarouselTimer = null;
+    }
     const scene = activeScene();
     const allAssets = productionScenes().flatMap(sceneAssets);
+    const approvedFrames = productionScenes().map((item) => (
+      sceneAssets(item).find((asset) => asset.status === 'approved')
+    )).filter(Boolean);
+    const previewStatus = $('#mcProductionPreviewStatus');
+    if (previewStatus) {
+      previewStatus.textContent = approvedFrames.length
+        ? `${approvedFrames.length} de ${productionScenes().length} cenas no carrossel`
+        : 'Aprove cenas para montar a sequência';
+    }
     const approved = allAssets.find((asset) => String(asset.id) === String(state.previewAssetId))
       || sceneAssets(scene).find((asset) => asset.status === 'approved');
     if (!approved) {
@@ -621,9 +641,23 @@
       return;
     }
     const format = activeProductionFormat();
-    const placement = clonePlacement(format);
+    const canonicalPlacement = clonePlacement(format);
+    const productionDeviceSwitch = $('.mc-production-preview-controls .mc-viewer-device-switch');
+    productionDeviceSwitch?.classList.toggle(
+      'hidden',
+      canonicalPlacement.context === 'tv',
+    );
+    const placement = previewPlacement(canonicalPlacement, state.previewDevice);
     const profile = state.viewerProfiles.find((item) => String(item.id) === String(state.selectedViewerProfileId));
     const hero = profile?.shell_spec?.hero || {};
+    const carouselAssets = [...approvedFrames];
+    if (!carouselAssets.some((asset) => String(asset.id) === String(approved.id))) {
+      carouselAssets.unshift(approved);
+    }
+    let activeCarouselIndex = Math.max(
+      0,
+      carouselAssets.findIndex((asset) => String(asset.id) === String(approved.id)),
+    );
     root.innerHTML = `
       <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}"
            data-viewer="${escapeHtml(profile?.slug || 'automatico')}"
@@ -636,11 +670,33 @@
               ? g1PortalShellHtml(profile)
               : `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><div class="mc-production-content"><b></b><b></b><b></b><b></b></div>`}
         </div>
-        <div class="mc-production-creative" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
-          <img src="${escapeHtml(assetUrl(approved))}" alt="Imagem aprovada aplicada ao ambiente">
+        <div class="mc-production-creative ${carouselAssets.length > 1 ? 'has-carousel' : ''}" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
+          ${carouselAssets.map((asset, index) => `<img class="${index === activeCarouselIndex ? 'is-active' : ''}" data-production-carousel-image="${index}" src="${escapeHtml(assetUrl(asset))}" alt="Cena ${index + 1} aplicada ao ambiente">`).join('')}
+          ${carouselAssets.length > 1 ? `<div class="mc-production-carousel-dots">${carouselAssets.map((asset, index) => `<button type="button" data-production-carousel-go="${index}" aria-label="Ver cena ${index + 1}" ${index === activeCarouselIndex ? 'aria-current="true"' : ''}></button>`).join('')}</div>` : ''}
         </div>
         <small>${escapeHtml(profile?.disclaimer || 'Simulação de ambiente')}</small>
       </div>`;
+    const showCarouselFrame = (nextIndex) => {
+      activeCarouselIndex = (nextIndex + carouselAssets.length) % carouselAssets.length;
+      $$('[data-production-carousel-image]', root).forEach((image, index) => {
+        image.classList.toggle('is-active', index === activeCarouselIndex);
+      });
+      $$('[data-production-carousel-go]', root).forEach((dot, index) => {
+        if (index === activeCarouselIndex) dot.setAttribute('aria-current', 'true');
+        else dot.removeAttribute('aria-current');
+      });
+    };
+    $$('[data-production-carousel-go]', root).forEach((dot) => {
+      dot.addEventListener('click', () => {
+        showCarouselFrame(Number(dot.dataset.productionCarouselGo));
+      });
+    });
+    if (carouselAssets.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      state.productionCarouselTimer = window.setInterval(
+        () => showCarouselFrame(activeCarouselIndex + 1),
+        3600,
+      );
+    }
   }
 
   function formatOptions(selected) {
@@ -809,10 +865,24 @@
         </div>`).join('')}` : '';
   }
 
+  function shareableCampaignAssets() {
+    const groups = new Map();
+    state.campaignAssets
+      .filter((asset) => asset.status === 'approved')
+      .forEach((asset) => {
+        const key = asset.production_id
+          ? `production:${asset.production_id}`
+          : `asset:${asset.id}`;
+        if (!groups.has(key)) groups.set(key, asset);
+      });
+    return [...groups.values()];
+  }
+
   function renderShareEnvironments() {
     const root = $('#mcShareEnvironmentList');
     if (!root) return;
-    root.innerHTML = state.campaignAssets.map((asset) => {
+    const assets = shareableCampaignAssets();
+    root.innerHTML = assets.map((asset) => {
       const context = asset.placement_spec?.context || 'portal';
       const profiles = viewerProfilesFor(context);
       const automatic = state.viewerProfiles.find((profile) => (
@@ -826,7 +896,7 @@
             ${profiles.map((profile) => `<option value="${profile.id}">${escapeHtml(profile.name)}</option>`).join('')}
           </select>
         </label>`;
-    }).join('');
+    }).join('') || '<span class="mc-section-note">Aprove imagens para montar os carrosséis compartilháveis.</span>';
   }
 
   async function persistAssetOrder() {
@@ -937,6 +1007,29 @@
   }
 
   // ====== BIBLIOTECA ======
+  function formatExperienceIcon(format) {
+    const type = format?.behavior_spec?.type;
+    const icons = {
+      hotspot: 'fa-location-dot',
+      flip: 'fa-clone',
+      reveal: 'fa-up-down',
+      compare: 'fa-left-right',
+      quiz: 'fa-circle-question',
+      carousel: 'fa-images',
+    };
+    return icons[type] || 'fa-image';
+  }
+
+  function formatExperienceLabel(format) {
+    const placement = format?.placement_spec || {};
+    const environment = placement.context === 'tv'
+      ? 'TV'
+      : 'Portal desktop e mobile';
+    return sceneCountForFormat(format) > 1
+      ? `4 cenas · ${environment}`
+      : `${format.default_size || format.aspect_ratio || 'Flexível'} · ${environment}`;
+  }
+
   function renderLibrary() {
     const root = $('#mcFormatTableBody');
     if (!root) return;
@@ -944,12 +1037,12 @@
     root.innerHTML = formats.map((format) => `
       <button class="mc-catalog-format ${String(format.id) === String(state.selectedFormatId) ? 'is-active' : ''}"
               type="button" data-library-format="${format.id}">
-        <span class="mc-catalog-format-icon"><i class="fa-solid ${format.media_type === 'video' ? 'fa-circle-play' : 'fa-image'}" aria-hidden="true"></i></span>
+        <span class="mc-catalog-format-icon"><i class="fa-solid ${formatExperienceIcon(format)}" aria-hidden="true"></i></span>
         <span>
           <strong>${escapeHtml(format.name_pt)}</strong>
-          <small>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')} · ${escapeHtml(format.mechanic || 'Estático')}</small>
+          <small>${escapeHtml(formatExperienceLabel(format))}</small>
         </span>
-        <em>${(format.references || []).length}/4</em>
+        <em>${sceneCountForFormat(format) > 1 ? 'Carrossel' : 'Estático'}</em>
       </button>`).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
   }
 
@@ -962,6 +1055,25 @@
       responsive: 'scale',
     };
     return JSON.parse(JSON.stringify(Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback));
+  }
+
+  function previewPlacement(placement, device = 'desktop') {
+    const result = JSON.parse(JSON.stringify(placement));
+    if (result.context === 'tv') return result;
+    if (device === 'mobile') {
+      result.context = 'celular';
+      result.viewport = { width: 390, height: 844 };
+      result.slot = result.slot?.height <= 15
+        ? { x: 5, y: 22, width: 90, height: 12 }
+        : { x: 7, y: 28, width: 86, height: 36 };
+      return result;
+    }
+    result.context = 'portal';
+    result.viewport = { width: 1280, height: 800 };
+    if (placement.context === 'celular') {
+      result.slot = { x: 37.5, y: 82, width: 25, height: 8 };
+    }
+    return result;
   }
 
   function viewerProfilesFor(context) {
@@ -1110,7 +1222,12 @@
                 class="${profile && String(item.id) === String(profile.id) ? 'is-active' : ''}"
                 aria-pressed="${profile && String(item.id) === String(profile.id)}">
           ${viewerLogo(item)}<span>${escapeHtml(item.name)}</span>
-        </button>`).join('')}</div>`;
+        </button>`).join('')}</div>
+      ${placement.context !== 'tv' ? `
+        <div class="mc-viewer-device-switch" aria-label="Tamanho do portal">
+          <button type="button" data-preview-device="desktop" class="${state.previewDevice === 'desktop' ? 'is-active' : ''}" aria-pressed="${state.previewDevice === 'desktop'}"><i class="fa-solid fa-desktop"></i> Desktop</button>
+          <button type="button" data-preview-device="mobile" class="${state.previewDevice === 'mobile' ? 'is-active' : ''}" aria-pressed="${state.previewDevice === 'mobile'}"><i class="fa-solid fa-mobile-screen"></i> Mobile</button>
+        </div>` : ''}`;
   }
 
   function adCreativeHtml(format) {
@@ -1128,6 +1245,7 @@
     if (type === 'quiz') return '<span class="mc-demo-question">Qual opção combina com você?</span><span class="mc-demo-options"><b>A</b><b>B</b></span>';
     if (type === 'compare') return '<span class="mc-demo-compare"><i></i></span>';
     if (type === 'reveal') return '<span class="mc-demo-reveal"><i></i></span>';
+    if (type === 'carousel') return '<span class="mc-demo-carousel"><i></i><i></i><i></i><b>Sequência de imagens</b></span>';
     if (type === 'video') return '<span class="mc-demo-play"><i class="fa-solid fa-play"></i></span>';
     return '<span class="mc-demo-static">Criativo<br>da marca</span>';
   }
@@ -1137,15 +1255,19 @@
     if (!preserveDraft || !state.placementDraft) {
       state.placementDraft = clonePlacement(format);
       state.originalPlacement = clonePlacement(format);
+      state.previewDevice = state.placementDraft.context === 'celular'
+        ? 'mobile'
+        : 'desktop';
     }
     const placement = state.placementDraft;
-    const slot = placement.slot;
+    const displayPlacement = previewPlacement(placement, state.previewDevice);
+    const slot = displayPlacement.slot;
     $('#mcStageEmpty').classList.add('hidden');
     $('#mcFormatStage').classList.remove('hidden');
     $('#mcStageTitle').textContent = format.name_pt;
-    $('#mcStageMetrics').innerHTML = `<span>${escapeHtml(placement.context)}</span><strong>${escapeHtml(format.default_size || format.aspect_ratio || '')}</strong>`;
-    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(placement.context)}`;
-    $('#mcDeviceFrame').style.aspectRatio = `${Number(placement.viewport.width) || 1280} / ${Number(placement.viewport.height) || 800}`;
+    $('#mcStageMetrics').innerHTML = `<span>${escapeHtml(displayPlacement.context)}</span><strong>${escapeHtml(format.default_size || format.aspect_ratio || '')}</strong>`;
+    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}`;
+    $('#mcDeviceFrame').style.aspectRatio = `${Number(displayPlacement.viewport.width) || 1280} / ${Number(displayPlacement.viewport.height) || 800}`;
     const profile = activeViewerProfile(format, placement);
     renderViewerToolbar(format, placement, profile);
     renderViewerShell(profile);
@@ -1232,10 +1354,10 @@
         </div>
         <div class="mc-field-pair">
           <label class="cx-field"><span class="cx-label">Mecânica</span><select class="cx-select" name="behavior_type">
-            ${['static', 'hotspot', 'flip', 'reveal', 'compare', 'quiz', 'video'].map((value) => `<option value="${value}">${value}</option>`).join('')}
+            ${['static', 'hotspot', 'flip', 'reveal', 'compare', 'quiz', 'carousel'].map((value) => `<option value="${value}">${value}</option>`).join('')}
           </select></label>
           <label class="cx-field"><span class="cx-label">Acionamento</span><select class="cx-select" name="behavior_trigger">
-            ${['none', 'hover_tap', 'click', 'drag_vertical', 'drag_horizontal', 'view'].map((value) => `<option value="${value}">${value}</option>`).join('')}
+            ${['none', 'hover_tap', 'click', 'drag_vertical', 'drag_horizontal', 'view', 'auto'].map((value) => `<option value="${value}">${value}</option>`).join('')}
           </select></label>
         </div>
         <label class="cx-field"><span class="cx-label">Background/base</span><textarea class="cx-textarea" name="background_guidance">${escapeHtml(format.background_guidance || '')}</textarea></label>
@@ -1262,7 +1384,7 @@
             <option value="four_horizontal" ${format.media_type === 'video' || format.behavior_spec?.type !== 'static' ? 'selected' : ''}>Quatro estados horizontais</option>
             <option value="multi_format_board">Quatro formatos da mesma campanha</option>
           </select></label>
-          <span class="cx-help">O mockup usa o ambiente nativo modelado: portal, CTV/streaming ou mobile. Interativos e vídeos começam com quatro variações; qualquer estático aprovado pode receber animação de 3 segundos.</span>
+          <span class="cx-help">O mockup usa o ambiente nativo modelado em desktop ou mobile. Formatos interativos usam quatro imagens complementares, exibidas como carrossel animado.</span>
           <label class="cx-field"><span class="cx-label">Conteúdo e variações</span><textarea class="cx-textarea" name="instructions" rows="5" placeholder="Informe headline, CTA, perguntas, produtos ou os quatro formatos. Marca, dispositivos e direção visual serão preservados."></textarea></label>
           <label class="mc-reference-upload">
             <input name="references" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
@@ -1749,6 +1871,14 @@
       if (format) renderFormatStage(format, true);
       return;
     }
+    const deviceButton = event.target.closest('[data-preview-device]');
+    if (deviceButton) {
+      state.previewDevice = deviceButton.dataset.previewDevice;
+      const format = selectedLibraryFormat();
+      if (format) renderFormatStage(format, true);
+      renderProductionStage();
+      return;
+    }
     const detailTab = event.target.closest('[data-studio-detail-tab]');
     if (detailTab) {
       $$('[data-studio-detail-tab]').forEach((item) => item.classList.toggle('is-active', item === detailTab));
@@ -2063,8 +2193,8 @@
       renderProductionStage();
     });
     $('#mcCreatePublicLink').addEventListener('click', () => {
-      if (!state.campaignAssets.length) {
-        toast('Adicione ao menos um criativo antes de publicar.', 'warning');
+      if (!shareableCampaignAssets().length) {
+        toast('Aprove ao menos uma imagem antes de publicar.', 'warning');
         return;
       }
       $('#mcShareForm [name="title"]').value = state.campaign?.name || '';
@@ -2118,7 +2248,7 @@
       await withLock('create-public-link', button, async () => {
         try {
           const payload = Object.fromEntries(new FormData(form));
-          payload.asset_ids = state.campaignAssets.map((asset) => asset.id);
+          payload.asset_ids = shareableCampaignAssets().map((asset) => asset.id);
           payload.viewer_profiles = {};
           $$('[data-share-asset]', form).forEach((select) => {
             if (select.value !== 'auto') {

@@ -19,7 +19,10 @@ BEHAVIORS = {
     "puxe-descubra": {"type": "reveal", "trigger": "drag_vertical", "transition_ms": 280},
     "arraste-descubra": {"type": "compare", "trigger": "drag_horizontal", "transition_ms": 0},
     "quiz": {"type": "quiz", "trigger": "click", "transition_ms": 180},
-    "video-outstream": {"type": "video", "trigger": "view", "transition_ms": 0},
+    "video-outstream": {"type": "carousel", "trigger": "auto", "transition_ms": 420},
+    "netflix-logo-bumper": {"type": "carousel", "trigger": "auto", "transition_ms": 420},
+    "netflix-anuncio-simulado": {"type": "carousel", "trigger": "auto", "transition_ms": 420},
+    "hbomax-interactive-midroll": {"type": "carousel", "trigger": "auto", "transition_ms": 420},
 }
 
 
@@ -96,7 +99,7 @@ def main():
             rows = cursor.fetchall()
             for row in rows:
                 behavior = BEHAVIORS.get(
-                    row.get("mechanic"),
+                    row.get("slug"),
                     {"type": "static", "trigger": "none", "transition_ms": 0},
                 )
                 cursor.execute(

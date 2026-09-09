@@ -35,7 +35,84 @@
     pieces.forEach((piece) => observer.observe(piece));
   }
 
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('[data-carousel]').forEach((carousel) => {
+    const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];
+    const dots = [...carousel.querySelectorAll('[data-carousel-go]')];
+    const transitionMs = Math.max(
+      0,
+      Math.min(5000, Number(carousel.dataset.transitionMs) || 360),
+    );
+    const autoplayMs = Math.max(3200, transitionMs + 1200);
+    let active = Math.max(0, slides.findIndex((slide) => slide.classList.contains('is-active')));
+    let timer = null;
+    const show = (nextIndex, userInitiated = false) => {
+      if (slides.length < 2) return;
+      active = (nextIndex + slides.length) % slides.length;
+      slides.forEach((slide, index) => {
+        const selected = index === active;
+        slide.classList.toggle('is-active', selected);
+        slide.setAttribute('aria-hidden', String(!selected));
+      });
+      dots.forEach((dot, index) => {
+        if (index === active) dot.setAttribute('aria-current', 'true');
+        else dot.removeAttribute('aria-current');
+      });
+      if (userInitiated) {
+        carousel.classList.add('is-flipping');
+        window.setTimeout(
+          () => carousel.classList.remove('is-flipping'),
+          transitionMs,
+        );
+      }
+    };
+    const stop = () => {
+      if (timer) window.clearInterval(timer);
+      timer = null;
+    };
+    const start = () => {
+      stop();
+      if (
+        slides.length > 1
+        && carousel.dataset.autoplay === 'true'
+        && !reducedMotion
+        && !document.hidden
+      ) timer = window.setInterval(() => show(active + 1), autoplayMs);
+    };
+    carousel._carousel = { show, start, stop, get active() { return active; } };
+    carousel.addEventListener('pointerenter', stop);
+    carousel.addEventListener('pointerleave', start);
+    carousel.addEventListener('focusin', stop);
+    carousel.addEventListener('focusout', start);
+    start();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    document.querySelectorAll('[data-carousel]').forEach((carousel) => {
+      if (document.hidden) carousel._carousel?.stop();
+      else carousel._carousel?.start();
+    });
+  });
+
   document.addEventListener('click', (event) => {
+    const carouselControl = event.target.closest(
+      '[data-carousel-action], [data-carousel-go]',
+    );
+    if (carouselControl) {
+      const carousel = carouselControl.closest('[data-carousel]');
+      const controller = carousel?._carousel;
+      if (!controller) return;
+      const target = carouselControl.dataset.carouselGo;
+      const next = target !== undefined
+        ? Number(target)
+        : controller.active + (
+          carouselControl.dataset.carouselAction === 'previous' ? -1 : 1
+        );
+      controller.show(next, true);
+      controller.start();
+      return;
+    }
+
     const flip = event.target.closest('.pv-flip');
     if (flip) {
       flip.classList.toggle('is-flipped');

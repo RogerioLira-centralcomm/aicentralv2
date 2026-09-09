@@ -846,6 +846,33 @@
         return true;
     }
 
+    function previewTextFromOutput(output) {
+        if (!output) return '';
+        var result = output.querySelector('.cx-atividade-result');
+        if (!result) return String(output.textContent || '').trim();
+        var parts = [];
+        var subject = result.querySelector('.cx-atividade-result-subject strong');
+        if (subject && subject.textContent) parts.push(subject.textContent.trim());
+        var message = result.querySelector('.cx-atividade-result-message');
+        if (message && message.textContent) parts.push(message.textContent.trim());
+        result.querySelectorAll('section p, section li').forEach(function (el) {
+            var text = String(el.textContent || '').trim();
+            if (text) parts.push(text);
+        });
+        return parts.join('\n');
+    }
+
+    function archiveCurrentPreview(wrapper, form, output) {
+        if (!output || !output.classList.contains('is-result')) return;
+        var texto = previewTextFromOutput(output);
+        if (!texto) return;
+        addIaHistory(wrapper, form, {
+            label: 'Abordagem anterior',
+            texto: texto,
+            canApply: false
+        });
+    }
+
     function addIaHistory(wrapper, form, item) {
         if (!wrapper || !item || !item.texto) return;
         var section = wrapper.querySelector('[data-ia-history-section]');
@@ -1177,6 +1204,21 @@
         // do objeto atividade. Isso alimenta as hiddens `tipo` e
         // `status` — que serão sincronizadas com os chips logo abaixo.
         fillForm(form, atividade || {});
+        var canalField = form.querySelector('[data-field="canal_produto"]');
+        var focoField = form.querySelector('[data-field="foco"]');
+        var tituloField = form.querySelector('[data-field="titulo"]');
+        var canalInferido = inferCanalProduto(tituloField && tituloField.value, canalField && canalField.value);
+        if (canalField && canalInferido) canalField.value = canalInferido;
+        if (focoField && canalInferido && (!focoField.value || focoField.value === 'entender_necessidades')) {
+            focoField.value = 'falar_sobre_canal';
+        }
+        if (!(atividade && atividade.id)) {
+            var hojeAtividade = isoHoje();
+            var dataEl = form.querySelector('[data-field="data"]');
+            var prazoEl = form.querySelector('[data-field="data_prazo"]');
+            if (dataEl && !dataEl.value) dataEl.value = hojeAtividade;
+            if (prazoEl && !prazoEl.value) prazoEl.value = hojeAtividade;
+        }
 
         var tipoVal = (form.querySelector('[data-field="tipo"]') || {}).value || '';
         var fmtEl = form.querySelector('[data-field="formato"]');
@@ -1198,20 +1240,29 @@
             var channel = value === 'email' || value === 'whatsapp' ? value : 'roteiro';
             if (fmt) fmt.value = channel;
             var labels = {
-                email: 'E-mail com assunto e mensagem',
-                whatsapp: 'Mensagem pronta para WhatsApp',
-                ligacao: 'Abertura e perguntas para ligação',
-                reuniao: 'Abertura e perguntas para reunião'
+                email: 'E-mail com assunto e mensagem, ancorado no registro.',
+                whatsapp: 'Mensagem pronta para WhatsApp, com os nomes desta atividade.',
+                ligacao: 'Abertura e perguntas para ligação com o contato.',
+                reuniao: 'Abertura e perguntas para reunião com as pessoas certas.'
             };
-            if (label) label.textContent = labels[value] || 'Abordagem para a atividade';
+            if (label) label.textContent = labels[value] || 'Usa o registro, as pessoas e o canal escolhido.';
             if (generate) {
                 generate.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' +
                     (value === 'email' ? 'Gerar e-mail' : value === 'whatsapp'
-                        ? 'Gerar mensagem' : 'Gerar abordagem');
+                        ? 'Gerar mensagem' : 'Gerar');
             }
         }
+        function syncCanalProdutos() {
+            var foco = (form.querySelector('[data-field="foco"]') || {}).value;
+            var row = wrapper.querySelector('[data-canal-produtos]');
+            if (row) row.hidden = foco !== 'falar_sobre_canal';
+        }
         syncAssistantChannel(tipoVal);
+        syncCanalProdutos();
         meetingEditor.toggle(tipoVal);
+        $$('[data-chip-group="foco"] .cx-drawer-chip', wrapper).forEach(function (chip) {
+            chip.addEventListener('click', syncCanalProdutos);
+        });
 
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
@@ -1274,7 +1325,7 @@
         if (!payload.status) payload.status = 'pendente';
         if (payload.contato_id === '' || payload.contato_id == null) payload.contato_id = null;
         // Prazo vazio significa "sem prazo" — mande null para o server.
-        if (!payload.data_prazo) payload.data_prazo = null;
+        if (!payload.data_prazo) payload.data_prazo = payload.data || null;
         // Hora vazia significa "sem hora" — mande null. Só é persistido
         // no banco se a base tiver a coluna `hora_atividade` (opcional).
         if (!payload.hora) payload.hora = null;
@@ -1511,10 +1562,46 @@
         output.appendChild(result);
     }
 
+    function selectedOptionLabel(select) {
+        if (!select || select.selectedIndex < 0) return '';
+        return String(select.options[select.selectedIndex].textContent || '')
+            .split(' — ')[0].trim();
+    }
+
+    function inferCanalProduto(titulo, atual) {
+        if (atual) return atual;
+        var canais = ['Netflix', 'Spotify', 'Serasa', 'Disney', 'HBO', 'Amazon', 'iFood', 'Uber', '99', 'Logan'];
+        var lower = String(titulo || '').toLowerCase();
+        for (var i = 0; i < canais.length; i++) {
+            if (lower.indexOf(canais[i].toLowerCase()) !== -1) return canais[i];
+        }
+        return '';
+    }
+
+    function enrichAtividadeIaPayload(payload, form, clienteId) {
+        var state = window.crmV3 && window.crmV3.state;
+        var cliente = (state && String(state.clienteId) === String(clienteId) && state.cliente) || {};
+        payload.contato_nome = selectedOptionLabel(form.querySelector('[data-field="contato_id"]'));
+        payload.executivo_nome = selectedOptionLabel(form.querySelector('[data-field="executivo_id"]'));
+        payload.cliente_nome = cliente.nome || payload.cliente_nome || '';
+        payload.is_agencia = !!cliente.is_agencia;
+        payload.agencia_nome = cliente.is_agencia
+            ? (cliente.nome || '')
+            : (cliente.agencia_nome || payload.agencia_nome || '');
+        payload.clientes_agencia = (cliente.clientes_finais || []).map(function (item) {
+            return item.nome || item.nome_fantasia || '';
+        }).filter(Boolean).slice(0, 12);
+        payload.canal_produto = inferCanalProduto(payload.titulo, payload.canal_produto);
+        if (payload.canal_produto && payload.foco !== 'apresentar_empresa') {
+            payload.foco = payload.foco || 'falar_sobre_canal';
+        }
+        return payload;
+    }
+
     function runIA(btn, form, output, clienteId, wrapper) {
         if (!wrapper || wrapper.dataset.iaBusy === '1') return;
         var action = btn.getAttribute('data-ia-action');
-        var payload = serializeForm(form);
+        var payload = enrichAtividadeIaPayload(serializeForm(form), form, clienteId);
         payload.cliente_id = clienteId;
         var instrucoes = wrapper && wrapper.querySelector('[data-ia-field="instrucoes"]');
         payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
@@ -1539,6 +1626,9 @@
                 endpoint = 'gerar-comunicacao';
                 payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : 'email';
             }
+        }
+        if (endpoint === 'gerar-roteiro' || endpoint === 'gerar-comunicacao') {
+            archiveCurrentPreview(wrapper, form, output);
         }
         wrapper.dataset.iaBusy = '1';
         var iaButtons = $$('[data-ia-action]', wrapper);
@@ -1573,16 +1663,6 @@
                     output.textContent = 'A IA não devolveu texto. Tente novamente.';
                 }
             } else if (endpoint === 'gerar-roteiro') {
-                var guideText = stripMarkdown((data && data.texto) || '');
-                if (guideText) {
-                    addIaHistory(wrapper, form, {
-                        label: payload.tipo === 'reuniao' ? 'Guia de reunião' : 'Guia de ligação',
-                        texto: guideText,
-                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
-                        historyId: data.history_id,
-                        canApply: false
-                    });
-                }
                 renderAssistantResult(
                     output,
                     data,
@@ -1690,13 +1770,6 @@
             } else if (endpoint === 'gerar-comunicacao') {
                 if (data && data.mensagem) {
                     var msg = stripMarkdown(data.mensagem);
-                    addIaHistory(wrapper, form, {
-                        label: String(payload.tipo || 'Comunicação'),
-                        texto: msg,
-                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
-                        historyId: data.history_id,
-                        canApply: false
-                    });
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
                     renderAssistantResult(output, data, payload.tipo);
@@ -2951,15 +3024,16 @@
                 '<button type="button" class="cx-sugestao-row" data-idx="' + i + '">' +
                 '<span class="cx-sugestao-row-icon"><i class="' + (s.icon || 'fa-solid fa-circle') + '" aria-hidden="true"></i></span>' +
                 '<span class="cx-sugestao-row-body">' +
+                (s.canal ? '<em class="cx-sugestao-canal">' + escapeHtml(s.canal) + '</em>' : '') +
                 '<strong>' + escapeHtml(s.titulo) + '</strong>' +
                 '<span>' + escapeHtml(s.hint || '') + '</span>' +
                 '</span>' +
-                '<span class="cx-sugestao-row-cta">Criar com roteiro</span>' +
+                '<span class="cx-sugestao-row-cta">Preparar conversa</span>' +
                 '</button>'
             );
         }).join('');
         wrap.innerHTML = (
-            '<p class="cx-sugestoes-intro">Mesmas sugestões da coluna Atividades. Clique para abrir o formulário com o título pronto e a IA montar o roteiro de execução.</p>' +
+            '<p class="cx-sugestoes-intro">Canais e próximos passos. A conversa usa o registro e as pessoas — sem citar atividade agendada ao cliente.</p>' +
             (items
                 ? '<div class="cx-sugestoes-list">' + items + '</div>'
                 : '<p class="cx-sugestoes-empty">Nenhuma sugestão pendente neste cliente.</p>') +
@@ -2978,7 +3052,9 @@
                     titulo: s.titulo,
                     tipo: s.tipo,
                     data: d.toISOString().slice(0, 10),
-                    status: 'pendente'
+                    status: 'pendente',
+                    foco: s.canal ? 'falar_sobre_canal' : 'entender_necessidades',
+                    canal_produto: s.canal || ''
                 }, clienteId, { gerarRoteiro: true });
             });
         });
@@ -2994,7 +3070,9 @@
                             descricao: data.descricao,
                             tipo: data.tipo || 'atividade',
                             data: data.data_sugerida,
-                            status: 'pendente'
+                            status: 'pendente',
+                            foco: data.canal_produto ? 'falar_sobre_canal' : 'entender_necessidades',
+                            canal_produto: data.canal_produto || ''
                         }, clienteId);
                     })
                     .catch(function (err) { toast(err.message, true); })

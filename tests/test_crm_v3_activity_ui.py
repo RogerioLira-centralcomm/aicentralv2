@@ -26,7 +26,7 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         side = self.template.index('<aside class="cx-atividade-editor-side">')
         self.assertLess(main, side)
         self.assertLess(self.template.index("Registro da atividade"), side)
-        self.assertGreater(self.template.index("Preparar abordagem"), side)
+        self.assertGreater(self.template.index("Assistente"), side)
 
     def test_activity_fields_are_unique_after_reorganization(self):
         ids = re.findall(r'\bid="([^"]+)"', self.template)
@@ -43,20 +43,23 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
             self.assertIn(field, ids)
 
     def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
-        self.assertIn("<details class=\"cx-atividade-side-tools\">", self.template)
-        self.assertIn("Outras ações assistidas", self.template)
-        self.assertIn('<details class="cx-atividade-ia-settings">', self.template)
-        self.assertIn("Objetivo, tom e orientações", self.template)
+        self.assertIn("cx-atividade-ia-toolbar", self.template)
+        self.assertIn("falar_sobre_canal", self.template)
+        self.assertIn("data-canal-produtos", self.template)
+        self.assertIn("Spotify", self.template)
         self.assertIn("payload.notas_executivo = payload.descricao", self.js)
         self.assertIn("delete payload.descricao", self.js)
         self.assertIn("canApply: false", self.js)
+        self.assertIn("enrichAtividadeIaPayload", self.js)
+        self.assertIn("archiveCurrentPreview", self.js)
         self.assertNotIn("A descrição não foi alterada", self.js)
 
     def test_right_side_prioritizes_channel_result_and_keeps_history(self):
-        output = self.template.index('data-ia-output')
-        settings = self.template.index('cx-atividade-ia-settings')
-        self.assertLess(output, settings)
-        self.assertIn("Materiais gerados", self.template)
+        toolbar = self.template.index("cx-atividade-ia-toolbar")
+        output = self.template.index("data-ia-output")
+        history = self.template.index("Histórico")
+        self.assertLess(toolbar, output)
+        self.assertLess(output, history)
         self.assertIn("['gerar-roteiro', 'melhorar-texto']", self.js)
         self.assertIn("renderAssistantResult", self.js)
         self.assertIn("Abrir WhatsApp", self.js)
@@ -78,7 +81,8 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         )
 
     def test_meeting_schedule_is_conditional_and_deadline_is_prioritized(self):
-        self.assertIn("Prazo principal", self.template)
+        self.assertIn(">Prazo<", self.template)
+        self.assertNotIn("background: #f7faf9", self.css.split(".cx-atividade-deadline", 1)[1][:180])
         self.assertIn('data-meeting-panel hidden', self.template)
         self.assertIn("Agenda da reunião", self.template)
         self.assertIn('data-meeting-field="duration_minutes"', self.template)

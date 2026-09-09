@@ -2712,6 +2712,35 @@ img.crm-v3-avatar-mini {
     color: var(--crm-text-subtle);
     font-weight: 500;
 }
+.crm-v3-quick-canais {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 2px 0 8px;
+}
+.crm-v3-quick-canal {
+    min-height: 28px;
+    border: 1px solid var(--crm-border);
+    border-radius: 999px;
+    background: #fff;
+    padding: 4px 10px;
+    color: var(--crm-text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+}
+.crm-v3-quick-canal:hover {
+    border-color: var(--crm-primary);
+    color: var(--crm-primary);
+}
+.crm-v3-quick-ativ-canal {
+    display: inline-block;
+    margin-bottom: 2px;
+    color: var(--crm-primary);
+    font-size: 10.5px;
+    font-weight: 750;
+}
 .crm-v3-quick-ativ-arrow {
     color: var(--crm-text-subtle);
     font-size: 12px;

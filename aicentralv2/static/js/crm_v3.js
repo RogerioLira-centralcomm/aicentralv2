@@ -2795,23 +2795,22 @@
      * humano (o executivo pode ajustar o título antes de commitar).
      * ------------------------------------------------------------------ */
     var QUICK_ATIV_SUGGESTIONS = [
-        // Canais / marcas — uma linha cada, título curto (o cliente já está selecionado)
-        { titulo: 'Apresentar Netflix', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Serasa', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Logan', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Uber', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar iFood', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar 99', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Amazon', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar Disney', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar HBO', tipo: 'reuniao', icon: 'fa-solid fa-tv', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Apresentar a CentralComm', tipo: 'reuniao', icon: 'fa-solid fa-building', hint: 'Reunião · esta semana', daysAhead: 3 },
-        { titulo: 'Agendar café da manhã interativo', tipo: 'reuniao', icon: 'fa-solid fa-mug-hot', hint: 'Evento · esta semana', daysAhead: 5 },
+        { titulo: 'Apresentar Netflix', tipo: 'reuniao', canal: 'Netflix', icon: 'fa-solid fa-tv', hint: 'Netflix · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Spotify', tipo: 'reuniao', canal: 'Spotify', icon: 'fa-solid fa-music', hint: 'Spotify · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Serasa', tipo: 'reuniao', canal: 'Serasa', icon: 'fa-solid fa-shield-halved', hint: 'Serasa · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Logan', tipo: 'reuniao', canal: 'Logan', icon: 'fa-solid fa-car', hint: 'Logan · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Uber', tipo: 'reuniao', canal: 'Uber', icon: 'fa-solid fa-taxi', hint: 'Uber · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar iFood', tipo: 'reuniao', canal: 'iFood', icon: 'fa-solid fa-utensils', hint: 'iFood · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar 99', tipo: 'reuniao', canal: '99', icon: 'fa-solid fa-motorcycle', hint: '99 · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Amazon', tipo: 'reuniao', canal: 'Amazon', icon: 'fa-brands fa-amazon', hint: 'Amazon · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar Disney', tipo: 'reuniao', canal: 'Disney', icon: 'fa-solid fa-film', hint: 'Disney · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar HBO', tipo: 'reuniao', canal: 'HBO', icon: 'fa-solid fa-clapperboard', hint: 'HBO · esta semana', daysAhead: 3 },
+        { titulo: 'Apresentar a CentralComm', tipo: 'reuniao', icon: 'fa-solid fa-building', hint: 'Casa · esta semana', daysAhead: 3 },
+        { titulo: 'Café da manhã interativo', tipo: 'reuniao', icon: 'fa-solid fa-mug-hot', hint: 'Evento · esta semana', daysAhead: 5 },
         { titulo: 'Convidar para o Media Hacks Training 2026', tipo: 'atividade', icon: 'fa-solid fa-graduation-cap', hint: 'Convite · este mês', daysAhead: 14 },
-        // Funil — no fim, para não esconder as marcas depois da 1ª atividade
         { titulo: 'Ligar para apresentar propostas', tipo: 'ligacao', icon: 'fa-solid fa-phone', hint: 'Ligação · hoje' },
-        { titulo: 'Enviar e-mail de acompanhamento', tipo: 'atividade', icon: 'fa-regular fa-envelope', hint: 'E-mail · hoje' },
-        { titulo: 'Agendar reunião de descoberta', tipo: 'reuniao', icon: 'fa-solid fa-users', hint: 'Reunião · esta semana', daysAhead: 3 },
+        { titulo: 'Enviar e-mail de acompanhamento', tipo: 'email', icon: 'fa-regular fa-envelope', hint: 'E-mail · hoje' },
+        { titulo: 'Reunião de descoberta', tipo: 'reuniao', icon: 'fa-solid fa-users', hint: 'Reunião · esta semana', daysAhead: 3 },
         { titulo: 'Preparar proposta comercial', tipo: 'planejamento', icon: 'fa-solid fa-diagram-project', hint: 'Planejamento · amanhã', daysAhead: 1 }
     ];
 
@@ -2875,27 +2874,43 @@
             );
         }
 
-        var VISIVEIS = 5;
+        var canais = sugestoes.filter(function (s) { return !!s.canal; });
+        var demais = sugestoes.filter(function (s) { return !s.canal; });
+        var VISIVEIS = compact ? 4 : 6;
+        var visiveis = demais.slice(0, VISIVEIS);
         var total = sugestoes.length;
-        var visiveis = sugestoes.slice(0, VISIVEIS);
-        var resto = Math.max(0, total - visiveis.length);
+        var resto = Math.max(0, demais.length - visiveis.length);
 
-        var cards = visiveis.map(function (s) {
+        function cardHtml(s) {
             return (
-                '<button type="button" class="crm-v3-quick-ativ" data-suggestion-titulo="' + escapeHtml(s.titulo) + '"' +
+                '<button type="button" class="crm-v3-quick-ativ' + (s.canal ? ' is-canal' : '') + '" data-suggestion-titulo="' + escapeHtml(s.titulo) + '"' +
                 ' data-suggestion-tipo="' + escapeHtml(s.tipo) + '"' +
+                ' data-suggestion-canal="' + escapeHtml(s.canal || '') + '"' +
                 ' data-suggestion-days="' + (s.daysAhead || 0) + '"' +
                 ' title="' + escapeHtml(s.titulo) + '"' +
                 ' aria-label="' + escapeHtml(s.titulo) + '">' +
                 '<span class="crm-v3-quick-ativ-icon"><i class="' + s.icon + '" aria-hidden="true"></i></span>' +
                 '<span class="crm-v3-quick-ativ-body">' +
+                (s.canal ? '<span class="crm-v3-quick-ativ-canal">' + escapeHtml(s.canal) + '</span>' : '') +
                 '<span class="crm-v3-quick-ativ-title">' + escapeHtml(s.titulo) + '</span>' +
                 '<span class="crm-v3-quick-ativ-hint">' + escapeHtml(s.hint) + '</span>' +
                 '</span>' +
                 '<i class="fa-solid fa-arrow-right crm-v3-quick-ativ-arrow" aria-hidden="true"></i>' +
                 '</button>'
             );
+        }
+
+        var canalChips = canais.map(function (s) {
+            return (
+                '<button type="button" class="crm-v3-quick-canal" data-suggestion-titulo="' + escapeHtml(s.titulo) + '"' +
+                ' data-suggestion-tipo="' + escapeHtml(s.tipo) + '"' +
+                ' data-suggestion-canal="' + escapeHtml(s.canal) + '"' +
+                ' data-suggestion-days="' + (s.daysAhead || 0) + '">' +
+                escapeHtml(s.canal) +
+                '</button>'
+            );
         }).join('');
+        var cards = visiveis.map(cardHtml).join('');
         var more = resto
             ? '<button type="button" class="crm-v3-quick-ativ-more" data-open-sugestoes="1">' +
               'Ver mais ' + resto + ' sugestões' +
@@ -2904,14 +2919,19 @@
               'Ver todas as sugestões' +
               '</button>';
 
+        var canaisBlock = canais.length
+            ? '<div class="crm-v3-quick-canais" aria-label="Canais">' + canalChips + '</div>'
+            : '';
+
         if (compact) {
             return (
                 '<div class="crm-v3-ativ-empty-suggest is-compact">' +
                 '<div class="crm-v3-ativ-empty-heading is-compact">' +
                     '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
-                    '<span>Próximos passos sugeridos</span>' +
+                    '<span>Canais e próximos passos</span>' +
                     '<span class="crm-v3-quick-ativ-count">' + total + '</span>' +
                 '</div>' +
+                canaisBlock +
                 '<div class="crm-v3-quick-ativ-grid is-compact">' + cards + '</div>' +
                 more +
                 '</div>'
@@ -2922,8 +2942,9 @@
             '<div class="crm-v3-ativ-empty-suggest">' +
             '<div class="crm-v3-ativ-empty-heading">' +
                 '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' +
-                '<span>Próximos passos sugeridos</span>' +
+                '<span>Canais e próximos passos</span>' +
             '</div>' +
+            canaisBlock +
             '<div class="crm-v3-quick-ativ-grid">' + cards + '</div>' +
             more +
             '</div>'
@@ -2944,10 +2965,11 @@
         var dataInput = $('#crm-v3-composer-data');
         if (!titulo || !tipoBtn) return;
 
-        $$('.crm-v3-quick-ativ', root).forEach(function (btn) {
+        $$('.crm-v3-quick-ativ, .crm-v3-quick-canal', root).forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var sTitulo = btn.getAttribute('data-suggestion-titulo') || '';
                 var sTipo = btn.getAttribute('data-suggestion-tipo') || 'atividade';
+                var sCanal = btn.getAttribute('data-suggestion-canal') || '';
                 var sDays = parseInt(btn.getAttribute('data-suggestion-days') || '0', 10);
                 var d = new Date();
                 d.setDate(d.getDate() + sDays);
@@ -2958,7 +2980,9 @@
                         titulo: sTitulo,
                         tipo: sTipo,
                         data: dataISO,
-                        status: 'pendente'
+                        status: 'pendente',
+                        foco: sCanal ? 'falar_sobre_canal' : 'entender_necessidades',
+                        canal_produto: sCanal
                     }, state.clienteId, { gerarRoteiro: true });
                     return;
                 }

@@ -1984,7 +1984,16 @@ class CrmV3Repository:
                 "cidade": cliente.get("cidade") or "",
                 "uf": cliente.get("uf") or "",
                 "responsavel": cliente.get("responsavel") or "",
-                "agencia": cliente.get("agencia_nome") or "",
+                "agencia": (
+                    cliente.get("nome") if cliente.get("is_agencia")
+                    else (cliente.get("agencia_nome") or "")
+                ),
+                "eh_agencia": bool(cliente.get("is_agencia")),
+                "clientes_da_agencia": [
+                    item.get("nome")
+                    for item in (cliente.get("clientes_finais") or [])
+                    if item.get("nome")
+                ][:12],
                 "observacoes": str(
                     cliente.get("observacoes_comerciais_adicionais")
                     or cliente.get("nota_executivo")

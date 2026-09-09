@@ -2148,12 +2148,76 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 }
 .cx-atividade-ia-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid #dbe4e4;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+.cx-atividade-ia-toolbar .cx-drawer-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cx-atividade-ia-products {
+  margin: 0 0 8px;
+}
+.cx-atividade-ia-products[hidden] { display: none; }
+.cx-atividade-ia-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+}
+.cx-atividade-ia-note {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.cx-atividade-ia-note input {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--cx-border);
+  border-radius: 7px;
+  background: #fff;
+  padding: 0 10px;
+  color: var(--cx-text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.cx-atividade-ia-note input:focus {
+  outline: 0;
+  border-color: var(--cx-brand);
+  box-shadow: var(--cx-focus);
+}
+.cx-atividade-ia-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cx-atividade-ia-extras button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--cx-brand);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cx-atividade-ia-extras button:hover { text-decoration: underline; }
+.cx-atividade-ia-empty {
+  margin: 0;
+  padding: 14px 12px;
+  color: var(--cx-text-subtle);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.cx-atividade-assist-head {
+  align-items: center;
+}
+.cx-atividade-assist-head .cx-atividade-ia-generate {
+  margin-left: auto;
 }
 .cx-atividade-channel {
   color: var(--cx-text-muted);
@@ -2347,10 +2411,9 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   cursor: pointer;
 }
 .cx-atividade-deadline {
-  padding: 8px;
-  border: 1px solid #bfd0ce;
-  border-radius: 8px;
-  background: #f7faf9;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .cx-meeting-panel[hidden] { display: none !important; }
 .cx-meeting-intro {

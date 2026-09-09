@@ -1130,6 +1130,88 @@ def _registrar_saida_ia(data: dict, funcao: str, saida: dict) -> dict:
     return saida
 
 
+def _nome_executivo_sessao() -> str:
+    try:
+        return (session.get("user_name") or "").strip()
+    except Exception:
+        return ""
+
+
+CANAIS_MIDIA = (
+    "Netflix", "Spotify", "Serasa", "Disney", "HBO", "Amazon", "iFood", "Uber", "99", "Logan",
+)
+
+
+def _ancora_conversa(data: dict, cliente=None, contato=None) -> dict:
+    """Dados da conversa atual — uso interno do prompt, nunca como jargão ao cliente."""
+    cliente = cliente or {}
+    contato = contato or {}
+    eh_agencia = bool(cliente.get("is_agencia"))
+    clientes_agencia = [
+        (item.get("nome") or "").strip()
+        for item in (cliente.get("clientes_finais") or [])
+        if (item.get("nome") or "").strip()
+    ][:12]
+    return {
+        "tipo": (data.get("tipo") or "atividade").strip(),
+        "titulo": texto_sem_markdown(data.get("titulo") or "").strip(),
+        "registro": texto_sem_markdown(
+            data.get("notas_executivo") or data.get("descricao") or ""
+        ).strip()[:1000],
+        "contato": texto_sem_markdown(
+            data.get("contato_nome") or (contato.get("nome") or "")
+        ).strip(),
+        "executivo": texto_sem_markdown(
+            data.get("executivo_nome")
+            or _nome_executivo_sessao()
+            or cliente.get("responsavel")
+            or ""
+        ).strip(),
+        "cliente": (cliente.get("nome") or "").strip(),
+        "agencia": (
+            (cliente.get("nome") or "").strip() if eh_agencia
+            else (cliente.get("agencia_nome") or data.get("agencia_nome") or "")
+        ).strip(),
+        "eh_agencia": eh_agencia,
+        "clientes_agencia": clientes_agencia or [
+            item for item in (data.get("clientes_agencia") or []) if str(item).strip()
+        ][:12],
+        "canal": texto_sem_markdown(data.get("canal_produto") or "").strip(),
+    }
+
+
+def _regras_texto_externo() -> str:
+    return (
+        "O destinatário não pode perceber que isto é uma atividade, tarefa ou item "
+        "agendado no CRM. Não cite atividade, prazo interno, cadastro, sistema, "
+        "pipeline ou follow-up administrativo. Fale como conversa comercial ao vivo.\n"
+        "Ancore cerca de 75% do texto no título, no registro do executivo e nos "
+        "nomes reais (contato, executivo, cliente, agência e clientes da agência).\n"
+        "Se houver canal ou produto, ele é o assunto da conversa. "
+        "A CentralComm só entra quando o foco for apresentar a casa."
+    )
+
+
+def _bloco_ancora(ancora: dict) -> str:
+    linhas = [
+        "CONTEXTO INTERNO DA CONVERSA (não repetir estes rótulos ao cliente):",
+        f"Tipo de abordagem: {ancora.get('tipo') or 'conversa'}",
+        f"Assunto: {ancora.get('titulo') or '(sem título)'}",
+        f"Cliente: {ancora.get('cliente') or '(não informado)'}",
+        f"Contato: {ancora.get('contato') or '(não informado)'}",
+        f"Executivo: {ancora.get('executivo') or '(não informado)'}",
+    ]
+    if ancora.get("agencia"):
+        linhas.append(f"Agência: {ancora['agencia']}")
+    if ancora.get("clientes_agencia"):
+        linhas.append("Clientes da agência: " + ", ".join(ancora["clientes_agencia"]))
+    if ancora.get("canal"):
+        linhas.append(f"Canal ou produto: {ancora['canal']}")
+    if ancora.get("registro"):
+        linhas.append(f"Registro do executivo:\n{ancora['registro']}")
+    return "\n".join(linhas) + "\n"
+
+
 def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> str:
     nome = (cliente or {}).get("nome") or "o cliente"
     tipo_label = {
@@ -1144,10 +1226,11 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
     quem = ((contato or {}).get("nome") or "").strip()
     alvo = f"{quem} ({nome})" if quem else nome
     foco_label = {
-        "apresentar_empresa": "apresentar a CentralComm",
+        "apresentar_empresa": "apresentar a CentralComm quando isso for o pedido explícito",
         "entender_necessidades": "entender necessidades e prioridades",
         "apresentar_proposta": "apresentar a proposta",
         "follow_up": "realizar o follow-up",
+        "falar_sobre_canal": "falar sobre o canal ou produto escolhido",
         "outro": "conduzir o objetivo informado",
     }.get(foco, "executar a atividade")
     tom_label = {
@@ -1173,8 +1256,8 @@ def _abordagem_ligacao_fallback(titulo, cliente, contato=None) -> dict:
     nome_contato = (contato or {}).get("nome") or "responsável"
     objetivo = (titulo or "retomar o relacionamento comercial").strip()
     abertura = (
-        f"Olá {nome_contato}, aqui é a CentralComm. "
-        f"Quero conversar brevemente sobre {objetivo.lower()}."
+        f"Olá {nome_contato}, aqui é da CentralComm. "
+        f"Queria falar com você sobre {objetivo.lower()}."
     )
     perguntas = [
         f"Como este tema está sendo tratado hoje na {nome_cliente}?",
@@ -1221,11 +1304,13 @@ def _montar_roteiro(data: dict) -> dict:
     foco = (data.get("foco") or "").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
+    canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
     foco_label = {
         "apresentar_empresa": "Apresentar a CentralComm",
         "entender_necessidades": "Entender necessidades",
         "apresentar_proposta": "Apresentar proposta",
         "follow_up": "Follow-up",
+        "falar_sobre_canal": f"Falar sobre {canal_produto}" if canal_produto else "Falar sobre um canal ou produto",
         "outro": "Outro objetivo informado",
     }.get(foco, "Executar a atividade")
     tom_label = {
@@ -1237,27 +1322,25 @@ def _montar_roteiro(data: dict) -> dict:
     cliente_id = data.get("cliente_id") or ""
     cliente = store.get_cliente(cliente_id) if cliente_id else None
     contato, _ = _contato_para_ia(data, cliente_id)
+    ancora = _ancora_conversa(data, cliente, contato)
 
     if _openrouter_available():
         try:
             user = (
-                "CONTEXTO COMERCIAL (JSON minimizado):\n"
+                f"{_bloco_ancora(ancora)}\n"
+                "APOIO COMERCIAL (usar só se confirmar o registro):\n"
                 f"{_contexto_ia_json(data, 'roteiro')}\n\n"
-                f"Tipo da atividade: {tipo or 'atividade'}\n"
-                f"Formato do texto: {formato or tipo or 'roteiro'}\n"
-                f"Título: {titulo or '(sem título)'}\n"
-                f"Foco principal: {foco_label}\n"
-                f"Tom da comunicação: {tom_label}\n"
+                f"Formato: {formato or tipo or 'roteiro'}\n"
+                f"Foco: {foco_label}\n"
+                f"Tom: {tom_label}\n"
             )
-            if notas_executivo:
-                user += f"Notas exclusivas do executivo:\n{notas_executivo}\n"
             if instrucoes:
-                user += f"Instrução adicional do executivo:\n{instrucoes}\n"
+                user += f"Ajuste do executivo:\n{instrucoes}\n"
             system_prompt = (
                 "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
                 "Crie um guia prático para ligação ou reunião, não uma mensagem pronta.\n"
-                "Não invente dados e priorize o estágio da oportunidade, objetivos, última interação e decisor.\n"
-                "Retorne APENAS JSON válido no formato "
+                f"{_regras_texto_externo()}\n"
+                "Não invente dados. Retorne APENAS JSON válido no formato "
                 '{"abertura":"abertura curta e natural",'
                 '"objetivo":"resultado esperado desta conversa",'
                 '"perguntas":["pergunta aberta e específica"],'
@@ -1504,12 +1587,16 @@ def api_ia_sugerir_atividade():
     if _openrouter_available() and cliente:
         try:
             contexto = _contexto_ia_json(data, "next_action")
+            canais = ", ".join(CANAIS_MIDIA)
             system_prompt = (
                 "Você é o copiloto comercial da CENTRALCOMM, especialista em mídia digital.\n"
-                "Escolha UMA próxima melhor ação com base, nesta ordem, em cotação/pipeline, "
-                "último contato, pendências, objetivos e classificação. Explique a decisão.\n"
+                "Escolha UMA próxima melhor ação. Prefira um canal de mídia ainda não "
+                f"trabalhado neste cliente quando fizer sentido. Canais: {canais}.\n"
+                "O título deve parecer assunto comercial (ex.: 'Apresentar Netflix'), "
+                "nunca 'atividade agendada' ou jargão de CRM.\n"
                 "Responda APENAS em JSON com: "
                 '{"tipo":"...","titulo":"...","descricao":"...",'
+                '"canal_produto":"Netflix|Spotify|Serasa|...|",'
                 '"prioridade":"Alta|Média|Baixa","motivo":"...",'
                 '"acao_sugerida":"verbo + resultado","contexto_utilizado":["..."]}\n'
                 "Tipos válidos: ligacao, reuniao, email, whatsapp, planejamento, atividade\n"
@@ -1527,6 +1614,10 @@ def api_ia_sugerir_atividade():
             sugestao["titulo"] = _texto_ia_limpo(sugestao.get("titulo"))
             sugestao["descricao"] = _texto_ia_limpo(sugestao.get("descricao"))
             sugestao["motivo"] = _texto_ia_limpo(sugestao.get("motivo"))
+            canal = _texto_ia_limpo(sugestao.get("canal_produto"))
+            if canal not in CANAIS_MIDIA:
+                canal = next((item for item in CANAIS_MIDIA if item.lower() in sugestao["titulo"].lower()), "")
+            sugestao["canal_produto"] = canal
             sugestao["source"] = "openrouter"
             return _ok(_registrar_saida_ia(data, "sugerir-atividade", sugestao))
         except Exception as exc:  # pragma: no cover
@@ -1538,12 +1629,12 @@ def api_ia_sugerir_atividade():
     hoje = date.today()
     delta = {"Prospecção": 1, "Ativo": 3, "Geladeira": 14}.get(classificacao, 2)
     sugestao = {
-        "titulo": "Alinhamento comercial com " + ((cliente or {}).get("nome") or "cliente"),
+        "titulo": "Apresentar Netflix",
         "descricao": (
-            f"Retomar contato com o cliente ({classificacao}). "
-            f"Confirmar cadência de acompanhamento e próximos entregáveis. "
-            f"Responsável sugerido: {responsavel}."
+            f"Conversar com {((cliente or {}).get('nome') or 'o cliente')} sobre Netflix "
+            f"e encaixe de mídia. Responsável: {responsavel}."
         ),
+        "canal_produto": "Netflix",
         "tipo": "ligacao" if classificacao != "Ativo" else "reuniao",
         "prioridade": "Alta" if classificacao == "Prospecção" else "Média",
         "motivo": (
@@ -1649,8 +1740,10 @@ def api_ia_gerar_comunicacao():
             nome_contato = (contato_principal or {}).get("nome") or "responsável"
             responsavel = (session.get("user_name") or cliente.get("responsavel") or "Equipe CentralComm").strip()
             contexto = _contexto_ia_json(data, "comunicacao")
+            ancora = _ancora_conversa(data, cliente, contato_principal)
             system_prompt = (
                 "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
+                f"{_regras_texto_externo()} "
                 "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
                 "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
                 "Retorne APENAS JSON: "
@@ -1658,9 +1751,10 @@ def api_ia_gerar_comunicacao():
                 '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
             )
             user_prompt = (
+                f"{_bloco_ancora(ancora)}\n"
                 f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
                 f"Contato: {nome_contato}\nAssinatura: {responsavel}\n"
-                f"Contexto comercial:\n{contexto}"
+                f"Apoio comercial:\n{contexto}"
             )
             parsed = _parse_ia_json(
                 _call_openrouter(system_prompt, user_prompt, max_tokens=1000, temperature=0.4),

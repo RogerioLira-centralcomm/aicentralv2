@@ -7,7 +7,8 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=8">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -19,9 +20,10 @@
 
 {% block content %}
 {% import 'cadu_pi/_pi_row.html' as pi_row with context %}
-<div class="pi-page{% if origem_lista == 'nf_emitida' %} pi-page--fiscal{% endif %}" data-pi-list>
+<div class="pi-page{% if origem_lista != 'nf_emitida' %} pi-operation camp-list-page{% endif %}{% if origem_lista == 'nf_emitida' %} pi-page--fiscal{% endif %}" data-pi-list>
   {% include 'cadu_pi/_header_filters.html' %}
 
+  <main class="pi-list-surface{% if origem_lista != 'nf_emitida' %} camp-list-content{% endif %}">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-2 space-y-1">
@@ -33,8 +35,6 @@
       </div>
     {% endif %}
   {% endwith %}
-
-  <main class="pi-list-surface">
     {% if (visao_por_agencia|default(false) and agencias_grupo) or (not visao_por_agencia|default(false) and pis) %}
       <div class="cx-table-scroll">
       {% if visao_por_agencia|default(false) %}

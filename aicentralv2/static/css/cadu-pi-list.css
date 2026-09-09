@@ -732,7 +732,7 @@
 }
 
 .pi-list-surface {
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--pi-line);
   border-radius: 0.75rem;
   background: #fff;
@@ -741,18 +741,21 @@
 .pi-page .cx-table-scroll {
   overflow-x: auto;
   overflow-y: visible;
+  border-radius: inherit;
 }
 
 .pi-page .pi-list-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.pi-page .pi-list-table thead {
+  display: table-header-group;
 }
 
 .pi-page .pi-list-table thead th {
-  position: sticky;
-  z-index: 5;
-  top: calc(var(--erp-topbar-h, 3.5rem) + var(--pi-list-header-height, 0px));
+  position: static;
+  z-index: 1;
   border-bottom: 1px solid var(--pi-line);
   background: #edf3f3;
   color: #3d5557;
@@ -1783,23 +1786,6 @@
   }
 }
 
-/* Lista comercial unificada: aprovação, configuração e andamento. */
-.pi-page:not(.pi-page--fiscal) .pi-list-header__identity {
-  height: 4rem;
-  min-height: 4rem;
-  max-height: 4rem;
-  padding: 0 1.5rem;
-}
-
-.pi-page:not(.pi-page--fiscal) .pi-list-title-row {
-  flex-wrap: nowrap;
-  gap: 0.625rem;
-}
-
-.pi-page:not(.pi-page--fiscal) .pi-list-header__actions {
-  flex-wrap: nowrap;
-}
-
 .pi-view-switch--inline {
   border: 1px solid var(--pi-line);
   border-radius: 0.5rem;
@@ -1809,22 +1795,6 @@
 .pi-view-switch--inline button {
   min-height: 1.75rem;
   padding: 0.25rem 0.625rem;
-}
-
-.pi-page:not(.pi-page--fiscal) .pi-list-filters {
-  min-height: 3.5rem;
-  padding: 0.625rem 1.5rem;
-}
-
-.pi-page:not(.pi-page--fiscal) .pi-filter-panel {
-  gap: 0.625rem;
-}
-
-.pi-page:not(.pi-page--fiscal) .pi-filter-field > select,
-.pi-page:not(.pi-page--fiscal) .pi-filter-field input[type="search"],
-.pi-page:not(.pi-page--fiscal) .pi-filter-control {
-  height: 2.25rem;
-  min-height: 2.25rem;
 }
 
 .pi-page .pi-list-table--commercial {
@@ -1840,8 +1810,16 @@
 .pi-commercial-columns .pi-col-finance { width: 16%; }
 .pi-commercial-columns .pi-col-actions { width: 6%; }
 
-.pi-list-table--commercial th,
-.pi-list-table--commercial td {
+.pi-commercial-head th:nth-child(1) { width: 18%; }
+.pi-commercial-head th:nth-child(2) { width: 20%; }
+.pi-commercial-head th:nth-child(3) { width: 12%; }
+.pi-commercial-head th:nth-child(4) { width: 14%; }
+.pi-commercial-head th:nth-child(5) { width: 14%; }
+.pi-commercial-head th:nth-child(6) { width: 16%; }
+.pi-commercial-head th:nth-child(7) { width: 6%; }
+
+.pi-page .pi-list-table--commercial th,
+.pi-page .pi-list-table--commercial td {
   padding: 0.75rem;
   vertical-align: top;
 }
@@ -1953,25 +1931,9 @@
 }
 
 @media (max-width: 767px) {
-  .pi-page:not(.pi-page--fiscal) .pi-list-header__identity {
-    height: auto;
-    min-height: 4rem;
-    max-height: none;
-    align-items: stretch;
-    padding: 0.625rem 0.75rem;
-  }
-
-  .pi-page:not(.pi-page--fiscal) .pi-list-header__actions {
-    flex-wrap: wrap;
-  }
-
   .pi-view-switch--inline {
     order: 3;
     width: 100%;
-  }
-
-  .pi-page:not(.pi-page--fiscal) .pi-list-filters {
-    padding: 0.625rem 0.75rem;
   }
 
   .pi-page .pi-list-table-detail.pi-list-table--commercial,
@@ -2046,6 +2008,47 @@
   }
 }
 
+@media (min-width: 768px) {
+  .pi-page .pi-list-table.pi-list-table--commercial,
+  .pi-page .pi-list-table.pi-list-table--billing,
+  .pi-page .pi-list-table.pi-list-table--fiscal {
+    display: table;
+  }
+
+  .pi-page .pi-list-table--commercial > thead,
+  .pi-page .pi-list-table--billing > thead,
+  .pi-page .pi-list-table--fiscal > thead {
+    display: table-header-group;
+  }
+
+  .pi-page .pi-list-table--commercial > tbody,
+  .pi-page .pi-list-table--billing > tbody,
+  .pi-page .pi-list-table--fiscal > tbody {
+    display: table-row-group;
+  }
+
+  .pi-page .pi-list-table--commercial > tfoot,
+  .pi-page .pi-list-table--billing > tfoot,
+  .pi-page .pi-list-table--fiscal > tfoot {
+    display: table-footer-group;
+  }
+
+  .pi-page .pi-list-table--commercial tbody > .pi-row,
+  .pi-page .pi-list-table--billing tbody > .pi-row,
+  .pi-page .pi-list-table--fiscal tbody > .pi-row {
+    display: table-row;
+  }
+
+  .pi-page .pi-list-table--commercial thead th,
+  .pi-page .pi-list-table--commercial tbody > .pi-row > td,
+  .pi-page .pi-list-table--billing thead th,
+  .pi-page .pi-list-table--billing tbody > .pi-row > td,
+  .pi-page .pi-list-table--fiscal thead th,
+  .pi-page .pi-list-table--fiscal tbody > .pi-row > td {
+    display: table-cell;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pi-page *,
   .pi-list-header * {
@@ -2054,16 +2057,15 @@
   }
 }
 
-/* Operação de mídia: cabeçalho integrado e barra compacta, no mesmo
-   ritmo das demais mesas operacionais do ERP. */
-.pi-page:not(.pi-page--fiscal) {
+/* Fila fiscal mantém header/filtros legados; comercial usa pi-operation. */
+.pi-page--fiscal {
   width: calc(100% + 2rem);
   max-width: none;
   margin: -1rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: 1rem;
 }
 
-.pi-list-header {
+.pi-page--fiscal .pi-list-header {
   position: static;
   margin: 0;
   border: 0;
@@ -2073,26 +2075,12 @@
   backdrop-filter: none;
 }
 
-.pi-list-header__identity {
+.pi-page--fiscal .pi-list-header__identity {
   align-items: center;
   padding: 1rem 1.5rem 0.75rem;
 }
 
-.pi-list-eyebrow {
-  margin-bottom: 0.15rem;
-  color: #64748b;
-  letter-spacing: 0.03em;
-}
-
-.pi-list-title-row h1 {
-  font-size: 1.125rem;
-}
-
-.pi-list-subtitle {
-  margin-top: 0.2rem;
-}
-
-.pi-list-filters {
+.pi-page--fiscal .pi-list-filters {
   position: sticky;
   z-index: 32;
   top: var(--erp-topbar-h, 3.5rem);
@@ -2106,6 +2094,33 @@
   padding: 0 1.5rem;
   box-shadow: 0 3px 10px rgba(15, 47, 49, 0.04);
   backdrop-filter: blur(8px);
+}
+
+.pi-page.pi-operation.camp-list-page > .pi-op-header.camp-list-header {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.pi-page.pi-operation .pi-filter-field--client {
+  position: relative;
+}
+
+.pi-page.pi-operation .pi-client-results {
+  top: calc(100% + 0.25rem);
+  right: 0;
+  left: 0;
+}
+
+.pi-page.pi-operation > .pi-list-surface.camp-list-content {
+  margin: 0 auto;
+  max-width: 1780px;
+  width: 100%;
+  padding-top: 0;
+}
+
+.pi-page.pi-operation .pi-filter-clear-link {
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .pi-filter-panel {

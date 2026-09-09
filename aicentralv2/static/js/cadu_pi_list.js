@@ -712,14 +712,6 @@
     });
   }
 
-  function updateListStickyOffsets() {
-    const page = document.querySelector('[data-pi-list]');
-    const filters = page && page.querySelector('.pi-list-filters');
-    if (!page || !filters) return;
-    const isSticky = window.getComputedStyle(filters).position === 'sticky';
-    page.style.setProperty('--pi-list-header-height', isSticky ? filters.offsetHeight + 'px' : '0px');
-  }
-
   function toggleInvoiceGroup(button) {
     const key = button.getAttribute('data-nf-group-toggle');
     const expanded = button.getAttribute('aria-expanded') !== 'false';
@@ -735,7 +727,6 @@
     renderActiveFilters();
     assignMobileCellLabels();
     UI.updatePiStickyTop();
-    updateListStickyOffsets();
     if (subStatusAtual === '4' && origemLista === 'operacao') {
       document.querySelectorAll('.pi-campaigns-always-open').forEach(function (row) {
         const idPi = parseInt(row.id.replace('camp-collapse-', ''), 10);
@@ -744,7 +735,6 @@
     }
     window.addEventListener('resize', function () {
       UI.updatePiStickyTop();
-      updateListStickyOffsets();
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') fecharSidebarPi();
@@ -754,15 +744,6 @@
         switchPiSidebarTab(btn.getAttribute('data-tab'));
       });
     });
-    const filterToggle = document.getElementById('pi-filter-toggle');
-    const filterPanel = document.getElementById('pi-filter-panel');
-    if (filterToggle && filterPanel) {
-      filterToggle.addEventListener('click', function () {
-        const open = filterToggle.getAttribute('aria-expanded') !== 'true';
-        filterToggle.setAttribute('aria-expanded', String(open));
-        filterPanel.classList.toggle('is-open', open);
-      });
-    }
     document.querySelectorAll('[data-nf-group-toggle]').forEach(function (button) {
       button.addEventListener('click', function () {
         toggleInvoiceGroup(button);

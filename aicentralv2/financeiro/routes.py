@@ -249,7 +249,6 @@ def relatorio_incentivos():
     linhas = main_db.obter_relatorio_incentivos_agencias(
         ano_ref=ano_ref,
         mes_ref_comp=mes_ref_comp,
-        id_sub_status_pi=4,
     )
     totais = {
         'total_pis': sum(l['total_pis'] for l in linhas),
@@ -259,8 +258,8 @@ def relatorio_incentivos():
         'modo_contagem': 'cliente_id',
         'com_incentivo': True,
     }
-    anos_disponiveis = main_db.obter_anos_ref_pi(id_sub_status_pi=4)
-    meses_ref = main_db.obter_meses_ref_pi(id_sub_status_pi=4)
+    anos_disponiveis = main_db.obter_anos_ref_pi()
+    meses_ref = main_db.obter_meses_ref_pi()
     ano_ref_str = f'{ano_ref:02d}' if ano_ref is not None else None
     return render_template(
         'financeiro/relatorio_incentivos.html',
@@ -291,7 +290,6 @@ def api_relatorio_incentivos_pis():
         cliente_id=cliente_id,
         ano_ref=ano_ref,
         mes_ref_comp=mes_ref_comp,
-        id_sub_status_pi=4,
     )
     cli = main_db.obter_cliente_por_id(cliente_id) or {}
     entidade_nome = cli.get('nome_fantasia') or cli.get('razao_social') or '—'

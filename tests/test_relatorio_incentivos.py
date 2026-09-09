@@ -146,9 +146,11 @@ class RelatorioIncentivosAnoPadraoTest(unittest.TestCase):
                 26,
             )
 
-    def test_pagina_filtra_pis_validos_e_periodos(self):
+    def test_pagina_inclui_todos_status_e_periodos(self):
         with (
-            self.app.test_request_context("/financeiro/relatorio-incentivos"),
+            self.app.test_request_context(
+                "/financeiro/relatorio-incentivos?ano=&mes_ref_comp="
+            ),
             patch.object(
                 financeiro_routes.main_db,
                 "obter_relatorio_incentivos_agencias",
@@ -174,14 +176,13 @@ class RelatorioIncentivosAnoPadraoTest(unittest.TestCase):
 
         self.assertEqual(resposta, "OK")
         obter_relatorio.assert_called_once_with(
-            ano_ref=26,
+            ano_ref=None,
             mes_ref_comp=None,
-            id_sub_status_pi=4,
         )
-        obter_anos.assert_called_once_with(id_sub_status_pi=4)
-        obter_meses.assert_called_once_with(id_sub_status_pi=4)
+        obter_anos.assert_called_once_with()
+        obter_meses.assert_called_once_with()
 
-    def test_modal_filtra_somente_pis_validos(self):
+    def test_modal_inclui_pis_de_todos_status(self):
         with (
             self.app.test_request_context(
                 "/financeiro/api/relatorio-incentivos/pis?cliente_id=174"
@@ -209,7 +210,6 @@ class RelatorioIncentivosAnoPadraoTest(unittest.TestCase):
             cliente_id=174,
             ano_ref=26,
             mes_ref_comp=None,
-            id_sub_status_pi=4,
         )
 
 

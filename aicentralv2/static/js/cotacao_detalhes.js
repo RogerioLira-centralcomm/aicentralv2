@@ -49,6 +49,7 @@
       var active = button.dataset.tab === name;
       button.classList.toggle('active', active);
       button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll('[data-section]').forEach(function (section) {
       section.hidden = visible.indexOf(section.dataset.section) < 0;
@@ -59,13 +60,30 @@
   }
 
   function initQuoteTabs() {
-    document.querySelectorAll('.tab-nav-item[data-tab]').forEach(function (button) {
+    var tabs = Array.from(document.querySelectorAll('.tab-nav-item[data-tab]'));
+    tabs.forEach(function (button, index) {
+      button.setAttribute('role', 'tab');
       button.addEventListener('click', function () {
         showQuoteTab(button.dataset.tab);
       });
+      button.addEventListener('keydown', function (event) {
+        var next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        tabs[next].focus();
+        showQuoteTab(tabs[next].dataset.tab);
+      });
     });
-    var initial = (location.hash || '').replace('#', '');
+    var queryTab = new URLSearchParams(location.search).get('aba') || '';
+    var initial = (location.hash || '').replace('#', '') || queryTab;
     showQuoteTab(tabSections[initial] ? initial : 'resumo');
+    tabs.forEach(function (button) {
+      button.tabIndex = button.classList.contains('active') ? 0 : -1;
+    });
 
     var original = document.getElementById('contador_anexos');
     var mirror = document.getElementById('contador_anexos_nav');
@@ -183,6 +201,15 @@
         confirmDeleteMediaItem(idField && idField.value);
       }
     });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      var openItem = event.target.closest('[data-open-media-item]');
+      if (!openItem) return;
+      var lineId = Number(openItem.dataset.lineId || 0);
+      if (!lineId || typeof window.visualizarOuEditarLinha !== 'function') return;
+      event.preventDefault();
+      window.visualizarOuEditarLinha(lineId);
+    });
   }
 
   window.CotacaoMediaUI = {
@@ -193,6 +220,134 @@
       }
     }
   };
+
+  function initHeaderActions() {
+    var wrapper = document.getElementById('acoes_wrapper');
+    var trigger = document.querySelector('[data-cot-actions-trigger]');
+    var menu = document.getElementById('popover_acoes');
+
+    function closeMenu(returnFocus) {
+      if (!menu || !trigger) return;
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      if (returnFocus) trigger.focus();
+    }
+
+    if (trigger && menu) {
+      trigger.addEventListener('click', function (event) {
+        event.stopPropagation();
+        var willOpen = menu.hidden;
+        menu.hidden = !willOpen;
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (event) {
+        if (!menu.hidden && wrapper && !wrapper.contains(event.target)) closeMenu(false);
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) closeMenu(true);
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      var action = event.target.closest('[data-cot-header-action]');
+      if (action) {
+        var name = action.dataset.cotHeaderAction;
+        if (name === 'send' && typeof window.abrirModalEnviarProposta === 'function') window.abrirModalEnviarProposta();
+        if (name === 'pdf' && typeof window.abrirModalPropostaPdf === 'function') window.abrirModalPropostaPdf();
+        if (name === 'configure-link' && typeof window.abrirModalLinkPublico === 'function') window.abrirModalLinkPublico();
+        if (name === 'edit' && typeof window.abrirModalEditarCampanha === 'function') window.abrirModalEditarCampanha();
+        if (name === 'copy-link' && typeof window.copiarLinkPublico === 'function') {
+          window.copiarLinkPublico(action.dataset.publicUrl || '');
+        }
+        return;
+      }
+
+      var menuAction = event.target.closest('[data-cot-menu-action]');
+      if (!menuAction) return;
+      var menuName = menuAction.dataset.cotMenuAction;
+      var dialogByAction = {
+        approve: 'modal_aprovar',
+        reject: 'modal_rejeitar',
+        discount: 'modal_editar_desconto',
+        attachment: 'modal_adicionar_anexo'
+      };
+      if (dialogByAction[menuName]) {
+        var dialog = document.getElementById(dialogByAction[menuName]);
+        if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+      }
+      if (menuName === 'comment' && typeof window.adicionarComentarioRapido === 'function') window.adicionarComentarioRapido();
+      if (menuName === 'history') showQuoteTab('historico');
+      if (menuName === 'duplicate' && typeof window.duplicarCotacao === 'function') window.duplicarCotacao();
+      if (menuName === 'share' && typeof window.enviarCotacaoEmail === 'function') window.enviarCotacaoEmail();
+      if (menuName === 'typed-email' && typeof window.enviarEmailPorTipo === 'function') window.enviarEmailPorTipo();
+      if (menuName === 'public-link' && typeof window.abrirModalLinkPublico === 'function') window.abrirModalLinkPublico();
+      if (menuName === 'copy-public-link' && typeof window.copiarLinkPublico === 'function') {
+        window.copiarLinkPublico(menuAction.dataset.publicUrl || '');
+      }
+      closeMenu(false);
+    });
+
+    var statusSelect = document.querySelector('[data-cot-status-select]');
+    if (statusSelect) {
+      statusSelect.addEventListener('change', function () {
+        if (typeof window.alterarStatusCotacao === 'function') window.alterarStatusCotacao(statusSelect.value);
+      });
+    }
+  }
+
+  function initSupplementalInteractions() {
+    document.addEventListener('click', function (event) {
+      if (event.target.closest('[data-open-audience]')) {
+        if (typeof window.abrirModalAudiencia === 'function') window.abrirModalAudiencia();
+        return;
+      }
+      if (event.target.closest('[data-open-attachment]')) {
+        var dialog = document.getElementById('modal_adicionar_anexo');
+        if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+        return;
+      }
+      var audienceRow = event.target.closest('[data-open-audience-item]');
+      if (audienceRow && typeof window.editarAudienciaCotacao === 'function') {
+        window.editarAudienciaCotacao(Number(audienceRow.dataset.openAudienceItem || 0));
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      var audienceRow = event.target.closest('[data-open-audience-item]');
+      if (!audienceRow || typeof window.editarAudienciaCotacao !== 'function') return;
+      event.preventDefault();
+      window.editarAudienciaCotacao(Number(audienceRow.dataset.openAudienceItem || 0));
+    });
+
+    var dropzone = document.querySelector('[data-attachment-dropzone]');
+    var input = document.querySelector('[data-attachment-input]');
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (event) {
+          event.preventDefault();
+          dropzone.classList.add('is-dragging');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (event) {
+          event.preventDefault();
+          dropzone.classList.remove('is-dragging');
+        });
+      });
+      dropzone.addEventListener('drop', function (event) {
+        var files = event.dataTransfer && event.dataTransfer.files;
+        if (files && files.length && typeof window.uploadAnexos === 'function') window.uploadAnexos(files);
+      });
+    }
+    if (input) {
+      input.addEventListener('change', function () {
+        if (input.files && input.files.length && typeof window.uploadAnexos === 'function') {
+          window.uploadAnexos(input.files);
+        }
+      });
+    }
+  }
 
   async function requestState() {
     var response = await fetch(endpoint, {
@@ -381,6 +536,8 @@
   }
 
   initQuoteTabs();
+  initHeaderActions();
+  initSupplementalInteractions();
   initMediaItems();
   loadState(false);
 })();

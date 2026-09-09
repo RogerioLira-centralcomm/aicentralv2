@@ -5,7 +5,7 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
@@ -19,7 +19,7 @@
 </optgroup>
 {% endfor %}
 {% endmacro %}
-<style>
+<style media="not all" data-legacy-cotacao-styles>
   /* Estilo customizado para abas ativas - padrão CRM */
   .tab-crm {
     padding: 0.5rem 1rem;
@@ -249,73 +249,6 @@
 </style>
 
 <script>
-function toggleAudienciasCollapse() {
-  var content = document.getElementById('audiencias_content');
-  var icon = document.getElementById('audiencias_collapse_icon');
-  if (content.style.display === 'none') {
-    content.style.display = 'block';
-    if (icon) icon.style.transform = 'rotate(90deg)';
-  } else {
-    content.style.display = 'none';
-    if (icon) icon.style.transform = 'rotate(0deg)';
-  }
-}
-
-function trocarAbaCotacao(aba) {
-  // Remover active de todas as abas
-  document.querySelectorAll('.tab-crm').forEach(function(tab) {
-    tab.classList.remove('tab-active');
-  });
-
-  // Esconder todo o conteúdo
-  document.querySelectorAll('.aba-content').forEach(function(content) {
-    content.classList.remove('active');
-  });
-
-  // Ativar aba clicada
-  var tabElement = document.getElementById('tab_' + aba);
-  var contentElement = document.getElementById('content_' + aba);
-
-  if (tabElement) {
-    tabElement.classList.add('tab-active');
-  }
-
-  if (contentElement) {
-    contentElement.classList.add('active');
-  }
-}
-
-// Funções de Drag & Drop para Anexos - definidas no início
-function handleDragOver(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  event.currentTarget.classList.add('border-gray-400', 'bg-gray-50');
-}
-
-function handleDragLeave(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  event.currentTarget.classList.remove('border-gray-400', 'bg-gray-50');
-}
-
-function handleDrop(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  event.currentTarget.classList.remove('border-gray-400', 'bg-gray-50');
-
-  var files = event.dataTransfer.files;
-  if (files.length > 0) {
-    uploadAnexos(files);
-  }
-}
-
-function handleFileSelect(event) {
-  var files = event.target.files;
-  if (files.length > 0) {
-    uploadAnexos(files);
-  }
-}
-
 function impostoCotacaoDescricao() {
   if (impostoPercentualCotacao !== null && !isNaN(impostoPercentualCotacao)) {
     return 'Imposto da cotação (' + impostoPercentualCotacao.toFixed(2).replace('.', ',') + '%).';
@@ -2181,72 +2114,76 @@ function calcularVolumeEdit() {
 {% set fator_liquido = ((1 - _pa / 100) * (1 - _pp / 100)) if (_pa or _pp) else 1 %}
 <div id="cotacao-operacao-app" class="cot-op-page" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
 
-  <style>
+  <style media="not all" data-legacy-cotacao-tabs>
     .tab-nav-item { border-bottom:2px solid transparent; }
     .tab-nav-item.active { color:#065f46; border-bottom-color:#10b981; font-weight:600; }
     .tab-nav-item.active .tab-nav-icon { color:#10b981; }
   </style>
 
-  <!-- ==================== HEADER COMPACTO (estilo CRM) ==================== -->
-  <div class="cot-op-header bg-white border-b border-gray-200 px-2 py-0.5 mb-2 sticky top-0 z-40 erp-content-sticky">
-    <div class="flex items-center justify-between gap-4">
+  <!-- ==================== HEADER OPERACIONAL ==================== -->
+  <header class="cot-op-header">
+    <div class="cot-op-header__row">
       <!-- Voltar + Título + Código -->
-      <div class="flex items-center gap-2 min-w-0">
-        <a href="{{ url_for('cotacoes.cotacoes_list', status=cotacao.status) if cotacao and cotacao.status else url_for('cotacoes.cotacoes_list') }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
-          <i class="fas fa-arrow-left text-[10px]"></i>
+      <div class="cot-op-title-wrap">
+        <a href="{{ url_for('cotacoes.cotacoes_list', status=cotacao.status) if cotacao and cotacao.status else url_for('cotacoes.cotacoes_list') }}" class="cot-op-icon-btn" title="Voltar" aria-label="Voltar">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
         </a>
-        <div class="min-w-0 flex items-center gap-2">
-          <h1 class="text-xs font-semibold text-gray-800 leading-tight truncate">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
+        <div class="cot-op-title-copy">
+          <div class="cot-op-title-line">
+          <h1>{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
           {% if cotacao %}
-          <span class="text-[10px] font-mono font-semibold text-gray-700 bg-gray-100 px-1 py-0.5 rounded flex-shrink-0">{{ cotacao.numero_cotacao }}</span>
+          <span class="cot-op-code">{{ cotacao.numero_cotacao }}</span>
+          <span id="cot-op-status-badge" class="cot-op-status is-{{ (cotacao.status or 'rascunho')|lower|replace(' ', '-') }}">{{ cotacao.status }}</span>
           {% if cotacao and cotacao.imposto_percentual is not none %}
-          <span class="text-[9px] text-gray-500 bg-gray-50 border border-gray-200 px-1 py-0.5 rounded flex-shrink-0" title="Percentual de imposto usado nesta cotação">Imp {{ '%.2f'|format(cotacao.imposto_percentual|float)|replace('.', ',') }}%</span>
+          <span class="cot-op-tax" title="Percentual de imposto usado nesta cotação">Imposto {{ '%.2f'|format(cotacao.imposto_percentual|float)|replace('.', ',') }}%</span>
           {% endif %}
           {% endif %}
+          </div>
+          <p>{{ (cliente.nome_fantasia or cliente.razao_social) if cliente else 'Cliente não informado' }}{% if cotacao and cotacao.periodo_inicio %} · {{ cotacao.periodo_inicio.strftime('%d/%m/%Y') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}{% endif %}</p>
         </div>
       </div>
 
       <!-- Ações (direita) -->
-      <div class="flex items-center gap-1.5 flex-shrink-0">
+      <div class="cot-op-actions">
         {% if cotacao %}
-        <button type="button" onclick="abrirModalEnviarProposta()" class="px-2.5 py-1 text-xs rounded text-white flex items-center gap-1.5 transition-colors" style="background-color:#72cd80;">
-          <i class="fas fa-paper-plane text-[10px]"></i> Enviar proposta
+        <button type="button" data-cot-header-action="send" class="cot-op-btn cot-op-btn--primary">
+          <i class="fas fa-paper-plane" aria-hidden="true"></i>Enviar proposta
         </button>
-        <button type="button" onclick="abrirModalPropostaPdf()" class="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1.5 transition-colors">
-          <i class="fas fa-file-pdf text-[10px] text-red-500"></i> Gerar proposta (PDF)
+        <button type="button" data-cot-header-action="pdf" class="cot-op-btn cot-op-btn--secondary">
+          <i class="fas fa-file-pdf" aria-hidden="true"></i>Gerar PDF
         </button>
         {% if cotacao.link_publico_token %}
-        <button type="button" onclick="copiarLinkPublico('{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}')" class="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1.5 transition-colors">
-          <i class="fas fa-link text-[10px] text-gray-500"></i> Copiar link
+        <button type="button" data-cot-header-action="copy-link" data-public-url="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="cot-op-btn cot-op-btn--secondary">
+          <i class="fas fa-link" aria-hidden="true"></i>Copiar link
         </button>
-        <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" rel="noopener" class="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1.5 transition-colors">
-          <i class="fas fa-eye text-[10px] text-gray-500"></i> Visualizar como cliente
+        <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" rel="noopener" class="cot-op-btn cot-op-btn--secondary cot-op-client-preview">
+          <i class="fas fa-eye" aria-hidden="true"></i>Visualizar
         </a>
         {% else %}
-        <button type="button" onclick="abrirModalLinkPublico()" class="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1.5 transition-colors">
-          <i class="fas fa-link text-[10px] text-gray-500"></i> Copiar link
+        <button type="button" data-cot-header-action="configure-link" class="cot-op-btn cot-op-btn--secondary">
+          <i class="fas fa-link" aria-hidden="true"></i>Criar link
         </button>
         {% endif %}
         {% endif %}
 
         <!-- ==================== POPOVER AÇÕES ==================== -->
         {% if cotacao %}
-        <div class="relative" id="acoes_wrapper">
-          <button id="btn_acoes_topo" type="button" onclick="toggleAcoesPopover(event)"
-                  class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1">
-            <i class="fas fa-ellipsis-h text-gray-500"></i>
+        <div class="cot-op-actions-wrap" id="acoes_wrapper">
+          <button id="btn_acoes_topo" type="button" data-cot-actions-trigger class="cot-op-btn cot-op-btn--secondary"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="popover_acoes">
+            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
             Mais opções
-            <i class="fas fa-chevron-down text-[10px] text-gray-400"></i>
+            <i class="fas fa-chevron-down cot-op-actions-chevron" aria-hidden="true"></i>
           </button>
           <div id="popover_acoes"
-               class="hidden absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-2 z-50">
+               class="cot-op-actions-menu" role="menu" hidden>
             <div class="space-y-1">
               <!-- Mudança de status (movido do header) -->
               <div class="border-b border-gray-200 pb-1.5 mb-1.5">
                 <label class="block text-[9px] font-semibold text-gray-600 mb-1">
                   <i class="fas fa-flag mr-1 text-gray-400"></i>Status
                 </label>
-                <select id="status_header_select" data-status-atual="{{ cotacao.status }}" {% if cotacao.status == 'Aprovada' %}disabled title="Cotação aprovada: o status não pode ser alterado."{% endif %} class="w-full text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:border-gray-400 focus:outline-none {% if cotacao.status == 'Aprovada' %}cursor-not-allowed opacity-70{% endif %}" onchange="alterarStatusCotacao(this.value)">
+                <select id="status_header_select" data-cot-status-select data-status-atual="{{ cotacao.status }}" {% if cotacao.status == 'Aprovada' %}disabled title="Cotação aprovada: o status não pode ser alterado."{% endif %} class="w-full text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:border-gray-400 focus:outline-none {% if cotacao.status == 'Aprovada' %}cursor-not-allowed opacity-70{% endif %}">
                   <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
                   <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
                   <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
@@ -2256,10 +2193,10 @@ function calcularVolumeEdit() {
               </div>
               <div id="acoes_aprovar_rejeitar">
                 {% if cotacao.status in ['Enviada'] %}
-                <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-1">
+                <button type="button" data-cot-menu-action="approve" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-1">
                   <i class="fas fa-check mr-1.5 text-green-600"></i>Aprovar Proposta
                 </button>
-                <button onclick="document.getElementById('modal_rejeitar').showModal()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-1">
+                <button type="button" data-cot-menu-action="reject" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-1">
                   <i class="fas fa-times mr-1.5 text-red-600"></i>Rejeitar Proposta
                 </button>
                 <div class="border-t border-gray-200 my-1"></div>
@@ -2273,24 +2210,24 @@ function calcularVolumeEdit() {
               </div>
 
               {% if modo == 'editar' and cotacao.status in ['Rascunho'] %}
-              <button onclick="document.getElementById('modal_editar_desconto').showModal()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+              <button type="button" data-cot-menu-action="discount" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-percent mr-1.5 text-gray-400"></i>Editar Desconto
               </button>
               {% endif %}
 
-              <button onclick="adicionarComentarioRapido()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+              <button type="button" data-cot-menu-action="comment" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-comment mr-1.5 text-gray-400"></i>Adicionar Comentário
               </button>
-              <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+              <button type="button" data-cot-menu-action="attachment" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-paperclip mr-1.5 text-gray-400"></i>Adicionar Anexo
               </button>
-              <button onclick="mostrarTabCotacao('historico')" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+              <button type="button" data-cot-menu-action="history" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-history mr-1.5 text-gray-400"></i>Ver Histórico
               </button>
-              <button onclick="duplicarCotacao()" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+              <button type="button" data-cot-menu-action="duplicate" class="w-full px-2 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
                 <i class="fas fa-copy mr-1.5 text-gray-400"></i>Duplicar Cotação
               </button>
-              <button onclick="enviarCotacaoEmail()" class="w-full px-2 py-0.5 text-[10px] rounded text-white text-left" style="background-color: #72cd80;">
+              <button type="button" data-cot-menu-action="share" class="w-full px-2 py-0.5 text-[10px] rounded text-white text-left">
                 <i class="fas fa-share mr-1.5"></i>Compartilhar Proposta
               </button>
 
@@ -2311,7 +2248,7 @@ function calcularVolumeEdit() {
                     Cotação Rejeitada {% if cotacao.status != 'Rejeitada' %}(requer Rejeitada){% endif %}
                   </option>
                 </select>
-                <button onclick="enviarEmailPorTipo()" class="w-full px-2 py-0.5 text-[10px] rounded text-white text-left" style="background-color: #72cd80;">
+                <button type="button" data-cot-menu-action="typed-email" class="w-full px-2 py-0.5 text-[10px] rounded text-white text-left">
                   <i class="fas fa-paper-plane mr-1.5"></i>Enviar Email
                 </button>
               </div>
@@ -2328,13 +2265,13 @@ function calcularVolumeEdit() {
                       <span class="w-1.5 h-1.5 rounded-full {% if cotacao.link_publico_ativo %}bg-green-500{% else %}bg-red-500{% endif %}"></span>
                       <span class="text-[10px] text-gray-600">{% if cotacao.link_publico_ativo %}Link ativo{% else %}Link inativo{% endif %}</span>
                     </div>
-                    <button onclick="abrirModalLinkPublico()" class="p-0.5 rounded hover:bg-gray-100 text-gray-400" title="Configurar">
+                    <button type="button" data-cot-menu-action="public-link" class="p-0.5 rounded hover:bg-gray-100 text-gray-400" title="Configurar">
                       <i class="fas fa-cog text-[10px]"></i>
                     </button>
                   </div>
                   <input type="text" value="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="w-full text-[10px] px-1.5 py-0.5 border border-gray-200 rounded bg-gray-50 text-gray-600" readonly>
                   <div class="flex gap-1">
-                    <button onclick="copiarLinkPublico('{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}')" class="flex-1 px-1.5 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
+                    <button type="button" data-cot-menu-action="copy-public-link" data-public-url="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="flex-1 px-1.5 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
                       <i class="fas fa-copy mr-0.5"></i>Copiar
                     </button>
                     <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" class="px-1.5 py-0.5 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
@@ -2344,7 +2281,7 @@ function calcularVolumeEdit() {
                 </div>
                 {% else %}
                 <p class="text-[10px] text-gray-400 mb-1">Nenhum link gerado</p>
-                <button onclick="abrirModalLinkPublico()" class="w-full px-2 py-0.5 text-[10px] rounded text-white" style="background-color: #72cd80;">
+                <button type="button" data-cot-menu-action="public-link" class="w-full px-2 py-0.5 text-[10px] rounded text-white">
                   <i class="fas fa-plus mr-1"></i>Gerar Link Público
                 </button>
                 {% endif %}
@@ -2352,41 +2289,16 @@ function calcularVolumeEdit() {
             </div>
           </div>
         </div>
-        <script>
-          (function(){
-            if (window.toggleAcoesPopover) return;
-            function togglePop(ev){
-              if (ev) ev.stopPropagation();
-              var p = document.getElementById('popover_acoes');
-              if (!p) return;
-              p.classList.toggle('hidden');
-            }
-            function fecharFora(ev){
-              var p = document.getElementById('popover_acoes');
-              var w = document.getElementById('acoes_wrapper');
-              if (!p || !w || p.classList.contains('hidden')) return;
-              if (!w.contains(ev.target)) p.classList.add('hidden');
-            }
-            function fecharEsc(ev){
-              if (ev.key !== 'Escape') return;
-              var p = document.getElementById('popover_acoes');
-              if (p) p.classList.add('hidden');
-            }
-            window.toggleAcoesPopover = togglePop;
-            document.addEventListener('click', fecharFora);
-            document.addEventListener('keydown', fecharEsc);
-          })();
-        </script>
         {% endif %}
 
         {% if modo == 'editar' %}
-        <button id="btn_editar_header" type="button" onclick="abrirModalEditarCampanha()" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
-          <i class="fas fa-edit mr-1"></i>Editar proposta
+        <button id="btn_editar_header" type="button" data-cot-header-action="edit" class="cot-op-btn cot-op-btn--secondary" {% if cotacao.status not in ['Rascunho', 'Em Acompanhamento'] %}hidden{% endif %}>
+          <i class="fas fa-edit" aria-hidden="true"></i>Editar proposta
         </button>
         {% endif %}
       </div>
     </div>
-  </div>
+  </header>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -2448,104 +2360,103 @@ function calcularVolumeEdit() {
   {# ==================== BARRA DE MÉTRICAS (6 cards) ==================== #}
   <div class="cot-op-layout">
   <main class="cot-op-main" aria-label="Workspace da cotação">
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
+  <section class="cot-op-summary-rail" aria-label="Resumo financeiro e operacional">
     <!-- Status -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0">
+    <div class="cot-op-metric">
+      <span class="cot-op-metric__icon">
         <span class="w-2.5 h-2.5 rounded-full {{ _status_cor }}"></span>
       </span>
-      <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Status</p>
-        <p class="text-sm font-semibold text-gray-800 truncate">{{ _status }}</p>
+      <div class="cot-op-metric__content">
+        <span>Status</span>
+        <strong id="cot-op-status-summary">{{ _status }}</strong>
       </div>
     </div>
     <!-- Valor Líq. / Bruto -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0 text-emerald-600">
-        <i class="fas fa-coins text-xs"></i>
+    <div class="cot-op-metric cot-op-metric--money">
+      <span class="cot-op-metric__icon">
+        <i class="fas fa-coins" aria-hidden="true"></i>
       </span>
-      <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor Líq.</p>
-        <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
-        <p class="text-[9px] uppercase tracking-wide text-gray-400 leading-tight mt-0.5">Valor Bruto</p>
-        <p class="text-xs font-semibold text-gray-600 truncate">R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+      <div class="cot-op-metric__content">
+        <span>Valor líquido</span>
+        <strong>R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</strong>
+        <small>Bruto R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</small>
       </div>
     </div>
     <!-- Custo de Mídia orçado -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-blue-600">
-        <i class="fas fa-photo-video text-xs"></i>
+    <div class="cot-op-metric">
+      <span class="cot-op-metric__icon">
+        <i class="fas fa-photo-video" aria-hidden="true"></i>
       </span>
-      <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Custo de Mídia orçado</p>
-        <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(rf_total_custo_midia).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+      <div class="cot-op-metric__content">
+        <span>Custo de mídia</span>
+        <strong>R$ {{ "{:,.2f}".format(rf_total_custo_midia).replace(',', '_').replace('.', ',').replace('_', '.') }}</strong>
       </div>
     </div>
     <!-- Budget -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
-        <i class="fas fa-bullseye text-xs"></i>
+    <div class="cot-op-metric">
+      <span class="cot-op-metric__icon">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
       </span>
-      <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Budget</p>
-        <p class="text-sm font-semibold text-gray-800 truncate">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
+      <div class="cot-op-metric__content">
+        <span>Budget</span>
+        <strong>R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</strong>
       </div>
     </div>
     <!-- Período -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
-        <i class="fas fa-calendar-alt text-xs"></i>
+    <div class="cot-op-metric">
+      <span class="cot-op-metric__icon">
+        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
       </span>
-      <div class="min-w-0">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Período</p>
-        <p class="text-xs font-semibold text-gray-800 truncate">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '—' }}{% if cotacao and cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}</p>
+      <div class="cot-op-metric__content">
+        <span>Período</span>
+        <strong>{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '—' }}{% if cotacao and cotacao.periodo_fim %} – {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}</strong>
       </div>
     </div>
     <!-- Plataforma -->
-    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
-      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
-        <i class="fas fa-tv text-xs"></i>
+    <div class="cot-op-metric">
+      <span class="cot-op-metric__icon">
+        <i class="fas fa-tv" aria-hidden="true"></i>
       </span>
-      <div class="min-w-0 flex-1">
-        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
+      <div class="cot-op-metric__content">
+        <span>Plataforma</span>
         {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %}
-        <select id="cotacao_plataforma" class="cx-select cx-select-xs w-full max-w-[220px] mt-0.5 text-xs h-7 min-h-7" data-valor-anterior="{{ cotacao.plataforma_campanha if cotacao and cotacao.plataforma_campanha else '' }}" onchange="salvarPlataformaCotacao(this.value)">
+        <select id="cotacao_plataforma" class="cx-select" data-valor-anterior="{{ cotacao.plataforma_campanha if cotacao and cotacao.plataforma_campanha else '' }}" onchange="salvarPlataformaCotacao(this.value)">
           {{ opcoes_plataforma_campanha(cotacao.plataforma_campanha if cotacao else '') }}
         </select>
         {% elif _plat_cotacao %}
-        <span class="px-1.5 py-0.5 text-[10px] rounded text-white inline-block mt-0.5" style="background-color: #3b82f6;">{{ _plat_cotacao }}</span>
+        <strong>{{ _plat_cotacao }}</strong>
         {% else %}
-        <p class="text-sm font-semibold text-gray-400 mt-0.5">—</p>
+        <strong>—</strong>
         {% endif %}
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- ==================== ABAS HORIZONTAIS ==================== -->
-  <div class="cot-op-tabs bg-white border border-gray-200 rounded-lg mb-2 px-2 sticky top-9 z-30">
-    <nav class="flex items-center gap-1 overflow-x-auto">
+  <div class="cot-op-tabs">
+    <nav role="tablist" aria-label="Seções da cotação">
       <button type="button" data-tab="resumo"
-              class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
-        <i class="fas fa-th-large text-gray-400 tab-nav-icon"></i> Resumo
+              class="tab-nav-item">
+        <i class="fas fa-th-large tab-nav-icon" aria-hidden="true"></i>Resumo
       </button>
       <button type="button" data-tab="itens"
-              class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
-        <i class="fas fa-list text-gray-400 tab-nav-icon"></i> Itens da proposta
-        <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1">{{ linhas|length if linhas else 0 }}</span>
+              class="tab-nav-item">
+        <i class="fas fa-list tab-nav-icon" aria-hidden="true"></i>Itens da proposta
+        <span class="cot-op-tab-count">{{ linhas|length if linhas else 0 }}</span>
       </button>
       <button type="button" data-tab="audiencias"
-              class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
-        <i class="fas fa-users text-gray-400 tab-nav-icon"></i> Audiências
-        <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1">{{ audiencias|length if audiencias else 0 }}</span>
+              class="tab-nav-item">
+        <i class="fas fa-users tab-nav-icon" aria-hidden="true"></i>Audiências
+        <span class="cot-op-tab-count">{{ audiencias|length if audiencias else 0 }}</span>
       </button>
       <button type="button" data-tab="historico"
-              class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
-        <i class="fas fa-history text-gray-400 tab-nav-icon"></i> Histórico
+              class="tab-nav-item">
+        <i class="fas fa-history tab-nav-icon" aria-hidden="true"></i>Histórico
       </button>
       <button type="button" data-tab="anexos"
-              class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
-        <i class="fas fa-paperclip text-gray-400 tab-nav-icon"></i> Anexos
-        <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1" id="contador_anexos_nav">0</span>
+              class="tab-nav-item">
+        <i class="fas fa-paperclip tab-nav-icon" aria-hidden="true"></i>Anexos
+        <span class="cot-op-tab-count" id="contador_anexos_nav">0</span>
       </button>
     </nav>
   </div>
@@ -2899,48 +2810,45 @@ function calcularVolumeEdit() {
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
       <section data-section="audiencias" class="cot-op-secondary-section">
-        <div class="flex items-center justify-between mb-1{% if not audiencias %} cursor-pointer hover:bg-gray-50 rounded{% endif %}" {% if not audiencias %}onclick="toggleAudienciasCollapse()" id="audiencias_header"{% endif %}>
-          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-            <i class="fas fa-users text-gray-400"></i>
-            Audiências Selecionadas
-            {% if not audiencias %}
-            <i class="fas fa-chevron-right text-gray-400 text-xs transition-transform duration-200" id="audiencias_collapse_icon"></i>
-            {% endif %}
-          </h2>
-          <div class="flex items-center gap-1.5">
-            <span class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
+        <div class="cot-op-section-head">
+          <div>
+            <h2><i class="fas fa-users" aria-hidden="true"></i>Audiências selecionadas</h2>
+            <p>Segmentações adicionais incluídas no investimento da proposta.</p>
+          </div>
+          <div class="cot-op-section-actions">
+            <span class="cot-op-count">{{ audiencias|length if audiencias else 0 }} audiências</span>
             {% if modo == 'editar' %}
-            <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
-              <i class="fas fa-plus mr-1"></i>Adicionar
+            <button id="btn_adicionar_audiencia" type="button" data-open-audience class="cot-op-btn cot-op-btn--primary"{% if cotacao.status not in ['Rascunho'] %} hidden{% endif %}>
+              <i class="fas fa-plus" aria-hidden="true"></i>Adicionar
             </button>
             {% endif %}
           </div>
         </div>
-        <div id="audiencias_content" {% if not audiencias %}style="display: none;"{% endif %}>
+        <div id="audiencias_content">
         <div class="cot-op-table-wrap cot-op-table-wrap--audiencias" role="region" aria-label="Audiências selecionadas" tabindex="0">
-        <table class="w-full text-xs">
-          <thead class="bg-gray-100">
-            <tr class="text-[10px] text-gray-600 uppercase">
-              <th class="font-medium py-1 px-1.5" style="min-width: 60px;">Plataf.</th>
-              <th class="font-medium py-1 px-1.5">Audiência</th>
+        <table class="cot-audience-table">
+          <thead>
+            <tr>
+              <th>Plataforma</th>
+              <th>Audiência</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
+          <tbody>
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-liquido="{{ aud.investimento_liquido or aud.investimento_sugerido or 0 }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
-                <td class="py-1 px-1.5">
+              <tr class="linha-audiencia-cotacao{% if cotacao.status in ['Rascunho'] %} is-editable{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-liquido="{{ aud.investimento_liquido or aud.investimento_sugerido or 0 }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}"{% if cotacao.status in ['Rascunho'] %} data-open-audience-item="{{ aud.id }}" tabindex="0" title="Editar audiência"{% endif %}>
+                <td>
                   {% if aud.audiencia_calculo_plataforma %}
-                  <span class="px-1 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ aud.audiencia_calculo_plataforma }}</span>
+                  <span class="cot-audience-platform">{{ aud.audiencia_calculo_plataforma }}</span>
                   {% else %}
-                  <span class="text-[10px] text-gray-400">-</span>
+                  <span class="cot-op-muted">—</span>
                   {% endif %}
                 </td>
-                <td class="py-1 px-1.5 text-[10px]" title="{{ aud.audiencia_nome or '' }}">
-                  <div class="font-medium text-gray-800">
-                    <i class="fas fa-pencil-alt text-gray-400 mr-0.5 text-[9px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
+                <td title="{{ aud.audiencia_nome or '' }}">
+                  <div class="cot-audience-name">
+                    {% if cotacao.status in ['Rascunho'] %}<i class="fas fa-pencil-alt icone-editar-audiencia" aria-hidden="true"></i>{% endif %}{{ aud.audiencia_nome or '—' }}
                   </div>
-                  <div class="text-[9px] text-gray-400">
+                  <div class="cot-audience-meta">
                     {% if aud.audiencia_categoria %}{{ aud.audiencia_categoria }}{% endif %}
                     {% if aud.audiencia_categoria and (aud.id_audiencia_plataforma or aud.fonte) %} &middot; {% endif %}
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
@@ -2951,7 +2859,7 @@ function calcularVolumeEdit() {
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="2" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
+              <tr><td colspan="2" class="cot-op-empty-cell">Nenhuma audiência adicionada.</td></tr>
             {% endif %}
           </tbody>
         </table>
@@ -2960,31 +2868,31 @@ function calcularVolumeEdit() {
       </section>
 
       <!-- HISTÓRICO E COMENTÁRIOS -->
-      <div data-section="historico" class="bg-white rounded border border-gray-200 p-2">
-        <div class="flex items-center justify-between mb-1">
-          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-            <i class="fas fa-history text-gray-400"></i>
-            Histórico e Comentários
-          </h2>
-          <span id="contador_comentarios_main" class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">0</span>
+      <section data-section="historico" class="cot-op-secondary-section">
+        <div class="cot-op-section-head">
+          <div>
+            <h2><i class="fas fa-history" aria-hidden="true"></i>Histórico e comentários</h2>
+            <p>Decisões e registros comerciais desta proposta.</p>
+          </div>
+          <span id="contador_comentarios_main" class="cot-op-count">0 comentários</span>
         </div>
-        <div id="lista_comentarios" class="space-y-2 max-h-40 overflow-y-auto">
-          <p class="text-center text-gray-400 py-4 text-sm">Nenhum comentário ainda</p>
+        <div id="lista_comentarios" class="cot-op-feed">
+          <p class="cot-op-empty-cell">Nenhum comentário ainda.</p>
         </div>
-      </div>
+      </section>
 
       <!-- ANEXOS -->
-      <div data-section="anexos" class="bg-white rounded border border-gray-200 p-2">
-        <div class="flex items-center justify-between mb-1">
-          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-            <i class="fas fa-paperclip text-gray-400"></i>
-            Anexos
-          </h2>
-          <div class="flex items-center gap-1.5">
-            <span id="contador_anexos" class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">0</span>
+      <section data-section="anexos" class="cot-op-secondary-section">
+        <div class="cot-op-section-head">
+          <div>
+            <h2><i class="fas fa-paperclip" aria-hidden="true"></i>Anexos</h2>
+            <p>Arquivos de apoio, apresentações e documentos comerciais.</p>
+          </div>
+          <div class="cot-op-section-actions">
+            <span id="contador_anexos" class="cot-op-count">0 anexos</span>
             {% if modo == 'editar' %}
-            <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
-              <i class="fas fa-plus mr-1"></i>Adicionar
+            <button id="btn_adicionar_anexo" type="button" data-open-attachment class="cot-op-btn cot-op-btn--primary"{% if cotacao.status not in ['Rascunho'] %} hidden{% endif %}>
+              <i class="fas fa-plus" aria-hidden="true"></i>Adicionar
             </button>
             {% endif %}
           </div>
@@ -2992,18 +2900,14 @@ function calcularVolumeEdit() {
 
         <!-- Área de Drag & Drop -->
         {% if modo == 'editar' %}
-        <div id="area_drag_drop_anexos" class="border-2 border-dashed border-gray-300 rounded-lg p-2 mb-2 text-center transition-colors"
-             ondragover="handleDragOver(event)"
-             ondragleave="handleDragLeave(event)"
-             ondrop="handleDrop(event)"
-             {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
-          <i class="fas fa-cloud-upload-alt text-lg text-gray-400 mb-1"></i>
-          <p class="text-xs text-gray-500">Arraste arquivos aqui ou</p>
-          <label class="cursor-pointer">
-            <span class="text-xs font-medium" style="color: #72cd80;">clique para selecionar</span>
-            <input type="file" multiple class="hidden" onchange="handleFileSelect(event)">
+        <div id="area_drag_drop_anexos" class="cot-op-dropzone" data-attachment-dropzone{% if cotacao.status not in ['Rascunho'] %} hidden{% endif %}>
+          <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+          <p>Arraste arquivos aqui ou</p>
+          <label>
+            <span>selecione no computador</span>
+            <input type="file" multiple hidden data-attachment-input>
           </label>
-          <p class="text-[10px] text-gray-400 mt-0.5">Máximo 15MB por arquivo</p>
+          <small>Máximo de 15 MB por arquivo.</small>
         </div>
 
         <!-- Progress bar de upload -->
@@ -3014,9 +2918,9 @@ function calcularVolumeEdit() {
 
         <!-- Lista de Anexos -->
         <div id="lista_anexos">
-          <p class="text-center text-gray-400 py-4 text-sm">Nenhum anexo adicionado ainda</p>
+          <p class="cot-op-empty-cell">Nenhum anexo adicionado ainda.</p>
         </div>
-      </div>
+      </section>
 
     </div>
   </main>
@@ -4855,11 +4759,18 @@ function atualizarElementosEdicao(novoStatus) {
 
   // Atualizar variável global de status
   statusAtualCotacao = novoStatus;
+  const statusBadge = document.getElementById('cot-op-status-badge');
+  const statusSummary = document.getElementById('cot-op-status-summary');
+  if (statusBadge) {
+    statusBadge.textContent = novoStatus;
+    statusBadge.className = 'cot-op-status is-' + String(novoStatus || 'rascunho').toLowerCase().replace(/\s+/g, '-');
+  }
+  if (statusSummary) statusSummary.textContent = novoStatus;
 
   // Botão Editar no header
   const btnEditarHeader = document.getElementById('btn_editar_header');
   if (btnEditarHeader) {
-    btnEditarHeader.style.display = STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus) ? '' : 'none';
+    btnEditarHeader.hidden = !STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus);
   }
 
   // Botão editar cliente
@@ -4909,19 +4820,19 @@ function atualizarElementosEdicao(novoStatus) {
   // Botão adicionar audiência
   const btnAdicionarAudiencia = document.getElementById('btn_adicionar_audiencia');
   if (btnAdicionarAudiencia) {
-    btnAdicionarAudiencia.style.display = podeEditarAgora ? '' : 'none';
+    btnAdicionarAudiencia.hidden = !podeEditarAgora;
   }
 
   // Botão adicionar anexo
   const btnAdicionarAnexo = document.getElementById('btn_adicionar_anexo');
   if (btnAdicionarAnexo) {
-    btnAdicionarAnexo.style.display = podeEditarAgora ? '' : 'none';
+    btnAdicionarAnexo.hidden = !podeEditarAgora;
   }
 
   // Área de drag & drop de anexos
   const areaDragDrop = document.getElementById('area_drag_drop_anexos');
   if (areaDragDrop) {
-    areaDragDrop.style.display = podeEditarAgora ? '' : 'none';
+    areaDragDrop.hidden = !podeEditarAgora;
   }
 
   // Área de edição de desconto
@@ -4947,8 +4858,9 @@ function atualizarElementosEdicao(novoStatus) {
   // Linhas da tabela de itens (linhas) — sempre abre modal (edição ou somente leitura)
   document.querySelectorAll('.linha-item-cotacao').forEach(tr => {
     const linhaId = tr.dataset.linhaId;
-    tr.classList.add('cursor-pointer');
-    tr.onclick = function() { visualizarOuEditarLinha(parseInt(linhaId, 10)); };
+    tr.dataset.openMediaItem = '';
+    tr.dataset.lineId = linhaId;
+    tr.tabIndex = 0;
   });
 
   // Linhas da tabela de audiências
@@ -4956,15 +4868,17 @@ function atualizarElementosEdicao(novoStatus) {
     const audienciaId = tr.dataset.audienciaId;
     const icone = tr.querySelector('.icone-editar-audiencia');
     if (podeEditarAgora) {
-      tr.classList.add('cursor-pointer');
-      tr.onclick = function() { editarAudienciaCotacao(parseInt(audienciaId)); };
-      tr.title = 'Clique para editar';
-      if (icone) icone.style.display = '';
+      tr.classList.add('is-editable');
+      tr.dataset.openAudienceItem = audienciaId;
+      tr.tabIndex = 0;
+      tr.title = 'Editar audiência';
+      if (icone) icone.hidden = false;
     } else {
-      tr.classList.remove('cursor-pointer');
-      tr.onclick = null;
+      tr.classList.remove('is-editable');
+      delete tr.dataset.openAudienceItem;
+      tr.removeAttribute('tabindex');
       tr.title = '';
-      if (icone) icone.style.display = 'none';
+      if (icone) icone.hidden = true;
     }
   });
 }
@@ -6392,17 +6306,6 @@ function formatarMoedaReal(input, hiddenFieldId) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
-  // Verificar se tem parâmetro de aba na URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const abaParam = urlParams.get('aba');
-  if (abaParam) {
-    trocarAbaCotacao(abaParam);
-    // Limpar parâmetro da URL sem recarregar
-    const url = new URL(window.location);
-    url.searchParams.delete('aba');
-    window.history.replaceState({}, '', url);
-  }
-
   // Carregar anexos e comentários se estiver em modo edição
   {% if modo == 'editar' %}
   carregarAnexos();
@@ -8888,7 +8791,7 @@ async function recalcularValorTotalCotacao() {
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=5"></script>
 {% if cotacao %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

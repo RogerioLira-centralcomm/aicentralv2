@@ -184,6 +184,40 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
         self.assertIn("window.mostrarTabCotacao = showQuoteTab", javascript)
         self.assertIn("section.hidden =", javascript)
         self.assertNotIn("sessionStorage", javascript)
+        self.assertIn('role="tablist"', template)
+        self.assertIn("ArrowRight", javascript)
+        self.assertIn("button.tabIndex = active ? 0 : -1", javascript)
+
+    def test_header_e_resumo_usam_shell_operacional_vanilla(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+
+        self.assertIn('class="cot-op-header"', template)
+        self.assertIn('class="cot-op-summary-rail"', template)
+        metric_count = template.count('<div class="cot-op-metric">')
+        metric_count += template.count('<div class="cot-op-metric cot-op-metric--money">')
+        self.assertEqual(metric_count, 6)
+        self.assertIn('data-cot-header-action="pdf"', template)
+        self.assertIn('class="cot-op-actions-menu"', template)
+        header = template[template.index('<header class="cot-op-header">'):template.index("</header>")]
+        self.assertNotIn("onclick=", header)
+        self.assertNotIn("onchange=", header)
+        self.assertIn(".cot-op-summary-rail", css)
+        self.assertIn("grid-template-columns: 0.8fr 1.2fr", css)
+
+    def test_secoes_secundarias_removem_handlers_inline_ativos(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+
+        self.assertIn("data-open-audience", template)
+        self.assertIn("data-open-attachment", template)
+        self.assertIn("data-attachment-dropzone", template)
+        self.assertNotIn("toggleAudienciasCollapse", template)
+        self.assertNotIn("trocarAbaCotacao", template)
+        self.assertNotIn("handleDragOver", template)
+        self.assertIn("function initSupplementalInteractions()", javascript)
 
     def test_sidebar_evitaria_cartoes_aninhados(self):
         root = Path(__file__).parents[1] / "aicentralv2"

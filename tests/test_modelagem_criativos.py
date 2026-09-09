@@ -820,6 +820,25 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("build_inherited_scene_prompt", repository)
         self.assertIn("prompt_status, status", repository)
 
+    def test_direcao_da_cena_nao_espera_aprovacao_da_anterior(self):
+        repository = (
+            Path(__file__).resolve().parents[1]
+            / "aicentralv2"
+            / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+        create_job = repository.split("def create_generation_job", 1)[1].split(
+            "\n    def ", 1
+        )[0]
+        update_prompt = repository.split("def update_scene_prompt", 1)[1].split(
+            "\n    def ", 1
+        )[0]
+
+        self.assertIn('job_type == "prompt"', create_job)
+        self.assertIn('"blocked"', create_job)
+        self.assertIn("'blocked'", update_prompt)
+        self.assertIn("'review'", update_prompt)
+        self.assertIn("'approved'", update_prompt)
+
     def test_cena_seguinte_adapta_o_prompt_mae(self):
         captured = {}
         repository = Mock()

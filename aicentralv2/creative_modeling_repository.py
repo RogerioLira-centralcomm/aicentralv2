@@ -835,7 +835,10 @@ class CreativeModelingRepository:
                 """
                 UPDATE cx_creative_scenes
                    SET prompt = %s, prompt_status = %s, updated_at = NOW()
-                 WHERE id = %s AND status IN ('ready', 'failed')
+                 WHERE id = %s
+                   AND status IN (
+                       'ready', 'failed', 'blocked', 'review', 'approved'
+                   )
                 RETURNING id, prompt, prompt AS rendered_prompt, prompt_status
                 """,
                 (prompt, status, scene_id),
@@ -1305,27 +1308,36 @@ class CreativeModelingRepository:
                     raise CreativeNotFoundError("Cena não encontrada.")
                 if scene["production_status"] != "active":
                     raise CreativeConflictError("Produção não está ativa.")
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS pending_previous
-                      FROM cx_creative_scenes current_scene
-                      JOIN cx_creative_scenes previous
-                        ON previous.production_id = current_scene.production_id
-                       AND previous.position < current_scene.position
-                     WHERE current_scene.id = %s
-                       AND previous.status <> 'approved'
-                    """,
-                    (scene_id,),
-                )
-                if cursor.fetchone()["pending_previous"]:
-                    raise CreativeConflictError(
-                        "A cena anterior precisa ser aprovada primeiro."
+                prompt_job = job_type == "prompt"
+                if not prompt_job:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS pending_previous
+                          FROM cx_creative_scenes current_scene
+                          JOIN cx_creative_scenes previous
+                            ON previous.production_id = current_scene.production_id
+                           AND previous.position < current_scene.position
+                         WHERE current_scene.id = %s
+                           AND previous.status <> 'approved'
+                        """,
+                        (scene_id,),
                     )
-                allowed_status = (
-                    ("ready", "failed", "review", "approved")
-                    if allow_existing_scene
-                    else ("ready", "failed")
-                )
+                    if cursor.fetchone()["pending_previous"]:
+                        raise CreativeConflictError(
+                            "A cena anterior precisa ser aprovada primeiro."
+                        )
+                if prompt_job:
+                    allowed_status = (
+                        "ready",
+                        "failed",
+                        "blocked",
+                        "review",
+                        "approved",
+                    )
+                elif allow_existing_scene:
+                    allowed_status = ("ready", "failed", "review", "approved")
+                else:
+                    allowed_status = ("ready", "failed")
                 if scene["status"] not in allowed_status:
                     raise CreativeConflictError(
                         "Cena não está disponível para geração."

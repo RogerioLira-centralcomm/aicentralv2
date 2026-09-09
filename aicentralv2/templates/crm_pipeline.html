@@ -11,8 +11,10 @@
 <div class="pp-page">
   {% macro money_br(valor) -%}
     {%- set n = valor|default(0, true)|float -%}
-    {%- if n >= 1000 -%}
-      {{ "{:,.1f}".format(n / 1000).replace(',', '_').replace('.', ',').replace('_', '.') }}k
+    {%- if n >= 1000000 -%}
+      {{ "{:,.1f}".format(n / 1000000).replace(',', '_').replace('.', ',').replace('_', '.')|replace(',0', '') }} mi
+    {%- elif n >= 1000 -%}
+      {{ "{:,.0f}".format(n / 1000).replace(',', '.') }} mil
     {%- elif n > 0 -%}
       {{ "{:,.0f}".format(n).replace(',', '.') }}
     {%- else -%}
@@ -20,25 +22,74 @@
     {%- endif -%}
   {%- endmacro %}
 
-  <div class="pp-toolbar">
+  <header class="pp-toolbar">
     <div class="pp-title-block">
       <h1>Pipeline de Propostas</h1>
-      <p>Acompanhe as oportunidades e priorize propostas sem movimentação.</p>
     </div>
     <div class="pp-metrics" aria-label="Resumo do pipeline">
-      <div class="pp-metric">
+      <button type="button" class="pp-metric" data-card-filter="ativas" aria-pressed="false" title="Mostrar propostas ativas">
         <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
         <span><strong>{{ metricas_pipeline.ativas|default(0) }}</strong> ativas</span>
-      </div>
-      <div class="pp-metric">
+      </button>
+      <button type="button" class="pp-metric" data-card-filter="ativas" aria-pressed="false" title="Mostrar o valor em aberto">
         <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
         <span><strong>R$ {{ money_br(metricas_pipeline.valor_aberto|default(0)) }}</strong> em aberto</span>
-      </div>
-      <div class="pp-metric {% if metricas_pipeline.sem_movimento|default(0) %}is-alert{% endif %}">
+      </button>
+      <button type="button" class="pp-metric {% if metricas_pipeline.sem_movimento|default(0) %}is-alert{% endif %}"
+              data-card-filter="paradas" aria-pressed="false" title="Mostrar propostas paradas há mais de 30 dias">
         <i class="fa-regular fa-clock" aria-hidden="true"></i>
         <span><strong>{{ metricas_pipeline.sem_movimento|default(0) }}</strong> paradas há +30d</span>
-      </div>
+      </button>
     </div>
+    <form id="filtros_form" class="pp-filters" onsubmit="return false">
+      <label class="pp-search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <span class="sr-only">Buscar propostas</span>
+        <input type="search" id="filtro_busca" placeholder="Buscar cliente ou campanha" autocomplete="off" oninput="filtrarCards()">
+      </label>
+      <label class="pp-filter">
+        <span class="sr-only">Responsável</span>
+        <select class="cx-select" name="executivo_id" id="filtro_executivo" aria-label="Responsável" onchange="aplicarFiltros()">
+        <option value="">Responsável: todos</option>
+        {% for vendedor in vendedores %}
+          <option value="{{ vendedor.id_contato_cliente }}"
+                  data-executivo-nome="{{ vendedor.nome_completo }}"
+                  {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+            {{ vendedor.nome_completo }}
+          </option>
+        {% endfor %}
+        </select>
+      </label>
+      <label class="pp-filter">
+        <span class="sr-only">Mês</span>
+        <select class="cx-select" name="mes" id="filtro_mes" aria-label="Mês" onchange="aplicarFiltros()">
+        <option value="">Mês: todos</option>
+        <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+        <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+        <option value="03" {% if filtros.get('mes') == '03' %}selected{% endif %}>Março</option>
+        <option value="04" {% if filtros.get('mes') == '04' %}selected{% endif %}>Abril</option>
+        <option value="05" {% if filtros.get('mes') == '05' %}selected{% endif %}>Maio</option>
+        <option value="06" {% if filtros.get('mes') == '06' %}selected{% endif %}>Junho</option>
+        <option value="07" {% if filtros.get('mes') == '07' %}selected{% endif %}>Julho</option>
+        <option value="08" {% if filtros.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+        <option value="09" {% if filtros.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+        <option value="10" {% if filtros.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+        <option value="11" {% if filtros.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+        <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+        </select>
+      </label>
+      {% set status_atual = filtros.get('status') or 'TODOS' %}
+      <label class="pp-filter">
+        <span class="sr-only">Status</span>
+        <select class="cx-select" name="status" id="filtro_status" aria-label="Status" onchange="aplicarFiltros()">
+        <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Status: todos</option>
+        <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+        <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+        <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+        <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Histórico</option>
+        </select>
+      </label>
+    </form>
     <div class="pp-header-actions">
       <div class="pp-views">
         <a href="{{ url_for('crm_pipeline') }}" class="is-on">Pipeline</a>
@@ -46,56 +97,7 @@
       </div>
       <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>
     </div>
-  </div>
-
-  <form id="filtros_form" class="pp-filters" onsubmit="return false">
-    <label class="pp-search">
-      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-      <input type="search" id="filtro_busca" placeholder="Buscar cliente, agência ou campanha" autocomplete="off" oninput="filtrarCards()">
-    </label>
-    <label class="pp-filter">
-      <span>Responsável</span>
-      <select class="cx-select" name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()">
-      <option value="">Todos</option>
-      {% for vendedor in vendedores %}
-        <option value="{{ vendedor.id_contato_cliente }}"
-                data-executivo-nome="{{ vendedor.nome_completo }}"
-                {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
-          {{ vendedor.nome_completo }}
-        </option>
-      {% endfor %}
-      </select>
-    </label>
-    <label class="pp-filter">
-      <span>Mês</span>
-      <select class="cx-select" name="mes" id="filtro_mes" onchange="aplicarFiltros()">
-      <option value="">Todos</option>
-      <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
-      <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
-      <option value="03" {% if filtros.get('mes') == '03' %}selected{% endif %}>Março</option>
-      <option value="04" {% if filtros.get('mes') == '04' %}selected{% endif %}>Abril</option>
-      <option value="05" {% if filtros.get('mes') == '05' %}selected{% endif %}>Maio</option>
-      <option value="06" {% if filtros.get('mes') == '06' %}selected{% endif %}>Junho</option>
-      <option value="07" {% if filtros.get('mes') == '07' %}selected{% endif %}>Julho</option>
-      <option value="08" {% if filtros.get('mes') == '08' %}selected{% endif %}>Agosto</option>
-      <option value="09" {% if filtros.get('mes') == '09' %}selected{% endif %}>Setembro</option>
-      <option value="10" {% if filtros.get('mes') == '10' %}selected{% endif %}>Outubro</option>
-      <option value="11" {% if filtros.get('mes') == '11' %}selected{% endif %}>Novembro</option>
-      <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
-      </select>
-    </label>
-    {% set status_atual = filtros.get('status') or 'TODOS' %}
-    <label class="pp-filter">
-      <span>Status</span>
-      <select class="cx-select" name="status" id="filtro_status" onchange="aplicarFiltros()">
-      <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
-      <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-      <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
-      <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-      <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Histórico</option>
-      </select>
-    </label>
-  </form>
+  </header>
 
   {% macro pp_avatar(cotacao) %}
     {% if cotacao.executivo_foto_url %}
@@ -108,12 +110,11 @@
   {% endmacro %}
 
   {% macro pp_company_avatar(nome, logo_url) %}
+    {% if logo_url %}
     <span class="pp-company-avatar" aria-hidden="true">
-      <span>{{ (nome or '?')|trim|first|upper }}</span>
-      {% if logo_url %}
-      <img src="{{ logo_url }}" alt="" loading="lazy" onerror="this.hidden=true">
-      {% endif %}
+      <img src="{{ logo_url }}" alt="" loading="lazy" onerror="this.closest('.pp-company-avatar').hidden=true">
     </span>
+    {% endif %}
   {% endmacro %}
 
   {% macro pp_quote_type(tipo) %}
@@ -130,6 +131,7 @@
          draggable="true"
          data-cotacao-id="{{ cotacao.id }}"
          data-status="{{ status }}"
+         data-days="{{ dias }}"
          data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          ondragstart="handleCardDragStart(event)"
@@ -176,6 +178,7 @@
          draggable="true"
          data-cotacao-id="{{ cotacao.id }}"
          data-status="{{ status }}"
+         data-days="{{ dias }}"
          data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          ondragstart="handleCardDragStart(event)"
@@ -246,133 +249,108 @@
 <!-- Modal Detalhes Cotação -->
 <dialog id="modal_cotacao" class="cx-modal-shell">
   <div class="cx-modal-panel cx-modal-panel-xl w-11/12 max-w-5xl bg-white p-0 rounded-lg">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <div class="flex items-center gap-4">
-        <div>
-          <h3 class="font-semibold text-lg text-gray-800" id="modal_titulo">-</h3>
-          <p class="text-sm text-gray-500" id="modal_subtitulo">-</p>
-        </div>
+    <header class="pp-detail-head">
+      <div class="pp-detail-identity">
+        <h3 id="modal_titulo">-</h3>
+        <p id="modal_subtitulo">-</p>
       </div>
-      <div class="flex items-center gap-4">
-        <div class="text-right">
-          <p class="text-2xl font-bold text-gray-800" id="modal_valor">R$ 0</p>
-          <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600" id="modal_status_badge">-</span>
-        </div>
-        <button onclick="fecharDetalheCotacao()" class="p-2 hover:bg-gray-200 rounded" aria-label="Fechar detalhes">
-          <i class="fa-solid fa-xmark text-gray-500"></i>
-        </button>
+      <div class="pp-detail-total">
+        <strong id="modal_valor">R$ 0</strong>
+        <span id="modal_status_badge">-</span>
       </div>
-    </div>
+    </header>
     
-    <!-- Tabs -->
-    <div class="flex border-b border-gray-200 px-6 bg-gray-50" id="modal_tabs">
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">Resumo</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="atividades" onclick="trocarAbaModal('atividades')">Atividades</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="comunicacao_ia" onclick="trocarAbaModal('comunicacao_ia')">Comunicação IA</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="briefing" onclick="trocarAbaModal('briefing')">Briefing</button>
-    </div>
+    <nav id="modal_tabs" aria-label="Seções da proposta">
+      <button class="tab-btn tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">Resumo</button>
+      <button class="tab-btn" data-tab="atividades" onclick="trocarAbaModal('atividades')">Atividades</button>
+      <button class="tab-btn" data-tab="comunicacao_ia" onclick="trocarAbaModal('comunicacao_ia')">Comunicação IA</button>
+      <button class="tab-btn" data-tab="briefing" onclick="trocarAbaModal('briefing')">Briefing</button>
+    </nav>
     
-    <!-- Conteúdo das Abas -->
-    <div id="modal_content" class="p-6" style="min-height: 400px; max-height: 60vh; overflow-y: auto;">
-      <!-- Aba Resumo -->
+    <div id="modal_content">
       <div id="tab_resumo" class="modal-tab-content">
-        <div class="grid grid-cols-3 gap-6">
-          <!-- Coluna 1: Cliente e Campanha -->
-          <div class="space-y-4">
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Cliente</label>
-              <p class="text-sm font-medium text-gray-800 mt-1" id="resumo_cliente">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Campanha</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_campanha">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Objetivo</label>
-              <p class="text-sm text-gray-600 mt-1" id="resumo_objetivo">-</p>
-            </div>
+        <div class="pp-detail-facts">
+          <div>
+            <span>Cliente</span>
+            <strong id="resumo_cliente">-</strong>
           </div>
-          
-          <!-- Coluna 2: Datas e Período -->
-          <div class="space-y-4">
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Período da Campanha</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_periodo">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Criada em</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_criada_em">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Validade</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_validade">-</p>
-            </div>
+          <div>
+            <span>Período da campanha</span>
+            <strong id="resumo_periodo">-</strong>
           </div>
-          
-          <!-- Coluna 3: Responsáveis -->
-          <div class="space-y-4">
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Executivo</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_executivo">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Contato do Cliente</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_contato">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Email</label>
-              <p class="text-sm text-gray-700 mt-1" id="resumo_email">-</p>
-            </div>
+          <div>
+            <span>Campanha</span>
+            <strong id="resumo_campanha">-</strong>
+          </div>
+          <div>
+            <span>Criada em</span>
+            <strong id="resumo_criada_em">-</strong>
+          </div>
+          <div>
+            <span>Objetivo</span>
+            <strong id="resumo_objetivo">-</strong>
+          </div>
+          <div>
+            <span>Validade</span>
+            <strong id="resumo_validade">-</strong>
+          </div>
+          <div>
+            <span>Executivo</span>
+            <strong id="resumo_executivo">-</strong>
+          </div>
+          <div>
+            <span>Contato do cliente</span>
+            <strong id="resumo_contato">-</strong>
+          </div>
+          <div class="pp-detail-fact-wide">
+            <span>E-mail</span>
+            <strong id="resumo_email">-</strong>
           </div>
         </div>
         
-        <!-- Seção de Valores -->
-        <div class="mt-6 pt-4 border-t border-gray-100">
-          <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Valores</h4>
-          <div class="grid grid-cols-4 gap-4">
-            <div class="p-3 bg-gray-50 rounded">
-              <p class="text-xs text-gray-500">Subtotal</p>
-              <p class="text-sm font-semibold text-gray-800" id="resumo_subtotal">R$ 0,00</p>
+        <section class="pp-detail-section">
+          <h4>Valores</h4>
+          <div class="pp-detail-values">
+            <div>
+              <span>Subtotal</span>
+              <strong id="resumo_subtotal">R$ 0,00</strong>
             </div>
-            <div class="p-3 bg-gray-50 rounded">
-              <p class="text-xs text-gray-500">Desconto</p>
-              <p class="text-sm font-semibold text-red-600" id="resumo_desconto">- R$ 0,00</p>
+            <div>
+              <span>Desconto</span>
+              <strong id="resumo_desconto">- R$ 0,00</strong>
             </div>
-            <div class="p-3 bg-gray-50 rounded">
-              <p class="text-xs text-gray-500">Impostos</p>
-              <p class="text-sm font-semibold text-gray-800" id="resumo_impostos">R$ 0,00</p>
+            <div>
+              <span>Impostos</span>
+              <strong id="resumo_impostos">R$ 0,00</strong>
             </div>
-            <div class="p-3 bg-green-50 rounded border border-green-200">
-              <p class="text-xs text-green-600">Total</p>
-              <p class="text-base font-bold text-green-700" id="resumo_total">R$ 0,00</p>
+            <div class="is-total">
+              <span>Total</span>
+              <strong id="resumo_total">R$ 0,00</strong>
             </div>
           </div>
-        </div>
+        </section>
         
-        <!-- Resumo de Itens e Audiências -->
-        <div class="mt-6 pt-4 border-t border-gray-100">
-          <div class="grid grid-cols-2 gap-6">
+        <section class="pp-detail-section">
+          <div class="pp-detail-related">
             <div>
-              <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Itens (<span id="resumo_itens_count">0</span>)</h4>
-              <div id="resumo_itens_lista" class="space-y-1 max-h-32 overflow-y-auto">
-                <p class="text-sm text-gray-400">Nenhum item</p>
+              <h4>Itens <span id="resumo_itens_count">0</span></h4>
+              <div id="resumo_itens_lista">
+                <p>Nenhum item</p>
               </div>
             </div>
             <div>
-              <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Audiências (<span id="resumo_audiencias_count">0</span>)</h4>
-              <div id="resumo_audiencias_lista" class="space-y-1 max-h-32 overflow-y-auto">
-                <p class="text-sm text-gray-400">Nenhuma audiência</p>
+              <h4>Audiências <span id="resumo_audiencias_count">0</span></h4>
+              <div id="resumo_audiencias_lista">
+                <p>Nenhuma audiência</p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
         
-        <!-- Observações -->
-        <div class="mt-6 pt-4 border-t border-gray-100">
-          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Observações</label>
-          <p class="text-sm text-gray-600 mt-2" id="resumo_observacoes">-</p>
-        </div>
+        <section class="pp-detail-section">
+          <h4>Observações</h4>
+          <p id="resumo_observacoes">-</p>
+        </section>
       </div>
       
       <!-- Aba Atividades -->
@@ -499,11 +477,10 @@
 
     </div>
     
-    <!-- Footer do Modal -->
-    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
-      <div class="flex items-center gap-3">
+    <footer class="pp-detail-footer">
+      <div class="pp-detail-footer-main">
         <select id="modal_mover_status" onchange="moverCotacaoStatus(this.value)" 
-                class="text-sm border border-gray-300 rounded px-3 py-1.5 bg-white text-gray-700">
+                class="cx-select">
           <option value="">Mover para...</option>
           <option value="Rascunho">Rascunho</option>
           <option value="Enviada">Enviada</option>
@@ -511,20 +488,20 @@
           <option value="Rejeitada">✗ Rejeitada</option>
         </select>
         
-        <a id="modal_link_editar" href="#" class="text-sm text-gray-600 hover:text-gray-800">
+        <a id="modal_link_editar" href="#">
           <i class="fa-solid fa-pen mr-1"></i>Editar completo
         </a>
       </div>
       
-      <div class="flex items-center gap-2">
-        <button onclick="aprovarCotacao()" class="px-4 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700" id="btn_aprovar">
+      <div class="pp-detail-footer-actions">
+        <button onclick="aprovarCotacao()" class="cx-btn cx-btn-primary" id="btn_aprovar">
           <i class="fa-solid fa-check mr-1"></i>Aprovar
         </button>
-        <button onclick="rejeitarCotacao()" class="px-4 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700" id="btn_rejeitar">
+        <button onclick="rejeitarCotacao()" class="cx-btn cx-btn-danger" id="btn_rejeitar">
           <i class="fa-solid fa-xmark mr-1"></i>Rejeitar
         </button>
       </div>
-    </div>
+    </footer>
   </div>
   <form method="dialog" class="cx-modal-dismiss bg-black/50">
     <button>close</button>
@@ -556,6 +533,8 @@
 
 <script>
 // ==================== FILTROS ====================
+let cardFilterAtivo = '';
+
 function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
   const mes = document.getElementById('filtro_mes').value;
@@ -575,13 +554,33 @@ function aplicarFiltros() {
 function filtrarCards() {
   const termo = (document.getElementById('filtro_busca').value || '').trim().toLocaleLowerCase('pt-BR');
   document.querySelectorAll('.kanban-card').forEach(card => {
-    card.hidden = termo && !(card.dataset.search || '').includes(termo);
+    const correspondeBusca = !termo || (card.dataset.search || '').includes(termo);
+    const status = card.dataset.status || '';
+    const dias = Number(card.dataset.days || 0);
+    const propostaAtiva = status === 'Rascunho' || status === 'Enviada';
+    const correspondeCard = !cardFilterAtivo
+      || (cardFilterAtivo === 'ativas' && propostaAtiva)
+      || (cardFilterAtivo === 'paradas' && propostaAtiva && dias > 30);
+    card.hidden = !(correspondeBusca && correspondeCard);
   });
   document.querySelectorAll('.kanban-column').forEach(coluna => {
     const visiveis = coluna.querySelectorAll('.kanban-card:not([hidden])').length;
     coluna.classList.toggle('is-filter-empty', visiveis === 0);
   });
 }
+
+document.querySelectorAll('[data-card-filter]').forEach(botao => {
+  botao.addEventListener('click', function () {
+    const filtro = this.dataset.cardFilter || '';
+    cardFilterAtivo = cardFilterAtivo === filtro ? '' : filtro;
+    document.querySelectorAll('[data-card-filter]').forEach(item => {
+      const pressionado = !!cardFilterAtivo && item.dataset.cardFilter === cardFilterAtivo;
+      item.classList.toggle('is-active', pressionado);
+      item.setAttribute('aria-pressed', pressionado ? 'true' : 'false');
+    });
+    filtrarCards();
+  });
+});
 
 (function restoreCrmFilters() {
   const params = new URLSearchParams(window.location.search);

@@ -468,28 +468,30 @@ dialog.modal[open] {
 .pp-page {
   --cn-line: #e2e8f0;
   --cn-column: #f5f7f9;
-  padding: 0.85rem 1rem 0.75rem;
-  gap: 0.75rem;
+  padding: 0.35rem 0.75rem 0.6rem;
+  gap: 0.45rem;
   background: #fbfcfd;
 }
 
 .pp-toolbar {
-  min-height: 3.25rem;
+  display: flex;
+  min-height: 3.5rem;
+  max-height: 4rem;
+  padding: 0.25rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .pp-title-block {
-  min-width: 15rem;
+  min-width: 8.75rem;
 }
 
 .pp-title-block h1 {
-  font-size: 1.125rem;
-  letter-spacing: -0.025em;
+  font-size: 0.875rem;
+  letter-spacing: -0.015em;
 }
 
-.pp-title-block p {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
-}
+.pp-title-block p { display: none; }
 
 .pp-metrics {
   display: flex;
@@ -501,20 +503,33 @@ dialog.modal[open] {
 }
 
 .pp-metric {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 2rem;
+  min-height: 1.75rem;
   padding: 0 0.65rem;
-  border: 1px solid transparent;
-  border-radius: 0.45rem;
+  border: 1px solid #dce3e8;
+  border-radius: 999px;
+  background: #fff;
   color: #64748b;
   font-size: 0.6875rem;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .pp-metric i { color: #0f766e; }
 .pp-metric strong { color: #334155; font-weight: 750; }
+.pp-metric:hover,
+.pp-metric.is-active {
+  border-color: #6aa2a4;
+  background: #edf4f4;
+  color: var(--cn-brand);
+}
+.pp-metric:focus-visible {
+  outline: 2px solid var(--cn-brand);
+  outline-offset: 2px;
+}
 .pp-metric.is-alert {
   border-color: #fed7aa;
   background: #fff7ed;
@@ -524,21 +539,22 @@ dialog.modal[open] {
 .pp-metric.is-alert strong { color: #c2410c; }
 
 .pp-filters {
+  flex: 1 1 auto;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem;
-  border: 1px solid var(--cn-line);
-  border-radius: 0.55rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .pp-search {
   position: relative;
   flex: 1;
-  min-width: 14rem;
-  max-width: 30rem;
+  min-width: 10rem;
+  max-width: 18rem;
 }
 
 .pp-search i {
@@ -553,7 +569,8 @@ dialog.modal[open] {
 
 .pp-search input {
   width: 100%;
-  min-height: 2.125rem;
+  min-height: 1.75rem;
+  height: 1.75rem;
   padding: 0 0.75rem 0 2rem;
   border: 1px solid var(--cn-line);
   border-radius: 0.4rem;
@@ -581,10 +598,26 @@ dialog.modal[open] {
 }
 
 .pp-filters .cx-select {
-  min-height: 2.125rem;
-  height: 2.125rem;
+  min-height: 1.75rem;
+  height: 1.75rem;
   padding-top: 0;
   padding-bottom: 0;
+  font-size: 0.75rem;
+}
+
+.pp-filters #filtro_executivo { min-width: 9rem; max-width: 11rem; }
+.pp-filters #filtro_mes { min-width: 6.5rem; }
+.pp-filters #filtro_status { min-width: 6.75rem; }
+
+.pp-header-actions {
+  gap: 0.35rem;
+}
+
+.pp-header-actions .cx-btn,
+.pp-views a {
+  min-height: 1.75rem;
+  height: 1.75rem;
+  padding-inline: 0.65rem;
   font-size: 0.75rem;
 }
 
@@ -788,10 +821,7 @@ dialog.modal[open] {
   overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 0.35rem;
-  background: linear-gradient(135deg, #172033 0 50%, #f8fafc 50% 100%);
-  color: #fff;
-  font-size: 0.625rem;
-  font-weight: 800;
+  background: #172033;
 }
 
 .pp-company-avatar img {
@@ -801,7 +831,7 @@ dialog.modal[open] {
   height: 100%;
   padding: 0.1rem;
   object-fit: contain;
-  background: #fff;
+  background: transparent;
 }
 
 .pp-deal-agency .pp-company-avatar {
@@ -847,7 +877,8 @@ dialog.modal[open] {
 
 /* Drawer de detalhes: usa o componente cx-drawer como overlay, nunca split. */
 .cx-drawer.pp-detail-drawer {
-  width: min(40rem, 100vw);
+  width: min(36rem, 100vw);
+  background: #fff;
 }
 
 .pp-detail-drawer .cx-drawer-header {
@@ -857,9 +888,9 @@ dialog.modal[open] {
 }
 
 .pp-detail-drawer .cx-drawer-header .cx-drawer-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  position: fixed;
+  top: 0.7rem;
+  right: 0.7rem;
   z-index: 4;
 }
 
@@ -876,15 +907,68 @@ dialog.modal[open] {
   transform: none;
 }
 
-.pp-detail-content > :first-child {
-  padding-right: 3.5rem;
+.pp-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4rem;
+  max-height: 4rem;
+  padding: 0.55rem 3.25rem 0.55rem 1rem;
+  border-bottom: 1px solid #dce3e8;
   background: #fff;
+}
+
+.pp-detail-identity {
+  min-width: 0;
+}
+
+.pp-detail-identity h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #172033;
+  font-size: 0.9375rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-detail-identity p {
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-detail-total {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 0.15rem;
+}
+
+.pp-detail-total strong {
+  color: #172033;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.pp-detail-total span {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: #edf1f4;
+  color: #526171;
+  font-size: 0.625rem;
 }
 
 .pp-detail-content #modal_content {
   min-height: 0 !important;
   max-height: none !important;
-  padding: 1rem !important;
+  padding: 0.9rem 1rem 1.25rem !important;
 }
 
 .pp-detail-content #modal_tabs {
@@ -892,7 +976,9 @@ dialog.modal[open] {
   top: 0;
   z-index: 2;
   gap: 0.2rem;
-  padding: 0.5rem 1rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 1rem;
+  border-bottom: 1px solid #dce3e8;
   overflow-x: auto;
   background: #fff;
 }
@@ -911,10 +997,154 @@ dialog.modal[open] {
 
 .modal-tab-content.hidden { display: none; }
 
-.pp-detail-content .grid-cols-3,
-.pp-detail-content .grid-cols-4 {
+.pp-detail-facts {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid #edf0f3;
+  border-left: 1px solid #edf0f3;
+}
+
+.pp-detail-facts > div {
+  min-width: 0;
+  padding: 0.6rem 0.65rem;
+  border-right: 1px solid #edf0f3;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.pp-detail-facts span,
+.pp-detail-values span {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: #7b8795;
+  font-size: 0.625rem;
+  font-weight: 650;
+}
+
+.pp-detail-facts strong {
+  display: block;
+  overflow: hidden;
+  color: #2f3b4a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-detail-fact-wide { grid-column: 1 / -1; }
+
+.pp-detail-section {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #e5e9ed;
+}
+
+.pp-detail-section > h4,
+.pp-detail-related h4 {
+  margin: 0 0 0.55rem;
+  color: #526171;
+  font-size: 0.6875rem;
+  font-weight: 750;
+}
+
+.pp-detail-section > p {
+  margin: 0;
+  color: #526171;
+  font-size: 0.75rem;
+}
+
+.pp-detail-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #dce3e8;
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+
+.pp-detail-values > div {
+  min-width: 0;
+  padding: 0.55rem 0.6rem;
+  border-right: 1px solid #e5e9ed;
+  background: #f8fafb;
+}
+
+.pp-detail-values > div:last-child { border-right: 0; }
+.pp-detail-values strong {
+  color: #2f3b4a;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pp-detail-values #resumo_desconto { color: #b42318; }
+.pp-detail-values .is-total { background: #edf7f2; }
+.pp-detail-values .is-total span,
+.pp-detail-values .is-total strong { color: #137a42; }
+
+.pp-detail-related {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.pp-detail-related h4 span {
+  display: inline-flex;
+  min-width: 1.1rem;
+  justify-content: center;
+  margin-left: 0.2rem;
+  border-radius: 999px;
+  background: #e8edf1;
+  color: #526171;
+}
+
+.pp-detail-related > div > div {
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.pp-detail-related p {
+  margin: 0;
+  color: #8a96a5;
+  font-size: 0.75rem;
+}
+
+.pp-detail-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid #dce3e8;
+  background: #f8fafb;
+}
+
+.pp-detail-footer-main,
+.pp-detail-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pp-detail-footer .cx-select,
+.pp-detail-footer .cx-btn {
+  min-height: 1.9rem;
+  height: 1.9rem;
+  font-size: 0.75rem;
+}
+
+.pp-detail-footer a {
+  color: #526171;
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.pp-detail-footer a:hover { color: var(--cn-brand); }
+.pp-detail-footer a:focus-visible {
+  outline: 2px solid var(--cn-brand);
+  outline-offset: 2px;
 }
 
 .pp-activity-form {
@@ -1015,18 +1245,23 @@ dialog.modal[open] {
 .pp-confirm-box { padding: 1.25rem; }
 
 @media (max-width: 1180px) {
-  .pp-metrics { display: none; }
+  .pp-title-block { display: none; }
+  .pp-search { max-width: 13rem; }
 }
 
 @media (max-width: 760px) {
   .pp-page { padding-inline: 0.65rem; }
-  .pp-toolbar { align-items: flex-start; }
-  .pp-filters { flex-wrap: wrap; }
-  .pp-search { flex-basis: 100%; max-width: none; }
-  .pp-filter { flex: 1; }
-  .pp-filter span { display: none; }
-  .pp-filters .cx-select { width: 100%; min-width: 0 !important; }
-  .pp-detail-content .grid-cols-3,
-  .pp-detail-content .grid-cols-4,
+  .pp-toolbar { flex-wrap: nowrap; }
+  .pp-metrics { display: none; }
+  .pp-filters { flex: 0 0 auto; }
+  .pp-search { flex: 0 0 10rem; }
+  .pp-views { display: none; }
+  .pp-detail-values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-detail-values > div:nth-child(2) { border-right: 0; }
+  .pp-detail-values > div:nth-child(-n + 2) { border-bottom: 1px solid #e5e9ed; }
+  .pp-detail-related,
   .pp-activity-form-row { grid-template-columns: 1fr; }
+  .pp-detail-footer { align-items: stretch; flex-direction: column; }
+  .pp-detail-footer-main,
+  .pp-detail-footer-actions { justify-content: space-between; }
 }

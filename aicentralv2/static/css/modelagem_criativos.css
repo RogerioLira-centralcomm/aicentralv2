@@ -895,6 +895,7 @@
 
 .mc-workspace-head {
   align-items: end;
+  justify-content: flex-start;
   padding: 0.875rem 1rem;
   border: 1px solid var(--cx-border, #e2e8f0);
   border-radius: var(--cx-radius-lg, 0.75rem);
@@ -902,41 +903,7 @@
 }
 
 .mc-workspace-head > .cx-field {
-  width: min(28rem, 100%);
-}
-
-.mc-budget {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(6rem, 1fr));
-  min-width: min(34rem, 100%);
-  border: 1px solid var(--cx-border, #e2e8f0);
-  border-radius: 0.625rem;
-  overflow: hidden;
-}
-
-.mc-budget span {
-  display: grid;
-  gap: 0.125rem;
-  padding: 0.5rem 0.75rem;
-  border-right: 1px solid var(--cx-border, #e2e8f0);
-}
-
-.mc-budget span:last-child {
-  border-right: 0;
-}
-
-.mc-budget small {
-  color: var(--cx-text-muted, #64748b);
-  font-size: 0.75rem;
-}
-
-.mc-budget strong {
-  font-size: 0.875rem;
-}
-
-.mc-budget .is-balance {
-  background: rgba(156, 207, 49, 0.12);
-  color: var(--cx-brand, #1e4d4f);
+  width: min(36rem, 100%);
 }
 
 .mc-campaign-brief {
@@ -1526,9 +1493,6 @@
     align-items: stretch;
     flex-direction: column;
   }
-  .mc-budget {
-    min-width: 0;
-  }
   .mc-studio {
     display: block;
   }
@@ -1595,15 +1559,6 @@
   }
   .mc-span-2 {
     grid-column: auto;
-  }
-  .mc-budget {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .mc-budget span:nth-child(2) {
-    border-right: 0;
-  }
-  .mc-budget span:nth-child(-n+2) {
-    border-bottom: 1px solid var(--cx-border, #e2e8f0);
   }
   .mc-step {
     grid-template-columns: 2rem 1fr;

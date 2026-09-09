@@ -1018,8 +1018,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=8", page)
-        self.assertIn("modelagem_criativos.js') }}?v=8", page)
+        self.assertIn("modelagem_criativos.css') }}?v=9", page)
+        self.assertIn("modelagem_criativos.js') }}?v=9", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1036,6 +1036,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcSceneRail"', production)
         self.assertIn('id="mcProductionStage"', production)
         self.assertIn("Bancada de produção", production)
+        self.assertNotIn("mcBudgetStrip", production)
+        self.assertNotIn("Orçamento", production)
+        self.assertNotIn("mcGlobalContext", page)
+        production_js = (
+            root / "aicentralv2" / "static" / "js" / "modelagem_criativos.js"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("Confirmar consumo de saldo", production_js)
+        self.assertNotIn("Saldo atual:", production_js)
+        self.assertIn("runProductionAction(action, button)", production_js)
+        self.assertIn("title: 'Remover variação'", production_js)
         public_page = (
             root
             / "aicentralv2"

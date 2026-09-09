@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=9">
 {% endblock %}
 
 {% block content %}
@@ -13,9 +13,6 @@
     <div>
       <h1>Modelagem de Criativos</h1>
       <p>Prepare campanhas, produza cenas e revise peças no contexto de mídia.</p>
-    </div>
-    <div class="mc-context" id="mcGlobalContext" aria-live="polite">
-      <span class="cx-badge cx-badge-muted">Nenhuma campanha selecionada</span>
     </div>
   </header>
 
@@ -58,5 +55,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=8" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=9" defer></script>
 {% endblock %}

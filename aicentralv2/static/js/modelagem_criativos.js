@@ -417,25 +417,10 @@
     renderWorkspace();
   }
 
-  function renderBudget() {
-    const c = state.campaign || {};
-    const values = [
-      ['Orçamento', c.budget_usd], ['Reservado', c.reserved_usd],
-      ['Consumido', c.spent_usd], ['Saldo', c.balance_usd],
-    ];
-    $('#mcBudgetStrip').innerHTML = values.map(([label, value], index) => (
-      `<span class="${index === 3 ? 'is-balance' : ''}"><small>${label}</small><strong>${money(value)}</strong></span>`
-    )).join('');
-    $('#mcGlobalContext').innerHTML = state.campaign
-      ? `<span class="cx-badge cx-badge-info">${escapeHtml(c.name)}</span><span class="cx-badge cx-badge-success">Saldo ${money(c.balance_usd)}</span>`
-      : '<span class="cx-badge cx-badge-muted">Nenhuma campanha selecionada</span>';
-  }
-
   function renderWorkspace() {
     const hasCampaign = Boolean(state.campaign);
     $('#mcVariationEmpty').classList.toggle('hidden', hasCampaign);
     $('#mcVariationWorkspace').classList.toggle('hidden', !hasCampaign);
-    renderBudget();
     if (!hasCampaign) return;
     const c = state.campaign;
     $('#mcCampaignBrief').innerHTML = `
@@ -1487,19 +1472,10 @@
     }
   }
 
-  function confirmCostAndRun(action, button) {
+  function runProductionAction(action, button) {
     const found = findStep(state.activeStepId);
     if (!found) return;
-    const estimated = action === 'generate-image' ? 0.15 : action === 'generate-script' ? 0.03 : 0.02;
-    if (typeof window.showConfirm === 'function') {
-      window.showConfirm({
-        title: 'Confirmar consumo de saldo',
-        message: `Executar ${action === 'generate-image' ? 'geração de imagem' : action === 'generate-script' ? 'geração de roteiro' : 'geração de prompt'}?`,
-        detail: `Estimativa: ${money(estimated)} · Saldo atual: ${money(state.campaign.balance_usd)}`,
-        confirmText: 'Gerar',
-        onConfirm: () => inspectorAction(action, button),
-      });
-    } else inspectorAction(action, button);
+    inspectorAction(action, button);
   }
 
   async function sceneAction(action, button) {
@@ -1565,16 +1541,7 @@
         toast(error.message, 'error');
       }
     };
-    if (['generate-prompt', 'generate-image'].includes(action) && typeof window.showConfirm === 'function') {
-      const estimate = action === 'generate-image' ? 0.15 : 0.02;
-      window.showConfirm({
-        title: action === 'generate-image' ? 'Gerar imagem' : 'Gerar direção',
-        message: `Executar esta etapa da cena ${productionScenes().indexOf(scene) + 1}?`,
-        detail: `Estimativa: ${money(estimate)} · Saldo atual: ${money(state.campaign?.balance_usd)}`,
-        confirmText: 'Gerar',
-        onConfirm: execute,
-      });
-    } else await execute();
+    await execute();
   }
 
   async function handleClick(event) {
@@ -1680,7 +1647,7 @@
       const found = findStep(id);
       if (found) renderStepInspector(found.step, found.variation);
     } else if (['generate-ai-prompt', 'generate-image', 'generate-script'].includes(action)) {
-      confirmCostAndRun(action, button);
+      runProductionAction(action, button);
     } else if (['save-prompt', 'approve-prompt', 'save-script', 'approve-script', 'prepare-higgsfield'].includes(action)) {
       inspectorAction(action, button);
     } else if (action === 'toggle-asset') {
@@ -1956,7 +1923,6 @@
     });
     $('#mcGenerateAllPrompts')?.addEventListener('click', (event) => {
       const button = event.currentTarget;
-      const total = state.campaign?.variations.reduce((sum, item) => sum + Math.max(item.steps.length, 1), 0) || 0;
       const run = () => withLock('all-prompts', button, async () => {
         try {
           const cards = $$('#mcVariationList [data-variation-id]');
@@ -1972,13 +1938,7 @@
           toast('Prompts base gerados.', 'success');
         } catch (error) { toast(error.message, 'error'); }
       });
-      window.showConfirm({
-        title: 'Gerar prompts com GPT',
-        message: `Gerar os prompts de ${total} steps?`,
-        detail: `Estimativa total: ${money(total * 0.02)} · Saldo atual: ${money(state.campaign?.balance_usd)}`,
-        confirmText: 'Gerar prompts',
-        onConfirm: run,
-      });
+      run();
     });
     $('#mcFormatSearch')?.addEventListener('input', renderFormatBrowser);
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);

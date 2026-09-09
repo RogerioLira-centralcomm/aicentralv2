@@ -15265,6 +15265,7 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     pi.id_status_pi,
                     pi.id_sub_status_pi,
                     resp_op.nome_completo AS responsavel_operacao_nome,
+                    resp_op.foto_url AS responsavel_operacao_foto_url,
                     ultimo_diario.data_evento AS ultimo_diario_data,
                     COALESCE(ultimo_diario.qtd_diarios, 0) AS qtd_diarios
                 FROM cadu_pi_campanha c

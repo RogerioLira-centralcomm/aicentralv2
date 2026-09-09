@@ -7,7 +7,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=5">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -40,7 +40,7 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string == '1' %} pi-list-table--approval{% endif %}{% if sub_status_atual|string == '3' %} pi-list-table--operation{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
         {% if origem_lista == 'nf_emitida' %}
         <colgroup class="pi-fiscal-columns">
           <col class="pi-col-reference">
@@ -52,6 +52,37 @@
           <col class="pi-col-net">
           <col class="pi-col-actions">
           <col class="pi-col-invoice">
+        </colgroup>
+        {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
+        <colgroup class="pi-billing-columns">
+          <col class="pi-col-title">
+          <col class="pi-col-client">
+          <col class="pi-col-owner">
+          <col class="pi-col-period">
+          <col class="pi-col-finance">
+          <col class="pi-col-documents">
+        </colgroup>
+        {% elif sub_status_atual|string == '1' %}
+        <colgroup class="pi-approval-columns">
+          <col class="pi-col-reference">
+          <col class="pi-col-client">
+          <col class="pi-col-agency">
+          <col class="pi-col-gross">
+          <col class="pi-col-net">
+          <col class="pi-col-actions">
+        </colgroup>
+        {% elif sub_status_atual|string == '3' %}
+        <colgroup class="pi-operation-columns">
+          <col class="pi-col-title">
+          <col class="pi-col-client">
+          <col class="pi-col-agency">
+          <col class="pi-col-owner">
+          <col class="pi-col-period">
+          <col class="pi-col-campaigns">
+          <col class="pi-col-media-cost">
+          <col class="pi-col-net">
+          <col class="pi-col-gross">
+          <col class="pi-col-actions">
         </colgroup>
         {% endif %}
         {% include 'cadu_pi/_table.html' %}
@@ -306,6 +337,15 @@
               <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
               {% endif %}
             </td>
+            {% if sub_status_atual|string == '3' %}
+            <td class="text-right px-2 align-top">
+              {% if pi.get('valor_bruto') %}
+              <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.valor_bruto|format_brl }}</span>
+              {% else %}
+              <span class="cx-cell-empty empty-pending" title="Valor bruto não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
+              {% endif %}
+            </td>
+            {% endif %}
             <td class="text-center px-2 align-top">
               <div class="flex flex-col items-center gap-0.5">
                 {% if sub_status_atual|string == '3' %}
@@ -422,11 +462,22 @@
           {% endfor %}
           {% endfor %}
         </tbody>
+        {% if sub_status_atual|string == '3' %}
+        {% include 'cadu_pi/_operation_summary.html' %}
+        {% elif sub_status_atual|string == '1' %}
+        {% include 'cadu_pi/_approval_summary.html' %}
+        {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
+        {% include 'cadu_pi/_billing_summary.html' %}
+        {% endif %}
       </table>
       {% endif %}
       </div>
 
+      {% if visao_por_agencia|default(false)
+            or (sub_status_atual|string not in ['1', '3']
+                and not (sub_status_atual|string == '4' and origem_lista == 'operacao')) %}
       {% include 'cadu_pi/_summary.html' %}
+      {% endif %}
     {% else %}
       <section class="pi-list-empty" aria-labelledby="pi-empty-title">
         <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
@@ -1155,7 +1206,7 @@
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=5"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

@@ -7,7 +7,10 @@
          data-detail-url="{{ url_for('campanha_pi_detalhe', id_camp=c.id_campanha, return_url=request.full_path) }}">
   <div class="campaign-queue-identity">
     <span class="campaign-risk campaign-risk--{{ c.health_severity }}">
-      {% if c.health_severity == 'critical' %}Crítica{% elif c.health_severity == 'attention' %}Atenção{% else %}No ritmo{% endif %}
+      {% if c.health_severity == 'unclassified' %}Sem classificação
+      {% elif c.health_severity == 'critical' %}Crítica
+      {% elif c.health_severity == 'attention' %}Atenção
+      {% else %}No ritmo{% endif %}
     </span>
     <strong>{{ c.nome_campanha or 'Campanha sem nome' }}</strong>
     <span>{{ c.cliente_nome or 'Cliente não informado' }}</span>
@@ -16,35 +19,66 @@
 
   <div class="campaign-queue-owner">
     <span>Responsável</span>
-    <strong>{{ c.responsavel_operacao_nome or c.executivo_nome or 'Não definido' }}</strong>
-    <small>
-      {% if c.ultimo_diario_data %}
-        Atualizado em {{ c.ultimo_diario_data.strftime('%d/%m/%Y') }}
+    <div class="campaign-owner-person">
+      {% if c.responsavel_operacao_foto_url %}
+        <img src="{{ c.responsavel_operacao_foto_url }}"
+             alt="Foto de {{ c.responsavel_operacao_nome or 'responsável' }}">
       {% else %}
-        Sem diário operacional
+        <span class="campaign-owner-avatar" aria-hidden="true">
+          {{ (c.responsavel_operacao_nome or '?')|trim|first|upper }}
+        </span>
       {% endif %}
-    </small>
+      <div>
+        <strong class="{{ '' if c.has_operation_owner else 'is-missing' }}">
+          {{ c.responsavel_operacao_nome or 'Responsável não definido' }}
+        </strong>
+        <small>
+          {% if c.ultimo_diario_data %}
+            Atualizado em {{ c.ultimo_diario_data.strftime('%d/%m/%Y') }}
+          {% elif c.executivo_nome %}
+            Sem diário · Executivo: {{ c.executivo_nome }}
+          {% else %}
+            Sem diário operacional
+          {% endif %}
+        </small>
+      </div>
+    </div>
   </div>
 
   <div class="campaign-queue-progress">
     <div class="campaign-progress-item">
-      <span><b>Tempo</b><strong>{{ c.periodo_pct_elapsed|round|int }}%</strong></span>
-      <progress max="100" value="{{ [c.periodo_pct_elapsed, 100]|min }}">Tempo decorrido</progress>
+      <span><b>Tempo</b><strong>{{ (c.periodo_pct_elapsed|round|int ~ '%') if c.has_period_data else 'Pendente' }}</strong></span>
+      {% if c.has_period_data %}
+        <progress max="100" value="{{ [c.periodo_pct_elapsed, 100]|min }}">Tempo decorrido</progress>
+      {% else %}
+        <span class="campaign-progress-empty">Informe o período</span>
+      {% endif %}
     </div>
     <div class="campaign-progress-item campaign-progress-item--delivery">
-      <span><b>Entrega</b><strong>{{ c.pct_objetivo|round|int }}%</strong></span>
-      <progress max="100" value="{{ [c.pct_objetivo, 100]|min }}">Objetivo entregue</progress>
+      <span><b>Entrega</b><strong>{{ (c.pct_objetivo|round|int ~ '%') if c.has_delivery_target else 'Pendente' }}</strong></span>
+      {% if c.has_delivery_target %}
+        <progress max="100" value="{{ [c.pct_objetivo, 100]|min }}">Objetivo entregue</progress>
+      {% else %}
+        <span class="campaign-progress-empty">Informe a meta</span>
+      {% endif %}
     </div>
     <div class="campaign-progress-item campaign-progress-item--investment">
-      <span><b>Investimento</b><strong>{{ c.pct_custo_midia|round|int }}%</strong></span>
-      <progress max="100" value="{{ [c.pct_custo_midia, 100]|min }}">Investimento realizado</progress>
+      <span><b>Investimento</b><strong>{{ (c.pct_custo_midia|round|int ~ '%') if c.has_investment_plan else 'Pendente' }}</strong></span>
+      {% if c.has_investment_plan %}
+        <progress max="100" value="{{ [c.pct_custo_midia, 100]|min }}">Investimento realizado</progress>
+      {% else %}
+        <span class="campaign-progress-empty">Informe o previsto</span>
+      {% endif %}
     </div>
   </div>
 
   <div class="campaign-queue-finance">
     <span>Realizado / previsto</span>
     <strong>{{ c.totalizador_gasto_num|format_brl_ptbr }}</strong>
-    <small>de {{ c.custo_midia_previsto|format_brl_ptbr }}</small>
+    <small>
+      {% if c.has_investment_plan %}de {{ c.custo_midia_previsto|format_brl_ptbr }}
+      {% else %}Previsão não informada{% endif %}
+    </small>
   </div>
 
   <div class="campaign-queue-guidance">

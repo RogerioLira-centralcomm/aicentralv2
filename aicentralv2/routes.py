@@ -12497,6 +12497,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         'cliente': row.get('cliente_nome') or 'Sem cliente',
                         'tempo': row.get('periodo_pct_elapsed', 0),
                         'entrega': row.get('pct_objetivo', 0),
+                        'tem_periodo': row.get('has_period_data', False),
+                        'tem_meta': row.get('has_delivery_target', False),
                         'severidade': row.get('health_severity'),
                     }
                     for row in campanhas_ativas

@@ -107,10 +107,24 @@ def project_campaign_health(
         row.get("valor_plataforma")
     )
     spent = parse_number(row.get("totalizador_gasto"))
+    has_period = bool(as_date(row.get("periodo_inicio")) and as_date(row.get("periodo_fim")))
+    has_delivery_target = objective > 0
+    has_investment_plan = planned > 0
     delivery_pct = _clamp((delivered / objective) * 100, upper=999.0) if objective else 0.0
     investment_pct = _clamp((spent / planned) * 100, upper=999.0) if planned else 0.0
     latest_diary = as_date(row.get("ultimo_diario_data"))
     diary_age = (today - latest_diary).days if latest_diary else None
+    has_operation_owner = bool(
+        row.get("id_responsavel_operacao")
+        and row.get("responsavel_operacao_nome")
+    )
+    is_classifiable = bool(
+        has_period
+        and has_delivery_target
+        and has_investment_plan
+        and has_operation_owner
+        and latest_diary
+    )
     delivery_gap = round(period_pct - delivery_pct, 1)
     investment_gap = round(investment_pct - period_pct, 1)
 
@@ -145,7 +159,13 @@ def project_campaign_health(
         recommendation = "Ritmo dentro do esperado"
         primary_issue = "ok"
 
-    severity = "critical" if score >= 75 else "attention" if score >= 30 else "healthy"
+    severity = (
+        "unclassified"
+        if not is_classifiable
+        else "critical" if score >= 75
+        else "attention" if score >= 30
+        else "healthy"
+    )
     row.update(
         {
             "periodo_pct_elapsed": period_pct,
@@ -157,6 +177,11 @@ def project_campaign_health(
             "desvio_entrega": delivery_gap,
             "desvio_investimento": investment_gap,
             "dias_sem_diario": diary_age,
+            "has_period_data": has_period,
+            "has_delivery_target": has_delivery_target,
+            "has_investment_plan": has_investment_plan,
+            "has_operation_owner": has_operation_owner,
+            "health_classifiable": is_classifiable,
             "health_score": score,
             "health_severity": severity,
             "health_issue": primary_issue,
@@ -209,7 +234,9 @@ def summarize_campaigns(campaigns):
         "campanhas": len(projected),
         "campanhas_ativas": len(active_rows),
         "campanhas_atencao": sum(
-            1 for row in active_rows if row.get("health_severity") != "healthy"
+            1
+            for row in active_rows
+            if row.get("health_severity") in {"critical", "attention"}
         ),
         "encerram_sete_dias": sum(
             1

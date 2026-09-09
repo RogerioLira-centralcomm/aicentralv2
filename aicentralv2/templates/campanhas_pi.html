@@ -7,7 +7,7 @@
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-dashboard.css') }}?v=2">
 <script src="{{ url_for('static', filename='js/vendor/apexcharts.min.js') }}"></script>
 {% endblock %}
 
@@ -99,7 +99,6 @@
     <div class="campaign-status-lane">
       <div class="campaign-section-heading">
         <h2>Status dos PIs</h2>
-        <span>Visão global</span>
       </div>
       <nav aria-label="Filtrar lista de PIs por status">
         {% for status in status_pis %}
@@ -114,7 +113,6 @@
     <div class="campaign-status-lane">
       <div class="campaign-section-heading">
         <h2>Status das campanhas</h2>
-        <span>Visão global</span>
       </div>
       <nav aria-label="Filtrar lista de campanhas por status">
         {% for status in status_campanhas %}
@@ -214,5 +212,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/campanhas_dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/campanhas_dashboard.js') }}?v=2"></script>
 {% endblock %}

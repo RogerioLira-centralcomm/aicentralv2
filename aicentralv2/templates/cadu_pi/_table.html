@@ -25,7 +25,6 @@
     <th>Cliente e relacionamento</th>
     <th>Responsável</th>
     <th>Veiculação</th>
-    <th>Campanhas</th>
     <th>Financeiro</th>
     <th>Documentos</th>
   </tr>
@@ -41,6 +40,9 @@
     <th class="text-right">Custo de mídia</th>
     {% endif %}
     <th class="text-right">Valor líquido</th>
+    {% if sub_status_atual|string == '3' %}
+    <th class="text-right">Valor bruto</th>
+    {% endif %}
     <th><span class="sr-only">Ações</span></th>
     {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
     <th class="text-center">Nota fiscal</th>

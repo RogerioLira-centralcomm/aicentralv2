@@ -62,6 +62,28 @@ class CampaignDashboardMetricsTest(unittest.TestCase):
         self.assertEqual(row["health_severity"], "critical")
         self.assertGreater(row["desvio_entrega"], 25)
         self.assertGreater(row["pct_custo_midia"], 100)
+        self.assertTrue(row["has_delivery_target"])
+        self.assertTrue(row["has_investment_plan"])
+
+    def test_dados_ausentes_nao_sao_tratados_como_percentual_zero(self):
+        row = project_campaign_health(
+            active_campaign(
+                periodo_inicio=None,
+                periodo_fim=None,
+                obj_contratados=None,
+                custo_midia_previsto=None,
+                valor_plataforma=None,
+                id_responsavel_operacao=None,
+                responsavel_operacao_nome=None,
+            ),
+            today=date(2026, 9, 8),
+        )
+        self.assertFalse(row["has_period_data"])
+        self.assertFalse(row["has_delivery_target"])
+        self.assertFalse(row["has_investment_plan"])
+        self.assertFalse(row["has_operation_owner"])
+        self.assertFalse(row["health_classifiable"])
+        self.assertEqual(row["health_severity"], "unclassified")
 
     def test_diario_desatualizado_prazo_curto_e_dados_ausentes_geram_acao(self):
         today = date(2026, 9, 8)
@@ -76,7 +98,7 @@ class CampaignDashboardMetricsTest(unittest.TestCase):
             today=today,
             stale_days=3,
         )
-        self.assertEqual(row["health_severity"], "critical")
+        self.assertEqual(row["health_severity"], "unclassified")
         self.assertGreaterEqual(row["health_issue_count"], 3)
 
     def test_fila_ordena_por_severidade_e_prazo(self):
@@ -139,6 +161,10 @@ class CampaignDashboardContractTest(unittest.TestCase):
         self.assertNotIn("Chart.js", template)
         self.assertNotIn("sidebar", template.lower())
         self.assertIn("<progress", row)
+        self.assertIn("Informe a meta", row)
+        self.assertIn("Responsável não definido", row)
+        self.assertIn("responsavel_operacao_foto_url", row)
+        self.assertIn("Sem classificação", row)
         self.assertIn("data-edit-campaign", row)
         self.assertIn("campanha_pi_detalhe", row)
         self.assertIn("<dialog", dialog)
@@ -153,6 +179,12 @@ class CampaignDashboardContractTest(unittest.TestCase):
         self.assertNotIn("confirm(", source)
         self.assertIn("new window.ApexCharts", source)
         self.assertIn("showModal()", source)
+        self.assertIn("row.tem_periodo && row.tem_meta", source)
+        css = (
+            ROOT / "aicentralv2/static/css/campanhas-dashboard.css"
+        ).read_text()
+        self.assertIn(".campaign-dashboard [hidden]", css)
+        self.assertIn("grid-template-columns: 108px", css)
 
     def test_rota_separa_recortes_sem_restauracao_legada(self):
         source = (ROOT / "aicentralv2/routes.py").read_text()
@@ -161,8 +193,15 @@ class CampaignDashboardContractTest(unittest.TestCase):
         self.assertIn("obter_campanhas_dashboard_ativas", route)
         self.assertIn("obter_campanhas_dashboard_encerradas(5)", route)
         self.assertIn("obter_status_dashboard_campanhas", route)
+        self.assertIn("'tem_periodo': row.get('has_period_data'", route)
+        self.assertIn("'tem_meta': row.get('has_delivery_target'", route)
         self.assertNotIn("_restored", route)
         self.assertNotIn("top_clientes", route)
+        db_source = (ROOT / "aicentralv2/db.py").read_text()
+        self.assertIn(
+            "resp_op.foto_url AS responsavel_operacao_foto_url",
+            db_source,
+        )
 
 
 if __name__ == "__main__":

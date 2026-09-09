@@ -232,14 +232,24 @@
       grid: "#e4ebec",
     };
     const paceElement = document.getElementById("campaignPaceChart");
-    const paceRows = ((dashboardData.pace || {}).campanhas || []);
+    const paceRows = ((dashboardData.pace || {}).campanhas || []).filter(function (row) {
+      return row.tem_periodo && row.tem_meta;
+    });
     if (paceElement && paceRows.length) {
+      const highestDelivery = Math.max.apply(null, paceRows.map(function (row) {
+        return Number(row.entrega) || 0;
+      }));
+      const deliveryAxisMax = Math.min(200, Math.max(100, Math.ceil(highestDelivery / 20) * 20));
       const paceChart = new window.ApexCharts(paceElement, {
         chart: { type: "scatter", height: 330, toolbar: { show: false }, animations: { enabled: false } },
         series: [{
           name: "Campanhas",
           data: paceRows.map(function (row) {
-            return { x: Number(row.tempo) || 0, y: Number(row.entrega) || 0, meta: row };
+            return {
+              x: Number(row.tempo) || 0,
+              y: Math.min(Number(row.entrega) || 0, deliveryAxisMax),
+              meta: row,
+            };
           }),
         }],
         colors: [colors.teal],
@@ -251,7 +261,13 @@
             return {
               seriesIndex: 0,
               dataPointIndex: index,
-              fillColor: row.severidade === "critical" ? colors.red : row.severidade === "attention" ? colors.amber : colors.green,
+              fillColor: row.severidade === "critical"
+                ? colors.red
+                : row.severidade === "attention"
+                  ? colors.amber
+                  : row.severidade === "unclassified"
+                    ? colors.muted
+                    : colors.green,
               size: 7,
             };
           }),
@@ -261,7 +277,7 @@
           xaxis: [{ x: 50, borderColor: colors.grid, strokeDashArray: 4 }],
         },
         xaxis: { min: 0, max: 100, tickAmount: 4, title: { text: "Tempo decorrido (%)" }, labels: { formatter: function (value) { return Math.round(value) + "%"; } } },
-        yaxis: { min: 0, max: 110, tickAmount: 5, title: { text: "Entrega (%)" }, labels: { formatter: function (value) { return Math.round(value) + "%"; } } },
+        yaxis: { min: 0, max: deliveryAxisMax, tickAmount: 5, title: { text: "Entrega (%)" }, labels: { formatter: function (value) { return Math.round(value) + "%"; } } },
         grid: { borderColor: colors.grid },
         legend: { show: false },
         tooltip: {
@@ -280,7 +296,7 @@
       });
       paceChart.render();
     } else if (paceElement) {
-      paceElement.textContent = "Sem campanhas com dados de ritmo.";
+      paceElement.textContent = "Preencha período e meta para comparar o ritmo.";
       paceElement.classList.add("campaign-empty");
     }
 

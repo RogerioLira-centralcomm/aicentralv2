@@ -1,0 +1,23 @@
+<tfoot class="pi-billing-summary">
+  <tr>
+    <td colspan="4">
+      <div class="pi-billing-summary__overview">
+        <span>
+          <strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}
+          <span aria-hidden="true">·</span>
+          <strong>{{ pi_footer_totais.total_campanhas }}</strong>
+          campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}
+        </span>
+        <span>
+          Investimento de mídia
+          <strong>{{ pi_footer_totais.valor_midia|format_brl if pi_footer_totais.valor_midia else 'R$ 0,00' }}</strong>
+        </span>
+      </div>
+    </td>
+    <td class="pi-billing-summary__finance">
+      <span>Valor líquido <strong>{{ pi_footer_totais.valor_liquido|format_brl if pi_footer_totais.valor_liquido else 'R$ 0,00' }}</strong></span>
+      <span>Valor bruto <strong>{{ pi_footer_totais.valor_bruto|format_brl if pi_footer_totais.valor_bruto else 'R$ 0,00' }}</strong></span>
+    </td>
+    <td aria-hidden="true"></td>
+  </tr>
+</tfoot>

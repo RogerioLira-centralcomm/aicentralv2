@@ -32,6 +32,9 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "_campaign_rows.html",
             "_agency_group.html",
             "_summary.html",
+            "_operation_summary.html",
+            "_approval_summary.html",
+            "_billing_summary.html",
             "_operation_billing_cells.html",
         }
         self.assertTrue(expected.issubset({path.name for path in PARTIALS.glob("*.html")}))
@@ -99,6 +102,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         campaign = (PARTIALS / "_campaign_rows.html").read_text()
         self.assertIn("pi-billing-head", table)
         self.assertIn("Cliente e relacionamento", table)
+        self.assertNotIn("<th>Campanhas</th>", table.split("pi-billing-head", 1)[1].split("</tr>", 1)[0])
         self.assertIn("Financeiro", table)
         self.assertIn("Documentos", table)
         self.assertIn("pi-billing-finance", billing)
@@ -107,9 +111,14 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-billing-document-actions", billing)
         self.assertIn("fa-file-invoice", billing)
         self.assertIn("Sem NF", billing)
-        self.assertIn("origem_lista == 'operacao' %}7", campaign)
+        self.assertNotIn("pi-billing-campaigns", billing)
+        self.assertIn("campanhas_sempre_abertas %}6", campaign)
+        self.assertIn("pi-campaigns-always-open", campaign)
+        self.assertIn("_billing_summary.html", self.template)
+        self.assertIn("pi-billing-columns", self.template)
         self.assertIn("pi-row--billing", self.template)
         self.assertIn("pi-list-table--billing", self.template)
+        self.assertIn("subStatusAtual === '4' && origemLista === 'operacao'", self.js)
 
     def test_internal_campaign_grid_matches_operational_tracking(self):
         for marker in (
@@ -124,6 +133,37 @@ class CaduPiListUiContractTest(unittest.TestCase):
             self.assertIn(label, self.js)
         self.assertIn(".pi-page .camp-table--operational", self.css)
         self.assertIn("border-left: 4px solid #5f8f89", self.css)
+
+    def test_running_operation_uses_compact_filters_and_aligned_table(self):
+        header = (PARTIALS / "_header_filters.html").read_text()
+        table = (PARTIALS / "_table.html").read_text()
+        summary = (PARTIALS / "_operation_summary.html").read_text()
+        self.assertIn('class="sr-only">Executivo', header)
+        self.assertIn("Executivo: Todos", header)
+        self.assertIn("Mês: Todos", header)
+        self.assertIn("pi-list-table--operation", self.template)
+        self.assertIn("pi-operation-columns", self.template)
+        self.assertIn("Valor bruto", table)
+        self.assertIn("<tfoot>", summary)
+        self.assertIn("pi-operation-summary__metric", summary)
+        self.assertIn("table-layout: fixed", self.css)
+        self.assertIn("min-height: 4.25rem", self.css)
+
+    def test_running_campaigns_expand_as_aligned_parent_table_rows(self):
+        self.assertIn("buildOperationalCampaignRowHtml", self.js)
+        self.assertIn('data-campaign-parent="', self.js)
+        self.assertIn("pi-campaign-detail-row", self.js)
+        self.assertIn(".pi-campaign-detail-row > td", self.css)
+
+    def test_approval_view_uses_fixed_columns_and_aligned_totals(self):
+        summary = (PARTIALS / "_approval_summary.html").read_text()
+        self.assertIn("pi-list-table--approval", self.template)
+        self.assertIn("pi-approval-columns", self.template)
+        self.assertIn("cadu_pi/_approval_summary.html", self.template)
+        self.assertIn("<tfoot>", summary)
+        self.assertIn("Valor bruto", summary)
+        self.assertIn("Valor líquido", summary)
+        self.assertIn(".pi-page .pi-list-table--approval", self.css)
 
     def test_mobile_cards_and_reduced_motion_are_explicit(self):
         self.assertIn("@media (max-width: 720px)", self.css)

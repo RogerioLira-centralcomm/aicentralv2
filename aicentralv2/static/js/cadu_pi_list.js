@@ -272,6 +272,12 @@
     return UI.parseBrlMoeda(v);
   }
 
+  function escapeHtml(value) {
+    const node = document.createElement('span');
+    node.textContent = value == null ? '' : String(value);
+    return node.innerHTML;
+  }
+
   function updateFlagSummary(idPi, campanhaIds) {
     const el = document.getElementById('pi-flag-summary-' + idPi);
     if (!el || !campanhaIds || !campanhaIds.length) return;
@@ -346,24 +352,57 @@
       '</tr>';
   }
 
+  function buildOperationalCampaignRowHtml(c, idPi) {
+    const payload = encodeURIComponent(JSON.stringify(c));
+    const periodo = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+    const gasto = c.custo_midia_realizado != null
+      ? parseBrl(c.custo_midia_realizado)
+      : parseBrl(c.totalizador_gasto);
+    const previsto = c.custo_midia_previsto != null
+      ? parseBrl(c.custo_midia_previsto)
+      : parseBrl(c.valor_plataforma);
+    const custo = gasto > 0 ? fmtBrl(gasto) : '—';
+    const custoMeta = previsto > 0 ? 'de ' + fmtBrl(previsto) : '';
+    return '<tr class="pi-campaign-detail-row hidden" data-campaign-parent="' + idPi +
+      '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
+      '<td class="pi-campaign-detail-name"><strong>' + escapeHtml(c.nome_campanha || 'Campanha sem nome') +
+      '</strong><span>' + escapeHtml(c.status_nome || 'Status não informado') + '</span></td>' +
+      '<td aria-hidden="true"></td><td aria-hidden="true"></td><td aria-hidden="true"></td>' +
+      '<td><span class="pi-campaign-detail-period">' + escapeHtml(periodo) + '</span></td>' +
+      '<td><strong class="pi-campaign-detail-platform">' + escapeHtml(c.plataforma_nome || 'Não informado') +
+      '</strong><span>' + escapeHtml(siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade)) + '</span></td>' +
+      '<td class="pi-campaign-detail-money"><strong>' + escapeHtml(custo) + '</strong><span>' +
+      escapeHtml(custoMeta) + '</span></td>' +
+      '<td aria-hidden="true"></td><td aria-hidden="true"></td><td aria-hidden="true"></td>' +
+      '</tr>';
+  }
+
   window.toggleCampanhas = function (idPi, event) {
     if (event && event.stopPropagation) event.stopPropagation();
     const row = document.getElementById('camp-collapse-' + idPi);
     const chevron = document.getElementById('chevron-' + idPi);
     if (!row) return;
 
-    const isHidden = row.classList.contains('hidden');
-    row.classList.toggle('hidden');
-    if (chevron) chevron.classList.toggle('open', isHidden);
     const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+    const shouldExpand = !toggle || toggle.getAttribute('aria-expanded') !== 'true';
+    const detailRows = document.querySelectorAll('[data-campaign-parent="' + idPi + '"]');
+    if (loadedCampanhas[idPi] && detailRows.length) {
+      row.classList.add('hidden');
+      detailRows.forEach(function (detailRow) {
+        detailRow.classList.toggle('hidden', !shouldExpand);
+      });
+    } else {
+      row.classList.toggle('hidden', !shouldExpand);
+    }
+    if (chevron) chevron.classList.toggle('open', shouldExpand);
     if (toggle) {
-      toggle.setAttribute('aria-expanded', String(isHidden));
+      toggle.setAttribute('aria-expanded', String(shouldExpand));
       const count = toggle.getAttribute('data-campaign-count') || '';
       const label = toggle.querySelector('[data-campaign-toggle-label]');
-      if (label) label.textContent = isHidden ? 'Ocultar campanhas' : ('Mostrar ' + count + ' campanha' + (count === '1' ? '' : 's'));
+      if (label) label.textContent = shouldExpand ? 'Ocultar campanhas' : ('Mostrar ' + count + ' campanha' + (count === '1' ? '' : 's'));
     }
 
-    if (isHidden && !loadedCampanhas[idPi]) {
+    if (shouldExpand && !loadedCampanhas[idPi]) {
       fetch('/api/cadu-pi/' + idPi + '/campanhas')
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -385,6 +424,23 @@
                 if (typeof abrirViewCampanhaLista === 'function') abrirViewCampanhaLista(camp);
               } catch (err) { console.error(err); }
             });
+          }
+          if (subStatusAtual === '3') {
+            let alignedRows = '';
+            data.campanhas.forEach(function (c) {
+              alignedRows += buildOperationalCampaignRowHtml(c, idPi);
+            });
+            row.insertAdjacentHTML('afterend', alignedRows);
+            row.classList.add('hidden');
+            const currentToggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+            const stillExpanded = currentToggle && currentToggle.getAttribute('aria-expanded') === 'true';
+            document.querySelectorAll('[data-campaign-parent="' + idPi + '"]').forEach(function (detailRow) {
+              detailRow.classList.toggle('hidden', !stillExpanded);
+            });
+            loadedCampanhas[idPi] = true;
+            const campIds = data.campanhas.map(function (c) { return c.id_campanha; }).filter(Boolean);
+            updateFlagSummary(idPi, campIds);
+            return;
           }
           let html = '<table class="camp-table camp-table--operational"><colgroup>' +
             '<col style="width:24%"><col style="width:12%"><col style="width:18%"><col style="width:14%"><col style="width:16%"><col style="width:16%">' +
@@ -434,9 +490,10 @@
   window.toggleTodasCampanhas = function () {
     window.todasExpandidas = !window.todasExpandidas;
     document.querySelectorAll('tr.collapse-camp-row').forEach(function (row) {
-      const isHidden = row.classList.contains('hidden');
-      if (window.todasExpandidas === isHidden) {
-        const idPi = row.id.replace('camp-collapse-', '');
+      const idPi = row.id.replace('camp-collapse-', '');
+      const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+      const isExpanded = toggle && toggle.getAttribute('aria-expanded') === 'true';
+      if (window.todasExpandidas !== isExpanded) {
         toggleCampanhas(parseInt(idPi, 10), { stopPropagation: function () {} });
       }
     });
@@ -699,10 +756,10 @@
 
   function updateListStickyOffsets() {
     const page = document.querySelector('[data-pi-list]');
-    const header = page && page.querySelector('.pi-list-header');
-    if (!page || !header) return;
-    const isSticky = window.getComputedStyle(header).position === 'sticky';
-    page.style.setProperty('--pi-list-header-height', isSticky ? header.offsetHeight + 'px' : '0px');
+    const filters = page && page.querySelector('.pi-list-filters');
+    if (!page || !filters) return;
+    const isSticky = window.getComputedStyle(filters).position === 'sticky';
+    page.style.setProperty('--pi-list-header-height', isSticky ? filters.offsetHeight + 'px' : '0px');
   }
 
   function toggleInvoiceGroup(button) {
@@ -721,6 +778,12 @@
     assignMobileCellLabels();
     UI.updatePiStickyTop();
     updateListStickyOffsets();
+    if (subStatusAtual === '4' && origemLista === 'operacao') {
+      document.querySelectorAll('.pi-campaigns-always-open').forEach(function (row) {
+        const idPi = parseInt(row.id.replace('camp-collapse-', ''), 10);
+        if (idPi) window.toggleCampanhas(idPi, { stopPropagation: function () {} });
+      });
+    }
     window.addEventListener('resize', function () {
       UI.updatePiStickyTop();
       updateListStickyOffsets();
@@ -780,10 +843,20 @@
       }
     });
     document.addEventListener('keydown', function (event) {
-      const row = event.target.closest('.pi-campaign-row');
+      const row = event.target.closest('.pi-campaign-row, .pi-campaign-detail-row');
       if (row && (event.key === 'Enter' || event.key === ' ')) {
         event.preventDefault();
         row.click();
+      }
+    });
+    document.addEventListener('click', function (event) {
+      const row = event.target.closest('.pi-campaign-detail-row');
+      if (!row) return;
+      try {
+        const campaign = JSON.parse(decodeURIComponent(row.getAttribute('data-camp-payload')));
+        if (typeof abrirViewCampanhaLista === 'function') abrirViewCampanhaLista(campaign);
+      } catch (error) {
+        console.error(error);
       }
     });
     document.querySelectorAll('[data-campanha-ids]').forEach(function (el) {

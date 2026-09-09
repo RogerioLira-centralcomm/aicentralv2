@@ -1029,15 +1029,15 @@
 /* Operação financeira: PI pronto para faturamento */
 .pi-page .pi-list-table--billing {
   min-width: 62rem;
+  table-layout: fixed;
 }
 
-.pi-billing-head th:nth-child(1) { width: 16%; }
-.pi-billing-head th:nth-child(2) { width: 25%; }
-.pi-billing-head th:nth-child(3) { width: 12%; }
-.pi-billing-head th:nth-child(4) { width: 14%; }
-.pi-billing-head th:nth-child(5) { width: 10%; }
-.pi-billing-head th:nth-child(6) { width: 12%; }
-.pi-billing-head th:nth-child(7) { width: 11%; }
+.pi-billing-columns .pi-col-title { width: 16%; }
+.pi-billing-columns .pi-col-client { width: 27%; }
+.pi-billing-columns .pi-col-owner { width: 13%; }
+.pi-billing-columns .pi-col-period { width: 15%; }
+.pi-billing-columns .pi-col-finance { width: 16%; }
+.pi-billing-columns .pi-col-documents { width: 13%; }
 
 .pi-page .pi-list-table tbody .pi-row--billing > td {
   padding: 0.75rem 0.7rem;
@@ -1128,11 +1128,6 @@
   margin-top: 0.2rem;
   color: #718083;
   font-size: 0.75rem !important;
-}
-
-.pi-billing-campaigns .pi-expand-chip {
-  min-height: 2rem;
-  white-space: nowrap;
 }
 
 .pi-billing-finance {
@@ -1434,6 +1429,86 @@
   min-width: 4.75rem;
 }
 
+.pi-page .pi-list-table--billing .pi-row--billing > td {
+  border-bottom: 0;
+}
+
+.pi-page .pi-campaigns-always-open > td {
+  border-bottom: 1px solid #ccdada;
+  background: #f8fbfb;
+}
+
+.pi-page .pi-campaigns-always-open .pi-camp-block {
+  margin: 0;
+  border: 0;
+  border-left: 4px solid #5f8f89;
+  border-radius: 0;
+  background: #f8fbfb;
+  box-shadow: inset 0 1px 0 #dbe5e5;
+}
+
+.pi-camp-block__header {
+  display: flex;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #dbe5e5;
+  padding: 0.45rem 0.75rem;
+  color: #365456;
+  background: #edf4f3;
+}
+
+.pi-camp-block__header strong {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.pi-camp-block__header span {
+  color: #647778;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.pi-page .pi-billing-summary td {
+  border-top: 1px solid #bccdcb;
+  border-bottom: 0;
+  padding: 0.7rem;
+  background: #f2f7f6;
+  vertical-align: middle;
+}
+
+.pi-billing-summary__overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #637577;
+  font-size: 0.75rem;
+}
+
+.pi-billing-summary__overview strong {
+  color: #2f4649;
+  font-weight: 800;
+}
+
+.pi-billing-summary__finance {
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-billing-summary__finance span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #637577;
+  font-size: 0.75rem;
+}
+
+.pi-billing-summary__finance strong {
+  color: #176b5a;
+  font-size: 0.75rem;
+}
+
 .pi-inner-flight,
 .pi-inner-muted {
   display: block;
@@ -1713,5 +1788,345 @@
   .pi-list-header * {
     scroll-behavior: auto !important;
     transition: none !important;
+  }
+}
+
+/* Operação de mídia: cabeçalho integrado e barra compacta, no mesmo
+   ritmo das demais mesas operacionais do ERP. */
+.pi-page:not(.pi-page--fiscal) {
+  width: calc(100% + 2rem);
+  max-width: none;
+  margin: -1rem;
+  padding-bottom: 1.5rem;
+}
+
+.pi-list-header {
+  position: static;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.pi-list-header__identity {
+  align-items: center;
+  padding: 1rem 1.5rem 0.75rem;
+}
+
+.pi-list-eyebrow {
+  margin-bottom: 0.15rem;
+  color: #64748b;
+  letter-spacing: 0.03em;
+}
+
+.pi-list-title-row h1 {
+  font-size: 1.125rem;
+}
+
+.pi-list-subtitle {
+  margin-top: 0.2rem;
+}
+
+.pi-list-filters {
+  position: sticky;
+  z-index: 32;
+  top: var(--erp-topbar-h, 3.5rem);
+  display: flex;
+  min-height: 4.25rem;
+  align-items: center;
+  border-width: 1px 0;
+  border-color: var(--pi-line);
+  border-radius: 0;
+  background: rgba(248, 250, 252, 0.98);
+  padding: 0 1.5rem;
+  box-shadow: 0 3px 10px rgba(15, 47, 49, 0.04);
+  backdrop-filter: blur(8px);
+}
+
+.pi-filter-panel {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pi-filter-field {
+  display: block;
+  flex: 0 1 10rem;
+}
+
+.pi-filter-field--search {
+  flex: 1 1 20rem;
+  max-width: 20rem;
+}
+
+.pi-filter-field--client {
+  flex-basis: 11rem;
+}
+
+.pi-filter-field > select,
+.pi-filter-field input[type="search"] {
+  height: 2.25rem;
+  min-height: 2.25rem;
+  border-color: #d7dee6;
+  font-size: 0.8125rem;
+}
+
+.pi-filter-clear {
+  min-height: 2.25rem;
+  margin-left: auto;
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0.4rem;
+  white-space: nowrap;
+}
+
+.pi-active-filters {
+  display: none;
+}
+
+.pi-list-surface {
+  margin: 1rem 1.5rem 0;
+}
+
+.pi-page .pi-list-table--operation {
+  min-width: 72rem;
+  table-layout: fixed;
+}
+
+.pi-page .pi-list-table--approval {
+  min-width: 58rem;
+  table-layout: fixed;
+}
+
+.pi-approval-columns .pi-col-reference { width: 15%; }
+.pi-approval-columns .pi-col-client { width: 35%; }
+.pi-approval-columns .pi-col-agency { width: 20%; }
+.pi-approval-columns .pi-col-gross { width: 12%; }
+.pi-approval-columns .pi-col-net { width: 12%; }
+.pi-approval-columns .pi-col-actions { width: 6%; }
+
+.pi-operation-columns .pi-col-title { width: 14%; }
+.pi-operation-columns .pi-col-client { width: 13%; }
+.pi-operation-columns .pi-col-agency { width: 12%; }
+.pi-operation-columns .pi-col-owner { width: 10%; }
+.pi-operation-columns .pi-col-period { width: 10%; }
+.pi-operation-columns .pi-col-campaigns { width: 11%; }
+.pi-operation-columns .pi-col-media-cost { width: 11%; }
+.pi-operation-columns .pi-col-net { width: 9%; }
+.pi-operation-columns .pi-col-gross { width: 7%; }
+.pi-operation-columns .pi-col-actions { width: 3%; }
+
+.pi-page .pi-list-table--operation th,
+.pi-page .pi-list-table--operation td {
+  overflow: hidden;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+.pi-page .pi-list-table--operation th {
+  white-space: nowrap;
+}
+
+.pi-page .pi-list-table--operation td:nth-child(n + 7):nth-child(-n + 9) {
+  text-align: right;
+}
+
+.pi-operation-summary td,
+.pi-approval-summary td {
+  border-top: 1px solid var(--pi-line);
+  background: #f8fafc;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+  vertical-align: bottom !important;
+}
+
+.pi-operation-summary__count {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.pi-operation-summary__count strong {
+  color: #1e293b;
+}
+
+.pi-operation-summary__metric {
+  display: block;
+  text-align: right;
+}
+
+.pi-operation-summary__metric span,
+.pi-operation-summary__metric strong {
+  display: block;
+}
+
+.pi-operation-summary__metric span {
+  color: #64748b;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.pi-operation-summary__metric strong {
+  margin-top: 0.15rem;
+  color: #1e293b;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pi-operation-summary__metric.is-net strong {
+  color: #0c704d;
+}
+
+.pi-page .pi-list-table--operation .pi-campaign-detail-row > td {
+  border-bottom: 1px solid #e8eded;
+  background: #f8fafc;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  vertical-align: middle;
+}
+
+.pi-page .pi-list-table--operation .pi-campaign-detail-row:hover,
+.pi-page .pi-list-table--operation .pi-campaign-detail-row:focus-visible {
+  background: #eef5f4;
+  outline: 0;
+}
+
+.pi-page .pi-list-table--operation .pi-campaign-detail-row:hover > td,
+.pi-page .pi-list-table--operation .pi-campaign-detail-row:focus-visible > td {
+  background: #eef5f4;
+}
+
+.pi-campaign-detail-name {
+  padding-left: 2rem !important;
+}
+
+.pi-campaign-detail-name strong,
+.pi-campaign-detail-name span,
+.pi-campaign-detail-platform,
+.pi-campaign-detail-platform + span,
+.pi-campaign-detail-money strong,
+.pi-campaign-detail-money span {
+  display: block;
+}
+
+.pi-campaign-detail-name strong,
+.pi-campaign-detail-platform,
+.pi-campaign-detail-money strong {
+  overflow: hidden;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-campaign-detail-name span,
+.pi-campaign-detail-platform + span,
+.pi-campaign-detail-money span,
+.pi-campaign-detail-period {
+  margin-top: 0.15rem;
+  color: #718083;
+  font-size: 0.75rem;
+}
+
+.pi-campaign-detail-money {
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .pi-list-filters {
+    min-height: auto;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .pi-filter-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pi-filter-field,
+  .pi-filter-field--search,
+  .pi-filter-field--client {
+    width: 100%;
+    max-width: none;
+  }
+
+  .pi-filter-clear {
+    width: fit-content;
+    margin: 0;
+  }
+
+  .pi-page .cx-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 720px) {
+  .pi-page:not(.pi-page--fiscal) {
+    width: 100%;
+    margin: 0;
+  }
+
+  .pi-list-header__identity,
+  .pi-list-filters {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+
+  .pi-list-surface {
+    margin-right: 0.5rem;
+    margin-left: 0.5rem;
+  }
+
+  .pi-page .pi-list-table-detail.pi-list-table--operation {
+    display: table;
+    min-width: 72rem;
+  }
+
+  .pi-page .pi-list-table-detail.pi-list-table--approval {
+    display: table;
+    min-width: 58rem;
+  }
+
+  .pi-page .pi-list-table--approval > thead,
+  .pi-page .pi-list-table--operation > thead {
+    display: table-header-group;
+  }
+
+  .pi-page .pi-list-table--approval > tbody,
+  .pi-page .pi-list-table--operation > tbody {
+    display: table-row-group;
+  }
+
+  .pi-page .pi-list-table--approval > tfoot,
+  .pi-page .pi-list-table--operation > tfoot {
+    display: table-footer-group;
+  }
+
+  .pi-page .pi-list-table--approval tbody > .pi-row,
+  .pi-page .pi-list-table--operation tbody > .pi-row,
+  .pi-page .pi-list-table--operation tbody > .pi-campaign-detail-row {
+    display: table-row;
+    padding: 0;
+  }
+
+  .pi-page .pi-list-table--approval tbody > .pi-row > td,
+  .pi-page .pi-list-table--operation tbody > .pi-row > td,
+  .pi-page .pi-list-table--operation tbody > .pi-campaign-detail-row > td {
+    display: table-cell;
+    border-bottom: 1px solid var(--pi-line);
+    padding: 0.75rem;
+  }
+
+  .pi-page .pi-list-table--approval tbody > .pi-row > td::before,
+  .pi-page .pi-list-table--operation tbody > .pi-row > td::before,
+  .pi-page .pi-list-table--operation tbody > .pi-campaign-detail-row > td::before {
+    display: none;
   }
 }

@@ -1,0 +1,26 @@
+<tfoot>
+  <tr class="pi-approval-summary">
+    <td colspan="3">
+      <span class="pi-operation-summary__count">
+        <strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}
+        {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('id_agencia') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
+        <span aria-hidden="true"> · </span>
+        <span><i class="fa-solid fa-filter" aria-hidden="true"></i> Resultado filtrado</span>
+        {% endif %}
+      </span>
+    </td>
+    <td>
+      <span class="pi-operation-summary__metric">
+        <span>Valor bruto</span>
+        <strong>{% if pi_footer_totais.valor_bruto %}{{ pi_footer_totais.valor_bruto|format_brl }}{% else %}R$ 0,00{% endif %}</strong>
+      </span>
+    </td>
+    <td>
+      <span class="pi-operation-summary__metric is-net">
+        <span>Valor líquido</span>
+        <strong>{% if pi_footer_totais.valor_liquido %}{{ pi_footer_totais.valor_liquido|format_brl }}{% else %}R$ 0,00{% endif %}</strong>
+      </span>
+    </td>
+    <td aria-hidden="true"></td>
+  </tr>
+</tfoot>

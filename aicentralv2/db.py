@@ -10170,10 +10170,38 @@ def obter_cotacoes_pipeline(filtros=None):
     try:
         with conn.cursor() as cursor:
             has_atividade_cotacao = _atividades_tem_cotacao(cursor)
+            has_atividade_completa = (
+                has_atividade_cotacao and _atividades_tem_colunas_novas(cursor)
+            )
             ultima_atividade_expr = (
                 "(SELECT MAX(COALESCE(sa.created_at, sa.data_atividade::timestamp)) "
                 "FROM sales_atividades sa WHERE sa.cotacao_id = cot.id)"
                 if has_atividade_cotacao else "NULL::timestamp"
+            )
+            proxima_acao_select = (
+                "pa.id AS proxima_acao_id, "
+                "pa.titulo AS proxima_acao, "
+                "pa.data_prazo AS proxima_acao_data,"
+                if has_atividade_completa else
+                "NULL::integer AS proxima_acao_id, "
+                "NULL::text AS proxima_acao, "
+                "NULL::date AS proxima_acao_data,"
+            )
+            proxima_acao_join = (
+                """
+                LEFT JOIN LATERAL (
+                    SELECT sa.id,
+                           COALESCE(NULLIF(TRIM(sa.titulo), ''), sa.descricao) AS titulo,
+                           COALESCE(sa.data_prazo, sa.data_atividade) AS data_prazo
+                    FROM sales_atividades sa
+                    WHERE sa.cotacao_id = cot.id
+                      AND sa.status IN ('pendente', 'em_andamento')
+                    ORDER BY COALESCE(sa.data_prazo, sa.data_atividade) ASC,
+                             sa.created_at ASC
+                    LIMIT 1
+                ) pa ON TRUE
+                """
+                if has_atividade_completa else ""
             )
             # Query base com cálculo de dias na fase
             sql = f'''
@@ -10196,6 +10224,7 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.tipo_comercial,
                     cot.objetivo_campanha,
                     cot.plataforma_campanha,
+                    {proxima_acao_select}
                     EXTRACT(DAY FROM (
                         NOW() - GREATEST(
                             COALESCE(cot.updated_at, cot.created_at),
@@ -10244,6 +10273,7 @@ def obter_cotacoes_pipeline(filtros=None):
                 LEFT JOIN cliente_web_info web_agn
                        ON web_agn.id_cliente = cot.agencia_id AND web_agn.status = 'ok'
                 LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
+                {proxima_acao_join}
                 WHERE cot.deleted_at IS NULL
                     AND (cot.origem IS DISTINCT FROM %s)
             '''
@@ -10293,6 +10323,8 @@ def obter_cotacoes_pipeline(filtros=None):
             colunas = {
                 'Rascunho': [],
                 'Enviada': [],
+                'Em Acompanhamento': [],
+                'Próximo de Aprovar': [],
                 'Aprovada': [],
                 'Rejeitada': []
             }
@@ -10305,9 +10337,9 @@ def obter_cotacoes_pipeline(filtros=None):
                 # Status legado 'Em Análise' / em_analise → Rascunho
                 if status in ('Em Análise', 'em_analise'):
                     status = 'Rascunho'
-                # Status legado 'Negociação' (removido) → Enviada
+                # Status legado 'Negociação' → Follow-up comercial
                 if status == 'Negociação':
-                    status = 'Enviada'
+                    status = 'Em Acompanhamento'
                 # Ignorar 'Expirada' no pipeline (opcional: pode adicionar coluna)
                 if status in colunas:
                     colunas[status].append(cot)
@@ -10319,6 +10351,8 @@ def obter_cotacoes_pipeline(filtros=None):
         return {
             'Rascunho': [],
             'Enviada': [],
+            'Em Acompanhamento': [],
+            'Próximo de Aprovar': [],
             'Aprovada': [],
             'Rejeitada': []
         }

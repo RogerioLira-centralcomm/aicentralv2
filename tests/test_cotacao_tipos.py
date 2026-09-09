@@ -25,12 +25,17 @@ class CotacaoTiposTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Tipo de cotação inválido"):
             normalizar_tipo_comercial("outro")
 
-    def test_novos_tipos_ficam_em_rascunho(self):
-        self.assertEqual(
-            "dados", validar_status_tipo_comercial("dados", "Rascunho")
-        )
-        with self.assertRaisesRegex(ValueError, "deve permanecer como rascunho"):
-            validar_status_tipo_comercial("dados", "Aprovada")
+    def test_todos_os_tipos_compartilham_estagios_comerciais(self):
+        for tipo in ("midia", "parceiros", "formatos_interativos", "dados"):
+            for status in (
+                "Rascunho",
+                "Enviada",
+                "Em Acompanhamento",
+                "Próximo de Aprovar",
+                "Aprovada",
+            ):
+                with self.subTest(tipo=tipo, status=status):
+                    self.assertEqual(tipo, validar_status_tipo_comercial(tipo, status))
 
     def test_midia_preserva_fluxo_atual(self):
         self.assertEqual(

@@ -1102,7 +1102,9 @@ class CrmV3Repository:
             )
             atividades_por = {}
 
-        status_abertas = {"rascunho", "enviada", "em-acompanhamento"}
+        status_abertas = {
+            "rascunho", "enviada", "em-acompanhamento", "proximo-de-aprovar"
+        }
         out: Dict[str, Dict[str, Any]] = {}
         for cid in ids:
             cotacoes = cotacoes_por.get(cid) or []

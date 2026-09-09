@@ -90,6 +90,7 @@ def badge_daisy_class(badge_type: Optional[str]) -> str:
         "rejeitada": "badge-error",
         "expirada": "badge-warning",
         "em-acompanhamento": "badge-info",
+        "proximo-de-aprovar": "badge-info",
     }
     return mapping.get((badge_type or "").lower(), "badge-neutral")
 

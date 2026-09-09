@@ -12,7 +12,7 @@ import secrets
 import os
 import re
 from aicentralv2 import db, audit
-from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+from aicentralv2.cotacao_tipos import normalizar_tipo_comercial, rotulo_tipo_comercial
 from aicentralv2.campanhas_pi_list import (
     build_campaign_list_filters,
     group_campaigns_by_status,
@@ -5421,6 +5421,8 @@ def init_routes(app):
             cotacoes_ativas = (
                 list(colunas.get('Rascunho') or [])
                 + list(colunas.get('Enviada') or [])
+                + list(colunas.get('Em Acompanhamento') or [])
+                + list(colunas.get('Próximo de Aprovar') or [])
             )
             metricas_pipeline = {
                 'ativas': len(cotacoes_ativas),
@@ -5570,6 +5572,191 @@ def init_routes(app):
                 cotacao_id, e, exc_info=True,
             )
             return jsonify({'success': False, 'message': 'Não foi possível criar a atividade'}), 500
+
+    @app.route('/api/crm/pipeline/cotacao/<int:cotacao_id>/proxima-acao', methods=['PATCH'])
+    @login_required
+    def api_pipeline_proxima_acao(cotacao_id):
+        """Cria, edita ou conclui a atividade pendente exibida no card."""
+        try:
+            cotacao = db.obter_cotacao_detalhes_pipeline(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            payload = request.get_json(silent=True) or {}
+            titulo = str(payload.get('titulo') or '').strip()
+            data_prazo = str(payload.get('data_prazo') or '').strip()
+            if data_prazo:
+                try:
+                    datetime.strptime(data_prazo, '%Y-%m-%d')
+                except ValueError:
+                    return jsonify({'success': False, 'message': 'Data da próxima ação inválida'}), 400
+
+            atividades = list(db.obter_atividades_cliente(
+                cotacao.get('client_id'), cotacao_id=cotacao_id
+            ) or [])
+            pendentes = [
+                atividade for atividade in atividades
+                if atividade.get('status') in ('pendente', 'em_andamento')
+            ]
+            atividade_id = payload.get('atividade_id')
+            atividade = next(
+                (item for item in pendentes if str(item.get('id')) == str(atividade_id)),
+                pendentes[0] if pendentes else None,
+            )
+
+            if not titulo:
+                if atividade:
+                    db.atualizar_atividade_cliente(atividade['id'], {'status': 'concluida'})
+                return jsonify({'success': True, 'proxima_acao': None})
+
+            data_prazo = data_prazo or datetime.now().date().isoformat()
+            if atividade:
+                db.atualizar_atividade_cliente(atividade['id'], {
+                    'titulo': titulo,
+                    'descricao': titulo,
+                    'data_atividade': data_prazo,
+                    'data_prazo': data_prazo,
+                    'status': 'pendente',
+                })
+                atividade_id = atividade['id']
+            else:
+                criada = db.criar_atividade_cliente(
+                    cliente_id=cotacao.get('client_id'),
+                    executivo_id=cotacao.get('responsavel_comercial'),
+                    descricao=titulo,
+                    data_atividade=data_prazo,
+                    contato_id=cotacao.get('client_user_id'),
+                    tipo='follow_up',
+                    titulo=titulo,
+                    data_prazo=data_prazo,
+                    status='pendente',
+                    cotacao_id=cotacao_id,
+                )
+                atividade_id = (criada or {}).get('id')
+
+            return jsonify({
+                'success': True,
+                'proxima_acao': {
+                    'id': atividade_id,
+                    'titulo': titulo,
+                    'data_prazo': data_prazo,
+                },
+            })
+        except Exception as e:
+            app.logger.error('Erro ao salvar próxima ação: %s', e, exc_info=True)
+            return jsonify({'success': False, 'message': 'Não foi possível salvar a próxima ação'}), 500
+
+    @app.route('/api/crm/pipeline/cotacao/<int:cotacao_id>/perda', methods=['POST'])
+    @login_required
+    def api_pipeline_marcar_perda(cotacao_id):
+        """Marca a cotação como perdida e registra o motivo estruturado."""
+        motivos_validos = {'Preço', 'Concorrente', 'Timing', 'Escopo', 'Outro'}
+        try:
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            payload = request.get_json(silent=True) or {}
+            motivo = str(payload.get('motivo') or '').strip()
+            detalhe = str(payload.get('detalhe') or '').strip()
+            if motivo not in motivos_validos:
+                return jsonify({'success': False, 'message': 'Selecione um motivo de perda'}), 400
+            comentario = f'[PERDA] {motivo}'
+            if detalhe:
+                comentario += f' — {detalhe}'
+            db.atualizar_cotacao(cotacao_id=cotacao_id, status='Rejeitada')
+            db.adicionar_comentario_cotacao(
+                cotacao_id,
+                session.get('user_id'),
+                'admin' if session.get('is_admin') else 'client',
+                comentario,
+            )
+            return jsonify({'success': True, 'message': 'Cotação marcada como perdida'})
+        except Exception as e:
+            app.logger.error('Erro ao marcar cotação como perdida: %s', e, exc_info=True)
+            return jsonify({'success': False, 'message': 'Não foi possível registrar a perda'}), 500
+
+    @app.route('/api/crm/pipeline/historico')
+    @login_required
+    def api_pipeline_historico():
+        """Retorna ganhos e perdas agrupados para a sidebar do pipeline."""
+        try:
+            filtros = {}
+            executivo_id = request.args.get('executivo_id', type=int)
+            if executivo_id:
+                filtros['executivo_id'] = executivo_id
+            periodo = request.args.get('periodo', 'todos')
+            dias = {'30d': 30, '90d': 90, 'ano': 365}.get(periodo)
+            if dias:
+                filtros['periodo_inicio'] = (
+                    datetime.now().date() - timedelta(days=dias)
+                ).isoformat()
+
+            colunas = db.obter_cotacoes_pipeline(filtros)
+            finais = list(colunas.get('Aprovada') or []) + list(colunas.get('Rejeitada') or [])
+            visao = request.args.get('visao', 'agencias')
+            grupos = {}
+
+            def eh_agencia(cotacao):
+                return (
+                    cotacao.get('agencia_key') is True
+                    or str(cotacao.get('agencia_display') or '').strip().lower() in ('sim', 's')
+                )
+
+            for cotacao in finais:
+                if visao == 'agencias':
+                    if eh_agencia(cotacao):
+                        entidade_id = cotacao.get('client_id')
+                        entidade_nome = cotacao.get('cliente_nome') or 'Agência'
+                    elif cotacao.get('agencia_id'):
+                        entidade_id = cotacao.get('agencia_id')
+                        entidade_nome = cotacao.get('agencia_nome') or 'Agência'
+                    else:
+                        continue
+                else:
+                    if eh_agencia(cotacao):
+                        continue
+                    entidade_id = cotacao.get('client_id')
+                    entidade_nome = cotacao.get('cliente_nome') or 'Cliente final'
+
+                chave = str(entidade_id or entidade_nome)
+                grupo = grupos.setdefault(chave, {
+                    'id': chave,
+                    'nome': entidade_nome,
+                    'quantidade': 0,
+                    'ganhas': 0,
+                    'valor': 0.0,
+                    'propostas': [],
+                })
+                valor = float(
+                    cotacao.get('valor_total_bruto')
+                    or cotacao.get('valor_total_proposta')
+                    or 0
+                )
+                grupo['quantidade'] += 1
+                grupo['ganhas'] += 1 if cotacao.get('status') == 'Aprovada' else 0
+                grupo['valor'] += valor
+                grupo['propostas'].append({
+                    'id': cotacao.get('id'),
+                    'numero': cotacao.get('numero_cotacao'),
+                    'campanha': cotacao.get('nome_campanha'),
+                    'status': cotacao.get('status'),
+                    'tipo': rotulo_tipo_comercial(cotacao.get('tipo_comercial')),
+                    'valor': valor,
+                    'data': str(cotacao.get('updated_at') or cotacao.get('created_at') or ''),
+                    'url': f"/cotacoes/{cotacao.get('id')}/abrir",
+                })
+
+            resultado = []
+            for grupo in grupos.values():
+                quantidade = grupo['quantidade']
+                grupo['win_rate'] = round((grupo['ganhas'] / quantidade) * 100) if quantidade else 0
+                grupo['ticket_medio'] = grupo['valor'] / quantidade if quantidade else 0
+                resultado.append(grupo)
+            resultado.sort(key=lambda item: (-item['valor'], item['nome'].lower()))
+            return jsonify({'success': True, 'grupos': resultado})
+        except Exception as e:
+            app.logger.error('Erro ao carregar histórico do pipeline: %s', e, exc_info=True)
+            return jsonify({'success': False, 'message': 'Não foi possível carregar o histórico'}), 500
 
     @app.route('/parametros/cotacoes-teste-calculo/nova', methods=['GET', 'POST'])
     @login_required
@@ -6668,15 +6855,11 @@ def init_routes(app):
                 }), 400
 
             codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
+            tipo_comercial = normalizar_tipo_comercial(
+                cotacao.get('tipo_comercial'), estrito=False
+            )
             if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
-                if normalizar_tipo_comercial(
-                    cotacao.get('tipo_comercial'), estrito=False
-                ) != 'midia':
-                    return jsonify({
-                        'success': False,
-                        'message': 'A aprovação deste tipo exige o fluxo de PI específico.',
-                    }), 409
-                if not codigo_pi_cc:
+                if tipo_comercial == 'midia' and not codigo_pi_cc:
                     return jsonify({
                         'success': False,
                         'message': 'Informe o código PI CC para aprovar e gerar o PI.',
@@ -6687,7 +6870,11 @@ def init_routes(app):
 
             # Se status mudou para 'Aprovada', gerar PI automaticamente
             id_pi_gerado = None
-            if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+            if (
+                update_data.get('status') == 'Aprovada'
+                and cotacao.get('status') != 'Aprovada'
+                and tipo_comercial == 'midia'
+            ):
                 try:
                     id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=codigo_pi_cc)
                     if id_pi_gerado:

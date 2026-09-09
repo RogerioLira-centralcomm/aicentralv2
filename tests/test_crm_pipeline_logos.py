@@ -10,6 +10,7 @@ CSS = ROOT / "aicentralv2/static/css/cotacao_pipeline.css"
 LIST_TEMPLATE = ROOT / "aicentralv2/templates/cadu_cotacoes.html"
 LIST_CSS = ROOT / "aicentralv2/static/css/cotacao_lista.css"
 DB = ROOT / "aicentralv2/db.py"
+ROUTES = ROOT / "aicentralv2/routes.py"
 
 
 class CrmPipelineLogosContractTest(unittest.TestCase):
@@ -20,6 +21,7 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         cls.list_template = LIST_TEMPLATE.read_text()
         cls.list_css = LIST_CSS.read_text()
         cls.db = DB.read_text()
+        cls.routes = ROUTES.read_text()
 
     def test_pipeline_receives_client_and_agency_logos(self):
         self.assertIn("web_cli.logo_url AS cliente_logo_url", self.db)
@@ -75,6 +77,51 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn('class="pp-detail-footer"', self.template)
         self.assertIn(".pp-detail-head", self.css)
         self.assertIn(".pp-detail-footer", self.css)
+
+    def test_pipeline_has_five_shared_commercial_stages(self):
+        self.assertIn(
+            "['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar', 'Aprovada']",
+            self.template,
+        )
+        self.assertIn("'Em Acompanhamento': []", self.db)
+        self.assertIn("'Próximo de Aprovar': []", self.db)
+        self.assertNotIn("cot.tipo_comercial = 'midia'", self.db)
+
+    def test_cards_expose_owner_next_action_and_sla(self):
+        self.assertIn("cotacao.proxima_acao", self.template)
+        self.assertIn('class="pp-owner"', self.template)
+        self.assertIn('class="pp-sla is-', self.template)
+        self.assertIn("SLA {{ dias }}/{{ sla_limite }} dias", self.template)
+        self.assertIn("pa.data_prazo AS proxima_acao_data", self.db)
+
+    def test_drag_rules_and_loss_are_explicit(self):
+        self.assertIn("originalStatus === 'Rascunho' && novoStatus === 'Enviada'", self.template)
+        self.assertIn("originalStatus === 'Em Acompanhamento'", self.template)
+        self.assertIn("window.showConfirm", self.template)
+        self.assertIn("api_pipeline_marcar_perda", self.routes)
+        self.assertIn("motivos_validos = {'Preço', 'Concorrente', 'Timing', 'Escopo', 'Outro'}", self.routes)
+        self.assertIn("f'[PERDA] {motivo}'", self.routes)
+
+    def test_next_action_uses_existing_activities(self):
+        self.assertIn("api_pipeline_proxima_acao", self.routes)
+        self.assertIn("db.atualizar_atividade_cliente", self.routes)
+        self.assertIn("db.criar_atividade_cliente", self.routes)
+        self.assertIn("salvarProximaAcao", self.template)
+
+    def test_history_is_a_floating_accessible_sidebar(self):
+        self.assertIn('id="pp_history_sidebar"', self.template)
+        self.assertIn('id="pp_history_backdrop"', self.template)
+        self.assertIn("api_pipeline_historico", self.routes)
+        self.assertIn("win_rate", self.routes)
+        self.assertIn("ticket_medio", self.routes)
+        self.assertIn(".pp-history-sidebar.is-open", self.css)
+        self.assertIn("e.key.toLowerCase() === 'h'", self.template)
+
+    def test_pipeline_assets_have_responsive_contract(self):
+        self.assertIn("cotacao_pipeline.css') }}?v=6", self.template)
+        self.assertIn("scroll-snap-type: x proximity", self.css)
+        self.assertIn("@media (max-width: 640px)", self.css)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
 
 
 if __name__ == "__main__":

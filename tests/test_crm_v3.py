@@ -468,8 +468,8 @@ class CrmTestApiTest(unittest.TestCase):
             f"/crm-v3/api/cotacoes/{cotacao['id']}",
             json={"status": "Aprovada"},
         )
-        self.assertEqual(approval.status_code, 400)
-        self.assertIn("rascunho", approval.get_json()["error"])
+        self.assertEqual(approval.status_code, 200)
+        self.assertEqual(approval.get_json()["cotacao"]["status"], "aprovada")
 
     def test_agente_sugere_cotacao_sem_criar_rascunho(self):
         import aicentralv2.crm_v3_routes as routes

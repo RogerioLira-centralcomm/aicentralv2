@@ -104,12 +104,10 @@ def campos_item_tipo_comercial(valor):
 
 
 def validar_status_tipo_comercial(tipo, status):
-    """Novos produtos ficam em rascunho até seus fluxos próprios de PI existirem."""
+    """Valida o tipo sem acoplar estágio comercial ao gerador de PI.
+
+    Os quatro produtos compartilham o pipeline. A geração de PI continua
+    protegida separadamente e só pode usar o fluxo de Mídia.
+    """
     slug = normalizar_tipo_comercial(tipo)
-    status_normalizado = str(status or "Rascunho").strip().casefold()
-    if slug != TIPO_COMERCIAL_PADRAO and status_normalizado != "rascunho":
-        raise ValueError(
-            f"{COTACAO_TIPOS[slug]} ainda está em preparação. "
-            "Por enquanto, essa cotação deve permanecer como rascunho."
-        )
     return slug

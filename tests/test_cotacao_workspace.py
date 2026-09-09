@@ -85,7 +85,7 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         self.assertIn("ON DELETE CASCADE", self.migration)
         self.assertIn("run_add_cotacao_itens_especificos.py", self.deploy)
 
-    def test_media_apis_reject_incompatible_quote_types(self):
+    def test_media_apis_remain_separate_but_commercial_approval_is_shared(self):
         self.assertIn(
             "Linhas de mídia não podem ser usadas neste tipo de cotação",
             self.app_routes,
@@ -94,7 +94,8 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
             "Audiências pertencem apenas a cotações de Mídia",
             self.app_routes,
         )
-        self.assertIn(
+        self.assertIn("and tipo_comercial == 'midia'", self.app_routes)
+        self.assertNotIn(
             "A aprovação deste tipo exige o fluxo de PI específico",
             self.app_routes,
         )

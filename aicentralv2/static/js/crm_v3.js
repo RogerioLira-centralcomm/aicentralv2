@@ -3266,7 +3266,10 @@
     // A separação de "aprovada" num grupo próprio veio da imagem
     // reference do usuário — no Pipedrive/HubSpot ganhos ficam
     // destacados em verde, atalhando revisão de pipeline fechado.
-    var COT_STATUS_EM_ANDAMENTO = ['rascunho', 'enviada', 'em-acompanhamento', 'em_acompanhamento'];
+    var COT_STATUS_EM_ANDAMENTO = [
+        'rascunho', 'enviada', 'em-acompanhamento', 'em_acompanhamento',
+        'proximo-de-aprovar', 'proximo_de_aprovar'
+    ];
     var COT_STATUS_APROVADA = ['aprovada', 'ganha', 'fechada'];
 
     function cotacaoGrupo(c) {
@@ -3295,6 +3298,8 @@
             case 'enviada': return 'fa-solid fa-paper-plane';
             case 'em-acompanhamento':
             case 'em_acompanhamento': return 'fa-solid fa-arrows-rotate';
+            case 'proximo-de-aprovar':
+            case 'proximo_de_aprovar': return 'fa-regular fa-circle-check';
             case 'rascunho': return 'fa-regular fa-file-lines';
             default: return 'fa-regular fa-circle';
         }

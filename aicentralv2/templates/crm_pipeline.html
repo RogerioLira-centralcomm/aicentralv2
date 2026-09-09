@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=6">
 {% endblock %}
 
 {% block content %}
@@ -85,12 +85,19 @@
         <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Status: todos</option>
         <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
         <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+        <option value="Em Acompanhamento" {% if status_atual == 'Em Acompanhamento' %}selected{% endif %}>Follow-up</option>
+        <option value="Próximo de Aprovar" {% if status_atual == 'Próximo de Aprovar' %}selected{% endif %}>Próximo de Aprovar</option>
         <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-        <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Histórico</option>
+        <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Perdida</option>
         </select>
       </label>
     </form>
     <div class="pp-header-actions">
+      <button type="button" id="pp_history_trigger" class="cx-btn cx-btn-secondary pp-history-trigger"
+              aria-controls="pp_history_sidebar" aria-expanded="false" onclick="abrirHistorico()">
+        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+        Histórico
+      </button>
       <div class="pp-views">
         <a href="{{ url_for('crm_pipeline') }}" class="is-on">Pipeline</a>
         <a href="{{ url_for('cotacoes.cotacoes_list') }}">Lista</a>
@@ -127,13 +134,22 @@
     {% set bruto = cotacao.valor_total_bruto|default(cotacao.valor_total_proposta, true)|float %}
     {% set dias = cotacao.dias_sem_movimento|default(0, true)|int %}
     {% set is_agencia = cotacao.agencia_key == true or (cotacao.agencia_key|string|lower) in ['true', 't', 'sim', 's', '1'] or (cotacao.agencia_display|string|lower) in ['sim', 's'] %}
+    {% set sla_limites = {'Rascunho': 3, 'Enviada': 5, 'Em Acompanhamento': 7, 'Próximo de Aprovar': 5} %}
+    {% set sla_limite = sla_limites.get(status) %}
+    {% set sla_estado = 'done' if not sla_limite else ('overdue' if dias > sla_limite else ('warning' if dias * 10 >= sla_limite * 7 else 'normal')) %}
     <div class="pp-card pp-deal kanban-card"
+         role="button"
+         tabindex="0"
          draggable="true"
          data-cotacao-id="{{ cotacao.id }}"
          data-status="{{ status }}"
          data-days="{{ dias }}"
+         data-value="{{ bruto }}"
+         data-type="{{ cotacao.tipo_comercial or 'midia' }}"
+         data-next-action="{{ cotacao.proxima_acao or '' }}"
          data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
+         onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); abrirModalCotacao({{ cotacao.id }}); }"
          ondragstart="handleCardDragStart(event)"
          ondragend="handleCardDragEnd(event)">
       <div class="pp-deal-top">
@@ -142,6 +158,7 @@
             {{ pp_company_avatar(cotacao.cliente_nome, cotacao.cliente_logo_url) }}
             <span class="pp-company-name">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
             <small>{% if is_agencia %}Agência{% else %}Cliente final{% endif %}</small>
+            {{ pp_quote_type(cotacao.tipo_comercial) }}
           </div>
           {% if not is_agencia and cotacao.agencia_nome and cotacao.agencia_id %}
           <div class="pp-deal-agency" title="{{ cotacao.agencia_nome }}">
@@ -150,19 +167,43 @@
           </div>
           {% endif %}
         </div>
+        <details class="pp-card-menu" onclick="event.stopPropagation()">
+          <summary aria-label="Ações da cotação"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+          <button type="button" onclick="abrirPerda({{ cotacao.id }})">Marcar como perdida</button>
+        </details>
       </div>
       {% if cotacao.nome_campanha %}
       <div class="pp-deal-campaign" title="{{ cotacao.nome_campanha }}">
-        {{ pp_quote_type(cotacao.tipo_comercial) }}
         <span>{{ cotacao.nome_campanha }}</span>
       </div>
       {% endif %}
-      <div class="pp-deal-foot">
-        <div class="pp-deal-activity is-{% if dias > 30 %}stale{% elif dias > 7 %}warning{% else %}fresh{% endif %}" title="Tempo desde a última movimentação da proposta">
-          <i class="fa-regular fa-clock" aria-hidden="true"></i>
-          <span>{{ dias }}d sem movimento</span>
+      <div class="pp-next-action" onclick="event.stopPropagation()">
+        <button type="button" class="pp-next-action-view" onclick="editarProximaAcao(this)">
+          <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+          <span>{{ cotacao.proxima_acao or 'Definir próxima ação' }}</span>
+          {% if cotacao.proxima_acao_data %}
+          <time datetime="{{ cotacao.proxima_acao_data }}">{{ cotacao.proxima_acao_data.strftime('%d/%m') if cotacao.proxima_acao_data.strftime is defined else cotacao.proxima_acao_data }}</time>
+          {% endif %}
+        </button>
+        <div class="pp-next-action-edit" hidden>
+          <input type="text" value="{{ cotacao.proxima_acao or '' }}" placeholder="Próxima ação">
+          <input type="date" value="{{ cotacao.proxima_acao_data or '' }}">
+          <button type="button" aria-label="Salvar próxima ação" onclick="salvarProximaAcao(this)">
+            <i class="fa-solid fa-check" aria-hidden="true"></i>
+          </button>
         </div>
-        {{ pp_avatar(cotacao) }}
+      </div>
+      {% if sla_limite %}
+      <div class="pp-sla is-{{ sla_estado }}" title="SLA do estágio: {{ sla_limite }} dias">
+        <span>SLA {{ dias }}/{{ sla_limite }} dias</span>
+        <span class="pp-sla-track"><span style="width: {{ ([dias * 100 / sla_limite, 100]|min)|round|int }}%"></span></span>
+      </div>
+      {% endif %}
+      <div class="pp-deal-foot">
+        <div class="pp-owner" title="{{ cotacao.executivo_nome or 'Sem responsável' }}">
+          {{ pp_avatar(cotacao) }}
+          <span>{{ cotacao.executivo_nome or 'Sem responsável' }}</span>
+        </div>
         <div class="pp-deal-money">
           <strong>R$&nbsp;{{ money_br(bruto) }}</strong>
         </div>
@@ -196,16 +237,16 @@
   {% endmacro %}
 
   <div class="pp-board">
-    {% set status_list = ['Rascunho', 'Enviada', 'Aprovada', 'Rejeitada'] %}
+    {% set status_list = ['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar', 'Aprovada'] %}
+    {% set status_labels = {'Em Acompanhamento': 'Follow-up'} %}
     {% for status in status_list %}
-    {% set is_hist = status == 'Rejeitada' %}
-    <div class="pp-col kanban-column {% if is_hist %}is-historico{% endif %}"
+    <div class="pp-col kanban-column"
          data-status="{{ status }}"
          ondragover="handleColumnDragOver(event)"
          ondragleave="handleColumnDragLeave(event)"
          ondrop="handleColumnDrop(event)">
       <div class="pp-col-head">
-        <strong>{% if is_hist %}Histórico{% else %}{{ status }}{% endif %}</strong>
+        <strong>{{ status_labels.get(status, status) }}</strong>
         <div class="pp-col-meta">
           <span class="pp-col-count">{{ totais[status].count if totais[status] else 0 }}</span>
           {% if totais[status] and totais[status].valor > 0 %}
@@ -214,37 +255,42 @@
         </div>
       </div>
       <div class="pp-col-body">
-        {% if is_hist %}
-          {% set grupos = (colunas_grupos or {}).get('Rejeitada', []) %}
-          {% for grupo in grupos %}
-          <details class="pp-group">
-            <summary>
-              <div class="pp-group-title">
-                <span class="pp-kind {% if grupo.kind == 'final' %}is-final{% endif %}">
-                  <i class="fa-solid {% if grupo.kind == 'agencia' %}fa-building{% else %}fa-user-tie{% endif %}" aria-hidden="true"></i>
-                  {% if grupo.kind == 'agencia' %}Agência{% else %}Final{% endif %}
-                </span>
-                <span title="{{ grupo.label }}">{{ grupo.label }}</span>
-              </div>
-              <span class="pp-group-count">{{ grupo.cotacoes|length }} · R$&nbsp;{{ money_br(grupo.valor) }}</span>
-            </summary>
-            <div class="pp-group-cards">
-              {% for cotacao in grupo.cotacoes %}
-                {{ pp_hist_card(cotacao, status) }}
-              {% endfor %}
-            </div>
-          </details>
-          {% endfor %}
-        {% else %}
-          {% for cotacao in (colunas or {}).get(status, []) %}
-            {{ pp_deal_card(cotacao, status) }}
-          {% endfor %}
-        {% endif %}
+        {% for cotacao in (colunas or {}).get(status, []) %}
+          {{ pp_deal_card(cotacao, status) }}
+        {% endfor %}
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
+
+<div id="pp_history_backdrop" class="pp-history-backdrop" hidden onclick="fecharHistorico()"></div>
+<aside id="pp_history_sidebar" class="pp-history-sidebar" aria-hidden="true" aria-labelledby="pp_history_title">
+  <header class="pp-history-head">
+    <div>
+      <span class="pp-eyebrow">Análise comercial</span>
+      <h2 id="pp_history_title">Histórico</h2>
+    </div>
+    <button type="button" class="pp-icon-btn" aria-label="Fechar histórico" onclick="fecharHistorico()">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </header>
+  <div class="pp-history-controls">
+    <div class="pp-history-tabs" role="tablist" aria-label="Visão do histórico">
+      <button type="button" role="tab" aria-selected="true" data-history-view="agencias" onclick="trocarVisaoHistorico(this)">Agências</button>
+      <button type="button" role="tab" aria-selected="false" data-history-view="clientes" onclick="trocarVisaoHistorico(this)">Clientes finais</button>
+    </div>
+    <select id="pp_history_period" class="cx-select" aria-label="Período do histórico" onchange="carregarHistorico()">
+      <option value="todos">Todo o período</option>
+      <option value="30d">Últimos 30 dias</option>
+      <option value="90d">Últimos 90 dias</option>
+      <option value="ano">Último ano</option>
+    </select>
+  </div>
+  <div id="pp_history_content" class="pp-history-content" aria-live="polite">
+    <p class="pp-history-empty">Abra o histórico para carregar os resultados.</p>
+  </div>
+</aside>
 
 <!-- Modal Detalhes Cotação -->
 <dialog id="modal_cotacao" class="cx-modal-shell">
@@ -484,8 +530,9 @@
           <option value="">Mover para...</option>
           <option value="Rascunho">Rascunho</option>
           <option value="Enviada">Enviada</option>
+          <option value="Em Acompanhamento">Follow-up</option>
+          <option value="Próximo de Aprovar">Próximo de Aprovar</option>
           <option value="Aprovada">✓ Aprovada</option>
-          <option value="Rejeitada">✗ Rejeitada</option>
         </select>
         
         <a id="modal_link_editar" href="#">
@@ -498,7 +545,7 @@
           <i class="fa-solid fa-check mr-1"></i>Aprovar
         </button>
         <button onclick="rejeitarCotacao()" class="cx-btn cx-btn-danger" id="btn_rejeitar">
-          <i class="fa-solid fa-xmark mr-1"></i>Rejeitar
+          <i class="fa-solid fa-xmark mr-1"></i>Marcar como perdida
         </button>
       </div>
     </footer>
@@ -514,12 +561,42 @@
     <h3 class="font-semibold text-lg text-gray-800 mb-2" id="confirmar_titulo">Confirmar</h3>
     <p class="text-sm text-gray-600 mb-4" id="confirmar_mensagem">Deseja continuar?</p>
     <div class="mb-4">
-      <label class="text-xs font-medium text-gray-500">Observação (opcional)</label>
+      <label id="confirmar_motivo_label" class="text-xs font-medium text-gray-500">Observação (opcional)</label>
       <textarea id="confirmar_motivo" class="w-full border border-gray-200 rounded px-3 py-2 text-sm mt-1 focus:outline-none focus:border-gray-400" rows="2" placeholder="Adicione uma observação..."></textarea>
     </div>
+    <label id="confirmar_codigo_wrap" class="pp-confirm-code" hidden>
+      <span>Código PI CC</span>
+      <input id="confirmar_codigo_pi" type="text" autocomplete="off" placeholder="Ex.: PI-2026-001">
+    </label>
     <div class="flex justify-end gap-2">
       <button onclick="document.getElementById('modal_confirmar').close()" class="cx-btn cx-btn-secondary">Cancelar</button>
       <button id="confirmar_btn" class="cx-btn cx-btn-primary" onclick="executarAcaoConfirmada()">Confirmar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="modal_perda" class="cx-modal pp-confirm-dialog">
+  <div class="pp-confirm-box">
+    <h3>Marcar cotação como perdida</h3>
+    <p>O motivo ficará registrado no histórico da cotação.</p>
+    <label class="pp-loss-field">
+      <span>Motivo</span>
+      <select id="perda_motivo" class="cx-select">
+        <option value="">Selecione</option>
+        <option>Preço</option>
+        <option>Concorrente</option>
+        <option>Timing</option>
+        <option>Escopo</option>
+        <option>Outro</option>
+      </select>
+    </label>
+    <label class="pp-loss-field">
+      <span>Contexto (opcional)</span>
+      <textarea id="perda_detalhe" rows="2" placeholder="Registre um detalhe útil para a equipe"></textarea>
+    </label>
+    <div class="pp-dialog-actions">
+      <button type="button" class="cx-btn cx-btn-secondary" onclick="document.getElementById('modal_perda').close()">Cancelar</button>
+      <button type="button" class="cx-btn cx-btn-danger" onclick="confirmarPerda()">Marcar como perdida</button>
     </div>
   </div>
 </dialog>
@@ -557,7 +634,7 @@ function filtrarCards() {
     const correspondeBusca = !termo || (card.dataset.search || '').includes(termo);
     const status = card.dataset.status || '';
     const dias = Number(card.dataset.days || 0);
-    const propostaAtiva = status === 'Rascunho' || status === 'Enviada';
+    const propostaAtiva = ['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar'].includes(status);
     const correspondeCard = !cardFilterAtivo
       || (cardFilterAtivo === 'ativas' && propostaAtiva)
       || (cardFilterAtivo === 'paradas' && propostaAtiva && dias > 30);
@@ -660,25 +737,71 @@ function handleColumnDrop(event) {
   
   const novoStatus = event.currentTarget.dataset.status;
   if (novoStatus === originalStatus) return;
-  
-  const container = event.currentTarget.querySelector('.pp-col-body');
-  container.appendChild(draggedCard);
-  draggedCard.dataset.status = novoStatus;
-  atualizarContadores();
-  atualizarStatusCotacao(draggedCotacaoId, novoStatus);
+
+  if (originalStatus === 'Rascunho' && novoStatus === 'Enviada' && Number(draggedCard.dataset.value || 0) <= 0) {
+    showToast('Informe o valor da cotação antes de enviá-la.', 'error');
+    return;
+  }
+  if (
+    originalStatus === 'Em Acompanhamento'
+    && novoStatus === 'Próximo de Aprovar'
+    && !(draggedCard.dataset.nextAction || '').trim()
+  ) {
+    showToast('Defina a próxima ação antes de avançar.', 'error');
+    return;
+  }
+
+  const card = draggedCard;
+  const cotacaoId = draggedCotacaoId;
+  const colunaDestino = event.currentTarget;
+  const mover = () => atualizarStatusCotacao(cotacaoId, novoStatus).then(success => {
+    if (!success) return;
+    colunaDestino.querySelector('.pp-col-body').appendChild(card);
+    card.dataset.status = novoStatus;
+    atualizarContadores();
+    location.reload();
+  });
+
+  if (novoStatus === 'Aprovada') {
+    cotacaoAtualId = Number(cotacaoId);
+    cotacaoAtualData = {
+      id: Number(cotacaoId),
+      numero_cotacao: card.querySelector('.pp-deal-campaign span')?.textContent || 'esta cotação',
+      tipo_comercial: card.dataset.type || 'midia'
+    };
+    if (card.dataset.type === 'midia') {
+      aprovarCotacao();
+    } else if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        title: 'Aprovar cotação',
+        message: 'A cotação avançará para Aprovada. O PI específico será criado em seu fluxo próprio.',
+        confirmText: 'Aprovar cotação',
+        onConfirm: mover
+      });
+    } else {
+      showToast('A confirmação não pôde ser exibida.', 'error');
+    }
+    return;
+  }
+  mover();
 }
 
-async function atualizarStatusCotacao(cotacaoId, novoStatus) {
+async function atualizarStatusCotacao(cotacaoId, novoStatus, extraPayload) {
   try {
     const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: novoStatus })
+      body: JSON.stringify({ status: novoStatus, ...(extraPayload || {}) })
     });
     const result = await response.json();
-    if (!result.success) location.reload();
+    if (!result.success) {
+      showToast(result.message || 'Não foi possível mover a cotação.', 'error');
+      return false;
+    }
+    return true;
   } catch (error) {
-    location.reload();
+    showToast('Erro ao atualizar o estágio.', 'error');
+    return false;
   }
 }
 
@@ -866,14 +989,13 @@ function preencherModal(c) {
   
   document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/abrir`;
   const moverStatus = document.getElementById('modal_mover_status');
-  const isMidia = (c.tipo_comercial || 'midia') === 'midia';
   moverStatus.value = '';
-  moverStatus.disabled = !isMidia;
+  moverStatus.disabled = c.status === 'Aprovada' || c.status === 'Rejeitada';
   
   // Botões de ação
   const btnAprovar = document.getElementById('btn_aprovar');
   const btnRejeitar = document.getElementById('btn_rejeitar');
-  if (!isMidia || c.status === 'Aprovada' || c.status === 'Rejeitada') {
+  if (c.status === 'Aprovada' || c.status === 'Rejeitada') {
     btnAprovar.style.display = 'none';
     btnRejeitar.style.display = 'none';
   } else {
@@ -1055,77 +1177,57 @@ async function moverCotacaoStatus(novoStatus) {
   if (!novoStatus || !cotacaoAtualId) return;
 
   if (novoStatus === 'Aprovada') {
-    const confirmou = confirm(
-      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um Pedido de Inserção será gerado automaticamente.\n\n' +
-      'Após a geração, não será possível reverter o status da cotação.\n\n' +
-      'Deseja continuar com a aprovação?'
-    );
-    if (!confirmou) {
-      document.getElementById('modal_mover_status').value = '';
-      return;
-    }
+    aprovarCotacao();
+    return;
   }
 
-  try {
-    const payload = { status: novoStatus };
-    if (novoStatus === 'Aprovada') {
-      payload.aprovada_em = new Date().toISOString();
-    }
-
-    const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/atualizar`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json();
-    if (result.success) {
-      if (result.id_pi) {
-        showToast(`Cotação aprovada e PI #${result.id_pi} gerado!`, 'success');
-      } else {
-        showToast('Status atualizado', 'success');
-      }
-      fecharDetalheCotacao();
-      location.reload();
-    } else {
-      showToast(result.message || 'Erro', 'error');
-    }
-  } catch (error) {
-    showToast('Erro ao atualizar', 'error');
+  if (await atualizarStatusCotacao(cotacaoAtualId, novoStatus)) {
+    showToast('Estágio atualizado', 'success');
+    fecharDetalheCotacao();
+    location.reload();
   }
 }
 
 function aprovarCotacao() {
   acaoPendente = 'aprovar';
+  const isMidia = (cotacaoAtualData?.tipo_comercial || 'midia') === 'midia';
   document.getElementById('confirmar_titulo').textContent = 'Aprovar Cotação';
   document.getElementById('confirmar_mensagem').innerHTML = 
     `Confirma a aprovação da cotação <strong>${cotacaoAtualData?.numero_cotacao}</strong>?<br><br>` +
     `<span class="text-amber-600 text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>` +
-    `Um Pedido de Inserção será gerado automaticamente. Após a geração, não será possível reverter o status.</span>`;
+    (isMidia
+      ? `O PI de Mídia será gerado automaticamente. Após a geração, não será possível reverter o status.`
+      : `O PI específico será tratado depois, no fluxo próprio deste tipo.`) +
+    `</span>`;
   document.getElementById('confirmar_btn').className = 'cx-btn cx-btn-primary';
-  document.getElementById('confirmar_btn').textContent = 'Aprovar e Gerar PI';
+  document.getElementById('confirmar_btn').textContent = isMidia ? 'Aprovar e gerar PI' : 'Aprovar cotação';
+  document.getElementById('confirmar_motivo_label').textContent = 'Observação (opcional)';
   document.getElementById('confirmar_motivo').value = '';
+  document.getElementById('confirmar_codigo_wrap').hidden = !isMidia;
+  document.getElementById('confirmar_codigo_pi').value = '';
   document.getElementById('modal_confirmar').showModal();
 }
 
 function rejeitarCotacao() {
-  acaoPendente = 'rejeitar';
-  document.getElementById('confirmar_titulo').textContent = 'Rejeitar Cotação';
-  document.getElementById('confirmar_mensagem').textContent = `Confirma a rejeição da cotação ${cotacaoAtualData?.numero_cotacao}?`;
-  document.getElementById('confirmar_btn').className = 'cx-btn cx-btn-danger';
-  document.getElementById('confirmar_btn').textContent = 'Rejeitar';
-  document.getElementById('confirmar_motivo').value = '';
-  document.getElementById('modal_confirmar').showModal();
+  abrirPerda(cotacaoAtualId);
 }
 
 async function executarAcaoConfirmada() {
   const motivo = document.getElementById('confirmar_motivo').value.trim();
-  const novoStatus = acaoPendente === 'aprovar' ? 'Aprovada' : 'Rejeitada';
+  const isMidia = (cotacaoAtualData?.tipo_comercial || 'midia') === 'midia';
+  const codigoPi = document.getElementById('confirmar_codigo_pi').value.trim();
+  if (isMidia && !codigoPi) {
+    showToast('Informe o código PI CC.', 'error');
+    document.getElementById('confirmar_codigo_pi').focus();
+    return;
+  }
   
   try {
-    const payload = { status: novoStatus };
-    if (novoStatus === 'Aprovada') {
-      payload.aprovada_em = new Date().toISOString();
-    }
+    const payload = {
+      status: 'Aprovada',
+      aprovada_em: new Date().toISOString(),
+      codigo_pi_cc: codigoPi || undefined
+    };
 
     const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/atualizar`, {
       method: 'PATCH',
@@ -1139,13 +1241,13 @@ async function executarAcaoConfirmada() {
         await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/comentarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ comentario: `[${novoStatus.toUpperCase()}] ${motivo}` })
+          body: JSON.stringify({ comentario: `[APROVADA] ${motivo}` })
         });
       }
       if (result.id_pi) {
         showToast(`Cotação aprovada e PI #${result.id_pi} gerado!`, 'success');
       } else {
-        showToast(`Cotação ${novoStatus.toLowerCase()}`, 'success');
+        showToast('Cotação aprovada', 'success');
       }
       document.getElementById('modal_confirmar').close();
       fecharDetalheCotacao();
@@ -1155,6 +1257,193 @@ async function executarAcaoConfirmada() {
     }
   } catch (error) {
     showToast('Erro ao processar', 'error');
+  }
+}
+
+// ==================== PRÓXIMA AÇÃO ====================
+function editarProximaAcao(botao) {
+  const bloco = botao.closest('.pp-next-action');
+  botao.hidden = true;
+  bloco.querySelector('.pp-next-action-edit').hidden = false;
+  bloco.querySelector('input[type="text"]').focus();
+}
+
+async function salvarProximaAcao(origem) {
+  const editor = origem.closest('.pp-next-action-edit');
+  if (!editor || editor.hidden || editor.dataset.saving === 'true') return;
+  const card = editor.closest('.kanban-card');
+  const titulo = editor.querySelector('input[type="text"]').value.trim();
+  const dataPrazo = editor.querySelector('input[type="date"]').value;
+  editor.dataset.saving = 'true';
+  try {
+    const response = await fetch(`/api/crm/pipeline/cotacao/${card.dataset.cotacaoId}/proxima-acao`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo: titulo, data_prazo: dataPrazo })
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Não foi possível salvar');
+    const view = card.querySelector('.pp-next-action-view');
+    view.querySelector('span').textContent = titulo || 'Definir próxima ação';
+    let time = view.querySelector('time');
+    if (titulo && dataPrazo) {
+      if (!time) {
+        time = document.createElement('time');
+        view.appendChild(time);
+      }
+      time.dateTime = dataPrazo;
+      time.textContent = new Date(`${dataPrazo}T00:00:00`).toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit'
+      });
+    } else if (time) {
+      time.remove();
+    }
+    card.dataset.nextAction = titulo;
+    editor.hidden = true;
+    view.hidden = false;
+    showToast(titulo ? 'Próxima ação atualizada' : 'Próxima ação concluída', 'success');
+  } catch (error) {
+    showToast(error.message || 'Erro ao salvar próxima ação', 'error');
+  } finally {
+    editor.dataset.saving = 'false';
+  }
+}
+
+document.querySelectorAll('.pp-next-action-edit').forEach(editor => {
+  editor.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!editor.hidden && !editor.contains(document.activeElement)) salvarProximaAcao(editor);
+    }, 0);
+  });
+  editor.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      salvarProximaAcao(editor);
+    }
+    if (event.key === 'Escape') {
+      editor.hidden = true;
+      editor.closest('.pp-next-action').querySelector('.pp-next-action-view').hidden = false;
+    }
+  });
+});
+
+// ==================== PERDA ====================
+let cotacaoPerdaId = null;
+
+function abrirPerda(cotacaoId) {
+  cotacaoPerdaId = Number(cotacaoId);
+  document.getElementById('perda_motivo').value = '';
+  document.getElementById('perda_detalhe').value = '';
+  document.getElementById('modal_perda').showModal();
+}
+
+async function confirmarPerda() {
+  const motivo = document.getElementById('perda_motivo').value;
+  const detalhe = document.getElementById('perda_detalhe').value.trim();
+  if (!motivo) {
+    showToast('Selecione o motivo da perda.', 'error');
+    return;
+  }
+  try {
+    const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoPerdaId}/perda`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo: motivo, detalhe: detalhe })
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Não foi possível registrar a perda');
+    document.getElementById('modal_perda').close();
+    fecharDetalheCotacao();
+    showToast('Cotação marcada como perdida', 'success');
+    location.reload();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+// ==================== HISTÓRICO ====================
+let historicoVisao = 'agencias';
+let historicoCarregado = false;
+
+function abrirHistorico() {
+  const sidebar = document.getElementById('pp_history_sidebar');
+  const backdrop = document.getElementById('pp_history_backdrop');
+  sidebar.classList.add('is-open');
+  sidebar.setAttribute('aria-hidden', 'false');
+  backdrop.hidden = false;
+  document.getElementById('pp_history_trigger').setAttribute('aria-expanded', 'true');
+  document.body.classList.add('pp-history-open');
+  sidebar.querySelector('.pp-icon-btn').focus();
+  if (!historicoCarregado) carregarHistorico();
+}
+
+function fecharHistorico() {
+  const sidebar = document.getElementById('pp_history_sidebar');
+  if (!sidebar.classList.contains('is-open')) return;
+  sidebar.classList.remove('is-open');
+  sidebar.setAttribute('aria-hidden', 'true');
+  document.getElementById('pp_history_backdrop').hidden = true;
+  document.getElementById('pp_history_trigger').setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('pp-history-open');
+  document.getElementById('pp_history_trigger').focus();
+}
+
+function trocarVisaoHistorico(botao) {
+  historicoVisao = botao.dataset.historyView;
+  document.querySelectorAll('[data-history-view]').forEach(item => {
+    item.setAttribute('aria-selected', item === botao ? 'true' : 'false');
+  });
+  carregarHistorico();
+}
+
+function renderHistoricoGrupos(grupos) {
+  const content = document.getElementById('pp_history_content');
+  if (!grupos.length) {
+    content.innerHTML = '<p class="pp-history-empty">Nenhuma proposta concluída para esta visão.</p>';
+    return;
+  }
+  content.innerHTML = grupos.map(grupo => `
+    <details class="pp-history-group">
+      <summary>
+        <div><strong>${escapeHtml(grupo.nome)}</strong><span>${grupo.quantidade} proposta${grupo.quantidade === 1 ? '' : 's'}</span></div>
+        <span>R$ ${formatarMoeda(grupo.valor)}</span>
+      </summary>
+      <div class="pp-history-stats">
+        <span><strong>${grupo.win_rate}%</strong> win rate</span>
+        <span><strong>R$ ${formatarMoeda(grupo.ticket_medio)}</strong> ticket médio</span>
+      </div>
+      <div class="pp-history-proposals">
+        ${grupo.propostas.map(item => `
+          <a href="${escapeHtml(item.url)}">
+            <span>
+              <strong>${escapeHtml(item.campanha || item.numero || 'Cotação')}</strong>
+              <small>${escapeHtml(item.tipo)} · ${item.status === 'Aprovada' ? 'Ganha' : 'Perdida'}</small>
+            </span>
+            <b>R$ ${formatarMoeda(item.valor)}</b>
+          </a>
+        `).join('')}
+      </div>
+    </details>
+  `).join('');
+}
+
+async function carregarHistorico() {
+  const content = document.getElementById('pp_history_content');
+  content.innerHTML = '<p class="pp-history-empty">Carregando histórico…</p>';
+  const params = new URLSearchParams({
+    visao: historicoVisao,
+    periodo: document.getElementById('pp_history_period').value
+  });
+  const executivo = document.getElementById('filtro_executivo').value;
+  if (executivo) params.set('executivo_id', executivo);
+  try {
+    const response = await fetch(`/api/crm/pipeline/historico?${params.toString()}`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Erro ao carregar');
+    renderHistoricoGrupos(result.grupos || []);
+    historicoCarregado = true;
+  } catch (error) {
+    content.innerHTML = `<p class="pp-history-empty is-error">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -1176,9 +1465,37 @@ function formatarDataHora(dataStr) {
 }
 
 document.addEventListener('keydown', function(e) {
+  const historySidebar = document.getElementById('pp_history_sidebar');
+  if (e.key === 'Tab' && historySidebar.classList.contains('is-open')) {
+    const focaveis = Array.from(historySidebar.querySelectorAll(
+      'button:not([disabled]), select:not([disabled]), a[href], summary'
+    )).filter(item => item.offsetParent !== null);
+    if (focaveis.length) {
+      const primeiro = focaveis[0];
+      const ultimo = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiro) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && document.activeElement === ultimo) {
+        e.preventDefault();
+        primeiro.focus();
+      }
+    }
+  }
   if (e.key === 'Escape') {
     const confirmar = document.getElementById('modal_confirmar');
     if (confirmar.open) confirmar.close();
+    const perda = document.getElementById('modal_perda');
+    if (perda.open) perda.close();
+    fecharHistorico();
+  }
+  if (
+    e.key.toLowerCase() === 'h'
+    && !e.metaKey && !e.ctrlKey && !e.altKey
+    && !e.target.closest('input, textarea, select, [contenteditable="true"]')
+  ) {
+    e.preventDefault();
+    historySidebar.classList.contains('is-open') ? fecharHistorico() : abrirHistorico();
   }
 });
 </script>

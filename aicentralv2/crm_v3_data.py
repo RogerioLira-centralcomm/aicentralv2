@@ -19,12 +19,15 @@ COTACAO_STATUS = {
     "rejeitada": "Rejeitada",
     "expirada": "Expirada",
     "em-acompanhamento": "Em Acompanhamento",
+    "proximo-de-aprovar": "Próximo de Aprovar",
 }
 COTACAO_STATUS_ALIASES = {
     **{label.casefold(): slug for slug, label in COTACAO_STATUS.items()},
     **{slug: slug for slug in COTACAO_STATUS},
     "negociacao": "em-acompanhamento",
     "em negociação": "em-acompanhamento",
+    "proximo_aprovar": "proximo-de-aprovar",
+    "proximo de aprovar": "proximo-de-aprovar",
     "perdida": "rejeitada",
 }
 

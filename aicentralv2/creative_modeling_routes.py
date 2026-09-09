@@ -268,7 +268,28 @@ def api_generate_scene(scene_id):
 def api_generate_scene_prompt(scene_id):
     return _execute(
         lambda: _ok(
-            _service().generate_scene_prompt(scene_id, session.get("user_id")),
+            _service().generate_scene_prompt(
+                scene_id, session.get("user_id"), _json(optional=True)
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_refine_scene_asset(scene_id, asset_id):
+    payload = request.get_json(silent=True)
+    if payload is None:
+        payload = request.form.to_dict()
+    return _execute(
+        lambda: _ok(
+            _service().refine_scene_asset(
+                scene_id,
+                asset_id,
+                payload if isinstance(payload, dict) else {},
+                request.files.getlist("references"),
+                session.get("user_id"),
+            ),
             201,
         )
     )
@@ -705,6 +726,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/scenes/<int:scene_id>/image/generate",
         endpoint="creative_generate_scene_image",
         view_func=api_generate_scene,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/assets/<int:asset_id>/refine",
+        endpoint="creative_refine_scene_asset",
+        view_func=api_refine_scene_asset,
         methods=["POST"],
     )
     blueprint.add_url_rule(

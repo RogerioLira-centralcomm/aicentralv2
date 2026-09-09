@@ -260,8 +260,8 @@ class FakeRepository:
     def add_job_reference(self, job_id, reference):
         return {"id": 1, "position": 1}
 
-    def add_generated_asset(self, job_id, step_id, asset_type, url, metadata):
-        return {"id": 99, "asset_url": url, "status": "done"}
+    def add_generated_asset(self, job_id, step_id, asset_type, url, metadata, scene_id=None):
+        return {"id": 99, "asset_url": url, "status": "done", "scene_id": scene_id}
 
     def get_assets(self, ids, approved_only=True):
         index = {asset["id"]: asset for asset in self.assets}
@@ -539,6 +539,31 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
                         "typography_rules": ["Título curto no topo."],
                         "graphic_devices": ["Faixa fina vinho."],
                         "copy_patterns": ["Poucas palavras."],
+                        "copy_system": {
+                            "headline_structure": "Título curto no topo, sem oferta.",
+                            "body_density": "Uma linha de apoio.",
+                            "legal_presence": "Ausente",
+                            "typography": {
+                                "role": "sans",
+                                "case": "caixa alta",
+                                "weight": "bold",
+                                "family": "Gotham",
+                            },
+                            "placement": {
+                                "logo": {"prose": "Canto superior esquerdo", "anchor": "topo"},
+                                "headline": "Faixa central",
+                                "product": {"prose": "Produto no centro", "anchor": "centro"},
+                                "cta": {"prose": "Botão na base", "anchor": "base"},
+                            },
+                            "cta": {
+                                "visual_pattern": "Pílula sólida no canto inferior",
+                                "position": "base",
+                                "case": "caixa alta",
+                                "shape": "pílula",
+                                "recurrent": True,
+                            },
+                            "observed_cta_patterns": ["Verbo + benefício curto"],
+                        },
                         "must_preserve": ["Respiro amplo."],
                         "avoid": ["Fundos saturados."],
                         "confidence": 0.9,
@@ -558,6 +583,47 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertIn("negative space", result["gpt_image_instruction"])
         self.assertEqual(result["color_palette"][0]["hex"], "#6A1538")
         self.assertEqual(result["confidence"], 0.55)
+        self.assertEqual(result["copy_system"]["headline_structure"], "Título curto no topo, sem oferta.")
+        self.assertEqual(result["copy_system"]["placement"]["cta"]["anchor"], "base")
+        self.assertEqual(result["copy_system"]["cta"]["confidence"], "hypothesis")
+        self.assertFalse(result["copy_system"]["cta"]["recurrent"])
+        self.assertIsNone(result["copy_system"]["typography"]["family"])
+        self.assertIn("hipótese", result["caveats"][-1])
+
+    def test_duas_pecas_confirmam_cta_e_fonte_como_regra(self):
+        def llm(_messages, **kwargs):
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "signature_summary": "Família visual recorrente.",
+                        "copy_system": {
+                            "headline_structure": "Título curto.",
+                            "typography": {"role": "sans", "family": "Gotham"},
+                            "cta": {
+                                "visual_pattern": "Pílula na base",
+                                "recurrent": True,
+                            },
+                        },
+                        "confidence": 0.8,
+                        "gpt_image_instruction": "Keep the CTA pill at the base.",
+                    })
+                },
+                "model": kwargs["model"],
+            }
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze_creative_line(
+            [
+                "data:image/png;base64,aW1hZ2U=",
+                "data:image/png;base64,aW1hZ2U=",
+            ],
+            {"name": "Marca", "brand_profile": {}},
+        )
+
+        self.assertEqual(result["source_count"], 2)
+        self.assertEqual(result["confidence"], 0.8)
+        self.assertTrue(result["copy_system"]["cta"]["recurrent"])
+        self.assertEqual(result["copy_system"]["cta"]["confidence"], "observed")
+        self.assertEqual(result["copy_system"]["typography"]["family"], "Gotham")
 
     def test_coleta_paginas_e_imagens_do_dominio_oficial(self):
         from aicentralv2 import creative_brand_analysis as analysis
@@ -702,6 +768,237 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("Assinatura aprendida de criativos reais", prompt)
         self.assertIn("[INSTRUÇÃO APRENDIDA PARA GPT IMAGE 2]", prompt)
         self.assertIn("Keep generous negative space.", prompt)
+
+    def test_prompt_injeta_sistema_de_copy_aprendido(self):
+        context = self.repo.get_step_context(8)
+        context["brand_profile"] = {
+            "creative_line": {
+                "signature_summary": "Produto central.",
+                "copy_system": {
+                    "headline_structure": "Título curto no topo.",
+                    "body_density": "Uma linha.",
+                    "typography": {
+                        "role": "sans",
+                        "case": "caixa alta",
+                        "weight": "bold",
+                        "confidence": "observed",
+                    },
+                    "cta": {
+                        "visual_pattern": "Pílula na base",
+                        "position": "base",
+                        "confidence": "observed",
+                    },
+                },
+                "gpt_image_instruction": "Keep generous negative space.",
+            }
+        }
+        prompt = self.service.build_prompt(context, context["step"], 1)
+
+        self.assertIn("[SISTEMA DE COPY APRENDIDO]", prompt)
+        self.assertIn("Título curto no topo.", prompt)
+        self.assertIn("Pílula na base", prompt)
+
+    def test_campanha_nova_nasce_com_prompt_herdado_do_storyboard(self):
+        from aicentralv2.creative_modeling_prompts import build_inherited_scene_prompt
+
+        prompt = build_inherited_scene_prompt(
+            "Luz natural e produto consistente.",
+            "Abertura com o produto no centro.",
+            "Saiba mais",
+            1,
+        )
+        repository = (
+            Path(__file__).resolve().parents[1]
+            / "aicentralv2"
+            / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("INHERITED CAMPAIGN SYSTEM — scene 1", prompt)
+        self.assertIn("Luz natural e produto consistente.", prompt)
+        self.assertIn("Abertura com o produto no centro.", prompt)
+        self.assertIn("Saiba mais", prompt)
+        self.assertIn("build_inherited_scene_prompt", repository)
+        self.assertIn("prompt_status, status", repository)
+
+    def test_cena_seguinte_adapta_o_prompt_mae(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 52,
+            "position": 2,
+            "description": "Produto em close",
+            "campaign_name": "Campanha",
+            "campaign_id": 30,
+            "production_id": 50,
+            "format_template_id": 7,
+            "master_prompt": "MASTER VISUAL SYSTEM for scene 1",
+            "storyboard": [{"position": 1, "description": "Abertura"}],
+            "creative_brief": {"visual_bible": "Luz natural"},
+            "cta_text": "Saiba mais",
+            "campaign_text": "Mensagem",
+            "show_price": False,
+            "objective": "Conversão",
+            "client_name": "Marca",
+            "client_sector": "Varejo",
+            "tone_of_voice": "Direto",
+            "logo_url": None,
+            "logo_upload_path": None,
+            "primary_color": "#1E4D4F",
+            "secondary_color": "#9CCF31",
+            "brand_profile": {},
+            "scene_count": 4,
+        }
+        repository.create_generation_job.return_value = 3
+        repository.update_scene_prompt.return_value = {
+            "id": 52,
+            "prompt": "Adapted",
+            "prompt_status": "generated",
+        }
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_prompt(self, context):
+                captured["context"] = context
+                return super().generate_prompt(context)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene_prompt(52, payload={"delta": "mais recorte no produto"})
+
+        self.assertTrue(captured["context"]["inherit_from_master"])
+        self.assertIn("MASTER VISUAL SYSTEM", captured["context"]["master_prompt"])
+        self.assertEqual(
+            captured["context"]["campaign"]["scene_delta"],
+            "mais recorte no produto",
+        )
+        self.assertNotIn("from scratch", json.dumps(captured["context"]))
+
+    def test_cena_inicial_expande_o_roteiro_mae(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "position": 1,
+            "description": "Abertura",
+            "campaign_name": "Campanha",
+            "campaign_id": 30,
+            "production_id": 50,
+            "format_template_id": 7,
+            "master_prompt": "INHERITED CAMPAIGN SYSTEM — scene 1",
+            "storyboard": [],
+            "creative_brief": {"visual_bible": "Luz natural"},
+            "cta_text": "Saiba mais",
+            "campaign_text": "Mensagem",
+            "show_price": False,
+            "objective": "Conversão",
+            "client_name": "Marca",
+            "client_sector": "Varejo",
+            "tone_of_voice": "Direto",
+            "logo_url": None,
+            "logo_upload_path": None,
+            "primary_color": "#1E4D4F",
+            "secondary_color": "#9CCF31",
+            "brand_profile": {},
+            "scene_count": 4,
+        }
+        repository.create_generation_job.return_value = 2
+        repository.update_scene_prompt.return_value = {
+            "id": 51,
+            "prompt": "Master",
+            "prompt_status": "generated",
+        }
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_prompt(self, context):
+                captured["context"] = context
+                return super().generate_prompt(context)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene_prompt(51)
+
+        self.assertFalse(captured["context"]["inherit_from_master"])
+        self.assertIsNone(captured["context"]["master_prompt"])
+
+    def test_adaptacao_nao_usa_contrato_from_scratch(self):
+        captured = {}
+
+        def llm(messages, **_kwargs):
+            captured["system"] = messages[0]["content"]
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "prompt_en": "Adapted production prompt",
+                        "rationale_pt": "Mantém o sistema.",
+                        "checks": [],
+                    })
+                },
+                "model": "openai/gpt-test",
+            }
+
+        client = CreativeGenerationClient(text_callable=llm)
+        client.generate_prompt({
+            "inherit_from_master": True,
+            "master_prompt": "MASTER",
+        })
+
+        self.assertIn("prompt-mãe", captured["system"])
+        self.assertIn("Nunca recomece", captured["system"])
+        self.assertNotIn("from scratch", captured["system"].lower())
+
+    def test_refine_de_asset_reusa_prompt_do_job(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "position": 1,
+            "production_id": 50,
+            "campaign_id": 30,
+            "format_template_id": 7,
+            "prompt": "Approved scene prompt",
+            "media_type": "image",
+            "aspect_ratio": "16:9",
+            "client_id": 10,
+        }
+        repository.get_assets.return_value = [{
+            "id": 88,
+            "scene_id": 51,
+            "asset_url": "/asset-88.png",
+            "job_prompt": "ORIGINAL JOB PROMPT for scene 1",
+        }]
+        repository.create_generation_job.return_value = 7
+        repository.add_generated_asset.return_value = {
+            "id": 89,
+            "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio):
+                captured["prompt"] = prompt
+                captured["references"] = references
+                return super().generate_image(prompt, references, aspect_ratio)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.refine_scene_asset(
+            51, 88, {"instruction": "CTA maior na base", "intent": "cta"}
+        )
+
+        self.assertIn("ORIGINAL JOB PROMPT for scene 1", captured["prompt"])
+        self.assertIn("Refinement instruction: CTA maior na base", captured["prompt"])
+        self.assertTrue(
+            repository.create_generation_job.call_args.kwargs["allow_existing_scene"]
+        )
+        self.assertEqual(len(captured["references"]), 1)
 
     def test_cliente_valida_cores_e_salva_identidade(self):
         result = self.service.create_client(
@@ -983,6 +1280,8 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(saved["productions"][0]["format_template_id"], 7)
         self.assertEqual(len(saved["productions"][0]["scene_descriptions"]), 4)
         self.assertEqual(len(result["productions"][0]["scenes"]), 4)
+        self.assertIn("visual_bible", saved["creative_brief"])
+        self.assertEqual(len(saved["creative_brief"]["scenes"]), 4)
 
     def test_prompt_deterministico_contem_variacao_e_identidades(self):
         context = self.repo.get_step_context(8)
@@ -1155,6 +1454,10 @@ class CreativeServiceTest(unittest.TestCase):
             "creative_line": {
                 "signature_summary": "Produto central com respiro amplo.",
                 "composition_rules": ["Produto no terço central."],
+                "copy_system": {
+                    "headline_structure": "Título curto no topo.",
+                    "cta": {"visual_pattern": "Pílula na base"},
+                },
                 "gpt_image_instruction": "Keep generous negative space.",
             },
         }
@@ -1175,6 +1478,8 @@ class CreativeServiceTest(unittest.TestCase):
 
         self.assertIn("Observed palette: #7A1632", job["prompt"])
         self.assertIn("LEARNED CREATIVE LINE", job["prompt"])
+        self.assertIn("COPY SYSTEM", job["prompt"])
+        self.assertIn("Título curto no topo.", job["prompt"])
         self.assertIn("Keep generous negative space.", job["prompt"])
         self.assertIn("BRAND REFERENCE RULES", job["prompt"])
         self.assertNotIn("STRUCTURAL REFERENCE RULES", job["prompt"])
@@ -1472,6 +1777,7 @@ class CreativeRoutesTest(unittest.TestCase):
             "prompt_status": "approved",
         }
         service.generate_scene.return_value = {"asset": {"id": 70}}
+        service.refine_scene_asset.return_value = {"asset": {"id": 71}}
         service.review_scene.return_value = {"id": 51, "status": "approved"}
         service.select_scene_preview_asset.return_value = {
             "id": 50,
@@ -1499,6 +1805,10 @@ class CreativeRoutesTest(unittest.TestCase):
                 json={"prompt": "Direção", "approved": True},
             )
             image = self.client.post("/parametros/api/scenes/51/image/generate")
+            refine = self.client.post(
+                "/parametros/api/scenes/51/assets/70/refine",
+                json={"instruction": "CTA maior", "intent": "cta"},
+            )
             review = self.client.put(
                 "/parametros/api/scenes/51/review",
                 json={"asset_id": 70, "status": "approved"},
@@ -1512,6 +1822,7 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(prompt.status_code, 201)
         self.assertEqual(prompt_review.status_code, 200)
         self.assertEqual(image.status_code, 201)
+        self.assertEqual(refine.status_code, 201)
         self.assertEqual(review.status_code, 200)
         self.assertEqual(preview.status_code, 200)
 
@@ -1592,8 +1903,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=16", page)
-        self.assertIn("modelagem_criativos.js') }}?v=16", page)
+        self.assertIn("modelagem_criativos.css') }}?v=17", page)
+        self.assertIn("modelagem_criativos.js') }}?v=17", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1613,6 +1924,8 @@ class CreativeFilesContractTest(unittest.TestCase):
             template_dir / "_mc_variacoes.html"
         ).read_text(encoding="utf-8")
         self.assertIn('id="mcSceneRail"', production)
+        self.assertIn('id="mcContinuitySpine"', production)
+        self.assertIn("Roteiro-mãe", production)
         self.assertIn('id="mcProductionStage"', production)
         self.assertIn('data-preview-device="desktop"', production)
         self.assertIn('data-preview-device="mobile"', production)
@@ -1900,6 +2213,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
         self.assertIn("function sceneCountForFormat", frontend)
         self.assertIn("function renderProduction", frontend)
+        self.assertIn("function renderContinuitySpine", frontend)
+        self.assertIn("Ajustar esta cena", frontend)
+        self.assertIn("Ajustar esta imagem", frontend)
+        self.assertIn("mc-refine-bar", frontend)
+        self.assertIn("/assets/${assetId}/refine", frontend)
+        self.assertIn("copy_system", frontend)
         self.assertIn("/parametros/api/scenes/${scene.id}", frontend)
         self.assertIn("format.media_type === 'image'", frontend)
         campaign_flow_sql = (

@@ -111,6 +111,31 @@ Retorne apenas JSON válido:
   "typography_rules":["papel e comportamento tipográfico sem inventar fontes"],
   "graphic_devices":["formas, texturas, molduras, ícones e recursos recorrentes"],
   "copy_patterns":["densidade, tom e posição da copy observada"],
+  "copy_system":{
+    "headline_structure":"estrutura do título, sem reciclar oferta antiga",
+    "body_density":"quantidade e papel do texto de apoio",
+    "legal_presence":"se há legal/disclaimer e onde",
+    "typography":{
+      "role":"serif|sans|mixed|unknown",
+      "case":"caixa observada",
+      "weight":"peso observado",
+      "family":"família só se visível e identificável, senão null"
+    },
+    "placement":{
+      "logo":{"prose":"posição do logo","anchor":"topo|centro|base"},
+      "headline":{"prose":"posição do título","anchor":"topo|centro|base"},
+      "product":{"prose":"posição do produto","anchor":"topo|centro|base"},
+      "cta":{"prose":"posição do CTA","anchor":"topo|centro|base"}
+    },
+    "cta":{
+      "visual_pattern":"padrão visual recorrente",
+      "position":"posição",
+      "case":"caixa",
+      "shape":"forma do botão ou faixa",
+      "recurrent":false
+    },
+    "observed_cta_patterns":["exemplos estruturais, nunca claim de campanha antiga"]
+  },
   "must_preserve":["elementos que sustentam reconhecimento"],
   "avoid":["decisões incompatíveis com a linha observada"],
   "confidence":0.0,
@@ -118,9 +143,10 @@ Retorne apenas JSON válido:
   "gpt_image_instruction":"bloco imperativo em inglês, até 1600 caracteres, pronto para GPT Image 2"
 }
 Use português do Brasil, exceto gpt_image_instruction. Não reproduza texto
-promocional antigo como conteúdo da nova campanha. Com uma única peça, nunca
-use confiança superior a 0.55 e explicite o risco de confundir campanha com
-identidade permanente."""
+promocional antigo como conteúdo da nova campanha. CTA e família tipográfica
+só viram regra quando recorrerem em 2 ou mais peças; com uma única peça
+trate-os como hipótese. Com uma única peça, nunca use confiança superior a
+0.55 e explicite o risco de confundir campanha com identidade permanente."""
 
 
 def _normalized_public_url(raw):
@@ -492,6 +518,196 @@ def _confidence(value):
     return result
 
 
+_PLACEMENT_ANCHORS = ("topo", "centro", "base")
+
+
+def _placement_zone(value):
+    if isinstance(value, dict):
+        prose = _text(
+            value.get("prose") or value.get("description") or value.get("text"),
+            400,
+        )
+        raw_anchor = str(value.get("anchor") or "").strip().lower()
+    else:
+        prose = _text(value, 400)
+        raw_anchor = ""
+    haystack = f"{raw_anchor} {prose or ''}".lower()
+    anchor = next(
+        (item for item in _PLACEMENT_ANCHORS if item in haystack),
+        raw_anchor if raw_anchor in _PLACEMENT_ANCHORS else None,
+    )
+    if not prose and not anchor:
+        return None
+    return {"prose": prose, "anchor": anchor}
+
+
+def _typography_role(value):
+    role = (_text(value, 40) or "").lower()
+    if not role:
+        return "unknown"
+    if "sans" in role:
+        return "sans"
+    if "serif" in role:
+        return "serif"
+    if role in {"mixed", "mista", "misto"}:
+        return "mixed"
+    if role == "unknown":
+        return "unknown"
+    return "unknown"
+
+
+def _copy_system(value, source_count=0):
+    data = value if isinstance(value, dict) else {}
+    typography = (
+        data.get("typography") if isinstance(data.get("typography"), dict) else {}
+    )
+    placement = (
+        data.get("placement") if isinstance(data.get("placement"), dict) else {}
+    )
+    cta = data.get("cta") if isinstance(data.get("cta"), dict) else {}
+    hypothesis = source_count <= 1
+    recurrent = bool(cta.get("recurrent")) and source_count >= 2
+    return {
+        "headline_structure": _text(data.get("headline_structure"), 400),
+        "body_density": _text(data.get("body_density"), 240),
+        "legal_presence": _text(data.get("legal_presence"), 240),
+        "typography": {
+            "role": _typography_role(
+                typography.get("role") or typography.get("paper")
+            ),
+            "case": _text(typography.get("case"), 80),
+            "weight": _text(typography.get("weight"), 80),
+            "family": None if hypothesis else _text(typography.get("family"), 80),
+            "confidence": "hypothesis" if hypothesis else "observed",
+        },
+        "placement": {
+            "logo": _placement_zone(placement.get("logo")),
+            "headline": _placement_zone(
+                placement.get("headline") or placement.get("title")
+            ),
+            "product": _placement_zone(placement.get("product")),
+            "cta": _placement_zone(placement.get("cta")),
+        },
+        "cta": {
+            "visual_pattern": _text(
+                cta.get("visual_pattern") or cta.get("pattern"), 240
+            ),
+            "position": _text(cta.get("position"), 80),
+            "case": _text(cta.get("case"), 80),
+            "shape": _text(cta.get("shape"), 80),
+            "recurrent": recurrent,
+            "confidence": "observed" if recurrent else "hypothesis",
+        },
+        "observed_cta_patterns": _string_list(
+            data.get("observed_cta_patterns"), limit=6, item_limit=240
+        ),
+    }
+
+
+def _copy_patterns_from_system(copy_system):
+    if not isinstance(copy_system, dict):
+        return []
+    patterns = [
+        copy_system.get("headline_structure"),
+        copy_system.get("body_density"),
+        copy_system.get("legal_presence"),
+    ]
+    typography = copy_system.get("typography") or {}
+    if typography.get("role") and typography.get("role") != "unknown":
+        patterns.append(f"Tipografia {typography['role']}")
+    cta = copy_system.get("cta") or {}
+    if cta.get("visual_pattern"):
+        patterns.append(cta["visual_pattern"])
+    return [item for item in patterns if item][:10]
+
+
+def format_copy_system_lines(copy_system, *, english=False):
+    if not isinstance(copy_system, dict):
+        return []
+    labels = (
+        {
+            "title": "COPY SYSTEM",
+            "headline": "Headline structure",
+            "density": "Body density",
+            "legal": "Legal presence",
+            "type": "Typography",
+            "zones": "Placement",
+            "cta": "CTA pattern",
+            "examples": "Observed CTA structures",
+            "hypothesis": "hypothesis, not a hard rule",
+        }
+        if english
+        else {
+            "title": "Sistema de copy aprendido",
+            "headline": "Estrutura de título",
+            "density": "Densidade do texto",
+            "legal": "Presença de legal",
+            "type": "Tipografia",
+            "zones": "Zonas",
+            "cta": "Padrão de CTA",
+            "examples": "Estruturas de CTA observadas",
+            "hypothesis": "hipótese, não regra",
+        }
+    )
+    lines = [labels["title"]]
+    if copy_system.get("headline_structure"):
+        lines.append(f"{labels['headline']}: {copy_system['headline_structure']}")
+    if copy_system.get("body_density"):
+        lines.append(f"{labels['density']}: {copy_system['body_density']}")
+    if copy_system.get("legal_presence"):
+        lines.append(f"{labels['legal']}: {copy_system['legal_presence']}")
+    typography = copy_system.get("typography") or {}
+    type_bits = [
+        typography.get("role"),
+        typography.get("case"),
+        typography.get("weight"),
+        typography.get("family"),
+    ]
+    type_line = ", ".join(bit for bit in type_bits if bit and bit != "unknown")
+    if type_line:
+        suffix = (
+            f" ({labels['hypothesis']})"
+            if typography.get("confidence") == "hypothesis"
+            else ""
+        )
+        lines.append(f"{labels['type']}: {type_line}{suffix}")
+    zones = []
+    for key, label in (
+        ("logo", "logo"),
+        ("headline", "headline"),
+        ("product", "product"),
+        ("cta", "CTA"),
+    ):
+        zone = (copy_system.get("placement") or {}).get(key) or {}
+        if not isinstance(zone, dict):
+            continue
+        prose = zone.get("prose")
+        anchor = zone.get("anchor")
+        if prose or anchor:
+            zones.append(f"{label} {anchor or ''} {prose or ''}".strip())
+    if zones:
+        lines.append(f"{labels['zones']}: " + " | ".join(zones))
+    cta = copy_system.get("cta") or {}
+    cta_bits = [
+        cta.get("visual_pattern"),
+        cta.get("position"),
+        cta.get("case"),
+        cta.get("shape"),
+    ]
+    cta_line = ", ".join(bit for bit in cta_bits if bit)
+    if cta_line:
+        suffix = (
+            f" ({labels['hypothesis']})"
+            if cta.get("confidence") == "hypothesis"
+            else ""
+        )
+        lines.append(f"{labels['cta']}: {cta_line}{suffix}")
+    examples = copy_system.get("observed_cta_patterns") or []
+    if examples:
+        lines.append(f"{labels['examples']}: " + " | ".join(map(str, examples[:4])))
+    return lines if len(lines) > 1 else []
+
+
 def _palette(value):
     if not isinstance(value, list):
         return []
@@ -777,6 +993,17 @@ class CreativeBrandAnalyzer:
             confidence = 0.0
         if len(images) == 1:
             confidence = min(confidence, 0.55)
+        copy_system = _copy_system(result.get("copy_system"), len(images))
+        copy_patterns = _string_list(
+            result.get("copy_patterns"), limit=10, item_limit=500
+        ) or _copy_patterns_from_system(copy_system)
+        caveats = _string_list(result.get("caveats"), limit=6, item_limit=500)
+        if len(images) == 1:
+            hypothesis_note = (
+                "CTA e família tipográfica são hipótese; uma peça não vira lei."
+            )
+            if hypothesis_note not in caveats:
+                caveats.append(hypothesis_note)
         return {
             "signature_summary": _text(result.get("signature_summary"), 2000),
             "color_palette": _palette(result.get("color_palette")),
@@ -792,17 +1019,14 @@ class CreativeBrandAnalyzer:
             "graphic_devices": _string_list(
                 result.get("graphic_devices"), limit=10, item_limit=500
             ),
-            "copy_patterns": _string_list(
-                result.get("copy_patterns"), limit=10, item_limit=500
-            ),
+            "copy_patterns": copy_patterns,
+            "copy_system": copy_system,
             "must_preserve": _string_list(
                 result.get("must_preserve"), limit=10, item_limit=500
             ),
             "avoid": _string_list(result.get("avoid"), limit=10, item_limit=500),
             "confidence": confidence,
-            "caveats": _string_list(
-                result.get("caveats"), limit=6, item_limit=500
-            ),
+            "caveats": caveats,
             "gpt_image_instruction": _text(
                 result.get("gpt_image_instruction"), 4000
             ),

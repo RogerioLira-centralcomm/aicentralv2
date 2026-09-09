@@ -6,6 +6,8 @@ from decimal import Decimal
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from psycopg.types.json import Json
 
+from .creative_modeling_prompts import build_inherited_scene_prompt
+
 
 class CreativeNotFoundError(LookupError):
     pass
@@ -633,9 +635,9 @@ class CreativeModelingRepository:
                 """
                 INSERT INTO cx_campaigns (
                     client_id, name, objective, campaign_text, cta_text,
-                    show_price, budget_usd
+                    show_price, budget_usd, creative_brief
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -646,6 +648,7 @@ class CreativeModelingRepository:
                     data.get("cta_text"),
                     data.get("show_price", False),
                     data.get("budget_usd", 0),
+                    Json(data.get("creative_brief") or {}),
                 ),
             )
             campaign_id = cursor.fetchone()["id"]
@@ -666,6 +669,9 @@ class CreativeModelingRepository:
                 )
                 production_id = cursor.fetchone()["id"]
                 descriptions = requested.get("scene_descriptions") or []
+                visual_bible = (
+                    (data.get("creative_brief") or {}).get("visual_bible")
+                )
                 scene_ids = []
                 for position in range(1, scene_count + 1):
                     description = (
@@ -673,18 +679,26 @@ class CreativeModelingRepository:
                         if position <= len(descriptions)
                         else data.get("campaign_text")
                     )
+                    inherited_prompt = build_inherited_scene_prompt(
+                        visual_bible,
+                        description,
+                        data.get("cta_text"),
+                        position,
+                    )
                     cursor.execute(
                         """
                         INSERT INTO cx_creative_scenes (
-                            production_id, position, description, status
+                            production_id, position, description, prompt,
+                            prompt_status, status
                         )
-                        VALUES (%s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, 'draft', %s)
                         RETURNING id
                         """,
                         (
                             production_id,
                             position,
                             description,
+                            inherited_prompt,
                             "ready" if position == 1 else "blocked",
                         ),
                     )
@@ -779,6 +793,18 @@ class CreativeModelingRepository:
                             ORDER BY previous_scene.position DESC
                             LIMIT 1
                        ) AS previous_approved_asset_url,
+                       (
+                           SELECT first_scene.prompt
+                             FROM cx_creative_scenes first_scene
+                            WHERE first_scene.production_id = s.production_id
+                              AND first_scene.position = 1
+                       ) AS master_prompt,
+                       (
+                           SELECT first_scene.prompt_status
+                             FROM cx_creative_scenes first_scene
+                            WHERE first_scene.production_id = s.production_id
+                              AND first_scene.position = 1
+                       ) AS master_prompt_status,
                        cl.id AS client_id,
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
@@ -1259,6 +1285,7 @@ class CreativeModelingRepository:
         created_by=None,
         scene_id=None,
         reserve_scene=False,
+        allow_existing_scene=False,
     ):
         estimate = Decimal(str(estimated_cost_usd or 0))
         with self._write() as cursor:
@@ -1294,7 +1321,12 @@ class CreativeModelingRepository:
                     raise CreativeConflictError(
                         "A cena anterior precisa ser aprovada primeiro."
                     )
-                if scene["status"] not in ("ready", "failed"):
+                allowed_status = (
+                    ("ready", "failed", "review", "approved")
+                    if allow_existing_scene
+                    else ("ready", "failed")
+                )
+                if scene["status"] not in allowed_status:
                     raise CreativeConflictError(
                         "Cena não está disponível para geração."
                     )
@@ -1349,14 +1381,24 @@ class CreativeModelingRepository:
             )
             job_id = cursor.fetchone()["id"]
             if scene_id is not None and reserve_scene:
-                cursor.execute(
-                    """
-                    UPDATE cx_creative_scenes
-                       SET status = 'generating', prompt = %s, updated_at = NOW()
-                     WHERE id = %s
-                    """,
-                    (prompt, scene_id),
-                )
+                if allow_existing_scene:
+                    cursor.execute(
+                        """
+                        UPDATE cx_creative_scenes
+                           SET status = 'generating', updated_at = NOW()
+                         WHERE id = %s
+                        """,
+                        (scene_id,),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE cx_creative_scenes
+                           SET status = 'generating', prompt = %s, updated_at = NOW()
+                         WHERE id = %s
+                        """,
+                        (prompt, scene_id),
+                    )
             cursor.execute(
                 """
                 UPDATE cx_campaigns
@@ -1736,6 +1778,7 @@ class CreativeModelingRepository:
                 SELECT a.id, a.job_id, a.step_id, a.scene_id,
                        a.asset_type, a.asset_url,
                        a.status, a.metadata, j.campaign_id,
+                       j.prompt AS job_prompt,
                        COALESCE(j.format_template_id, s.format_template_id)
                            AS format_template_id,
                        f.aspect_ratio, f.media_type, f.mechanic

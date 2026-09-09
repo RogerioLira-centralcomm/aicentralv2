@@ -7,7 +7,10 @@ import os
 import re
 import secrets
 
-from .creative_brand_analysis import CreativeBrandAnalyzer
+from .creative_brand_analysis import (
+    CreativeBrandAnalyzer,
+    format_copy_system_lines,
+)
 from .creative_modeling_generation import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_TEXT_MODEL,
@@ -1091,9 +1094,14 @@ class CreativeModelingService:
             lines.append(f"Do not include: {forbidden}.")
         return "\n".join(lines)
 
-    def generate_scene_prompt(self, scene_id, created_by=None):
+    def generate_scene_prompt(self, scene_id, created_by=None, payload=None):
         scene_id = _integer(scene_id, "Cena")
+        payload = payload if isinstance(payload, dict) else {}
+        delta = _text(payload.get("delta"), "Ajuste da cena", max_length=2000)
         context = self.repository.get_scene_context(scene_id)
+        position = context["position"]
+        master_prompt = context.get("master_prompt") or ""
+        inherit_from_master = position > 1 and bool(str(master_prompt).strip())
         request_context = {
             "campaign": {
                 "name": context["campaign_name"],
@@ -1112,7 +1120,10 @@ class CreativeModelingService:
                     (context.get("creative_brief") or {}).get("visual_bible")
                 ),
                 "visible_language": "pt-BR",
+                "scene_delta": delta,
             },
+            "inherit_from_master": inherit_from_master,
+            "master_prompt": master_prompt if inherit_from_master else None,
             "client_identity": {
                 "name": context["client_name"],
                 "sector": context.get("client_sector"),
@@ -1309,6 +1320,126 @@ class CreativeModelingService:
                 },
             )
             return _serialize({"job_id": job_id, "asset": asset, "prompt": prompt})
+        except Exception as exc:
+            self.repository.fail_generation_job(job_id, exc)
+            for public_path in saved_paths:
+                self.storage.delete(public_path)
+            raise
+
+    def refine_scene_asset(
+        self, scene_id, asset_id, payload, files=None, created_by=None
+    ):
+        scene_id = _integer(scene_id, "Cena")
+        asset_id = _integer(asset_id, "Asset")
+        payload = payload if isinstance(payload, dict) else {}
+        instruction = _text(
+            payload.get("instruction"),
+            "Instrução de ajuste",
+            required=True,
+            max_length=400,
+        )
+        intent = _text(payload.get("intent"), "Intenção", max_length=40)
+        extras = list(files or [])
+        if len(extras) > 1:
+            raise ValueError(
+                "O ajuste aceita no máximo uma referência extra além da imagem atual."
+            )
+        context = self.repository.get_scene_context(scene_id)
+        if context.get("media_type") == "video":
+            raise ValueError("Vídeo está indisponível para novas produções.")
+        assets = self.repository.get_assets([asset_id], approved_only=False)
+        if not assets or assets[0].get("scene_id") != scene_id:
+            raise CreativeNotFoundError("Asset da cena não encontrado.")
+        asset = assets[0]
+        job_prompt = (asset.get("job_prompt") or context.get("prompt") or "").strip()
+        if not job_prompt:
+            raise ValueError("Não há prompt do job para ajustar esta imagem.")
+        prompt = (
+            f"{job_prompt}\n\nRefinement instruction: {instruction}\n"
+            "Use the attached generated image as the primary reference. "
+            "Change only what the refinement instruction requests. "
+            "Preserve the inherited visual system, brand identity and CTA "
+            "unless the instruction asks otherwise."
+        )
+        if intent:
+            prompt += f"\nRefinement intent: {intent}."
+        estimate = self._estimate("image")
+        job_id = self.repository.create_generation_job(
+            context["campaign_id"],
+            None,
+            context["format_template_id"],
+            "image",
+            "openrouter",
+            DEFAULT_IMAGE_MODEL,
+            estimate,
+            prompt=prompt,
+            request_payload={
+                "production_id": context["production_id"],
+                "scene_id": scene_id,
+                "scene_position": context["position"],
+                "parent_asset_id": asset_id,
+                "refinement_instruction": instruction,
+                "refine_intent": intent,
+            },
+            created_by=created_by,
+            scene_id=scene_id,
+            reserve_scene=True,
+            allow_existing_scene=True,
+        )
+        saved_paths = []
+        try:
+            data_urls = [self.storage.generated_as_data_url(asset["asset_url"])]
+            for file_storage in extras:
+                saved = self.storage.save_reference(file_storage)
+                saved_paths.append(saved["asset_path"])
+                self.repository.add_job_reference(job_id, saved)
+                data_urls.append(
+                    self.storage.reference_as_data_url(
+                        saved["asset_path"], saved["mime_type"]
+                    )
+                )
+            self._append_brand_references(
+                context.get("client_id"), data_urls, job_id
+            )
+            self.repository.mark_job_generating(job_id)
+            generated = self.generator.generate_image(
+                prompt,
+                data_urls,
+                aspect_ratio=context.get("aspect_ratio") or "16:9",
+            )
+            asset_url = self.storage.save_generated_base64(
+                generated["b64_json"], generated.get("output_format", "png")
+            )
+            result = self.repository.add_generated_asset(
+                job_id,
+                None,
+                "image",
+                asset_url,
+                {
+                    "model": generated.get("model"),
+                    "production_id": context["production_id"],
+                    "scene_position": context["position"],
+                    "parent_asset_id": asset_id,
+                    "refinement_instruction": instruction,
+                    "refine_intent": intent,
+                    "source_job_prompt": job_prompt,
+                },
+                scene_id=scene_id,
+            )
+            actual = generated.get("actual_cost_usd")
+            self.repository.complete_generation_job(
+                job_id,
+                estimate if actual is None else actual,
+                {
+                    "usage": generated.get("usage") or {},
+                    **(generated.get("response_metadata") or {}),
+                },
+            )
+            return _serialize({
+                "job_id": job_id,
+                "asset": result,
+                "prompt": prompt,
+            })
         except Exception as exc:
             self.repository.fail_generation_job(job_id, exc)
             for public_path in saved_paths:
@@ -1548,6 +1679,9 @@ class CreativeModelingService:
                 "[INSTRUÇÃO APRENDIDA PARA GPT IMAGE 2]",
                 str(creative_line["gpt_image_instruction"]),
             ])
+        copy_lines = format_copy_system_lines(creative_line.get("copy_system"))
+        if copy_lines:
+            lines.extend(["", "[SISTEMA DE COPY APRENDIDO]", *copy_lines])
 
         lines.extend(
             [

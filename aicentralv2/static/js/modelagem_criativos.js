@@ -50,6 +50,7 @@
     primaryBrandFileIndex: -1,
     creativeLineFiles: [],
     creativeLineClientId: null,
+    refineIntent: 'copy',
     enhancedBrief: null,
     locks: new Set(),
   };
@@ -538,9 +539,50 @@
           <i class="fa-solid ${approved ? 'fa-check' : 'fa-angle-right'}" aria-hidden="true"></i>
         </button>`;
     }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
+    renderContinuitySpine();
     renderSceneReview(activeScene());
     renderProductionViewer();
     renderProductionStage();
+  }
+
+  function campaignBible() {
+    return state.campaign?.creative_brief?.visual_bible || '';
+  }
+
+  function campaignCopySystem() {
+    return state.campaign?.client?.brand_profile?.creative_line?.copy_system || null;
+  }
+
+  function renderContinuitySpine() {
+    const root = $('#mcContinuitySpine');
+    if (!root) return;
+    const format = activeProductionFormat();
+    const copy = campaignCopySystem();
+    const zones = copy?.placement
+      ? ['logo', 'headline', 'product', 'cta']
+          .map((key) => {
+            const zone = copy.placement[key];
+            if (!zone?.anchor && !zone?.prose) return '';
+            return `<li><strong>${escapeHtml(key)}</strong> ${escapeHtml(zone.anchor || '')} ${escapeHtml(zone.prose || '')}</li>`;
+          })
+          .filter(Boolean)
+          .join('')
+      : '';
+    root.innerHTML = `
+      <p>Roteiro-mãe</p>
+      <strong>${escapeHtml(state.campaign?.name || 'Campanha')}</strong>
+      <small>${escapeHtml(format.name_pt || format.mechanic || 'Formato')}</small>
+      ${campaignBible() ? `<blockquote>${escapeHtml(campaignBible())}</blockquote>` : '<blockquote>Bíblia visual ainda não registrada.</blockquote>'}
+      <dl>
+        <div><dt>CTA</dt><dd>${escapeHtml(state.campaign?.cta_text || 'Sem CTA')}</dd></div>
+        <div><dt>Tipo</dt><dd>${escapeHtml(format.media_type || 'imagem')}</dd></div>
+      </dl>
+      ${copy ? `<div class="mc-spine-copy">
+        <span>Sistema de copy</span>
+        ${copy.headline_structure ? `<p>${escapeHtml(copy.headline_structure)}</p>` : ''}
+        ${copy.cta?.visual_pattern ? `<p>${escapeHtml(copy.cta.visual_pattern)}${copy.cta.confidence === 'hypothesis' ? ' · hipótese' : ''}</p>` : ''}
+        ${zones ? `<ul>${zones}</ul>` : ''}
+      </div>` : ''}`;
   }
 
   function renderSceneReview(scene) {
@@ -552,50 +594,95 @@
     const scenes = productionScenes();
     const index = scenes.findIndex((item) => String(item.id) === String(scene.id));
     const assets = sceneAssets(scene);
+    const prompt = scene.rendered_prompt || scene.prompt || '';
+    const hasPrompt = Boolean(prompt.trim());
+    const inheritedOnly = hasPrompt && (scene.prompt_status === 'draft' || !scene.prompt_status);
+    const isFirst = index === 0;
+    const generateLabel = (isFirst && inheritedOnly) || !hasPrompt
+      ? 'Gerar direção'
+      : 'Ajustar esta cena';
+    const hero = assets.find((asset) => String(asset.id) === String(state.previewAssetId))
+      || assets.find((asset) => asset.status === 'approved')
+      || assets[0];
+    const refineIntents = [
+      ['copy', 'copy'],
+      ['cta', 'CTA'],
+      ['light', 'luz'],
+      ['crop', 'recorte'],
+    ];
     root.innerHTML = `
       <header class="mc-scene-review-head">
-        <div><span>Cena ${index + 1} de ${scenes.length}</span><h3>${escapeHtml(scene.title || scene.name || `Composição ${index + 1}`)}</h3></div>
+        <div><span>Cena ${index + 1} de ${scenes.length}</span><h3>${escapeHtml(scene.description || `Cena ${index + 1}`)}</h3></div>
         ${statusBadge(scene.status || scene.prompt_status || 'draft')}
       </header>
-      <section class="mc-scene-prompt">
-        <label for="mcPromptEditor">Direção da cena</label>
-        <textarea class="cx-textarea" id="mcPromptEditor" rows="7" placeholder="Descreva a composição, o foco visual e a mensagem.">${escapeHtml(scene.rendered_prompt || scene.prompt || '')}</textarea>
+      <section class="mc-scene-delta">
+        <p class="mc-scene-story">${escapeHtml(scene.description || 'Sem delta no storyboard.')}</p>
+        <details class="mc-master-prompt" ${inheritedOnly && isFirst ? 'open' : ''}>
+          <summary>Roteiro herdado</summary>
+          <pre>${escapeHtml(prompt || 'Ainda sem sistema herdado.')}</pre>
+        </details>
+        <textarea class="cx-textarea" id="mcPromptEditor" hidden>${escapeHtml(prompt)}</textarea>
+        <label for="mcSceneDelta">O que muda nesta cena</label>
+        <textarea class="cx-textarea" id="mcSceneDelta" rows="2" placeholder="Ajuste curto: luz, recorte, copy ou CTA."></textarea>
         <div class="mc-inspector-actions">
-          <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">Gerar direção</button>
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">${escapeHtml(generateLabel)}</button>
           <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="save-prompt">Salvar</button>
           <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>
         </div>
       </section>
       <section class="mc-scene-output">
-        <div class="mc-scene-output-head">
-          <div><strong>Imagens da cena</strong><small>Gere, revise e escolha a imagem da simulação.</small></div>
-          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="generate-image"
-                  ${scene.prompt_status && scene.prompt_status !== 'approved' ? 'disabled title="Aprove a direção primeiro"' : ''}>
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar imagem
-          </button>
-        </div>
-        <label class="mc-reference-upload">
-          <input id="mcImageReferences" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
-          <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
-          <span>Adicionar até duas referências visuais</span>
-        </label>
-        <div class="mc-scene-assets">
-          ${assets.map((asset) => `
-            <article class="mc-scene-asset ${String(asset.id) === String(state.previewAssetId) ? 'is-preview' : ''}">
-              <img src="${escapeHtml(assetUrl(asset))}" alt="Resultado da cena ${index + 1}">
-              ${asset.metadata?.quality_review?.warnings?.length
-                ? `<ul class="mc-quality-warnings">${asset.metadata.quality_review.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
-                : asset.metadata?.quality_review?.score != null
-                  ? `<p class="mc-quality-ok"><i class="fa-solid fa-circle-check"></i> Qualidade ${escapeHtml(asset.metadata.quality_review.score)}/100</p>`
-                  : ''}
-              <div>
-                ${statusBadge(asset.status || 'review')}
-                ${asset.status === 'approved'
-                  ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
-                  : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar imagem</button>`}
-              </div>
-            </article>`).join('') || '<div class="mc-scene-assets-empty">Nenhuma imagem gerada para esta cena.</div>'}
-        </div>
+        ${hero ? `
+          <figure class="mc-scene-hero">
+            <img src="${escapeHtml(assetUrl(hero))}" alt="Imagem gerada da cena ${index + 1}">
+            <figcaption>
+              ${statusBadge(hero.status || 'review')}
+              ${hero.status === 'approved'
+                ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${hero.id}">Simular esta</button>`
+                : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${hero.id}">Aprovar</button>`}
+            </figcaption>
+          </figure>
+          <div class="mc-refine-bar">
+            <strong>Ajustar esta imagem</strong>
+            <div class="mc-refine-intents">
+              ${refineIntents.map(([value, label]) => `
+                <button type="button" data-refine-intent="${value}" class="${state.refineIntent === value ? 'is-active' : ''}">${escapeHtml(label)}</button>
+              `).join('')}
+            </div>
+            <input class="cx-input" id="mcRefineInstruction" maxlength="400" placeholder="Uma linha: o que mudar nesta imagem">
+            <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="refine-asset" data-asset-id="${hero.id}">Ajustar imagem</button>
+          </div>
+          ${hero.metadata?.source_job_prompt || hero.metadata?.refinement_instruction ? `
+            <details class="mc-asset-history">
+              <summary>Histórico do asset</summary>
+              ${hero.metadata?.source_job_prompt ? `<pre>${escapeHtml(hero.metadata.source_job_prompt)}</pre>` : ''}
+              ${hero.metadata?.refinement_instruction ? `<p>${escapeHtml(hero.metadata.refinement_instruction)}</p>` : ''}
+            </details>` : ''}
+        ` : `
+          <div class="mc-scene-output-head">
+            <div><strong>Imagem da cena</strong><small>Gere a partir do roteiro herdado.</small></div>
+            <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="generate-image"
+                    ${scene.prompt_status && scene.prompt_status !== 'approved' ? 'disabled title="Aprove a direção primeiro"' : ''}>
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar imagem
+            </button>
+          </div>
+          <label class="mc-reference-upload">
+            <input id="mcImageReferences" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
+            <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+            <span>Até duas referências visuais</span>
+          </label>
+          <div class="mc-scene-assets-empty">Nenhuma imagem gerada para esta cena.</div>
+        `}
+        ${assets.length > 1 ? `<div class="mc-scene-assets">${assets.map((asset) => `
+          <article class="mc-scene-asset ${String(asset.id) === String(hero?.id) ? 'is-preview' : ''}">
+            <img src="${escapeHtml(assetUrl(asset))}" alt="Variante da cena ${index + 1}">
+            ${asset.metadata?.refinement_instruction ? `<p class="mc-asset-delta">${escapeHtml(asset.metadata.refinement_instruction)}</p>` : ''}
+            <div>
+              ${statusBadge(asset.status || 'review')}
+              ${asset.status === 'approved'
+                ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
+                : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar</button>`}
+            </div>
+          </article>`).join('')}</div>` : ''}
       </section>`;
   }
 
@@ -1522,11 +1609,21 @@
       </div>`;
       return;
     }
+    const copy = line.copy_system || {};
+    const copyFacts = [
+      copy.headline_structure && `Título: ${copy.headline_structure}`,
+      copy.body_density && `Densidade: ${copy.body_density}`,
+      copy.legal_presence && `Legal: ${copy.legal_presence}`,
+      copy.typography?.role && copy.typography.role !== 'unknown'
+        && `Fonte: ${copy.typography.role}${copy.typography.family ? ` · ${copy.typography.family}` : ''}${copy.typography.confidence === 'hypothesis' ? ' (hipótese)' : ''}`,
+      copy.cta?.visual_pattern && `CTA: ${copy.cta.visual_pattern}${copy.cta.confidence === 'hypothesis' ? ' (hipótese)' : ''}`,
+    ].filter(Boolean);
     const sections = [
       ['Composição', line.composition_rules],
       ['Imagem e fotografia', line.imagery_rules],
       ['Tipografia', line.typography_rules],
       ['Recursos gráficos', line.graphic_devices],
+      ['Copy e CTA', [...(line.copy_patterns || []), ...copyFacts]],
       ['Preservar', line.must_preserve],
       ['Evitar', line.avoid],
     ].filter(([, values]) => Array.isArray(values) && values.length);
@@ -2048,9 +2145,10 @@
       try {
         if (action === 'generate-prompt') {
           await withLock(`scene-prompt-${scene.id}`, button, () => api(`${base}/prompt/generate`, {
-            method: 'POST', body: '{}',
+            method: 'POST',
+            body: JSON.stringify({ delta: $('#mcSceneDelta')?.value || '' }),
           }));
-          toast('Direção criada para revisão.', 'success');
+          toast(scene.prompt ? 'Cena ajustada a partir do roteiro-mãe.' : 'Direção criada para revisão.', 'success');
         } else if (action === 'save-prompt' || action === 'approve-prompt') {
           await withLock(`scene-prompt-review-${scene.id}`, button, () => api(`${base}/prompt`, {
             method: 'PUT',
@@ -2087,6 +2185,21 @@
             { url: `/parametros/api/productions/${state.production.id}/simulation-asset`, options: selection },
           ]);
           toast('Imagem aprovada e aplicada à simulação.', 'success');
+        } else if (action === 'refine-asset') {
+          const assetId = Number(button.dataset.assetId);
+          const instruction = ($('#mcRefineInstruction')?.value || '').trim();
+          if (!instruction) throw new Error('Descreva o ajuste em uma linha.');
+          await withLock(`scene-refine-${scene.id}-${assetId}`, button, () => api(
+            `${base}/assets/${assetId}/refine`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                instruction,
+                intent: state.refineIntent || 'copy',
+              }),
+            },
+          ));
+          toast('Variante gerada a partir da imagem.', 'success');
         } else if (action === 'choose-preview') {
           state.previewAssetId = Number(button.dataset.assetId);
           const selection = {
@@ -2118,6 +2231,14 @@
         || sceneAssets(scene).find((asset) => asset.status === 'approved')?.id
         || null;
       renderProduction();
+      return;
+    }
+    const refineIntent = event.target.closest('[data-refine-intent]');
+    if (refineIntent) {
+      state.refineIntent = refineIntent.dataset.refineIntent;
+      $$('[data-refine-intent]').forEach((button) => {
+        button.classList.toggle('is-active', button === refineIntent);
+      });
       return;
     }
     const sceneActionButton = event.target.closest('[data-scene-action]');

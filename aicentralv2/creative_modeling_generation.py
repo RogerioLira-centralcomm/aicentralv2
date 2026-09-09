@@ -26,12 +26,23 @@ interfaces de terceiros. Retorne JSON puro com:
 O prompt_en deve descrever composição, hierarquia, conteúdo, cores, iluminação,
 texto permitido e restrições técnicas sem inventar preços ou claims.
 Quando client_identity.profile.creative_line existir, trate-a como sistema visual
-aprendido de campanhas reais: preserve assinatura, composição, imagem e recursos
-recorrentes, mas nunca recicle ofertas ou textos antigos. Inclua integralmente
+aprendido de campanhas reais: preserve assinatura, composição, imagem, recursos
+recorrentes e copy_system (estrutura de título, densidade, tipografia, zonas e
+padrão de CTA), mas nunca recicle ofertas ou textos antigos. Inclua integralmente
 gpt_image_instruction no prompt final para o GPT Image 2.
 O prompt deve exigir explicitamente que toda copy publicitária visível esteja em
 português do Brasil, sem slogans em inglês inventados. Nomes registrados de
 marca ou produto podem ser preservados."""
+
+ADAPT_SCENE_SYSTEM = """Você adapta um prompt-mãe já aprovado para a próxima cena.
+Preserve o sistema visual, tipografia, zonas, CTA e DNA da marca.
+Altere somente o que o delta da cena e o storyboard desta posição exigem.
+Nunca recomece a campanha do zero nem invente uma nova direção de marca.
+Quando copy_system existir, preserve estrutura de copy e posição do CTA.
+Retorne JSON puro com:
+{"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
+O prompt_en deve permanecer em inglês técnico de produção. Toda copy visível
+continua em português do Brasil. Use o CTA literalmente."""
 
 SCRIPT_SYSTEM = """Você é roteirista de publicidade digital premium.
 Crie um roteiro que conecte exatamente quatro imagens na ordem informada.
@@ -160,9 +171,14 @@ class CreativeGenerationClient:
         self.http = http or requests
 
     def generate_prompt(self, context):
+        system = (
+            ADAPT_SCENE_SYSTEM
+            if isinstance(context, dict) and context.get("inherit_from_master")
+            else PROMPT_SYSTEM
+        )
         response = self.text_callable(
             [
-                {"role": "system", "content": PROMPT_SYSTEM},
+                {"role": "system", "content": system},
                 {
                     "role": "user",
                     "content": json.dumps(context, ensure_ascii=False, default=str),

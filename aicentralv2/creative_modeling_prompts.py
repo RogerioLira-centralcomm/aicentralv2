@@ -1,5 +1,7 @@
 """Blocos determinísticos para prompts de mockups de formatos publicitários."""
 
+from .creative_brand_analysis import format_copy_system_lines
+
 MASTER_RENDER_RULES = """You are a senior advertising art director specialized in
 premium digital media, rich media advertising, programmatic media formats,
 mobile advertising, luxury branding and client-presentation mockups.
@@ -248,6 +250,11 @@ def compose_format_mockup_prompt(
                     learned.append(f"{label}: " + " | ".join(map(str, values[:6])))
             if creative_line.get("gpt_image_instruction"):
                 learned.append(str(creative_line["gpt_image_instruction"]))
+            learned.extend(
+                format_copy_system_lines(
+                    creative_line.get("copy_system"), english=True
+                )
+            )
             learned.append(
                 "Reuse only the visual system. Never reuse previous offers, "
                 "prices, claims or campaign copy."
@@ -278,3 +285,19 @@ def compose_format_mockup_prompt(
         )
     sections.append(STRICT_NEGATIVE_RULES)
     return "\n\n".join(section.strip() for section in sections if section)
+
+
+def build_inherited_scene_prompt(visual_bible, description, cta_text, position):
+    """Direção inicial da cena a partir do storyboard, sem chamada extra de LLM."""
+    lines = [f"INHERITED CAMPAIGN SYSTEM — scene {position}"]
+    if visual_bible:
+        lines.append(f"Visual bible: {visual_bible}")
+    if description:
+        lines.append(f"Scene direction: {description}")
+    if cta_text:
+        lines.append(f"CTA: {cta_text}")
+    lines.append(
+        "Preserve this visual system across the sequence. Later scenes adapt "
+        "only the storyboard delta; do not restart the campaign."
+    )
+    return "\n".join(lines)

@@ -311,6 +311,9 @@ class CreativeModelingService:
     def list_clients(self):
         return _serialize(self.repository.list_clients())
 
+    def list_campaign_clients(self):
+        return _serialize(self.repository.list_campaign_clients())
+
     def get_client(self, client_id):
         return _serialize(self.repository.get_client(_integer(client_id, "Cliente")))
 
@@ -407,8 +410,22 @@ class CreativeModelingService:
         show_price = payload.get("show_price", False)
         if not isinstance(show_price, bool):
             raise ValueError("Exibir preço deve ser verdadeiro ou falso.")
+        client_source = payload.get("client_source", "creative")
+        if client_source not in {"creative", "crm"}:
+            raise ValueError("Origem do cliente inválida.")
+        raw_first_step = payload.get("first_step")
+        if not isinstance(raw_first_step, dict):
+            raise ValueError("Formato inicial é obrigatório.")
+        mockup = _text(
+            raw_first_step.get("mockup"),
+            "Ambiente inicial",
+            required=True,
+        )
+        if mockup not in MOCKUPS:
+            raise ValueError("Ambiente inicial inválido.")
         data = {
             "client_id": _integer(payload.get("client_id"), "Cliente"),
+            "client_source": client_source,
             "name": _text(
                 payload.get("name"),
                 "Nome da campanha",
@@ -426,8 +443,23 @@ class CreativeModelingService:
             "cta_text": _text(payload.get("cta_text"), "CTA", max_length=1000),
             "show_price": show_price,
             "budget_usd": _money(payload.get("budget_usd")),
+            "first_step": {
+                "format_template_id": _integer(
+                    raw_first_step.get("format_template_id"),
+                    "Formato inicial",
+                ),
+                "mockup": mockup,
+                "scene_description": _text(
+                    raw_first_step.get("scene_description"),
+                    "Descrição do primeiro step",
+                    max_length=8000,
+                ),
+            },
         }
-        return self.repository.create_campaign_with_variation_a(data)
+        created = self.repository.create_campaign_with_variation_a(data)
+        campaign = self.repository.get_campaign(created["id"])
+        campaign["created_step_id"] = created["step_id"]
+        return _serialize(campaign)
 
     def campaign_detail(self, campaign_id):
         return _serialize(

@@ -140,6 +140,11 @@ def api_clients():
 
 
 @admin_required_api
+def api_campaign_clients():
+    return _execute(lambda: _ok(_service().list_campaign_clients()))
+
+
+@admin_required_api
 def api_analyze_client_brand():
     return _execute(
         lambda: _ok(
@@ -495,6 +500,11 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_clients",
         view_func=api_clients,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/campaign-clients",
+        endpoint="creative_campaign_clients",
+        view_func=api_campaign_clients,
     )
     blueprint.add_url_rule(
         "/api/clients/analyze-brand",

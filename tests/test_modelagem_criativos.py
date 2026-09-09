@@ -24,6 +24,7 @@ from aicentralv2.creative_modeling_service import CreativeModelingService
 class FakeRepository:
     def __init__(self):
         self.clients = []
+        self.created_campaign = None
         self.jobs = []
         self.prompts = []
         self.scripts = []
@@ -105,6 +106,36 @@ class FakeRepository:
             "tone_of_voice": "Seguro",
             "primary_color": "#123ABC",
             "secondary_color": "#FEDCBA",
+        }
+
+    def list_campaign_clients(self):
+        return [{
+            "selection_key": "crm:42",
+            "source": "crm",
+            "profile_status": "minimal",
+            "crm_client_id": 42,
+            "profile_id": None,
+            "name": "Cliente CRM",
+        }]
+
+    def create_campaign_with_variation_a(self, data):
+        self.created_campaign = data
+        return {"id": 30, "variation_id": 20, "step_id": 8}
+
+    def get_campaign(self, campaign_id):
+        return {
+            "id": campaign_id,
+            "name": self.created_campaign["name"],
+            "client": {"id": 10, "name": "Marca Exemplo"},
+            "variations": [{
+                "id": 20,
+                "label": "A",
+                "steps": [{
+                    "id": 8,
+                    "format_template_id": 7,
+                    "mockup": "portal",
+                }],
+            }],
         }
 
     def create_format_modeling_job(
@@ -440,6 +471,43 @@ class CreativeServiceTest(unittest.TestCase):
             saved["analysis_metadata"]["model"], "perplexity/sonar-pro"
         )
 
+    def test_campanha_crm_cria_primeiro_step_no_mesmo_comando(self):
+        result = self.service.create_campaign({
+            "client_source": "crm",
+            "client_id": 42,
+            "name": "Campanha integrada",
+            "budget_usd": 5,
+            "show_price": False,
+            "first_step": {
+                "format_template_id": 7,
+                "mockup": "portal",
+            },
+        })
+        saved = self.repo.created_campaign
+        self.assertEqual(saved["client_source"], "crm")
+        self.assertEqual(saved["client_id"], 42)
+        self.assertEqual(saved["first_step"]["format_template_id"], 7)
+        self.assertEqual(result["created_step_id"], 8)
+        self.assertEqual(result["variations"][0]["steps"][0]["id"], 8)
+
+    def test_campanha_exige_primeiro_formato_valido(self):
+        with self.assertRaisesRegex(ValueError, "Formato inicial"):
+            self.service.create_campaign({
+                "client_source": "creative",
+                "client_id": 10,
+                "name": "Sem formato",
+            })
+        with self.assertRaisesRegex(ValueError, "Ambiente inicial inválido"):
+            self.service.create_campaign({
+                "client_source": "creative",
+                "client_id": 10,
+                "name": "Mockup inválido",
+                "first_step": {
+                    "format_template_id": 7,
+                    "mockup": "outdoor",
+                },
+            })
+
     def test_prompt_deterministico_contem_variacao_e_identidades(self):
         context = self.repo.get_step_context(8)
         prompt = self.service.build_prompt(context, context["step"], 2)
@@ -713,6 +781,10 @@ class CreativeRoutesTest(unittest.TestCase):
         service.list_formats.return_value = [{"id": 7, "name_pt": "Leaderboard"}]
         service.list_viewer_profiles.return_value = [{"id": 1, "slug": "g1"}]
         service.list_clients.return_value = [{"id": 10, "name": "Marca"}]
+        service.list_campaign_clients.return_value = [{
+            "selection_key": "crm:42",
+            "name": "Cliente CRM",
+        }]
         service.list_campaigns.return_value = [{"id": 30, "name": "Campanha"}]
         with self.client.session_transaction() as session:
             session["user_id"] = 1
@@ -724,10 +796,39 @@ class CreativeRoutesTest(unittest.TestCase):
             formats = self.client.get("/parametros/api/formats")
             viewers = self.client.get("/parametros/api/viewer-profiles")
             clients = self.client.get("/parametros/api/clients")
+            campaign_clients = self.client.get("/parametros/api/campaign-clients")
             campaigns = self.client.get("/parametros/api/campaigns")
-        for response in (formats, viewers, clients, campaigns):
+        for response in (formats, viewers, clients, campaign_clients, campaigns):
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.get_json()["success"])
+
+    def test_api_cria_campanha_com_step_atomico(self):
+        service = Mock()
+        service.create_campaign.return_value = {
+            "id": 30,
+            "created_step_id": 8,
+            "variations": [{"id": 20, "steps": [{"id": 8}]}],
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        payload = {
+            "client_source": "crm",
+            "client_id": 42,
+            "name": "Campanha integrada",
+            "first_step": {"format_template_id": 7, "mockup": "portal"},
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/campaigns",
+                json=payload,
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json()["data"]["created_step_id"], 8)
+        service.create_campaign.assert_called_once_with(payload)
 
     def test_api_analisa_site_e_imagem(self):
         service = Mock()
@@ -776,12 +877,13 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=6", page)
-        self.assertIn("modelagem_criativos.js') }}?v=6", page)
+        self.assertIn("modelagem_criativos.css') }}?v=7", page)
+        self.assertIn("modelagem_criativos.js') }}?v=7", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
         self.assertIn('id="mcGeneratorFormatList"', generator)
         self.assertIn('form="mcCampaignForm"', generator)
+        self.assertIn('name="client_ref"', generator)
         public_page = (
             root
             / "aicentralv2"
@@ -878,6 +980,20 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_campaign_flow.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" scripts/seed_creative_formats.py',
+            deploy,
+        )
+        self.assertLess(
+            deploy.index('"$VENV_PYTHON" scripts/seed_creative_formats.py'),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py'
+            ),
+        )
+        self.assertIn(
             '"$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py',
             deploy,
         )
@@ -900,6 +1016,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "/parametros/api/viewer-profiles",
             "/parametros/api/formats",
             "/parametros/api/clients",
+            "/parametros/api/campaign-clients",
             "/parametros/api/campaigns",
         ):
             self.assertIn(path, verifier)
@@ -909,6 +1026,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("Promise.allSettled", frontend)
         self.assertIn("failures.join", frontend)
+        create_start = frontend.index("async function createCampaign")
+        create_end = frontend.index("// ====== VARIAÇÕES", create_start)
+        create_flow = frontend[create_start:create_end]
+        self.assertIn("data.first_step", create_flow)
+        self.assertIn("created.created_step_id", create_flow)
+        self.assertNotIn("/parametros/api/variations/", create_flow)
+        self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
+        campaign_flow_sql = (
+            root / "migrations" / "add_creative_campaign_flow.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("crm_client_id", campaign_flow_sql)
+        self.assertIn("display_motion_payload", campaign_flow_sql)
 
 
 if __name__ == "__main__":

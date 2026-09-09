@@ -5,6 +5,7 @@
   const API = {
     formats: '/parametros/api/formats',
     clients: '/parametros/api/clients',
+    campaignClients: '/parametros/api/campaign-clients',
     analyzeBrand: '/parametros/api/clients/analyze-brand',
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
@@ -19,6 +20,7 @@
   const state = {
     formats: [],
     clients: [],
+    campaignClients: [],
     campaigns: [],
     campaign: null,
     activeStepId: null,
@@ -109,6 +111,7 @@
     const resources = [
       ['formats', 'formatos', API.formats],
       ['clients', 'clientes', API.clients],
+      ['campaignClients', 'clientes para campanha', API.campaignClients],
       ['campaigns', 'campanhas', API.campaigns],
       ['viewerProfiles', 'ambientes de mídia', API.viewerProfiles],
     ];
@@ -133,9 +136,24 @@
   function renderClientOptions() {
     const select = $('#mcCampaignClient');
     const current = select.value;
-    select.innerHTML = '<option value="">Selecione um cliente</option>' + state.clients
-      .map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('');
-    select.value = current;
+    select.innerHTML = '<option value="">Selecione um cliente</option>' + state.campaignClients
+      .map((client) => {
+        const suffix = client.source === 'crm'
+          ? (client.profile_status === 'ready' ? 'CRM · marca pronta' : 'CRM · perfil será criado')
+          : 'Perfil de marca';
+        return `<option value="${escapeHtml(client.selection_key)}">${escapeHtml(client.name)} — ${suffix}</option>`;
+      }).join('');
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('client_ref')
+      || (params.get('crm_client_id') ? `crm:${params.get('crm_client_id')}` : '')
+      || (params.get('creative_client_id') ? `profile:${params.get('creative_client_id')}` : '');
+    const preferred = current || requested;
+    if (preferred && Array.from(select.options).some((option) => option.value === preferred)) {
+      select.value = preferred;
+    }
+    renderClientPreview();
+    renderGeneratorSummary();
+    updateGeneratorAvailability();
   }
 
   function renderCampaignOptions() {
@@ -147,13 +165,17 @@
       select.innerHTML = `<option value="">${first}</option>` + state.campaigns.map((campaign) => (
         `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)}</option>`
       )).join('');
-      select.value = current || (state.campaign ? String(state.campaign.id) : '');
+      select.value = selector === '#mcCampaignSelect' && state.campaign
+        ? String(state.campaign.id)
+        : current;
     });
   }
 
   // ====== GERADOR ======
   function renderClientPreview() {
-    const client = state.clients.find((item) => String(item.id) === $('#mcCampaignClient').value);
+    const client = state.campaignClients.find(
+      (item) => item.selection_key === $('#mcCampaignClient').value,
+    );
     const root = $('#mcClientPreview');
     if (!client) {
       root.innerHTML = '<div class="cx-empty-state"><p>Escolha um cliente para conferir sua identidade.</p></div>';
@@ -196,6 +218,27 @@
       </button>`).join('') || '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
     renderGeneratorFormatPreview();
     renderGeneratorSummary();
+    updateGeneratorAvailability();
+  }
+
+  function updateGeneratorAvailability() {
+    const button = $('#mcCampaignFormSubmit');
+    const status = $('#mcCampaignFormStatus');
+    if (!button || !status) return;
+    const issue = !state.campaignClients.length
+      ? 'Nenhum cliente disponível para iniciar a campanha.'
+      : !generatorSelectedFormat()
+        ? 'Nenhum formato disponível para o primeiro step.'
+        : '';
+    button.disabled = Boolean(issue);
+    button.title = issue;
+    if (issue) {
+      status.textContent = issue;
+      status.dataset.availability = 'true';
+    } else if (status.dataset.availability === 'true') {
+      status.textContent = '';
+      delete status.dataset.availability;
+    }
   }
 
   function renderGeneratorFormatPreview() {
@@ -229,7 +272,9 @@
     const root = $('#mcGeneratorSummary');
     const form = $('#mcCampaignForm');
     if (!root || !form) return;
-    const client = state.clients.find((item) => String(item.id) === $('#mcCampaignClient')?.value);
+    const client = state.campaignClients.find(
+      (item) => item.selection_key === $('#mcCampaignClient')?.value,
+    );
     const format = generatorSelectedFormat();
     const name = form.elements.name?.value.trim();
     const budget = form.elements.budget_usd?.value;
@@ -252,33 +297,21 @@
     }
     await withLock('create-campaign', button, async () => {
       const data = Object.fromEntries(new FormData(form));
-      data.client_id = Number(data.client_id);
+      const [clientSource, clientId] = String(data.client_ref || '').split(':');
+      delete data.client_ref;
+      data.client_source = clientSource === 'crm' ? 'crm' : 'creative';
+      data.client_id = Number(clientId);
       data.budget_usd = Number(data.budget_usd || 0);
       data.show_price = new FormData(form).has('show_price');
+      data.first_step = {
+        format_template_id: Number(format.id),
+        mockup: $('#mcGeneratorMockup')?.value || clonePlacement(format).context || 'portal',
+        scene_description: null,
+      };
       try {
         const created = await api(API.campaigns, { method: 'POST', body: JSON.stringify(data) });
         state.campaigns = await api(API.campaigns);
-        renderCampaignOptions();
-        await selectCampaign(created.id);
-        const firstVariation = state.campaign?.variations?.[0];
-        if (firstVariation) {
-          try {
-            await api(`/parametros/api/variations/${firstVariation.id}`, {
-              method: 'PUT',
-              body: JSON.stringify({
-                notes: 'Sequência inicial criada no Gerador',
-                steps: [{
-                  format_template_id: Number(format.id),
-                  mockup: $('#mcGeneratorMockup')?.value || clonePlacement(format).context || 'portal',
-                  scene_description: null,
-                }],
-              }),
-            });
-            await selectCampaign(created.id);
-          } catch (stepError) {
-            toast(`Campanha criada, mas o primeiro step falhou: ${stepError.message}`, 'warning');
-          }
-        }
+        await selectCampaign(created.id, created.created_step_id);
         form.reset();
         renderClientPreview();
         renderGeneratorSummary();
@@ -292,7 +325,7 @@
   }
 
   // ====== VARIAÇÕES ======
-  async function selectCampaign(id) {
+  async function selectCampaign(id, preferredStepId = null) {
     if (!id) {
       state.campaign = null;
       renderWorkspace();
@@ -308,7 +341,7 @@
     state.campaign = campaign;
     state.campaignAssets = assets;
     state.publicLinks = publicLinks;
-    state.activeStepId = preserveStep;
+    state.activeStepId = preferredStepId || preserveStep;
     state.selectedAssets.clear();
     renderCampaignOptions();
     renderWorkspace();
@@ -1050,14 +1083,20 @@
           await api(`${API.clients}/${created.id}/logo`, { method: 'POST', body: logoBody });
         }
         state.clients = await api(API.clients);
+        state.campaignClients = await api(API.campaignClients);
         renderClients();
         renderClientOptions();
+        const campaignClient = $('#mcCampaignClient');
+        campaignClient.value = `profile:${created.id}`;
+        renderClientPreview();
+        renderGeneratorSummary();
         form.reset();
         state.brandAnalysis = null;
         $('#mcBrandAnalysisSummary').classList.add('hidden');
         $('#mcBrandAnalysisSummary').innerHTML = '';
         $('#mcClientFormStatus').textContent = '';
         toast('Perfil de marca salvo.', 'success');
+        activateTab('gerador');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
         toast(error.message, 'error');

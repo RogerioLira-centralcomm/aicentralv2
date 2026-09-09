@@ -17,6 +17,7 @@ def main():
         "/parametros/api/viewer-profiles",
         "/parametros/api/formats",
         "/parametros/api/clients",
+        "/parametros/api/campaign-clients",
         "/parametros/api/campaigns",
     )
     with app.test_client() as client:

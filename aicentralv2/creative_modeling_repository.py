@@ -162,6 +162,45 @@ class CreativeModelingRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def list_campaign_clients(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT cx.id AS profile_id, crm.id_cliente AS crm_client_id,
+                       'crm:' || crm.id_cliente::text AS selection_key,
+                       'crm' AS source,
+                       CASE WHEN cx.id IS NULL THEN 'minimal' ELSE 'ready' END
+                           AS profile_status,
+                       COALESCE(
+                           cx.name, crm.nome_fantasia, crm.razao_social,
+                           'Cliente #' || crm.id_cliente::text
+                       )
+                           AS name,
+                       cx.sector, cx.tone_of_voice, cx.logo_url,
+                       cx.logo_upload_path, cx.primary_color,
+                       cx.secondary_color, cx.website_url,
+                       COALESCE(cx.brand_profile, '{}'::jsonb) AS brand_profile,
+                       COALESCE(cx.analysis_metadata, '{}'::jsonb)
+                           AS analysis_metadata,
+                       COALESCE(cx.price_policy, 'hide_price') AS price_policy
+                  FROM tbl_cliente crm
+                  LEFT JOIN cx_clients cx ON cx.crm_client_id = crm.id_cliente
+                 WHERE crm.status = TRUE
+                UNION ALL
+                SELECT cx.id AS profile_id, NULL::integer AS crm_client_id,
+                       'profile:' || cx.id::text AS selection_key,
+                       'creative' AS source, 'ready' AS profile_status,
+                       cx.name, cx.sector, cx.tone_of_voice, cx.logo_url,
+                       cx.logo_upload_path, cx.primary_color,
+                       cx.secondary_color, cx.website_url,
+                       cx.brand_profile, cx.analysis_metadata, cx.price_policy
+                  FROM cx_clients cx
+                 WHERE cx.crm_client_id IS NULL
+                 ORDER BY name
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
     def get_client(self, client_id):
         with self.conn.cursor() as cursor:
             cursor.execute(
@@ -238,12 +277,61 @@ class CreativeModelingRepository:
 
     def create_campaign_with_variation_a(self, data):
         with self._write() as cursor:
+            client_source = data.get("client_source", "creative")
+            source_client_id = data["client_id"]
+            if client_source == "crm":
+                cursor.execute(
+                    """
+                    SELECT id_cliente,
+                           COALESCE(
+                               nome_fantasia, razao_social,
+                               'Cliente #' || id_cliente::text
+                           ) AS name
+                      FROM tbl_cliente
+                     WHERE id_cliente = %s AND status = TRUE
+                    """,
+                    (source_client_id,),
+                )
+                crm_client = cursor.fetchone()
+                if not crm_client:
+                    raise CreativeNotFoundError("Cliente do CRM não encontrado.")
+                cursor.execute(
+                    """
+                    INSERT INTO cx_clients (
+                        crm_client_id, name, brand_profile,
+                        analysis_metadata, price_policy
+                    )
+                    VALUES (%s, %s, '{}'::jsonb, '{}'::jsonb, 'hide_price')
+                    ON CONFLICT (crm_client_id)
+                        WHERE crm_client_id IS NOT NULL
+                    DO UPDATE SET name = EXCLUDED.name
+                    RETURNING id
+                    """,
+                    (source_client_id, crm_client["name"]),
+                )
+                client_id = cursor.fetchone()["id"]
+            else:
+                cursor.execute(
+                    "SELECT id FROM cx_clients WHERE id = %s",
+                    (source_client_id,),
+                )
+                client = cursor.fetchone()
+                if not client:
+                    raise CreativeNotFoundError("Perfil de marca não encontrado.")
+                client_id = client["id"]
+
+            first_step = data["first_step"]
             cursor.execute(
-                "SELECT id FROM cx_clients WHERE id = %s",
-                (data["client_id"],),
+                """
+                SELECT id, engine
+                  FROM cx_format_templates
+                 WHERE id = %s AND is_active = TRUE
+                """,
+                (first_step["format_template_id"],),
             )
-            if not cursor.fetchone():
-                raise CreativeNotFoundError("Cliente não encontrado.")
+            format_row = cursor.fetchone()
+            if not format_row:
+                raise CreativeNotFoundError("Formato inicial não encontrado.")
             cursor.execute(
                 """
                 INSERT INTO cx_campaigns (
@@ -254,7 +342,7 @@ class CreativeModelingRepository:
                 RETURNING id
                 """,
                 (
-                    data["client_id"],
+                    client_id,
                     data["name"],
                     data.get("objective"),
                     data.get("campaign_text"),
@@ -273,7 +361,29 @@ class CreativeModelingRepository:
                 (campaign_id,),
             )
             variation_id = cursor.fetchone()["id"]
-        return {"id": campaign_id, "variation_id": variation_id}
+            cursor.execute(
+                """
+                INSERT INTO cx_variation_steps (
+                    variation_id, position, format_template_id,
+                    mockup, scene_description, engine
+                )
+                VALUES (%s, 1, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    variation_id,
+                    format_row["id"],
+                    first_step["mockup"],
+                    first_step.get("scene_description"),
+                    format_row["engine"],
+                ),
+            )
+            step_id = cursor.fetchone()["id"]
+        return {
+            "id": campaign_id,
+            "variation_id": variation_id,
+            "step_id": step_id,
+        }
 
     def list_campaigns(self, limit=50):
         with self.conn.cursor() as cursor:

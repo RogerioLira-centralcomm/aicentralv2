@@ -66,6 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_cx_format_templates_active
 
 CREATE TABLE IF NOT EXISTS cx_clients (
     id SERIAL PRIMARY KEY,
+    crm_client_id INTEGER REFERENCES tbl_cliente(id_cliente) ON DELETE SET NULL,
     name VARCHAR(150) NOT NULL,
     sector VARCHAR(80),
     tone_of_voice TEXT,
@@ -84,6 +85,9 @@ CREATE TABLE IF NOT EXISTS cx_clients (
 
 CREATE INDEX IF NOT EXISTS idx_cx_clients_created_at
     ON cx_clients(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client
+    ON cx_clients(crm_client_id)
+    WHERE crm_client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cx_campaigns (
     id SERIAL PRIMARY KEY,
@@ -191,7 +195,12 @@ CREATE TABLE IF NOT EXISTS cx_generation_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_cx_generation_job_type
-        CHECK (job_type IN ('prompt', 'script', 'image', 'mockup', 'video_payload')),
+        CHECK (
+            job_type IN (
+                'prompt', 'script', 'image', 'mockup',
+                'video_payload', 'display_motion_payload'
+            )
+        ),
     CONSTRAINT chk_cx_generation_provider
         CHECK (provider IN ('openrouter', 'higgsfield')),
     CONSTRAINT chk_cx_generation_status

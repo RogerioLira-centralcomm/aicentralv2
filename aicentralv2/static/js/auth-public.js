@@ -150,7 +150,36 @@
     container.appendChild(flash);
   };
 
+  function setupViewportLock() {
+    var root = document.documentElement;
+
+    function applyViewport() {
+      var viewport = window.visualViewport;
+      var height = viewport ? viewport.height : window.innerHeight;
+      root.style.setProperty('--vvh', Math.round(height) + 'px');
+      var keyboardOpen = Boolean(viewport && (window.innerHeight - viewport.height) > 140);
+      document.body.classList.toggle('is-keyboard-open', keyboardOpen);
+      if (window.scrollY || window.scrollX) {
+        window.scrollTo(0, 0);
+      }
+    }
+
+    applyViewport();
+    window.addEventListener('resize', applyViewport);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', applyViewport);
+      window.visualViewport.addEventListener('scroll', applyViewport);
+    }
+    document.addEventListener('focusin', function () {
+      window.setTimeout(applyViewport, 80);
+    });
+    document.addEventListener('focusout', function () {
+      window.setTimeout(applyViewport, 80);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    setupViewportLock();
     selectCity();
     setupPasswordToggles();
     setupPasswordStrength();

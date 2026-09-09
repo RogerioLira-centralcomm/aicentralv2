@@ -11,6 +11,7 @@
   --auth-danger: #b42318;
   --auth-success: #157347;
   --auth-radius: 10px;
+  --vvh: 100dvh;
 }
 
 * {
@@ -21,9 +22,12 @@
   display: none !important;
 }
 
-html,
-body {
-  min-height: 100%;
+html.auth-root,
+html.auth-root body {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body.auth-public {
@@ -44,20 +48,20 @@ textarea {
 
 .auth-layout {
   display: grid;
-  min-height: 100vh;
-  min-height: 100dvh;
-  grid-template-columns: minmax(0, 1fr) minmax(440px, 42vw);
+  height: 100%;
+  height: var(--vvh, 100dvh);
+  max-height: 100%;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 40vw);
 }
 
 body[data-auth-page="subscription-checkout"] .auth-layout {
-  grid-template-columns: minmax(340px, 38vw) minmax(620px, 62vw);
+  grid-template-columns: minmax(320px, 36vw) minmax(0, 1fr);
 }
 
 .auth-scene {
-  position: sticky;
-  top: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
+  position: relative;
+  min-height: 0;
   overflow: hidden;
   background: var(--auth-brand-deep);
 }
@@ -71,10 +75,18 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 }
 
 .auth-scene-image {
+  width: 124%;
+  height: 124%;
+  inset: auto;
+  top: -8%;
+  left: -12%;
   object-fit: cover;
   object-position: center;
-  filter: saturate(0.84) contrast(1.04);
-  transition: opacity 180ms ease;
+  filter: saturate(0.88) contrast(1.05);
+  transform-origin: center;
+  transition: opacity 220ms ease;
+  animation: auth-scene-pan 48s ease-in-out infinite alternate;
+  will-change: transform;
 }
 
 .auth-scene-image.is-changing {
@@ -122,27 +134,33 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
   z-index: 1;
   display: grid;
   min-width: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   background: var(--auth-paper);
   box-shadow: -22px 0 60px rgba(18, 54, 56, 0.13);
 }
 
 .auth-workspace-inner {
   display: flex;
-  width: min(100%, 540px);
-  min-height: 100%;
+  width: min(100%, 520px);
+  min-height: 0;
+  height: 100%;
   margin-inline: auto;
   flex-direction: column;
-  padding: clamp(1.5rem, 4vw, 3.75rem);
+  padding: clamp(1.25rem, 3vw, 2.75rem);
+  overflow: hidden;
 }
 
 .auth-workspace--wide .auth-workspace-inner {
   width: min(100%, 780px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .auth-brand {
   display: inline-flex;
+  flex-shrink: 0;
   width: fit-content;
   align-items: center;
   gap: 0.875rem;
@@ -151,6 +169,7 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
   padding: 0.625rem 0.875rem;
   color: #fff;
   text-decoration: none;
+  animation: auth-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-brand img {
@@ -190,23 +209,31 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 
 .auth-page-content {
   display: grid;
-  margin-block: auto;
-  padding-block: clamp(2rem, 7vh, 5rem);
+  flex: 1 1 auto;
+  align-content: center;
+  min-height: 0;
+  padding-block: 1.25rem;
+  overflow: hidden;
+  animation: auth-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.auth-workspace--wide .auth-page-content {
-  margin-block: 0;
-  padding-block: 2.5rem;
+.auth-workspace--wide .auth-page-content,
+body[data-auth-page="subscription-checkout"] .auth-page-content,
+body[data-auth-page="invite"] .auth-page-content,
+body[data-auth-page="reset-password"] .auth-page-content {
+  align-content: start;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .auth-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.35rem;
 }
 
 .auth-header h1 {
   margin: 0;
   color: var(--auth-ink);
-  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-size: clamp(1.6rem, 2.6vw, 2.15rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.08;
@@ -221,7 +248,7 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 
 .auth-form {
   display: grid;
-  gap: 1.125rem;
+  gap: 0.95rem;
 }
 
 .auth-field {
@@ -258,14 +285,15 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 .auth-input,
 .auth-select {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   border: 1px solid #c9d4d0;
   border-radius: var(--auth-radius);
   outline: 0;
   background: #fff;
   padding: 0.7rem 0.875rem;
   color: var(--auth-ink);
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  font-size: 16px;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .auth-input-wrap .auth-input {
@@ -284,6 +312,12 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 .auth-select:focus {
   border-color: var(--auth-brand);
   box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.14);
+  transform: none;
+}
+
+.auth-input[readonly] {
+  background: #eef3f1;
+  color: #4b5855;
 }
 
 .auth-input[aria-invalid="true"],
@@ -344,7 +378,7 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 .auth-submit,
 .auth-button {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 48px;
   align-items: center;
   justify-content: center;
   gap: 0.625rem;
@@ -356,7 +390,7 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  transition: background 140ms ease, transform 140ms ease;
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .auth-submit:hover,
@@ -460,11 +494,12 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 
 .auth-footer {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border-top: 1px solid var(--auth-line);
-  padding-top: 1rem;
+  padding-top: 0.85rem;
   color: var(--auth-muted);
   font-size: 12px;
 }
@@ -665,79 +700,104 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 960px) {
-  .auth-layout {
-    grid-template-columns: minmax(300px, 44vw) minmax(0, 1fr);
+@keyframes auth-scene-pan {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
   }
-
-  body[data-auth-page="subscription-checkout"] .auth-layout {
-    grid-template-columns: minmax(280px, 38vw) minmax(0, 1fr);
-  }
-
-  .auth-workspace-inner {
-    padding: 2rem;
-  }
-
-  .auth-scene-copy {
-    right: 2rem;
-    bottom: 2.5rem;
-    left: 2rem;
-  }
-
-  .auth-scene-message {
-    font-size: clamp(1.65rem, 3.8vw, 2.7rem);
+  to {
+    transform: translate3d(-9%, -3%, 0) scale(1.08);
   }
 }
 
-@media (max-width: 720px) {
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 1100px) {
   .auth-layout {
-    display: block;
+    grid-template-columns: minmax(280px, 42vw) minmax(0, 1fr);
   }
 
   body[data-auth-page="subscription-checkout"] .auth-layout {
-    display: block;
+    grid-template-columns: minmax(240px, 34vw) minmax(0, 1fr);
   }
 
-  .auth-scene {
-    position: relative;
-    min-height: 190px;
-    height: 28vh;
-    max-height: 240px;
-  }
-
-  .auth-scene-shade {
-    background: linear-gradient(180deg, rgba(18, 54, 56, 0.08), rgba(18, 54, 56, 0.72));
+  .auth-workspace-inner {
+    padding: 1.5rem 1.75rem;
   }
 
   .auth-scene-copy {
-    right: 1.25rem;
-    bottom: 1.25rem;
-    left: 1.25rem;
-  }
-
-  .auth-scene-city {
-    margin-bottom: 0.5rem;
+    right: 1.5rem;
+    bottom: 1.75rem;
+    left: 1.5rem;
   }
 
   .auth-scene-message {
-    max-width: 24ch;
-    font-size: 1.4rem;
+    font-size: clamp(1.45rem, 3.2vw, 2.3rem);
+  }
+}
+
+@media (max-width: 860px) {
+  .auth-layout,
+  body[data-auth-page="subscription-checkout"] .auth-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-scene {
+    flex: 0 0 88px;
+    height: 88px;
+    min-height: 88px;
+    max-height: 88px;
+  }
+
+  .auth-scene-shade {
+    background: linear-gradient(180deg, rgba(18, 54, 56, 0.08), rgba(18, 54, 56, 0.78));
+  }
+
+  .auth-scene-copy {
+    right: 1rem;
+    bottom: 0.85rem;
+    left: 1rem;
+  }
+
+  .auth-scene-city {
+    margin: 0;
+  }
+
+  .auth-scene-message {
+    display: none;
   }
 
   .auth-workspace {
-    min-height: calc(100dvh - 190px);
+    flex: 1 1 auto;
+    min-height: 0;
     box-shadow: 0 -14px 35px rgba(18, 54, 56, 0.12);
   }
 
   .auth-workspace-inner {
     width: 100%;
-    padding: 1.5rem;
+    padding: 1.15rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
   }
 
   .auth-page-content,
   .auth-workspace--wide .auth-page-content {
-    margin-block: 0;
-    padding-block: 2rem;
+    padding-block: 0.85rem;
+  }
+
+  .auth-header {
+    margin-bottom: 1rem;
+  }
+
+  .auth-flashes {
+    margin-top: 0.85rem;
   }
 
   .auth-form-grid,
@@ -749,16 +809,14 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 
 @media (max-width: 420px) {
   .auth-scene {
-    min-height: 160px;
-    height: 24vh;
-  }
-
-  .auth-scene-message {
-    font-size: 1.2rem;
+    flex-basis: 72px;
+    height: 72px;
+    min-height: 72px;
+    max-height: 72px;
   }
 
   .auth-brand img {
-    width: 46px;
+    width: 42px;
   }
 
   .auth-brand strong {
@@ -766,14 +824,28 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
   }
 
   .auth-workspace-inner {
-    padding: 1.25rem;
+    padding: 1rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
   }
 
   .auth-field-row,
   .auth-footer {
     align-items: flex-start;
     flex-direction: column;
+    gap: 0.35rem;
   }
+}
+
+body.is-keyboard-open .auth-scene {
+  display: none;
+}
+
+body.is-keyboard-open .auth-footer {
+  display: none;
+}
+
+body.is-keyboard-open .auth-page-content {
+  padding-block: 0.5rem;
+  overflow: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -784,5 +856,12 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .auth-scene-image {
+    width: 100%;
+    height: 100%;
+    inset: 0;
+    animation: none;
   }
 }

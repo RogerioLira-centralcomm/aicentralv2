@@ -1,127 +1,134 @@
-{% extends "base_auth.html" %}
+{% extends "base_auth_public.html" %}
 
-{% block title %}Aceitar Convite{% endblock %}
+{% block title %}Aceitar convite — CentralX{% endblock %}
+{% block page_name %}invite{% endblock %}
+{% block scene_message %}Um convite. Uma conta. O trabalho continua.{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-base-200 p-4">
-    <div class="card w-full max-w-md bg-base-100 shadow-xl">
-        <div class="card-body">
-            <!-- Logo -->
-            <div class="text-center mb-4">
-                <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Logo" class="h-16 mx-auto mb-2">
-                <h1 class="text-2xl font-bold text-primary">Bem-vindo!</h1>
-            </div>
+<header class="auth-header">
+  <h1>{% if invite %}Crie sua conta{% else %}Convite indisponível{% endif %}</h1>
+  {% if invite %}
+  <p>Você foi convidado para {{ cliente_nome }}. Defina nome e senha para entrar no CentralX.</p>
+  {% endif %}
+</header>
 
-            {% if error %}
-                <!-- Mensagem de erro -->
-                <div class="alert alert-error mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{{ error }}</span>
-                </div>
-                <div class="text-center">
-                    <a href="{{ url_for('login') }}" class="btn btn-primary">
-                        Ir para Login
-                    </a>
-                </div>
-            {% elif invite %}
-                <!-- Informações do convite -->
-                <div class="text-center mb-6">
-                    <p class="text-base-content/70">
-                        Você foi convidado para fazer parte de
-                    </p>
-                    <p class="text-lg font-semibold text-primary">{{ cliente_nome }}</p>
-                </div>
-
-                {% if errors %}
-                    <div class="alert alert-warning mb-4">
-                        <ul class="list-disc list-inside text-sm">
-                            {% for err in errors %}
-                                <li>{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-
-                <!-- Formulário -->
-                <form method="POST" action="{{ url_for('aceitar_convite_submit', token=token) }}">
-                    <!-- Email (readonly) -->
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text">Email</span>
-                        </label>
-                        <input type="email" value="{{ invite.email }}" 
-                               class="input input-bordered bg-base-200" readonly>
-                    </div>
-
-                    <!-- Nome completo -->
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text">Nome Completo *</span>
-                        </label>
-                        <input type="text" name="nome" value="{{ nome|default('', true) }}" 
-                               class="input input-bordered" 
-                               placeholder="Seu nome completo"
-                               required minlength="3"
-                               autocomplete="name">
-                    </div>
-
-                    <!-- Senha -->
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text">Criar Senha *</span>
-                        </label>
-                        <input type="password" name="senha" 
-                               class="input input-bordered" 
-                               placeholder="Mínimo 6 caracteres"
-                               required minlength="6"
-                               autocomplete="new-password">
-                    </div>
-
-                    <!-- Confirmar senha -->
-                    <div class="form-control mb-6">
-                        <label class="label">
-                            <span class="label-text">Confirmar Senha *</span>
-                        </label>
-                        <input type="password" name="confirmar_senha" 
-                               class="input input-bordered" 
-                               placeholder="Repita a senha"
-                               required minlength="6"
-                               autocomplete="new-password">
-                    </div>
-
-                    <!-- Botão submit -->
-                    <div class="form-control">
-                        <button type="submit" class="btn btn-primary btn-block">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Criar Minha Conta
-                        </button>
-                    </div>
-                </form>
-
-                <!-- Validade -->
-                {% if invite.expires_at %}
-                <div class="text-center mt-4">
-                    <p class="text-xs text-base-content/50">
-                        Este convite expira em {{ invite.expires_at.strftime('%d/%m/%Y às %H:%M') }}
-                    </p>
-                </div>
-                {% endif %}
-            {% else %}
-                <!-- Estado inválido -->
-                <div class="alert alert-warning">
-                    <span>Convite inválido ou não encontrado.</span>
-                </div>
-                <div class="text-center mt-4">
-                    <a href="{{ url_for('login') }}" class="btn btn-primary">
-                        Ir para Login
-                    </a>
-                </div>
-            {% endif %}
-        </div>
+{% if error %}
+<p class="auth-error">{{ error }}</p>
+<a class="auth-submit" href="{{ url_for('login') }}">
+  Ir para o login
+  <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+</a>
+{% elif invite %}
+  {% if errors %}
+  <div class="auth-flashes" aria-live="polite">
+    {% for err in errors %}
+    <div class="auth-flash auth-flash--warning">
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      <span>{{ err }}</span>
     </div>
-</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('aceitar_convite_submit', token=token) }}" class="auth-form" data-auth-form>
+    <div class="auth-field">
+      <label class="auth-label" for="invite-email">Email</label>
+      <div class="auth-input-wrap">
+        <i class="auth-input-icon fa-regular fa-envelope" aria-hidden="true"></i>
+        <input class="auth-input" type="email" id="invite-email" value="{{ invite.email }}" readonly>
+      </div>
+    </div>
+
+    <div class="auth-field">
+      <label class="auth-label" for="nome">Nome completo</label>
+      <div class="auth-input-wrap">
+        <i class="auth-input-icon fa-regular fa-user" aria-hidden="true"></i>
+        <input
+          class="auth-input"
+          type="text"
+          id="nome"
+          name="nome"
+          value="{{ nome|default('', true) }}"
+          placeholder="Seu nome"
+          autocomplete="name"
+          required
+          minlength="3"
+        >
+      </div>
+    </div>
+
+    <div class="auth-field">
+      <label class="auth-label" for="senha">Criar senha</label>
+      <div class="auth-input-wrap">
+        <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
+        <input
+          class="auth-input has-action"
+          type="password"
+          id="senha"
+          name="senha"
+          placeholder="Mínimo 6 caracteres"
+          autocomplete="new-password"
+          required
+          minlength="6"
+          data-password-strength
+        >
+        <button
+          class="auth-password-toggle"
+          type="button"
+          data-password-toggle="senha"
+          aria-label="Mostrar senha"
+          aria-pressed="false"
+        >
+          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="auth-strength" aria-live="polite">
+        <div class="auth-strength-track"><div class="auth-strength-bar" id="passwordStrengthBar"></div></div>
+        <div class="auth-strength-text" id="passwordStrengthText"></div>
+      </div>
+    </div>
+
+    <div class="auth-field">
+      <label class="auth-label" for="confirmar_senha">Confirme a senha</label>
+      <div class="auth-input-wrap">
+        <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
+        <input
+          class="auth-input has-action"
+          type="password"
+          id="confirmar_senha"
+          name="confirmar_senha"
+          placeholder="Repita a senha"
+          autocomplete="new-password"
+          required
+          minlength="6"
+        >
+        <button
+          class="auth-password-toggle"
+          type="button"
+          data-password-toggle="confirmar_senha"
+          aria-label="Mostrar senha"
+          aria-pressed="false"
+        >
+          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="auth-submit">
+      <span class="auth-spinner" aria-hidden="true"></span>
+      <span class="auth-button-label">Criar minha conta</span>
+      <i class="fa-solid fa-check" aria-hidden="true"></i>
+    </button>
+  </form>
+
+  {% if invite.expires_at %}
+  <p class="auth-help">Este convite expira em {{ invite.expires_at.strftime('%d/%m/%Y às %H:%M') }}.</p>
+  {% endif %}
+{% else %}
+<p class="auth-error">Convite inválido ou não encontrado.</p>
+<a class="auth-submit" href="{{ url_for('login') }}">
+  Ir para o login
+  <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+</a>
+{% endif %}
 {% endblock %}

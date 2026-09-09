@@ -34,6 +34,7 @@ FILES = [
     ROOT / "aicentralv2/templates/login_tailwind.html",
     ROOT / "aicentralv2/templates/forgot_password_tailwind.html",
     ROOT / "aicentralv2/templates/reset_password_tailwind.html",
+    ROOT / "aicentralv2/templates/aceitar_convite.html",
     ROOT / "aicentralv2/templates/subscription_checkout.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes.html",
     ROOT / "aicentralv2/templates/cadu_cotacoes_detalhes_legado.html",

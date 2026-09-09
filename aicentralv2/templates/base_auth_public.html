@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="auth-root">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <meta name="color-scheme" content="light">
   <title>{% block title %}CentralX — CentralComm{% endblock %}</title>
   <link href="{{ url_for('static', filename='images/cc_logo.png') }}" rel="icon">
@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   {% block styles %}{% endblock %}
 </head>
@@ -69,7 +69,7 @@
       </div>
     </section>
   </main>
-  <script src="{{ url_for('static', filename='js/auth-public.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='js/auth-public.js') }}?v=2"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

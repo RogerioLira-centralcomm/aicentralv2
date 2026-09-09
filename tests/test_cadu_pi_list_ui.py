@@ -2,6 +2,10 @@ import re
 import unittest
 from pathlib import Path
 
+from jinja2 import Environment
+
+from aicentralv2.campanhas_pi_list import group_pis_by_invoice_status
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "aicentralv2/templates/cadu_pi.html"
@@ -9,6 +13,7 @@ PARTIALS = ROOT / "aicentralv2/templates/cadu_pi"
 CSS = ROOT / "aicentralv2/static/css/cadu-pi-list.css"
 SHARED_CSS = ROOT / "aicentralv2/static/css/campanhas-ui.css"
 JS = ROOT / "aicentralv2/static/js/cadu_pi_list.js"
+ROUTES = ROOT / "aicentralv2/routes.py"
 
 
 class CaduPiListUiContractTest(unittest.TestCase):
@@ -125,6 +130,62 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("content: attr(data-label)", self.css)
         self.assertIn("assignMobileCellLabels", self.js)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
+
+    def test_invoice_queue_groups_statuses_with_count_and_subtotal(self):
+        groups = group_pis_by_invoice_status([
+            {"id_pi": 1, "nf_status": 3, "nf_valor": "R$ 300,00"},
+            {"id_pi": 2, "nf_status": 1, "nf_valor": 100},
+            {"id_pi": 3, "nf_status": 2, "nf_valor": "200,50"},
+            {"id_pi": 4, "nf_status": 1, "nf_valor": 50},
+            {"id_pi": 5, "nf_status": 99, "nf_valor": None},
+        ])
+        self.assertEqual(
+            [group["key"] for group in groups],
+            ["nf-emitida", "aguardando-pagamento", "pagamento-realizado", "sem-status"],
+        )
+        self.assertEqual(groups[0]["count"], 2)
+        self.assertEqual(groups[0]["subtotal"], 150.0)
+        self.assertEqual(groups[1]["subtotal"], 200.5)
+        self.assertEqual(groups[-1]["pis"][0]["id_pi"], 5)
+        routes = ROUTES.read_text()
+        self.assertIn("group_pis_by_invoice_status", routes)
+        self.assertIn("grupos_status_nf=grupos_status_nf", routes)
+
+    def test_invoice_view_has_collapsible_groups_and_wider_client_column(self):
+        Environment().parse(self.template)
+        table = (PARTIALS / "_table.html").read_text()
+        campaign = (PARTIALS / "_campaign_rows.html").read_text()
+        self.assertIn("grupos_status_nf", self.template)
+        self.assertIn("data-nf-group-toggle", self.template)
+        self.assertIn('aria-expanded="true"', self.template)
+        self.assertIn("data-nf-group-item", self.template)
+        self.assertIn("data-nf-group-item", campaign)
+        self.assertIn("pi-list-table--fiscal", self.template)
+        self.assertIn("pi-col-client", self.template)
+        self.assertIn("Cliente", table)
+        self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 24%; }", self.css)
+        self.assertIn("toggleInvoiceGroup", self.js)
+
+    def test_invoice_actions_are_neutral_and_status_change_refreshes_groups(self):
+        fiscal_start = self.template.index('<div class="pi-nf-cell">')
+        fiscal_end = self.template.index("{% else %}", fiscal_start)
+        fiscal_markup = self.template[fiscal_start:fiscal_end]
+        self.assertIn("pi-nf-state", fiscal_markup)
+        self.assertIn("pi-nf-action", fiscal_markup)
+        self.assertIn("Registrar pagamento", fiscal_markup)
+        for color_class in ("bg-yellow-100", "bg-blue-100", "bg-green-100"):
+            self.assertNotIn(color_class, fiscal_markup)
+        self.assertIn("document.querySelector('.pi-page--fiscal')", self.template)
+        self.assertIn("window.location.reload()", self.template)
+
+    def test_invoice_header_is_full_bleed_and_measures_sticky_offset(self):
+        header = (PARTIALS / "_header_filters.html").read_text()
+        self.assertIn("Notas fiscais dos PIs", header)
+        self.assertIn("pi-list-header--fiscal", header)
+        self.assertIn(".pi-page--fiscal", self.css)
+        self.assertIn("top: var(--erp-topbar-h", self.css)
+        self.assertIn("--pi-list-header-height", self.css)
+        self.assertIn("updateListStickyOffsets", self.js)
 
     def test_configuration_row_keeps_status_and_flight_compact(self):
         self.assertIn("pi-row--config", self.template)

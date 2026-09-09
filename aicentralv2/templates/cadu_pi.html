@@ -1468,6 +1468,11 @@ function salvarAlteracaoStatusNf() {
   .then(() => {
     document.getElementById('modal_alterar_status_nf').close();
 
+    if (document.querySelector('.pi-page--fiscal')) {
+      window.location.reload();
+      return;
+    }
+
     var row = document.getElementById('pi-' + idPi);
     if (row) {
       var btn = row.querySelector('.nf-status-btn');

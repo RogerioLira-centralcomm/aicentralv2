@@ -26,6 +26,7 @@ from werkzeug.utils import secure_filename
 from aicentralv2 import db
 from aicentralv2.auth import login_required
 from aicentralv2.cotacao_tipos import (
+    campos_item_tipo_comercial,
     destino_tipo_comercial,
     normalizar_tipo_comercial,
     rotulo_tipo_comercial,
@@ -843,12 +844,15 @@ def cotacao_nova():
             client_id = request.form.get('client_id', type=int)
             nome_campanha = request.form.get('nome_campanha', '').strip()
             periodo_inicio = request.form.get('periodo_inicio', '').strip()
-            valor_total_str = request.form.get('valor_total_proposta') or request.form.get(
-                'valor_total_proposta_display', '0'
+            valor_total_str = (
+                request.form.get('valor_total_proposta')
+                or request.form.get('valor_total_proposta_display')
+                or request.form.get('budget_estimado')
+                or '0'
             )
 
-            if not client_id or not nome_campanha or not periodo_inicio or not valor_total_str:
-                flash('Cliente, nome da campanha, data de início e valor total são obrigatórios.', 'error')
+            if not client_id or not nome_campanha or not periodo_inicio:
+                flash('Cliente, nome da campanha e data de início são obrigatórios.', 'error')
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
                 return render_template(
@@ -947,9 +951,8 @@ def cotacao_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-            return redirect(
-                url_for('cotacoes.cotacao_abrir', cotacao_id=resultado['id'])
-            )
+            destino, _ = destino_tipo_comercial(kwargs['tipo_comercial'])
+            return redirect(url_for(destino, cotacao_id=resultado['id']))
 
         except Exception as e:
             current_app.logger.error(f"cotacao_nova POST: {e}", exc_info=True)
@@ -1211,16 +1214,89 @@ def cotacao_workspace(cotacao_id):
 
         cotacao['tipo_comercial'] = tipo
         cotacao['tipo_comercial_label'] = rotulo_tipo_comercial(tipo)
+        itens = db.listar_itens_especificos_cotacao(cotacao_id)
         return render_template(
             'cadu_cotacoes_workspace.html',
             cotacao=cotacao,
             workspace=workspace_tipo_comercial(tipo),
+            itens=itens,
+            campos_item=workspace_tipo_comercial(tipo)["fields"],
             anexos=db.obter_anexos_cotacao(cotacao_id) or [],
         )
     except Exception as e:
         current_app.logger.error(f"cotacao_workspace: {e}", exc_info=True)
         flash('Erro ao carregar o workspace da cotação.', 'error')
         return redirect(url_for('cotacoes.cotacoes_list'))
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/itens-especificos', methods=['GET', 'POST'])
+@login_required
+def api_itens_especificos_cotacao(cotacao_id):
+    try:
+        if request.method == 'POST':
+            payload = request.get_json(silent=True) or {}
+            db.salvar_item_especifico_cotacao(cotacao_id, payload)
+        itens = db.listar_itens_especificos_cotacao(cotacao_id)
+        return jsonify({'success': True, 'data': itens})
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            'Falha nos itens específicos da cotação %s', cotacao_id
+        )
+        return jsonify({'success': False, 'error': 'Não foi possível salvar a montagem.'}), 500
+
+
+@bp.route(
+    '/api/cotacoes/<int:cotacao_id>/itens-especificos/<int:item_id>',
+    methods=['PUT', 'DELETE'],
+)
+@login_required
+def api_item_especifico_cotacao(cotacao_id, item_id):
+    try:
+        if request.method == 'DELETE':
+            deleted = db.excluir_item_especifico_cotacao(cotacao_id, item_id)
+            if not deleted:
+                return jsonify({'success': False, 'error': 'Item não encontrado.'}), 404
+        else:
+            db.salvar_item_especifico_cotacao(
+                cotacao_id, request.get_json(silent=True) or {}, item_id=item_id
+            )
+        return jsonify({
+            'success': True,
+            'data': db.listar_itens_especificos_cotacao(cotacao_id),
+        })
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            'Falha no item %s da cotação %s', item_id, cotacao_id
+        )
+        return jsonify({'success': False, 'error': 'Não foi possível alterar a entrega.'}), 500
+
+
+@bp.route(
+    '/api/cotacoes/<int:cotacao_id>/itens-especificos/reordenar',
+    methods=['PUT'],
+)
+@login_required
+def api_reordenar_itens_especificos(cotacao_id):
+    try:
+        payload = request.get_json(silent=True) or {}
+        db.reordenar_itens_especificos_cotacao(
+            cotacao_id, payload.get('item_ids') or []
+        )
+        return jsonify({
+            'success': True,
+            'data': db.listar_itens_especificos_cotacao(cotacao_id),
+        })
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            'Falha ao reordenar itens da cotação %s', cotacao_id
+        )
+        return jsonify({'success': False, 'error': 'Não foi possível reordenar as entregas.'}), 500
 
 
 @bp.route('/cotacoes/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])

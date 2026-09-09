@@ -120,6 +120,8 @@
           <td class="col-cotacao" onclick="event.stopPropagation()">
             <a href="/cotacoes/{{ cotacao.id }}/abrir" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
             <div class="cot-lista-sub">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
+            {% set tipo_cotacao = cotacao.tipo_comercial or 'midia' %}
+            <span class="cot-lista-type">{{ {'midia': 'Mídia', 'parceiros': 'Parceiros', 'formatos_interativos': 'Interativos', 'dados': 'Dados'}.get(tipo_cotacao, 'Mídia') }}</span>
           </td>
 
           <td>

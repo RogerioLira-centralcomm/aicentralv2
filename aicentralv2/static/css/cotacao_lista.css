@@ -1,3 +1,13 @@
+.cot-lista-type {
+  display: inline-block;
+  margin-top: .2rem;
+  border: 1px solid #dbe3e8;
+  border-radius: .25rem;
+  padding: .08rem .3rem;
+  color: #596879;
+  font-size: .6rem;
+  font-weight: 700;
+}
 /* Lista /cotacoes — visual ERP vanilla. Query params e IDs não mudam. */
 
 .cot-lista-page {

@@ -32,6 +32,38 @@ COTACAO_WORKSPACES = {
     },
 }
 
+COTACAO_MONTAGENS = {
+    "parceiros": {
+        "item_label": "Entrega do parceiro",
+        "item_placeholder": "Ex.: Cota de conteúdo patrocinado",
+        "fields": (
+            ("parceiro", "Parceiro"),
+            ("modelo_comercial", "Modelo comercial"),
+            ("prazo_entrega", "Prazo de entrega"),
+        ),
+    },
+    "formatos_interativos": {
+        "item_label": "Formato ou experiência",
+        "item_placeholder": "Ex.: Pull to reveal 300x600",
+        "fields": (
+            ("ambiente", "Ambiente"),
+            ("tecnologia", "Tecnologia"),
+            ("dimensoes", "Dimensões"),
+            ("criterio_aceite", "Critério de aceite"),
+        ),
+    },
+    "dados": {
+        "item_label": "Segmento ou pacote de dados",
+        "item_placeholder": "Ex.: Intenção de compra automotiva",
+        "fields": (
+            ("fonte", "Fonte"),
+            ("cobertura", "Cobertura"),
+            ("licenca", "Modelo de licença"),
+            ("periodo_uso", "Período de uso"),
+        ),
+    },
+}
+
 
 def normalizar_tipo_comercial(valor, *, estrito=True):
     """Retorna o slug canônico; dados legados vazios são sempre Mídia."""
@@ -58,11 +90,21 @@ def destino_tipo_comercial(valor):
 def workspace_tipo_comercial(valor):
     """Retorna o conteúdo comercial do workspace dos novos produtos."""
     slug = normalizar_tipo_comercial(valor)
-    return COTACAO_WORKSPACES.get(slug)
+    workspace = COTACAO_WORKSPACES.get(slug)
+    if not workspace:
+        return None
+    return {**workspace, **COTACAO_MONTAGENS[slug]}
+
+
+def campos_item_tipo_comercial(valor):
+    """Campos específicos permitidos na montagem do tipo informado."""
+    slug = normalizar_tipo_comercial(valor)
+    montagem = COTACAO_MONTAGENS.get(slug)
+    return tuple(field for field, _ in montagem["fields"]) if montagem else ()
 
 
 def validar_status_tipo_comercial(tipo, status):
-    """Novos produtos ficam em rascunho até seus módulos próprios existirem."""
+    """Novos produtos ficam em rascunho até seus fluxos próprios de PI existirem."""
     slug = normalizar_tipo_comercial(tipo)
     status_normalizado = str(status or "Rascunho").strip().casefold()
     if slug != TIPO_COMERCIAL_PADRAO and status_normalizado != "rascunho":

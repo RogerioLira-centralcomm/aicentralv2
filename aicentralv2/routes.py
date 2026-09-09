@@ -12,6 +12,7 @@ import secrets
 import os
 import re
 from aicentralv2 import db, audit
+from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
 from aicentralv2.campanhas_pi_list import (
     build_campaign_list_filters,
     group_campaigns_by_status,
@@ -6668,6 +6669,13 @@ def init_routes(app):
 
             codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
             if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+                if normalizar_tipo_comercial(
+                    cotacao.get('tipo_comercial'), estrito=False
+                ) != 'midia':
+                    return jsonify({
+                        'success': False,
+                        'message': 'A aprovação deste tipo exige o fluxo de PI específico.',
+                    }), 409
                 if not codigo_pi_cc:
                     return jsonify({
                         'success': False,
@@ -7293,6 +7301,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             cotacao = db.obter_cotacao_por_id(int(cotacao_id))
             if not cotacao:
                 return jsonify({'error': 'Cotação não encontrada'}), 404
+            if normalizar_tipo_comercial(
+                cotacao.get('tipo_comercial'), estrito=False
+            ) != 'midia':
+                return jsonify({
+                    'error': 'Linhas de mídia não podem ser usadas neste tipo de cotação.'
+                }), 409
             try:
                 breakdown = db.calcular_breakdown_linha_cotacao(
                     cotacao,
@@ -7367,6 +7381,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 return jsonify({'success': False, 'error': 'Cotação não encontrada'}), 404
+            if normalizar_tipo_comercial(
+                cotacao.get('tipo_comercial'), estrito=False
+            ) != 'midia':
+                return jsonify({
+                    'success': False,
+                    'error': 'Importação de linhas pertence apenas a cotações de Mídia.',
+                }), 409
 
             f = request.files.get('imagem')
             if not f or not getattr(f, 'filename', None):
@@ -7543,6 +7564,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             
             if not cotacao_id or not audiencia_nome:
                 return jsonify({'error': 'cotacao_id e audiencia_nome são obrigatórios'}), 400
+            cotacao = db.obter_cotacao_por_id(int(cotacao_id))
+            if not cotacao:
+                return jsonify({'error': 'Cotação não encontrada'}), 404
+            if normalizar_tipo_comercial(
+                cotacao.get('tipo_comercial'), estrito=False
+            ) != 'midia':
+                return jsonify({
+                    'error': 'Audiências pertencem apenas a cotações de Mídia.'
+                }), 409
             
             # Adicionar audiência
             audiencia_id = db.adicionar_audiencia_cotacao(

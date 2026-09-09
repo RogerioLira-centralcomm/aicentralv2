@@ -57,6 +57,8 @@ class CotacaoTiposTest(unittest.TestCase):
                 self.assertTrue(workspace["titulo"])
                 self.assertTrue(workspace["orientacao"])
                 self.assertTrue(workspace["proximo_passo"])
+                self.assertTrue(workspace["item_label"])
+                self.assertTrue(workspace["fields"])
 
 
 if __name__ == "__main__":

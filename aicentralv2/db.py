@@ -19,6 +19,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
 from .cotacao_tipos import (
+    campos_item_tipo_comercial,
     normalizar_tipo_comercial,
     validar_status_tipo_comercial,
 )
@@ -8529,6 +8530,11 @@ def atualizar_cotacao(cotacao_id, **kwargs):
             tipo_resultante = normalizar_tipo_comercial(
                 kwargs.get('tipo_comercial', atual.get('tipo_comercial'))
             )
+            tipo_atual = normalizar_tipo_comercial(atual.get('tipo_comercial'))
+            if 'tipo_comercial' in kwargs and tipo_resultante != tipo_atual:
+                raise ValueError(
+                    "O tipo da cotação não pode ser alterado após a criação."
+                )
             status_resultante = kwargs.get('status', atual.get('status'))
             validar_status_tipo_comercial(tipo_resultante, status_resultante)
             if 'tipo_comercial' in kwargs:
@@ -8573,6 +8579,169 @@ def atualizar_cotacao(cotacao_id, **kwargs):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def _tipo_cotacao_montagem(cur, cotacao_id):
+    cur.execute(
+        "SELECT tipo_comercial FROM cadu_cotacoes "
+        "WHERE id = %s AND deleted_at IS NULL",
+        (cotacao_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        raise ValueError("Cotação não encontrada.")
+    tipo = normalizar_tipo_comercial(row.get("tipo_comercial"))
+    if tipo == "midia":
+        raise ValueError("Itens específicos não pertencem a cotações de Mídia.")
+    return tipo
+
+
+def listar_itens_especificos_cotacao(cotacao_id):
+    conn = get_db()
+    with conn.cursor() as cur:
+        _tipo_cotacao_montagem(cur, cotacao_id)
+        cur.execute(
+            """
+            SELECT id, cotacao_id, tipo_comercial, titulo, descricao,
+                   quantidade, valor_unitario, metadata, ordem,
+                   (quantidade * valor_unitario) AS subtotal
+              FROM cadu_cotacao_itens_especificos
+             WHERE cotacao_id = %s
+             ORDER BY ordem, id
+            """,
+            (cotacao_id,),
+        )
+        return cur.fetchall() or []
+
+
+def salvar_item_especifico_cotacao(cotacao_id, dados, item_id=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            tipo = _tipo_cotacao_montagem(cur, cotacao_id)
+            titulo = str(dados.get("titulo") or "").strip()
+            if not titulo:
+                raise ValueError("Informe o título da entrega.")
+            quantidade = Decimal(str(dados.get("quantidade") or 1))
+            valor_unitario = Decimal(str(dados.get("valor_unitario") or 0))
+            if quantidade <= 0 or valor_unitario < 0:
+                raise ValueError("Quantidade e valor precisam ser válidos.")
+            permitidos = set(campos_item_tipo_comercial(tipo))
+            metadata = {
+                key: str(value or "").strip()[:1000]
+                for key, value in (dados.get("metadata") or {}).items()
+                if key in permitidos
+            }
+            if item_id:
+                cur.execute(
+                    """
+                    UPDATE cadu_cotacao_itens_especificos SET
+                        titulo = %s, descricao = %s, quantidade = %s,
+                        valor_unitario = %s, metadata = %s, updated_at = NOW()
+                     WHERE id = %s AND cotacao_id = %s
+                    RETURNING id
+                    """,
+                    (
+                        titulo, str(dados.get("descricao") or "").strip() or None,
+                        quantidade, valor_unitario, Json(metadata),
+                        item_id, cotacao_id,
+                    ),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO cadu_cotacao_itens_especificos (
+                        cotacao_id, tipo_comercial, titulo, descricao,
+                        quantidade, valor_unitario, metadata, ordem
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s,
+                        COALESCE((
+                            SELECT MAX(ordem) + 1
+                              FROM cadu_cotacao_itens_especificos
+                             WHERE cotacao_id = %s
+                        ), 0)
+                    )
+                    RETURNING id
+                    """,
+                    (
+                        cotacao_id, tipo, titulo,
+                        str(dados.get("descricao") or "").strip() or None,
+                        quantidade, valor_unitario, Json(metadata), cotacao_id,
+                    ),
+                )
+            row = cur.fetchone()
+            if not row:
+                raise ValueError("Item da cotação não encontrado.")
+            _recalcular_total_itens_especificos(cur, cotacao_id)
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def reordenar_itens_especificos_cotacao(cotacao_id, item_ids):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            _tipo_cotacao_montagem(cur, cotacao_id)
+            cur.execute(
+                "SELECT id FROM cadu_cotacao_itens_especificos "
+                "WHERE cotacao_id = %s ORDER BY ordem, id",
+                (cotacao_id,),
+            )
+            existentes = [int(row["id"]) for row in cur.fetchall() or []]
+            recebidos = [int(value) for value in item_ids or []]
+            if len(recebidos) != len(set(recebidos)) or set(recebidos) != set(existentes):
+                raise ValueError("A ordem precisa conter todos os itens sem duplicação.")
+            for ordem, item_id in enumerate(recebidos):
+                cur.execute(
+                    "UPDATE cadu_cotacao_itens_especificos "
+                    "SET ordem = %s, updated_at = NOW() "
+                    "WHERE id = %s AND cotacao_id = %s",
+                    (ordem, item_id, cotacao_id),
+                )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def excluir_item_especifico_cotacao(cotacao_id, item_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            _tipo_cotacao_montagem(cur, cotacao_id)
+            cur.execute(
+                "DELETE FROM cadu_cotacao_itens_especificos "
+                "WHERE id = %s AND cotacao_id = %s RETURNING id",
+                (item_id, cotacao_id),
+            )
+            row = cur.fetchone()
+            if row:
+                _recalcular_total_itens_especificos(cur, cotacao_id)
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _recalcular_total_itens_especificos(cur, cotacao_id):
+    cur.execute(
+        """
+        UPDATE cadu_cotacoes
+           SET valor_total_proposta = COALESCE((
+                   SELECT SUM(quantidade * valor_unitario)
+                     FROM cadu_cotacao_itens_especificos
+                    WHERE cotacao_id = %s
+               ), 0),
+               updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+         WHERE id = %s
+        """,
+        (cotacao_id, cotacao_id),
+    )
 
 
 def deletar_cotacao(cotacao_id, soft_delete=True):
@@ -10044,10 +10213,16 @@ def obter_cotacoes_pipeline(filtros=None):
                     exec.nome_completo as executivo_nome,
                     exec.foto_url as executivo_foto_url,
                     CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing,
-                    COALESCE((SELECT SUM(COALESCE(investimento_bruto, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
-                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0) as valor_total_bruto,
-                    COALESCE((SELECT SUM(COALESCE(investimento_liquido, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
-                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0) as valor_total_liquido,
+                    CASE WHEN COALESCE(cot.tipo_comercial, 'midia') <> 'midia'
+                        THEN COALESCE(cot.valor_total_proposta, 0)
+                        ELSE COALESCE((SELECT SUM(COALESCE(investimento_bruto, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
+                            + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0)
+                    END as valor_total_bruto,
+                    CASE WHEN COALESCE(cot.tipo_comercial, 'midia') <> 'midia'
+                        THEN COALESCE(cot.valor_total_proposta, 0)
+                        ELSE COALESCE((SELECT SUM(COALESCE(investimento_liquido, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = cot.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0)
+                            + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = cot.id AND incluido_proposta = true), 0)
+                    END as valor_total_liquido,
                     (
                         SELECT string_agg(plat, ' · ')
                         FROM (

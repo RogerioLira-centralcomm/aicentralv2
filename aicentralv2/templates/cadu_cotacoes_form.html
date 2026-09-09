@@ -313,15 +313,13 @@
 
           <div>
             <label class="block text-xs font-medium text-gray-500">Tipo de cotação <span class="text-red-500">*</span></label>
-            <select name="tipo_comercial" required
-                    class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
-              {% set tipo_atual = cotacao.tipo_comercial if cotacao and cotacao.tipo_comercial else 'midia' %}
-              <option value="midia" {% if tipo_atual == 'midia' %}selected{% endif %}>Mídia</option>
-              <option value="parceiros" {% if tipo_atual == 'parceiros' %}selected{% endif %}>Parceiros</option>
-              <option value="formatos_interativos" {% if tipo_atual == 'formatos_interativos' %}selected{% endif %}>Formatos interativos</option>
-              <option value="dados" {% if tipo_atual == 'dados' %}selected{% endif %}>Dados</option>
-            </select>
-            <p class="mt-0.5 text-[10px] text-gray-400">Tipos diferentes de Mídia permanecem em rascunho nesta fase.</p>
+            {% set tipo_atual = cotacao.tipo_comercial if cotacao and cotacao.tipo_comercial else 'midia' %}
+            <input type="hidden" name="tipo_comercial" value="{{ tipo_atual }}">
+            <div class="cot-type-locked">
+              <i class="fas fa-lock" aria-hidden="true"></i>
+              <strong>{{ cotacao.tipo_comercial_label or tipo_atual|replace('_', ' ')|title }}</strong>
+              <span>Definido na criação</span>
+            </div>
           </div>
 
           <!-- Objetivo da Campanha -->
@@ -443,15 +441,17 @@
                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none"
                  placeholder="Ex: Campanha Verão 2025" required>
         </div>
-        <div>
-          <label class="block font-medium text-gray-500 mb-0.5">Tipo de cotação <span class="text-red-500">*</span></label>
-          <select name="tipo_comercial" required
-                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none">
-            <option value="midia" selected>Mídia</option>
-            <option value="parceiros">Parceiros</option>
-            <option value="formatos_interativos">Formatos interativos</option>
-            <option value="dados">Dados</option>
-          </select>
+        <div class="md:col-span-3">
+          <fieldset class="cot-type-selector">
+            <legend>Tipo de cotação <span class="text-red-500">*</span></legend>
+            {% set tipo_novo = request.form.get('tipo_comercial', 'midia') %}
+            <div class="cot-type-grid">
+              <label><input type="radio" name="tipo_comercial" value="midia" {% if tipo_novo == 'midia' %}checked{% endif %} required><span><i class="fas fa-chart-line"></i><strong>Mídia</strong><small>Inventário, audiência e cálculo de mídia</small></span></label>
+              <label><input type="radio" name="tipo_comercial" value="parceiros" {% if tipo_novo == 'parceiros' %}checked{% endif %}><span><i class="fas fa-handshake"></i><strong>Parceiros</strong><small>Entregas, responsabilidades e repasses</small></span></label>
+              <label><input type="radio" name="tipo_comercial" value="formatos_interativos" {% if tipo_novo == 'formatos_interativos' %}checked{% endif %}><span><i class="fas fa-layer-group"></i><strong>Formatos interativos</strong><small>Experiências, produção e requisitos</small></span></label>
+              <label><input type="radio" name="tipo_comercial" value="dados" {% if tipo_novo == 'dados' %}checked{% endif %}><span><i class="fas fa-database"></i><strong>Dados</strong><small>Segmentos, cobertura e licenciamento</small></span></label>
+            </div>
+          </fieldset>
         </div>
         <div>
           <label class="block font-medium text-gray-500 mb-0.5">Responsável comercial <span class="text-red-500">*</span></label>

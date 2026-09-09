@@ -10,12 +10,24 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.routes = (ROOT / "aicentralv2/cotacoes_routes.py").read_text()
         cls.crm_routes = (ROOT / "aicentralv2/crm_v3_routes.py").read_text()
+        cls.app_routes = (ROOT / "aicentralv2/routes.py").read_text()
         cls.workspace = (
             ROOT / "aicentralv2/templates/cadu_cotacoes_workspace.html"
         ).read_text()
         cls.workspace_css = (
             ROOT / "aicentralv2/static/css/cotacao_workspace.css"
         ).read_text()
+        cls.workspace_js = (
+            ROOT / "aicentralv2/static/js/cotacao_workspace.js"
+        ).read_text()
+        cls.form = (
+            ROOT / "aicentralv2/templates/cadu_cotacoes_form.html"
+        ).read_text()
+        cls.db = (ROOT / "aicentralv2/db.py").read_text()
+        cls.migration = (
+            ROOT / "migrations/add_cotacao_itens_especificos.sql"
+        ).read_text()
+        cls.deploy = (ROOT / "deploy.sh").read_text()
         cls.list_template = (
             ROOT / "aicentralv2/templates/cadu_cotacoes.html"
         ).read_text()
@@ -47,6 +59,51 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         self.assertIn("`/cotacoes/${c.id}/abrir`", self.pipeline)
         self.assertIn('href="/cotacoes/${c.id}/abrir"', self.crm_js)
         self.assertIn('url_for("cotacoes.cotacao_abrir"', self.crm_routes)
+
+    def test_creation_selector_explains_four_commercial_types(self):
+        self.assertIn('class="cot-type-selector"', self.form)
+        self.assertIn('name="tipo_comercial" value="midia"', self.form)
+        self.assertIn('name="tipo_comercial" value="parceiros"', self.form)
+        self.assertIn('name="tipo_comercial" value="formatos_interativos"', self.form)
+        self.assertIn('name="tipo_comercial" value="dados"', self.form)
+        self.assertIn("Definido na criação", self.form)
+
+    def test_typed_workspace_has_editable_items_and_total(self):
+        self.assertIn("data-typed-items", self.workspace)
+        self.assertIn("data-item-dialog", self.workspace)
+        self.assertIn("data-items-total", self.workspace)
+        self.assertIn("api_itens_especificos_cotacao", self.routes)
+        self.assertIn("api_reordenar_itens_especificos", self.routes)
+        self.assertIn("valor_total_proposta = COALESCE", self.db)
+        self.assertIn("O tipo da cotação não pode ser alterado", self.db)
+        self.assertIn("data-action=\"delete\"", self.workspace_js)
+        self.assertNotIn("window.confirm", self.workspace_js)
+
+    def test_specific_items_schema_is_deployed(self):
+        self.assertIn("CREATE TABLE IF NOT EXISTS cadu_cotacao_itens_especificos", self.migration)
+        self.assertIn("metadata JSONB", self.migration)
+        self.assertIn("ON DELETE CASCADE", self.migration)
+        self.assertIn("run_add_cotacao_itens_especificos.py", self.deploy)
+
+    def test_media_apis_reject_incompatible_quote_types(self):
+        self.assertIn(
+            "Linhas de mídia não podem ser usadas neste tipo de cotação",
+            self.app_routes,
+        )
+        self.assertIn(
+            "Audiências pertencem apenas a cotações de Mídia",
+            self.app_routes,
+        )
+        self.assertIn(
+            "A aprovação deste tipo exige o fluxo de PI específico",
+            self.app_routes,
+        )
+
+    def test_creation_redirects_directly_to_selected_workspace(self):
+        self.assertIn(
+            "destino, _ = destino_tipo_comercial(kwargs['tipo_comercial'])",
+            self.routes,
+        )
 
 
 if __name__ == "__main__":

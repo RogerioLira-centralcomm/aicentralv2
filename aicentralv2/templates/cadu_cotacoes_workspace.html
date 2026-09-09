@@ -8,6 +8,10 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=1">
 {% endblock %}
 
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=1" defer></script>
+{% endblock %}
+
 {% macro dinheiro(valor) -%}
   {% if valor is not none %}
     R$ {{ "{:,.2f}".format(valor|float).replace(',', '_').replace('.', ',').replace('_', '.') }}
@@ -36,11 +40,17 @@
         <p>{{ workspace.orientacao }}</p>
       </div>
     </div>
-    <a href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
-       class="cx-btn cx-btn-primary">
-      <i class="fa-solid fa-pen" aria-hidden="true"></i>
-      Editar cabeçalho
-    </a>
+    <div class="cot-workspace-head-actions">
+      <button type="button" class="cx-btn cx-btn-primary" data-add-item>
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        Adicionar {{ workspace.item_label|lower }}
+      </button>
+      <a href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
+         class="cx-btn cx-btn-secondary">
+        <i class="fa-solid fa-pen" aria-hidden="true"></i>
+        Editar cabeçalho
+      </a>
+    </div>
   </header>
 
   <div class="cot-workspace-layout">
@@ -51,7 +61,8 @@
         <p>O PI deste produto será independente do fluxo e da calculadora de Mídia.</p>
       </div>
       <nav>
-        <a href="#visao-geral" class="is-active">Visão geral</a>
+        <a href="#montagem" class="is-active">Montagem <span data-item-count>{{ itens|length }}</span></a>
+        <a href="#visao-geral">Visão geral</a>
         <a href="#escopo">Escopo comercial</a>
         <a href="#condicoes">Condições</a>
         <a href="#anexos">Anexos <span>{{ anexos|length }}</span></a>
@@ -66,6 +77,21 @@
     </aside>
 
     <main class="cot-workspace-main">
+      <section id="montagem" class="cot-workspace-section"
+               data-typed-items
+               data-api-base="{{ url_for('cotacoes.api_itens_especificos_cotacao', cotacao_id=cotacao.id) }}">
+        <div class="cot-workspace-section-head">
+          <h2>Montagem de {{ cotacao.tipo_comercial_label|lower }}</h2>
+          <p>Inclua e ordene as entregas. O valor da proposta é recalculado automaticamente.</p>
+        </div>
+        <div class="cot-items-summary">
+          <span><strong data-item-count>{{ itens|length }}</strong> entregas</span>
+          <span>Total da proposta <strong data-items-total>—</strong></span>
+        </div>
+        <div class="cot-items-list" data-items-list aria-live="polite"></div>
+        <div class="cot-items-status" data-items-status></div>
+      </section>
+
       <section id="visao-geral" class="cot-workspace-section">
         <div class="cot-workspace-section-head">
           <h2>Visão geral</h2>
@@ -147,4 +173,50 @@
     </main>
   </div>
 </div>
+
+<script type="application/json" id="cotacao-itens-iniciais">{{ itens|tojson }}</script>
+<script type="application/json" id="cotacao-campos-item">{{ campos_item|tojson }}</script>
+
+<dialog class="cot-item-dialog" data-item-dialog>
+  <form method="dialog" class="cot-item-dialog-panel" data-item-form>
+    <header>
+      <div><span>{{ cotacao.tipo_comercial_label }}</span><h2 data-dialog-title>Nova entrega</h2></div>
+      <button value="cancel" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="cot-item-dialog-body">
+      <input type="hidden" name="item_id">
+      <label class="cot-item-field cot-item-field-wide">
+        <span>{{ workspace.item_label }}</span>
+        <input name="titulo" maxlength="255" required placeholder="{{ workspace.item_placeholder }}">
+      </label>
+      <label class="cot-item-field cot-item-field-wide">
+        <span>Descrição e escopo</span>
+        <textarea name="descricao" rows="3" placeholder="Detalhe o que está incluído nesta entrega"></textarea>
+      </label>
+      <label class="cot-item-field"><span>Quantidade</span><input name="quantidade" type="number" min="0.01" step="0.01" value="1" required></label>
+      <label class="cot-item-field"><span>Valor unitário</span><input name="valor_unitario" type="number" min="0" step="0.01" value="0" required></label>
+      {% for nome, rotulo in campos_item %}
+      <label class="cot-item-field{% if loop.index > 2 %} cot-item-field-wide{% endif %}">
+        <span>{{ rotulo }}</span>
+        <input name="meta_{{ nome }}" maxlength="1000">
+      </label>
+      {% endfor %}
+    </div>
+    <footer>
+      <button value="cancel" class="cx-btn cx-btn-secondary">Cancelar</button>
+      <button value="default" type="submit" class="cx-btn cx-btn-primary" data-save-item>Salvar entrega</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="cot-item-confirm" data-item-confirm>
+  <form method="dialog">
+    <h2>Excluir entrega?</h2>
+    <p>O total da proposta será recalculado. Esta ação não pode ser desfeita.</p>
+    <div>
+      <button value="cancel" class="cx-btn cx-btn-secondary">Cancelar</button>
+      <button value="confirm" class="cx-btn cx-btn-danger">Excluir</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}

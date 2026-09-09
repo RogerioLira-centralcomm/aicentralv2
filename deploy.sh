@@ -157,6 +157,7 @@ echo "  > OK"
 echo ""
 echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_tipo_comercial_to_cotacoes.py
+"$VENV_PYTHON" migrations/run_add_cotacao_itens_especificos.py
 "$VENV_PYTHON" migrations/run_create_creative_modeling.py
 "$VENV_PYTHON" migrations/run_add_creative_client_intelligence.py
 "$VENV_PYTHON" migrations/run_add_creative_format_studio.py

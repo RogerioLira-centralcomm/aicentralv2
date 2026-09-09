@@ -1,6 +1,7 @@
 """Clientes de IA e contratos de geração para Modelagem de Criativos."""
 
 import json
+import math
 import os
 import re
 
@@ -12,6 +13,9 @@ from .services.openrouter_service import OpenRouterError, chat_completion
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
 DEFAULT_TEXT_MODEL = os.getenv("CREATIVE_TEXT_MODEL", "openai/gpt-5.4")
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
+SUPPORTED_IMAGE_ASPECT_RATIOS = (
+    "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9",
+)
 
 PROMPT_SYSTEM = """Você é diretor de criação e especialista em mídia digital.
 Transforme o briefing recebido em uma especificação de produção objetiva.
@@ -76,6 +80,49 @@ def _image_reference(value):
                 "image_url": {"url": image_url["url"]},
             }
     raise ValueError("Referência de imagem inválida.")
+
+
+def normalize_image_aspect_ratio(value):
+    """Converte proporções de mídia para a opção suportada mais próxima."""
+    value = str(value or "16:9").strip()
+    if value in SUPPORTED_IMAGE_ASPECT_RATIOS:
+        return value
+    try:
+        width, height = (float(part) for part in value.split(":", 1))
+        target = width / height
+        if width <= 0 or height <= 0:
+            raise ValueError
+    except (TypeError, ValueError, ZeroDivisionError):
+        return "16:9"
+
+    def distance(candidate):
+        width, height = (float(part) for part in candidate.split(":", 1))
+        return abs(math.log(target / (width / height)))
+
+    return min(SUPPORTED_IMAGE_ASPECT_RATIOS, key=distance)
+
+
+def _image_http_error(exc):
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if status in (401, 403):
+        return "A credencial OpenRouter não foi aceita."
+    if status == 402:
+        return "O saldo da conta OpenRouter é insuficiente."
+    if status == 429:
+        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "O provedor de imagem está indisponível no momento."
+    detail = ""
+    try:
+        payload = response.json()
+        error = payload.get("error") or {}
+        detail = error.get("message") if isinstance(error, dict) else str(error)
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    if status == 400 and detail:
+        return f"O provedor recusou a imagem: {detail[:240]}"
+    return "Não foi possível conectar ao provedor de imagem."
 
 
 class CreativeGenerationClient:
@@ -147,10 +194,12 @@ class CreativeGenerationClient:
         key = os.getenv("OPENROUTER_API_KEY", "").strip()
         if not key:
             raise OpenRouterError("OpenRouter não está configurado.")
+        requested_aspect_ratio = aspect_ratio
+        provider_aspect_ratio = normalize_image_aspect_ratio(aspect_ratio)
         payload = {
             "model": DEFAULT_IMAGE_MODEL,
             "prompt": prompt,
-            "aspect_ratio": aspect_ratio,
+            "aspect_ratio": provider_aspect_ratio,
             "quality": quality,
             "output_format": output_format,
             "size": resolution,
@@ -186,8 +235,12 @@ class CreativeGenerationClient:
                 "response_metadata": {
                     "id": data.get("id"),
                     "created": data.get("created"),
+                    "requested_aspect_ratio": requested_aspect_ratio,
+                    "provider_aspect_ratio": provider_aspect_ratio,
                 },
             }
+        except requests.HTTPError as exc:
+            raise OpenRouterError(_image_http_error(exc)) from exc
         except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
             raise OpenRouterError("Não foi possível gerar a imagem.") from exc
 

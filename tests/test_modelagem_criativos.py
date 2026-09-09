@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import requests
 from flask import Blueprint, Flask
 from jinja2 import Environment
 from werkzeug.datastructures import FileStorage
@@ -16,6 +17,7 @@ from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
 from aicentralv2.creative_modeling_generation import (
     CreativeGenerationClient,
     build_higgsfield_payload,
+    normalize_image_aspect_ratio,
 )
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
 from aicentralv2.creative_modeling_service import CreativeModelingService
@@ -724,6 +726,21 @@ class FakeHttp:
         return FakeHttpResponse()
 
 
+class FakeHttpErrorResponse:
+    status_code = 402
+
+    def raise_for_status(self):
+        raise requests.HTTPError(response=self)
+
+    def json(self):
+        return {"error": {"message": "Insufficient credits"}}
+
+
+class FakeHttpError:
+    def post(self, url, **kwargs):
+        return FakeHttpErrorResponse()
+
+
 class CreativeGenerationContractTest(unittest.TestCase):
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
     def test_image_api_usa_modelo_e_duas_referencias(self):
@@ -746,6 +763,17 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertNotIn("resolution", http.payload)
         self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
+
+    def test_proporcao_iab_e_normalizada_para_modelo_de_imagem(self):
+        self.assertEqual(normalize_image_aspect_ratio("6:5"), "4:3")
+        self.assertEqual(normalize_image_aspect_ratio("1:2"), "9:16")
+        self.assertEqual(normalize_image_aspect_ratio("91:11"), "21:9")
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
+    def test_erro_de_credito_openrouter_e_acionavel(self):
+        client = CreativeGenerationClient(http=FakeHttpError())
+        with self.assertRaisesRegex(RuntimeError, "saldo.*insuficiente"):
+            client.generate_image("prompt", aspect_ratio="16:9")
 
     def test_payload_higgsfield_exige_quatro_assets(self):
         assets = [{"asset_url": f"/{index}.png"} for index in range(4)]
@@ -1073,6 +1101,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("crm_client_id", campaign_flow_sql)
         self.assertIn("display_motion_payload", campaign_flow_sql)
+        repository = (
+            root / "aicentralv2" / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("SET position = position + 1000", repository)
+        self.assertNotIn("SET position = -position", repository)
 
 
 if __name__ == "__main__":

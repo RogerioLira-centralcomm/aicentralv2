@@ -586,7 +586,7 @@ class CreativeModelingRepository:
             cursor.execute(
                 """
                 UPDATE cx_variation_steps
-                   SET position = -position
+                   SET position = position + 1000
                  WHERE variation_id = %s
                 """,
                 (variation_id,),
@@ -1430,7 +1430,7 @@ class CreativeModelingRepository:
             cursor.execute(
                 """
                 UPDATE cx_generated_assets a
-                   SET position = -position
+                   SET position = position + 1000
                   FROM cx_generation_jobs j
                  WHERE a.job_id = j.id AND j.campaign_id = %s
                 """,

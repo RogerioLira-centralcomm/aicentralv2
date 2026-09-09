@@ -1001,6 +1001,15 @@ def cotacao_editar(cotacao_id):
         if not cotacao:
             flash('Cotação não encontrada.', 'error')
             return redirect(url_for('cotacoes.cotacoes_list'))
+        tipo_comercial = normalizar_tipo_comercial(
+            cotacao.get('tipo_comercial'), estrito=False
+        )
+        if request.method == 'GET' and tipo_comercial != 'midia':
+            return redirect(url_for(
+                'cotacoes.cotacao_workspace',
+                cotacao_id=cotacao_id,
+                editar=1,
+            ))
 
         def _resumo_metricas_cotacao():
             linhas = db.obter_linhas_cotacao(cotacao_id) or []
@@ -1055,6 +1064,12 @@ def cotacao_editar(cotacao_id):
 
             if not nome_campanha or not periodo_inicio:
                 flash('Nome da campanha e data de início são obrigatórios.', 'error')
+                if tipo_comercial != 'midia':
+                    return redirect(url_for(
+                        'cotacoes.cotacao_workspace',
+                        cotacao_id=cotacao_id,
+                        editar=1,
+                    ))
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
                 return render_template(
@@ -1073,6 +1088,7 @@ def cotacao_editar(cotacao_id):
             valor_total = cotacao.get('valor_total_proposta') or 0.0
             if valor_total_str not in (None, ''):
                 valor_total = float(valor_total_str)
+            workspace_editor = request.form.get('_workspace_editor') == '1'
 
             update_kwargs = {
                 'nome_campanha': nome_campanha,
@@ -1083,6 +1099,7 @@ def cotacao_editar(cotacao_id):
                 'periodo_inicio': periodo_inicio,
                 'valor_total_proposta': valor_total,
                 'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
+                'apresentacao_dados': request.form.get('apresentacao_dados', '').strip() or None,
                 'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
                 'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
                 'client_user_id': request.form.get('client_user_id', type=int)
@@ -1111,9 +1128,22 @@ def cotacao_editar(cotacao_id):
                 'frequencia_impacto': request.form.get('frequencia_impacto', type=int),
                 'premissas': request.form.get('premissas', '').strip(),
                 'observacoes_gerais': request.form.get('observacoes_gerais', '').strip(),
-                'link_publico_ativo': 'link_publico_ativo' in request.form,
-                'link_publico_token': request.form.get('link_publico_token', '').strip(),
-                'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
+                'condicoes_comerciais': request.form.get('condicoes_comerciais', '').strip(),
+                'link_publico_ativo': (
+                    cotacao.get('link_publico_ativo')
+                    if workspace_editor
+                    else 'link_publico_ativo' in request.form
+                ),
+                'link_publico_token': (
+                    cotacao.get('link_publico_token')
+                    if workspace_editor
+                    else request.form.get('link_publico_token', '').strip()
+                ),
+                'link_publico_expires_at': (
+                    cotacao.get('link_publico_expires_at')
+                    if workspace_editor
+                    else request.form.get('link_publico_expires_at', '').strip() or None
+                ),
             }
             update_kwargs = _filtrar_update_cotacao_form(update_kwargs)
             update_kwargs = _aplicar_exclusividade_agencia_parceiro(update_kwargs)
@@ -1222,6 +1252,8 @@ def cotacao_workspace(cotacao_id):
             itens=itens,
             campos_item=workspace_tipo_comercial(tipo)["fields"],
             anexos=db.obter_anexos_cotacao(cotacao_id) or [],
+            vendedores=db.obter_vendedores_centralcomm() or [],
+            modo_edicao=request.args.get('editar') == '1',
         )
     except Exception as e:
         current_app.logger.error(f"cotacao_workspace: {e}", exc_info=True)

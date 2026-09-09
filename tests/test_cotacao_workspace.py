@@ -45,14 +45,25 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         self.assertIn("cotacoes.cotacao_detalhes", self.routes)
         self.assertIn("cotacoes.cotacao_workspace", self.routes)
 
-    def test_workspace_uses_full_width_sidebar_and_tables(self):
+    def test_workspace_uses_data_left_and_control_sidebar_right(self):
         self.assertIn("cot-workspace-layout", self.workspace)
         self.assertIn("cot-workspace-sidebar", self.workspace)
         self.assertIn("cot-workspace-table", self.workspace)
-        self.assertIn("Editar cabeçalho", self.workspace)
-        self.assertIn("Sem linhas, audiências ou cálculo de Mídia", self.workspace)
-        self.assertIn("grid-template-columns: 17rem minmax(0, 1fr)", self.workspace_css)
+        self.assertIn("Controle da cotação", self.workspace)
+        self.assertIn("Editar dados", self.workspace)
+        self.assertIn("Estrutura por produto", self.workspace)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) 20rem", self.workspace_css)
+        self.assertIn("grid-column: 2", self.workspace_css)
         self.assertIn("@media (max-width: 900px)", self.workspace_css)
+
+    def test_non_media_editing_stays_inside_the_workspace_family(self):
+        self.assertIn("request.method == 'GET' and tipo_comercial != 'midia'", self.routes)
+        self.assertIn("editar=1", self.routes)
+        self.assertIn('id="cot-workspace-editor"', self.workspace)
+        self.assertIn('form="cot-workspace-editor"', self.workspace)
+        self.assertIn('name="apresentacao_dados"', self.workspace)
+        self.assertIn('name="condicoes_comerciais"', self.workspace)
+        self.assertIn("'apresentacao_dados': request.form.get", self.routes)
 
     def test_list_pipeline_crm_and_api_use_central_open_route(self):
         self.assertIn("/cotacoes/{{ cotacao.id }}/abrir", self.list_template)
@@ -78,6 +89,9 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         self.assertIn("O tipo da cotação não pode ser alterado", self.db)
         self.assertIn("data-action=\"delete\"", self.workspace_js)
         self.assertNotIn("window.confirm", self.workspace_js)
+        self.assertIn("credentials: 'same-origin'", self.workspace_js)
+        self.assertIn("const previousItems = items.slice()", self.workspace_js)
+        self.assertIn("aria-busy", self.workspace_js)
 
     def test_specific_items_schema_is_deployed(self):
         self.assertIn("CREATE TABLE IF NOT EXISTS cadu_cotacao_itens_especificos", self.migration)

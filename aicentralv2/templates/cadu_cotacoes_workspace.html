@@ -5,11 +5,11 @@
 {% block page_subtitle %}{{ cotacao.tipo_comercial_label }}{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=2">
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=2" defer></script>
 {% endblock %}
 
 {% macro dinheiro(valor) -%}
@@ -37,7 +37,7 @@
           <span class="cot-workspace-status">{{ cotacao.status or 'Rascunho' }}</span>
         </div>
         <h1>{{ cotacao.nome_campanha or workspace.titulo }}</h1>
-        <p>{{ workspace.orientacao }}</p>
+        <p>{{ cotacao.cliente_nome or 'Cliente não informado' }}{% if cotacao.agencia_nome %} via {{ cotacao.agencia_nome }}{% endif %}</p>
       </div>
     </div>
     <div class="cot-workspace-head-actions">
@@ -45,23 +45,41 @@
         <i class="fa-solid fa-plus" aria-hidden="true"></i>
         Adicionar {{ workspace.item_label|lower }}
       </button>
-      <a href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
+      <a href="{{ url_for('cotacoes.cotacao_workspace', cotacao_id=cotacao.id) if modo_edicao else url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
          class="cx-btn cx-btn-secondary">
         <i class="fa-solid fa-pen" aria-hidden="true"></i>
-        Editar cabeçalho
+        {% if modo_edicao %}Fechar edição{% else %}Editar dados{% endif %}
       </a>
     </div>
   </header>
 
   <div class="cot-workspace-layout">
     <aside class="cot-workspace-sidebar" aria-label="Navegação da cotação">
+      <section class="cot-workspace-control">
+        <div class="cot-workspace-control-head">
+          <h2>Controle da cotação</h2>
+          <span>{{ cotacao.status or 'Rascunho' }}</span>
+        </div>
+        <dl>
+          <div><dt>Responsável</dt><dd>{{ cotacao.responsavel_nome or 'Não definido' }}</dd></div>
+          <div><dt>Budget</dt><dd>{{ dinheiro(cotacao.budget_estimado) }}</dd></div>
+          <div><dt>Proposta</dt><dd data-items-total>{{ dinheiro(cotacao.valor_total_proposta) }}</dd></div>
+          <div><dt>Período</dt><dd>{{ data_br(cotacao.periodo_inicio) }}<br>{{ data_br(cotacao.periodo_fim) }}</dd></div>
+        </dl>
+        {% if modo_edicao %}
+        <button type="submit" form="cot-workspace-editor" class="cx-btn cx-btn-primary">Salvar alterações</button>
+        {% else %}
+        <a href="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}" class="cx-btn cx-btn-secondary">Editar dados</a>
+        {% endif %}
+      </section>
       <div class="cot-workspace-next">
         <span>Próximo passo</span>
         <strong>{{ workspace.proximo_passo }}</strong>
-        <p>O PI deste produto será independente do fluxo e da calculadora de Mídia.</p>
+        <p>{{ workspace.orientacao }}</p>
       </div>
       <nav>
-        <a href="#montagem" class="is-active">Montagem <span data-item-count>{{ itens|length }}</span></a>
+        {% if modo_edicao %}<a href="#cot-workspace-editor" class="is-active">Dados da cotação</a>{% endif %}
+        <a href="#montagem"{% if not modo_edicao %} class="is-active"{% endif %}>Montagem <span data-item-count>{{ itens|length }}</span></a>
         <a href="#visao-geral">Visão geral</a>
         <a href="#escopo">Escopo comercial</a>
         <a href="#condicoes">Condições</a>
@@ -70,13 +88,128 @@
       <div class="cot-workspace-guard">
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
         <div>
-          <strong>Fluxo isolado</strong>
-          <span>Sem linhas, audiências ou cálculo de Mídia.</span>
+          <strong>Estrutura por produto</strong>
+          <span>Precificação e entregas próprias, sem alterar a operação de Mídia.</span>
         </div>
       </div>
     </aside>
 
     <main class="cot-workspace-main">
+      {% if modo_edicao %}
+      <form id="cot-workspace-editor"
+            class="cot-workspace-editor"
+            method="POST"
+            action="{{ url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}">
+        <input type="hidden" name="tipo_comercial" value="{{ cotacao.tipo_comercial }}">
+        <input type="hidden" name="_workspace_editor" value="1">
+        <input type="hidden" name="client_id" value="{{ cotacao.client_id or '' }}">
+        <input type="hidden" name="client_user_id" value="{{ cotacao.client_user_id or '' }}">
+        <input type="hidden" name="agencia_id" value="{{ cotacao.agencia_id or '' }}">
+        <input type="hidden" name="agencia_user_id" value="{{ cotacao.agencia_user_id or '' }}">
+        <input type="hidden" name="id_parceiro" value="{{ cotacao.id_parceiro or '' }}">
+        <input type="hidden" name="parceiro_user_id" value="{{ cotacao.parceiro_user_id or '' }}">
+        <input type="hidden" name="briefing_id" value="{{ cotacao.briefing_id or '' }}">
+
+        <section class="cot-editor-section">
+          <div class="cot-editor-section-head">
+            <h2>Dados da proposta</h2>
+            <p>Identificação comercial comum aos três tipos de cotação.</p>
+          </div>
+          <div class="cot-editor-grid">
+            <label class="cot-editor-field cot-editor-field-wide">
+              <span>Nome da proposta</span>
+              <input name="nome_campanha" value="{{ cotacao.nome_campanha or '' }}" maxlength="255" required>
+            </label>
+            <label class="cot-editor-field">
+              <span>Cliente</span>
+              <input value="{{ cotacao.cliente_nome or 'Cliente não informado' }}" disabled>
+            </label>
+            <label class="cot-editor-field">
+              <span>Agência</span>
+              <input value="{{ cotacao.agencia_nome or 'Sem agência' }}" disabled>
+            </label>
+            <label class="cot-editor-field cot-editor-field-wide">
+              <span>Objetivo</span>
+              <textarea name="objetivo_campanha" rows="3">{{ cotacao.objetivo_campanha or '' }}</textarea>
+            </label>
+            <label class="cot-editor-field cot-editor-field-wide">
+              <span>Briefing e refinamento</span>
+              <textarea name="apresentacao_dados" rows="4">{{ cotacao.apresentacao_dados or '' }}</textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="cot-editor-section">
+          <div class="cot-editor-section-head">
+            <h2>Controle comercial</h2>
+            <p>Prazo, owner e referência financeira para conduzir a negociação.</p>
+          </div>
+          <div class="cot-editor-grid cot-editor-grid-3">
+            <label class="cot-editor-field">
+              <span>Responsável</span>
+              <select name="responsavel_comercial">
+                <option value="">Sem responsável</option>
+                {% for vendedor in vendedores %}
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao.responsavel_comercial|string == vendedor.id_contato_cliente|string %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="cot-editor-field">
+              <span>Início</span>
+              <input type="date" name="periodo_inicio" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio and cotacao.periodo_inicio.strftime is defined else (cotacao.periodo_inicio or '') }}" required>
+            </label>
+            <label class="cot-editor-field">
+              <span>Término</span>
+              <input type="date" name="periodo_fim" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim and cotacao.periodo_fim.strftime is defined else (cotacao.periodo_fim or '') }}">
+            </label>
+            <label class="cot-editor-field">
+              <span>Budget estimado</span>
+              <input type="number" name="budget_estimado" value="{{ cotacao.budget_estimado or '' }}" min="0" step="0.01" inputmode="decimal">
+            </label>
+            <div class="cot-editor-readonly">
+              <span>Valor da proposta</span>
+              <strong data-items-total>{{ dinheiro(cotacao.valor_total_proposta) }}</strong>
+              <small>Calculado pelas entregas</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="cot-editor-section">
+          <div class="cot-editor-section-head">
+            <h2>Condições e notas</h2>
+            <p>Contexto que acompanha a proposta sem poluir a montagem.</p>
+          </div>
+          <div class="cot-editor-grid">
+            <label class="cot-editor-field cot-editor-field-wide">
+              <span>Condições comerciais</span>
+              <textarea name="condicoes_comerciais" rows="4">{{ cotacao.condicoes_comerciais or '' }}</textarea>
+            </label>
+            <label class="cot-editor-field">
+              <span>Premissas</span>
+              <textarea name="premissas" rows="5">{{ cotacao.premissas or '' }}</textarea>
+            </label>
+            <label class="cot-editor-field">
+              <span>Observações gerais</span>
+              <textarea name="observacoes_gerais" rows="5">{{ cotacao.observacoes_gerais or '' }}</textarea>
+            </label>
+            <label class="cot-editor-field">
+              <span>Observações</span>
+              <textarea name="observacoes" rows="4">{{ cotacao.observacoes or '' }}</textarea>
+            </label>
+            <label class="cot-editor-field">
+              <span>Notas internas</span>
+              <textarea name="observacoes_internas" rows="4">{{ cotacao.observacoes_internas or '' }}</textarea>
+            </label>
+          </div>
+        </section>
+
+        <footer class="cot-editor-actions">
+          <a href="{{ url_for('cotacoes.cotacao_workspace', cotacao_id=cotacao.id) }}" class="cx-btn cx-btn-secondary">Cancelar</a>
+          <button type="submit" class="cx-btn cx-btn-primary">Salvar alterações</button>
+        </footer>
+      </form>
+      {% endif %}
+
       <section id="montagem" class="cot-workspace-section"
                data-typed-items
                data-api-base="{{ url_for('cotacoes.api_itens_especificos_cotacao', cotacao_id=cotacao.id) }}">

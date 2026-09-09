@@ -12,6 +12,7 @@
   const confirmDialog = document.querySelector('[data-item-confirm]');
   const fieldDefinitions = JSON.parse(document.getElementById('cotacao-campos-item')?.textContent || '[]');
   let items = JSON.parse(document.getElementById('cotacao-itens-iniciais')?.textContent || '[]');
+  let busy = false;
 
   const money = (value) => Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency', currency: 'BRL'
@@ -23,6 +24,22 @@
   function setStatus(message = '', kind = '') {
     status.textContent = message;
     status.dataset.kind = kind;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    root.setAttribute('aria-busy', value ? 'true' : 'false');
+    document.querySelectorAll('[data-save-item], [data-add-item], [data-action]').forEach((button) => {
+      if (value) {
+        button.dataset.busyDisabled = 'true';
+        button.dataset.busyWasDisabled = button.disabled ? 'true' : 'false';
+        button.disabled = true;
+      } else if (button.dataset.busyDisabled === 'true') {
+        button.disabled = button.dataset.busyWasDisabled === 'true';
+        delete button.dataset.busyDisabled;
+        delete button.dataset.busyWasDisabled;
+      }
+    });
   }
 
   function render() {
@@ -70,19 +87,30 @@
   }
 
   async function request(url, options = {}) {
+    if (busy) throw new Error('Aguarde a alteração atual terminar.');
+    setBusy(true);
     setStatus('Salvando alterações…', 'loading');
-    const response = await fetch(url, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Não foi possível concluir a alteração.');
+    try {
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(options.headers || {})
+        }
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Não foi possível concluir a alteração.');
+      }
+      if (Array.isArray(result.data)) items = result.data;
+      render();
+      setStatus('Alterações salvas.', 'success');
+      return result;
+    } finally {
+      setBusy(false);
     }
-    if (result.data) items = result.data;
-    render();
-    setStatus('Alterações salvas.', 'success');
-    return result;
   }
 
   function openItem(item = null) {
@@ -103,12 +131,19 @@
   async function reorder(index, direction) {
     const destination = index + direction;
     if (destination < 0 || destination >= items.length) return;
+    const previousItems = items.slice();
     [items[index], items[destination]] = [items[destination], items[index]];
     render();
-    await request(`${apiBase}/reordenar`, {
-      method: 'PUT',
-      body: JSON.stringify({ item_ids: items.map((item) => item.id) })
-    });
+    try {
+      await request(`${apiBase}/reordenar`, {
+        method: 'PUT',
+        body: JSON.stringify({ item_ids: items.map((item) => item.id) })
+      });
+    } catch (error) {
+      items = previousItems;
+      render();
+      throw error;
+    }
   }
 
   function confirmDelete() {
@@ -127,7 +162,7 @@
   list.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-action]');
     const row = event.target.closest('[data-item-id]');
-    if (!button || !row) return;
+    if (!button || !row || busy) return;
     const index = items.findIndex((item) => Number(item.id) === Number(row.dataset.itemId));
     if (index < 0) return;
     try {
@@ -145,6 +180,7 @@
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (busy || !form.reportValidity()) return;
     const itemId = form.elements.item_id.value;
     const metadata = {};
     fieldDefinitions.forEach(([key]) => { metadata[key] = form.elements[`meta_${key}`].value; });
@@ -165,6 +201,26 @@
       setStatus(error.message, 'error');
     }
   });
+
+  const sectionLinks = Array.from(document.querySelectorAll('.cot-workspace-sidebar nav a[href^="#"]'));
+  if ('IntersectionObserver' in window && sectionLinks.length) {
+    const sections = sectionLinks
+      .map((link) => document.querySelector(link.getAttribute('href')))
+      .filter(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      sectionLinks.forEach((link) => {
+        const active = link.getAttribute('href') === `#${visible.target.id}`;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+    }, { rootMargin: '-20% 0px -65% 0px', threshold: [0, 0.25, 0.6] });
+    sections.forEach((section) => observer.observe(section));
+  }
 
   render();
 })();

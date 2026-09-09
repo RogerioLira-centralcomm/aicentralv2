@@ -5,7 +5,7 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -2524,78 +2524,46 @@ function calcularVolumeEdit() {
   <!-- ==================== ABAS HORIZONTAIS ==================== -->
   <div class="cot-op-tabs bg-white border border-gray-200 rounded-lg mb-2 px-2 sticky top-9 z-30">
     <nav class="flex items-center gap-1 overflow-x-auto">
-      <button type="button" data-tab="resumo" onclick="mostrarTabCotacao('resumo')"
+      <button type="button" data-tab="resumo"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
         <i class="fas fa-th-large text-gray-400 tab-nav-icon"></i> Resumo
       </button>
-      <button type="button" data-tab="itens" onclick="mostrarTabCotacao('itens')"
+      <button type="button" data-tab="itens"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
         <i class="fas fa-list text-gray-400 tab-nav-icon"></i> Itens da proposta
         <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1">{{ linhas|length if linhas else 0 }}</span>
       </button>
-      <button type="button" data-tab="audiencias" onclick="mostrarTabCotacao('audiencias')"
+      <button type="button" data-tab="audiencias"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
         <i class="fas fa-users text-gray-400 tab-nav-icon"></i> Audiências
         <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1">{{ audiencias|length if audiencias else 0 }}</span>
       </button>
-      <button type="button" data-tab="historico" onclick="mostrarTabCotacao('historico')"
+      <button type="button" data-tab="historico"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
         <i class="fas fa-history text-gray-400 tab-nav-icon"></i> Histórico
       </button>
-      <button type="button" data-tab="anexos" onclick="mostrarTabCotacao('anexos')"
+      <button type="button" data-tab="anexos"
               class="tab-nav-item px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600 hover:text-gray-800">
         <i class="fas fa-paperclip text-gray-400 tab-nav-icon"></i> Anexos
         <span class="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1" id="contador_anexos_nav">0</span>
       </button>
     </nav>
   </div>
-  <script>
-    (function(){
-      if (window.mostrarTabCotacao) return;
-      window.mostrarTabCotacao = function(nome) {
-        if (nome === 'visao_geral') nome = 'resumo';
-        var mapa = {
-          resumo: ['resumo_comercial','parametros_proposta','itens','audiencias','historico','anexos'],
-          itens: ['itens'],
-          audiencias: ['audiencias'],
-          historico: ['historico'],
-          anexos: ['anexos']
-        };
-        var alvo = mapa[nome] || mapa.resumo;
-        document.querySelectorAll('.tab-nav-item').forEach(function(b){
-          b.classList.toggle('active', b.dataset.tab === nome);
-        });
-        document.querySelectorAll('[data-section]').forEach(function(el){
-          el.style.display = alvo.indexOf(el.dataset.section) >= 0 ? '' : 'none';
-        });
-        try { history.replaceState(null, '', '#' + nome); } catch(_) {}
-      };
-      function aplicarInicial(){
-        var validos = ['resumo','itens','audiencias','historico','anexos'];
-        var inicial = (location.hash || '').replace('#','');
-        if (inicial === 'visao_geral') inicial = 'resumo';
-        window.mostrarTabCotacao(validos.indexOf(inicial) >= 0 ? inicial : 'resumo');
-        var orig = document.getElementById('contador_anexos');
-        var espelho = document.getElementById('contador_anexos_nav');
-        if (orig && espelho && 'MutationObserver' in window) {
-          var obs = new MutationObserver(function(){ espelho.textContent = orig.textContent; });
-          obs.observe(orig, { childList: true, characterData: true, subtree: true });
-          espelho.textContent = orig.textContent;
-        }
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', aplicarInicial);
-      } else {
-        aplicarInicial();
-      }
-    })();
-  </script>
 
   <!-- ==================== CONTEÚDO (FULL WIDTH) ==================== -->
-  <div class="space-y-1">
+  <div class="cot-op-sections">
 
       <!-- ==================== RESUMO COMERCIAL (3 COLUNAS) ==================== -->
-      <div data-section="resumo_comercial" class="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <details data-section="resumo_comercial" class="cot-op-disclosure">
+        <summary class="cot-op-disclosure__summary">
+          <span>
+            <i class="fas fa-address-card" aria-hidden="true"></i>
+            <strong>Visão comercial</strong>
+            <small>Cliente, campanha e compartilhamento</small>
+          </span>
+          <i class="fas fa-chevron-down cot-op-disclosure__chevron" aria-hidden="true"></i>
+        </summary>
+        <div class="cot-op-disclosure__body grid grid-cols-1 md:grid-cols-3 gap-2">
 
         <!-- COLUNA 1: Cliente e responsáveis -->
         <div class="bg-white rounded border border-gray-200 p-2">
@@ -2778,22 +2746,27 @@ function calcularVolumeEdit() {
           </div>
         </div>
 
-      </div>
+        </div>
+      </details>
 
       <!-- PARÂMETROS E TEXTOS DA PROPOSTA -->
-      <div data-section="parametros_proposta" class="bg-white rounded border border-gray-200 p-3">
-        <div class="flex items-center justify-between gap-3 mb-2">
-          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-            <i class="fas fa-file-signature text-gray-400"></i>
-            Parâmetros e textos da proposta
-          </h2>
+      <details data-section="parametros_proposta" class="cot-op-disclosure cot-op-disclosure--proposal">
+        <summary class="cot-op-disclosure__summary">
+          <span>
+            <i class="fas fa-file-signature" aria-hidden="true"></i>
+            <strong>Parâmetros e textos da proposta</strong>
+            <small>Premissas, observações e conteúdo do PDF</small>
+          </span>
+          <span class="cot-op-disclosure__actions">
           {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Acompanhamento'] %}
-          <button type="button" onclick="abrirModalEditarCampanha(); window.setTimeout(function(){ var aba = document.querySelector('#modal_editar_campanha [data-tab-trigger=&quot;proposta&quot;]'); if (aba) aba.click(); }, 0)" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700">
+          <button type="button" onclick="event.preventDefault(); abrirModalEditarCampanha(); window.setTimeout(function(){ var aba = document.querySelector('#modal_editar_campanha [data-tab-trigger=&quot;proposta&quot;]'); if (aba) aba.click(); }, 0)" class="cot-op-text-btn">
             <i class="fas fa-edit mr-1"></i>Editar textos
           </button>
           {% endif %}
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+          <i class="fas fa-chevron-down cot-op-disclosure__chevron" aria-hidden="true"></i>
+          </span>
+        </summary>
+        <div class="cot-op-disclosure__body grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
           <div class="rounded border border-gray-100 bg-gray-50/60 p-2.5">
             <span class="text-[10px] text-gray-500 uppercase">Frequência de impacto</span>
             <p class="font-semibold text-gray-800 mt-0.5">{{ cotacao.frequencia_impacto or FREQUENCIA_IMPACTO_DEFAULT }}</p>
@@ -2815,70 +2788,94 @@ function calcularVolumeEdit() {
             <p class="text-gray-700 mt-0.5 whitespace-pre-wrap">{{ cotacao.observacoes_internas if cotacao and cotacao.observacoes_internas else 'Nenhuma observação interna.' }}</p>
           </div>
         </div>
-      </div>
+      </details>
 
       <!-- ITENS DA PROPOSTA -->
-      <div data-section="itens" class="bg-white rounded border border-gray-200 p-2">
-        <div class="flex items-center justify-between mb-1">
-          <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-            <i class="fas fa-list text-gray-400"></i>
-            Itens da Proposta
-          </h2>
-          <div class="flex items-center gap-1.5">
-            <span class="px-1 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
+      <section data-section="itens" class="cot-op-primary-section">
+        <div class="cot-op-section-head">
+          <div>
+            <h2>
+              <i class="fas fa-list" aria-hidden="true"></i>
+              Itens da proposta
+            </h2>
+            <p>Inventário, segmentação, período e valores que formam a proposta.</p>
+          </div>
+          <div class="cot-op-section-actions">
+            <span class="cot-op-count">{{ linhas|length if linhas else 0 }} itens</span>
+            {% if linhas %}
+            <strong class="cot-op-section-total">R$ {{ "{:,.2f}".format(rf_total_itens_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }} líquidos</strong>
+            {% endif %}
             {% if modo == 'editar' %}
-            <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-0.5 text-[10px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
+            <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="cot-op-btn" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
               <i class="fas fa-file-import mr-1 text-emerald-600"></i>Importar
             </button>
             <input type="file" id="input_importar_linhas_imagem" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" class="hidden" aria-hidden="true">
-            <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-0.5 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho'] %} display: none;{% endif %}">
-              <i class="fas fa-plus mr-1"></i>Adicionar
+            <button id="btn_adicionar_linha" data-open-new-media-item class="cot-op-btn cot-op-btn--primary" {% if cotacao.status not in ['Rascunho'] %}style="display: none;"{% endif %}>
+              <i class="fas fa-plus mr-1"></i>Adicionar item
             </button>
             {% endif %}
           </div>
         </div>
         <div class="cot-op-table-wrap" role="region" aria-label="Itens da proposta" tabindex="0">
-        <table class="cx-table cx-table-dense cx-table-multiline cot-items-table w-full">
-          <thead class="bg-gray-100">
-            <tr class="text-[10px] text-gray-600 uppercase">
-              <th class="font-medium py-1 px-1.5" style="min-width: 60px;">Plataf.</th>
-              <th class="font-medium py-1 px-1.5">Segmentação</th>
-              <th class="font-medium py-1 px-1.5" style="min-width: 80px;">Praça</th>
-              <th class="font-medium py-1 px-1.5 text-center" style="min-width: 44px;">KPI</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 66px;" title="Valor unitário negociado (ex.: CPM, CPV conforme o KPI)">Preço unit.</th>
-              <th class="font-medium py-1 px-1.5 text-center" style="min-width: 80px;">Período</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 60px;">Volume</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Líq.</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Valor Bruto</th>
-              <th class="font-medium py-1 px-1.5 text-right" style="min-width: 80px;">Custo de Mídia orçado</th>
+        <table class="cot-media-table">
+          <thead>
+            <tr>
+              <th>Mídia e segmentação</th>
+              <th>Praça</th>
+              <th>KPI e período</th>
+              <th class="is-number" title="Valor unitário negociado conforme o KPI">Preço unitário</th>
+              <th class="is-number">Volume</th>
+              <th class="is-number">Valor líquido</th>
+              <th class="is-number">Valor bruto</th>
+              <th class="is-number">Custo de mídia</th>
+              <th class="is-action"><span class="sr-only">Ações</span></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
+          <tbody>
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" data-investimento-liquido="{{ linha.investimento_liquido or 0 }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
-                <td class="py-1 px-1.5">
-                  <span class="px-1 py-0.5 text-[10px] rounded text-white inline-block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
+              <tr class="linha-item-cotacao" data-media-row data-linha-id="{{ linha.id }}" data-investimento-liquido="{{ linha.investimento_liquido or 0 }}">
+                <td class="cot-media-identity">
+                  <strong>{{ linha.plataforma or 'Plataforma não informada' }}</strong>
+                  <span>{{ linha.segmentacao or 'Segmentação não informada' }}</span>
                 </td>
-                <td class="py-1 px-1.5 text-[10px] text-gray-600" style="word-break: break-word; white-space: normal;">{{ linha.segmentacao or '-' }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-gray-600" style="word-break: break-word; white-space: normal;">{{ linha.praca or '-' }}</td>
-                <td class="py-1 px-1.5 text-center">
-                  <span class="px-1 py-0.5 text-[10px] rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
+                <td class="cot-media-place">{{ linha.praca or 'Nacional' }}</td>
+                <td class="cot-media-flight">
+                  <strong>{{ linha.objetivo_kpi or 'CPM' }}</strong>
+                  <span>{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '—' }} a {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '—' }}</span>
                 </td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap font-mono">{% set pu = linha.valor_unitario_negociado if linha.valor_unitario_negociado is not none else linha.valor_unitario %}R$ {{ "{:,.2f}".format(pu or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-center text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right font-semibold text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-1 px-1.5 text-[10px] text-right text-gray-700 whitespace-nowrap font-mono">R$ {{ "{:,.2f}".format(linha.custo_midia or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="is-number">{% set pu = linha.valor_unitario_negociado if linha.valor_unitario_negociado is not none else linha.valor_unitario %}R$ {{ "{:,.2f}".format(pu or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="is-number">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
+                <td class="is-number is-primary">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="is-number">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="is-number">R$ {{ "{:,.2f}".format(linha.custo_midia or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="is-action">
+                  <button type="button" class="cot-media-row-action" data-open-media-item data-line-id="{{ linha.id }}" aria-label="Abrir item {{ loop.index }}">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                  </button>
+                </td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="10" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
+              <tr>
+                <td colspan="9">
+                  <div class="cot-op-empty-items">
+                    <i class="fas fa-table-list" aria-hidden="true"></i>
+                    <strong>A proposta ainda não tem itens</strong>
+                    <span>Adicione a primeira linha ou importe uma planilha visual para iniciar a montagem.</span>
+                    {% if modo == 'editar' and cotacao.status in ['Rascunho'] %}
+                    <div>
+                      <button type="button" class="cot-op-btn cot-op-btn--primary" data-open-new-media-item>Adicionar primeiro item</button>
+                      <button type="button" class="cot-op-btn" onclick="dispararImportarLinhasImagem()">Importar arquivo</button>
+                    </div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
             {% endif %}
           </tbody>
           {% if linhas %}
-          <tfoot class="bg-gray-50">
+          <tfoot>
             {% set soma_liquido = namespace(total=0) %}
             {% set soma_bruto = namespace(total=0) %}
             {% set soma_custo_midia = namespace(total=0) %}
@@ -2887,20 +2884,21 @@ function calcularVolumeEdit() {
               {% set soma_bruto.total = soma_bruto.total + (linha.investimento_bruto|default(0, true)|float) %}
               {% set soma_custo_midia.total = soma_custo_midia.total + (linha.custo_midia|default(0, true)|float) %}
             {% endfor %}
-            <tr class="font-semibold text-[10px] text-gray-700">
-              <td colspan="7" class="py-1 px-1 text-right">Total Itens</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_liquido.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_bruto.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-              <td class="py-1 px-1 text-right">R$ {{ "{:,.2f}".format(soma_custo_midia.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+            <tr>
+              <td colspan="5">Total dos itens</td>
+              <td class="is-number is-primary">R$ {{ "{:,.2f}".format(soma_liquido.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="is-number">R$ {{ "{:,.2f}".format(soma_bruto.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="is-number">R$ {{ "{:,.2f}".format(soma_custo_midia.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td></td>
             </tr>
           </tfoot>
           {% endif %}
         </table>
         </div>
-      </div>
+      </section>
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
-      <div data-section="audiencias" class="bg-white rounded border border-gray-200 p-2">
+      <section data-section="audiencias" class="cot-op-secondary-section">
         <div class="flex items-center justify-between mb-1{% if not audiencias %} cursor-pointer hover:bg-gray-50 rounded{% endif %}" {% if not audiencias %}onclick="toggleAudienciasCollapse()" id="audiencias_header"{% endif %}>
           <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
             <i class="fas fa-users text-gray-400"></i>
@@ -2959,7 +2957,7 @@ function calcularVolumeEdit() {
         </table>
         </div>
         </div>
-      </div>
+      </section>
 
       <!-- HISTÓRICO E COMENTÁRIOS -->
       <div data-section="historico" class="bg-white rounded border border-gray-200 p-2">
@@ -3168,34 +3166,34 @@ function calcularVolumeEdit() {
 </dialog>
 
 <!-- Modal Nova Linha -->
-<dialog id="modal_nova_linha" class="cx-modal-shell">
-  <div class="cx-modal-panel cx-modal-panel-xl cx-modal-compact max-w-7xl max-h-[95vh] p-0 flex flex-col">
+<dialog id="modal_nova_linha" class="cx-modal-shell cot-media-dialog" data-media-item-dialog="create">
+  <div class="cx-modal-panel cx-modal-panel-xl cot-media-dialog__panel">
     <!-- Header padrão CRM com abas -->
-    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-      <div class="px-5 pt-3 pb-1 flex justify-between items-center">
+    <div class="cot-media-dialog__header">
+      <div class="cot-media-dialog__titlebar">
         <div>
-          <h3 class="font-semibold text-base text-gray-900">Novo Item da Proposta</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span></p>
+          <h3>Novo item da proposta</h3>
+          <p>Cotação <strong>{{ cotacao.numero_cotacao if cotacao else '' }}</strong></p>
         </div>
         <form method="dialog">
-          <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
+          <button type="submit" class="cot-media-dialog__close" aria-label="Fechar"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </form>
       </div>
-      <div class="px-5 flex gap-1 text-sm">
-        <button type="button" data-tab-trigger="inicio" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes do item</button>
-        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Memória de cálculo</button>
+      <div class="cot-media-dialog__tabs" role="tablist" aria-label="Etapas do item">
+        <button type="button" data-tab-trigger="inicio" data-media-dialog-tab role="tab">Detalhes do item</button>
+        <button type="button" data-tab-trigger="resultado" data-media-dialog-tab role="tab">Memória de cálculo</button>
       </div>
     </div>
 
-    <div class="px-5 py-3 overflow-y-auto flex-1">
-    <form id="form_nova_linha" onsubmit="return false">
+    <div class="cot-media-dialog__body">
+    <form id="form_nova_linha" class="cot-media-dialog__form" onsubmit="return false">
 
       <!-- Aba: Início -->
       <div data-tabpanel="inicio" class="space-y-1.5">
 
       <!-- Seção: Briefing -->
-      <div>
-        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Briefing</h4>
+      <div class="cot-media-form-section">
+        <h4>Segmentação e contexto</h4>
         <div class="grid grid-cols-12 gap-1">
         <div class="cx-field col-span-12 md:col-span-4">
           <label class="cx-label-row py-0"><span class="cx-label font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
@@ -3247,8 +3245,8 @@ function calcularVolumeEdit() {
       </div>
 
       <!-- Seção: Mídia & KPI & Período -->
-      <div class="border-t border-gray-200 pt-1.5">
-        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Mídia &amp; KPI &amp; Período</h4>
+      <div class="cot-media-form-section">
+        <h4>Veiculação</h4>
         <div class="grid grid-cols-12 gap-1.5">
         <div class="cx-field col-span-3">
           <label class="cx-label-row py-0"><span class="cx-label font-semibold text-xs">Plataforma</span></label>
@@ -3359,9 +3357,9 @@ function calcularVolumeEdit() {
       </div>
 
       <!-- Seção: Precificação -->
-      <div class="border-t border-gray-200 pt-1.5">
+      <div class="cot-media-form-section cot-media-form-section--pricing">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
-          <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
+          <h4>Precificação</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Valor Líq. <em>ou</em> Vol. Contratado</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
@@ -3542,11 +3540,14 @@ function calcularVolumeEdit() {
     </div>
 
     <!-- Footer padrão CRM -->
-    <div class="px-5 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
-      <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
-        <i class="fas fa-save mr-1"></i>Salvar
+    <div class="cot-media-dialog__footer">
+      <span class="cot-media-dialog__hint" data-media-dialog-status>Calcule a precificação antes de salvar.</span>
+      <div>
+      <button type="button" data-close-media-dialog="modal_nova_linha" class="cot-op-btn">Cancelar</button>
+      <button id="btn_salvar_linha" type="button" data-save-media-item="create" class="cot-op-btn cot-op-btn--primary">
+        <i class="fas fa-save mr-1"></i>Salvar item
       </button>
+      </div>
     </div>
   </div>
   <form method="dialog" class="cx-modal-dismiss bg-black/50">
@@ -3602,35 +3603,35 @@ function calcularVolumeEdit() {
 </dialog>
 
 <!-- Modal Editar Linha -->
-<dialog id="modal_editar_linha" class="cx-modal-shell">
-  <div class="cx-modal-panel cx-modal-panel-xl cx-modal-compact max-w-7xl max-h-[95vh] p-0 flex flex-col">
+<dialog id="modal_editar_linha" class="cx-modal-shell cot-media-dialog" data-media-item-dialog="edit">
+  <div class="cx-modal-panel cx-modal-panel-xl cot-media-dialog__panel">
     <!-- Header padrão CRM com abas -->
-    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-      <div class="px-5 pt-3 pb-1 flex justify-between items-center">
+    <div class="cot-media-dialog__header">
+      <div class="cot-media-dialog__titlebar">
         <div>
-          <h3 id="modal_editar_linha_titulo" class="font-semibold text-base text-gray-900">Editar Item da Proposta</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span> · Linha <span id="modal_editar_linha_id_badge" class="font-medium text-gray-700">#</span></p>
+          <h3 id="modal_editar_linha_titulo">Editar item da proposta</h3>
+          <p>Cotação <strong>{{ cotacao.numero_cotacao if cotacao else '' }}</strong> · Linha <strong id="modal_editar_linha_id_badge">#</strong></p>
         </div>
         <form method="dialog">
-          <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
+          <button type="submit" class="cot-media-dialog__close" aria-label="Fechar"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </form>
       </div>
-      <div class="px-5 flex gap-1 text-sm">
-        <button type="button" data-tab-trigger="inicio" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Detalhes do item</button>
-        <button type="button" data-tab-trigger="resultado" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Memória de cálculo</button>
+      <div class="cot-media-dialog__tabs" role="tablist" aria-label="Etapas do item">
+        <button type="button" data-tab-trigger="inicio" data-media-dialog-tab role="tab">Detalhes do item</button>
+        <button type="button" data-tab-trigger="resultado" data-media-dialog-tab role="tab">Memória de cálculo</button>
       </div>
     </div>
 
-    <div class="px-5 py-3 overflow-y-auto flex-1">
-    <form id="form_editar_linha" onsubmit="return false">
+    <div class="cot-media-dialog__body">
+    <form id="form_editar_linha" class="cot-media-dialog__form" onsubmit="return false">
       <input type="hidden" id="edit_linha_id">
 
       <!-- Aba: Início -->
       <div data-tabpanel="inicio" class="space-y-1.5">
 
       <!-- Seção: Briefing -->
-      <div>
-        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Briefing</h4>
+      <div class="cot-media-form-section">
+        <h4>Segmentação e contexto</h4>
         <div class="grid grid-cols-12 gap-1">
         <div class="cx-field col-span-12 md:col-span-4">
           <label class="cx-label-row py-0"><span class="cx-label text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
@@ -3679,8 +3680,8 @@ function calcularVolumeEdit() {
       </div>
 
       <!-- Seção: Mídia & KPI & Período -->
-      <div class="border-t border-gray-200 pt-1.5">
-        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Mídia &amp; KPI &amp; Período</h4>
+      <div class="cot-media-form-section">
+        <h4>Veiculação</h4>
         <div class="grid grid-cols-12 gap-1.5">
         <div class="cx-field col-span-3">
           <label class="cx-label-row py-0"><span class="cx-label text-xs font-semibold">Plataforma</span></label>
@@ -3788,9 +3789,9 @@ function calcularVolumeEdit() {
       </div>
 
       <!-- Seção: Precificação -->
-      <div class="border-t border-gray-200 pt-1.5">
+      <div class="cot-media-form-section cot-media-form-section--pricing">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
-          <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
+          <h4>Precificação</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Valor Líq. <em>ou</em> Vol. Contratado</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1.5">
@@ -3971,25 +3972,37 @@ function calcularVolumeEdit() {
     </div>
 
     <!-- Footer padrão CRM -->
-    <div id="modal_editar_linha_footer" class="px-5 py-2 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
-      <div class="flex gap-2">
-        <button type="button" onclick="duplicarLinhaDoModal()" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100 text-gray-700 transition-colors">
-          <i class="fas fa-copy mr-1"></i>Duplicar Item
+    <div id="modal_editar_linha_footer" class="cot-media-dialog__footer cot-media-dialog__footer--split">
+      <div>
+        <button type="button" data-duplicate-media-item class="cot-op-btn">
+          <i class="fas fa-copy mr-1"></i>Duplicar item
         </button>
-        <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
-          <i class="fas fa-trash mr-1"></i>Excluir Item
+        <button type="button" data-delete-media-item class="cot-op-btn cot-media-danger">
+          <i class="fas fa-trash mr-1"></i>Excluir item
         </button>
       </div>
-      <div class="flex gap-2">
-        <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-        <button id="edit_btn_salvar_linha" type="button" onclick="salvarEdicaoLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
-          <i class="fas fa-save mr-1"></i>Salvar Alterações
+      <div>
+        <span class="cot-media-dialog__hint" data-media-dialog-status>Revise os dados antes de salvar.</span>
+        <button type="button" data-close-media-dialog="modal_editar_linha" class="cot-op-btn">Cancelar</button>
+        <button id="edit_btn_salvar_linha" type="button" data-save-media-item="edit" class="cot-op-btn cot-op-btn--primary">
+          <i class="fas fa-save mr-1"></i>Salvar alterações
         </button>
       </div>
     </div>
   </div>
   <form method="dialog" class="cx-modal-dismiss bg-black/50">
     <button>close</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_exclusao_linha" class="cot-media-confirm">
+  <form method="dialog">
+    <h3>Excluir este item?</h3>
+    <p>Os totais da proposta serão recalculados. Esta ação não pode ser desfeita.</p>
+    <div>
+      <button value="cancel" class="cot-op-btn">Cancelar</button>
+      <button value="confirm" class="cot-op-btn cot-media-danger">Excluir item</button>
+    </div>
   </form>
 </dialog>
 
@@ -7215,9 +7228,8 @@ function excluirLinhaDoModal() {
     return;
   }
   const linhaId = document.getElementById('edit_linha_id').value;
-  if (linhaId && confirm('Tem certeza que deseja excluir esta linha?')) {
-    document.getElementById('modal_editar_linha').close();
-    confirmarRemoverLinha(linhaId);
+  if (linhaId && window.CotacaoMediaUI) {
+    window.CotacaoMediaUI.confirmDelete(linhaId);
   }
 }
 
@@ -7226,8 +7238,8 @@ function removerLinha(linhaId) {
     mostrarBloqueioEdicao();
     return;
   }
-  if (confirm('Tem certeza que deseja remover esta linha?')) {
-    confirmarRemoverLinha(linhaId);
+  if (window.CotacaoMediaUI) {
+    window.CotacaoMediaUI.confirmDelete(linhaId);
   }
 }
 
@@ -8876,7 +8888,7 @@ async function recalcularValorTotalCotacao() {
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=3"></script>
 {% if cotacao %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

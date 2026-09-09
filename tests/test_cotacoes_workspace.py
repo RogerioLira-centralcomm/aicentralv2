@@ -132,6 +132,111 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
         self.assertIn('data-section="anexos"', template)
         self.assertIn("cot-op-table-wrap", template)
 
+    def test_resumo_prioriza_itens_antes_de_conteudo_secundario(self):
+        template = (
+            Path(__file__).parents[1]
+            / "aicentralv2"
+            / "templates"
+            / "cadu_cotacoes_detalhes.html"
+        ).read_text()
+
+        self.assertIn("cot-op-primary-section", template)
+        self.assertIn("A proposta ainda não tem itens", template)
+        self.assertIn("Adicionar primeiro item", template)
+        self.assertIn("rf_total_itens_liquido", template)
+        css = (
+            Path(__file__).parents[1]
+            / "aicentralv2"
+            / "static"
+            / "css"
+            / "cotacao_detalhes.css"
+        ).read_text()
+        self.assertLess(
+            css.index('[data-section="itens"] { order: 1; }'),
+            css.index('[data-section="parametros_proposta"] { order: 4; }'),
+        )
+
+    def test_informacoes_secundarias_usam_disclosure_semantico(self):
+        template = (
+            Path(__file__).parents[1]
+            / "aicentralv2"
+            / "templates"
+            / "cadu_cotacoes_detalhes.html"
+        ).read_text()
+
+        self.assertIn(
+            '<details data-section="resumo_comercial" class="cot-op-disclosure">',
+            template,
+        )
+        self.assertIn(
+            '<details data-section="parametros_proposta"',
+            template,
+        )
+        self.assertIn("Premissas, observações e conteúdo do PDF", template)
+
+    def test_abas_sao_controladas_pelo_javascript_vanilla(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+
+        self.assertNotIn("var mapa = {", template)
+        self.assertIn("var tabSections =", javascript)
+        self.assertIn("window.mostrarTabCotacao = showQuoteTab", javascript)
+        self.assertIn("section.hidden =", javascript)
+        self.assertNotIn("sessionStorage", javascript)
+
+    def test_sidebar_evitaria_cartoes_aninhados(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        sidebar = (root / "templates" / "cotacoes" / "_sidebar_comercial.html").read_text()
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+
+        self.assertIn("Revise o que falta sem sair da montagem.", sidebar)
+        self.assertIn(".cot-op-panel,\n.cot-op-next", css)
+        self.assertIn("border: 0;", css)
+
+    def test_tabela_de_midia_prioriza_compra_e_valores(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+
+        self.assertIn('class="cot-media-table"', template)
+        self.assertIn("Mídia e segmentação", template)
+        self.assertIn("KPI e período", template)
+        self.assertIn("data-open-media-item", template)
+        self.assertIn("data-line-id=", template)
+        self.assertNotIn(
+            'data-investimento-liquido="{{ linha.investimento_liquido or 0 }}" onclick="visualizarOuEditarLinha',
+            template,
+        )
+
+    def test_modais_de_item_compartilham_sistema_semantico(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+
+        self.assertIn('data-media-item-dialog="create"', template)
+        self.assertIn('data-media-item-dialog="edit"', template)
+        self.assertEqual(template.count("cot-media-dialog__header"), 2)
+        self.assertEqual(template.count("cot-media-dialog__footer"), 3)
+        self.assertIn('id="form_nova_linha"', template)
+        self.assertIn('id="form_editar_linha"', template)
+        self.assertIn('id="btn_salvar_linha"', template)
+        self.assertIn('id="edit_btn_salvar_linha"', template)
+        self.assertIn('id="modal_confirmar_exclusao_linha"', template)
+
+    def test_controlador_vanilla_assume_acoes_principais_dos_itens(self):
+        root = Path(__file__).parents[1] / "aicentralv2"
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+
+        self.assertIn("function initMediaItems()", javascript)
+        self.assertIn("window.CotacaoMediaUI", javascript)
+        self.assertIn("confirmDeleteMediaItem", javascript)
+        self.assertIn("[data-save-media-item]", javascript)
+        self.assertNotIn('onclick="salvarNovaLinha()"', template)
+        self.assertNotIn('onclick="salvarEdicaoLinha()"', template)
+        delete_start = template.index("function excluirLinhaDoModal()")
+        delete_end = template.index("async function confirmarRemoverLinha", delete_start)
+        self.assertNotIn("confirm(", template[delete_start:delete_end])
+
 
 if __name__ == "__main__":
     unittest.main()

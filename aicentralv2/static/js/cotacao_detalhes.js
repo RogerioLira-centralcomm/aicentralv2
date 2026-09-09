@@ -8,12 +8,10 @@
   var sidebar = document.getElementById('cot-operation-sidebar');
   var sidebarTrigger = document.getElementById('cot-sidebar-mobile-trigger');
   var sidebarBackdrop = document.getElementById('cot-sidebar-backdrop');
-  var sidebarScroll = document.getElementById('cot-sidebar-scroll');
   var feedback = document.getElementById('cot-operation-feedback');
   var nextActionButton = document.getElementById('cot-next-action');
   var refreshButton = document.getElementById('cot-checklist-refresh');
   var endpoint = '/api/cotacoes/' + cotacaoId + '/workspace-comercial';
-  var scrollKey = 'cx:cotacao:' + cotacaoId + ':sidebar-scroll';
   var currentNextAction = null;
   var refreshTimer = null;
   var opener = null;
@@ -33,6 +31,168 @@
     feedback.className = 'cot-op-feedback' + (type ? ' is-' + type : '');
     feedback.textContent = message;
   }
+
+  var tabSections = {
+    resumo: ['itens', 'audiencias', 'resumo_comercial', 'parametros_proposta'],
+    itens: ['itens'],
+    audiencias: ['audiencias'],
+    historico: ['historico'],
+    anexos: ['anexos']
+  };
+
+  function showQuoteTab(name) {
+    if (name === 'visao_geral') name = 'resumo';
+    if (!tabSections[name]) name = 'resumo';
+    var visible = tabSections[name];
+
+    document.querySelectorAll('.tab-nav-item[data-tab]').forEach(function (button) {
+      var active = button.dataset.tab === name;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-section]').forEach(function (section) {
+      section.hidden = visible.indexOf(section.dataset.section) < 0;
+    });
+    try {
+      history.replaceState(null, '', '#' + name);
+    } catch (_) {}
+  }
+
+  function initQuoteTabs() {
+    document.querySelectorAll('.tab-nav-item[data-tab]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        showQuoteTab(button.dataset.tab);
+      });
+    });
+    var initial = (location.hash || '').replace('#', '');
+    showQuoteTab(tabSections[initial] ? initial : 'resumo');
+
+    var original = document.getElementById('contador_anexos');
+    var mirror = document.getElementById('contador_anexos_nav');
+    if (original && mirror) {
+      var sync = function () { mirror.textContent = original.textContent; };
+      sync();
+      if ('MutationObserver' in window) {
+        new MutationObserver(sync).observe(original, {
+          childList: true, characterData: true, subtree: true
+        });
+      }
+    }
+  }
+
+  window.mostrarTabCotacao = showQuoteTab;
+
+  function activateMediaDialogTab(dialog, name) {
+    if (!dialog) return;
+    dialog.querySelectorAll('[data-media-dialog-tab]').forEach(function (button) {
+      var active = button.dataset.tabTrigger === name;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.setAttribute('tabindex', active ? '0' : '-1');
+    });
+    dialog.querySelectorAll('[data-tabpanel]').forEach(function (panel) {
+      panel.classList.toggle('hidden', panel.dataset.tabpanel !== name);
+    });
+  }
+
+  function syncMediaDialogStatus(dialog) {
+    if (!dialog) return;
+    var save = dialog.querySelector('[data-save-media-item]');
+    var statusNode = dialog.querySelector('[data-media-dialog-status]');
+    if (!save || !statusNode) return;
+    var ready = !save.disabled;
+    statusNode.classList.toggle('is-ready', ready);
+    statusNode.textContent = ready
+      ? 'Item pronto para salvar.'
+      : 'Calcule a precificação antes de salvar.';
+  }
+
+  function confirmDeleteMediaItem(lineId) {
+    var confirmDialog = document.getElementById('modal_confirmar_exclusao_linha');
+    if (!confirmDialog || !lineId) return;
+    var handleClose = function () {
+      if (confirmDialog.returnValue !== 'confirm') return;
+      var editDialog = document.getElementById('modal_editar_linha');
+      if (editDialog && editDialog.open) editDialog.close();
+      if (typeof window.confirmarRemoverLinha === 'function') {
+        window.confirmarRemoverLinha(lineId);
+      }
+    };
+    confirmDialog.addEventListener('close', handleClose, { once: true });
+    confirmDialog.showModal();
+  }
+
+  function initMediaItems() {
+    document.querySelectorAll('[data-media-item-dialog]').forEach(function (dialog) {
+      dialog.querySelectorAll('[data-media-dialog-tab]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          activateMediaDialogTab(dialog, button.dataset.tabTrigger);
+        });
+      });
+      new MutationObserver(function () {
+        if (dialog.open) {
+          activateMediaDialogTab(dialog, 'inicio');
+          syncMediaDialogStatus(dialog);
+        }
+      }).observe(dialog, { attributes: true, attributeFilter: ['open'] });
+      var save = dialog.querySelector('[data-save-media-item]');
+      if (save) {
+        new MutationObserver(function () {
+          syncMediaDialogStatus(dialog);
+        }).observe(save, { attributes: true, attributeFilter: ['disabled'] });
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      var newItem = event.target.closest('[data-open-new-media-item]');
+      if (newItem) {
+        if (typeof window.abrirModalNovaLinha === 'function') window.abrirModalNovaLinha();
+        return;
+      }
+      var openItem = event.target.closest('[data-open-media-item]');
+      if (openItem) {
+        var lineId = Number(openItem.dataset.lineId || 0);
+        if (lineId && typeof window.visualizarOuEditarLinha === 'function') {
+          window.visualizarOuEditarLinha(lineId);
+        }
+        return;
+      }
+      var close = event.target.closest('[data-close-media-dialog]');
+      if (close) {
+        var targetDialog = document.getElementById(close.dataset.closeMediaDialog);
+        if (targetDialog) targetDialog.close();
+        return;
+      }
+      var saveItem = event.target.closest('[data-save-media-item]');
+      if (saveItem && !saveItem.disabled) {
+        if (saveItem.dataset.saveMediaItem === 'create' && typeof window.salvarNovaLinha === 'function') {
+          window.salvarNovaLinha();
+        }
+        if (saveItem.dataset.saveMediaItem === 'edit' && typeof window.salvarEdicaoLinha === 'function') {
+          window.salvarEdicaoLinha();
+        }
+        return;
+      }
+      if (event.target.closest('[data-duplicate-media-item]')
+          && typeof window.duplicarLinhaDoModal === 'function') {
+        window.duplicarLinhaDoModal();
+        return;
+      }
+      if (event.target.closest('[data-delete-media-item]')) {
+        var idField = document.getElementById('edit_linha_id');
+        confirmDeleteMediaItem(idField && idField.value);
+      }
+    });
+  }
+
+  window.CotacaoMediaUI = {
+    confirmDelete: confirmDeleteMediaItem,
+    open: function (lineId) {
+      if (typeof window.visualizarOuEditarLinha === 'function') {
+        window.visualizarOuEditarLinha(lineId);
+      }
+    }
+  };
 
   async function requestState() {
     var response = await fetch(endpoint, {
@@ -207,13 +367,6 @@
   });
   document.addEventListener('cotacao:updated', scheduleRefresh);
 
-  if (sidebarScroll) {
-    sidebarScroll.scrollTop = Number(sessionStorage.getItem(scrollKey) || 0);
-    sidebarScroll.addEventListener('scroll', function () {
-      sessionStorage.setItem(scrollKey, String(sidebarScroll.scrollTop));
-    }, { passive: true });
-  }
-
   var observed = document.querySelector('.cot-op-main');
   if (observed && 'MutationObserver' in window) {
     new MutationObserver(function (mutations) {
@@ -227,5 +380,7 @@
     }).observe(observed, { childList: true, subtree: true });
   }
 
+  initQuoteTabs();
+  initMediaItems();
   loadState(false);
 })();

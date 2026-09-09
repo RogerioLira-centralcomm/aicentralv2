@@ -66,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_cx_format_templates_active
 
 CREATE TABLE IF NOT EXISTS cx_clients (
     id SERIAL PRIMARY KEY,
-    crm_client_id INTEGER REFERENCES tbl_cliente(id_cliente) ON DELETE SET NULL,
+    crm_client_id INTEGER,
     name VARCHAR(150) NOT NULL,
     sector VARCHAR(80),
     tone_of_voice TEXT,
@@ -79,15 +79,16 @@ CREATE TABLE IF NOT EXISTS cx_clients (
     analysis_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     price_policy VARCHAR(30) NOT NULL DEFAULT 'hide_price',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_cx_clients_crm_client
+        FOREIGN KEY (crm_client_id)
+        REFERENCES tbl_cliente(id_cliente)
+        ON DELETE SET NULL,
     CONSTRAINT chk_cx_client_price_policy
         CHECK (price_policy IN ('hide_price', 'show_price'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_cx_clients_created_at
     ON cx_clients(created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client
-    ON cx_clients(crm_client_id)
-    WHERE crm_client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cx_campaigns (
     id SERIAL PRIMARY KEY,
@@ -356,11 +357,38 @@ ALTER TABLE cx_format_templates
     ADD COLUMN IF NOT EXISTS max_reference_variants INTEGER NOT NULL DEFAULT 4;
 
 ALTER TABLE cx_clients
+    ADD COLUMN IF NOT EXISTS crm_client_id INTEGER,
     ADD COLUMN IF NOT EXISTS primary_color VARCHAR(20),
     ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(20),
     ADD COLUMN IF NOT EXISTS website_url TEXT,
     ADD COLUMN IF NOT EXISTS brand_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
     ADD COLUMN IF NOT EXISTS analysis_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint constraint_row
+          JOIN pg_attribute column_row
+            ON column_row.attrelid = constraint_row.conrelid
+           AND column_row.attnum = ANY(constraint_row.conkey)
+         WHERE constraint_row.conrelid = 'cx_clients'::regclass
+           AND constraint_row.confrelid = 'tbl_cliente'::regclass
+           AND constraint_row.contype = 'f'
+           AND column_row.attname = 'crm_client_id'
+    ) THEN
+        ALTER TABLE cx_clients
+            ADD CONSTRAINT fk_cx_clients_crm_client
+            FOREIGN KEY (crm_client_id)
+            REFERENCES tbl_cliente(id_cliente)
+            ON DELETE SET NULL;
+    END IF;
+END
+$$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client
+    ON cx_clients(crm_client_id)
+    WHERE crm_client_id IS NOT NULL;
 
 ALTER TABLE cx_campaigns
     ADD COLUMN IF NOT EXISTS budget_usd NUMERIC(12, 6) NOT NULL DEFAULT 0,

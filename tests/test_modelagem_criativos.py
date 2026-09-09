@@ -905,6 +905,41 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcAnalyzeBrand"', clients)
         self.assertIn('name="target_audience"', clients)
 
+    def test_migration_cria_vinculo_crm_antes_do_indice(self):
+        root = Path(__file__).resolve().parents[1]
+        migration = (
+            root / "migrations" / "create_creative_modeling.sql"
+        ).read_text(encoding="utf-8")
+        compatibility_start = migration.index("ALTER TABLE cx_clients")
+        add_column = migration.index(
+            "ADD COLUMN IF NOT EXISTS crm_client_id",
+            compatibility_start,
+        )
+        foreign_key = migration.index(
+            "constraint_row.confrelid = 'tbl_cliente'::regclass",
+            add_column,
+        )
+        unique_index = migration.index(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
+            add_column,
+        )
+
+        self.assertLess(add_column, foreign_key)
+        self.assertLess(foreign_key, unique_index)
+        self.assertNotIn(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
+            migration[:add_column],
+        )
+
+        incremental = (
+            root / "migrations" / "add_creative_campaign_flow.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "constraint_row.confrelid = 'tbl_cliente'::regclass",
+            incremental,
+        )
+        self.assertIn("column_row.attname = 'crm_client_id'", incremental)
+
     def test_migration_cobre_custos_referencias_iab_e_video(self):
         root = Path(__file__).resolve().parents[1]
         migration = (root / "migrations" / "create_creative_modeling.sql").read_text(

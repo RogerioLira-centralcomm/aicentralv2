@@ -7,9 +7,14 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1
-          FROM pg_constraint
-         WHERE conname = 'fk_cx_clients_crm_client'
-           AND conrelid = 'cx_clients'::regclass
+          FROM pg_constraint constraint_row
+          JOIN pg_attribute column_row
+            ON column_row.attrelid = constraint_row.conrelid
+           AND column_row.attnum = ANY(constraint_row.conkey)
+         WHERE constraint_row.conrelid = 'cx_clients'::regclass
+           AND constraint_row.confrelid = 'tbl_cliente'::regclass
+           AND constraint_row.contype = 'f'
+           AND column_row.attname = 'crm_client_id'
     ) THEN
         ALTER TABLE cx_clients
             ADD CONSTRAINT fk_cx_clients_crm_client

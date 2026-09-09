@@ -43,7 +43,8 @@ class PiOperacaoRepository:
             cursor.execute(
                 """
                 SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
-                       p.id_cliente, p.id_agencia, p.id_resp_comercial,
+                       p.id_cliente, p.id_agencia, p.id_parceiro,
+                       p.id_resp_comercial,
                        p.id_pi_tipo, p.vr_bruto_pi, p.desvio_aceitavel_pct,
                        p.id_cont_cliente_midia, p.id_cont_cliente_financ,
                        p.id_cont_agen_midia, p.id_cont_agen_financ,
@@ -54,12 +55,14 @@ class PiOperacaoRepository:
                        p.updated_at,
                        cli.nome_fantasia AS cliente_nome,
                        ag.nome_fantasia AS agencia_nome,
+                       parc.nome_fantasia AS parceiro_nome,
                        ss.display AS sub_status_descricao,
                        resp.nome_completo AS responsavel_comercial_nome,
                        resp.foto_url AS responsavel_comercial_foto_url
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                   LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
+                  LEFT JOIN tbl_cliente parc ON parc.id_cliente = p.id_parceiro
                   LEFT JOIN cadu_cotacoes cot ON cot.id = p.cotacao_id
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
                   LEFT JOIN tbl_contato_cliente resp

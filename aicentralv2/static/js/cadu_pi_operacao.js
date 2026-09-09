@@ -342,6 +342,10 @@
     var agencyRow = document.getElementById('pi-origin-agency-row');
     setText('pi-origin-agency', agency, '');
     if (agencyRow) agencyRow.hidden = !agency;
+    var partner = pi.parceiro_nome || '';
+    var partnerRow = document.getElementById('pi-origin-partner-row');
+    setText('pi-origin-partner', partner, '');
+    if (partnerRow) partnerRow.hidden = !partner;
     var start = shortDate(pi.periodo_inicio);
     var finish = shortDate(pi.periodo_fim);
     setText('pi-origin-period', start || finish ? (start || '—') + ' a ' + (finish || '—') : '', 'Não informado');

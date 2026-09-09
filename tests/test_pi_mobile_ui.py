@@ -94,13 +94,38 @@ class PiMobileUiContractTest(unittest.TestCase):
     def test_sidebar_exibe_contexto_complementar_e_datas_brasileiras(self):
         sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
         operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
+        repository = self._source(ROOT / "aicentralv2" / "pi_operacao_repository.py")
 
         self.assertIn('id="pi-origin-agency-row"', sidebar)
+        self.assertIn('id="pi-origin-partner-row"', sidebar)
         self.assertIn('id="pi-origin-period"', sidebar)
         self.assertNotIn('id="pi-origin-owner"', sidebar)
         self.assertNotIn('id="pi-origin-campaign-count"', sidebar)
         self.assertIn("new Intl.DateTimeFormat('pt-BR'", operation_js)
         self.assertIn("timeZone: 'UTC'", operation_js)
+        self.assertIn("if (partnerRow) partnerRow.hidden = !partner;", operation_js)
+        self.assertIn("parc.nome_fantasia AS parceiro_nome", repository)
+        self.assertIn("LEFT JOIN tbl_cliente parc ON parc.id_cliente = p.id_parceiro", repository)
+
+    def test_vinculos_da_cotacao_ficam_bloqueados_e_integrados_aos_contatos(self):
+        pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+        routes = self._source(ROOT / "aicentralv2" / "routes.py")
+
+        self.assertIn("vinculos_cotacao_bloqueados", pi_detail)
+        self.assertIn('id="details_contatos"', pi_detail)
+        self.assertIn("Cliente e contatos", pi_detail)
+        self.assertIn("Vínculos definidos pela cotação de origem", pi_detail)
+        self.assertIn("user_is_executivo or vinculos_cotacao_bloqueados", pi_detail)
+        self.assertIn("if not vinculos_cotacao_bloqueados", pi_detail)
+        for field in ("id_cliente", "id_agencia", "id_parceiro"):
+            self.assertIn(f'type="hidden" name="{field}"', pi_detail)
+        self.assertIn("if (PI_VINCULOS_COTACAO) return;", pi_detail)
+        self.assertIn(".pi-edit-parties.is-locked input:disabled", css)
+        self.assertIn("if pi.get('cotacao_id'):", routes)
+        self.assertIn("data['id_cliente'] = pi.get('id_cliente')", routes)
+        self.assertIn("data['id_agencia'] = pi.get('id_agencia')", routes)
+        self.assertIn("data['id_parceiro'] = pi.get('id_parceiro')", routes)
 
     def test_campanhas_usam_drawer_vanilla_medio(self):
         pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")

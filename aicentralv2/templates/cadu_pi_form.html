@@ -200,16 +200,25 @@
         </div>
       </section>
 
-      <!-- LINHA 2: Cliente + Agência + Parceiro (3 colunas, alinhado com Contatos) -->
-      <section class="pi-edit-section pi-edit-parties">
+      {% set vinculos_cotacao_bloqueados = modo == 'editar' and pi and pi.cotacao_id %}
+      <details id="details_contatos" class="pi-edit-disclosure pi-edit-parties-disclosure"{% if not vinculos_cotacao_bloqueados %} open{% endif %}>
+        <summary>
+          <span class="ml-1">Cliente e contatos</span>
+          {% if vinculos_cotacao_bloqueados %}
+          <small>Vínculos definidos pela cotação de origem</small>
+          {% endif %}
+        </summary>
+        <div class="pi-edit-parties-body">
+      <!-- Cliente + Agência + Parceiro -->
+      <section class="pi-edit-parties{% if vinculos_cotacao_bloqueados %} is-locked{% endif %}">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div class="relative">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Cliente <span class="text-red-500">*</span></label>
             <div class="flex gap-1">
-              <input type="text" id="input_cliente_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
-              <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Cliente">
+              <input type="text" id="input_cliente_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
+              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('cliente')" class="pi-party-add" title="Cadastrar cliente" aria-label="Cadastrar cliente">
                 <i class="fas fa-plus"></i>
-              </button>
+              </button>{% endif %}
             </div>
             <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
             <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
@@ -217,10 +226,10 @@
           <div class="relative">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Agência</label>
             <div class="flex gap-1">
-              <input type="text" id="input_agencia_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
-              <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Nova Agência">
+              <input type="text" id="input_agencia_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
+              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('agencia')" class="pi-party-add" title="Cadastrar agência" aria-label="Cadastrar agência">
                 <i class="fas fa-plus"></i>
-              </button>
+              </button>{% endif %}
             </div>
             <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
             <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
@@ -228,10 +237,10 @@
           <div class="relative">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Parceiro Regional</label>
             <div class="flex gap-1">
-              <input type="text" id="input_parceiro_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off">
-              <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Parceiro">
+              <input type="text" id="input_parceiro_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off" {% if vinculos_cotacao_bloqueados %}disabled{% endif %}>
+              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="pi-party-add" title="Cadastrar parceiro regional" aria-label="Cadastrar parceiro regional">
                 <i class="fas fa-plus"></i>
-              </button>
+              </button>{% endif %}
             </div>
             <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
             <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
@@ -239,12 +248,8 @@
         </div>
       </section>
 
-      <!-- COLLAPSE: Contatos -->
-      <details id="details_contatos" class="pi-edit-disclosure">
-        <summary>
-          <span class="ml-1">Contatos</span>
-        </summary>
-        <div class="p-3">
+      <!-- Contatos dos vínculos -->
+        <div class="pi-edit-contacts">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div class="space-y-1.5">
               <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
@@ -292,6 +297,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </details>
 
@@ -626,6 +632,7 @@
   let margemCcUserEdited = {{ ('true' if (modo == 'editar' and pi and pi.perc_margem_cc) else 'false') }};
   const PI_HAS_PERSISTED_VALOR_BRUTO = {{ ('true' if (modo == 'editar' and pi and pi.valor_bruto) else 'false') }};
   const PI_VALORES_EDITAVEIS = {{ pi_valores_editaveis|tojson }};
+  const PI_VINCULOS_COTACAO = {{ (modo == 'editar' and pi and pi.cotacao_id)|tojson }};
   const PI_SUB_STATUS = {{ (pi.id_sub_status_pi if modo == 'editar' and pi else 2)|tojson }};
 
   const els = {
@@ -1037,6 +1044,7 @@
   }
 
   window.onExecutivoChange = function() {
+    if (PI_VINCULOS_COTACAO) return;
     const execId = getExecutivoId();
     var shouldDisable = USER_IS_EXECUTIVO && !execId;
     els.clienteBusca().disabled = shouldDisable;

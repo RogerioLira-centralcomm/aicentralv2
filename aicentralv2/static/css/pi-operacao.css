@@ -85,7 +85,34 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-edit-card { overflow: hidden; }
 .pi-edit-card__body { min-width: 0; padding: 14px 16px; }
 .pi-edit-card > .pi-edit-card__head { margin: 0; }
-.pi-edit-parties { border-top: 3px solid #dce9e7; }
+.pi-edit-parties-disclosure { border-top: 3px solid #dce9e7; }
+.pi-edit-parties-disclosure > summary small { margin-left: auto; color: #748789; font-size: 10px; font-weight: 550; }
+.pi-edit-parties-disclosure > summary:has(small)::after { margin-left: 9px; }
+.pi-edit-parties-body { padding: 13px 16px 15px; }
+.pi-edit-parties { min-width: 0; }
+.pi-edit-parties.is-locked input:disabled {
+  cursor: default;
+  border-color: #e0e7e7;
+  background: #f4f7f7;
+  color: #405759;
+  opacity: 1;
+  -webkit-text-fill-color: #405759;
+}
+.pi-party-add {
+  display: inline-flex;
+  width: 35px;
+  flex: 0 0 35px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cfdada;
+  border-radius: 7px;
+  background: #fff;
+  color: #456164;
+  cursor: pointer;
+}
+.pi-party-add:hover { border-color: #9fb2b4; background: #f5f8f8; color: var(--pi-primary); }
+.pi-party-add:focus-visible { outline: 2px solid var(--pi-primary); outline-offset: 2px; }
+.pi-edit-contacts { margin-top: 13px; border-top: 1px solid #e5ebeb; padding-top: 13px; }
 .pi-edit-surface :is(input:not([type="checkbox"]):not([type="hidden"]), select, textarea) {
   min-height: 35px;
   border-color: #dce4e5;
@@ -621,6 +648,8 @@ body.pi-op-lock { overflow: hidden; }
   .pi-edit-card__head { padding: 10px 12px; }
   .pi-edit-section__head p,
   .pi-edit-card__head p { display: none; }
+  .pi-edit-parties-disclosure > summary small { display: none; }
+  .pi-edit-parties-body { padding: 12px; }
   .pi-finance-gross { flex-basis: 132px; }
   .pi-campaign-drawer-context { align-items: flex-start; flex-direction: column; gap: 4px; }
   .pi-campaign-editor-fields { grid-template-columns: minmax(0, 1fr); }

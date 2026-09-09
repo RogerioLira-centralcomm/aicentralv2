@@ -10192,6 +10192,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 data = _coletar_dados_pi_form()
                 data = _preservar_valores_monetarios_pi(data, pi)
+                if pi.get('cotacao_id'):
+                    # Vínculos comerciais pertencem à cotação de origem e não
+                    # podem ser alterados por manipulação do formulário do PI.
+                    data['id_cliente'] = pi.get('id_cliente')
+                    data['id_agencia'] = pi.get('id_agencia')
+                    data['id_parceiro'] = pi.get('id_parceiro')
+                    data['tem_agencia'] = bool(pi.get('id_agencia'))
                 return_url = request.form.get('return_url', '')
 
                 if not data.get('resp_comercial'):

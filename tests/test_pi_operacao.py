@@ -16,6 +16,8 @@ class FakeRepository:
             "id_pi": 10,
             "id_cliente": 20,
             "id_agencia": None,
+            "id_parceiro": 21,
+            "parceiro_nome": "Parceiro Regional Teste",
             "id_resp_comercial": 99,
             "id_pi_tipo": 1,
             "vr_bruto_pi": "R$ 1.000,00",
@@ -178,6 +180,12 @@ class FakeBrevo:
 
 
 class PiOperacaoServiceTest(unittest.TestCase):
+    def test_estado_expoe_parceiro_para_contexto_da_sidebar(self):
+        estado = PiOperacaoService(repository=FakeRepository()).estado_completo(10)
+
+        self.assertEqual(estado["pi"]["id_parceiro"], 21)
+        self.assertEqual(estado["pi"]["parceiro_nome"], "Parceiro Regional Teste")
+
     def test_catalogo_respeita_estagio(self):
         service = PiOperacaoService(repository=FakeRepository(substatus=2))
         tipos = {item["tipo"] for item in service.catalogo(10)["tipos"]}

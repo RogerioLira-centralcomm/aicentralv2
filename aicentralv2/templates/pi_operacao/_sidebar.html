@@ -33,6 +33,7 @@
       <div id="pi-origin-facts" class="pi-op-origin-facts" aria-label="Contexto complementar do PI">
         <div><span>Cliente</span><strong id="pi-origin-client">{{ pi.cliente_nome or 'Não informado' if pi else '—' }}</strong></div>
         <div id="pi-origin-agency-row" {% if not pi or not pi.agencia_nome %}hidden{% endif %}><span>Agência</span><strong id="pi-origin-agency">{{ pi.agencia_nome or '' if pi else '' }}</strong></div>
+        <div id="pi-origin-partner-row" {% if not pi or not pi.parceiro_nome %}hidden{% endif %}><span>Parceiro</span><strong id="pi-origin-partner">{{ pi.parceiro_nome or '' if pi else '' }}</strong></div>
         <div><span>Veiculação</span><strong id="pi-origin-period">—</strong></div>
       </div>
       <div id="pi-route-campaigns" class="pi-op-route-map__campaigns" aria-live="polite">

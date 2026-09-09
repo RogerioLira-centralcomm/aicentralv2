@@ -59,12 +59,13 @@
       </label>
       <label class="cx-field">
         <span class="cx-label">Cor primária</span>
-        <input class="cx-input mc-color-input" name="primary_color" type="color" value="#1E4D4F">
+        <input class="cx-input mc-color-code" name="primary_color" type="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
       </label>
       <label class="cx-field">
         <span class="cx-label">Cor secundária</span>
-        <input class="cx-input mc-color-input" name="secondary_color" type="color" value="#F3B71B">
+        <input class="cx-input mc-color-code" name="secondary_color" type="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
       </label>
+      <section class="mc-brand-palette mc-span-2 hidden" id="mcBrandPalette" aria-label="Paleta visual extraída"></section>
       <label class="cx-field mc-span-2">
         <span class="cx-label">Tom de voz</span>
         <textarea class="cx-textarea" name="tone_of_voice" maxlength="4000" placeholder="Ex.: seguro, humano e direto"></textarea>
@@ -123,6 +124,47 @@
     </div>
   </section>
 </div>
+
+<section class="cx-section mc-creative-line" id="mcCreativeLine">
+  <header class="mc-creative-line-head">
+    <div>
+      <h2>Linguagem criativa da marca</h2>
+      <p>Ensine o padrão visual com campanhas reais já aprovadas. A IA aprende recorrências sem copiar ofertas antigas.</p>
+    </div>
+    <label class="cx-field">
+      <span class="cx-label">Marca para aprender</span>
+      <select class="cx-select" id="mcCreativeLineClient">
+        <option value="">Selecione um perfil</option>
+      </select>
+    </label>
+  </header>
+  <div class="mc-creative-line-workspace">
+    <div class="mc-creative-evidence">
+      <div class="mc-brand-dropzone" id="mcCreativeLineDropzone" role="button" tabindex="0">
+        <input class="mc-visually-hidden" name="creative_line_images" type="file" accept=".png,.jpg,.jpeg,.webp" multiple tabindex="-1">
+        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+        <span><strong>Solte criativos reais da marca</strong><small>Campanhas aprovadas, key visuals, displays ou social. PNG, JPG ou WEBP.</small></span>
+      </div>
+      <div class="mc-creative-upload-strip" id="mcCreativeLineUploads" hidden></div>
+      <div class="mc-creative-library" id="mcCreativeLineLibrary">
+        <p>Selecione uma marca para ver sua memória visual.</p>
+      </div>
+      <footer>
+        <span id="mcCreativeLineStatus" aria-live="polite">A análise usa até seis peças representativas.</span>
+        <button class="cx-btn cx-btn-primary" id="mcAnalyzeCreativeLine" type="button" disabled>
+          <i class="fa-solid fa-brain" aria-hidden="true"></i> Aprender linha criativa
+        </button>
+      </footer>
+    </div>
+    <aside class="mc-creative-dna" id="mcCreativeLineResult">
+      <div class="mc-creative-dna-empty">
+        <i class="fa-solid fa-fingerprint" aria-hidden="true"></i>
+        <strong>DNA criativo ainda não analisado</strong>
+        <p>Adicione peças consistentes para gerar regras de composição, fotografia, tipografia e instruções para o GPT Image 2.</p>
+      </div>
+    </aside>
+  </div>
+</section>
 
 <dialog class="cx-modal" id="mcLogoDialog">
   <form method="dialog">

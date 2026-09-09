@@ -1292,6 +1292,377 @@
   padding-top: 0.75rem;
 }
 
+.mc-brand-palette {
+  display: grid;
+  gap: 0.55rem;
+  border-block: 1px solid #dce7e5;
+  padding-block: 0.75rem;
+}
+
+.mc-brand-palette > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mc-brand-palette > header strong {
+  color: #183436;
+  font-size: 0.76rem;
+}
+
+.mc-brand-palette > header small {
+  color: #64748b;
+  font-size: 0.65rem;
+}
+
+.mc-brand-palette > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  overflow: hidden;
+  border: 1px solid #dce7e5;
+  border-radius: 0.45rem;
+}
+
+.mc-brand-palette button {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 0.5rem;
+  border: 0;
+  border-right: 1px solid #dce7e5;
+  padding: 0.45rem;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mc-brand-palette button:last-child {
+  border-right: 0;
+}
+
+.mc-brand-palette button > span {
+  grid-row: 1 / 3;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.3rem;
+  background: var(--brand-color);
+}
+
+.mc-brand-palette button strong,
+.mc-brand-palette button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-brand-palette button strong {
+  font-size: 0.65rem;
+}
+
+.mc-brand-palette button small {
+  color: #64748b;
+  font-size: 0.58rem;
+}
+
+.mc-brand-palette button:hover,
+.mc-brand-palette button:focus-visible {
+  background: #eef4f3;
+  outline: 2px solid #1e4d4f;
+  outline-offset: -2px;
+}
+
+.mc-color-code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mc-creative-line {
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.mc-creative-line-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+  align-items: end;
+  gap: 1.5rem;
+  border-bottom: 1px solid #dce7e5;
+  padding: 1rem 1.1rem;
+}
+
+.mc-creative-line-head h2,
+.mc-creative-line-head p {
+  margin: 0;
+}
+
+.mc-creative-line-head h2 {
+  color: #183436;
+  font-size: 1rem;
+  letter-spacing: -0.015em;
+}
+
+.mc-creative-line-head p {
+  max-width: 68ch;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.mc-creative-line-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  min-height: 27rem;
+}
+
+.mc-creative-evidence {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.85rem;
+  border-right: 1px solid #dce7e5;
+  padding: 1rem;
+}
+
+.mc-creative-evidence > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #dce7e5;
+  padding-top: 0.8rem;
+}
+
+.mc-creative-evidence > footer > span {
+  max-width: 55ch;
+  color: #64748b;
+  font-size: 0.65rem;
+}
+
+.mc-creative-upload-strip,
+.mc-creative-library {
+  display: grid;
+  grid-auto-columns: minmax(8.5rem, 10rem);
+  grid-auto-flow: column;
+  gap: 0.5rem;
+  min-height: 8rem;
+  overflow-x: auto;
+  padding-bottom: 0.45rem;
+}
+
+.mc-creative-upload-strip article,
+.mc-creative-library article {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  align-content: start;
+  border-bottom: 3px solid #1e4d4f;
+  background: #eef4f3;
+}
+
+.mc-creative-upload-strip img,
+.mc-creative-library img {
+  display: block;
+  width: 100%;
+  height: 7rem;
+  object-fit: contain;
+  background: #fff;
+}
+
+.mc-creative-upload-strip article > span,
+.mc-creative-library article > span {
+  overflow: hidden;
+  padding: 0.35rem 0.4rem;
+  color: #334155;
+  font-size: 0.6rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-creative-upload-strip article > button,
+.mc-creative-library article > button {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(24, 52, 54, 0.9);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mc-creative-library > p {
+  align-self: center;
+  width: max-content;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.mc-creative-dna {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.8rem;
+  padding: 1.1rem;
+  background: #183436;
+  color: #eef4f3;
+}
+
+.mc-creative-dna-empty {
+  display: grid;
+  max-width: 26rem;
+  place-self: center;
+  justify-items: start;
+  gap: 0.55rem;
+}
+
+.mc-creative-dna-empty > i {
+  color: #9ccf31;
+  font-size: 2rem;
+}
+
+.mc-creative-dna-empty strong {
+  font-size: 0.9rem;
+}
+
+.mc-creative-dna-empty p {
+  margin: 0;
+  color: #bad0ce;
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.mc-creative-dna > header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.mc-creative-dna > header > span {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(156, 207, 49, 0.5);
+  border-radius: 50%;
+  color: #9ccf31;
+}
+
+.mc-creative-dna > header > div {
+  display: grid;
+}
+
+.mc-creative-dna > header strong {
+  font-size: 0.78rem;
+}
+
+.mc-creative-dna > header small {
+  color: #9db9b7;
+  font-size: 0.6rem;
+}
+
+.mc-creative-signature {
+  margin: 0;
+  color: #eef4f3;
+  font-size: 0.73rem;
+  line-height: 1.6;
+}
+
+.mc-creative-stale {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-left: 2px solid #f3b71b;
+  padding: 0.45rem 0.55rem;
+  background: rgba(243, 183, 27, 0.09);
+  color: #f7dfa0;
+  font-size: 0.62rem;
+}
+
+.mc-creative-caveats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.mc-creative-caveats span {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.22rem 0.42rem;
+  color: #bad0ce;
+  font-size: 0.57rem;
+}
+
+.mc-creative-palette {
+  display: flex;
+  height: 1.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.25rem;
+}
+
+.mc-creative-palette span {
+  flex: 1;
+  background: var(--brand-color);
+}
+
+.mc-creative-rules {
+  display: grid;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.mc-creative-rules details,
+.mc-gpt-instruction {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.mc-creative-rules summary,
+.mc-gpt-instruction summary {
+  padding: 0.55rem 0;
+  color: #d9e8e7;
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mc-creative-rules summary span {
+  float: right;
+  color: #9ccf31;
+}
+
+.mc-creative-rules ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.7rem;
+  padding-left: 1rem;
+  color: #bad0ce;
+  font-size: 0.63rem;
+  line-height: 1.5;
+}
+
+.mc-gpt-instruction pre {
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0 0 0.7rem;
+  color: #d9e8e7;
+  font: inherit;
+  font-size: 0.62rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .mc-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2960,6 +3331,9 @@
   .mc-library-detail { border-top: 1px solid #e2e8f0; padding: 0; }
   .mc-studio-detail-pane { grid-template-columns: 1fr; }
   .mc-brand-context-grid { grid-template-columns: 1fr; }
+  .mc-creative-line-workspace { grid-template-columns: 1fr; }
+  .mc-creative-evidence { border-right: 0; border-bottom: 1px solid #dce7e5; }
+  .mc-creative-dna { min-height: 22rem; }
 }
 
 @media (max-width: 520px) {
@@ -2977,6 +3351,13 @@
   .mc-brand-dropped article > button:last-child { grid-column: 3; }
   .mc-brand-curator > header { align-items: flex-start; flex-direction: column; }
   .mc-brand-asset-strip { grid-auto-columns: 78vw; }
+  .mc-creative-line-head { grid-template-columns: 1fr; }
+  .mc-creative-evidence > footer { align-items: stretch; flex-direction: column; }
+  .mc-creative-evidence > footer .cx-btn { width: 100%; }
+  .mc-brand-palette > div { grid-template-columns: 1fr 1fr; }
+  .mc-brand-palette button:nth-child(2n) { border-right: 0; }
+  .mc-creative-upload-strip,
+  .mc-creative-library { grid-auto-columns: 42vw; }
 }
 
 @media (prefers-reduced-motion: reduce) {

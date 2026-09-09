@@ -29,7 +29,7 @@ DEFAULT_BRAND_MODEL = os.getenv(
     "CREATIVE_BRAND_ANALYSIS_MODEL", "perplexity/sonar-pro"
 )
 DEFAULT_VISUAL_BRAND_MODEL = os.getenv(
-    "CREATIVE_BRAND_VISUAL_MODEL", "google/gemini-2.5-flash"
+    "CREATIVE_BRAND_VISUAL_MODEL", "openai/gpt-5.4"
 )
 
 BRAND_ANALYSIS_SYSTEM = """Você é estrategista de marca e diretor de criação.
@@ -47,6 +47,9 @@ Retorne apenas JSON válido neste contrato:
   "tone_of_voice": "3 a 6 atributos com orientação de escrita",
   "primary_color": "#RRGGBB ou null",
   "secondary_color": "#RRGGBB ou null",
+  "color_palette": [
+    {"hex":"#RRGGBB","name":"nome","usage":"uso observado","confidence":0.0}
+  ],
   "logo_url": "URL absoluta do logo oficial ou null",
   "target_audience": "público prioritário, dores, desejos e gatilhos em até 900 caracteres",
   "products_services": ["produtos ou serviços efetivamente encontrados"],
@@ -68,6 +71,56 @@ Retorne apenas JSON válido neste contrato:
 
 Use português do Brasil. Cores devem estar em hexadecimal. Não confunda a cor
 de uma peça promocional isolada com a identidade permanente da marca."""
+
+BRAND_VISUAL_REFINEMENT_SYSTEM = """Você é um diretor de identidade visual.
+Receba uma análise factual e evidências visuais oficiais de uma marca. Refine
+somente sua linguagem visual. Observe os pixels: não use paletas genéricas nem
+as cores da interface CentralX. Diferencie cor institucional, neutros, fundo,
+acento e cor promocional transitória. Uma cor só pode entrar na paleta quando
+for visível em mais de uma evidência ou claramente institucional.
+
+Retorne apenas JSON:
+{
+  "primary_color":"#RRGGBB ou null",
+  "secondary_color":"#RRGGBB ou null",
+  "color_palette":[
+    {"hex":"#RRGGBB","name":"nome descritivo","usage":"papel da cor","confidence":0.0}
+  ],
+  "creative_guidelines":"direção visual precisa em até 900 caracteres",
+  "visual_motifs":["padrões realmente observados"],
+  "mandatory_elements":["elementos visuais recorrentes que devem permanecer"],
+  "forbidden_elements":["tratamentos incompatíveis com as evidências"]
+}
+Use entre 3 e 6 cores, ordenadas por importância. Não deduza tipografia, cor ou
+estilo que não esteja visível. Use português do Brasil."""
+
+CREATIVE_LINE_SYSTEM = """Você é diretor de criação sênior especializado em
+transformar campanhas anteriores em um sistema visual reutilizável para
+GPT Image 2. Analise o conjunto como uma família, não como peças isoladas.
+Separe constantes da marca de escolhas específicas de uma campanha. Não copie
+claims, ofertas ou personagens como regra permanente.
+
+Retorne apenas JSON válido:
+{
+  "signature_summary":"assinatura visual em até 700 caracteres",
+  "color_palette":[
+    {"hex":"#RRGGBB","name":"nome","usage":"uso recorrente","confidence":0.0}
+  ],
+  "composition_rules":["regras recorrentes de enquadramento e hierarquia"],
+  "imagery_rules":["fotografia, iluminação, pessoas, produto e cenários"],
+  "typography_rules":["papel e comportamento tipográfico sem inventar fontes"],
+  "graphic_devices":["formas, texturas, molduras, ícones e recursos recorrentes"],
+  "copy_patterns":["densidade, tom e posição da copy observada"],
+  "must_preserve":["elementos que sustentam reconhecimento"],
+  "avoid":["decisões incompatíveis com a linha observada"],
+  "confidence":0.0,
+  "caveats":["limitações da amostra"],
+  "gpt_image_instruction":"bloco imperativo em inglês, até 1600 caracteres, pronto para GPT Image 2"
+}
+Use português do Brasil, exceto gpt_image_instruction. Não reproduza texto
+promocional antigo como conteúdo da nova campanha. Com uma única peça, nunca
+use confiança superior a 0.55 e explicite o risco de confundir campanha com
+identidade permanente."""
 
 
 def _normalized_public_url(raw):
@@ -385,6 +438,7 @@ def _compact_web_evidence(url):
         ]
     record = _montar_registro(domain, raw, effective_url)
     record["logo_url"] = strong_logo.get("url") if strong_logo else None
+    branding = raw.get("branding") or {}
     return {
         "source_url": effective_url,
         "title": record.get("titulo"),
@@ -396,6 +450,11 @@ def _compact_web_evidence(url):
         "asset_candidates": candidates,
         "reference_images": references[:24],
         "screenshot": raw.get("screenshot"),
+        "branding": {
+            key: branding.get(key)
+            for key in ("colors", "colorScheme", "fonts")
+            if branding.get(key) not in (None, "", [], {})
+        },
     }, record
 
 
@@ -433,6 +492,53 @@ def _confidence(value):
     return result
 
 
+def _palette(value):
+    if not isinstance(value, list):
+        return []
+    result = []
+    seen = set()
+    for item in value[:6]:
+        if not isinstance(item, dict):
+            continue
+        color = _color(item.get("hex"))
+        if not color or color in seen:
+            continue
+        seen.add(color)
+        try:
+            confidence = max(0.0, min(float(item.get("confidence", 0)), 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        result.append({
+            "hex": color,
+            "name": _text(item.get("name"), 80) or "Cor da marca",
+            "usage": _text(item.get("usage"), 240) or "Uso institucional",
+            "confidence": confidence,
+        })
+    return result
+
+
+def _visual_evidence_parts(evidence):
+    urls = []
+    screenshot = evidence.get("screenshot")
+    if isinstance(screenshot, str) and screenshot.startswith(("http://", "https://")):
+        urls.append(screenshot)
+    for candidate in evidence.get("asset_candidates") or []:
+        url = str(candidate.get("url") or "")
+        clean_path = urlparse(url).path.lower()
+        if (
+            url.startswith(("http://", "https://"))
+            and clean_path.endswith((".png", ".jpg", ".jpeg", ".webp"))
+            and url not in urls
+        ):
+            urls.append(url)
+        if len(urls) >= 4:
+            break
+    return [
+        {"type": "image_url", "image_url": {"url": url}}
+        for url in urls
+    ]
+
+
 class CreativeBrandAnalyzer:
     def __init__(self, llm=None, model=None, visual_model=None):
         self.llm = llm or chat_completion
@@ -461,19 +567,70 @@ class CreativeBrandAnalyzer:
                 ),
             }
         ]
-        content.extend(image_content)
-        selected_model = self.visual_model if image_content else self.model
-        response = self.llm(
+        text_response = self.llm(
             [
                 {"role": "system", "content": BRAND_ANALYSIS_SYSTEM},
                 {"role": "user", "content": content},
             ],
-            model=selected_model,
+            model=self.model,
             max_tokens=2200,
             temperature=0.15,
             timeout=60,
         )
-        result = _json_content(response["message"].get("content"))
+        result = _json_content(text_response["message"].get("content"))
+        visual_parts = image_content + _visual_evidence_parts(evidence)
+        visual_response = None
+        if visual_parts:
+            try:
+                visual_response = self.llm(
+                    [
+                        {
+                            "role": "system",
+                            "content": BRAND_VISUAL_REFINEMENT_SYSTEM,
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps(
+                                        {
+                                            "factual_analysis": result,
+                                            "branding_metadata": {
+                                                "source_url": evidence.get("source_url"),
+                                                "logo_url": evidence.get("logo_url"),
+                                                "description": evidence.get("description"),
+                                                "branding": evidence.get("branding"),
+                                            },
+                                        },
+                                        ensure_ascii=False,
+                                    ),
+                                },
+                                *visual_parts,
+                            ],
+                        },
+                    ],
+                    model=self.visual_model,
+                    max_tokens=1800,
+                    temperature=0.05,
+                    timeout=60,
+                )
+                visual_result = _json_content(
+                    visual_response["message"].get("content")
+                )
+                for key in (
+                    "primary_color",
+                    "secondary_color",
+                    "color_palette",
+                    "creative_guidelines",
+                    "visual_motifs",
+                    "mandatory_elements",
+                    "forbidden_elements",
+                ):
+                    if visual_result.get(key) not in (None, "", []):
+                        result[key] = visual_result[key]
+            except Exception:
+                visual_response = None
         detected_logo = (web_record or {}).get("logo_url")
         asset_candidates = evidence.get("asset_candidates") or []
         candidate_urls = {item.get("url") for item in asset_candidates}
@@ -491,14 +648,23 @@ class CreativeBrandAnalyzer:
             if page.get("url")
         ]
         sources = list(dict.fromkeys(sources + evidence_sources))[:12]
+        palette = _palette(result.get("color_palette"))
+        primary_color = _color(result.get("primary_color"))
+        secondary_color = _color(result.get("secondary_color"))
+        if palette:
+            primary_color = primary_color or palette[0]["hex"]
+            secondary_color = secondary_color or (
+                palette[1]["hex"] if len(palette) > 1 else None
+            )
         return {
             "name": _text(result.get("name"), 150),
             "sector": _text(result.get("sector"), 80),
             "website_url": normalized_url,
             "brand_summary": _text(result.get("brand_summary"), 2000),
             "tone_of_voice": _text(result.get("tone_of_voice"), 4000),
-            "primary_color": _color(result.get("primary_color")),
-            "secondary_color": _color(result.get("secondary_color")),
+            "primary_color": primary_color,
+            "secondary_color": secondary_color,
+            "color_palette": palette,
             "logo_url": logo_url,
             "target_audience": _text(result.get("target_audience"), 4000),
             "products_services": _string_list(
@@ -528,7 +694,12 @@ class CreativeBrandAnalyzer:
             "confidence": confidence,
             "sources": sources,
             "analysis_metadata": {
-                "model": response.get("model") or selected_model,
+                "model": text_response.get("model") or self.model,
+                "visual_model": (
+                    visual_response.get("model") or self.visual_model
+                    if visual_response else None
+                ),
+                "visual_evidence_count": len(visual_parts),
                 "analyzed_at": datetime.now(timezone.utc).isoformat(),
                 "source_types": [
                     source
@@ -546,4 +717,96 @@ class CreativeBrandAnalyzer:
                 "pages_analyzed": len(evidence.get("pages") or []),
                 "assets_found": len(asset_candidates),
             },
+        }
+
+    def analyze_creative_line(self, image_data_urls, client):
+        images = [
+            {
+                "type": "image_url",
+                "image_url": {"url": str(data_url)},
+            }
+            for data_url in list(image_data_urls or [])[:6]
+            if str(data_url).startswith("data:image/")
+        ]
+        if not images:
+            raise ValueError(
+                "Adicione ao menos um criativo real antes de analisar a linha."
+            )
+        profile = client.get("brand_profile") or {}
+        response = self.llm(
+            [
+                {"role": "system", "content": CREATIVE_LINE_SYSTEM},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "brand": client.get("name"),
+                                    "sector": client.get("sector"),
+                                    "known_identity": {
+                                        "primary_color": client.get("primary_color"),
+                                        "secondary_color": client.get("secondary_color"),
+                                        "color_palette": profile.get("color_palette"),
+                                        "creative_guidelines": profile.get(
+                                            "creative_guidelines"
+                                        ),
+                                    },
+                                    "task": (
+                                        "Aprender apenas os padrões recorrentes "
+                                        "dos criativos anexados."
+                                    ),
+                                },
+                                ensure_ascii=False,
+                            ),
+                        },
+                        *images,
+                    ],
+                },
+            ],
+            model=self.visual_model,
+            max_tokens=2400,
+            temperature=0.05,
+            timeout=90,
+        )
+        result = _json_content(response["message"].get("content"))
+        try:
+            confidence = max(0.0, min(float(result.get("confidence", 0)), 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if len(images) == 1:
+            confidence = min(confidence, 0.55)
+        return {
+            "signature_summary": _text(result.get("signature_summary"), 2000),
+            "color_palette": _palette(result.get("color_palette")),
+            "composition_rules": _string_list(
+                result.get("composition_rules"), limit=10, item_limit=500
+            ),
+            "imagery_rules": _string_list(
+                result.get("imagery_rules"), limit=10, item_limit=500
+            ),
+            "typography_rules": _string_list(
+                result.get("typography_rules"), limit=10, item_limit=500
+            ),
+            "graphic_devices": _string_list(
+                result.get("graphic_devices"), limit=10, item_limit=500
+            ),
+            "copy_patterns": _string_list(
+                result.get("copy_patterns"), limit=10, item_limit=500
+            ),
+            "must_preserve": _string_list(
+                result.get("must_preserve"), limit=10, item_limit=500
+            ),
+            "avoid": _string_list(result.get("avoid"), limit=10, item_limit=500),
+            "confidence": confidence,
+            "caveats": _string_list(
+                result.get("caveats"), limit=6, item_limit=500
+            ),
+            "gpt_image_instruction": _text(
+                result.get("gpt_image_instruction"), 4000
+            ),
+            "model": response.get("model") or self.visual_model,
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
+            "source_count": len(images),
         }

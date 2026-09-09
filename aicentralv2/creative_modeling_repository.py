@@ -267,7 +267,13 @@ class CreativeModelingRepository:
                       FROM cx_client_brand_assets
                      WHERE client_id = %s
                        AND (%s = FALSE OR status = 'approved')
-                     ORDER BY is_primary DESC, score DESC NULLS LAST, id
+                     ORDER BY CASE role
+                                  WHEN 'creative' THEN 0
+                                  WHEN 'logo' THEN 1
+                                  ELSE 2
+                              END,
+                              is_primary DESC,
+                              score DESC NULLS LAST, id DESC
                     """,
                     (client_id, approved_only),
                 )
@@ -384,13 +390,27 @@ class CreativeModelingRepository:
                 )
             return dict(asset)
 
+    def update_client_brand_profile(self, client_id, brand_profile):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_clients
+                   SET brand_profile = %s
+                 WHERE id = %s
+                RETURNING id
+                """,
+                (Json(brand_profile or {}), client_id),
+            )
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Cliente não encontrado.")
+
     def delete_client_brand_asset(self, client_id, asset_id):
         with self._write() as cursor:
             cursor.execute(
                 """
                 DELETE FROM cx_client_brand_assets
                  WHERE id = %s AND client_id = %s
-                RETURNING asset_path, is_primary
+                RETURNING asset_path, is_primary, role
                 """,
                 (asset_id, client_id),
             )

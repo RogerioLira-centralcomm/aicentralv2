@@ -131,6 +131,7 @@ def compose_format_mockup_prompt(
     presentation_mode="single",
     campaign_content=None,
     has_references=False,
+    has_brand_references=False,
 ):
     """Monta um prompt por camadas, sem templates livres vindos do cliente."""
     placement = format_data.get("placement_spec") or {}
@@ -192,23 +193,66 @@ def compose_format_mockup_prompt(
             "empty, neutral and clearly reserved. Do not place a finished ad in it."
         )
     elif client:
-        sections.append(
-            "\n".join(
-                [
-                    "BRAND CONTEXT",
-                    f"Brand: {_value(client, 'name')}",
-                    f"Sector: {_value(client, 'sector')}",
-                    f"Voice: {_value(client, 'tone_of_voice')}",
-                    f"Primary color: {_value(client, 'primary_color')}",
-                    f"Secondary color: {_value(client, 'secondary_color')}",
-                    (
-                        "Price policy: show price only when explicitly requested."
-                        if client.get("price_policy") == "show_price"
-                        else "Price policy: do not show price."
-                    ),
-                ]
+        profile = client.get("brand_profile") or {}
+        palette = [
+            f"{item.get('hex')} ({item.get('usage') or 'brand use'})"
+            for item in (profile.get("color_palette") or [])
+            if isinstance(item, dict) and item.get("hex")
+        ]
+        brand_lines = [
+            "BRAND CONTEXT",
+            f"Brand: {_value(client, 'name')}",
+            f"Sector: {_value(client, 'sector')}",
+            f"Voice: {_value(client, 'tone_of_voice')}",
+            f"Primary color: {_value(client, 'primary_color')}",
+            f"Secondary color: {_value(client, 'secondary_color')}",
+            (
+                "Price policy: show price only when explicitly requested."
+                if client.get("price_policy") == "show_price"
+                else "Price policy: do not show price."
+            ),
+        ]
+        if palette:
+            brand_lines.append("Observed palette: " + "; ".join(palette[:6]))
+        if profile.get("creative_guidelines"):
+            brand_lines.append(
+                f"Creative direction: {profile['creative_guidelines']}"
             )
-        )
+        for key, label in (
+            ("visual_motifs", "Recurring visual motifs"),
+            ("mandatory_elements", "Mandatory brand elements"),
+            ("forbidden_elements", "Brand restrictions"),
+        ):
+            values = profile.get(key)
+            if isinstance(values, list) and values:
+                brand_lines.append(f"{label}: " + " | ".join(map(str, values[:6])))
+        sections.append("\n".join(brand_lines))
+        creative_line = profile.get("creative_line") or {}
+        if isinstance(creative_line, dict) and creative_line.get(
+            "signature_summary"
+        ):
+            learned = [
+                "LEARNED CREATIVE LINE",
+                f"Signature: {creative_line['signature_summary']}",
+            ]
+            for key, label in (
+                ("composition_rules", "Composition"),
+                ("imagery_rules", "Imagery"),
+                ("typography_rules", "Typography"),
+                ("graphic_devices", "Graphic devices"),
+                ("must_preserve", "Must preserve"),
+                ("avoid", "Avoid"),
+            ):
+                values = creative_line.get(key)
+                if isinstance(values, list) and values:
+                    learned.append(f"{label}: " + " | ".join(map(str, values[:6])))
+            if creative_line.get("gpt_image_instruction"):
+                learned.append(str(creative_line["gpt_image_instruction"]))
+            learned.append(
+                "Reuse only the visual system. Never reuse previous offers, "
+                "prices, claims or campaign copy."
+            )
+            sections.append("\n".join(learned))
     else:
         sections.append(
             "BRAND CONTEXT\nUse a fictional neutral brand with no recognizable "
@@ -224,6 +268,13 @@ def compose_format_mockup_prompt(
             "dimensions, header and CTA locations, outer-frame relationship and the "
             "interaction metaphor. Replace only campaign, colors, photography and copy. "
             "Do not redesign the format."
+        )
+    if has_brand_references:
+        sections.append(
+            "BRAND REFERENCE RULES\nApproved brand images are attached as identity "
+            "evidence, not as layout templates. Match their palette, materials, "
+            "lighting and logo treatment. Reproduce the logo faithfully without "
+            "redrawing or restyling it, and never copy their layout, offers or copy."
         )
     sections.append(STRICT_NEGATIVE_RULES)
     return "\n\n".join(section.strip() for section in sections if section)

@@ -205,6 +205,17 @@ def api_upload_client_brand_assets(cid):
 
 
 @admin_required_api
+def api_learn_client_creative_line(cid):
+    return _execute(
+        lambda: _ok(
+            _service().learn_client_creative_line(
+                cid, request.files.getlist("creatives")
+            )
+        )
+    )
+
+
+@admin_required_api
 def api_primary_client_brand_asset(cid, asset_id):
     return _execute(
         lambda: _ok(_service().set_primary_brand_asset(cid, asset_id))
@@ -634,6 +645,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/clients/<int:cid>/brand-assets",
         endpoint="creative_client_brand_assets_upload",
         view_func=api_upload_client_brand_assets,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/clients/<int:cid>/creative-line/analyze",
+        endpoint="creative_client_line_analyze",
+        view_func=api_learn_client_creative_line,
         methods=["POST"],
     )
     blueprint.add_url_rule(

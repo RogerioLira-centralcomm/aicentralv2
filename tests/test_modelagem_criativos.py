@@ -454,7 +454,7 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         )
         result = CreativeBrandAnalyzer(llm=llm).analyze("marca.com.br", image)
 
-        self.assertEqual(captured["model"], "google/gemini-2.5-flash")
+        self.assertEqual(captured["model"], "openai/gpt-5.4")
         self.assertEqual(result["primary_color"], "#123ABC")
         self.assertEqual(result["logo_url"], "https://marca.com.br/logo.svg")
         self.assertEqual(result["analysis_metadata"]["source_types"], ["url", "image"])
@@ -464,6 +464,100 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
     def test_bloqueia_url_local(self):
         with self.assertRaisesRegex(ValueError, "site público"):
             CreativeBrandAnalyzer(llm=Mock()).analyze("http://127.0.0.1")
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=(
+            {
+                "source_url": "https://marca.com.br",
+                "screenshot": "https://cdn.marca.com/screenshot.png",
+                "asset_candidates": [],
+                "pages": [],
+            },
+            {"logo_url": None},
+        ),
+    )
+    def test_refina_paleta_com_modelo_visual_e_pixels_do_site(self, _evidence):
+        calls = []
+
+        def llm(messages, **kwargs):
+            calls.append((messages, kwargs))
+            if len(calls) == 1:
+                content = {
+                    "name": "Marca",
+                    "primary_color": "#111111",
+                    "secondary_color": "#222222",
+                }
+            else:
+                content = {
+                    "primary_color": "#7A1632",
+                    "secondary_color": "#E8D8C8",
+                    "color_palette": [
+                        {
+                            "hex": "#7A1632",
+                            "name": "Vinho institucional",
+                            "usage": "Assinatura e CTA",
+                            "confidence": 0.94,
+                        },
+                        {
+                            "hex": "#E8D8C8",
+                            "name": "Areia",
+                            "usage": "Fundos",
+                            "confidence": 0.83,
+                        },
+                    ],
+                }
+            return {
+                "message": {"content": json.dumps(content)},
+                "model": kwargs["model"],
+            }
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze("marca.com.br")
+
+        self.assertEqual([call[1]["model"] for call in calls], [
+            "perplexity/sonar-pro",
+            "openai/gpt-5.4",
+        ])
+        self.assertEqual(result["primary_color"], "#7A1632")
+        self.assertEqual(result["color_palette"][0]["usage"], "Assinatura e CTA")
+        self.assertEqual(result["analysis_metadata"]["visual_evidence_count"], 1)
+
+    def test_aprende_linha_criativa_e_normaliza_instrucao_para_image_2(self):
+        def llm(_messages, **kwargs):
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "signature_summary": "Produto central e luz lateral suave.",
+                        "color_palette": [{
+                            "hex": "#6A1538",
+                            "name": "Vinho",
+                            "usage": "Assinatura",
+                            "confidence": 0.9,
+                        }],
+                        "composition_rules": ["Produto ocupa o terço central."],
+                        "imagery_rules": ["Luz natural lateral."],
+                        "typography_rules": ["Título curto no topo."],
+                        "graphic_devices": ["Faixa fina vinho."],
+                        "copy_patterns": ["Poucas palavras."],
+                        "must_preserve": ["Respiro amplo."],
+                        "avoid": ["Fundos saturados."],
+                        "confidence": 0.9,
+                        "caveats": ["Amostra de uma única campanha."],
+                        "gpt_image_instruction": "Preserve generous negative space.",
+                    })
+                },
+                "model": kwargs["model"],
+            }
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze_creative_line(
+            ["data:image/png;base64,aW1hZ2U="],
+            {"name": "Marca", "brand_profile": {}},
+        )
+
+        self.assertEqual(result["source_count"], 1)
+        self.assertIn("negative space", result["gpt_image_instruction"])
+        self.assertEqual(result["color_palette"][0]["hex"], "#6A1538")
+        self.assertEqual(result["confidence"], 0.55)
 
     def test_coleta_paginas_e_imagens_do_dominio_oficial(self):
         from aicentralv2 import creative_brand_analysis as analysis
@@ -564,6 +658,51 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(urls), 1)
         self.assertEqual(used[0]["id"], 31)
 
+    def test_aprendizado_da_linha_criativa_persiste_no_perfil(self):
+        self.repo.list_client_brand_assets = lambda _client_id: [{
+            "id": 41,
+            "role": "creative",
+            "asset_path": "/static/uploads/creative_references/campanha.png",
+            "mime_type": "image/png",
+        }]
+        updated = {}
+        self.repo.update_client_brand_profile = (
+            lambda client_id, profile: updated.update(
+                {"client_id": client_id, "profile": profile}
+            )
+        )
+        self.service.brand_analyzer = Mock()
+        self.service.brand_analyzer.analyze_creative_line.return_value = {
+            "signature_summary": "Produto central com muito respiro.",
+            "gpt_image_instruction": "Keep the product centered.",
+            "source_count": 1,
+        }
+
+        result = self.service.learn_client_creative_line(10, [])
+
+        self.assertEqual(result["creative_line"]["source_count"], 1)
+        self.assertEqual(updated["client_id"], 10)
+        self.assertIn("creative_line", updated["profile"])
+
+    def test_prompt_injeta_dna_criativo_aprendido_para_gpt_image_2(self):
+        context = self.repo.get_step_context(8)
+        context["brand_profile"] = {
+            "creative_line": {
+                "signature_summary": "Produto central e fundo com respiro.",
+                "composition_rules": ["Produto no terço central."],
+                "must_preserve": ["Luz lateral suave."],
+                "avoid": ["Fundos saturados."],
+                "gpt_image_instruction": "Keep generous negative space.",
+            }
+        }
+        prompt = self.service.build_prompt(
+            context, context["step"], 1
+        )
+
+        self.assertIn("Assinatura aprendida de criativos reais", prompt)
+        self.assertIn("[INSTRUÇÃO APRENDIDA PARA GPT IMAGE 2]", prompt)
+        self.assertIn("Keep generous negative space.", prompt)
+
     def test_cliente_valida_cores_e_salva_identidade(self):
         result = self.service.create_client(
             {
@@ -587,6 +726,12 @@ class CreativeServiceTest(unittest.TestCase):
                 "ad_segments": ["Conveniência", "Qualidade"],
                 "creative_guidelines": "Fotografia editorial.",
                 "campaign_opportunities": ["Lançamento"],
+                "color_palette": [{
+                    "hex": "#7a1632",
+                    "name": "Vinho",
+                    "usage": "Assinatura",
+                    "confidence": 0.91,
+                }],
                 "analysis_metadata": {"model": "perplexity/sonar-pro"},
             }
         )
@@ -597,6 +742,9 @@ class CreativeServiceTest(unittest.TestCase):
         )
         self.assertEqual(
             saved["analysis_metadata"]["model"], "perplexity/sonar-pro"
+        )
+        self.assertEqual(
+            saved["brand_profile"]["color_palette"][0]["hex"], "#7A1632"
         )
 
     def test_banner_estatico_tem_uma_cena_e_demais_formatos_quatro(self):
@@ -994,6 +1142,44 @@ class CreativeServiceTest(unittest.TestCase):
             self.repo.format_jobs[-1]["prompt"],
         )
 
+    def test_mockup_de_formato_usa_dna_e_referencias_aprovadas_da_marca(self):
+        client = self.repo.get_client(10)
+        client["brand_profile"] = {
+            "creative_guidelines": "Produto real com luz natural.",
+            "visual_motifs": ["Fundo areia"],
+            "color_palette": [{
+                "hex": "#7A1632",
+                "name": "Vinho",
+                "usage": "Assinatura",
+            }],
+            "creative_line": {
+                "signature_summary": "Produto central com respiro amplo.",
+                "composition_rules": ["Produto no terço central."],
+                "gpt_image_instruction": "Keep generous negative space.",
+            },
+        }
+        self.repo.get_client = lambda _client_id: client
+        self.repo.list_client_brand_assets = lambda _client_id: [{
+            "id": 55,
+            "role": "logo",
+            "asset_path": "/static/uploads/creative_references/logo.png",
+            "mime_type": "image/png",
+        }]
+
+        self.service.generate_format_mockup(
+            7,
+            {"slot": "1", "reference_type": "full_mockup", "client_id": 10},
+            [],
+        )
+        job = self.repo.format_jobs[-1]
+
+        self.assertIn("Observed palette: #7A1632", job["prompt"])
+        self.assertIn("LEARNED CREATIVE LINE", job["prompt"])
+        self.assertIn("Keep generous negative space.", job["prompt"])
+        self.assertIn("BRAND REFERENCE RULES", job["prompt"])
+        self.assertNotIn("STRUCTURAL REFERENCE RULES", job["prompt"])
+        self.assertEqual(job["input_references"], [])
+
     def test_prompt_escolhe_ambiente_nativo_do_placement(self):
         portal_prompt = self.service.build_format_mockup_prompt(
             self.repo.format_data
@@ -1356,6 +1542,36 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(args[0], "https://marca.com.br")
         self.assertEqual(args[1][0].filename, "marca.png")
 
+    def test_api_aprende_linha_criativa_com_multiplas_pecas(self):
+        service = Mock()
+        service.learn_client_creative_line.return_value = {
+            "client_id": 10,
+            "creative_line": {"source_count": 2},
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/clients/10/creative-line/analyze",
+                data={
+                    "creatives": [
+                        (BytesIO(b"image-one"), "campanha-1.png"),
+                        (BytesIO(b"image-two"), "campanha-2.png"),
+                    ],
+                },
+                content_type="multipart/form-data",
+            )
+        self.assertEqual(response.status_code, 200)
+        files = service.learn_client_creative_line.call_args.args[1]
+        self.assertEqual([item.filename for item in files], [
+            "campanha-1.png",
+            "campanha-2.png",
+        ])
+
 
 class CreativeFilesContractTest(unittest.TestCase):
     def test_templates_sao_jinja_valido_e_usam_design_system(self):
@@ -1376,8 +1592,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=15", page)
-        self.assertIn("modelagem_criativos.js') }}?v=15", page)
+        self.assertIn("modelagem_criativos.css') }}?v=16", page)
+        self.assertIn("modelagem_criativos.js') }}?v=16", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1444,10 +1660,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcBrandDropzone"', clients)
         self.assertIn('id="mcBrandAssetStrip"', clients)
         self.assertIn('id="mcBrandSelectionTray"', clients)
+        self.assertIn('id="mcBrandPalette"', clients)
+        self.assertIn('id="mcCreativeLine"', clients)
+        self.assertIn('id="mcCreativeLineDropzone"', clients)
+        self.assertIn('id="mcCreativeLineResult"', clients)
         self.assertIn('class="mc-visually-hidden"', clients)
         self.assertNotIn('class="cx-input" name="brand_image"', clients)
         self.assertIn("setupBrandDropzone(", production_js)
         self.assertIn("data-brand-select", production_js)
+        self.assertIn("learnCreativeLine(button)", production_js)
+        self.assertIn("creative-line/analyze", production_js)
         catalog_dir = (
             root / "aicentralv2" / "static" / "images"
             / "creative-viewers" / "catalog"
@@ -1597,11 +1819,19 @@ class CreativeFilesContractTest(unittest.TestCase):
             '"$VENV_PYTHON" migrations/run_add_creative_client_brand_assets.py',
             deploy,
         )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_brand_lineage.py',
+            deploy,
+        )
         brand_assets_migration = (
             root / "migrations" / "add_creative_client_brand_assets.sql"
         ).read_text(encoding="utf-8")
         self.assertIn("CREATE TABLE IF NOT EXISTS cx_client_brand_assets", brand_assets_migration)
         self.assertIn("uq_cx_client_brand_assets_primary_logo", brand_assets_migration)
+        brand_lineage_migration = (
+            root / "migrations" / "add_creative_brand_lineage.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("'creative'", brand_lineage_migration)
         self.assertIn(
             '"$VENV_PYTHON" scripts/seed_creative_formats.py',
             deploy,

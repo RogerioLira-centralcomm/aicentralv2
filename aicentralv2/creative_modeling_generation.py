@@ -25,6 +25,10 @@ interfaces de terceiros. Retorne JSON puro com:
 {"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
 O prompt_en deve descrever composição, hierarquia, conteúdo, cores, iluminação,
 texto permitido e restrições técnicas sem inventar preços ou claims.
+Quando client_identity.profile.creative_line existir, trate-a como sistema visual
+aprendido de campanhas reais: preserve assinatura, composição, imagem e recursos
+recorrentes, mas nunca recicle ofertas ou textos antigos. Inclua integralmente
+gpt_image_instruction no prompt final para o GPT Image 2.
 O prompt deve exigir explicitamente que toda copy publicitária visível esteja em
 português do Brasil, sem slogans em inglês inventados. Nomes registrados de
 marca ou produto podem ser preservados."""
@@ -45,7 +49,9 @@ bíblia visual consistente. Retorne somente JSON puro:
 "scenes":[{"position":1,"role":"gancho","description":"..."}]}.
 Para quatro cenas, use nesta ordem: gancho, contexto_produto, beneficio e
 fechamento. Para uma cena, use composição_final. Descreva toda copy visível em
-português do Brasil e preserve nomes próprios da marca."""
+português do Brasil e preserve nomes próprios da marca. Se o perfil trouxer uma
+creative_line aprendida, use sua assinatura visual como bíblia de continuidade,
+sem copiar campanhas, ofertas ou claims anteriores."""
 
 IMAGE_REVIEW_SYSTEM = """Você é revisor de qualidade de publicidade digital.
 Analise a imagem contra o briefing informado. Não presuma falhas que não estejam

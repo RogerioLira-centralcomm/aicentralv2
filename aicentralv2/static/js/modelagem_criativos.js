@@ -48,6 +48,8 @@
     brandFiles: [],
     primaryBrandAssetUrl: null,
     primaryBrandFileIndex: -1,
+    creativeLineFiles: [],
+    creativeLineClientId: null,
     enhancedBrief: null,
     locks: new Set(),
   };
@@ -1427,9 +1429,10 @@
         <td><strong>${escapeHtml(client.name)}</strong><br><span class="mc-section-note">${escapeHtml(client.sector || 'Sem setor')}</span>${client.analysis_metadata?.model ? '<br><span class="cx-badge cx-badge-info">Perfil analisado</span>' : ''}</td>
         <td><span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.primary_color || '#ffffff')}"></span> <span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.secondary_color || '#ffffff')}"></span></td>
         <td>${logo ? `<img src="${escapeHtml(logo)}" alt="" style="width:40px;height:32px;object-fit:contain">` : '<span class="cx-badge cx-badge-muted">Sem logo</span>'}</td>
-        <td><div class="mc-inspector-actions"><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button><button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button></div></td>
+        <td><div class="mc-inspector-actions"><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-creative-line" data-client-id="${client.id}" type="button">Linha criativa</button><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button><button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button></div></td>
       </tr>`;
     }).join('') || '<tr><td colspan="4">Cadastre o primeiro perfil de marca.</td></tr>';
+    renderCreativeLineClientOptions();
   }
 
   function lines(value) {
@@ -1459,6 +1462,143 @@
       ${sources.length ? `<span>Fontes: ${sources.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${index + 1}</a>`).join(', ')}</span>` : ''}
       <span>Revise os campos antes de salvar.</span>`;
     root.classList.remove('hidden');
+  }
+
+  function renderBrandPalette(palette) {
+    const root = $('#mcBrandPalette');
+    if (!root) return;
+    const colors = Array.isArray(palette) ? palette : [];
+    root.classList.toggle('hidden', !colors.length);
+    root.innerHTML = colors.length ? `
+      <header><strong>Paleta observada</strong><small>Cores ordenadas por presença e função na identidade.</small></header>
+      <div>${colors.map((color) => `
+        <button type="button" data-palette-color="${escapeHtml(color.hex)}" title="${escapeHtml(color.usage || '')}">
+          <span style="--brand-color:${escapeHtml(color.hex)}"></span>
+          <strong>${escapeHtml(color.name || color.hex)}</strong>
+          <small>${escapeHtml(color.hex)} · ${Math.round(Number(color.confidence || 0) * 100)}%</small>
+        </button>`).join('')}</div>` : '';
+  }
+
+  function renderCreativeLineClientOptions() {
+    const select = $('#mcCreativeLineClient');
+    if (!select) return;
+    const current = String(state.creativeLineClientId || select.value || '');
+    select.innerHTML = '<option value="">Selecione um perfil</option>' + state.clients.map(
+      (client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`,
+    ).join('');
+    select.value = current;
+    if (current && !select.value) {
+      state.creativeLineClientId = null;
+      renderCreativeLineWorkspace();
+    }
+  }
+
+  function creativeLineClient() {
+    return state.clients.find(
+      (client) => Number(client.id) === Number(state.creativeLineClientId),
+    ) || null;
+  }
+
+  function renderCreativeLineUploads() {
+    const root = $('#mcCreativeLineUploads');
+    if (!root) return;
+    root.hidden = !state.creativeLineFiles.length;
+    root.innerHTML = state.creativeLineFiles.map((file, index) => `
+      <article>
+        <img src="${URL.createObjectURL(file)}" alt="">
+        <button type="button" data-creative-remove="${index}" aria-label="Remover ${escapeHtml(file.name)}"><i class="fa-solid fa-xmark"></i></button>
+        <span>${escapeHtml(file.name)}</span>
+      </article>`).join('');
+  }
+
+  function renderCreativeLineResult(line) {
+    const root = $('#mcCreativeLineResult');
+    if (!root) return;
+    if (!line?.signature_summary) {
+      root.innerHTML = `<div class="mc-creative-dna-empty">
+        <i class="fa-solid fa-fingerprint" aria-hidden="true"></i>
+        <strong>DNA criativo ainda não analisado</strong>
+        <p>Adicione peças consistentes para gerar regras de composição, fotografia, tipografia e instruções para o GPT Image 2.</p>
+      </div>`;
+      return;
+    }
+    const sections = [
+      ['Composição', line.composition_rules],
+      ['Imagem e fotografia', line.imagery_rules],
+      ['Tipografia', line.typography_rules],
+      ['Recursos gráficos', line.graphic_devices],
+      ['Preservar', line.must_preserve],
+      ['Evitar', line.avoid],
+    ].filter(([, values]) => Array.isArray(values) && values.length);
+    root.innerHTML = `
+      <header><span><i class="fa-solid fa-fingerprint"></i></span><div><strong>DNA criativo aprendido</strong><small>${escapeHtml(line.source_count || 0)} peças · confiança ${Math.round(Number(line.confidence || 0) * 100)}%</small></div></header>
+      ${line.stale ? `<div class="mc-creative-stale"><i class="fa-solid fa-rotate"></i> ${escapeHtml(line.stale_reason || 'Analise novamente após alterar as referências.')}</div>` : ''}
+      <p class="mc-creative-signature">${escapeHtml(line.signature_summary)}</p>
+      ${(line.caveats || []).length ? `<div class="mc-creative-caveats">${line.caveats.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+      ${(line.color_palette || []).length ? `<div class="mc-creative-palette">${line.color_palette.map((color) => `<span style="--brand-color:${escapeHtml(color.hex)}" title="${escapeHtml(color.name)}"></span>`).join('')}</div>` : ''}
+      <div class="mc-creative-rules">${sections.map(([title, values]) => `<details><summary>${escapeHtml(title)} <span>${values.length}</span></summary><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></details>`).join('')}</div>
+      ${line.gpt_image_instruction ? `<details class="mc-gpt-instruction"><summary>Instrução enviada ao GPT Image 2</summary><pre>${escapeHtml(line.gpt_image_instruction)}</pre></details>` : ''}`;
+  }
+
+  function renderCreativeLineWorkspace() {
+    const client = creativeLineClient();
+    const library = $('#mcCreativeLineLibrary');
+    const analyze = $('#mcAnalyzeCreativeLine');
+    if (!client) {
+      library.innerHTML = '<p>Selecione uma marca para ver sua memória visual.</p>';
+      analyze.disabled = true;
+      renderCreativeLineResult(null);
+      return;
+    }
+    const assets = (client.brand_assets || []).filter(
+      (asset) => asset.role === 'creative',
+    );
+    library.innerHTML = assets.length ? assets.map((asset) => `
+      <article>
+        <img src="${escapeHtml(asset.asset_path || asset.source_url)}" alt="${escapeHtml(asset.metadata?.original_name || 'Criativo da marca')}" loading="lazy">
+        <button type="button" data-creative-delete="${asset.id}" aria-label="Remover criativo"><i class="fa-solid fa-trash-can"></i></button>
+        <span>${escapeHtml(asset.metadata?.original_name || 'Criativo aprovado')}</span>
+      </article>`).join('') : '<p>Nenhum criativo real salvo para esta marca.</p>';
+    analyze.disabled = !(assets.length || state.creativeLineFiles.length);
+    renderCreativeLineResult(client.brand_profile?.creative_line);
+  }
+
+  function addCreativeLineFiles(files) {
+    const incoming = Array.from(files || []).filter(
+      (file) => /^image\/(png|jpeg|webp)$/.test(file.type) && file.size <= 5 * 1024 * 1024,
+    );
+    state.creativeLineFiles = [...state.creativeLineFiles, ...incoming].slice(0, 6);
+    renderCreativeLineUploads();
+    renderCreativeLineWorkspace();
+    if (incoming.length !== Array.from(files || []).length) {
+      toast('Use PNG, JPG ou WEBP de até 5 MB.', 'warning');
+    }
+  }
+
+  async function learnCreativeLine(button) {
+    const client = creativeLineClient();
+    if (!client) return;
+    await withLock('creative-line', button, async () => {
+      const body = new FormData();
+      state.creativeLineFiles.forEach((file) => body.append('creatives', file));
+      $('#mcCreativeLineStatus').textContent = 'Comparando composição, paleta e fotografia…';
+      try {
+        const result = await api(
+          `${API.clients}/${client.id}/creative-line/analyze`,
+          { method: 'POST', body },
+        );
+        state.creativeLineFiles = [];
+        state.clients = await api(API.clients);
+        renderClients();
+        renderCreativeLineUploads();
+        renderCreativeLineWorkspace();
+        $('#mcCreativeLineStatus').textContent = `${result.creative_line.source_count} peças transformadas em regras para geração.`;
+        toast('Linha criativa aprendida e conectada ao GPT Image 2.', 'success');
+      } catch (error) {
+        $('#mcCreativeLineStatus').textContent = error.message;
+        toast(error.message, 'error');
+      }
+    });
   }
 
   function brandAssetKey(asset) {
@@ -1606,6 +1746,7 @@
           'visual_motifs', 'mandatory_elements', 'forbidden_elements',
         ].forEach((name) => setFormValue(form, `${name}_text`, (data[name] || []).join('\n')));
         renderBrandAnalysisSummary(data);
+        renderBrandPalette(data.color_palette);
         renderBrandCandidates();
         $('#mcClientFormStatus').textContent = '';
         toast('Leitura da marca concluída. Revise as sugestões.', 'success');
@@ -1643,6 +1784,7 @@
         visual_motifs: lines(formData.get('visual_motifs_text')),
         mandatory_elements: lines(formData.get('mandatory_elements_text')),
         forbidden_elements: lines(formData.get('forbidden_elements_text')),
+        color_palette: state.brandAnalysis?.color_palette || [],
         brand_assets: selectedBrandCandidates().map((asset) => ({
           source_url: brandAssetKey(asset),
           page_url: asset.page_url,
@@ -1694,6 +1836,7 @@
         renderDroppedBrandFiles();
         $('#mcBrandAnalysisSummary').classList.add('hidden');
         $('#mcBrandAnalysisSummary').innerHTML = '';
+        renderBrandPalette([]);
         $('#mcClientFormStatus').textContent = '';
         toast('Perfil de marca salvo.', 'success');
         activateTab('preparar');
@@ -2290,6 +2433,11 @@
       });
     } else if (action === 'close-share') {
       $('#mcShareDialog').close();
+    } else if (action === 'open-creative-line') {
+      state.creativeLineClientId = Number(button.dataset.clientId);
+      $('#mcCreativeLineClient').value = String(state.creativeLineClientId);
+      renderCreativeLineWorkspace();
+      $('#mcCreativeLine').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (action === 'open-logo') {
       $('#mcLogoForm [name="client_id"]').value = button.dataset.clientId;
       $('#mcLogoDialog').showModal();
@@ -2358,6 +2506,63 @@
         root.innerHTML = `<article><img src="${URL.createObjectURL(file)}" alt=""><span><strong>${escapeHtml(file.name)}</strong><small>Pronto para salvar</small></span></article>`;
       },
     );
+    setupBrandDropzone(
+      '#mcCreativeLineDropzone',
+      'input[name="creative_line_images"]',
+      addCreativeLineFiles,
+    );
+    $('#mcCreativeLineClient').addEventListener('change', (event) => {
+      state.creativeLineClientId = Number(event.target.value) || null;
+      state.creativeLineFiles = [];
+      renderCreativeLineUploads();
+      renderCreativeLineWorkspace();
+    });
+    $('#mcCreativeLineUploads').addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-creative-remove]');
+      if (!remove) return;
+      state.creativeLineFiles.splice(Number(remove.dataset.creativeRemove), 1);
+      renderCreativeLineUploads();
+      renderCreativeLineWorkspace();
+    });
+    $('#mcCreativeLineLibrary').addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-creative-delete]');
+      const client = creativeLineClient();
+      if (!remove || !client) return;
+      window.showConfirm({
+        title: 'Remover referência criativa',
+        message: 'A próxima análise deixará de usar esta peça como evidência.',
+        theme: 'danger',
+        confirmText: 'Remover',
+        onConfirm: async () => {
+          try {
+            await api(
+              `${API.clients}/${client.id}/brand-assets/${remove.dataset.creativeDelete}`,
+              { method: 'DELETE' },
+            );
+            state.clients = await api(API.clients);
+            renderClients();
+            renderCreativeLineWorkspace();
+            toast('Referência criativa removida.', 'success');
+          } catch (error) {
+            toast(error.message, 'error');
+          }
+        },
+      });
+    });
+    $('#mcAnalyzeCreativeLine').addEventListener(
+      'click',
+      (event) => learnCreativeLine(event.currentTarget),
+    );
+    $('#mcBrandPalette').addEventListener('click', (event) => {
+      const colorButton = event.target.closest('[data-palette-color]');
+      if (!colorButton) return;
+      const form = $('#mcClientForm');
+      const next = colorButton.dataset.paletteColor;
+      const previous = form.elements.primary_color.value;
+      if (previous && previous !== next) form.elements.secondary_color.value = previous;
+      form.elements.primary_color.value = next;
+      toast(`${next} definida como cor principal.`, 'success');
+    });
     $('#mcBrandCurator').addEventListener('click', (event) => {
       const filter = event.target.closest('[data-brand-filter]');
       if (filter) {
@@ -2422,7 +2627,11 @@
       );
       if (images.length) {
         event.preventDefault();
-        addBrandFiles(images);
+        if ($('#mcCreativeLine')?.contains(document.activeElement)) {
+          addCreativeLineFiles(images);
+        } else {
+          addBrandFiles(images);
+        }
       }
     });
     $('#mcCampaignClient').addEventListener('change', () => {

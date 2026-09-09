@@ -114,6 +114,38 @@ def _text_list(value, field, max_items=8, item_length=500):
     ]
 
 
+def _brand_palette(value):
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        raise ValueError("Paleta da marca deve ser uma lista.")
+    result = []
+    seen = set()
+    for item in value[:6]:
+        if not isinstance(item, dict):
+            continue
+        color = _color(item.get("hex"), "Cor da paleta")
+        if not color or color.upper() in seen:
+            continue
+        color = color.upper()
+        seen.add(color)
+        try:
+            confidence = max(0.0, min(float(item.get("confidence", 0)), 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        result.append({
+            "hex": color,
+            "name": _text(
+                item.get("name"), "Nome da cor", max_length=80
+            ) or "Cor da marca",
+            "usage": _text(
+                item.get("usage"), "Uso da cor", max_length=240
+            ) or "Uso institucional",
+            "confidence": confidence,
+        })
+    return result
+
+
 def _quality_review_data(value):
     if not isinstance(value, dict):
         raise ValueError("Revisão visual inválida.")
@@ -541,6 +573,7 @@ class CreativeModelingService:
             "forbidden_elements": _text_list(
                 payload.get("forbidden_elements"), "Restrições criativas", max_items=10
             ),
+            "color_palette": _brand_palette(payload.get("color_palette")),
         }
         analysis_metadata = payload.get("analysis_metadata") or {}
         if not isinstance(analysis_metadata, dict):
@@ -556,6 +589,8 @@ class CreativeModelingService:
                 "sources",
                 "pages_analyzed",
                 "assets_found",
+                "visual_model",
+                "visual_evidence_count",
             )
             if analysis_metadata.get(key) is not None
         }
@@ -647,19 +682,23 @@ class CreativeModelingService:
     def analyze_brand(self, website_url=None, image=None):
         return _serialize(self.brand_analyzer.analyze(website_url, image))
 
-    def upload_client_brand_assets(self, client_id, files, primary_logo=False):
+    def upload_client_brand_assets(
+        self, client_id, files, primary_logo=False, role="reference"
+    ):
         client_id = _integer(client_id, "Cliente")
         self.repository.get_client(client_id)
+        if role not in {"reference", "creative"}:
+            raise ValueError("Tipo de referência visual inválido.")
         saved = []
         for position, file_storage in enumerate(list(files or [])[:8]):
             item = self.storage.save_reference(file_storage)
-            role = "logo" if primary_logo and position == 0 else "reference"
+            asset_role = "logo" if primary_logo and position == 0 else role
             data = {
                 **item,
-                "role": role,
+                "role": asset_role,
                 "source_kind": "upload",
                 "status": "approved",
-                "is_primary": role == "logo",
+                "is_primary": asset_role == "logo",
                 "metadata": {"original_name": item.get("original_name")},
             }
             duplicate = (
@@ -683,6 +722,42 @@ class CreativeModelingService:
             saved.append(data)
         return _serialize(saved)
 
+    def learn_client_creative_line(self, client_id, files):
+        client_id = _integer(client_id, "Cliente")
+        client = self.repository.get_client(client_id)
+        new_assets = []
+        if files:
+            new_assets = self.upload_client_brand_assets(
+                client_id, files, role="creative"
+            )
+        assets = [
+            asset
+            for asset in self.repository.list_client_brand_assets(client_id)
+            if asset.get("role") == "creative" and asset.get("asset_path")
+        ]
+        data_urls = []
+        for asset in assets[:6]:
+            try:
+                data_urls.append(
+                    self.storage.reference_as_data_url(
+                        asset["asset_path"], asset.get("mime_type")
+                    )
+                )
+            except ValueError:
+                continue
+        creative_line = self.brand_analyzer.analyze_creative_line(
+            data_urls, client
+        )
+        profile = dict(client.get("brand_profile") or {})
+        profile["creative_line"] = creative_line
+        self.repository.update_client_brand_profile(client_id, profile)
+        return _serialize({
+            "client_id": client_id,
+            "creative_line": creative_line,
+            "new_assets": new_assets,
+            "brand_assets": self.repository.list_client_brand_assets(client_id),
+        })
+
     def set_primary_brand_asset(self, client_id, asset_id):
         return _serialize(
             self.repository.set_primary_client_brand_asset(
@@ -692,11 +767,26 @@ class CreativeModelingService:
         )
 
     def delete_brand_asset(self, client_id, asset_id):
+        client_id = _integer(client_id, "Cliente")
         removed = self.repository.delete_client_brand_asset(
-            _integer(client_id, "Cliente"),
+            client_id,
             _integer(asset_id, "Ativo"),
         )
         self.storage.delete(removed.get("asset_path"))
+        if (
+            removed.get("role") == "creative"
+            and hasattr(self.repository, "update_client_brand_profile")
+        ):
+            client = self.repository.get_client(client_id)
+            profile = dict(client.get("brand_profile") or {})
+            creative_line = dict(profile.get("creative_line") or {})
+            if creative_line:
+                creative_line["stale"] = True
+                creative_line["stale_reason"] = (
+                    "Uma referência foi removida; analise novamente."
+                )
+                profile["creative_line"] = creative_line
+                self.repository.update_client_brand_profile(client_id, profile)
 
     def enhance_campaign_brief(self, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -1435,6 +1525,29 @@ class CreativeModelingService:
             values = brand_profile.get(key)
             if isinstance(values, list) and values:
                 lines.append(f"{label}: " + " | ".join(map(str, values[:8])))
+        creative_line = brand_profile.get("creative_line") or {}
+        if creative_line.get("signature_summary"):
+            lines.append(
+                "Assinatura aprendida de criativos reais: "
+                + str(creative_line["signature_summary"])
+            )
+        for key, label in (
+            ("composition_rules", "Regras de composição aprendidas"),
+            ("imagery_rules", "Regras de imagem aprendidas"),
+            ("typography_rules", "Regras tipográficas aprendidas"),
+            ("graphic_devices", "Recursos gráficos recorrentes"),
+            ("must_preserve", "Preservar da linha criativa"),
+            ("avoid", "Evitar segundo a linha criativa"),
+        ):
+            values = creative_line.get(key)
+            if isinstance(values, list) and values:
+                lines.append(f"{label}: " + " | ".join(map(str, values[:8])))
+        if creative_line.get("gpt_image_instruction"):
+            lines.extend([
+                "",
+                "[INSTRUÇÃO APRENDIDA PARA GPT IMAGE 2]",
+                str(creative_line["gpt_image_instruction"]),
+            ])
 
         lines.extend(
             [
@@ -1890,6 +2003,7 @@ class CreativeModelingService:
         presentation_mode="single",
         campaign_content=None,
         has_references=False,
+        has_brand_references=False,
     ):
         return compose_format_mockup_prompt(
             format_data,
@@ -1898,6 +2012,7 @@ class CreativeModelingService:
             presentation_mode,
             campaign_content,
             has_references,
+            has_brand_references,
         )
 
     def list_format_modeling_jobs(self, format_id):
@@ -2005,6 +2120,12 @@ class CreativeModelingService:
                 and requires_variations
             ):
                 presentation_mode = "four_horizontal"
+            structural_references = bool(data_urls)
+            brand_references = []
+            if client and reference_type == "full_mockup":
+                brand_references = self._append_brand_references(
+                    client.get("id"), data_urls
+                )
             instructions = _text(
                 payload.get("instructions"),
                 "Direção adicional",
@@ -2016,7 +2137,8 @@ class CreativeModelingService:
                 reference_type,
                 presentation_mode,
                 instructions,
-                bool(data_urls),
+                structural_references,
+                bool(brand_references),
             )
             return self._run_format_modeling(
                 format_data,

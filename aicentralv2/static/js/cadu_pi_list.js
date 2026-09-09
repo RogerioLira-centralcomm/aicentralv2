@@ -697,13 +697,34 @@
     });
   }
 
+  function updateListStickyOffsets() {
+    const page = document.querySelector('[data-pi-list]');
+    const header = page && page.querySelector('.pi-list-header');
+    if (!page || !header) return;
+    const isSticky = window.getComputedStyle(header).position === 'sticky';
+    page.style.setProperty('--pi-list-header-height', isSticky ? header.offsetHeight + 'px' : '0px');
+  }
+
+  function toggleInvoiceGroup(button) {
+    const key = button.getAttribute('data-nf-group-toggle');
+    const expanded = button.getAttribute('aria-expanded') !== 'false';
+    button.setAttribute('aria-expanded', String(!expanded));
+    document.querySelectorAll('[data-nf-group-item="' + key + '"]').forEach(function (row) {
+      row.hidden = expanded;
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     restoreFilters();
     window.filtrarMesesPorAno();
     renderActiveFilters();
     assignMobileCellLabels();
     UI.updatePiStickyTop();
-    window.addEventListener('resize', UI.updatePiStickyTop);
+    updateListStickyOffsets();
+    window.addEventListener('resize', function () {
+      UI.updatePiStickyTop();
+      updateListStickyOffsets();
+    });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') fecharSidebarPi();
     });
@@ -721,6 +742,11 @@
         filterPanel.classList.toggle('is-open', open);
       });
     }
+    document.querySelectorAll('[data-nf-group-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        toggleInvoiceGroup(button);
+      });
+    });
     const search = document.getElementById('filtro_busca');
     if (search) search.addEventListener('input', window.debounceAplicarFiltros);
     ['filtro_executivo', 'filtro_tipo_entidade', 'filtro_mes_ref'].forEach(function (id) {

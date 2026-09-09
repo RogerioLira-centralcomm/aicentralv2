@@ -752,7 +752,7 @@
 .pi-page .pi-list-table thead th {
   position: sticky;
   z-index: 5;
-  top: var(--erp-sticky-offset, 0);
+  top: calc(var(--erp-topbar-h, 3.5rem) + var(--pi-list-header-height, 0px));
   border-bottom: 1px solid var(--pi-line);
   background: #edf3f3;
   color: #3d5557;
@@ -1210,6 +1210,187 @@
   color: #176044;
 }
 
+/* Fila fiscal: full-bleed, grupos operacionais e NF sem código cromático */
+.pi-page--fiscal {
+  width: calc(100% + 2rem);
+  max-width: none;
+  margin: -1rem;
+  padding-bottom: 1rem;
+}
+
+.pi-list-header--fiscal {
+  position: sticky;
+  top: var(--erp-topbar-h, 3.5rem);
+  margin: 0 0 0.75rem;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  box-shadow: 0 3px 10px rgba(15, 47, 49, 0.04);
+  backdrop-filter: none;
+}
+
+.pi-list-header--fiscal .pi-list-header__identity,
+.pi-list-header--fiscal .pi-view-switch,
+.pi-list-header--fiscal .pi-list-filters {
+  padding-right: clamp(1rem, 2vw, 1.75rem);
+  padding-left: clamp(1rem, 2vw, 1.75rem);
+}
+
+.pi-list-header--fiscal .pi-list-eyebrow {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.pi-list-header--fiscal .pi-filter-panel {
+  grid-template-columns:
+    minmax(14rem, 1.8fr)
+    minmax(9rem, 1fr)
+    minmax(9rem, 1fr)
+    minmax(7rem, 0.7fr)
+    minmax(9rem, 0.9fr)
+    auto;
+}
+
+.pi-page--fiscal .pi-list-surface {
+  margin-right: clamp(0.75rem, 1.5vw, 1.5rem);
+  margin-left: clamp(0.75rem, 1.5vw, 1.5rem);
+  border-radius: 0.5rem;
+}
+
+.pi-page .pi-list-table--fiscal {
+  min-width: 78rem;
+  table-layout: fixed;
+}
+
+.pi-list-table--fiscal .pi-col-reference { width: 8%; }
+.pi-list-table--fiscal .pi-col-client { width: 24%; }
+.pi-list-table--fiscal .pi-col-agency { width: 13%; }
+.pi-list-table--fiscal .pi-col-owner { width: 10%; }
+.pi-list-table--fiscal .pi-col-period { width: 8%; }
+.pi-list-table--fiscal .pi-col-campaigns { width: 8%; }
+.pi-list-table--fiscal .pi-col-net { width: 10%; }
+.pi-list-table--fiscal .pi-col-actions { width: 5%; }
+.pi-list-table--fiscal .pi-col-invoice { width: 14%; }
+
+.pi-list-table--fiscal tbody .pi-row > td:nth-child(2) {
+  padding-right: 1rem;
+}
+
+.pi-list-table--fiscal .pi-nf-group-row > th {
+  border-bottom: 1px solid #d7e1e1;
+  background: #f4f7f7;
+  padding: 0;
+  text-align: left;
+}
+
+.pi-nf-group-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.85rem;
+  color: #263f43;
+  text-align: left;
+}
+
+.pi-nf-group-toggle:hover,
+.pi-nf-group-toggle:focus-visible {
+  background: #eaf0f0;
+}
+
+.pi-nf-group-title,
+.pi-nf-group-metrics,
+.pi-nf-cell,
+.pi-nf-actions {
+  display: flex;
+  align-items: center;
+}
+
+.pi-nf-group-title {
+  gap: 0.55rem;
+}
+
+.pi-nf-group-title i {
+  width: 0.8rem;
+  color: #6b7e81;
+  font-size: 0.75rem;
+  transition: transform 140ms ease;
+}
+
+.pi-nf-group-toggle[aria-expanded="false"] .pi-nf-group-title i {
+  transform: rotate(-90deg);
+}
+
+.pi-nf-group-title strong {
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.pi-nf-group-metrics {
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-nf-group-metrics span:last-child {
+  min-width: 7.5rem;
+  color: #334155;
+  font-weight: 750;
+  text-align: right;
+}
+
+.pi-nf-cell {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.pi-nf-state {
+  color: #64748b;
+  font-size: 0.75rem !important;
+}
+
+.pi-nf-number {
+  color: #1e293b;
+  font-size: 0.75rem !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-nf-actions {
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.pi-page .pi-row .pi-nf-action {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.35rem;
+  background: #fff;
+  padding: 0.25rem 0.45rem;
+  color: #475569;
+  font-size: 0.75rem !important;
+  font-weight: 700;
+}
+
+.pi-page .pi-row .pi-nf-action:hover,
+.pi-page .pi-row .pi-nf-action:focus-visible {
+  border-color: #829597;
+  background: #f8fafc;
+  color: #153638;
+}
+
+[data-nf-group-item][hidden] {
+  display: none !important;
+}
+
 /* Campanhas internas: subgrade de acompanhamento */
 .pi-page .pi-camp-block {
   overflow: hidden;
@@ -1310,6 +1491,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .pi-list-header--fiscal .pi-filter-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .pi-filter-field--search {
     grid-column: 1 / -1;
   }
@@ -1349,6 +1534,10 @@
 
   .pi-filter-panel {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pi-list-header--fiscal .pi-filter-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1393,6 +1582,39 @@
     gap: 0.75rem 1rem;
     border-bottom: 1px solid var(--pi-line);
     padding: 1rem;
+  }
+
+  .pi-page--fiscal .pi-list-surface {
+    margin-right: 0.5rem;
+    margin-left: 0.5rem;
+  }
+
+  .pi-page .pi-list-table--fiscal {
+    min-width: 0;
+  }
+
+  .pi-list-table--fiscal .pi-fiscal-columns {
+    display: none;
+  }
+
+  .pi-list-table--fiscal .pi-nf-group-row,
+  .pi-list-table--fiscal .pi-nf-group-row > th {
+    display: block;
+    width: 100%;
+  }
+
+  .pi-nf-group-toggle {
+    min-height: 3rem;
+  }
+
+  .pi-nf-group-metrics {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .pi-nf-group-metrics span:last-child {
+    min-width: 0;
   }
 
   .pi-page .pi-list-table-detail tbody > .pi-row > td {

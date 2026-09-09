@@ -1,5 +1,5 @@
 {% if sub_status_atual|string != '1' %}
-<tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
+<tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}"{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
   <td colspan="{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %}7{% elif sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}{% if sub_status_atual|string == '3' %}10{% else %}9{% endif %}{% else %}{% if sub_status_atual|string == '3' %}9{% else %}8{% endif %}{% endif %}">
     <section class="pi-camp-block" aria-label="Campanhas do PI {{ pi.codigo_pi_cc or pi.codigo_pi_ag or pi.id_pi }}">
       <div id="camp-content-{{ pi.id_pi }}" class="pi-campaign-loading" role="status" aria-live="polite">

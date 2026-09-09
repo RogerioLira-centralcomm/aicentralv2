@@ -1,9 +1,9 @@
-<header class="pi-list-header erp-content-sticky" aria-labelledby="pi-list-title">
+<header class="pi-list-header{% if origem_lista == 'nf_emitida' %} pi-list-header--fiscal{% endif %} erp-content-sticky" aria-labelledby="pi-list-title">
   <div class="pi-list-header__identity">
     <div>
-      <p class="pi-list-eyebrow">Operação de mídia</p>
+      <p class="pi-list-eyebrow">{% if origem_lista == 'nf_emitida' %}Fila financeira{% else %}Operação de mídia{% endif %}</p>
       <div class="pi-list-title-row">
-        <h1 id="pi-list-title">{% if origem_lista == 'faturamento' %}Faturamento de PIs{% else %}PIs{% endif %}</h1>
+        <h1 id="pi-list-title">{% if origem_lista == 'nf_emitida' %}Notas fiscais dos PIs{% elif origem_lista == 'faturamento' %}Faturamento de PIs{% else %}PIs{% endif %}</h1>
         {% if origem_lista == 'faturamento' %}
         <span class="pi-view-state is-billing"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>Em faturamento</span>
         {% elif menu_sub_status == '1' %}
@@ -16,12 +16,12 @@
         <span class="pi-view-state is-running"><i class="fa-solid fa-wave-square" aria-hidden="true"></i>Em andamento</span>
         {% elif sub_status_atual|string == '4' %}
         <span class="pi-view-state is-billing"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>Em faturamento</span>
-        {% elif origem_lista == 'nf_emitida' %}
-        <span class="pi-view-state is-issued"><i class="fa-solid fa-receipt" aria-hidden="true"></i>NF emitida</span>
         {% endif %}
       </div>
       <p class="pi-list-subtitle">
-        {% if menu_sub_status == '2' and visao_comercial|default('') != 'cancelados' %}
+        {% if origem_lista == 'nf_emitida' %}
+        Acompanhe emissão, vencimento e pagamento em uma única fila.
+        {% elif menu_sub_status == '2' and visao_comercial|default('') != 'cancelados' %}
         PIs recebidos em preparação para configuração das campanhas.
         {% elif origem_lista == 'faturamento' %}
         Conferência documental, fiscal e financeira antes da emissão.

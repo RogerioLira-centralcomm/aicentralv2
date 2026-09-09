@@ -178,7 +178,7 @@
 .pp-col-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -1267,16 +1267,66 @@ dialog.modal[open] {
 }
 
 /* Pipeline comercial por tipo — cinco estágios e histórico em overlay. */
-.pp-page { background: #f6f8fa; color: #172033; }
-.pp-board {
-  gap: 0.75rem;
-  scroll-snap-type: x proximity;
-  scrollbar-gutter: stable;
+.pp-page {
+  height: auto;
+  min-height: calc(100vh - var(--erp-topbar-h, 3.5rem));
+  overflow: visible;
+  background: #f6f8fa;
+  color: #172033;
 }
+.pp-board {
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 2px 2px 1rem;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+.pp-board::-webkit-scrollbar { display: none; }
 .pp-col {
   flex: 0 0 17rem;
   min-width: 17rem;
-  scroll-snap-align: start;
+  min-height: auto;
+  overflow: visible;
+}
+.pp-col-body { flex: 0 0 auto; overflow: visible; }
+.pp-deal:hover { transform: none; }
+.pp-deal-campaign > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kanban-card.is-beyond-limit { display: none !important; }
+.pp-col-more {
+  display: flex;
+  width: calc(100% - 0.9rem);
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0 0.45rem 0.5rem;
+  border: 1px solid #d8e0e6;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #526171;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.pp-col-more[hidden] { display: none; }
+.pp-col-more:hover,
+.pp-col-more:focus-visible {
+  border-color: #91a5a7;
+  background: #edf3f3;
+  color: #1e4d4f;
+  outline: none;
+}
+.pp-col-more small {
+  color: #7b8795;
+  font-size: 0.625rem;
+  font-weight: 650;
 }
 .pp-col[data-status="Rascunho"] .pp-col-head strong::before { background: #64748b; }
 .pp-col[data-status="Enviada"] .pp-col-head strong::before { background: #3b82f6; }
@@ -1314,80 +1364,6 @@ dialog.modal[open] {
   font-size: 0.6875rem;
   font-weight: 650;
 }
-
-.pp-next-action { min-width: 0; }
-.pp-next-action-view {
-  display: grid;
-  width: 100%;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.4rem;
-  border: 0;
-  border-radius: 0.35rem;
-  background: #f2f5f7;
-  color: #475569;
-  text-align: left;
-}
-.pp-next-action-view:hover { background: #e8eef2; }
-.pp-next-action-view i { color: #789093; }
-.pp-next-action-view span {
-  overflow: hidden;
-  font-size: 0.6875rem;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pp-next-action-view time {
-  color: #64748b;
-  font-size: 0.625rem;
-  font-variant-numeric: tabular-nums;
-}
-.pp-next-action-edit {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 6.75rem 1.7rem;
-  gap: 0.25rem;
-}
-.pp-next-action-edit[hidden] { display: none; }
-.pp-next-action-edit input {
-  min-width: 0;
-  height: 1.8rem;
-  padding: 0 0.4rem;
-  border: 1px solid #b7c5cf;
-  border-radius: 0.3rem;
-  background: #fff;
-  color: #172033;
-  font-size: 0.6875rem;
-}
-.pp-next-action-edit button {
-  display: grid;
-  border: 0;
-  border-radius: 0.3rem;
-  place-items: center;
-  background: #1f6f73;
-  color: #fff;
-}
-
-.pp-sla {
-  display: grid;
-  grid-template-columns: auto minmax(2.5rem, 1fr);
-  align-items: center;
-  gap: 0.4rem;
-  color: #64748b;
-  font-size: 0.59375rem;
-  font-weight: 650;
-}
-.pp-sla-track {
-  height: 0.2rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e2e8f0;
-}
-.pp-sla-track span { display: block; height: 100%; border-radius: inherit; background: #789093; }
-.pp-sla.is-warning { color: #9a6a10; }
-.pp-sla.is-warning .pp-sla-track span { background: #d39b2a; }
-.pp-sla.is-overdue { color: #b42318; }
-.pp-sla.is-overdue .pp-sla-track span { background: #c53932; }
 
 .pp-owner { display: flex; min-width: 0; align-items: center; gap: 0.35rem; }
 .pp-owner .pp-avatar,
@@ -1551,7 +1527,6 @@ dialog.modal[open] {
 
 .pp-deal:focus-visible,
 .pp-card-menu summary:focus-visible,
-.pp-next-action-view:focus-visible,
 .pp-history-tabs button:focus-visible,
 .pp-icon-btn:focus-visible,
 .pp-history-proposals a:focus-visible { outline: 2px solid #1f6f73; outline-offset: 2px; }

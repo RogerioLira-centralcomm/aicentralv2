@@ -87,26 +87,25 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("'Próximo de Aprovar': []", self.db)
         self.assertNotIn("cot.tipo_comercial = 'midia'", self.db)
 
-    def test_cards_expose_owner_next_action_and_sla(self):
-        self.assertIn("cotacao.proxima_acao", self.template)
+    def test_cards_keep_only_owner_and_commercial_identity(self):
         self.assertIn('class="pp-owner"', self.template)
-        self.assertIn('class="pp-sla is-', self.template)
-        self.assertIn("SLA {{ dias }}/{{ sla_limite }} dias", self.template)
-        self.assertIn("pa.data_prazo AS proxima_acao_data", self.db)
+        self.assertNotIn("Definir próxima ação", self.template)
+        self.assertNotIn('class="pp-sla', self.template)
+        self.assertNotIn("salvarProximaAcao", self.template)
+        self.assertIn("{% if is_agencia %}<small>Agência</small>{% endif %}", self.template)
 
     def test_drag_rules_and_loss_are_explicit(self):
         self.assertIn("originalStatus === 'Rascunho' && novoStatus === 'Enviada'", self.template)
-        self.assertIn("originalStatus === 'Em Acompanhamento'", self.template)
+        self.assertNotIn("Defina a próxima ação antes de avançar", self.template)
         self.assertIn("window.showConfirm", self.template)
         self.assertIn("api_pipeline_marcar_perda", self.routes)
         self.assertIn("motivos_validos = {'Preço', 'Concorrente', 'Timing', 'Escopo', 'Outro'}", self.routes)
         self.assertIn("f'[PERDA] {motivo}'", self.routes)
 
-    def test_next_action_uses_existing_activities(self):
+    def test_next_action_backend_remains_available_outside_the_card(self):
         self.assertIn("api_pipeline_proxima_acao", self.routes)
         self.assertIn("db.atualizar_atividade_cliente", self.routes)
         self.assertIn("db.criar_atividade_cliente", self.routes)
-        self.assertIn("salvarProximaAcao", self.template)
 
     def test_history_is_a_floating_accessible_sidebar(self):
         self.assertIn('id="pp_history_sidebar"', self.template)
@@ -118,8 +117,11 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("e.key.toLowerCase() === 'h'", self.template)
 
     def test_pipeline_assets_have_responsive_contract(self):
-        self.assertIn("cotacao_pipeline.css') }}?v=6", self.template)
-        self.assertIn("scroll-snap-type: x proximity", self.css)
+        self.assertIn("cotacao_pipeline.css') }}?v=7", self.template)
+        self.assertIn("scrollbar-width: none", self.css)
+        self.assertNotIn("scroll-snap-type: x proximity", self.css)
+        self.assertIn("LIMITE_CARDS_COLUNA = 25", self.template)
+        self.assertIn("alternarColunaCompleta", self.template)
         self.assertIn("@media (max-width: 640px)", self.css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
 

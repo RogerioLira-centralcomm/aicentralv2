@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=7">
 {% endblock %}
 
 {% block content %}
@@ -134,9 +134,6 @@
     {% set bruto = cotacao.valor_total_bruto|default(cotacao.valor_total_proposta, true)|float %}
     {% set dias = cotacao.dias_sem_movimento|default(0, true)|int %}
     {% set is_agencia = cotacao.agencia_key == true or (cotacao.agencia_key|string|lower) in ['true', 't', 'sim', 's', '1'] or (cotacao.agencia_display|string|lower) in ['sim', 's'] %}
-    {% set sla_limites = {'Rascunho': 3, 'Enviada': 5, 'Em Acompanhamento': 7, 'Próximo de Aprovar': 5} %}
-    {% set sla_limite = sla_limites.get(status) %}
-    {% set sla_estado = 'done' if not sla_limite else ('overdue' if dias > sla_limite else ('warning' if dias * 10 >= sla_limite * 7 else 'normal')) %}
     <div class="pp-card pp-deal kanban-card"
          role="button"
          tabindex="0"
@@ -146,7 +143,6 @@
          data-days="{{ dias }}"
          data-value="{{ bruto }}"
          data-type="{{ cotacao.tipo_comercial or 'midia' }}"
-         data-next-action="{{ cotacao.proxima_acao or '' }}"
          data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); abrirModalCotacao({{ cotacao.id }}); }"
@@ -157,7 +153,7 @@
           <div class="pp-deal-client" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
             {{ pp_company_avatar(cotacao.cliente_nome, cotacao.cliente_logo_url) }}
             <span class="pp-company-name">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
-            <small>{% if is_agencia %}Agência{% else %}Cliente final{% endif %}</small>
+            {% if is_agencia %}<small>Agência</small>{% endif %}
             {{ pp_quote_type(cotacao.tipo_comercial) }}
           </div>
           {% if not is_agencia and cotacao.agencia_nome and cotacao.agencia_id %}
@@ -175,28 +171,6 @@
       {% if cotacao.nome_campanha %}
       <div class="pp-deal-campaign" title="{{ cotacao.nome_campanha }}">
         <span>{{ cotacao.nome_campanha }}</span>
-      </div>
-      {% endif %}
-      <div class="pp-next-action" onclick="event.stopPropagation()">
-        <button type="button" class="pp-next-action-view" onclick="editarProximaAcao(this)">
-          <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
-          <span>{{ cotacao.proxima_acao or 'Definir próxima ação' }}</span>
-          {% if cotacao.proxima_acao_data %}
-          <time datetime="{{ cotacao.proxima_acao_data }}">{{ cotacao.proxima_acao_data.strftime('%d/%m') if cotacao.proxima_acao_data.strftime is defined else cotacao.proxima_acao_data }}</time>
-          {% endif %}
-        </button>
-        <div class="pp-next-action-edit" hidden>
-          <input type="text" value="{{ cotacao.proxima_acao or '' }}" placeholder="Próxima ação">
-          <input type="date" value="{{ cotacao.proxima_acao_data or '' }}">
-          <button type="button" aria-label="Salvar próxima ação" onclick="salvarProximaAcao(this)">
-            <i class="fa-solid fa-check" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-      {% if sla_limite %}
-      <div class="pp-sla is-{{ sla_estado }}" title="SLA do estágio: {{ sla_limite }} dias">
-        <span>SLA {{ dias }}/{{ sla_limite }} dias</span>
-        <span class="pp-sla-track"><span style="width: {{ ([dias * 100 / sla_limite, 100]|min)|round|int }}%"></span></span>
       </div>
       {% endif %}
       <div class="pp-deal-foot">
@@ -254,11 +228,15 @@
           {% endif %}
         </div>
       </div>
-      <div class="pp-col-body">
+      <div class="pp-col-body" data-column-cards>
         {% for cotacao in (colunas or {}).get(status, []) %}
           {{ pp_deal_card(cotacao, status) }}
         {% endfor %}
       </div>
+      <button type="button" class="pp-col-more" hidden onclick="alternarColunaCompleta(this)">
+        <span>Ver mais</span>
+        <small></small>
+      </button>
     </div>
     {% endfor %}
   </div>
@@ -611,6 +589,27 @@
 <script>
 // ==================== FILTROS ====================
 let cardFilterAtivo = '';
+const LIMITE_CARDS_COLUNA = 25;
+
+function atualizarLimiteColuna(coluna) {
+  const cards = Array.from(coluna.querySelectorAll('.kanban-card:not([hidden])'));
+  const expandida = coluna.dataset.expanded === 'true';
+  cards.forEach((card, index) => {
+    card.classList.toggle('is-beyond-limit', !expandida && index >= LIMITE_CARDS_COLUNA);
+  });
+  const botao = coluna.querySelector('.pp-col-more');
+  const restantes = Math.max(0, cards.length - LIMITE_CARDS_COLUNA);
+  botao.hidden = restantes === 0;
+  botao.querySelector('span').textContent = expandida ? 'Ver menos' : 'Ver mais';
+  botao.querySelector('small').textContent = expandida ? '' : `+${restantes}`;
+  botao.setAttribute('aria-expanded', expandida ? 'true' : 'false');
+}
+
+function alternarColunaCompleta(botao) {
+  const coluna = botao.closest('.kanban-column');
+  coluna.dataset.expanded = coluna.dataset.expanded === 'true' ? 'false' : 'true';
+  atualizarLimiteColuna(coluna);
+}
 
 function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
@@ -643,8 +642,11 @@ function filtrarCards() {
   document.querySelectorAll('.kanban-column').forEach(coluna => {
     const visiveis = coluna.querySelectorAll('.kanban-card:not([hidden])').length;
     coluna.classList.toggle('is-filter-empty', visiveis === 0);
+    atualizarLimiteColuna(coluna);
   });
 }
+
+document.querySelectorAll('.kanban-column').forEach(atualizarLimiteColuna);
 
 document.querySelectorAll('[data-card-filter]').forEach(botao => {
   botao.addEventListener('click', function () {
@@ -742,15 +744,6 @@ function handleColumnDrop(event) {
     showToast('Informe o valor da cotação antes de enviá-la.', 'error');
     return;
   }
-  if (
-    originalStatus === 'Em Acompanhamento'
-    && novoStatus === 'Próximo de Aprovar'
-    && !(draggedCard.dataset.nextAction || '').trim()
-  ) {
-    showToast('Defina a próxima ação antes de avançar.', 'error');
-    return;
-  }
-
   const card = draggedCard;
   const cotacaoId = draggedCotacaoId;
   const colunaDestino = event.currentTarget;
@@ -1259,73 +1252,6 @@ async function executarAcaoConfirmada() {
     showToast('Erro ao processar', 'error');
   }
 }
-
-// ==================== PRÓXIMA AÇÃO ====================
-function editarProximaAcao(botao) {
-  const bloco = botao.closest('.pp-next-action');
-  botao.hidden = true;
-  bloco.querySelector('.pp-next-action-edit').hidden = false;
-  bloco.querySelector('input[type="text"]').focus();
-}
-
-async function salvarProximaAcao(origem) {
-  const editor = origem.closest('.pp-next-action-edit');
-  if (!editor || editor.hidden || editor.dataset.saving === 'true') return;
-  const card = editor.closest('.kanban-card');
-  const titulo = editor.querySelector('input[type="text"]').value.trim();
-  const dataPrazo = editor.querySelector('input[type="date"]').value;
-  editor.dataset.saving = 'true';
-  try {
-    const response = await fetch(`/api/crm/pipeline/cotacao/${card.dataset.cotacaoId}/proxima-acao`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titulo: titulo, data_prazo: dataPrazo })
-    });
-    const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Não foi possível salvar');
-    const view = card.querySelector('.pp-next-action-view');
-    view.querySelector('span').textContent = titulo || 'Definir próxima ação';
-    let time = view.querySelector('time');
-    if (titulo && dataPrazo) {
-      if (!time) {
-        time = document.createElement('time');
-        view.appendChild(time);
-      }
-      time.dateTime = dataPrazo;
-      time.textContent = new Date(`${dataPrazo}T00:00:00`).toLocaleDateString('pt-BR', {
-        day: '2-digit', month: '2-digit'
-      });
-    } else if (time) {
-      time.remove();
-    }
-    card.dataset.nextAction = titulo;
-    editor.hidden = true;
-    view.hidden = false;
-    showToast(titulo ? 'Próxima ação atualizada' : 'Próxima ação concluída', 'success');
-  } catch (error) {
-    showToast(error.message || 'Erro ao salvar próxima ação', 'error');
-  } finally {
-    editor.dataset.saving = 'false';
-  }
-}
-
-document.querySelectorAll('.pp-next-action-edit').forEach(editor => {
-  editor.addEventListener('focusout', () => {
-    setTimeout(() => {
-      if (!editor.hidden && !editor.contains(document.activeElement)) salvarProximaAcao(editor);
-    }, 0);
-  });
-  editor.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      salvarProximaAcao(editor);
-    }
-    if (event.key === 'Escape') {
-      editor.hidden = true;
-      editor.closest('.pp-next-action').querySelector('.pp-next-action-view').hidden = false;
-    }
-  });
-});
 
 // ==================== PERDA ====================
 let cotacaoPerdaId = null;

@@ -2,11 +2,15 @@
 
 import unittest
 from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 
 from aicentralv2.pi_operacao_routes import bp
-from aicentralv2.pi_operacao_repository import PropriedadeInvalidaError
+from aicentralv2.pi_operacao_repository import (
+    PiOperacaoRepository,
+    PropriedadeInvalidaError,
+)
 from aicentralv2.pi_operacao_service import PiOperacaoService
 
 
@@ -177,6 +181,23 @@ class FakeBrevo:
     def enviar_email(self, **kwargs):
         self.envios.append(kwargs)
         return {"success": True, "messageId": "brevo-123"}
+
+
+class PiOperacaoRepositoryTest(unittest.TestCase):
+    def test_obter_pi_usa_coluna_legada_do_parceiro(self):
+        cursor = MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.fetchone.return_value = {"id_pi": 175, "id_parceiro": 21}
+        connection = MagicMock()
+        connection.cursor.return_value = cursor
+
+        result = PiOperacaoRepository(connection=connection).obter_pi(175)
+
+        query = cursor.execute.call_args.args[0]
+        self.assertIn('p."Id_parc_reg" AS id_parceiro', query)
+        self.assertIn('parc.id_cliente = p."Id_parc_reg"', query)
+        self.assertNotIn("p.id_parceiro", query)
+        self.assertEqual(result["id_parceiro"], 21)
 
 
 class PiOperacaoServiceTest(unittest.TestCase):
@@ -497,6 +518,32 @@ class PiOperacaoRoutesTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(set(response.get_json()), {"success", "error"})
+
+    def test_edicao_de_campanha_e_catalogo_compartilham_operacao_corrigida(self):
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 99
+            sess["is_centralcomm"] = True
+        service = MagicMock()
+        service.estado_campanha.return_value = {
+            "campanha": {"id_campanha": 345, "id_pi": 175}
+        }
+        service.catalogo.return_value = {"substatus": 2, "tipos": []}
+
+        with patch(
+            "aicentralv2.pi_operacao_routes._service",
+            return_value=service,
+        ):
+            campanha = self.client.get(
+                "/api/cadu_pi/175/operacao/campanhas/345"
+            )
+            catalogo = self.client.get(
+                "/api/cadu_pi/175/operacao/comunicacoes/catalogo"
+            )
+
+        self.assertEqual(campanha.status_code, 200)
+        self.assertEqual(catalogo.status_code, 200)
+        service.estado_campanha.assert_called_once_with(175, 345)
+        service.catalogo.assert_called_once_with(175)
 
 
 if __name__ == "__main__":

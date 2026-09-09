@@ -105,7 +105,8 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("timeZone: 'UTC'", operation_js)
         self.assertIn("if (partnerRow) partnerRow.hidden = !partner;", operation_js)
         self.assertIn("parc.nome_fantasia AS parceiro_nome", repository)
-        self.assertIn("LEFT JOIN tbl_cliente parc ON parc.id_cliente = p.id_parceiro", repository)
+        self.assertIn('p."Id_parc_reg" AS id_parceiro', repository)
+        self.assertIn('parc.id_cliente = p."Id_parc_reg"', repository)
 
     def test_vinculos_da_cotacao_ficam_bloqueados_e_integrados_aos_contatos(self):
         pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")

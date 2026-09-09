@@ -16,6 +16,7 @@ from aicentralv2.cotacao_tipos import normalizar_tipo_comercial, rotulo_tipo_com
 from aicentralv2.campanhas_pi_list import (
     build_campaign_list_filters,
     group_campaigns_by_status,
+    group_pis_by_invoice_status,
 )
 from aicentralv2.email_service import (
     send_password_reset_email, send_password_changed_email, send_invite_email,
@@ -9969,6 +9970,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 and filtros.get('tipo_entidade') in ('agencia', 'agencia_incentivo')
             )
             agencias_grupo = _agrupar_pis_por_agencia(pis) if visao_por_agencia else []
+            grupos_status_nf = (
+                group_pis_by_invoice_status(pis)
+                if origem_lista == 'nf_emitida' and not visao_por_agencia
+                else []
+            )
 
             pi_footer_totais = _totais_rodape_pi_lista(
                 pis, filtros.get('tipo_entidade') if origem_lista in ('faturamento', 'nf_emitida') else None
@@ -10024,7 +10030,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    visao_comercial=visao_comercial,
                                    pi_footer_totais=pi_footer_totais,
                                    visao_por_agencia=visao_por_agencia,
-                                   agencias_grupo=agencias_grupo)
+                                   agencias_grupo=agencias_grupo,
+                                   grupos_status_nf=grupos_status_nf)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')
@@ -10046,7 +10053,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                        'total_entidades': 0,
                                    },
                                    visao_por_agencia=False,
-                                   agencias_grupo=[])
+                                   agencias_grupo=[],
+                                   grupos_status_nf=[])
 
     @app.route('/api/cadu_pi/localizar', methods=['GET'])
     @login_required

@@ -1,13 +1,13 @@
 {% extends 'base_erp.html' %}
 
-{% block page_label %}Comercial{% endblock %}
-{% block page_subtitle %}Gestão comercial e operacional de PIs{% endblock %}
+{% block page_label %}{% if origem_lista == 'nf_emitida' %}Financeiro{% else %}Comercial{% endif %}{% endblock %}
+{% block page_subtitle %}{% if origem_lista == 'nf_emitida' %}Notas fiscais e pagamentos dos PIs{% else %}Gestão comercial e operacional de PIs{% endif %}{% endblock %}
 
 {% block title %}PIs - CentralComm AI{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=3">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -19,7 +19,7 @@
 
 {% block content %}
 {% import 'cadu_pi/_pi_row.html' as pi_row with context %}
-<div class="pi-page" data-pi-list>
+<div class="pi-page{% if origem_lista == 'nf_emitida' %} pi-page--fiscal{% endif %}" data-pi-list>
   {% include 'cadu_pi/_header_filters.html' %}
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -40,11 +40,42 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+        {% if origem_lista == 'nf_emitida' %}
+        <colgroup class="pi-fiscal-columns">
+          <col class="pi-col-reference">
+          <col class="pi-col-client">
+          <col class="pi-col-agency">
+          <col class="pi-col-owner">
+          <col class="pi-col-period">
+          <col class="pi-col-campaigns">
+          <col class="pi-col-net">
+          <col class="pi-col-actions">
+          <col class="pi-col-invoice">
+        </colgroup>
+        {% endif %}
         {% include 'cadu_pi/_table.html' %}
         <tbody class="text-[11px]">
-          {% for pi in pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}">
+          {% set grupos_render = grupos_status_nf if origem_lista == 'nf_emitida' and grupos_status_nf else [{'key': '', 'pis': pis}] %}
+          {% for grupo in grupos_render %}
+          {% if origem_lista == 'nf_emitida' %}
+          <tr class="pi-nf-group-row" data-nf-group-header="{{ grupo.key }}">
+            <th colspan="9" scope="rowgroup">
+              <button type="button" class="pi-nf-group-toggle" data-nf-group-toggle="{{ grupo.key }}" aria-expanded="true">
+                <span class="pi-nf-group-title">
+                  <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                  <strong>{{ grupo.label }}</strong>
+                </span>
+                <span class="pi-nf-group-metrics">
+                  <span>{{ grupo.count }} PI{% if grupo.count != 1 %}s{% endif %}</span>
+                  <span>{{ grupo.subtotal|format_brl }}</span>
+                </span>
+              </button>
+            </th>
+          </tr>
+          {% endif %}
+          {% for pi in grupo.pis %}
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
           {% if sub_status_atual|string == '1' %}
             <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
@@ -336,30 +367,25 @@
                 {% endif %}
               {% endif %}
               {% if pi.get('nf_id') %}
-                {% if origem_lista == 'nf_emitida' and pi.nf_status == 1 %}
-              <div class="inline-flex items-center gap-0.5">
-              <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, true)'
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                      title="Ver Nota Fiscal">
-                <i class="fa-solid fa-eye text-[8px]"></i>
-                Ver
-              </button>
-              <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
-                      class="nf-status-btn inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 hover:bg-green-200"
-                      title="Registrar pagamento">
-                <i class="fa-solid fa-dollar-sign text-[8px]"></i>
-              </button>
+                {% if origem_lista == 'nf_emitida' %}
+              <div class="pi-nf-cell">
+                <span class="pi-nf-state">{{ pi.nf_status_descricao or 'Sem status' }}</span>
+                {% if pi.get('nf_numero_nota') %}
+                <strong class="pi-nf-number">NF {{ pi.nf_numero_nota }}</strong>
+                {% endif %}
+                <div class="pi-nf-actions">
+                  <button type="button" onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, true)'
+                          class="pi-nf-action" title="Ver nota fiscal">
+                    <i class="fa-regular fa-eye" aria-hidden="true"></i>Ver
+                  </button>
+                  {% if pi.nf_status != 3 %}
+                  <button type="button" onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
+                          class="nf-status-btn pi-nf-action" title="Registrar pagamento">
+                    <i class="fa-solid fa-dollar-sign" aria-hidden="true"></i>Registrar pagamento
+                  </button>
+                  {% endif %}
+                </div>
               </div>
-                {% elif origem_lista == 'nf_emitida' %}
-              <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
-                      class="nf-status-btn inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
- {% if pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
- {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
- {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
-                      title="Alterar status de pagamento">
-                <i class="fa-solid fa-file-invoice text-[8px]"></i>
-                {{ pi.nf_status_descricao or 'Ver' }}
-              </button>
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
@@ -393,6 +419,7 @@
           {% endif %}
           </tr>
           {% include 'cadu_pi/_campaign_rows.html' %}
+          {% endfor %}
           {% endfor %}
         </tbody>
       </table>
@@ -1128,7 +1155,7 @@
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=3"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

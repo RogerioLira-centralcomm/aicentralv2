@@ -19,6 +19,13 @@ HISTORY_STATUS_ORDER = {
     "sem status": 5,
 }
 
+INVOICE_STATUS_GROUPS = (
+    (1, "nf-emitida", "NF emitida"),
+    (2, "aguardando-pagamento", "Aguardando pagamento"),
+    (3, "pagamento-realizado", "Pagamento realizado"),
+    (None, "sem-status", "Sem status"),
+)
+
 
 def build_campaign_list_filters(args):
     """Aceita somente filtros explícitos que não recortam competência/status."""
@@ -87,6 +94,37 @@ def _number(value):
         return float(text)
     except (TypeError, ValueError):
         return 0.0
+
+
+def group_pis_by_invoice_status(pis):
+    """Agrupa a fila fiscal em uma ordem estável, com quantidade e total da NF."""
+    buckets = {
+        status_id: {
+            "status_id": status_id,
+            "key": key,
+            "label": label,
+            "pis": [],
+            "count": 0,
+            "subtotal": 0.0,
+        }
+        for status_id, key, label in INVOICE_STATUS_GROUPS
+    }
+
+    for pi in pis or []:
+        try:
+            status_id = int(pi.get("nf_status"))
+        except (TypeError, ValueError):
+            status_id = None
+        bucket = buckets.get(status_id, buckets[None])
+        bucket["pis"].append(pi)
+        bucket["count"] += 1
+        bucket["subtotal"] += _number(pi.get("nf_valor"))
+
+    return [
+        buckets[status_id]
+        for status_id, _key, _label in INVOICE_STATUS_GROUPS
+        if buckets[status_id]["count"]
+    ]
 
 
 def _build_group(label, key, campanhas, active=False):

@@ -1,138 +1,225 @@
-<header class="pi-list-header{% if origem_lista == 'nf_emitida' %} pi-list-header--fiscal{% endif %}" aria-labelledby="pi-list-title">
+{% if origem_lista == 'nf_emitida' %}
+<header class="pi-list-header pi-list-header--fiscal" aria-labelledby="pi-list-title">
   <div class="pi-list-header__identity">
     <div>
       <div class="pi-list-title-row">
-        <h1 id="pi-list-title">{% if origem_lista == 'nf_emitida' %}Notas fiscais dos PIs{% elif origem_lista == 'faturamento' %}Faturamento de PIs{% else %}PIs{% endif %}</h1>
-        {% if origem_lista == 'faturamento' %}
-        <span class="pi-view-state is-billing"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>Em faturamento</span>
-        {% elif menu_sub_status == '1' %}
-        <span class="pi-view-state is-approval"><i class="fa-regular fa-clock" aria-hidden="true"></i>Em aprovação</span>
-        {% elif menu_sub_status == '2' and visao_comercial|default('') == 'cancelados' %}
-        <span class="pi-view-state is-cancelled"><i class="fa-solid fa-ban" aria-hidden="true"></i>Cancelados</span>
-        {% elif menu_sub_status == '2' %}
-        <span class="pi-view-state is-setup"><i class="fa-solid fa-sliders" aria-hidden="true"></i>Em configuração</span>
-        {% elif sub_status_atual|string == '3' %}
-        <span class="pi-view-state is-running"><i class="fa-solid fa-wave-square" aria-hidden="true"></i>Em andamento</span>
-        {% elif sub_status_atual|string == '4' %}
-        <span class="pi-view-state is-billing"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>Em faturamento</span>
-        {% endif %}
+        <h1 id="pi-list-title">Notas fiscais dos PIs</h1>
       </div>
     </div>
-
     <div class="pi-list-header__actions">
-      {% if menu_sub_status == '2' %}
-      <nav class="pi-view-switch pi-view-switch--inline" aria-label="Alternar situação">
-        <button type="button" onclick="filtrarVisaoComercial('')" class="{% if visao_comercial|default('') != 'cancelados' %}is-active{% endif %}">Em configuração</button>
-        <button type="button" onclick="filtrarVisaoComercial('cancelados')" class="{% if visao_comercial|default('') == 'cancelados' %}is-active is-danger{% endif %}">Cancelados</button>
-      </nav>
-      {% endif %}
       <span class="pi-list-count" aria-live="polite"><strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}</span>
-      {% if not visao_por_agencia|default(false)
-            and (menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados')
-            and not (menu_sub_status == '4' and origem_lista == 'operacao') %}
-      <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()" class="cx-btn cx-btn-sm cx-btn-outline" aria-expanded="false">
-        <i class="fa-solid fa-angles-down" id="icon_expandir_todas" aria-hidden="true"></i>
-        <span id="label_expandir_todas">Expandir todas</span>
-      </button>
-      {% endif %}
-      <button type="button" id="pi-filter-toggle" class="cx-btn cx-btn-sm cx-btn-outline pi-filter-toggle"
-              aria-expanded="false" aria-controls="pi-filter-panel">
-        <i class="fa-solid fa-filter" aria-hidden="true"></i>
-        Filtros
-        <span class="pi-filter-count" data-filter-count hidden></span>
-      </button>
     </div>
   </div>
-
-  {% if origem_lista == 'nf_emitida' %}
   <nav class="pi-view-switch" aria-label="Alternar situação">
     <button type="button" onclick="filtrarNfStatus('')" class="{% if not nf_status_filtro %}is-active{% endif %}">Todos</button>
     <button type="button" onclick="filtrarNfStatus('1')" class="{% if nf_status_filtro == '1' %}is-active{% endif %}">NF emitida</button>
     <button type="button" onclick="filtrarNfStatus('2')" class="{% if nf_status_filtro == '2' %}is-active{% endif %}">Aguardando pagamento</button>
     <button type="button" onclick="filtrarNfStatus('3')" class="{% if nf_status_filtro == '3' %}is-active{% endif %}">Pagamento realizado</button>
   </nav>
-  {% endif %}
 </header>
 
 <form id="filtros_form" class="pi-list-filters" aria-label="Filtros da lista de PIs">
-    <div class="pi-filter-panel" id="pi-filter-panel">
-      <label class="pi-filter-field pi-filter-field--search">
-        <span class="sr-only">Busca</span>
-        <span class="pi-filter-control">
-          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-          <input type="search" name="busca" id="filtro_busca" value="{{ filtros.get('search', '') }}"
-                 placeholder="Código, título ou cliente" autocomplete="off">
-          <span class="pi-filter-feedback" data-filter-feedback aria-live="polite"></span>
-        </span>
-      </label>
+  <div class="pi-filter-panel" id="pi-filter-panel">
+    <label class="pi-filter-field pi-filter-field--search">
+      <span class="sr-only">Busca</span>
+      <span class="pi-filter-control">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" name="busca" id="filtro_busca" value="{{ filtros.get('search', '') }}"
+               placeholder="Código, título ou cliente" autocomplete="off">
+        <span class="pi-filter-feedback" data-filter-feedback aria-live="polite"></span>
+      </span>
+    </label>
 
-      <label class="pi-filter-field">
-        <span class="sr-only">Executivo</span>
+    <label class="pi-filter-field">
+      <span class="sr-only">Executivo</span>
+      <select name="resp_comercial" id="filtro_executivo">
+        <option value="">Executivo: Todos</option>
+        {% for v in vendedores %}
+        <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>Executivo: {{ v.nome_completo }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    {% set tipo_entidade = filtros.get('tipo_entidade', '') %}
+    <label class="pi-filter-field">
+      <span class="sr-only">Entidade</span>
+      <select name="tipo_entidade" id="filtro_tipo_entidade">
+        <option value="" {% if not tipo_entidade %}selected{% endif %}>Entidade: Todos</option>
+        <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Entidade: Clientes</option>
+        <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Entidade: Agências</option>
+        <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Entidade: Agências com incentivo</option>
+      </select>
+    </label>
+
+    <label class="pi-filter-field pi-filter-field--year">
+      <span class="sr-only">Ano</span>
+      <select name="ano_ref_comp" id="filtro_ano_ref">
+        <option value="">Ano: Todos</option>
+        {% for a in anos_ref %}
+        {% set yy = '%02d'|format(a) if a < 100 else ('%02d'|format(a % 100)) %}
+        <option value="{{ yy }}" {% if filtros.get('ano_ref_comp') == yy %}selected{% endif %}>Ano: 20{{ yy }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="pi-filter-field pi-filter-field--month">
+      <span class="sr-only">Mês de referência</span>
+      <select name="mes_ref_comp" id="filtro_mes_ref">
+        <option value="">Mês: Todos</option>
+        {% for m in meses_ref %}
+        <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>Mês: {{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}"
+       class="pi-filter-clear">
+      <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Limpar filtros
+    </a>
+  </div>
+
+  <div class="pi-active-filters" data-active-filters hidden>
+    <span>Filtros ativos</span>
+    <div data-active-filter-list></div>
+  </div>
+</form>
+{% else %}
+<form id="filtros_form" class="pi-op-header camp-list-header" aria-label="Filtros da lista de PIs">
+  <div class="camp-list-header__identity">
+    {% if origem_lista == 'faturamento' %}
+    <h1 id="pi-list-title">Faturamento de PIs</h1>
+    <p>PIs prontos para emissão e vínculo de notas fiscais.</p>
+    {% elif menu_sub_status == '1' %}
+    <h1 id="pi-list-title">PIs em aprovação</h1>
+    <p>PIs aguardando validação comercial.</p>
+    {% elif menu_sub_status == '2' and visao_comercial|default('') == 'cancelados' %}
+    <h1 id="pi-list-title">PIs cancelados</h1>
+    <p>PIs comerciais cancelados, filtrados por executivo, cliente e competência.</p>
+    {% elif menu_sub_status == '2' %}
+    <h1 id="pi-list-title">PIs em configuração</h1>
+    <p>PIs em preparação comercial antes do andamento.</p>
+    {% elif sub_status_atual|string == '3' %}
+    <h1 id="pi-list-title">PIs em andamento</h1>
+    <p>PIs ativos com campanhas e financeiro consolidado.</p>
+    {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
+    <h1 id="pi-list-title">PIs em faturamento</h1>
+    <p>PIs operacionais prontos para faturamento e documentos.</p>
+    {% else %}
+    <h1 id="pi-list-title">PIs</h1>
+    <p>PIs comerciais filtrados por executivo, cliente e competência.</p>
+    {% endif %}
+  </div>
+
+  <div class="camp-list-toolbar">
+    <div class="camp-filter-field">
+      <label for="filtro_busca">Buscar</label>
+      <div class="camp-filter-control">
+        <i class="fa-solid fa-search" aria-hidden="true"></i>
+        <input type="search" name="busca" id="filtro_busca" value="{{ filtros.get('search', '') }}"
+               placeholder="Código, título ou cliente" autocomplete="off">
+        <span class="pi-filter-feedback" data-filter-feedback aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="camp-filter-field">
+      <label for="filtro_executivo">Executivo</label>
+      <div class="camp-filter-control">
+        <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
         <select name="resp_comercial" id="filtro_executivo">
-          <option value="">Executivo: Todos</option>
+          <option value="">Todos os executivos</option>
           {% for v in vendedores %}
-          <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>Executivo: {{ v.nome_completo }}</option>
+          <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>{{ v.nome_completo }}</option>
           {% endfor %}
         </select>
-      </label>
+      </div>
+    </div>
 
-      {% if lista_financeira %}
-      {% set tipo_entidade = filtros.get('tipo_entidade', '') %}
-      <label class="pi-filter-field">
-        <span class="sr-only">Entidade</span>
+    {% if lista_financeira %}
+    {% set tipo_entidade = filtros.get('tipo_entidade', '') %}
+    <div class="camp-filter-field">
+      <label for="filtro_tipo_entidade">Entidade</label>
+      <div class="camp-filter-control">
+        <i class="fa-regular fa-building" aria-hidden="true"></i>
         <select name="tipo_entidade" id="filtro_tipo_entidade">
-          <option value="" {% if not tipo_entidade %}selected{% endif %}>Entidade: Todos</option>
-          <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Entidade: Clientes</option>
-          <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Entidade: Agências</option>
-          <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Entidade: Agências com incentivo</option>
+          <option value="" {% if not tipo_entidade %}selected{% endif %}>Todas as entidades</option>
+          <option value="cliente" {% if tipo_entidade == 'cliente' %}selected{% endif %}>Clientes</option>
+          <option value="agencia" {% if tipo_entidade == 'agencia' %}selected{% endif %}>Agências</option>
+          <option value="agencia_incentivo" {% if tipo_entidade == 'agencia_incentivo' %}selected{% endif %}>Agências com incentivo</option>
         </select>
-      </label>
-      {% else %}
-      <label class="pi-filter-field pi-filter-field--client">
-        <span class="sr-only">Cliente</span>
-        <span class="pi-filter-control">
-          <i class="fa-regular fa-building" aria-hidden="true"></i>
-          <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
-          <input type="search" id="filtro_cliente_busca" value="{{ filtros.get('cliente_nome', '') }}"
-                 placeholder="Cliente: Todos" autocomplete="off">
-          <button type="button" id="btn_limpar_cliente" class="pi-filter-input-clear {% if not filtros.get('id_cliente') %}hidden{% endif %}"
-                  aria-label="Remover filtro de cliente"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-        </span>
-        <span id="resultados_clientes_filtro" class="pi-client-results hidden" role="listbox"></span>
-      </label>
-      {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="camp-filter-field pi-filter-field--client">
+      <label for="filtro_cliente_busca">Cliente</label>
+      <div class="camp-filter-control">
+        <i class="fa-regular fa-building" aria-hidden="true"></i>
+        <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
+        <input type="search" id="filtro_cliente_busca" value="{{ filtros.get('cliente_nome', '') }}"
+               placeholder="Todos os clientes" autocomplete="off">
+        <button type="button" id="btn_limpar_cliente" class="pi-filter-input-clear {% if not filtros.get('id_cliente') %}hidden{% endif %}"
+                aria-label="Remover filtro de cliente"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <span id="resultados_clientes_filtro" class="pi-client-results hidden" role="listbox"></span>
+    </div>
+    {% endif %}
 
-      {% if lista_financeira %}
-      <label class="pi-filter-field pi-filter-field--year">
-        <span class="sr-only">Ano</span>
+    {% if lista_financeira %}
+    <div class="camp-filter-field">
+      <label for="filtro_ano_ref">Ano</label>
+      <div class="camp-filter-control">
+        <i class="fa-regular fa-calendar" aria-hidden="true"></i>
         <select name="ano_ref_comp" id="filtro_ano_ref">
-          <option value="">Ano: Todos</option>
+          <option value="">Todos os anos</option>
           {% for a in anos_ref %}
           {% set yy = '%02d'|format(a) if a < 100 else ('%02d'|format(a % 100)) %}
-          <option value="{{ yy }}" {% if filtros.get('ano_ref_comp') == yy %}selected{% endif %}>Ano: 20{{ yy }}</option>
+          <option value="{{ yy }}" {% if filtros.get('ano_ref_comp') == yy %}selected{% endif %}>20{{ yy }}</option>
           {% endfor %}
         </select>
-      </label>
-      {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
-      <label class="pi-filter-field pi-filter-field--month">
-        <span class="sr-only">Mês de referência</span>
+    <div class="camp-filter-field">
+      <label for="filtro_mes_ref">Competência</label>
+      <div class="camp-filter-control">
+        <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
         <select name="mes_ref_comp" id="filtro_mes_ref">
-          <option value="">Mês: Todos</option>
+          <option value="">Todos os meses</option>
           {% for m in meses_ref %}
-          <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>Mês: {{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+          <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
           {% endfor %}
         </select>
-      </label>
-
-      <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}"
-         class="pi-filter-clear">
-        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Limpar filtros
-      </a>
+      </div>
     </div>
 
-    <div class="pi-active-filters" data-active-filters hidden>
-      <span>Filtros ativos</span>
-      <div data-active-filter-list></div>
-    </div>
+    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}"
+       class="pi-op-btn pi-filter-clear-link" title="Limpar filtros">
+      <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+      <span>Limpar</span>
+    </a>
+
+    {% if menu_sub_status == '2' %}
+    <nav class="pi-view-switch pi-view-switch--inline" aria-label="Alternar situação">
+      <button type="button" onclick="filtrarVisaoComercial('')" class="{% if visao_comercial|default('') != 'cancelados' %}is-active{% endif %}">Em configuração</button>
+      <button type="button" onclick="filtrarVisaoComercial('cancelados')" class="{% if visao_comercial|default('') == 'cancelados' %}is-active is-danger{% endif %}">Cancelados</button>
+    </nav>
+    {% endif %}
+
+    {% if not visao_por_agencia|default(false)
+          and (menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados')
+          and not (menu_sub_status == '4' and origem_lista == 'operacao') %}
+    <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()" class="pi-op-btn" aria-expanded="false">
+      <i class="fa-solid fa-angles-down" id="icon_expandir_todas" aria-hidden="true"></i>
+      <span id="label_expandir_todas">Expandir todas</span>
+    </button>
+    {% endif %}
+
+    <span class="camp-list-total" aria-live="polite"><strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}</span>
+  </div>
+
+  <div class="pi-active-filters" data-active-filters hidden>
+    <span>Filtros ativos</span>
+    <div data-active-filter-list></div>
+  </div>
 </form>
+{% endif %}

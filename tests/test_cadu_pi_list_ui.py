@@ -135,17 +135,46 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn(".pi-page .camp-table--operational", self.css)
         self.assertIn("border-left: 4px solid #5f8f89", self.css)
 
-    def test_commercial_views_use_compact_filters_and_one_global_header(self):
+    def test_table_header_layout_keeps_static_header_above_rows(self):
+        self.assertRegex(
+            self.css,
+            r"\.pi-list-surface\s*\{[^}]*overflow:\s*visible;",
+        )
+        self.assertRegex(
+            self.css,
+            r"\.pi-page \.pi-list-table\s*\{[^}]*border-collapse:\s*collapse;",
+        )
+        self.assertRegex(
+            self.css,
+            r"\.pi-page \.pi-list-table thead th\s*\{[^}]*position:\s*static;",
+        )
+        self.assertIn(".pi-page .pi-list-table thead {", self.css)
+        self.assertIn("display: table-header-group;", self.css)
+        self.assertIn("@media (min-width: 768px)", self.css)
+        self.assertIn(".pi-page .pi-list-table--commercial > thead,", self.css)
+        for index, width in enumerate(("18%", "20%", "12%", "14%", "14%", "16%", "6%"), start=1):
+            self.assertIn(f".pi-commercial-head th:nth-child({index}) {{ width: {width}; }}", self.css)
+        self.assertIn(".pi-page .pi-list-table--commercial th,", self.css)
+        self.assertNotIn("updateListStickyOffsets", self.js)
+
+    def test_commercial_views_use_camp_list_header_like_acompanhamento(self):
         header = (PARTIALS / "_header_filters.html").read_text()
         table = (PARTIALS / "_table.html").read_text()
         card = (PARTIALS / "_pi_card.html").read_text()
         summary = (PARTIALS / "_commercial_summary.html").read_text()
-        self.assertIn('class="sr-only">Executivo', header)
-        self.assertIn("Executivo: Todos", header)
-        self.assertIn("Mês: Todos", header)
-        self.assertNotIn("pi-list-subtitle", header)
-        self.assertIn("height: 4rem", self.css)
-        self.assertIn("max-height: 4rem", self.css)
+        commercial_header = header.split("{% else %}", 1)[1]
+        self.assertIn("pi-op-header camp-list-header", commercial_header)
+        self.assertIn("camp-list-header__identity", commercial_header)
+        self.assertIn("camp-list-toolbar", commercial_header)
+        self.assertIn("camp-list-total", commercial_header)
+        self.assertIn("camp-filter-field", commercial_header)
+        self.assertIn('for="filtro_executivo"', commercial_header)
+        self.assertIn("PIs em andamento", commercial_header)
+        self.assertNotIn("pi-filter-toggle", commercial_header)
+        self.assertIn("pi-operacao.css", self.template)
+        self.assertIn("pi-operation camp-list-page", self.template)
+        self.assertIn("camp-list-content", self.template)
+        self.assertIn('class="sr-only">Executivo', header.split("{% else %}", 1)[0])
         self.assertIn("pi-list-table--commercial", self.template)
         self.assertIn("pi-commercial-columns", self.template)
         self.assertIn("Cliente e vínculos", table)
@@ -155,6 +184,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("<tfoot>", summary)
         self.assertIn("pi-commercial-summary__values", summary)
         self.assertIn("table-layout: fixed", self.css)
+        self.assertIn(".pi-page.pi-operation.camp-list-page > .pi-op-header.camp-list-header", self.css)
 
     def test_shared_card_renders_the_three_commercial_statuses(self):
         env = Environment(loader=FileSystemLoader(ROOT / "aicentralv2/templates"))
@@ -261,8 +291,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-list-header--fiscal", header)
         self.assertIn(".pi-page--fiscal", self.css)
         self.assertIn("top: var(--erp-topbar-h", self.css)
-        self.assertIn("--pi-list-header-height", self.css)
-        self.assertIn("updateListStickyOffsets", self.js)
+        self.assertNotIn("--pi-list-header-height", self.css)
 
     def test_shared_card_keeps_status_flight_and_title_fallback(self):
         card = (PARTIALS / "_pi_card.html").read_text()

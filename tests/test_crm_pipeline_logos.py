@@ -55,12 +55,22 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("cot.tipo_comercial", self.db)
         self.assertIn("pp_quote_type(cotacao.tipo_comercial)", self.template)
 
-    def test_pipeline_header_is_compact_and_metrics_filter_cards(self):
-        self.assertIn("max-height: 4rem;", self.css)
+    def test_pipeline_header_uses_two_responsive_rows(self):
+        self.assertIn('class="pp-toolbar-main"', self.template)
+        self.assertIn('class="pp-filters pp-filter-bar"', self.template)
+        self.assertIn("height: 3rem;", self.css)
+        self.assertIn("min-height: 2.25rem;", self.css)
+        self.assertIn("top: var(--erp-topbar-h, 3.5rem);", self.css)
+        self.assertIn("@media (max-width: 1279px)", self.css)
+        self.assertIn("@media (max-width: 1023px)", self.css)
+        self.assertIn("@media (max-width: 767px)", self.css)
+        self.assertIn(".pp-metric--value { display: none; }", self.css)
+        self.assertIn(".pp-metric--active { display: none; }", self.css)
         self.assertIn('data-card-filter="ativas"', self.template)
         self.assertIn('data-card-filter="paradas"', self.template)
         self.assertIn("cardFilterAtivo", self.template)
         self.assertIn("data-days=", self.template)
+        self.assertIn("limparFiltrosPipeline()", self.template)
 
     def test_pipeline_uses_human_readable_money(self):
         start = self.template.index("{% macro money_br")
@@ -77,6 +87,16 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn('class="pp-detail-footer"', self.template)
         self.assertIn(".pp-detail-head", self.css)
         self.assertIn(".pp-detail-footer", self.css)
+
+    def test_detail_drawer_adapts_to_all_commercial_types(self):
+        self.assertIn('id="modal_tipo_comercial"', self.template)
+        self.assertIn("aplicarTipoCotacaoNoDrawer(c)", self.template)
+        self.assertIn("formatos_interativos:", self.template)
+        self.assertIn("Serviços e entregas", self.template)
+        self.assertIn("Formatos e peças", self.template)
+        self.assertIn("Produtos e dados", self.template)
+        self.assertIn("resumo_audiencias_bloco", self.template)
+        self.assertIn(".pp-detail-related.is-single", self.css)
 
     def test_pipeline_has_five_shared_commercial_stages(self):
         self.assertIn(
@@ -117,7 +137,7 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("e.key.toLowerCase() === 'h'", self.template)
 
     def test_pipeline_assets_have_responsive_contract(self):
-        self.assertIn("cotacao_pipeline.css') }}?v=7", self.template)
+        self.assertIn("cotacao_pipeline.css') }}?v=8", self.template)
         self.assertIn("scrollbar-width: none", self.css)
         self.assertNotIn("scroll-snap-type: x proximity", self.css)
         self.assertIn("LIMITE_CARDS_COLUNA = 25", self.template)

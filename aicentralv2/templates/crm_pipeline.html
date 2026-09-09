@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -22,32 +22,55 @@
     {%- endif -%}
   {%- endmacro %}
 
-  <header class="pp-toolbar">
-    <div class="pp-title-block">
-      <h1>Pipeline de Propostas</h1>
+  <header class="pp-header">
+    <div class="pp-toolbar-main">
+      <div class="pp-header-identity">
+        <div class="pp-title-block">
+          <h1>Pipeline de Propostas</h1>
+        </div>
+        <div class="pp-metrics" aria-label="Resumo do pipeline">
+          <button type="button" class="pp-metric pp-metric--active" data-card-filter="ativas" aria-pressed="false"
+                  title="{{ metricas_pipeline.ativas|default(0) }} propostas ativas — filtrar cards">
+            <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+            <span><strong>{{ metricas_pipeline.ativas|default(0) }}</strong> ativas</span>
+          </button>
+          <button type="button" class="pp-metric pp-metric--value" data-card-filter="ativas" aria-pressed="false"
+                  title="R$ {{ money_br(metricas_pipeline.valor_aberto|default(0)) }} em aberto — filtrar propostas ativas">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+            <span><strong>R$ {{ money_br(metricas_pipeline.valor_aberto|default(0)) }}</strong> em aberto</span>
+          </button>
+          <button type="button" class="pp-metric pp-metric--stalled {% if metricas_pipeline.sem_movimento|default(0) %}is-alert{% endif %}"
+                  data-card-filter="paradas" aria-pressed="false"
+                  title="{{ metricas_pipeline.sem_movimento|default(0) }} propostas paradas há mais de 30 dias — filtrar cards">
+            <i class="fa-regular fa-clock" aria-hidden="true"></i>
+            <span><strong>{{ metricas_pipeline.sem_movimento|default(0) }}</strong> paradas há +30d</span>
+          </button>
+        </div>
+      </div>
+      <div class="pp-header-actions">
+        <button type="button" id="pp_history_trigger" class="cx-btn cx-btn-secondary pp-history-trigger"
+                aria-controls="pp_history_sidebar" aria-expanded="false" onclick="abrirHistorico()">
+          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+          <span class="pp-action-label">Histórico</span>
+        </button>
+        <div class="pp-views">
+          <a href="{{ url_for('crm_pipeline') }}" class="is-on">Pipeline</a>
+          <a href="{{ url_for('cotacoes.cotacoes_list') }}">Lista</a>
+        </div>
+        <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary pp-new-quote">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="pp-new-quote-label">Nova cotação</span>
+        </a>
+      </div>
     </div>
-    <div class="pp-metrics" aria-label="Resumo do pipeline">
-      <button type="button" class="pp-metric" data-card-filter="ativas" aria-pressed="false" title="Mostrar propostas ativas">
-        <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
-        <span><strong>{{ metricas_pipeline.ativas|default(0) }}</strong> ativas</span>
-      </button>
-      <button type="button" class="pp-metric" data-card-filter="ativas" aria-pressed="false" title="Mostrar o valor em aberto">
-        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-        <span><strong>R$ {{ money_br(metricas_pipeline.valor_aberto|default(0)) }}</strong> em aberto</span>
-      </button>
-      <button type="button" class="pp-metric {% if metricas_pipeline.sem_movimento|default(0) %}is-alert{% endif %}"
-              data-card-filter="paradas" aria-pressed="false" title="Mostrar propostas paradas há mais de 30 dias">
-        <i class="fa-regular fa-clock" aria-hidden="true"></i>
-        <span><strong>{{ metricas_pipeline.sem_movimento|default(0) }}</strong> paradas há +30d</span>
-      </button>
-    </div>
-    <form id="filtros_form" class="pp-filters" onsubmit="return false">
+  </header>
+  <form id="filtros_form" class="pp-filters pp-filter-bar" onsubmit="return false">
       <label class="pp-search">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <span class="sr-only">Buscar propostas</span>
         <input type="search" id="filtro_busca" placeholder="Buscar cliente ou campanha" autocomplete="off" oninput="filtrarCards()">
       </label>
-      <label class="pp-filter">
+      <label class="pp-filter pp-filter--owner">
         <span class="sr-only">Responsável</span>
         <select class="cx-select" name="executivo_id" id="filtro_executivo" aria-label="Responsável" onchange="aplicarFiltros()">
         <option value="">Responsável: todos</option>
@@ -91,20 +114,8 @@
         <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Perdida</option>
         </select>
       </label>
-    </form>
-    <div class="pp-header-actions">
-      <button type="button" id="pp_history_trigger" class="cx-btn cx-btn-secondary pp-history-trigger"
-              aria-controls="pp_history_sidebar" aria-expanded="false" onclick="abrirHistorico()">
-        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-        Histórico
-      </button>
-      <div class="pp-views">
-        <a href="{{ url_for('crm_pipeline') }}" class="is-on">Pipeline</a>
-        <a href="{{ url_for('cotacoes.cotacoes_list') }}">Lista</a>
-      </div>
-      <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>
-    </div>
-  </header>
+      <button type="button" class="pp-clear-filters" onclick="limparFiltrosPipeline()">Limpar filtros</button>
+  </form>
 
   {% macro pp_avatar(cotacao) %}
     {% if cotacao.executivo_foto_url %}
@@ -275,6 +286,7 @@
   <div class="cx-modal-panel cx-modal-panel-xl w-11/12 max-w-5xl bg-white p-0 rounded-lg">
     <header class="pp-detail-head">
       <div class="pp-detail-identity">
+        <span id="modal_tipo_comercial" class="pp-detail-type">Mídia</span>
         <h3 id="modal_titulo">-</h3>
         <p id="modal_subtitulo">-</p>
       </div>
@@ -299,11 +311,11 @@
             <strong id="resumo_cliente">-</strong>
           </div>
           <div>
-            <span>Período da campanha</span>
+            <span id="resumo_periodo_label">Período da campanha</span>
             <strong id="resumo_periodo">-</strong>
           </div>
           <div>
-            <span>Campanha</span>
+            <span id="resumo_campanha_label">Campanha</span>
             <strong id="resumo_campanha">-</strong>
           </div>
           <div>
@@ -311,7 +323,7 @@
             <strong id="resumo_criada_em">-</strong>
           </div>
           <div>
-            <span>Objetivo</span>
+            <span id="resumo_objetivo_label">Objetivo</span>
             <strong id="resumo_objetivo">-</strong>
           </div>
           <div>
@@ -356,13 +368,13 @@
         
         <section class="pp-detail-section">
           <div class="pp-detail-related">
-            <div>
-              <h4>Itens <span id="resumo_itens_count">0</span></h4>
+            <div id="resumo_itens_bloco">
+              <h4><span id="resumo_itens_label">Itens</span> <span id="resumo_itens_count">0</span></h4>
               <div id="resumo_itens_lista">
                 <p>Nenhum item</p>
               </div>
             </div>
-            <div>
+            <div id="resumo_audiencias_bloco">
               <h4>Audiências <span id="resumo_audiencias_count">0</span></h4>
               <div id="resumo_audiencias_lista">
                 <p>Nenhuma audiência</p>
@@ -627,6 +639,18 @@ function aplicarFiltros() {
   window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
 }
 
+function limparFiltrosPipeline() {
+  document.getElementById('filtro_busca').value = '';
+  document.getElementById('filtro_executivo').value = '';
+  document.getElementById('filtro_mes').value = '';
+  document.getElementById('filtro_status').value = 'TODOS';
+  cardFilterAtivo = '';
+  setCookie('cc_filtro_exec', '', 30);
+  setCookie('cc_filtro_mes', '', 30);
+  setCookie('crm_status', 'TODOS', 30);
+  window.location.href = '{{ url_for("crm_pipeline") }}?status=TODOS&_restored=1';
+}
+
 function filtrarCards() {
   const termo = (document.getElementById('filtro_busca').value || '').trim().toLocaleLowerCase('pt-BR');
   document.querySelectorAll('.kanban-card').forEach(card => {
@@ -867,6 +891,7 @@ async function abrirModalCotacao(cotacaoId) {
 }
 
 function preencherModal(c) {
+  const tipoConfig = aplicarTipoCotacaoNoDrawer(c);
   document.getElementById('modal_titulo').textContent = c.cliente_nome || 'Sem cliente';
   document.getElementById('modal_subtitulo').textContent = [
     c.nome_campanha,
@@ -911,13 +936,13 @@ function preencherModal(c) {
     itensCount.textContent = c.itens.length;
     itensLista.innerHTML = c.itens.slice(0, 5).map(item => `
       <div class="flex items-center justify-between text-sm">
-        <span class="text-gray-600 truncate" style="max-width: 150px;">${item.plataforma || '-'} - ${item.produto || item.descricao || '-'}</span>
+        <span class="text-gray-600 truncate" style="max-width: 150px;">${escapeHtml([item.plataforma, item.produto || item.descricao].filter(Boolean).join(' — ') || '-')}</span>
         <span class="font-medium text-gray-700">R$ ${formatarMoeda(item.valor_total || 0)}</span>
       </div>
     `).join('') + (c.itens.length > 5 ? `<p class="text-xs text-gray-400">+${c.itens.length - 5} mais...</p>` : '');
   } else {
     itensCount.textContent = '0';
-    itensLista.innerHTML = '<p class="text-sm text-gray-400">Nenhum item</p>';
+    itensLista.innerHTML = `<p class="text-sm text-gray-400">${escapeHtml(tipoConfig.emptyText)}</p>`;
   }
   
   // Resumo de audiências
@@ -997,6 +1022,59 @@ function preencherModal(c) {
   }
   
   trocarAbaModal('resumo');
+}
+
+function aplicarTipoCotacaoNoDrawer(c) {
+  const configs = {
+    midia: {
+      label: 'Mídia',
+      period: 'Período da campanha',
+      subject: 'Campanha',
+      objective: 'Objetivo',
+      items: 'Itens de mídia',
+      emptyText: 'Nenhum item de mídia'
+    },
+    parceiros: {
+      label: 'Parceiros',
+      period: 'Período de entrega',
+      subject: 'Projeto',
+      objective: 'Escopo',
+      items: 'Serviços e entregas',
+      emptyText: 'Nenhum serviço ou entrega'
+    },
+    formatos_interativos: {
+      label: 'Formatos interativos',
+      period: 'Período de veiculação',
+      subject: 'Projeto',
+      objective: 'Objetivo',
+      items: 'Formatos e peças',
+      emptyText: 'Nenhum formato ou peça'
+    },
+    dados: {
+      label: 'Dados',
+      period: 'Período do projeto',
+      subject: 'Projeto',
+      objective: 'Objetivo',
+      items: 'Produtos e dados',
+      emptyText: 'Nenhum produto de dados'
+    }
+  };
+  const tipo = Object.prototype.hasOwnProperty.call(configs, c.tipo_comercial) ? c.tipo_comercial : 'midia';
+  const config = configs[tipo];
+  const badge = document.getElementById('modal_tipo_comercial');
+  badge.textContent = config.label;
+  badge.className = `pp-detail-type is-${tipo}`;
+  document.getElementById('resumo_periodo_label').textContent = config.period;
+  document.getElementById('resumo_campanha_label').textContent = config.subject;
+  document.getElementById('resumo_objetivo_label').textContent = config.objective;
+  document.getElementById('resumo_itens_label').textContent = config.items;
+
+  const audiencesBlock = document.getElementById('resumo_audiencias_bloco');
+  const relatedGrid = audiencesBlock.closest('.pp-detail-related');
+  const showAudiences = tipo === 'midia' || (Array.isArray(c.audiencias) && c.audiencias.length > 0);
+  audiencesBlock.hidden = !showAudiences;
+  relatedGrid.classList.toggle('is-single', !showAudiences);
+  return config;
 }
 
 function escapeHtml(valor) {

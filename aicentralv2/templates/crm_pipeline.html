@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=9">
 {% endblock %}
 
 {% block content %}
@@ -394,8 +394,8 @@
         <form id="atividade_proposta_form" class="pp-activity-form" onsubmit="criarAtividadeProposta(event)">
           <div class="pp-section-heading">
             <div>
-              <h4>Próxima atividade</h4>
-              <p>Registre um próximo passo diretamente nesta proposta.</p>
+              <h4>Atividade no CRM</h4>
+              <p>O próximo passo ficará vinculado ao cliente e a esta proposta.</p>
             </div>
           </div>
           <label>
@@ -422,11 +422,11 @@
             <span>Observação</span>
             <textarea class="cx-textarea" id="atividade_descricao" rows="3" placeholder="Contexto e resultado esperado"></textarea>
           </label>
-          <button class="cx-btn cx-btn-primary" id="atividade_submit" type="submit">Criar atividade</button>
+          <button class="cx-btn cx-btn-primary" id="atividade_submit" type="submit">Salvar no CRM</button>
         </form>
         <div class="pp-activity-list-wrap">
           <div class="pp-section-heading">
-            <h4>Histórico da proposta</h4>
+            <h4>Atividades vinculadas no CRM</h4>
           </div>
           <div id="atividades_lista" class="pp-activity-list"></div>
         </div>
@@ -514,29 +514,35 @@
     </div>
     
     <footer class="pp-detail-footer">
-      <div class="pp-detail-footer-main">
+      <div class="pp-detail-footer-nav">
+        <a id="modal_link_crm" href="#" class="cx-btn cx-btn-secondary">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          Abrir cliente no CRM
+        </a>
+        <a id="modal_link_editar" href="#" class="pp-detail-edit-link">
+          <i class="fa-solid fa-pen" aria-hidden="true"></i>Editar cotação
+        </a>
+      </div>
+      <div class="pp-detail-footer-workflow">
+        <label class="pp-detail-stage">
+          <span class="sr-only">Mover cotação para outra etapa</span>
         <select id="modal_mover_status" onchange="moverCotacaoStatus(this.value)" 
                 class="cx-select">
-          <option value="">Mover para...</option>
+          <option value="">Mover etapa...</option>
           <option value="Rascunho">Rascunho</option>
           <option value="Enviada">Enviada</option>
           <option value="Em Acompanhamento">Follow-up</option>
           <option value="Próximo de Aprovar">Próximo de Aprovar</option>
-          <option value="Aprovada">✓ Aprovada</option>
         </select>
-        
-        <a id="modal_link_editar" href="#">
-          <i class="fa-solid fa-pen mr-1"></i>Editar completo
-        </a>
-      </div>
-      
-      <div class="pp-detail-footer-actions">
-        <button onclick="aprovarCotacao()" class="cx-btn cx-btn-primary" id="btn_aprovar">
-          <i class="fa-solid fa-check mr-1"></i>Aprovar
-        </button>
-        <button onclick="rejeitarCotacao()" class="cx-btn cx-btn-danger" id="btn_rejeitar">
-          <i class="fa-solid fa-xmark mr-1"></i>Marcar como perdida
-        </button>
+        </label>
+        <div class="pp-detail-footer-actions">
+          <button onclick="rejeitarCotacao()" class="cx-btn cx-btn-danger" id="btn_rejeitar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>Marcar como perdida
+          </button>
+          <button onclick="aprovarCotacao()" class="cx-btn cx-btn-primary" id="btn_aprovar">
+            <i class="fa-solid fa-check" aria-hidden="true"></i>Aprovar
+          </button>
+        </div>
       </div>
     </footer>
   </div>
@@ -1006,6 +1012,13 @@ function preencherModal(c) {
   selecionarTipoComunicacao('email');
   
   document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/abrir`;
+  const crmParams = new URLSearchParams({
+    cliente_id: c.client_id || '',
+    executivo: c.executivo_nome || '',
+    cotacao_id: c.id || '',
+    tab: 'atividades'
+  });
+  document.getElementById('modal_link_crm').href = `/crm-v3/?${crmParams.toString()}`;
   const moverStatus = document.getElementById('modal_mover_status');
   moverStatus.value = '';
   moverStatus.disabled = c.status === 'Aprovada' || c.status === 'Rejeitada';
@@ -1119,7 +1132,7 @@ async function criarAtividadeProposta(event) {
   };
   if (!payload.titulo || !payload.data_atividade) return;
   botao.disabled = true;
-  botao.textContent = 'Criando...';
+  botao.textContent = 'Salvando...';
   try {
     const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoAtualId}/atividades`, {
       method: 'POST',
@@ -1130,7 +1143,7 @@ async function criarAtividadeProposta(event) {
     if (!response.ok || !result.success) throw new Error(result.message || 'Erro ao criar atividade');
     document.getElementById('atividade_proposta_form').reset();
     document.getElementById('atividade_data').value = new Date().toISOString().slice(0, 10);
-    showToast('Atividade criada para esta proposta', 'success');
+    showToast('Atividade salva no CRM e vinculada à proposta', 'success');
     const detalhes = await fetch(`/api/crm/pipeline/cotacao/${cotacaoAtualId}`).then(r => r.json());
     if (detalhes.success) {
       cotacaoAtualData = detalhes.cotacao;
@@ -1140,7 +1153,7 @@ async function criarAtividadeProposta(event) {
     showToast(error.message || 'Erro ao criar atividade', 'error');
   } finally {
     botao.disabled = false;
-    botao.textContent = 'Criar atividade';
+    botao.textContent = 'Salvar no CRM';
   }
 }
 

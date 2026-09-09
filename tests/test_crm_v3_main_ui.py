@@ -72,6 +72,17 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn(".crm-v3-ativ-composer-input", self.css)
         self.assertIn("font-size: 15px", self.css)
 
+    def test_pipeline_deep_link_selects_client_and_executive(self):
+        self.assertIn("ENTRY_PARAMS.get('cliente_id')", self.js)
+        self.assertIn("ENTRY_PARAMS.get('executivo')", self.js)
+        self.assertIn("clienteIdFromEntry()", self.js)
+        self.assertIn("state.clientes.find(function (c) { return String(c.id) === String(entryClienteId); })", self.js)
+
+    def test_crm_activities_expose_the_linked_quote(self):
+        self.assertIn('"cotacao_id": (', (ROOT / "aicentralv2/crm_v3_repository.py").read_text())
+        self.assertIn("crm-v3-ativ-cotacao", self.js)
+        self.assertIn(".crm-v3-ativ-cotacao", self.css)
+
     def test_only_contextual_suggestion_remains_in_activity_column(self):
         render = self.js.split("function renderAtividades()", 1)[1].split(
             "// renderSidebarAtividades", 1

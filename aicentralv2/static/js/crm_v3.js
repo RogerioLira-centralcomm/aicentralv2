@@ -47,6 +47,7 @@
      * dados sempre vêm da API.
      * ------------------------------------------------------------------ */
     var LS_KEY = 'crm-v3.session.v1';
+    var ENTRY_PARAMS = new URLSearchParams(window.location.search);
 
     function loadSession() {
         try {
@@ -83,6 +84,10 @@
     function clienteIdFromHash() {
         var m = String(location.hash || '').match(/^#cliente=([^&]+)/);
         return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function clienteIdFromEntry() {
+        return ENTRY_PARAMS.get('cliente_id') || clienteIdFromHash();
     }
 
     function setMobileView(view) {
@@ -2610,6 +2615,10 @@
         var horaStr = a.hora || '';
         var quando = [dataStr, horaStr].filter(Boolean).join(' · ');
         var titulo = tituloAtividadeLista(a);
+        var cotacaoContexto = a.cotacao_id
+            ? '<em class="crm-v3-ativ-cotacao" title="Atividade vinculada à proposta #' + escapeHtml(a.cotacao_id) + '">' +
+                '<i class="fa-regular fa-file-lines" aria-hidden="true"></i> Proposta</em>'
+            : '';
         return (
             '<div class="crm-v3-ativ' + (concluida ? ' crm-v3-ativ-concluida' : '') + '" role="listitem" data-status="' + escapeHtml(a.status) + '" data-atividade-id="' + escapeHtml(a.id) + '"' + (a._pending ? ' data-pending="true"' : '') + '>' +
                 '<button type="button" class="crm-v3-ativ-check" data-ativ-action="toggle" aria-label="' + (concluida ? 'Reabrir' : 'Marcar como feita') + ': ' + escapeHtml(titulo) + '" title="' + (concluida ? 'Reabrir' : 'Marcar como feita') + '">' +
@@ -2617,7 +2626,7 @@
                 '</button>' +
                 ativIconHtml(a.tipo) +
                 '<button type="button" class="crm-v3-ativ-content" data-ativ-action="editar" title="Editar atividade">' +
-                    '<div class="crm-v3-ativ-titulo">' + escapeHtml(titulo) + '</div>' +
+                    '<div class="crm-v3-ativ-titulo"><span>' + escapeHtml(titulo) + '</span>' + cotacaoContexto + '</div>' +
                 '</button>' +
                 (quando ? '<span class="crm-v3-ativ-when" title="' + escapeHtml(quando) + '">' + escapeHtml(quando) + '</span>' : '') +
                 execAvatarHtml(a) +
@@ -3939,13 +3948,13 @@
             state.clientes = data.clientes || [];
             renderClientes();
             if (state.clientes.length) {
-                var hashId = clienteIdFromHash();
+                var entryClienteId = clienteIdFromEntry();
                 if (isMobileCrm()) {
-                    var doHash = hashId && state.clientes.some(function (c) {
-                        return String(c.id) === String(hashId);
+                    var doEntry = entryClienteId && state.clientes.some(function (c) {
+                        return String(c.id) === String(entryClienteId);
                     });
-                    if (doHash) {
-                        selectCliente(hashId, { replaceUrl: true, fromHistory: true });
+                    if (doEntry) {
+                        selectCliente(entryClienteId, { replaceUrl: true, fromHistory: true });
                         setMobileView('detail');
                     } else {
                         setMobileView('list');
@@ -3953,6 +3962,7 @@
                 } else {
                     var sess = loadSession();
                     var candidato =
+                        state.clientes.find(function (c) { return String(c.id) === String(entryClienteId); }) ||
                         state.clientes.find(function (c) { return c.id === state.clienteId; }) ||
                         state.clientes.find(function (c) { return c.id === sess.lastClientId; }) ||
                         state.clientes[0];
@@ -4820,6 +4830,14 @@
             } else if (selfName && options.some(function (o) { return o.value === selfName; })) {
                 state.filtroExecutivo = selfName;
             }
+        }
+        var entryExecutivo = ENTRY_PARAMS.get('executivo') || '';
+        var executivoExiste = $$('#filtro-executivo option').some(function (o) {
+            return o.value === entryExecutivo;
+        });
+        if (entryExecutivo && executivoExiste) {
+            state.filtroExecutivo = entryExecutivo;
+            saveSession({ filtroExecutivo: entryExecutivo });
         }
     }
 

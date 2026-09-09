@@ -98,6 +98,16 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("resumo_audiencias_bloco", self.template)
         self.assertIn(".pp-detail-related.is-single", self.css)
 
+    def test_detail_drawer_links_to_filtered_crm_and_uses_crm_activities(self):
+        self.assertIn('id="modal_link_crm"', self.template)
+        self.assertIn("cliente_id: c.client_id", self.template)
+        self.assertIn("executivo: c.executivo_nome", self.template)
+        self.assertIn("tab: 'atividades'", self.template)
+        self.assertIn("Atividade no CRM", self.template)
+        self.assertIn("Salvar no CRM", self.template)
+        self.assertIn("pp-detail-footer-workflow", self.template)
+        self.assertNotIn('<option value="Aprovada">✓ Aprovada</option>', self.template)
+
     def test_pipeline_has_five_shared_commercial_stages(self):
         self.assertIn(
             "['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar', 'Aprovada']",
@@ -137,7 +147,7 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("e.key.toLowerCase() === 'h'", self.template)
 
     def test_pipeline_assets_have_responsive_contract(self):
-        self.assertIn("cotacao_pipeline.css') }}?v=8", self.template)
+        self.assertIn("cotacao_pipeline.css') }}?v=9", self.template)
         self.assertIn("scrollbar-width: none", self.css)
         self.assertNotIn("scroll-snap-type: x proximity", self.css)
         self.assertIn("LIMITE_CARDS_COLUNA = 25", self.template)

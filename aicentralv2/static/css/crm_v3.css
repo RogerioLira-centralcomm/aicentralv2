@@ -2980,7 +2980,7 @@ img.crm-v3-avatar-mini {
     display: none;
 }
 
-.crm-v3-ativ-concluida .crm-v3-ativ-titulo {
+.crm-v3-ativ-concluida .crm-v3-ativ-titulo > span {
     text-decoration: line-through;
     color: var(--crm-text-subtle);
 }
@@ -3099,6 +3099,9 @@ img.crm-v3-avatar-mini {
 }
 
 .crm-v3-ativ-titulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: var(--crm-font-sm);
     font-weight: 500;
     color: var(--crm-text);
@@ -3107,6 +3110,27 @@ img.crm-v3-avatar-mini {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.crm-v3-ativ-titulo > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-v3-ativ-cotacao {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 5px;
+    border: 1px solid #c8dddd;
+    border-radius: 999px;
+    background: #eef6f5;
+    color: #3f6868;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 700;
 }
 
 .crm-v3-ativ-titulo:hover {

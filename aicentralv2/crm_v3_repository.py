@@ -1204,6 +1204,9 @@ class CrmV3Repository:
                 str(row.get("contato_id")) if row.get("contato_id") is not None else ""
             ),
             "contato_nome": row.get("contato_nome") or "",
+            "cotacao_id": (
+                str(row.get("cotacao_id")) if row.get("cotacao_id") is not None else ""
+            ),
             "data_prazo": self._iso_date(row.get("data_prazo")) or "",
             "created_at": self._iso_date(row.get("created_at")) or "",
         }

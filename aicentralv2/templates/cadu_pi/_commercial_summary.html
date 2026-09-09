@@ -1,0 +1,22 @@
+<tfoot>
+  <tr class="pi-commercial-summary">
+    <td colspan="5">
+      <span class="pi-commercial-summary__count">
+        <strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}
+        <span aria-hidden="true"> · </span>
+        <strong>{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}
+        {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('id_agencia') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
+        <span aria-hidden="true"> · </span><span><i class="fa-solid fa-filter" aria-hidden="true"></i> Resultado filtrado</span>
+        {% endif %}
+      </span>
+    </td>
+    <td>
+      <div class="pi-commercial-summary__values">
+        {% if sub_status_atual|string == '3' %}<span>Mídia <strong>{{ pi_footer_totais.valor_midia|format_brl if pi_footer_totais.valor_midia else 'R$ 0,00' }}</strong></span>{% endif %}
+        <span>Líquido <strong class="is-net">{{ pi_footer_totais.valor_liquido|format_brl if pi_footer_totais.valor_liquido else 'R$ 0,00' }}</strong></span>
+        <span>Bruto <strong>{{ pi_footer_totais.valor_bruto|format_brl if pi_footer_totais.valor_bruto else 'R$ 0,00' }}</strong></span>
+      </div>
+    </td>
+    <td aria-hidden="true"></td>
+  </tr>
+</tfoot>

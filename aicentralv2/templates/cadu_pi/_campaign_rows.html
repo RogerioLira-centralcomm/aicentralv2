@@ -1,14 +1,12 @@
-{% if sub_status_atual|string != '1' %}
+{% if sub_status_atual|string in ['1', '2', '3', '4'] %}
 {% set campanhas_sempre_abertas = sub_status_atual|string == '4' and origem_lista == 'operacao' %}
 <tr class="collapse-camp-row{% if not campanhas_sempre_abertas %} hidden{% else %} pi-campaigns-always-open{% endif %}" id="camp-collapse-{{ pi.id_pi }}"{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
-  <td colspan="{% if sub_status_atual|string == '3' %}10{% elif campanhas_sempre_abertas %}6{% elif sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}9{% else %}8{% endif %}">
+  <td colspan="{% if sub_status_atual|string in ['1', '2', '3'] %}7{% elif campanhas_sempre_abertas %}6{% elif sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}9{% else %}8{% endif %}">
     <section class="pi-camp-block" aria-label="Campanhas do PI {{ pi.codigo_pi_cc or pi.codigo_pi_ag or pi.id_pi }}">
-      {% if campanhas_sempre_abertas %}
       <header class="pi-camp-block__header">
         <strong>Campanhas vinculadas</strong>
         <span>{{ pi.get('total_campanhas', 0) }} campanha{% if pi.get('total_campanhas', 0) != 1 %}s{% endif %}</span>
       </header>
-      {% endif %}
       <div id="camp-content-{{ pi.id_pi }}" class="pi-campaign-loading" role="status" aria-live="polite">
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
         <span>Carregando campanhas</span>

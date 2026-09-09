@@ -14,6 +14,11 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro title_text(pi) -%}
+{%- set raw_title = (pi.get('titulo_pi') or '')|string|trim -%}
+{{- '—' if raw_title|lower in ['', 'none', 'null'] else raw_title -}}
+{%- endmacro %}
+
 {% macro executive(pi, compact=false) -%}
 {% set parts = (pi.get('resp_comercial_nome') or '').split(' ') %}
 {% set initials = ((parts[0][0:1] if parts and parts[0] else '') ~ (parts[-1][0:1] if parts|length > 1 and parts[-1] else ''))|upper %}

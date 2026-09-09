@@ -40,7 +40,7 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string == '1' %} pi-list-table--approval{% endif %}{% if sub_status_atual|string == '3' %} pi-list-table--operation{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-table--commercial{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
         {% if origem_lista == 'nf_emitida' %}
         <colgroup class="pi-fiscal-columns">
           <col class="pi-col-reference">
@@ -53,6 +53,16 @@
           <col class="pi-col-actions">
           <col class="pi-col-invoice">
         </colgroup>
+        {% elif sub_status_atual|string in ['1', '2', '3'] %}
+        <colgroup class="pi-commercial-columns">
+          <col class="pi-col-primary">
+          <col class="pi-col-client">
+          <col class="pi-col-owner">
+          <col class="pi-col-period">
+          <col class="pi-col-campaigns">
+          <col class="pi-col-finance">
+          <col class="pi-col-actions">
+        </colgroup>
         {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
         <colgroup class="pi-billing-columns">
           <col class="pi-col-title">
@@ -61,28 +71,6 @@
           <col class="pi-col-period">
           <col class="pi-col-finance">
           <col class="pi-col-documents">
-        </colgroup>
-        {% elif sub_status_atual|string == '1' %}
-        <colgroup class="pi-approval-columns">
-          <col class="pi-col-reference">
-          <col class="pi-col-client">
-          <col class="pi-col-agency">
-          <col class="pi-col-gross">
-          <col class="pi-col-net">
-          <col class="pi-col-actions">
-        </colgroup>
-        {% elif sub_status_atual|string == '3' %}
-        <colgroup class="pi-operation-columns">
-          <col class="pi-col-title">
-          <col class="pi-col-client">
-          <col class="pi-col-agency">
-          <col class="pi-col-owner">
-          <col class="pi-col-period">
-          <col class="pi-col-campaigns">
-          <col class="pi-col-media-cost">
-          <col class="pi-col-net">
-          <col class="pi-col-gross">
-          <col class="pi-col-actions">
         </colgroup>
         {% endif %}
         {% include 'cadu_pi/_table.html' %}
@@ -107,144 +95,8 @@
           {% endif %}
           {% for pi in grupo.pis %}
           <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
-          {% if sub_status_atual|string == '1' %}
-            <td class="py-2 px-2 align-top">
-              <div class="flex flex-col gap-0.5">
-                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link truncate block max-w-[68px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
-                {% if pi.get('mes_ref_comp') %}
-                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="px-2 align-top">
-              <div class="flex flex-col gap-0.5">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-xs font-semibold text-gray-800">{{ pi.get('cliente_nome') or '—' }}</span>
-                  {% if pi.get('status_descricao') %}
-                  {% set status_lower = (pi.get('status_descricao') or '')|lower %}
-                  <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">{{ pi.status_descricao }}</span>
-                  {% endif %}
-                </div>
-                {% if pi.get('titulo_pi') and pi.get('titulo_pi') != pi.get('cliente_nome') and pi.get('titulo_pi') != pi.get('agencia_nome') %}
-                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="px-2 align-top">
-              <div class="flex flex-col gap-0.5 max-w-[160px]">
-                {% if pi.get('agencia_nome') %}
-                <span class="text-[11px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
-                {% else %}
-                <span class="cx-cell-empty empty-na">—</span>
-                {% endif %}
-                {% if pi.get('parceiro_nome') %}
-                <span class="text-[11px] text-gray-500 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="text-right px-2 align-top">
-              {% if pi.get('valor_bruto') %}
-              <span class="text-xs font-semibold tabular-nums text-gray-800">{{ pi.valor_bruto|format_brl }}</span>
-              {% else %}
-              <span class="cx-cell-empty empty-pending" title="Valor bruto não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
-              {% endif %}
-            </td>
-            <td class="text-right px-2 align-top">
-              {% if pi.get('valor_liquido') %}
-              <span class="text-[11px] tabular-nums text-green-700 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
-              {% else %}
-              <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
-              {% endif %}
-            </td>
-            <td class="text-center px-2 align-top">
-              <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})"
-                      class="text-gray-400 hover:text-indigo-600 p-0.5" title="Dados complementares">
-                <i class="fa-solid fa-circle-info text-[11px]"></i>
-              </button>
-            </td>
-          {% elif sub_status_atual|string == '2' %}
-            <td class="pi-config-primary">
-              <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
-                {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
-              </a>
-              {% if pi.get('titulo_pi') %}
-              <span class="pi-config-title" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
-              {% endif %}
-              <div class="pi-config-meta">
-                {% if pi.get('mes_ref_comp') %}
-                <span><i class="fa-regular fa-calendar" aria-hidden="true"></i>{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
-                {% endif %}
-                <span>#{{ pi.id_pi }}</span>
-              </div>
-            </td>
-            <td>
-              <strong class="pi-config-client">{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
-              {% if pi.get('agencia_nome') %}
-              <span class="pi-config-relation"><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>
-              {% endif %}
-              {% if pi.get('parceiro_nome') %}
-              <span class="pi-config-relation"><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>
-              {% endif %}
-            </td>
-            <td>
-              {{ pi_row.executive(pi) }}
-            </td>
-            <td>
-              {% if pi.get('periodo_inicio') %}
-              <strong class="pi-config-date pi-config-date-range">
-                <time datetime="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}">{{ pi.periodo_inicio.strftime('%d/%m/%Y') }}</time>
-                {% if pi.get('periodo_fim') %}
-                <span aria-hidden="true">—</span>
-                <time datetime="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}">{{ pi.periodo_fim.strftime('%d/%m/%Y') }}</time>
-                {% endif %}
-              </strong>
-              {% if pi.get('periodo_fim') %}
-              {% set dias_veiculacao = (pi.periodo_fim - pi.periodo_inicio).days %}
-              <span class="pi-config-muted pi-config-duration">{{ dias_veiculacao }} dia{% if dias_veiculacao != 1 %}s{% endif %}</span>
-              {% endif %}
-              {% else %}
-              <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>
-              {% endif %}
-            </td>
-            <td>
-              <span class="pi-config-type">{{ pi.get('pi_tipo_descricao') or 'Tipo não informado' }}</span>
-              <div class="pi-config-structure">
-                {{ pi_row.campaign_toggle(pi) }}
-                {% if pi.get('total_links', 0) > 0 %}
-                <span class="pi-config-muted"><i class="fa-solid fa-link" aria-hidden="true"></i>{{ pi.total_links }} link{% if pi.total_links != 1 %}s{% endif %}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td>
-              <span class="pi-config-money-label">Bruto</span>
-              {% if pi.get('valor_bruto') %}
-              <strong class="pi-config-money">{{ pi.valor_bruto|format_brl }}</strong>
-              {% else %}
-              <span class="pi-config-pending">Pendente</span>
-              {% endif %}
-              <span class="pi-config-money-label">Líquido</span>
-              {% if pi.get('valor_liquido') %}
-              <strong class="pi-config-money is-net">{{ pi.valor_liquido|format_brl }}</strong>
-              {% else %}
-              <span class="pi-config-pending">Pendente</span>
-              {% endif %}
-            </td>
-            <td>
-              <span class="pi-config-status">{{ pi.get('sub_status_descricao') or pi.get('status_descricao') or 'Em configuração' }}</span>
-              {% if pi.get('status_descricao') and pi.get('status_descricao') != pi.get('sub_status_descricao') %}
-              <span class="pi-config-muted">{{ pi.status_descricao }}</span>
-              {% endif %}
-            </td>
-            <td>
-              <div class="pi-config-actions">
-                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-outline" title="Editar PI" aria-label="Editar PI">
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                </a>
-                <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Dados complementares" aria-label="Dados complementares">
-                  <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-                </button>
-              </div>
-            </td>
+          {% if sub_status_atual|string in ['1', '2', '3'] %}
+            {% include 'cadu_pi/_pi_card.html' %}
           {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
             {% include 'cadu_pi/_operation_billing_cells.html' %}
           {% else %}
@@ -462,10 +314,8 @@
           {% endfor %}
           {% endfor %}
         </tbody>
-        {% if sub_status_atual|string == '3' %}
-        {% include 'cadu_pi/_operation_summary.html' %}
-        {% elif sub_status_atual|string == '1' %}
-        {% include 'cadu_pi/_approval_summary.html' %}
+        {% if sub_status_atual|string in ['1', '2', '3'] %}
+        {% include 'cadu_pi/_commercial_summary.html' %}
         {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
         {% include 'cadu_pi/_billing_summary.html' %}
         {% endif %}
@@ -474,7 +324,7 @@
       </div>
 
       {% if visao_por_agencia|default(false)
-            or (sub_status_atual|string not in ['1', '3']
+            or (sub_status_atual|string not in ['1', '2', '3']
                 and not (sub_status_atual|string == '4' and origem_lista == 'operacao')) %}
       {% include 'cadu_pi/_summary.html' %}
       {% endif %}

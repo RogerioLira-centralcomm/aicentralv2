@@ -1,0 +1,76 @@
+{# Linha/card comercial compartilhada por aprovação, configuração e andamento. #}
+{% set status_lower = (pi.get('status_descricao') or '')|lower %}
+{% set sub_status = sub_status_atual|string %}
+{% set pct_midia_pi = pi.get('camp_pct_midia', 0) %}
+{% set midia_width = [pct_midia_pi, 100]|min if pct_midia_pi > 0 else 0 %}
+
+<td class="pi-commercial-primary" data-label="PI e título">
+  <div class="pi-commercial-code-line">
+    <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
+      {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
+    </a>
+    {% if pi.get('status_descricao') %}
+    <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">
+      {{ pi.status_descricao }}
+    </span>
+    {% endif %}
+  </div>
+  <strong class="pi-commercial-title" title="{{ pi_row.title_text(pi) }}">{{ pi_row.title_text(pi) }}</strong>
+  <span class="pi-commercial-meta">
+    {% if pi.get('mes_ref_comp') %}{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }} · {% endif %}#{{ pi.id_pi }}
+  </span>
+</td>
+
+<td class="pi-commercial-client" data-label="Cliente e vínculos">
+  <strong>{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
+  {% if pi.get('agencia_nome') %}<span><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>{% endif %}
+  {% if pi.get('parceiro_nome') %}<span><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>{% endif %}
+</td>
+
+<td class="pi-commercial-owner" data-label="Responsável">
+  {{ pi_row.executive(pi) }}
+</td>
+
+<td class="pi-commercial-period" data-label="Veiculação">
+  {% if pi.get('periodo_inicio') %}
+  <strong>
+    <time datetime="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}">{{ pi.periodo_inicio.strftime('%d/%m/%Y') }}</time>
+    {% if pi.get('periodo_fim') %}<span aria-hidden="true">—</span><time datetime="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}">{{ pi.periodo_fim.strftime('%d/%m/%Y') }}</time>{% endif %}
+  </strong>
+  {% if pi.get('periodo_fim') %}<span>{{ (pi.periodo_fim - pi.periodo_inicio).days }} dias</span>{% endif %}
+  {% else %}
+  <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>
+  {% endif %}
+</td>
+
+<td class="pi-commercial-campaigns" data-label="Campanhas">
+  {{ pi_row.campaign_toggle(pi) }}
+</td>
+
+<td class="pi-commercial-finance" data-label="Financeiro">
+  {% if sub_status == '3' and pi.get('camp_midia_prev_total', 0) > 0 %}
+  <div class="pi-commercial-media" title="Custo de mídia realizado">
+    <span>Mídia</span>
+    <div class="camp-progress camp-progress-sm" title="Custo de mídia: {{ pct_midia_pi }}%">
+      <div class="camp-progress-fill" style="width: {{ midia_width }}%"></div>
+    </div>
+    <strong>{{ pi.camp_midia_gasto_total|format_brl }}</strong>
+  </div>
+  {% endif %}
+  <div><span>Líquido</span><strong class="is-net">{{ pi.valor_liquido|format_brl if pi.get('valor_liquido') else 'Pendente' }}</strong></div>
+  <div><span>Bruto</span><strong>{{ pi.valor_bruto|format_brl if pi.get('valor_bruto') else 'Pendente' }}</strong></div>
+</td>
+
+<td class="pi-commercial-actions" data-label="Ações">
+  {% if sub_status == '3' %}
+  <button type="button" onclick="abrirModalAndamento({{ pi.id_pi }})" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Acompanhar andamento" aria-label="Acompanhar andamento">
+    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+  </button>
+  {% endif %}
+  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-outline" title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}" aria-label="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">
+    <i class="fa-solid {% if lista_somente_leitura %}fa-eye{% else %}fa-pen{% endif %}" aria-hidden="true"></i>
+  </a>
+  <button type="button" onclick="abrirSidebarPi({{ pi.id_pi }})" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Dados complementares" aria-label="Dados complementares">
+    <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+  </button>
+</td>

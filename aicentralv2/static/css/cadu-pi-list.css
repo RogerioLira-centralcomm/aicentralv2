@@ -1783,6 +1783,269 @@
   }
 }
 
+/* Lista comercial unificada: aprovação, configuração e andamento. */
+.pi-page:not(.pi-page--fiscal) .pi-list-header__identity {
+  height: 4rem;
+  min-height: 4rem;
+  max-height: 4rem;
+  padding: 0 1.5rem;
+}
+
+.pi-page:not(.pi-page--fiscal) .pi-list-title-row {
+  flex-wrap: nowrap;
+  gap: 0.625rem;
+}
+
+.pi-page:not(.pi-page--fiscal) .pi-list-header__actions {
+  flex-wrap: nowrap;
+}
+
+.pi-view-switch--inline {
+  border: 1px solid var(--pi-line);
+  border-radius: 0.5rem;
+  padding: 0.1875rem;
+}
+
+.pi-view-switch--inline button {
+  min-height: 1.75rem;
+  padding: 0.25rem 0.625rem;
+}
+
+.pi-page:not(.pi-page--fiscal) .pi-list-filters {
+  min-height: 3.5rem;
+  padding: 0.625rem 1.5rem;
+}
+
+.pi-page:not(.pi-page--fiscal) .pi-filter-panel {
+  gap: 0.625rem;
+}
+
+.pi-page:not(.pi-page--fiscal) .pi-filter-field > select,
+.pi-page:not(.pi-page--fiscal) .pi-filter-field input[type="search"],
+.pi-page:not(.pi-page--fiscal) .pi-filter-control {
+  height: 2.25rem;
+  min-height: 2.25rem;
+}
+
+.pi-page .pi-list-table--commercial {
+  min-width: 68rem;
+  table-layout: fixed;
+}
+
+.pi-commercial-columns .pi-col-primary { width: 18%; }
+.pi-commercial-columns .pi-col-client { width: 20%; }
+.pi-commercial-columns .pi-col-owner { width: 12%; }
+.pi-commercial-columns .pi-col-period { width: 14%; }
+.pi-commercial-columns .pi-col-campaigns { width: 14%; }
+.pi-commercial-columns .pi-col-finance { width: 16%; }
+.pi-commercial-columns .pi-col-actions { width: 6%; }
+
+.pi-list-table--commercial th,
+.pi-list-table--commercial td {
+  padding: 0.75rem;
+  vertical-align: top;
+}
+
+.pi-commercial-code-line,
+.pi-commercial-meta,
+.pi-commercial-client span,
+.pi-commercial-period span,
+.pi-commercial-finance > div,
+.pi-commercial-actions {
+  display: flex;
+  align-items: center;
+}
+
+.pi-commercial-code-line {
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.pi-commercial-title,
+.pi-commercial-client > strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.3rem;
+  color: #1e293b;
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-commercial-meta,
+.pi-commercial-client span,
+.pi-commercial-period span {
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  color: #718083;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-period > strong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  color: #334155;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-finance {
+  font-variant-numeric: tabular-nums;
+}
+
+.pi-commercial-finance > div {
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.25rem;
+  color: #718083;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-finance strong {
+  color: #334155;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-finance strong.is-net,
+.pi-commercial-summary__values strong.is-net {
+  color: #0c704d;
+}
+
+.pi-commercial-media .camp-progress {
+  flex: 1;
+  min-width: 2rem;
+}
+
+.pi-commercial-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.pi-camp-block__header {
+  border-bottom: 1px solid #cbdedb;
+  background: #eaf4f2;
+  color: #164e4a;
+}
+
+.pi-commercial-summary td {
+  border-top: 1px solid var(--pi-line);
+  background: #f8fafc;
+}
+
+.pi-commercial-summary__count {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-summary__values {
+  display: grid;
+  gap: 0.2rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-summary__values span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .pi-page:not(.pi-page--fiscal) .pi-list-header__identity {
+    height: auto;
+    min-height: 4rem;
+    max-height: none;
+    align-items: stretch;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .pi-page:not(.pi-page--fiscal) .pi-list-header__actions {
+    flex-wrap: wrap;
+  }
+
+  .pi-view-switch--inline {
+    order: 3;
+    width: 100%;
+  }
+
+  .pi-page:not(.pi-page--fiscal) .pi-list-filters {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .pi-page .pi-list-table-detail.pi-list-table--commercial,
+  .pi-page .pi-list-table--commercial tbody,
+  .pi-page .pi-list-table--commercial tfoot {
+    display: block;
+    min-width: 0;
+  }
+
+  .pi-page .pi-list-table--commercial > thead,
+  .pi-page .pi-list-table--commercial colgroup {
+    display: none;
+  }
+
+  .pi-page .pi-list-table--commercial tbody > .pi-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.875rem 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--pi-line);
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 1rem;
+  }
+
+  .pi-page .pi-list-table--commercial tbody > .pi-row > td {
+    display: block;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .pi-page .pi-list-table--commercial tbody > .pi-row > td::before {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #718083;
+    content: attr(data-label);
+    font-size: 0.75rem;
+    font-weight: 750;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+  }
+
+  .pi-page .pi-list-table--commercial .pi-commercial-primary,
+  .pi-page .pi-list-table--commercial .pi-commercial-client,
+  .pi-page .pi-list-table--commercial .pi-commercial-actions {
+    grid-column: 1 / -1;
+  }
+
+  .pi-page .pi-list-table--commercial .collapse-camp-row,
+  .pi-page .pi-list-table--commercial .collapse-camp-row > td {
+    display: block;
+    width: 100%;
+  }
+
+  .pi-page .pi-list-table--commercial .collapse-camp-row.hidden {
+    display: none;
+  }
+
+  .pi-list-table--commercial .pi-commercial-summary {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .pi-list-table--commercial .pi-commercial-summary > td {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pi-page *,
   .pi-list-header * {

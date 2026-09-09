@@ -1,8 +1,9 @@
 import re
 import unittest
+from datetime import date
 from pathlib import Path
 
-from jinja2 import Environment
+from jinja2 import Environment, FileSystemLoader
 
 from aicentralv2.campanhas_pi_list import group_pis_by_invoice_status
 
@@ -29,11 +30,11 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "_header_filters.html",
             "_table.html",
             "_pi_row.html",
+            "_pi_card.html",
             "_campaign_rows.html",
             "_agency_group.html",
             "_summary.html",
-            "_operation_summary.html",
-            "_approval_summary.html",
+            "_commercial_summary.html",
             "_billing_summary.html",
             "_operation_billing_cells.html",
         }
@@ -134,41 +135,77 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn(".pi-page .camp-table--operational", self.css)
         self.assertIn("border-left: 4px solid #5f8f89", self.css)
 
-    def test_running_operation_uses_compact_filters_and_aligned_table(self):
+    def test_commercial_views_use_compact_filters_and_one_global_header(self):
         header = (PARTIALS / "_header_filters.html").read_text()
         table = (PARTIALS / "_table.html").read_text()
-        summary = (PARTIALS / "_operation_summary.html").read_text()
+        card = (PARTIALS / "_pi_card.html").read_text()
+        summary = (PARTIALS / "_commercial_summary.html").read_text()
         self.assertIn('class="sr-only">Executivo', header)
         self.assertIn("Executivo: Todos", header)
         self.assertIn("Mês: Todos", header)
-        self.assertIn("pi-list-table--operation", self.template)
-        self.assertIn("pi-operation-columns", self.template)
-        self.assertIn("Valor bruto", table)
+        self.assertNotIn("pi-list-subtitle", header)
+        self.assertIn("height: 4rem", self.css)
+        self.assertIn("max-height: 4rem", self.css)
+        self.assertIn("pi-list-table--commercial", self.template)
+        self.assertIn("pi-commercial-columns", self.template)
+        self.assertIn("Cliente e vínculos", table)
+        self.assertEqual(table.count("pi-commercial-head"), 1)
+        self.assertIn("cadu_pi/_pi_card.html", self.template)
+        self.assertIn("data-label=\"Financeiro\"", card)
         self.assertIn("<tfoot>", summary)
-        self.assertIn("pi-operation-summary__metric", summary)
+        self.assertIn("pi-commercial-summary__values", summary)
         self.assertIn("table-layout: fixed", self.css)
-        self.assertIn("min-height: 4.25rem", self.css)
 
-    def test_running_campaigns_expand_as_aligned_parent_table_rows(self):
-        self.assertIn("buildOperationalCampaignRowHtml", self.js)
-        self.assertIn('data-campaign-parent="', self.js)
-        self.assertIn("pi-campaign-detail-row", self.js)
-        self.assertIn(".pi-campaign-detail-row > td", self.css)
+    def test_shared_card_renders_the_three_commercial_statuses(self):
+        env = Environment(loader=FileSystemLoader(ROOT / "aicentralv2/templates"))
+        env.filters["format_brl"] = lambda value: f"R$ {float(value):.2f}"
+        env.globals["url_for"] = lambda endpoint, **values: f"/pi/{values.get('id_pi', '')}"
+        template = env.from_string(
+            "{% import 'cadu_pi/_pi_row.html' as pi_row with context %}"
+            "{% include 'cadu_pi/_pi_card.html' %}"
+        )
+        pi = {
+            "id_pi": 176,
+            "codigo_pi_cc": "PI-176",
+            "titulo_pi": "None",
+            "cliente_nome": "Cliente",
+            "status_descricao": "Em andamento",
+            "resp_comercial_nome": "Ana Silva",
+            "periodo_inicio": date(2026, 9, 1),
+            "periodo_fim": date(2026, 9, 30),
+            "total_campanhas": 2,
+            "valor_liquido": 100,
+            "valor_bruto": 120,
+            "camp_midia_prev_total": 80,
+            "camp_midia_gasto_total": 40,
+            "camp_pct_midia": 50,
+        }
+        for status in ("1", "2", "3"):
+            rendered = template.render(
+                pi=pi,
+                sub_status_atual=status,
+                lista_somente_leitura=False,
+                nomes_meses={},
+            )
+            self.assertEqual(7, rendered.count("<td"))
+            self.assertIn('data-label="Financeiro"', rendered)
+            self.assertIn(">—</strong>", rendered)
+        self.assertIn("Mídia", rendered)
 
-    def test_approval_view_uses_fixed_columns_and_aligned_totals(self):
-        summary = (PARTIALS / "_approval_summary.html").read_text()
-        self.assertIn("pi-list-table--approval", self.template)
-        self.assertIn("pi-approval-columns", self.template)
-        self.assertIn("cadu_pi/_approval_summary.html", self.template)
-        self.assertIn("<tfoot>", summary)
-        self.assertIn("Valor bruto", summary)
-        self.assertIn("Valor líquido", summary)
-        self.assertIn(".pi-page .pi-list-table--approval", self.css)
+    def test_campaigns_expand_in_a_distinct_shared_subtable(self):
+        campaign = (PARTIALS / "_campaign_rows.html").read_text()
+        self.assertNotIn("buildOperationalCampaignRowHtml", self.js)
+        self.assertIn("camp-table--operational", self.js)
+        self.assertIn("Campanhas vinculadas", campaign)
+        self.assertIn("colspan=\"{% if sub_status_atual|string in ['1', '2', '3'] %}7", campaign)
+        self.assertIn("pi-camp-block__header", self.css)
 
     def test_mobile_cards_and_reduced_motion_are_explicit(self):
-        self.assertIn("@media (max-width: 720px)", self.css)
+        self.assertIn("@media (max-width: 767px)", self.css)
         self.assertIn("content: attr(data-label)", self.css)
-        self.assertIn("assignMobileCellLabels", self.js)
+        card = (PARTIALS / "_pi_card.html").read_text()
+        for label in ("PI e título", "Cliente e vínculos", "Responsável", "Veiculação", "Campanhas", "Financeiro", "Ações"):
+            self.assertIn(f'data-label="{label}"', card)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
 
     def test_invoice_queue_groups_statuses_with_count_and_subtotal(self):
@@ -227,29 +264,15 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("--pi-list-header-height", self.css)
         self.assertIn("updateListStickyOffsets", self.js)
 
-    def test_configuration_row_keeps_status_and_flight_compact(self):
+    def test_shared_card_keeps_status_flight_and_title_fallback(self):
+        card = (PARTIALS / "_pi_card.html").read_text()
+        row = (PARTIALS / "_pi_row.html").read_text()
         self.assertIn("pi-row--config", self.template)
-        self.assertIn("pi-config-date-range", self.template)
-        self.assertIn("pi-config-duration", self.template)
-        self.assertIn("<time datetime=", self.template)
-        self.assertRegex(
-            self.css,
-            r"\.pi-page \.pi-list-table tbody \.pi-row--config > td\s*\{"
-            r"[^}]*padding-top:\s*0\.55rem;"
-            r"[^}]*padding-bottom:\s*0\.55rem;"
-            r"[^}]*vertical-align:\s*middle;",
-        )
-        self.assertRegex(
-            self.css,
-            r"\.pi-config-title\s*\{[^}]*text-overflow:\s*ellipsis;"
-            r"[^}]*white-space:\s*nowrap;",
-        )
-        self.assertRegex(
-            self.css,
-            r"\.pi-config-status\s*\{[^}]*white-space:\s*nowrap;",
-        )
-        self.assertIn(".pi-config-head th:nth-child(4) { width: 16%; }", self.css)
-        self.assertIn(".pi-config-head th:nth-child(7) { width: 10%; }", self.css)
+        self.assertIn("<time datetime=", card)
+        self.assertIn("pi-status-badge", card)
+        self.assertIn("pi_row.title_text(pi)", card)
+        self.assertIn("raw_title|lower in ['', 'none', 'null']", row)
+        self.assertIn("{{- '—'", row)
 
     def test_closed_sidebar_is_removed_from_layout_and_viewport(self):
         self.assertIn(

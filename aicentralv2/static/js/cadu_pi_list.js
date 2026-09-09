@@ -352,31 +352,6 @@
       '</tr>';
   }
 
-  function buildOperationalCampaignRowHtml(c, idPi) {
-    const payload = encodeURIComponent(JSON.stringify(c));
-    const periodo = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-    const gasto = c.custo_midia_realizado != null
-      ? parseBrl(c.custo_midia_realizado)
-      : parseBrl(c.totalizador_gasto);
-    const previsto = c.custo_midia_previsto != null
-      ? parseBrl(c.custo_midia_previsto)
-      : parseBrl(c.valor_plataforma);
-    const custo = gasto > 0 ? fmtBrl(gasto) : '—';
-    const custoMeta = previsto > 0 ? 'de ' + fmtBrl(previsto) : '';
-    return '<tr class="pi-campaign-detail-row hidden" data-campaign-parent="' + idPi +
-      '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
-      '<td class="pi-campaign-detail-name"><strong>' + escapeHtml(c.nome_campanha || 'Campanha sem nome') +
-      '</strong><span>' + escapeHtml(c.status_nome || 'Status não informado') + '</span></td>' +
-      '<td aria-hidden="true"></td><td aria-hidden="true"></td><td aria-hidden="true"></td>' +
-      '<td><span class="pi-campaign-detail-period">' + escapeHtml(periodo) + '</span></td>' +
-      '<td><strong class="pi-campaign-detail-platform">' + escapeHtml(c.plataforma_nome || 'Não informado') +
-      '</strong><span>' + escapeHtml(siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade)) + '</span></td>' +
-      '<td class="pi-campaign-detail-money"><strong>' + escapeHtml(custo) + '</strong><span>' +
-      escapeHtml(custoMeta) + '</span></td>' +
-      '<td aria-hidden="true"></td><td aria-hidden="true"></td><td aria-hidden="true"></td>' +
-      '</tr>';
-  }
-
   window.toggleCampanhas = function (idPi, event) {
     if (event && event.stopPropagation) event.stopPropagation();
     const row = document.getElementById('camp-collapse-' + idPi);
@@ -424,23 +399,6 @@
                 if (typeof abrirViewCampanhaLista === 'function') abrirViewCampanhaLista(camp);
               } catch (err) { console.error(err); }
             });
-          }
-          if (subStatusAtual === '3') {
-            let alignedRows = '';
-            data.campanhas.forEach(function (c) {
-              alignedRows += buildOperationalCampaignRowHtml(c, idPi);
-            });
-            row.insertAdjacentHTML('afterend', alignedRows);
-            row.classList.add('hidden');
-            const currentToggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
-            const stillExpanded = currentToggle && currentToggle.getAttribute('aria-expanded') === 'true';
-            document.querySelectorAll('[data-campaign-parent="' + idPi + '"]').forEach(function (detailRow) {
-              detailRow.classList.toggle('hidden', !stillExpanded);
-            });
-            loadedCampanhas[idPi] = true;
-            const campIds = data.campanhas.map(function (c) { return c.id_campanha; }).filter(Boolean);
-            updateFlagSummary(idPi, campIds);
-            return;
           }
           let html = '<table class="camp-table camp-table--operational"><colgroup>' +
             '<col style="width:24%"><col style="width:12%"><col style="width:18%"><col style="width:14%"><col style="width:16%"><col style="width:16%">' +

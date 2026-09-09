@@ -1,7 +1,6 @@
 <header class="pi-list-header{% if origem_lista == 'nf_emitida' %} pi-list-header--fiscal{% endif %}" aria-labelledby="pi-list-title">
   <div class="pi-list-header__identity">
     <div>
-      <p class="pi-list-eyebrow">{% if origem_lista == 'nf_emitida' %}Fila financeira{% else %}Operação de mídia{% endif %}</p>
       <div class="pi-list-title-row">
         <h1 id="pi-list-title">{% if origem_lista == 'nf_emitida' %}Notas fiscais dos PIs{% elif origem_lista == 'faturamento' %}Faturamento de PIs{% else %}PIs{% endif %}</h1>
         {% if origem_lista == 'faturamento' %}
@@ -18,22 +17,15 @@
         <span class="pi-view-state is-billing"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>Em faturamento</span>
         {% endif %}
       </div>
-      <p class="pi-list-subtitle">
-        {% if origem_lista == 'nf_emitida' %}
-        Acompanhe emissão, vencimento e pagamento em uma única fila.
-        {% elif menu_sub_status == '2' and visao_comercial|default('') != 'cancelados' %}
-        PIs recebidos em preparação para configuração das campanhas.
-        {% elif origem_lista == 'faturamento' %}
-        Conferência documental, fiscal e financeira antes da emissão.
-        {% elif sub_status_atual|string == '3' %}
-        Acompanhe veiculação, campanhas, investimento e responsáveis.
-        {% else %}
-        Consulte responsáveis, períodos, campanhas e valores dos PIs.
-        {% endif %}
-      </p>
     </div>
 
     <div class="pi-list-header__actions">
+      {% if menu_sub_status == '2' %}
+      <nav class="pi-view-switch pi-view-switch--inline" aria-label="Alternar situação">
+        <button type="button" onclick="filtrarVisaoComercial('')" class="{% if visao_comercial|default('') != 'cancelados' %}is-active{% endif %}">Em configuração</button>
+        <button type="button" onclick="filtrarVisaoComercial('cancelados')" class="{% if visao_comercial|default('') == 'cancelados' %}is-active is-danger{% endif %}">Cancelados</button>
+      </nav>
+      {% endif %}
       <span class="pi-list-count" aria-live="polite"><strong>{{ pis|length }}</strong> PI{% if pis|length != 1 %}s{% endif %}</span>
       {% if not visao_por_agencia|default(false)
             and (menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados')
@@ -52,21 +44,12 @@
     </div>
   </div>
 
-  {% if menu_sub_status == '2' or origem_lista == 'nf_emitida' %}
+  {% if origem_lista == 'nf_emitida' %}
   <nav class="pi-view-switch" aria-label="Alternar situação">
-    {% if menu_sub_status == '2' %}
-    <button type="button" onclick="filtrarVisaoComercial('')" class="{% if visao_comercial|default('') != 'cancelados' %}is-active{% endif %}">
-      Em configuração
-    </button>
-    <button type="button" onclick="filtrarVisaoComercial('cancelados')" class="{% if visao_comercial|default('') == 'cancelados' %}is-active is-danger{% endif %}">
-      Cancelados
-    </button>
-    {% else %}
     <button type="button" onclick="filtrarNfStatus('')" class="{% if not nf_status_filtro %}is-active{% endif %}">Todos</button>
     <button type="button" onclick="filtrarNfStatus('1')" class="{% if nf_status_filtro == '1' %}is-active{% endif %}">NF emitida</button>
     <button type="button" onclick="filtrarNfStatus('2')" class="{% if nf_status_filtro == '2' %}is-active{% endif %}">Aguardando pagamento</button>
     <button type="button" onclick="filtrarNfStatus('3')" class="{% if nf_status_filtro == '3' %}is-active{% endif %}">Pagamento realizado</button>
-    {% endif %}
   </nav>
   {% endif %}
 </header>

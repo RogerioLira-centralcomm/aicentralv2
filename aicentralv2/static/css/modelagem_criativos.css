@@ -419,7 +419,7 @@
 .mc-generator-summary {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(4, minmax(7rem, 1fr));
+  grid-template-columns: repeat(5, minmax(6rem, 1fr));
 }
 
 .mc-generator-summary > span {
@@ -452,6 +452,284 @@
   flex: 0 0 auto;
   justify-items: end;
   gap: 0.35rem;
+}
+
+.mc-scene-plan {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  border-top: 1px solid #dce4e7;
+  padding-top: 0.9rem;
+}
+
+.mc-scene-plan > strong {
+  color: #183436;
+  font-size: 0.82rem;
+}
+
+.mc-scene-plan > span {
+  color: #64748b;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.mc-scene-plan > div {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.mc-scene-plan i {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border-radius: 0.4rem;
+  background: #183436;
+  color: #fff;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+/* Produção: uma bancada contínua, da cena ao contexto */
+.mc-production-bench {
+  overflow: hidden;
+  border: 1px solid #d8e3e2;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1rem 2.8rem rgba(15, 47, 49, 0.08);
+}
+
+.mc-production-head {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #183436;
+  color: #fff;
+}
+
+.mc-production-head h2,
+.mc-scene-review-head h3 {
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.mc-production-head h2 { font-size: 1.05rem; }
+.mc-production-head p {
+  margin: 0.25rem 0 0;
+  color: #c8dcda;
+  font-size: 0.72rem;
+}
+
+.mc-production-state {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: #e5f0ef;
+  font-size: 0.68rem;
+}
+
+.mc-scene-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid #d8e3e2;
+  background: #eef4f3;
+}
+
+.mc-scene-stop {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  border-right: 1px solid #d8e3e2;
+  padding: 0.75rem;
+  background: transparent;
+  color: #53696a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mc-scene-stop:last-child { border-right: 0; }
+.mc-scene-stop > span:first-child {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid #a9bcbb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.mc-scene-stop > span:nth-child(2) { display: grid; min-width: 0; gap: 0.1rem; }
+.mc-scene-stop strong { color: #29494a; font-size: 0.72rem; }
+.mc-scene-stop small { overflow: hidden; font-size: 0.61rem; text-overflow: ellipsis; white-space: nowrap; }
+.mc-scene-stop.is-active { background: #fff; box-shadow: inset 0 -3px #183436; }
+.mc-scene-stop.is-approved > span:first-child { border-color: #66865f; background: #e5f2df; color: #31552d; }
+.mc-scene-rail-empty { grid-column: 1 / -1; padding: 1rem; color: #64748b; font-size: 0.72rem; }
+
+.mc-production-grid {
+  display: grid;
+  min-height: 39rem;
+  grid-template-columns: minmax(30rem, 1.15fr) minmax(25rem, 0.85fr);
+}
+
+.mc-scene-review {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.mc-scene-review-head,
+.mc-scene-output-head,
+.mc-production-preview > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mc-scene-review-head > div,
+.mc-scene-output-head > div,
+.mc-production-preview > header > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.mc-scene-review-head span,
+.mc-scene-output-head small,
+.mc-production-preview header small {
+  color: #64748b;
+  font-size: 0.65rem;
+}
+.mc-scene-review-head h3 { color: #183436; font-size: 1.1rem; }
+
+.mc-scene-prompt,
+.mc-scene-output {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1.1rem;
+}
+.mc-scene-prompt > label { color: #29494a; font-size: 0.75rem; font-weight: 750; }
+
+.mc-scene-assets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.mc-scene-asset {
+  overflow: hidden;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+}
+.mc-scene-asset.is-preview { box-shadow: 0 0 0 2px #183436; }
+.mc-scene-asset img { width: 100%; height: 11rem; background: #edf2f1; object-fit: contain; }
+.mc-scene-asset > div {
+  display: flex;
+  min-height: 3.3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem;
+}
+.mc-scene-assets-empty {
+  grid-column: 1 / -1;
+  border: 1px dashed #b7c7c6;
+  border-radius: 0.65rem;
+  padding: 1.25rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.mc-production-preview {
+  min-width: 0;
+  border-left: 1px solid #d8e3e2;
+  background: #edf2f1;
+}
+.mc-production-preview > header {
+  min-height: 4.2rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #d8e3e2;
+  background: #fff;
+}
+.mc-production-preview header strong { color: #183436; font-size: 0.82rem; }
+.mc-production-preview .cx-select { width: min(11rem, 45%); }
+.mc-production-stage {
+  display: grid;
+  min-height: 34.8rem;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2.25rem);
+}
+.mc-production-stage-empty {
+  display: grid;
+  max-width: 15rem;
+  justify-items: center;
+  gap: 0.4rem;
+  color: #718184;
+  text-align: center;
+}
+.mc-production-stage-empty i { font-size: 1.5rem; }
+.mc-production-stage-empty strong { color: #405657; }
+.mc-production-stage-empty p { margin: 0; font-size: 0.7rem; line-height: 1.5; }
+
+.mc-production-device {
+  position: relative;
+  width: min(100%, 36rem);
+  overflow: hidden;
+  border: 0.5rem solid #26383d;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 1.4rem 2.8rem rgba(15, 23, 42, 0.2);
+}
+.mc-production-context { position: absolute; inset: 0; background: #fff; }
+.mc-production-context header {
+  display: flex;
+  height: 15%;
+  align-items: center;
+  gap: 5%;
+  padding: 0 5%;
+  color: #fff;
+}
+.mc-production-context header span { height: 0.25rem; flex: 1; border-radius: 1rem; background: rgba(255,255,255,.42); }
+.mc-production-context header img { width: auto; max-width: 20%; height: 55%; object-fit: contain; }
+.mc-production-content {
+  display: grid;
+  height: 85%;
+  grid-template-columns: 1.4fr 0.6fr;
+  gap: 5%;
+  padding: 7%;
+}
+.mc-production-content b { border-radius: 0.25rem; background: #e5ebeb; }
+.mc-production-content b:first-child { grid-row: span 2; }
+.mc-production-creative {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  outline: 2px solid rgba(255, 255, 255, 0.86);
+  background: #fff;
+  box-shadow: 0 0.4rem 1.2rem rgba(15, 23, 42, 0.18);
+}
+.mc-production-creative img { width: 100%; height: 100%; object-fit: contain; }
+.mc-production-device > small {
+  position: absolute;
+  z-index: 3;
+  right: 0.35rem;
+  bottom: 0.3rem;
+  border-radius: 999px;
+  padding: 0.18rem 0.35rem;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  font-size: 0.38rem;
 }
 
 .mc-two-column {
@@ -1138,6 +1416,13 @@
 }
 
 @media (max-width: 1180px) {
+  .mc-production-grid {
+    grid-template-columns: 1fr;
+  }
+  .mc-production-preview {
+    border-top: 1px solid #d8e3e2;
+    border-left: 0;
+  }
   .mc-generator-workspace {
     grid-template-columns: minmax(14rem, 0.65fr) minmax(28rem, 1.35fr);
   }
@@ -1174,6 +1459,18 @@
 }
 
 @media (max-width: 900px) {
+  .mc-scene-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mc-scene-stop:nth-child(2) {
+    border-right: 0;
+  }
+  .mc-scene-stop:nth-child(-n+2) {
+    border-bottom: 1px solid #d8e3e2;
+  }
+  .mc-production-grid {
+    min-height: 0;
+  }
   .mc-generator-intro {
     align-items: flex-start;
     flex-direction: column;
@@ -1252,6 +1549,25 @@
 }
 
 @media (max-width: 620px) {
+  .mc-production-head,
+  .mc-scene-output-head,
+  .mc-production-preview > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .mc-production-preview .cx-select {
+    width: 100%;
+  }
+  .mc-scene-review {
+    padding: 1rem;
+  }
+  .mc-scene-assets {
+    grid-template-columns: 1fr;
+  }
+  .mc-production-stage {
+    min-height: 24rem;
+    padding: 1rem;
+  }
   .mc-generator-intro {
     min-height: 0;
     padding: 1.25rem;

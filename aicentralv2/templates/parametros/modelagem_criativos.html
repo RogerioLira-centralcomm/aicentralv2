@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -12,7 +12,7 @@
   <header class="mc-header">
     <div>
       <h1>Modelagem de Criativos</h1>
-      <p>Modele formatos, compare variações e prepare imagens e vídeos.</p>
+      <p>Prepare campanhas, produza cenas e revise peças no contexto de mídia.</p>
     </div>
     <div class="mc-context" id="mcGlobalContext" aria-live="polite">
       <span class="cx-badge cx-badge-muted">Nenhuma campanha selecionada</span>
@@ -20,17 +20,17 @@
   </header>
 
   <nav class="cx-tabs mc-tabs" id="mcTabs" role="tablist" aria-label="Áreas da modelagem">
-    <button class="cx-tab cx-tab-active" type="button" role="tab" aria-selected="true" data-tab="gerador">
-      <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gerador
+    <button class="cx-tab cx-tab-active" type="button" role="tab" aria-selected="true" data-tab="preparar">
+      <i class="fa-solid fa-sliders" aria-hidden="true"></i> Preparar
     </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="variacoes">
-      <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Variações A/B
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="produzir">
+      <i class="fa-solid fa-layer-group" aria-hidden="true"></i> Produzir
     </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="biblioteca">
-      <i class="fa-solid fa-shapes" aria-hidden="true"></i> Biblioteca
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="formatos">
+      <i class="fa-solid fa-shapes" aria-hidden="true"></i> Formatos
     </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="clientes">
-      <i class="fa-solid fa-building" aria-hidden="true"></i> Clientes
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="marcas">
+      <i class="fa-solid fa-building" aria-hidden="true"></i> Marcas
     </button>
     <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="historico">
       <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Histórico
@@ -39,16 +39,16 @@
 
   <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>
 
-  <section class="mc-panel" data-panel="gerador" role="tabpanel">
+  <section class="mc-panel" data-panel="preparar" role="tabpanel">
     {% include "parametros/_mc_gerador.html" %}
   </section>
-  <section class="mc-panel hidden" data-panel="variacoes" role="tabpanel">
+  <section class="mc-panel hidden" data-panel="produzir" role="tabpanel">
     {% include "parametros/_mc_variacoes.html" %}
   </section>
-  <section class="mc-panel hidden" data-panel="biblioteca" role="tabpanel">
+  <section class="mc-panel hidden" data-panel="formatos" role="tabpanel">
     {% include "parametros/_mc_biblioteca.html" %}
   </section>
-  <section class="mc-panel hidden" data-panel="clientes" role="tabpanel">
+  <section class="mc-panel hidden" data-panel="marcas" role="tabpanel">
     {% include "parametros/_mc_clientes.html" %}
   </section>
   <section class="mc-panel hidden" data-panel="historico" role="tabpanel">
@@ -58,5 +58,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=8" defer></script>
 {% endblock %}

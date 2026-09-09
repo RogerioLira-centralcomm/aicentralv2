@@ -15,6 +15,16 @@ class CreativeConflictError(ValueError):
     pass
 
 
+def scene_count_for_format(format_row):
+    behavior = format_row.get("behavior_spec") or {}
+    return (
+        1
+        if behavior.get("type") == "static"
+        and format_row.get("mechanic") == "static_display"
+        else 4
+    )
+
+
 class CreativeModelingRepository:
     def __init__(self, connection=None):
         self._connection = connection
@@ -385,6 +395,241 @@ class CreativeModelingRepository:
             "step_id": step_id,
         }
 
+    def create_campaign_with_productions(self, data):
+        """Cria campanha, uma produção por formato e suas cenas atomicamente."""
+        with self._write() as cursor:
+            client_source = data.get("client_source", "creative")
+            source_client_id = data["client_id"]
+            if client_source == "crm":
+                cursor.execute(
+                    """
+                    SELECT id_cliente,
+                           COALESCE(
+                               nome_fantasia, razao_social,
+                               'Cliente #' || id_cliente::text
+                           ) AS name
+                      FROM tbl_cliente
+                     WHERE id_cliente = %s AND status = TRUE
+                    """,
+                    (source_client_id,),
+                )
+                crm_client = cursor.fetchone()
+                if not crm_client:
+                    raise CreativeNotFoundError("Cliente do CRM não encontrado.")
+                cursor.execute(
+                    """
+                    INSERT INTO cx_clients (
+                        crm_client_id, name, brand_profile,
+                        analysis_metadata, price_policy
+                    )
+                    VALUES (%s, %s, '{}'::jsonb, '{}'::jsonb, 'hide_price')
+                    ON CONFLICT (crm_client_id)
+                        WHERE crm_client_id IS NOT NULL
+                    DO UPDATE SET name = EXCLUDED.name
+                    RETURNING id
+                    """,
+                    (source_client_id, crm_client["name"]),
+                )
+                client_id = cursor.fetchone()["id"]
+            else:
+                cursor.execute(
+                    "SELECT id FROM cx_clients WHERE id = %s",
+                    (source_client_id,),
+                )
+                client = cursor.fetchone()
+                if not client:
+                    raise CreativeNotFoundError("Perfil de marca não encontrado.")
+                client_id = client["id"]
+
+            format_ids = [item["format_template_id"] for item in data["productions"]]
+            cursor.execute(
+                """
+                SELECT id, mechanic, media_type, behavior_spec
+                  FROM cx_format_templates
+                 WHERE id = ANY(%s) AND is_active = TRUE
+                """,
+                (format_ids,),
+            )
+            formats = {row["id"]: dict(row) for row in cursor.fetchall()}
+            if set(format_ids) != set(formats):
+                raise CreativeNotFoundError(
+                    "Um ou mais formatos não foram encontrados."
+                )
+            if any(row["media_type"] == "video" for row in formats.values()):
+                raise CreativeConflictError(
+                    "Vídeo está indisponível para novas produções."
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO cx_campaigns (
+                    client_id, name, objective, campaign_text, cta_text,
+                    show_price, budget_usd
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    client_id,
+                    data["name"],
+                    data.get("objective"),
+                    data.get("campaign_text"),
+                    data.get("cta_text"),
+                    data.get("show_price", False),
+                    data.get("budget_usd", 0),
+                ),
+            )
+            campaign_id = cursor.fetchone()["id"]
+            productions = []
+            for requested in data["productions"]:
+                format_id = requested["format_template_id"]
+                format_row = formats[format_id]
+                scene_count = scene_count_for_format(format_row)
+                cursor.execute(
+                    """
+                    INSERT INTO cx_creative_productions (
+                        campaign_id, format_template_id
+                    )
+                    VALUES (%s, %s)
+                    RETURNING id
+                    """,
+                    (campaign_id, format_id),
+                )
+                production_id = cursor.fetchone()["id"]
+                descriptions = requested.get("scene_descriptions") or []
+                scene_ids = []
+                for position in range(1, scene_count + 1):
+                    description = (
+                        descriptions[position - 1]
+                        if position <= len(descriptions)
+                        else data.get("campaign_text")
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO cx_creative_scenes (
+                            production_id, position, description, status
+                        )
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (
+                            production_id,
+                            position,
+                            description,
+                            "ready" if position == 1 else "blocked",
+                        ),
+                    )
+                    scene_ids.append(cursor.fetchone()["id"])
+                productions.append(
+                    {
+                        "id": production_id,
+                        "format_template_id": format_id,
+                        "scene_ids": scene_ids,
+                    }
+                )
+        return {"id": campaign_id, "productions": productions}
+
+    def get_production(self, production_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id, p.campaign_id, p.format_template_id, p.status,
+                       p.selected_asset_id, p.created_at, p.updated_at,
+                       c.name AS campaign_name, f.slug AS format_slug,
+                       f.name_pt AS format_name, f.mechanic, f.media_type,
+                       f.aspect_ratio, f.default_size, f.placement_spec,
+                       f.behavior_spec
+                  FROM cx_creative_productions p
+                  JOIN cx_campaigns c ON c.id = p.campaign_id
+                  JOIN cx_format_templates f ON f.id = p.format_template_id
+                 WHERE p.id = %s
+                """,
+                (production_id,),
+            )
+            production = cursor.fetchone()
+            if not production:
+                raise CreativeNotFoundError("Produção não encontrada.")
+            cursor.execute(
+                """
+                SELECT s.id, s.production_id, p.format_template_id,
+                       s.position, s.description, s.prompt,
+                       s.prompt AS rendered_prompt, s.prompt_status,
+                       s.status, s.approved_asset_id, s.preview_asset_id,
+                       s.created_at, s.updated_at,
+                       COALESCE(
+                           (
+                               SELECT jsonb_agg(to_jsonb(a) ORDER BY a.created_at)
+                                 FROM cx_generated_assets a
+                                WHERE a.scene_id = s.id
+                           ),
+                           '[]'::jsonb
+                       ) AS assets
+                  FROM cx_creative_scenes s
+                  JOIN cx_creative_productions p ON p.id = s.production_id
+                 WHERE s.production_id = %s
+                 ORDER BY s.position
+                """,
+                (production_id,),
+            )
+            result = dict(production)
+            result["scenes"] = [dict(row) for row in cursor.fetchall()]
+            return result
+
+    def get_scene_context(self, scene_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT s.id, s.production_id, s.position, s.description,
+                       s.prompt, s.prompt_status, s.status, p.campaign_id,
+                       p.format_template_id, p.status AS production_status,
+                       (
+                           SELECT COUNT(*)::integer
+                             FROM cx_creative_scenes sequence_scene
+                            WHERE sequence_scene.production_id = s.production_id
+                       ) AS scene_count,
+                       c.name AS campaign_name, c.objective, c.campaign_text,
+                       c.cta_text, c.show_price,
+                       cl.name AS client_name, cl.sector AS client_sector,
+                       cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
+                       cl.primary_color, cl.secondary_color, cl.brand_profile,
+                       f.name_pt AS format_name, f.mechanic, f.media_type,
+                       f.engine, f.aspect_ratio, f.default_size, f.safe_area,
+                       f.background_guidance, f.foreground_guidance,
+                       f.layers, f.forbidden_elements, f.placement_spec,
+                       f.behavior_spec, ch.name AS channel_name
+                  FROM cx_creative_scenes s
+                  JOIN cx_creative_productions p ON p.id = s.production_id
+                  JOIN cx_campaigns c ON c.id = p.campaign_id
+                  JOIN cx_clients cl ON cl.id = c.client_id
+                  JOIN cx_format_templates f ON f.id = p.format_template_id
+                  LEFT JOIN cx_channels ch ON ch.id = f.channel_id
+                 WHERE s.id = %s
+                """,
+                (scene_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Cena não encontrada.")
+        return dict(row)
+
+    def update_scene_prompt(self, scene_id, prompt, status):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_creative_scenes
+                   SET prompt = %s, prompt_status = %s, updated_at = NOW()
+                 WHERE id = %s AND status IN ('ready', 'failed')
+                RETURNING id, prompt, prompt AS rendered_prompt, prompt_status
+                """,
+                (prompt, status, scene_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeConflictError(
+                    "Cena não está disponível para editar a direção."
+                )
+            return dict(row)
+
     def list_campaigns(self, limit=50):
         with self.conn.cursor() as cursor:
             cursor.execute(
@@ -489,6 +734,23 @@ class CreativeModelingRepository:
         for variation in variations:
             variation["steps"] = steps_by_variation[variation["id"]]
         result["variations"] = variations
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                  FROM cx_creative_productions
+                 WHERE campaign_id = %s
+                 ORDER BY created_at, id
+                """,
+                (campaign_id,),
+            )
+            production_ids = [row["id"] for row in cursor.fetchall()]
+        result["productions"] = [
+            self.get_production(production_id) for production_id in production_ids
+        ]
+        result["production"] = (
+            result["productions"][0] if result["productions"] else None
+        )
         return result
 
     def create_variation(self, campaign_id, notes=None):
@@ -802,9 +1064,47 @@ class CreativeModelingRepository:
         script_text=None,
         request_payload=None,
         created_by=None,
+        scene_id=None,
+        reserve_scene=False,
     ):
         estimate = Decimal(str(estimated_cost_usd or 0))
         with self._write() as cursor:
+            if scene_id is not None:
+                cursor.execute(
+                    """
+                    SELECT s.id, s.position, s.status, p.status AS production_status
+                      FROM cx_creative_scenes s
+                      JOIN cx_creative_productions p ON p.id = s.production_id
+                     WHERE s.id = %s
+                     FOR UPDATE OF s, p
+                    """,
+                    (scene_id,),
+                )
+                scene = cursor.fetchone()
+                if not scene:
+                    raise CreativeNotFoundError("Cena não encontrada.")
+                if scene["production_status"] != "active":
+                    raise CreativeConflictError("Produção não está ativa.")
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS pending_previous
+                      FROM cx_creative_scenes current_scene
+                      JOIN cx_creative_scenes previous
+                        ON previous.production_id = current_scene.production_id
+                       AND previous.position < current_scene.position
+                     WHERE current_scene.id = %s
+                       AND previous.status <> 'approved'
+                    """,
+                    (scene_id,),
+                )
+                if cursor.fetchone()["pending_previous"]:
+                    raise CreativeConflictError(
+                        "A cena anterior precisa ser aprovada primeiro."
+                    )
+                if scene["status"] not in ("ready", "failed"):
+                    raise CreativeConflictError(
+                        "Cena não está disponível para geração."
+                    )
             cursor.execute(
                 """
                 SELECT budget_usd, reserved_usd, spent_usd
@@ -829,18 +1129,20 @@ class CreativeModelingRepository:
             cursor.execute(
                 """
                 INSERT INTO cx_generation_jobs (
-                    campaign_id, step_id, format_template_id, job_type,
+                    campaign_id, step_id, scene_id, format_template_id, job_type,
                     provider, model, status, prompt, script_text,
                     request_payload, estimated_cost_usd, created_by
                 )
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, 'queued', %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, 'queued',
+                    %s, %s, %s, %s, %s
                 )
                 RETURNING id
                 """,
                 (
                     campaign_id,
                     step_id,
+                    scene_id,
                     format_template_id,
                     job_type,
                     provider,
@@ -853,6 +1155,15 @@ class CreativeModelingRepository:
                 ),
             )
             job_id = cursor.fetchone()["id"]
+            if scene_id is not None and reserve_scene:
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'generating', prompt = %s, updated_at = NOW()
+                     WHERE id = %s
+                    """,
+                    (prompt, scene_id),
+                )
             cursor.execute(
                 """
                 UPDATE cx_campaigns
@@ -945,7 +1256,7 @@ class CreativeModelingRepository:
         with self._write() as cursor:
             cursor.execute(
                 """
-                SELECT campaign_id, estimated_cost_usd, status
+                SELECT campaign_id, estimated_cost_usd, status, scene_id, job_type
                   FROM cx_generation_jobs
                  WHERE id = %s
                  FOR UPDATE
@@ -973,6 +1284,15 @@ class CreativeModelingRepository:
                 """,
                 (str(error_message)[:4000], job_id),
             )
+            if job.get("scene_id") and job.get("job_type") == "image":
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'failed', updated_at = NOW()
+                     WHERE id = %s AND status = 'generating'
+                    """,
+                    (job["scene_id"],),
+                )
             cursor.execute(
                 """
                 INSERT INTO cx_generation_cost_ledger (
@@ -1017,15 +1337,16 @@ class CreativeModelingRepository:
             return dict(cursor.fetchone())
 
     def add_generated_asset(
-        self, job_id, step_id, asset_type, asset_url, metadata=None
+        self, job_id, step_id, asset_type, asset_url, metadata=None, scene_id=None
     ):
         with self._write() as cursor:
             cursor.execute(
                 """
                 INSERT INTO cx_generated_assets (
-                    job_id, step_id, asset_type, asset_url, metadata, position
+                    job_id, step_id, scene_id, asset_type, asset_url,
+                    metadata, position
                 )
-                SELECT %s, %s, %s, %s, %s,
+                SELECT %s, %s, %s, %s, %s, %s,
                        COALESCE(MAX(a.position), 0) + 1
                   FROM cx_generation_jobs target
                   LEFT JOIN cx_generation_jobs sibling
@@ -1038,6 +1359,7 @@ class CreativeModelingRepository:
                 (
                     job_id,
                     step_id,
+                    scene_id,
                     asset_type,
                     asset_url,
                     Json(metadata or {}),
@@ -1054,7 +1376,163 @@ class CreativeModelingRepository:
                     """,
                     (asset_url, step_id),
                 )
+            if scene_id:
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'review', updated_at = NOW()
+                     WHERE id = %s
+                    """,
+                    (scene_id,),
+                )
             return asset
+
+    def review_scene_asset(self, scene_id, asset_id, status):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT s.id, s.production_id, s.status AS scene_status,
+                       a.id AS asset_id
+                  FROM cx_creative_scenes s
+                  JOIN cx_generated_assets a
+                    ON a.scene_id = s.id AND a.id = %s
+                 WHERE s.id = %s
+                 FOR UPDATE OF s, a
+                """,
+                (asset_id, scene_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Asset da cena não encontrado.")
+            if row["scene_status"] != "review":
+                raise CreativeConflictError("Cena não está aguardando revisão.")
+            if status == "approved":
+                cursor.execute(
+                    """
+                    UPDATE cx_generated_assets
+                       SET status = CASE
+                           WHEN id = %s THEN 'approved' ELSE 'rejected'
+                       END
+                     WHERE scene_id = %s
+                    """,
+                    (asset_id, scene_id),
+                )
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'approved', approved_asset_id = %s,
+                           preview_asset_id = %s,
+                           updated_at = NOW()
+                     WHERE id = %s
+                    RETURNING position
+                    """,
+                    (asset_id, asset_id, scene_id),
+                )
+                position = cursor.fetchone()["position"]
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'ready', updated_at = NOW()
+                     WHERE production_id = %s AND position = %s
+                       AND status = 'blocked'
+                    """,
+                    (row["production_id"], position + 1),
+                )
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_productions p
+                       SET status = CASE
+                               WHEN NOT EXISTS (
+                                   SELECT 1
+                                     FROM cx_creative_scenes s
+                                    WHERE s.production_id = p.id
+                                      AND s.status <> 'approved'
+                               ) THEN 'completed'
+                               ELSE 'active'
+                           END,
+                           updated_at = NOW()
+                     WHERE p.id = %s
+                    """,
+                    (row["production_id"],),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE cx_generated_assets SET status = 'rejected' WHERE id = %s",
+                    (asset_id,),
+                )
+                cursor.execute(
+                    """
+                    UPDATE cx_creative_scenes
+                       SET status = 'ready', approved_asset_id = NULL,
+                           updated_at = NOW()
+                     WHERE id = %s
+                    """,
+                    (scene_id,),
+                )
+            return {
+                "scene_id": scene_id,
+                "asset_id": asset_id,
+                "status": status,
+            }
+
+    def set_scene_preview_asset(self, scene_id, asset_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT a.id
+                  FROM cx_generated_assets a
+                 WHERE a.id = %s AND a.scene_id = %s AND a.status = 'approved'
+                """,
+                (asset_id, scene_id),
+            )
+            if not cursor.fetchone():
+                raise CreativeConflictError(
+                    "Escolha um asset aprovado desta cena."
+                )
+            cursor.execute(
+                """
+                UPDATE cx_creative_scenes
+                   SET preview_asset_id = %s, updated_at = NOW()
+                 WHERE id = %s
+                RETURNING id, preview_asset_id
+                """,
+                (asset_id, scene_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Cena não encontrada.")
+            return dict(row)
+
+    def select_production_asset(self, production_id, asset_id):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT a.id
+                  FROM cx_generated_assets a
+                  JOIN cx_creative_scenes s ON s.id = a.scene_id
+                 WHERE a.id = %s
+                   AND s.production_id = %s
+                   AND a.status = 'approved'
+                """,
+                (asset_id, production_id),
+            )
+            if not cursor.fetchone():
+                raise CreativeConflictError(
+                    "Escolha um asset aprovado desta produção."
+                )
+            cursor.execute(
+                """
+                UPDATE cx_creative_productions
+                   SET selected_asset_id = %s, updated_at = NOW()
+                 WHERE id = %s
+                RETURNING id, selected_asset_id
+                """,
+                (asset_id, production_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Produção não encontrada.")
+            return dict(row)
 
     def get_assets(self, asset_ids, approved_only=True):
         ids = sorted({_id for _id in asset_ids})
@@ -1062,7 +1540,8 @@ class CreativeModelingRepository:
             return []
         with self.conn.cursor() as cursor:
             query = """
-                SELECT a.id, a.job_id, a.step_id, a.asset_type, a.asset_url,
+                SELECT a.id, a.job_id, a.step_id, a.scene_id,
+                       a.asset_type, a.asset_url,
                        a.status, a.metadata, j.campaign_id,
                        COALESCE(j.format_template_id, s.format_template_id)
                            AS format_template_id,
@@ -1387,7 +1866,8 @@ class CreativeModelingRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT a.id, a.job_id, a.step_id, a.asset_type, a.asset_url,
+                SELECT a.id, a.job_id, a.step_id, a.scene_id,
+                       a.asset_type, a.asset_url,
                        a.position, a.title, a.caption, a.status, a.metadata,
                        j.campaign_id, j.prompt, j.script_text, j.model,
                        j.actual_cost_usd, j.created_at,

@@ -192,6 +192,70 @@ def api_campaigns():
 
 
 @admin_required_api
+def api_production_plans():
+    return _execute(
+        lambda: _ok(_service().create_production_plan(_json()), 201)
+    )
+
+
+@admin_required_api
+def api_production_detail(production_id):
+    return _execute(lambda: _ok(_service().production_detail(production_id)))
+
+
+@admin_required_api
+def api_generate_scene(scene_id):
+    return _execute(
+        lambda: _ok(
+            _service().generate_scene(
+                scene_id,
+                request.files.getlist("references"),
+                session.get("user_id"),
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_generate_scene_prompt(scene_id):
+    return _execute(
+        lambda: _ok(
+            _service().generate_scene_prompt(scene_id, session.get("user_id")),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_review_scene_prompt(scene_id):
+    return _execute(
+        lambda: _ok(_service().review_scene_prompt(scene_id, _json()))
+    )
+
+
+@admin_required_api
+def api_select_scene_preview_asset(scene_id):
+    return _execute(
+        lambda: _ok(_service().select_scene_preview_asset(scene_id, _json()))
+    )
+
+
+@admin_required_api
+def api_review_scene(scene_id):
+    return _execute(lambda: _ok(_service().review_scene(scene_id, _json())))
+
+
+@admin_required_api
+def api_select_simulation_asset(production_id):
+    return _execute(
+        lambda: _ok(
+            _service().select_simulation_asset(production_id, _json())
+        )
+    )
+
+
+@admin_required_api
 def api_campaign_detail(cid):
     return _execute(lambda: _ok(_service().campaign_detail(cid)))
 
@@ -529,6 +593,60 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_campaigns",
         view_func=api_campaigns,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/production-plans",
+        endpoint="creative_production_plans",
+        view_func=api_production_plans,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/productions/<int:production_id>",
+        endpoint="creative_production_detail",
+        view_func=api_production_detail,
+        methods=["GET"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/generate",
+        endpoint="creative_generate_scene",
+        view_func=api_generate_scene,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/prompt/generate",
+        endpoint="creative_generate_scene_prompt",
+        view_func=api_generate_scene_prompt,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/prompt",
+        endpoint="creative_review_scene_prompt",
+        view_func=api_review_scene_prompt,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/image/generate",
+        endpoint="creative_generate_scene_image",
+        view_func=api_generate_scene,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/preview-asset",
+        endpoint="creative_select_scene_preview_asset",
+        view_func=api_select_scene_preview_asset,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/review",
+        endpoint="creative_review_scene",
+        view_func=api_review_scene,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/productions/<int:production_id>/simulation-asset",
+        endpoint="creative_select_simulation_asset",
+        view_func=api_select_simulation_asset,
+        methods=["PUT"],
     )
     blueprint.add_url_rule(
         "/api/campaigns/<int:cid>",

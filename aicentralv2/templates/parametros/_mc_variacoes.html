@@ -15,70 +15,51 @@
 
 <div id="mcVariationEmpty" class="cx-empty-state">
   <div>
-    <i class="fa-solid fa-code-compare" aria-hidden="true"></i>
-    <p>Escolha uma campanha para montar e comparar suas sequências.</p>
+    <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+    <p>Escolha uma campanha para abrir a bancada de produção.</p>
   </div>
 </div>
 
 <div id="mcVariationWorkspace" class="hidden">
   <div class="mc-campaign-brief" id="mcCampaignBrief"></div>
-  <div class="mc-studio">
-    <aside class="mc-format-browser">
-      <div class="mc-pane-title">
-        <div><strong>Formatos</strong><small>Arraste mentalmente. Clique para inspecionar.</small></div>
-      </div>
-      <div class="mc-filter-row">
-        <input class="cx-input" id="mcFormatSearch" type="search" placeholder="Buscar formato">
-        <select class="cx-select" id="mcFormatCategory">
-          <option value="">Todos</option>
-          <option value="programatica">Programática</option>
-          <option value="streaming">Streaming</option>
-        </select>
-      </div>
-      <div class="mc-format-list" id="mcFormatList"></div>
-    </aside>
 
-    <section class="mc-sequencer">
-      <div class="mc-pane-title">
-        <div><strong>Sequências A/B</strong><small>Formato, mockup, cena e ordem de produção.</small></div>
-        <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcAddVariation" type="button">
-          <i class="fa-solid fa-plus" aria-hidden="true"></i> Variação
-        </button>
-      </div>
-      <div class="mc-variation-list" id="mcVariationList"></div>
-      <div class="mc-sequencer-actions">
-        <button class="cx-btn cx-btn-primary" id="mcGenerateAllPrompts" type="button">
-          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-          Gerar prompts das sequências
-        </button>
-      </div>
-    </section>
-
-    <aside class="mc-inspector" id="mcInspector">
-      <div class="mc-pane-title">
-        <div><strong>Inspetor</strong><small>Propriedades e produção do step ativo.</small></div>
-      </div>
-      <div id="mcInspectorBody" class="mc-inspector-body">
-        <div class="cx-empty-state"><p>Selecione um formato ou step para ver detalhes.</p></div>
-      </div>
-    </aside>
-  </div>
-
-  <section class="cx-section mc-comparison">
-    <div class="cx-section-header">
+  <section class="mc-production-bench">
+    <header class="mc-production-head">
       <div>
-        <h2>Comparação das variações</h2>
-        <p>Leia as diferenças de sequência, mídia, mockup, status e custo.</p>
+        <h2>Bancada de produção</h2>
+        <p>Trabalhe em uma cena por vez. A aprovação alimenta a simulação ao lado.</p>
       </div>
+      <span class="mc-production-state" id="mcProductionState">Carregando produção</span>
+    </header>
+
+    <nav class="mc-scene-rail" id="mcSceneRail" aria-label="Cenas da produção"></nav>
+
+    <div class="mc-production-grid">
+      <section class="mc-scene-review" id="mcSceneReview" aria-live="polite">
+        <div class="cx-empty-state"><p>Selecione uma cena para começar.</p></div>
+      </section>
+
+      <aside class="mc-production-preview" aria-label="Simulação da peça">
+        <header>
+          <div><strong>Simulação</strong><small>Imagem aprovada no ambiente escolhido</small></div>
+          <select class="cx-select cx-select-sm" id="mcProductionViewer" aria-label="Ambiente de simulação"></select>
+        </header>
+        <div class="mc-production-stage" id="mcProductionStage">
+          <div class="mc-production-stage-empty">
+            <i class="fa-regular fa-image" aria-hidden="true"></i>
+            <strong>Aprove uma imagem</strong>
+            <p>A peça escolhida aparecerá aplicada ao formato.</p>
+          </div>
+        </div>
+      </aside>
     </div>
-    <div class="cx-section-body mc-compare-grid" id="mcSideBySide"></div>
   </section>
 
   <section class="cx-section mc-asset-plan">
     <div class="cx-section-header mc-asset-plan-head">
       <div>
         <h2>Plano de criativos</h2>
-        <p>Organize a apresentação horizontal, baixe imagens e publique um link.</p>
+        <p>Organize as imagens aprovadas, baixe os arquivos e publique uma apresentação.</p>
       </div>
       <div class="mc-inspector-actions">
         <a class="cx-btn cx-btn-secondary" id="mcDownloadAssets" href="#">
@@ -93,13 +74,6 @@
       <div class="mc-asset-strip" id="mcAssetStrip" aria-live="polite"></div>
       <div class="mc-public-links" id="mcPublicLinks"></div>
     </div>
-  </section>
-
-  <section class="cx-section hidden" id="mcPromptResults">
-    <div class="cx-section-header">
-      <div><h2>Prompts gerados</h2><p>Revise cada prompt antes de consumir saldo com imagens.</p></div>
-    </div>
-    <div class="cx-section-body" id="mcPromptResultBody"></div>
   </section>
 </div>
 

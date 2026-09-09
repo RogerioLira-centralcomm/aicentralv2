@@ -1,13 +1,13 @@
 <section class="mc-generator-intro">
   <div>
-    <span class="mc-generator-kicker">Nova produção</span>
-    <h2>Do briefing ao primeiro criativo</h2>
-    <p>Combine marca, mensagem e inventário. O Gerador abre a variação A pronta para produzir.</p>
+    <span class="mc-generator-kicker">Preparação</span>
+    <h2>Dê forma à campanha antes de produzir</h2>
+    <p>Combine marca, mensagem e formato. A bancada será aberta com a quantidade certa de cenas.</p>
   </div>
   <ol class="mc-generator-path" aria-label="Etapas da configuração">
     <li><span>1</span>Marca</li>
     <li><span>2</span>Brief</li>
-    <li><span>3</span>Formato</li>
+    <li><span>3</span>Cenas</li>
   </ol>
 </section>
 
@@ -33,8 +33,8 @@
 
   <form class="mc-generator-brief" id="mcCampaignForm">
     <header class="mc-generator-pane-head">
-      <div><strong>Brief da campanha</strong><small>O que a primeira sequência precisa comunicar</small></div>
-      <span class="cx-badge cx-badge-info">Variação A</span>
+      <div><strong>Brief da campanha</strong><small>O que as imagens precisam comunicar</small></div>
+      <span class="cx-badge cx-badge-info">Imagem</span>
     </header>
     <div class="mc-generator-brief-fields">
       <label class="cx-field mc-span-2">
@@ -74,7 +74,7 @@
 
   <aside class="mc-generator-format-pane">
     <header class="mc-generator-pane-head">
-      <div><strong>Primeiro formato</strong><small>Step inicial da sequência</small></div>
+      <div><strong>Formato de saída</strong><small>Apenas formatos de imagem</small></div>
       <select class="cx-select cx-select-sm" id="mcGeneratorFormatCategory" aria-label="Categoria do formato">
         <option value="">Todos</option>
         <option value="programatica">Programática</option>
@@ -85,17 +85,9 @@
       <div class="mc-generator-no-format">Carregando inventário…</div>
     </div>
     <div class="mc-generator-format-preview" id="mcGeneratorFormatPreview">
-      <p>Escolha um formato para definir o primeiro step.</p>
+      <p>Escolha um formato para definir a produção.</p>
     </div>
-    <label class="cx-field mc-generator-environment">
-      <span class="cx-label">Ambiente inicial</span>
-      <select class="cx-select" id="mcGeneratorMockup">
-        <option value="portal">Portal</option>
-        <option value="tv">Smart TV</option>
-        <option value="celular">Celular</option>
-        <option value="tablet">Tablet</option>
-      </select>
-    </label>
+    <div class="mc-scene-plan" id="mcGeneratorScenePlan" aria-live="polite"></div>
   </aside>
 </div>
 
@@ -103,13 +95,14 @@
   <div class="mc-generator-summary" id="mcGeneratorSummary" aria-live="polite">
     <span><small>Marca</small><strong>Não selecionada</strong></span>
     <span><small>Campanha</small><strong>Sem nome</strong></span>
-    <span><small>Primeiro step</small><strong>Não selecionado</strong></span>
+    <span><small>Formato</small><strong>Não selecionado</strong></span>
+    <span><small>Cenas</small><strong>—</strong></span>
     <span><small>Limite inicial</small><strong>US$ 5,00</strong></span>
   </div>
   <div class="mc-generator-launch-action">
     <span class="mc-form-status" id="mcCampaignFormStatus" aria-live="polite"></span>
     <button class="cx-btn cx-btn-primary" id="mcCampaignFormSubmit" type="submit" form="mcCampaignForm">
-      Criar sequência inicial
+      Iniciar produção
       <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
     </button>
   </div>

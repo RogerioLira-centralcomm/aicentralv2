@@ -19,6 +19,7 @@ from aicentralv2.creative_modeling_generation import (
     build_higgsfield_payload,
     normalize_image_aspect_ratio,
 )
+from aicentralv2.creative_modeling_repository import scene_count_for_format
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
 from aicentralv2.creative_modeling_service import CreativeModelingService
 
@@ -473,6 +474,24 @@ class CreativeServiceTest(unittest.TestCase):
             saved["analysis_metadata"]["model"], "perplexity/sonar-pro"
         )
 
+    def test_banner_estatico_tem_uma_cena_e_demais_formatos_quatro(self):
+        self.assertEqual(scene_count_for_format({
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+        }), 1)
+        self.assertEqual(scene_count_for_format({
+            "mechanic": "reveal",
+            "behavior_spec": {"type": "interactive"},
+        }), 4)
+        self.assertIn(
+            "Opening hook",
+            CreativeModelingService.scene_role(1, 4),
+        )
+        self.assertIn(
+            "CTA",
+            CreativeModelingService.scene_role(4, 4),
+        )
+
     def test_campanha_crm_cria_primeiro_step_no_mesmo_comando(self):
         result = self.service.create_campaign({
             "client_source": "crm",
@@ -509,6 +528,41 @@ class CreativeServiceTest(unittest.TestCase):
                     "mockup": "outdoor",
                 },
             })
+
+    def test_plano_cria_producao_por_formato_com_cenas(self):
+        repository = Mock()
+        repository.create_campaign_with_productions.return_value = {
+            "id": 30,
+            "productions": [{"id": 50}],
+        }
+        repository.get_campaign.return_value = {
+            "id": 30,
+            "name": "Campanha por cenas",
+        }
+        repository.get_production.return_value = {
+            "id": 50,
+            "scene_count": 4,
+            "scenes": [{"id": index} for index in range(1, 5)],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        result = service.create_production_plan({
+            "client_source": "crm",
+            "client_id": 42,
+            "name": "Campanha por cenas",
+            "budget_usd": 5,
+            "productions": [{
+                "format_template_id": 7,
+                "scene_descriptions": ["Abertura", "Produto", "Benefício", "CTA"],
+            }],
+        })
+        saved = repository.create_campaign_with_productions.call_args.args[0]
+        self.assertEqual(saved["productions"][0]["format_template_id"], 7)
+        self.assertEqual(len(saved["productions"][0]["scene_descriptions"]), 4)
+        self.assertEqual(len(result["productions"][0]["scenes"]), 4)
 
     def test_prompt_deterministico_contem_variacao_e_identidades(self):
         context = self.repo.get_step_context(8)
@@ -759,8 +813,8 @@ class CreativeGenerationContractTest(unittest.TestCase):
                 {"type": "image_url", "image_url": {"url": references[1]}},
             ],
         )
-        self.assertEqual(http.payload["size"], "2K")
-        self.assertNotIn("resolution", http.payload)
+        self.assertEqual(http.payload["resolution"], "2K")
+        self.assertNotIn("size", http.payload)
         self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
 
@@ -858,6 +912,65 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(response.get_json()["data"]["created_step_id"], 8)
         service.create_campaign.assert_called_once_with(payload)
 
+    def test_apis_de_producao_operam_cenas_individuais(self):
+        service = Mock()
+        service.create_production_plan.return_value = {
+            "campaign": {"id": 30},
+            "productions": [{"id": 50, "scenes": [{"id": 51}]}],
+        }
+        service.production_detail.return_value = {
+            "id": 50,
+            "scenes": [{"id": 51, "status": "ready"}],
+        }
+        service.generate_scene_prompt.return_value = {"scene_id": 51}
+        service.review_scene_prompt.return_value = {
+            "id": 51,
+            "prompt_status": "approved",
+        }
+        service.generate_scene.return_value = {"asset": {"id": 70}}
+        service.review_scene.return_value = {"id": 51, "status": "approved"}
+        service.select_scene_preview_asset.return_value = {
+            "id": 50,
+            "selected_asset_id": 70,
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            plan = self.client.post(
+                "/parametros/api/production-plans",
+                json={
+                    "client_id": 42,
+                    "name": "Campanha",
+                    "productions": [{"format_template_id": 7}],
+                },
+            )
+            detail = self.client.get("/parametros/api/productions/50")
+            prompt = self.client.post("/parametros/api/scenes/51/prompt/generate")
+            prompt_review = self.client.put(
+                "/parametros/api/scenes/51/prompt",
+                json={"prompt": "Direção", "approved": True},
+            )
+            image = self.client.post("/parametros/api/scenes/51/image/generate")
+            review = self.client.put(
+                "/parametros/api/scenes/51/review",
+                json={"asset_id": 70, "status": "approved"},
+            )
+            preview = self.client.put(
+                "/parametros/api/scenes/51/preview-asset",
+                json={"asset_id": 70},
+            )
+        self.assertEqual(plan.status_code, 201)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(prompt.status_code, 201)
+        self.assertEqual(prompt_review.status_code, 200)
+        self.assertEqual(image.status_code, 201)
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual(preview.status_code, 200)
+
     def test_api_analisa_site_e_imagem(self):
         service = Mock()
         service.analyze_brand.return_value = {
@@ -905,13 +1018,24 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=7", page)
-        self.assertIn("modelagem_criativos.js') }}?v=7", page)
+        self.assertIn("modelagem_criativos.css') }}?v=8", page)
+        self.assertIn("modelagem_criativos.js') }}?v=8", page)
+        for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
+            self.assertIn(f'data-tab="{tab}"', page)
+        self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
         self.assertIn('id="mcGeneratorFormatList"', generator)
         self.assertIn('form="mcCampaignForm"', generator)
         self.assertIn('name="client_ref"', generator)
+        self.assertIn("Iniciar produção", generator)
+        self.assertNotIn("Variação A", generator)
+        production = (
+            template_dir / "_mc_variacoes.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn('id="mcSceneRail"', production)
+        self.assertIn('id="mcProductionStage"', production)
+        self.assertIn("Bancada de produção", production)
         public_page = (
             root
             / "aicentralv2"
@@ -1047,6 +1171,10 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_scene_productions.py',
+            deploy,
+        )
+        self.assertIn(
             '"$VENV_PYTHON" scripts/seed_creative_formats.py',
             deploy,
         )
@@ -1092,10 +1220,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         create_start = frontend.index("async function createCampaign")
         create_end = frontend.index("// ====== VARIAÇÕES", create_start)
         create_flow = frontend[create_start:create_end]
-        self.assertIn("data.first_step", create_flow)
-        self.assertIn("created.created_step_id", create_flow)
+        self.assertIn("data.productions", create_flow)
+        self.assertIn("/parametros/api/production-plans", create_flow)
+        self.assertIn("production?.scenes?.[0]?.id", create_flow)
         self.assertNotIn("/parametros/api/variations/", create_flow)
         self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
+        self.assertIn("function sceneCountForFormat", frontend)
+        self.assertIn("function renderProduction", frontend)
+        self.assertIn("/parametros/api/scenes/${scene.id}", frontend)
+        self.assertIn("format.media_type === 'image'", frontend)
         campaign_flow_sql = (
             root / "migrations" / "add_creative_campaign_flow.sql"
         ).read_text(encoding="utf-8")
@@ -1106,6 +1239,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("SET position = position + 1000", repository)
         self.assertNotIn("SET position = -position", repository)
+        scene_migration = (
+            root / "migrations" / "add_creative_scene_productions.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS cx_creative_productions",
+            scene_migration,
+        )
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS cx_creative_scenes",
+            scene_migration,
+        )
+        self.assertIn("ADD COLUMN IF NOT EXISTS scene_id", scene_migration)
 
 
 if __name__ == "__main__":

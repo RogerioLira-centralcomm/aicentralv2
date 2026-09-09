@@ -202,7 +202,7 @@ class CreativeGenerationClient:
             "aspect_ratio": provider_aspect_ratio,
             "quality": quality,
             "output_format": output_format,
-            "size": resolution,
+            "resolution": resolution,
             "background": background,
         }
         if references:

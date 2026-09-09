@@ -405,8 +405,364 @@ class CreativeModelingService:
     def list_campaigns(self):
         return _serialize(self.repository.list_campaigns())
 
+    def create_production_plan(self, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        show_price = payload.get("show_price", False)
+        if not isinstance(show_price, bool):
+            raise ValueError("Exibir preço deve ser verdadeiro ou falso.")
+        client_source = payload.get("client_source", "creative")
+        if client_source not in {"creative", "crm"}:
+            raise ValueError("Origem do cliente inválida.")
+        raw_productions = payload.get("productions")
+        if not isinstance(raw_productions, list) or not raw_productions:
+            raise ValueError("Informe ao menos uma produção.")
+        if len(raw_productions) > 20:
+            raise ValueError("O plano aceita no máximo 20 formatos.")
+
+        productions = []
+        format_ids = set()
+        for index, raw in enumerate(raw_productions, start=1):
+            if not isinstance(raw, dict):
+                raise ValueError(f"Produção {index} inválida.")
+            format_id = _integer(
+                raw.get("format_template_id"), f"Formato da produção {index}"
+            )
+            if format_id in format_ids:
+                raise ValueError("Cada formato pode ter apenas uma produção.")
+            format_ids.add(format_id)
+            descriptions = raw.get("scene_descriptions") or []
+            if not isinstance(descriptions, list) or len(descriptions) > 4:
+                raise ValueError(
+                    f"Cenas da produção {index} devem ser uma lista de até 4 itens."
+                )
+            productions.append(
+                {
+                    "format_template_id": format_id,
+                    "scene_descriptions": [
+                        _text(
+                            description,
+                            f"Descrição da cena {position}",
+                            max_length=8000,
+                        )
+                        for position, description in enumerate(
+                            descriptions, start=1
+                        )
+                    ],
+                }
+            )
+
+        data = {
+            "client_id": _integer(payload.get("client_id"), "Cliente"),
+            "client_source": client_source,
+            "name": _text(
+                payload.get("name"),
+                "Nome da campanha",
+                required=True,
+                max_length=200,
+            ),
+            "objective": _text(
+                payload.get("objective"), "Objetivo", max_length=120
+            ),
+            "campaign_text": _text(
+                payload.get("campaign_text"),
+                "Texto da campanha",
+                max_length=12000,
+            ),
+            "cta_text": _text(payload.get("cta_text"), "CTA", max_length=1000),
+            "show_price": show_price,
+            "budget_usd": _money(payload.get("budget_usd")),
+            "productions": productions,
+        }
+        created = self.repository.create_campaign_with_productions(data)
+        return _serialize(
+            {
+                "campaign": self.repository.get_campaign(created["id"]),
+                "productions": [
+                    self.repository.get_production(item["id"])
+                    for item in created["productions"]
+                ],
+            }
+        )
+
+    def production_detail(self, production_id):
+        return _serialize(
+            self.repository.get_production(_integer(production_id, "Produção"))
+        )
+
+    @staticmethod
+    def scene_role(position, total):
+        if int(total or 1) == 1:
+            return "Single final composition: communicate the full message and CTA."
+        roles = {
+            1: "Opening hook: establish the campaign world and earn attention.",
+            2: "Context: introduce the product, service, or central proposition.",
+            3: "Benefit: make the main value tangible without inventing claims.",
+            4: "Resolution: close the sequence with brand recognition and CTA.",
+        }
+        return roles.get(int(position or 1), roles[1])
+
+    @staticmethod
+    def build_scene_prompt(context):
+        description = context.get("description") or context.get("campaign_text") or ""
+        total = context.get("scene_count") or 1
+        lines = [
+            "Create one premium advertising image.",
+            f"Brand: {context.get('client_name') or ''}.",
+            f"Campaign: {context.get('campaign_name') or ''}.",
+            f"Objective: {context.get('objective') or ''}.",
+            f"Scene {context['position']} of {total}: {description}.",
+            CreativeModelingService.scene_role(context["position"], total),
+            f"Format: {context.get('format_name') or ''}.",
+            f"Mechanic: {context.get('mechanic') or ''}.",
+            f"Aspect ratio: {context.get('aspect_ratio') or '16:9'}.",
+        ]
+        if context.get("tone_of_voice"):
+            lines.append(f"Brand tone: {context['tone_of_voice']}.")
+        if context.get("primary_color"):
+            lines.append(f"Primary brand color: {context['primary_color']}.")
+        if context.get("secondary_color"):
+            lines.append(f"Secondary brand color: {context['secondary_color']}.")
+        if context.get("cta_text"):
+            lines.append(f"Call to action: {context['cta_text']}.")
+        if not context.get("show_price"):
+            lines.append("Do not show prices.")
+        if context.get("background_guidance"):
+            lines.append(f"Background guidance: {context['background_guidance']}.")
+        if context.get("foreground_guidance"):
+            lines.append(f"Content guidance: {context['foreground_guidance']}.")
+        lines.extend(
+            [
+                "Keep visual continuity with the campaign sequence while making "
+                "this scene independently reviewable.",
+                "Do not reproduce third-party platform logos or interfaces.",
+            ]
+        )
+        for forbidden in context.get("forbidden_elements") or []:
+            lines.append(f"Do not include: {forbidden}.")
+        return "\n".join(lines)
+
+    def generate_scene_prompt(self, scene_id, created_by=None):
+        scene_id = _integer(scene_id, "Cena")
+        context = self.repository.get_scene_context(scene_id)
+        request_context = {
+            "campaign": {
+                "name": context["campaign_name"],
+                "objective": context.get("objective"),
+                "message": context.get("description")
+                or context.get("campaign_text"),
+                "cta": context.get("cta_text"),
+                "show_price": context.get("show_price"),
+                "scene": context["position"],
+                "scene_count": context.get("scene_count") or 1,
+                "scene_role": self.scene_role(
+                    context["position"], context.get("scene_count") or 1
+                ),
+            },
+            "client_identity": {
+                "name": context["client_name"],
+                "sector": context.get("client_sector"),
+                "tone": context.get("tone_of_voice"),
+                "logo": context.get("logo_upload_path") or context.get("logo_url"),
+                "primary_color": context.get("primary_color"),
+                "secondary_color": context.get("secondary_color"),
+                "profile": context.get("brand_profile") or {},
+            },
+            "format": {
+                key: context.get(key)
+                for key in (
+                    "format_name",
+                    "mechanic",
+                    "media_type",
+                    "aspect_ratio",
+                    "default_size",
+                    "safe_area",
+                    "background_guidance",
+                    "foreground_guidance",
+                    "layers",
+                    "forbidden_elements",
+                    "placement_spec",
+                    "behavior_spec",
+                )
+            },
+        }
+        estimate = self._estimate("prompt")
+        job_id = self.repository.create_generation_job(
+            context["campaign_id"],
+            None,
+            context["format_template_id"],
+            "prompt",
+            "openrouter",
+            DEFAULT_TEXT_MODEL,
+            estimate,
+            request_payload=request_context,
+            created_by=created_by,
+            scene_id=scene_id,
+        )
+        try:
+            self.repository.mark_job_generating(job_id)
+            generated = self.generator.generate_prompt(request_context)
+            prompt = generated["result"]["prompt_en"].strip()
+            scene = self.repository.update_scene_prompt(
+                scene_id, prompt, "generated"
+            )
+            actual = generated.get("actual_cost_usd")
+            self.repository.complete_generation_job(
+                job_id,
+                estimate if actual is None else actual,
+                {
+                    "usage": generated.get("usage") or {},
+                    "rationale_pt": generated["result"].get("rationale_pt"),
+                    "checks": generated["result"].get("checks") or [],
+                },
+                "review",
+            )
+            return _serialize({"job_id": job_id, **scene})
+        except Exception as exc:
+            self.repository.fail_generation_job(job_id, exc)
+            raise
+
+    def review_scene_prompt(self, scene_id, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        prompt = _text(
+            payload.get("prompt"), "Direção da cena", required=True, max_length=20000
+        )
+        return _serialize(
+            self.repository.update_scene_prompt(
+                _integer(scene_id, "Cena"),
+                prompt,
+                "approved" if payload.get("approved") is True else "reviewed",
+            )
+        )
+
+    def generate_scene(self, scene_id, files, created_by=None):
+        scene_id = _integer(scene_id, "Cena")
+        references = list(files or [])
+        if len(references) > 2:
+            raise ValueError("Use no máximo duas imagens de referência.")
+        context = self.repository.get_scene_context(scene_id)
+        if context.get("media_type") == "video":
+            raise ValueError("Vídeo está indisponível para novas produções.")
+        if context.get("prompt_status") != "approved":
+            raise ValueError("Revise e aprove a direção antes de gerar a imagem.")
+        prompt = context["prompt"]
+        estimate = self._estimate("image")
+        job_id = self.repository.create_generation_job(
+            context["campaign_id"],
+            None,
+            context["format_template_id"],
+            "image",
+            "openrouter",
+            DEFAULT_IMAGE_MODEL,
+            estimate,
+            prompt=prompt,
+            request_payload={
+                "production_id": context["production_id"],
+                "scene_id": scene_id,
+                "scene_position": context["position"],
+            },
+            created_by=created_by,
+            scene_id=scene_id,
+            reserve_scene=True,
+        )
+        saved_paths = []
+        try:
+            data_urls = []
+            for file_storage in references:
+                saved = self.storage.save_reference(file_storage)
+                saved_paths.append(saved["asset_path"])
+                self.repository.add_job_reference(job_id, saved)
+                data_urls.append(
+                    self.storage.reference_as_data_url(
+                        saved["asset_path"], saved["mime_type"]
+                    )
+                )
+            self.repository.mark_job_generating(job_id)
+            generated = self.generator.generate_image(
+                prompt,
+                data_urls,
+                aspect_ratio=context.get("aspect_ratio") or "16:9",
+            )
+            asset_url = self.storage.save_generated_base64(
+                generated["b64_json"], generated.get("output_format", "png")
+            )
+            asset = self.repository.add_generated_asset(
+                job_id,
+                None,
+                "image",
+                asset_url,
+                {
+                    "model": generated.get("model"),
+                    "production_id": context["production_id"],
+                    "scene_position": context["position"],
+                },
+                scene_id=scene_id,
+            )
+            actual = generated.get("actual_cost_usd")
+            self.repository.complete_generation_job(
+                job_id,
+                estimate if actual is None else actual,
+                {
+                    "usage": generated.get("usage") or {},
+                    **(generated.get("response_metadata") or {}),
+                },
+            )
+            return _serialize({"job_id": job_id, "asset": asset, "prompt": prompt})
+        except Exception as exc:
+            self.repository.fail_generation_job(job_id, exc)
+            for public_path in saved_paths:
+                self.storage.delete(public_path)
+            raise
+
+    def review_scene(self, scene_id, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        status = payload.get("status")
+        if status not in ("approved", "rejected"):
+            raise ValueError("Status da cena deve ser approved ou rejected.")
+        result = self.repository.review_scene_asset(
+            _integer(scene_id, "Cena"),
+            _integer(payload.get("asset_id"), "Asset"),
+            status,
+        )
+        return _serialize(result)
+
+    def select_simulation_asset(self, production_id, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        return _serialize(
+            self.repository.select_production_asset(
+                _integer(production_id, "Produção"),
+                _integer(payload.get("asset_id"), "Asset"),
+            )
+        )
+
+    def select_scene_preview_asset(self, scene_id, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        return _serialize(
+            self.repository.set_scene_preview_asset(
+                _integer(scene_id, "Cena"),
+                _integer(payload.get("asset_id"), "Asset"),
+            )
+        )
+
     def create_campaign(self, payload):
         payload = payload if isinstance(payload, dict) else {}
+        if payload.get("format_template_id") not in (None, ""):
+            plan_payload = {
+                **payload,
+                "productions": [
+                    {
+                        "format_template_id": payload["format_template_id"],
+                        "scene_descriptions": (
+                            payload.get("scene_descriptions") or []
+                        ),
+                    }
+                ],
+            }
+            created = self.create_production_plan(plan_payload)
+            campaign = created["campaign"]
+            production = campaign.get("production")
+            if production and production.get("scenes"):
+                campaign["created_scene_id"] = production["scenes"][0]["id"]
+            return campaign
         show_price = payload.get("show_price", False)
         if not isinstance(show_price, bool):
             raise ValueError("Exibir preço deve ser verdadeiro ou falso.")
@@ -1234,8 +1590,16 @@ class CreativeModelingService:
         status = payload.get("status")
         if status not in ("approved", "rejected"):
             raise ValueError("Status do asset deve ser approved ou rejected.")
+        asset_id = _integer(asset_id, "Asset")
+        assets = self.repository.get_assets([asset_id], approved_only=False)
+        if not assets:
+            raise CreativeNotFoundError("Asset não encontrado.")
+        if assets[0].get("scene_id"):
+            return self.repository.review_scene_asset(
+                assets[0]["scene_id"], asset_id, status
+            )
         return self.repository.set_asset_status(
-            _integer(asset_id, "Asset"), status
+            asset_id, status
         )
 
     def promote_format_reference(self, asset_id, payload):

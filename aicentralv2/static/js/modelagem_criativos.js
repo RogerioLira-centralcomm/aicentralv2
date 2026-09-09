@@ -23,6 +23,10 @@
     campaignClients: [],
     campaigns: [],
     campaign: null,
+    production: null,
+    productionByCampaign: new Map(),
+    activeSceneId: null,
+    previewAssetId: null,
     activeStepId: null,
     selectedFormatId: null,
     selectedAssets: new Set(),
@@ -90,6 +94,19 @@
     return payload.data;
   }
 
+  async function apiFirst(requests) {
+    let lastError;
+    for (const request of requests) {
+      try {
+        return await api(request.url, request.options);
+      } catch (error) {
+        lastError = error;
+        if (![404, 405].includes(error.status)) throw error;
+      }
+    }
+    throw lastError;
+  }
+
   // ====== TAB NAVIGATION ======
   function activateTab(name, updateHash = true) {
     $$('#mcTabs [data-tab]').forEach((tab) => {
@@ -99,10 +116,10 @@
     });
     $$('.mc-panel').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== name));
     if (updateHash) history.replaceState(null, '', `#${name}`);
-    if (name === 'biblioteca') renderLibrary();
-    if (name === 'clientes') renderClients();
+    if (name === 'formatos') renderLibrary();
+    if (name === 'marcas') renderClients();
     if (name === 'historico') loadHistory();
-    if (name === 'variacoes') renderWorkspace();
+    if (name === 'produzir') renderWorkspace();
   }
 
   // ====== LOADERS ======
@@ -205,14 +222,16 @@
     const root = $('#mcGeneratorFormatList');
     if (!root) return;
     const category = $('#mcGeneratorFormatCategory')?.value || '';
-    const formats = state.formats.filter((format) => !category || format.category === category);
+    const formats = state.formats.filter((format) => (
+      format.media_type === 'image' && (!category || format.category === category)
+    ));
     if (!formats.some((format) => String(format.id) === String(state.generatorFormatId))) {
       state.generatorFormatId = formats[0]?.id || null;
     }
     root.innerHTML = formats.map((format) => `
       <button class="mc-generator-format ${String(format.id) === String(state.generatorFormatId) ? 'is-active' : ''}"
               type="button" data-generator-format="${format.id}">
-        <span class="mc-generator-format-icon"><i class="fa-solid ${format.media_type === 'video' ? 'fa-circle-play' : 'fa-image'}"></i></span>
+        <span class="mc-generator-format-icon"><i class="fa-solid fa-image"></i></span>
         <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</small></span>
         ${engineBadge(format)}
       </button>`).join('') || '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
@@ -246,18 +265,16 @@
     if (!root) return;
     const format = generatorSelectedFormat();
     if (!format) {
-      root.innerHTML = '<p>Escolha um formato para definir o primeiro step.</p>';
+      root.innerHTML = '<p>Escolha um formato para definir a produção.</p>';
+      $('#mcGeneratorScenePlan').innerHTML = '';
       return;
     }
     const placement = clonePlacement(format);
     const context = placement.context || 'portal';
-    const mockup = $('#mcGeneratorMockup');
-    if (mockup) {
-      mockup.value = ['portal', 'tv', 'celular', 'tablet'].includes(context) ? context : 'portal';
-    }
+    const sceneCount = sceneCountForFormat(format);
     root.innerHTML = `
       <div class="mc-generator-preview-screen is-${escapeHtml(context)}">
-        <span class="mc-generator-preview-chrome">${context === 'tv' ? 'CTV / streaming' : 'Portal / display'}</span>
+        <span class="mc-generator-preview-chrome">Prévia do formato</span>
         <span class="mc-generator-preview-slot" style="left:${placement.slot.x}%;top:${placement.slot.y}%;width:${placement.slot.width}%;height:${placement.slot.height}%">
           <i class="fa-solid ${format.media_type === 'video' ? 'fa-play' : 'fa-bullseye'}"></i>
         </span>
@@ -266,6 +283,23 @@
         <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.mechanic || 'Estático')}</small></span>
         <span class="cx-badge cx-badge-muted">${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</span>
       </div>`;
+    $('#mcGeneratorScenePlan').innerHTML = `
+      <strong>${sceneCount === 1 ? '1 imagem' : '4 cenas'}</strong>
+      <span>${sceneCount === 1
+        ? 'Banner estático: uma composição final para revisão.'
+        : 'O formato será produzido como uma narrativa visual em quatro cenas.'}</span>
+      <div>${Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>`;
+  }
+
+  function sceneCountForFormat(format) {
+    const behavior = String(format?.behavior_spec?.type || format?.mechanic || '').toLowerCase();
+    const mechanic = String(format?.mechanic || '').toLowerCase();
+    const name = String(format?.name_pt || '').toLowerCase();
+    const isStaticBanner = behavior === 'static'
+      && (mechanic === 'static_display'
+        || name.includes('banner')
+        || ['leaderboard', 'billboard', 'halfpage'].some((term) => name.includes(term)));
+    return isStaticBanner ? 1 : 4;
   }
 
   function renderGeneratorSummary() {
@@ -278,10 +312,12 @@
     const format = generatorSelectedFormat();
     const name = form.elements.name?.value.trim();
     const budget = form.elements.budget_usd?.value;
+    const sceneCount = format ? sceneCountForFormat(format) : null;
     root.innerHTML = `
       <span><small>Marca</small><strong>${escapeHtml(client?.name || 'Não selecionada')}</strong></span>
       <span><small>Campanha</small><strong>${escapeHtml(name || 'Sem nome')}</strong></span>
-      <span><small>Primeiro step</small><strong>${escapeHtml(format?.name_pt || 'Não selecionado')}</strong></span>
+      <span><small>Formato</small><strong>${escapeHtml(format?.name_pt || 'Não selecionado')}</strong></span>
+      <span><small>Cenas</small><strong>${sceneCount ? `${sceneCount} ${sceneCount === 1 ? 'imagem' : 'cenas'}` : '—'}</strong></span>
       <span><small>Limite inicial</small><strong>${money(budget)}</strong></span>`;
   }
 
@@ -303,20 +339,36 @@
       data.client_id = Number(clientId);
       data.budget_usd = Number(data.budget_usd || 0);
       data.show_price = new FormData(form).has('show_price');
+      data.scene_count = sceneCountForFormat(format);
+      data.format_template_id = Number(format.id);
+      data.productions = [{
+        format_template_id: Number(format.id),
+        scene_descriptions: Array.from(
+          { length: sceneCountForFormat(format) },
+          () => data.campaign_text || '',
+        ),
+      }];
       data.first_step = {
         format_template_id: Number(format.id),
-        mockup: $('#mcGeneratorMockup')?.value || clonePlacement(format).context || 'portal',
+        mockup: clonePlacement(format).context || 'portal',
         scene_description: null,
       };
       try {
-        const created = await api(API.campaigns, { method: 'POST', body: JSON.stringify(data) });
+        const request = { method: 'POST', body: JSON.stringify(data) };
+        const created = await apiFirst([
+          { url: '/parametros/api/production-plans', options: request },
+          { url: API.campaigns, options: request },
+        ]);
         state.campaigns = await api(API.campaigns);
-        await selectCampaign(created.id, created.created_step_id);
+        const campaign = created.campaign || created;
+        const production = created.production || created.productions?.[0] || null;
+        if (production) state.productionByCampaign.set(String(campaign.id), production);
+        await selectCampaign(campaign.id, production?.scenes?.[0]?.id || created.created_scene_id);
         form.reset();
         renderClientPreview();
         renderGeneratorSummary();
-        toast('Campanha criada com a variação A.', 'success');
-        activateTab('variacoes');
+        toast('Produção iniciada.', 'success');
+        activateTab('produzir');
       } catch (error) {
         $('#mcCampaignFormStatus').textContent = error.message;
         toast(error.message, 'error');
@@ -325,14 +377,15 @@
   }
 
   // ====== VARIAÇÕES ======
-  async function selectCampaign(id, preferredStepId = null) {
+  async function selectCampaign(id, preferredSceneId = null) {
     if (!id) {
       state.campaign = null;
+      state.production = null;
       renderWorkspace();
       return;
     }
-    const preserveStep = state.campaign && String(state.campaign.id) === String(id)
-      ? state.activeStepId : null;
+    const preserveScene = state.campaign && String(state.campaign.id) === String(id)
+      ? state.activeSceneId : null;
     const [campaign, assets, publicLinks] = await Promise.all([
       api(`${API.campaigns}/${id}`),
       api(`${API.campaigns}/${id}/assets`),
@@ -341,7 +394,24 @@
     state.campaign = campaign;
     state.campaignAssets = assets;
     state.publicLinks = publicLinks;
-    state.activeStepId = preferredStepId || preserveStep;
+    state.production = campaign.production
+      || campaign.productions?.[0]
+      || state.productionByCampaign.get(String(id))
+      || null;
+    if (state.production?.id) {
+      try {
+        state.production = await api(`/parametros/api/productions/${state.production.id}`);
+      } catch (error) {
+        if (error.status !== 404) toast(error.message, 'error');
+      }
+    }
+    const scenes = productionScenes();
+    state.activeSceneId = preferredSceneId || preserveScene || scenes[0]?.id || null;
+    state.previewAssetId = state.production?.selected_asset_id
+      || activeScene()?.preview_asset_id
+      || activeScene()?.approved_asset_id
+      || activeScene()?.assets?.find((asset) => asset.status === 'approved')?.id
+      || null;
     state.selectedAssets.clear();
     renderCampaignOptions();
     renderWorkspace();
@@ -372,12 +442,142 @@
       <strong>${escapeHtml(c.client.name)}</strong>
       <span>${escapeHtml(c.objective || 'Sem objetivo')}</span>
       <span>${escapeHtml(c.campaign_text || 'Sem mensagem principal')}</span>`;
-    renderFormatBrowser();
-    renderVariations();
-    renderSideBySide();
+    renderProduction();
     renderAssetPlan();
-    const active = findStep(state.activeStepId);
-    if (active) renderStepInspector(active.step, active.variation);
+  }
+
+  function productionScenes() {
+    return Array.isArray(state.production?.scenes) ? state.production.scenes : [];
+  }
+
+  function activeScene() {
+    return productionScenes().find((scene) => String(scene.id) === String(state.activeSceneId));
+  }
+
+  function sceneAssets(scene) {
+    return Array.isArray(scene?.assets) ? scene.assets.filter((asset) => asset.asset_type !== 'video') : [];
+  }
+
+  function assetUrl(asset) {
+    return asset?.asset_url || asset?.url || asset?.preview_url || '';
+  }
+
+  function renderProduction() {
+    const scenes = productionScenes();
+    const status = state.production?.status || (scenes.length ? 'Em produção' : 'Aguardando cenas');
+    $('#mcProductionState').textContent = status;
+    $('#mcSceneRail').innerHTML = scenes.map((scene, index) => {
+      const approved = sceneAssets(scene).some((asset) => asset.status === 'approved')
+        || scene.status === 'approved';
+      return `
+        <button type="button" class="mc-scene-stop ${String(scene.id) === String(state.activeSceneId) ? 'is-active' : ''} ${approved ? 'is-approved' : ''}"
+                data-scene-id="${scene.id}" aria-current="${String(scene.id) === String(state.activeSceneId) ? 'step' : 'false'}">
+          <span>${index + 1}</span>
+          <span><strong>Cena ${index + 1}</strong><small>${approved ? 'Imagem aprovada' : 'Em preparação'}</small></span>
+          <i class="fa-solid ${approved ? 'fa-check' : 'fa-angle-right'}" aria-hidden="true"></i>
+        </button>`;
+    }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
+    renderSceneReview(activeScene());
+    renderProductionViewer();
+    renderProductionStage();
+  }
+
+  function renderSceneReview(scene) {
+    const root = $('#mcSceneReview');
+    if (!scene) {
+      root.innerHTML = '<div class="cx-empty-state"><p>Esta produção ainda não possui cenas.</p></div>';
+      return;
+    }
+    const scenes = productionScenes();
+    const index = scenes.findIndex((item) => String(item.id) === String(scene.id));
+    const assets = sceneAssets(scene);
+    root.innerHTML = `
+      <header class="mc-scene-review-head">
+        <div><span>Cena ${index + 1} de ${scenes.length}</span><h3>${escapeHtml(scene.title || scene.name || `Composição ${index + 1}`)}</h3></div>
+        ${statusBadge(scene.status || scene.prompt_status || 'draft')}
+      </header>
+      <section class="mc-scene-prompt">
+        <label for="mcPromptEditor">Direção da cena</label>
+        <textarea class="cx-textarea" id="mcPromptEditor" rows="7" placeholder="Descreva a composição, o foco visual e a mensagem.">${escapeHtml(scene.rendered_prompt || scene.prompt || '')}</textarea>
+        <div class="mc-inspector-actions">
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">Gerar direção</button>
+          <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="save-prompt">Salvar</button>
+          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>
+        </div>
+      </section>
+      <section class="mc-scene-output">
+        <div class="mc-scene-output-head">
+          <div><strong>Imagens da cena</strong><small>Gere, revise e escolha a imagem da simulação.</small></div>
+          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="generate-image"
+                  ${scene.prompt_status && scene.prompt_status !== 'approved' ? 'disabled title="Aprove a direção primeiro"' : ''}>
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar imagem
+          </button>
+        </div>
+        <label class="mc-reference-upload">
+          <input id="mcImageReferences" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
+          <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+          <span>Adicionar até duas referências visuais</span>
+        </label>
+        <div class="mc-scene-assets">
+          ${assets.map((asset) => `
+            <article class="mc-scene-asset ${String(asset.id) === String(state.previewAssetId) ? 'is-preview' : ''}">
+              <img src="${escapeHtml(assetUrl(asset))}" alt="Resultado da cena ${index + 1}">
+              <div>
+                ${statusBadge(asset.status || 'review')}
+                ${asset.status === 'approved'
+                  ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
+                  : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar imagem</button>`}
+              </div>
+            </article>`).join('') || '<div class="mc-scene-assets-empty">Nenhuma imagem gerada para esta cena.</div>'}
+        </div>
+      </section>`;
+  }
+
+  function renderProductionViewer() {
+    const select = $('#mcProductionViewer');
+    if (!select) return;
+    const context = activeProductionFormat()?.placement_spec?.context || 'portal';
+    const profiles = viewerProfilesFor(context);
+    const current = String(state.selectedViewerProfileId || '');
+    select.innerHTML = profiles.map((profile) => `<option value="${profile.id}">${escapeHtml(profile.name)}</option>`).join('')
+      || '<option value="">Ambiente padrão</option>';
+    if (profiles.some((profile) => String(profile.id) === current)) select.value = current;
+    else state.selectedViewerProfileId = Number(select.value) || null;
+  }
+
+  function activeProductionFormat() {
+    const scene = activeScene();
+    const formatId = scene?.format_template_id || state.production?.format_template_id;
+    return state.formats.find((format) => String(format.id) === String(formatId)) || {};
+  }
+
+  function renderProductionStage() {
+    const root = $('#mcProductionStage');
+    const scene = activeScene();
+    const allAssets = productionScenes().flatMap(sceneAssets);
+    const approved = allAssets.find((asset) => String(asset.id) === String(state.previewAssetId))
+      || sceneAssets(scene).find((asset) => asset.status === 'approved');
+    if (!approved) {
+      root.innerHTML = '<div class="mc-production-stage-empty"><i class="fa-regular fa-image"></i><strong>Aprove uma imagem</strong><p>A peça escolhida aparecerá aplicada ao formato.</p></div>';
+      return;
+    }
+    const format = activeProductionFormat();
+    const placement = clonePlacement(format);
+    const profile = state.viewerProfiles.find((item) => String(item.id) === String(state.selectedViewerProfileId));
+    root.innerHTML = `
+      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}"
+           style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}">
+        <div class="mc-production-context">
+          <header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">
+            ${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i>
+          </header>
+          <div class="mc-production-content"><b></b><b></b><b></b><b></b></div>
+        </div>
+        <div class="mc-production-creative" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
+          <img src="${escapeHtml(assetUrl(approved))}" alt="Imagem aprovada aplicada ao ambiente">
+        </div>
+        <small>${escapeHtml(profile?.disclaimer || 'Simulação de ambiente')}</small>
+      </div>`;
   }
 
   function formatOptions(selected) {
@@ -511,23 +711,19 @@
     const strip = $('#mcAssetStrip');
     if (!strip || !state.campaign) return;
     $('#mcDownloadAssets').href = `${API.campaigns}/${state.campaign.id}/assets/download`;
-    strip.innerHTML = state.campaignAssets.map((asset, index) => `
+    const imageAssets = state.campaignAssets.filter((asset) => asset.asset_type !== 'video');
+    strip.innerHTML = imageAssets.map((asset, index) => `
       <article class="mc-plan-asset" data-plan-asset-id="${asset.id}">
         <div class="mc-plan-preview">
-          ${asset.asset_type === 'video'
-            ? `<video src="${escapeHtml(asset.asset_url)}" controls preload="metadata"></video>`
-            : `<img src="${escapeHtml(asset.asset_url)}" alt="${escapeHtml(asset.title || asset.format_name || 'Criativo')}">`}
+          <img src="${escapeHtml(asset.asset_url)}" alt="${escapeHtml(asset.title || asset.format_name || 'Criativo')}">
           <span class="mc-plan-index">${index + 1}</span>
         </div>
         <div class="mc-plan-content">
           <input class="cx-input mc-asset-title" value="${escapeHtml(asset.title || asset.format_name || '')}" maxlength="200" aria-label="Título do criativo">
-          <span class="mc-format-meta">${escapeHtml(asset.variation_label ? `Variação ${asset.variation_label}` : '')}<span>${escapeHtml(asset.default_size || asset.aspect_ratio || '')}</span>${statusBadge(asset.status)}</span>
+          <span class="mc-format-meta"><span>${escapeHtml(asset.default_size || asset.aspect_ratio || '')}</span>${statusBadge(asset.status)}</span>
           <div class="mc-inspector-actions">
             <button class="mc-icon-btn" type="button" data-action="asset-left" title="Mover à esquerda" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-left"></i></button>
-            <button class="mc-icon-btn" type="button" data-action="asset-right" title="Mover à direita" ${index === state.campaignAssets.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
-            ${asset.status === 'approved' && ['image', 'mockup'].includes(asset.asset_type)
-              ? '<button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-action="prepare-display-motion"><i class="fa-solid fa-film"></i> Animar 3s</button>'
-              : ''}
+            <button class="mc-icon-btn" type="button" data-action="asset-right" title="Mover à direita" ${index === imageAssets.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
             <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="save-asset-meta">Salvar</button>
             <button class="mc-icon-btn" type="button" data-action="delete-plan-asset" title="Excluir criativo"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -1096,7 +1292,7 @@
         $('#mcBrandAnalysisSummary').innerHTML = '';
         $('#mcClientFormStatus').textContent = '';
         toast('Perfil de marca salvo.', 'success');
-        activateTab('gerador');
+        activateTab('preparar');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
         toast(error.message, 'error');
@@ -1306,9 +1502,100 @@
     } else inspectorAction(action, button);
   }
 
+  async function sceneAction(action, button) {
+    const scene = activeScene();
+    if (!scene) return;
+    const base = `/parametros/api/scenes/${scene.id}`;
+    const execute = async () => {
+      try {
+        if (action === 'generate-prompt') {
+          await withLock(`scene-prompt-${scene.id}`, button, () => api(`${base}/prompt/generate`, {
+            method: 'POST', body: '{}',
+          }));
+          toast('Direção criada para revisão.', 'success');
+        } else if (action === 'save-prompt' || action === 'approve-prompt') {
+          await withLock(`scene-prompt-review-${scene.id}`, button, () => api(`${base}/prompt`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              prompt: $('#mcPromptEditor').value,
+              approved: action === 'approve-prompt',
+            }),
+          }));
+          toast(action === 'approve-prompt' ? 'Direção aprovada.' : 'Direção salva.', 'success');
+        } else if (action === 'generate-image') {
+          const files = Array.from($('#mcImageReferences')?.files || []);
+          if (files.length > 2) throw new Error('Escolha no máximo duas referências.');
+          const body = new FormData();
+          files.forEach((file) => body.append('references', file));
+          await withLock(`scene-image-${scene.id}`, button, () => apiFirst([
+            { url: `${base}/image/generate`, options: { method: 'POST', body } },
+            { url: `${base}/generate`, options: { method: 'POST', body } },
+          ]));
+          toast('Imagem gerada para revisão.', 'success');
+        } else if (action === 'approve-asset') {
+          const review = { method: 'PUT', body: JSON.stringify({
+            asset_id: Number(button.dataset.assetId), status: 'approved',
+          }) };
+          await apiFirst([
+            { url: `${base}/review`, options: review },
+            { url: `/parametros/api/assets/${button.dataset.assetId}/review`, options: review },
+          ]);
+          state.previewAssetId = Number(button.dataset.assetId);
+          const selection = {
+            method: 'PUT', body: JSON.stringify({ asset_id: state.previewAssetId }),
+          };
+          await apiFirst([
+            { url: `${base}/preview-asset`, options: selection },
+            { url: `/parametros/api/productions/${state.production.id}/simulation-asset`, options: selection },
+          ]);
+          toast('Imagem aprovada e aplicada à simulação.', 'success');
+        } else if (action === 'choose-preview') {
+          state.previewAssetId = Number(button.dataset.assetId);
+          const selection = {
+            method: 'PUT', body: JSON.stringify({ asset_id: state.previewAssetId }),
+          };
+          await apiFirst([
+            { url: `${base}/preview-asset`, options: selection },
+            { url: `/parametros/api/productions/${state.production.id}/simulation-asset`, options: selection },
+          ]);
+          toast('Simulação atualizada.', 'success');
+        }
+        await refreshCampaign();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    };
+    if (['generate-prompt', 'generate-image'].includes(action) && typeof window.showConfirm === 'function') {
+      const estimate = action === 'generate-image' ? 0.15 : 0.02;
+      window.showConfirm({
+        title: action === 'generate-image' ? 'Gerar imagem' : 'Gerar direção',
+        message: `Executar esta etapa da cena ${productionScenes().indexOf(scene) + 1}?`,
+        detail: `Estimativa: ${money(estimate)} · Saldo atual: ${money(state.campaign?.balance_usd)}`,
+        confirmText: 'Gerar',
+        onConfirm: execute,
+      });
+    } else await execute();
+  }
+
   async function handleClick(event) {
     const tab = event.target.closest('[data-tab]');
     if (tab) return activateTab(tab.dataset.tab);
+    const sceneButton = event.target.closest('[data-scene-id]');
+    if (sceneButton) {
+      state.activeSceneId = Number(sceneButton.dataset.sceneId);
+      const scene = activeScene();
+      state.previewAssetId = scene?.preview_asset_id
+        || scene?.approved_asset_id
+        || sceneAssets(scene).find((asset) => asset.status === 'approved')?.id
+        || null;
+      renderProduction();
+      return;
+    }
+    const sceneActionButton = event.target.closest('[data-scene-action]');
+    if (sceneActionButton) {
+      await sceneAction(sceneActionButton.dataset.sceneAction, sceneActionButton);
+      return;
+    }
     const generatorFormat = event.target.closest('[data-generator-format]');
     if (generatorFormat) {
       state.generatorFormatId = Number(generatorFormat.dataset.generatorFormat);
@@ -1653,9 +1940,11 @@
     });
     $('#mcCampaignForm').addEventListener('input', renderGeneratorSummary);
     $('#mcGeneratorFormatCategory').addEventListener('change', renderGeneratorFormats);
-    $('#mcGeneratorMockup').addEventListener('change', renderGeneratorSummary);
     $('#mcCampaignSelect').addEventListener('change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
-    $('#mcAddVariation').addEventListener('click', (event) => addVariation(event.currentTarget));
+    $('#mcProductionViewer').addEventListener('change', (event) => {
+      state.selectedViewerProfileId = Number(event.target.value) || null;
+      renderProductionStage();
+    });
     $('#mcCreatePublicLink').addEventListener('click', () => {
       if (!state.campaignAssets.length) {
         toast('Adicione ao menos um criativo antes de publicar.', 'warning');
@@ -1665,7 +1954,7 @@
       renderShareEnvironments();
       $('#mcShareDialog').showModal();
     });
-    $('#mcGenerateAllPrompts').addEventListener('click', (event) => {
+    $('#mcGenerateAllPrompts')?.addEventListener('click', (event) => {
       const button = event.currentTarget;
       const total = state.campaign?.variations.reduce((sum, item) => sum + Math.max(item.steps.length, 1), 0) || 0;
       const run = () => withLock('all-prompts', button, async () => {
@@ -1691,8 +1980,8 @@
         onConfirm: run,
       });
     });
-    $('#mcFormatSearch').addEventListener('input', renderFormatBrowser);
-    $('#mcFormatCategory').addEventListener('change', renderFormatBrowser);
+    $('#mcFormatSearch')?.addEventListener('input', renderFormatBrowser);
+    $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
     $('#mcLibrarySearch').addEventListener('input', renderLibrary);
     $('#mcLibraryCategory').addEventListener('change', renderLibrary);
     $('#mcRefreshHistory').addEventListener('click', loadHistory);
@@ -1739,15 +2028,21 @@
         } catch (error) { toast(error.message, 'error'); }
       });
     });
-    $('#mcPromptResultBody').addEventListener('click', async (event) => {
+    $('#mcPromptResultBody')?.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-copy-prompt]');
       if (!button) return;
       const text = button.closest('details').querySelector('pre').textContent;
       try { await navigator.clipboard.writeText(text); toast('Prompt copiado.', 'success'); }
       catch (_) { toast('Não foi possível copiar automaticamente.', 'error'); }
     });
-    const initialTab = location.hash.replace('#', '');
-    activateTab(['gerador', 'variacoes', 'biblioteca', 'clientes', 'historico'].includes(initialTab) ? initialTab : 'gerador', false);
+    const tabAliases = {
+      gerador: 'preparar',
+      variacoes: 'produzir',
+      biblioteca: 'formatos',
+      clientes: 'marcas',
+    };
+    const requestedTab = tabAliases[location.hash.replace('#', '')] || location.hash.replace('#', '');
+    activateTab(['preparar', 'produzir', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
     loadBaseData();
   });
 })();

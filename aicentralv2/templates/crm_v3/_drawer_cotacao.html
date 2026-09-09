@@ -40,7 +40,7 @@
 
     <div class="cx-cotacao-editor-grid">
       <main class="cx-cotacao-editor-main">
-        <section class="cx-drawer-section cx-cot-start">
+        <section class="cx-drawer-section cx-cot-start" id="cx-cot-type-choice">
           <div class="cx-drawer-section-title">Como esta proposta será montada?</div>
           <div class="cx-drawer-section-subtitle">O tipo define a próxima tela. Você pode revisar antes de criar o rascunho.</div>
           <input id="cx-cot-tipo" type="hidden" name="tipo_comercial"
@@ -70,6 +70,14 @@
           <p class="cx-drawer-field-hint cx-cot-type-hint" id="cx-cot-tipo-hint" role="status" aria-live="polite">
             Mídia usa a montagem e a calculadora atuais.
           </p>
+        </section>
+        <section class="cx-cot-type-locked" id="cx-cot-type-locked" hidden>
+          <span class="cx-cot-type-locked-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
+          <span>
+            <small>Tipo de cotação</small>
+            <strong id="cx-cot-type-locked-label">Mídia</strong>
+          </span>
+          <em>Definido na criação</em>
         </section>
 
         <section class="cx-drawer-section">

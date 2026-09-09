@@ -1917,6 +1917,10 @@
 
     function submitCotacaoCaminhoA(form, wrapper, cotacao, clienteId, drawerId, abrirMontagem) {
         var payload = serializeForm(form);
+        var isEdit = !!(cotacao && cotacao.id);
+        if (isEdit) {
+            payload.tipo_comercial = cotacao.tipo_comercial || 'midia';
+        }
         payload.tipo_comercial = payload.tipo_comercial || 'midia';
         if (payload.tipo_comercial === 'midia' &&
                 form.querySelector('[data-field="plataformas"]')) {
@@ -1930,7 +1934,6 @@
         var nome = (payload.nome_campanha || '').trim();
         if (!nome) { toast('Nome da campanha é obrigatório', true); return; }
         if (!payload.periodo_inicio) { toast('Data de início é obrigatória', true); return; }
-        var isEdit = !!(cotacao && cotacao.id);
         if (!isEdit) payload.status = 'rascunho';
         if (payload.tipo_comercial !== 'midia') {
             payload.status = 'rascunho';
@@ -1979,16 +1982,22 @@
         }).catch(function (err) { toast(err.message, true); });
     }
 
-    function wireTipoCotacao(wrapper) {
+    function wireTipoCotacao(wrapper, isEdit) {
         var tipo = wrapper.querySelector('#cx-cot-tipo');
         var options = $$('[data-cot-type]', wrapper);
         var status = wrapper.querySelector('#cx-cot-status');
         var hint = wrapper.querySelector('#cx-cot-tipo-hint');
         var note = wrapper.querySelector('#cx-cot-montagem-note');
         var fullLink = wrapper.querySelector('#cx-cot-open-full');
+        var choice = wrapper.querySelector('#cx-cot-type-choice');
+        var locked = wrapper.querySelector('#cx-cot-type-locked');
+        var lockedLabel = wrapper.querySelector('#cx-cot-type-locked-label');
         if (!tipo) return;
+        if (choice) choice.hidden = !!isEdit;
+        if (locked) locked.hidden = !isEdit;
 
         function selectTipo(value, fromUser) {
+            if (wrapper._cotTypeLocked) return;
             var valid = options.some(function (button) {
                 return button.getAttribute('data-cot-type') === value;
             });
@@ -2005,6 +2014,13 @@
 
         function update() {
             var isMidia = (tipo.value || 'midia') === 'midia';
+            var typeLabels = {
+                midia: 'Mídia',
+                parceiros: 'Parceiros',
+                formatos_interativos: 'Formatos interativos',
+                dados: 'Dados'
+            };
+            if (lockedLabel) lockedLabel.textContent = typeLabels[tipo.value] || 'Mídia';
             var agent = wrapper.querySelector('.cx-cot-agent');
             var main = wrapper.querySelector('.cx-cotacao-editor-main');
             var side = wrapper.querySelector('.cx-cotacao-editor-side');
@@ -2056,6 +2072,7 @@
         });
         wrapper._selectCotacaoTipo = selectTipo;
         selectTipo(tipo.value || 'midia', false);
+        wrapper._cotTypeLocked = !!isEdit;
     }
 
     /* ------------------------------------------------------------
@@ -2678,6 +2695,7 @@
             apresentacao_dados: '[data-field="apresentacao_dados"]'
         };
         if (key === 'tipo_comercial') {
+            if (wrapper._cotTypeLocked) return;
             if ((force || !wrapper._cotTypeTouched) && wrapper._selectCotacaoTipo) {
                 wrapper._selectCotacaoTipo(suggestion[key] || 'midia', false);
             }
@@ -2769,6 +2787,82 @@
         });
     }
 
+    function cotacaoResumoData(value) {
+        if (!value) return '—';
+        var parts = String(value).slice(0, 10).split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return String(value);
+    }
+
+    function cotacaoResumoValor(cotacao) {
+        if (cotacao.valor) return cotacao.valor;
+        var value = cotacao.valor_total != null
+            ? Number(cotacao.valor_total)
+            : Number(cotacao.budget_estimado || 0);
+        if (!Number.isFinite(value)) return '—';
+        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function openDrawerCotacaoResumo(cotacao) {
+        if (!cotacao || !cotacao.id) return;
+        var typeLabels = {
+            midia: 'Mídia',
+            parceiros: 'Parceiros',
+            formatos_interativos: 'Formatos interativos',
+            dados: 'Dados'
+        };
+        var tipo = cotacao.tipo_comercial || 'midia';
+        var tipoLabel = cotacao.tipo_comercial_label || typeLabels[tipo] || 'Mídia';
+        var status = cotacao.status_label || cotacao.status_canonico || cotacao.status || 'Rascunho';
+        var cliente = cotacao.cliente_final_nome || cotacao.cliente_nome || '—';
+        var agencia = cotacao.agencia_nome || '—';
+        var inicio = cotacaoResumoData(cotacao.periodo_inicio);
+        var fim = cotacaoResumoData(cotacao.periodo_fim);
+        var periodo = inicio + (fim !== '—' ? ' a ' + fim : '');
+        var objetivo = cotacao.objetivo || cotacao.objetivo_campanha || 'Objetivo não informado.';
+        var numero = cotacao.numero_cotacao || ('Cotação #' + cotacao.id);
+        var titulo = cotacao.nome_campanha || cotacao.titulo || 'Cotação sem título';
+        var wrap = document.createElement('div');
+        wrap.className = 'cx-cot-summary';
+        wrap.innerHTML =
+            '<header class="cx-cot-summary-head">' +
+                '<span class="cx-cot-summary-number">' + escapeHtml(numero) + '</span>' +
+                '<span class="cx-cot-summary-type cx-cot-summary-type--' + escapeAttr(tipo) + '">' +
+                    escapeHtml(tipoLabel) + '</span>' +
+                '<h3>' + escapeHtml(titulo) + '</h3>' +
+                '<span class="cx-cot-summary-status">' + escapeHtml(status) + '</span>' +
+            '</header>' +
+            '<dl class="cx-cot-summary-grid">' +
+                '<div><dt>Valor</dt><dd>' + escapeHtml(cotacaoResumoValor(cotacao)) + '</dd></div>' +
+                '<div><dt>Período</dt><dd>' + escapeHtml(periodo) + '</dd></div>' +
+                '<div><dt>Cliente final</dt><dd>' + escapeHtml(cliente) + '</dd></div>' +
+                '<div><dt>Agência</dt><dd>' + escapeHtml(agencia) + '</dd></div>' +
+            '</dl>' +
+            '<section class="cx-cot-summary-objective"><h4>Objetivo</h4><p>' +
+                escapeHtml(objetivo) + '</p></section>';
+
+        var url = cotacao.detalhes_url ||
+            '/cotacoes/' + encodeURIComponent(cotacao.id) + '/abrir';
+        cxDrawer.open({
+            title: 'Resumo da cotação',
+            breadcrumb: 'CRM v3 · Consulta',
+            size: 'sm',
+            contentEl: wrap,
+            split: false,
+            actions: [
+                { label: 'Fechar', variant: 'ghost', close: true },
+                {
+                    label: 'Abrir cotação',
+                    variant: 'primary',
+                    onClick: function (ev, id) {
+                        window.open(url, '_blank', 'noopener');
+                        cxDrawer.close(id);
+                    }
+                }
+            ]
+        });
+    }
+
     function openDrawerCotacao(cotacao, clienteId) {
         var frag = cloneTpl('cx-drawer-cotacao-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
@@ -2783,6 +2877,8 @@
         fillForm(form, Object.assign({ tipo_comercial: 'midia' }, cotacao || {}));
 
         var isEdit = !!(cotacao && cotacao.id);
+        var refine = wrapper.querySelector('#cx-cot-refine');
+        if (refine) refine.open = !isEdit;
 
         fillContextoCotacao(wrapper, clienteId, cotacao);
 
@@ -2794,7 +2890,7 @@
             );
             fullLink.hidden = false;
         }
-        wireTipoCotacao(wrapper);
+        wireTipoCotacao(wrapper, isEdit);
         wireCotacaoParticipants(wrapper, cotacao || {});
         wireBudgetCotacao(wrapper);
         wireCotacaoAgent(wrapper);
@@ -2924,6 +3020,7 @@
         openAtividade: openDrawerAtividade,
         openContato: openDrawerContato,
         openCotacao: openDrawerCotacao,
+        openCotacaoResumo: openDrawerCotacaoResumo,
         openSugestoes: openDrawerSugestoes,
     });
 

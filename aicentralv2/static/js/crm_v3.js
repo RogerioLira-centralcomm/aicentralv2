@@ -3317,18 +3317,18 @@
         );
     }
 
-    function cotacaoIdentidadeHtml(c) {
-        var cliente = cotacaoEmpresaHtml(
-            c.cliente_final_nome || c.cliente_nome,
-            c.cliente_logo_url,
-            'Cliente final'
-        );
-        var agencia = cotacaoEmpresaHtml(c.agencia_nome, c.agencia_logo_url, 'Agência');
-        if (agencia && cliente) {
-            return '<span class="crm-v3-cotacao-identidade">' + agencia +
-                '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>' + cliente + '</span>';
+    function cotacaoContraparteHtml(c) {
+        var clienteAtual = state.cliente || {};
+        if (clienteAtual.is_agencia) {
+            var clienteId = c.cliente_final_id || c.cliente_id;
+            if (clienteId && String(clienteId) === String(state.clienteId)) return '';
+            return cotacaoEmpresaHtml(
+                c.cliente_final_nome || c.cliente_nome,
+                c.cliente_logo_url,
+                'Cliente final'
+            );
         }
-        return agencia || cliente;
+        return cotacaoEmpresaHtml(c.agencia_nome, c.agencia_logo_url, 'Agência');
     }
 
     function cotacaoTipoHtml(c) {
@@ -3362,6 +3362,7 @@
         var inicioCampanha = dataParaExibicao(c.periodo_inicio);
         var statusLabel = c.status_label || c.status_canonico || c.status || '';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
+        var contraparte = cotacaoContraparteHtml(c);
         return (
             '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta crm-v3-cotacao-detalhes' +
                 (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') +
@@ -3370,9 +3371,9 @@
                 '<span class="crm-v3-cotacao-titulo">' + escapeHtml(titulo) + '</span>' +
                 (valor ? '<span class="crm-v3-cotacao-valor">' + escapeHtml(valor) + '</span>' : '') +
             '</span>' +
-            '<span class="crm-v3-cotacao-company-row">' +
-                cotacaoIdentidadeHtml(c) +
-            '</span>' +
+            (contraparte
+                ? '<span class="crm-v3-cotacao-company-row">' + contraparte + '</span>'
+                : '') +
             '<span class="crm-v3-cotacao-compact-meta">' +
                 cotacaoTipoHtml(c) +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
@@ -3394,22 +3395,19 @@
         var periodo = dataParaExibicao(c.periodo_fim) || dataParaExibicao(c.data) || '';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
         var meta = [statusLabel, periodo].filter(Boolean).join(' · ');
-        // Badge de vínculo para cotações de clientes vinculados
-        var origemLabel = '';
-        if (c.origem === 'vinculado' && c.cliente_nome) {
-            origemLabel = '<span class="crm-v3-cotacao-linha-origem" title="' + escapeHtml(c.cliente_nome) + '"><i class="fas fa-link" aria-hidden="true"></i></span>';
-        }
+        var contraparte = cotacaoContraparteHtml(c);
         return (
-            '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes' + (c.origem === 'vinculado' ? ' crm-v3-cotacao-linha-vinculada' : '') + '" data-cotacao-id="' + escapeHtml(c.id) + '" title="' + (c.origem === 'vinculado' ? 'Cotação de ' + escapeHtml(c.cliente_nome) : 'Abrir detalhes') + '">' +
-                origemLabel +
-                '<i class="crm-v3-cotacao-linha-icon ' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
+            '<button type="button" class="crm-v3-cotacao-linha crm-v3-cotacao-detalhes" data-cotacao-id="' + escapeHtml(c.id) + '" title="Ver resumo da cotação">' +
                 '<span class="crm-v3-cotacao-linha-body">' +
                     '<span class="crm-v3-cotacao-linha-row1">' +
                         '<span class="crm-v3-cotacao-linha-nome">' + escapeHtml(titulo) + '</span>' +
                         (valor ? '<span class="crm-v3-cotacao-linha-valor">' + escapeHtml(valor) + '</span>' : '') +
                     '</span>' +
-                    '<span class="crm-v3-cotacao-linha-meta">' + cotacaoTipoHtml(c) +
-                        cotacaoIdentidadeHtml(c) + (meta ? escapeHtml(meta) : '') + '</span>' +
+                    '<span class="crm-v3-cotacao-linha-meta">' +
+                        cotacaoTipoHtml(c) +
+                        contraparte +
+                        (meta ? '<span class="crm-v3-cotacao-linha-state">' + escapeHtml(meta) + '</span>' : '') +
+                    '</span>' +
                 '</span>' +
                 '<i class="fa-solid fa-chevron-right crm-v3-cotacao-linha-chevron" aria-hidden="true"></i>' +
             '</button>'
@@ -3423,10 +3421,8 @@
      * (Em aberto / Histórico) e não distinguia visualmente cotações
      * ganhas. Agora:
      *
-     *   1. **Em andamento** — cards em tom neutro, mostram todos os
-     *      detalhes (título, plataformas, período, valor). São o foco
-     *      de trabalho do executivo. Sempre visíveis com header, mesmo
-     *      vazias, para dar previsibilidade da estrutura da coluna.
+     *   1. **Em andamento** — cards em tom neutro. O grupo só aparece
+     *      quando há registros para não repetir um estado vazio óbvio.
      *
      *   2. **Aprovadas** — cards em VERDE (background suave), sinalizam
      *      pipeline realizado. Só aparecem quando há aprovadas — não
@@ -3439,8 +3435,8 @@
      *
      * Vínculos (agência ↔ cliente final): cada cotação vem com
      * `origem: 'proprio' | 'vinculado'` do backend. A relação aparece
-     * diretamente como agência → cliente final, sem um segundo rótulo
-     * que repita ou contradiga o nome mostrado na identidade.
+     * como contraparte: cliente final na ficha da agência ou agência
+     * na ficha do cliente, sem repetir a entidade já aberta.
      */
     function renderCotacoes() {
         var container = $('#crm-v3-cotacao-list');
@@ -3485,18 +3481,16 @@
         var html = '';
 
         // -------- Grupo 1: Em andamento --------
-        html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-em-andamento">' +
+        if (emAndamento.length) {
+            html += '<div class="crm-v3-cotacao-grupo crm-v3-cotacao-grupo-em-andamento">' +
                 '<div class="crm-v3-cotacao-grupo-title">' +
                     '<i class="fa-solid fa-circle-play crm-v3-cotacao-grupo-icon" aria-hidden="true"></i>' +
                     '<span>Em andamento</span>' +
                     '<span class="crm-v3-cotacao-grupo-count">' + emAndamento.length + '</span>' +
+                '</div>' +
+                emAndamento.map(cotacaoCardAberta).join('') +
                 '</div>';
-        if (emAndamento.length) {
-            html += emAndamento.map(cotacaoCardAberta).join('');
-        } else {
-            html += '<div class="crm-v3-cotacao-empty crm-v3-cotacao-empty-inline">Nenhuma cotação em andamento.</div>';
         }
-        html += '</div>';
 
         // -------- Grupo 2: Aprovadas (destaque verde) --------
         if (aprovadas.length) {
@@ -3526,7 +3520,7 @@
         container.innerHTML = html;
         bindCotacaoLogos(container);
 
-        // Delegação de clique para abrir detalhes (funciona para todos
+        // Delegação de clique para abrir o resumo (funciona para todos
         // os grupos: card aberto, card aprovada e linha histórico).
         $$('.crm-v3-cotacao-detalhes', container).forEach(function (btn) {
             btn.addEventListener('click', function (ev) {
@@ -3534,8 +3528,8 @@
                 var id = btn.getAttribute('data-cotacao-id');
                 if (!id) return;
                 var cot = state.cotacoes.find(function (c) { return String(c.id) === String(id); });
-                if (cot && window.crmV3Drawer && typeof window.crmV3Drawer.openCotacao === 'function') {
-                    window.crmV3Drawer.openCotacao(cot, state.clienteId);
+                if (cot && window.crmV3Drawer && typeof window.crmV3Drawer.openCotacaoResumo === 'function') {
+                    window.crmV3Drawer.openCotacaoResumo(cot, state.clienteId);
                 }
             });
         });
@@ -3552,6 +3546,7 @@
         var titulo = c.nome_campanha || c.titulo || 'Cotação sem título';
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
         var inicioCampanha = dataParaExibicao(c.periodo_inicio);
+        var contraparte = cotacaoContraparteHtml(c);
         return (
             '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aprovada crm-v3-cotacao-detalhes"' +
                 ' data-cotacao-id="' + escapeHtml(c.id) + '"' +
@@ -3563,7 +3558,7 @@
             '</div>' +
             '<div class="crm-v3-cotacao-aprovada-meta">' +
                 cotacaoTipoHtml(c) +
-                cotacaoIdentidadeHtml(c) +
+                contraparte +
                 (inicioCampanha
                     ? '<span class="crm-v3-cotacao-data" title="Data inicial da campanha">Início ' +
                         escapeHtml(inicioCampanha) + '</span>'

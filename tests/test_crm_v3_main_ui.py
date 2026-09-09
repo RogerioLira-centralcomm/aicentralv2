@@ -109,7 +109,7 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertNotIn("cotacao-objetivo", opened)
         self.assertIn('type="button"', opened)
         self.assertIn("crm-v3-cotacao-compact-head", opened)
-        self.assertIn("window.crmV3Drawer.openCotacao", self.js)
+        self.assertIn("window.crmV3Drawer.openCotacaoResumo", self.js)
 
     def test_quote_drawer_is_unified_and_legacy_modal_is_removed(self):
         self.assertIn("cx-cotacao-editor-grid", self.drawer)
@@ -157,9 +157,11 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         )
         self.assertIn("destino_tipo_comercial", self.cotacao_tipos)
 
-    def test_quote_cards_show_type_and_company_identity(self):
+    def test_quote_cards_show_type_and_contextual_counterparty(self):
         self.assertIn("cotacaoTipoHtml(c)", self.js)
-        self.assertIn("cotacaoIdentidadeHtml(c)", self.js)
+        self.assertIn("function cotacaoContraparteHtml", self.js)
+        self.assertIn("if (clienteAtual.is_agencia)", self.js)
+        self.assertNotIn("function cotacaoIdentidadeHtml", self.js)
         self.assertIn("data-cotacao-logo", self.js)
         self.assertIn(".crm-v3-cotacao-entity-avatar", self.css)
         self.assertIn(".crm-v3-cotacao-entity-avatar img", self.css)
@@ -167,6 +169,38 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("crm-v3-cotacao-company-row", self.js)
         self.assertIn("Data inicial da campanha", self.js)
         self.assertNotIn("Cliente vinculado:", self.js)
+
+    def test_quote_history_has_no_redundant_empty_group_or_dividers(self):
+        render = self.js.split("function renderCotacoes", 1)[1].split(
+            "function cotacaoCardAprovada", 1
+        )[0]
+        history = self.js.split("function cotacaoLinhaHistorico", 1)[1].split(
+            "function renderCotacoes", 1
+        )[0]
+        self.assertIn("if (emAndamento.length)", render)
+        self.assertNotIn("Nenhuma cotação em andamento", render)
+        self.assertNotIn("crm-v3-cotacao-linha-origem", history)
+        self.assertNotIn("crm-v3-cotacao-linha-icon", history)
+        self.assertIn("gap: 4px;", self.css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) auto;", self.css)
+
+    def test_clicking_quote_opens_read_only_summary(self):
+        self.assertIn("function openDrawerCotacaoResumo", self.drawer_js)
+        self.assertIn("title: 'Resumo da cotação'", self.drawer_js)
+        self.assertIn("label: 'Abrir cotação'", self.drawer_js)
+        self.assertIn("cotacao.detalhes_url", self.drawer_js)
+        self.assertIn("openCotacaoResumo: openDrawerCotacaoResumo", self.drawer_js)
+        self.assertNotIn("window.crmV3Drawer.openCotacao(cot", self.js)
+
+    def test_quote_type_is_compact_and_locked_only_on_edit(self):
+        self.assertIn('id="cx-cot-type-choice"', self.drawer)
+        self.assertIn('id="cx-cot-type-locked"', self.drawer)
+        self.assertIn("choice.hidden = !!isEdit", self.drawer_js)
+        self.assertIn("locked.hidden = !isEdit", self.drawer_js)
+        self.assertIn("wrapper._cotTypeLocked = !!isEdit", self.drawer_js)
+        self.assertIn("payload.tipo_comercial = cotacao.tipo_comercial", self.drawer_js)
+        self.assertIn("refine.open = !isEdit", self.drawer_js)
+        self.assertIn(".cx-cot-type-locked", self.enterprise_css)
 
     def test_agency_clients_can_be_managed_inside_quote_drawer(self):
         for element_id in (

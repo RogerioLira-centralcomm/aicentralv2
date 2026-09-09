@@ -242,7 +242,7 @@ def _ano_ref_relatorio_incentivos():
 @bp.route('/relatorio-incentivos')
 @login_required
 def relatorio_incentivos():
-    """Relatório por cliente_id incentivado — volume de PIs, faixa e pagamentos."""
+    """Relatório por cadastro incentivado, incluindo PIs ligados pela agência."""
     mes_ref_comp = request.args.get('mes_ref_comp', '').strip() or None
     ano_ref = _ano_ref_relatorio_incentivos()
 
@@ -275,7 +275,7 @@ def relatorio_incentivos():
 @bp.route('/api/relatorio-incentivos/pis')
 @login_required_api
 def api_relatorio_incentivos_pis():
-    """PIs do cliente_id com incentivo — códigos CC/AG para o modal."""
+    """PIs ligados diretamente ou pela agência ao cadastro incentivado."""
     cliente_id = request.args.get('cliente_id', type=int)
     if not cliente_id:
         return jsonify({'success': False, 'message': 'cliente_id obrigatório.'}), 400
@@ -298,6 +298,9 @@ def api_relatorio_incentivos_pis():
     for r in rows:
         pis.append({
             'id_pi': r.get('id_pi'),
+            'id_cliente': r.get('id_cliente'),
+            'id_agencia': r.get('id_agencia'),
+            'vinculo_relatorio': r.get('vinculo_relatorio') or 'cliente',
             'codigo_pi_cc': r.get('codigo_pi_cc') or None,
             'codigo_pi_ag': r.get('codigo_pi_ag') or None,
             'titulo_pi': r.get('titulo_pi') or None,

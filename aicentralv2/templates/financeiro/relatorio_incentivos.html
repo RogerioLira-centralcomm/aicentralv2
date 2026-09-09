@@ -118,12 +118,19 @@
               <td class="py-2 px-2 text-right text-gray-600">
                 {% if linha.total_pis > 0 %}
                 <button type="button"
-                        class="btn-pis-incentivo-modal inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors cursor-pointer"
+                        class="btn-pis-incentivo-modal inline-flex flex-col items-end text-blue-600 hover:text-blue-800 font-medium transition-colors cursor-pointer"
                         data-cliente-id="{{ linha.cliente_id }}"
                         data-agencia-nome="{{ ((linha.agencia_nome if linha.agencia_nome and linha.agencia_nome != '—' else linha.agencia_razao) or '')|e }}"
                         title="Ver códigos dos PIs">
-                  {{ linha.total_pis }} PIs
-                  <i class="fas fa-external-link-alt text-[10px] opacity-70"></i>
+                  <span class="hover:underline">
+                    {{ linha.total_pis }} PIs
+                    <i class="fas fa-external-link-alt text-[10px] opacity-70"></i>
+                  </span>
+                  {% if linha.total_pis_agencia %}
+                  <small class="text-[10px] font-normal text-amber-700">
+                    {{ linha.total_pis_agencia }} via agência
+                  </small>
+                  {% endif %}
                 </button>
                 {% else %}
                 0
@@ -358,15 +365,24 @@ function renderModalPisLista(pis) {
     var ag = pi.codigo_pi_ag || '';
     var clienteNome = pi.cliente_nome || '';
     var agenciaNomePi = pi.agencia_nome || '';
+    var vinculoAgencia = pi.vinculo_relatorio === 'agencia';
+    var vinculoLabel = vinculoAgencia ? 'Vínculo via agência' : 'Vínculo direto';
+    var clienteIdLabel = pi.id_cliente ? ' #' + pi.id_cliente : '';
+    var agenciaIdLabel = pi.id_agencia ? ' #' + pi.id_agencia : '';
     var valorBruto = fmtMoedaBr(pi.valor_bruto);
     var valorLiquido = fmtMoedaBr(pi.valor_liquido);
     var ctx = [pi.titulo_pi, pi.mes_ref_comp].filter(Boolean).join(' · ');
     return (
       '<div class="px-5 py-3 hover:bg-gray-50/80 transition-colors">' +
-        (ctx ? '<p class="text-[11px] text-gray-400 mb-2 truncate" title="' + escHtml(ctx) + '">' + escHtml(ctx) + '</p>' : '') +
+        '<div class="flex items-center justify-between gap-2 mb-2">' +
+          (ctx ? '<p class="text-[11px] text-gray-400 truncate" title="' + escHtml(ctx) + '">' + escHtml(ctx) + '</p>' : '<span></span>') +
+          '<span class="shrink-0 text-[10px] px-2 py-0.5 rounded ' +
+            (vinculoAgencia ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-gray-50 text-gray-500 border border-gray-200') +
+            '">' + escHtml(vinculoLabel) + '</span>' +
+        '</div>' +
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
           '<div class="min-w-0 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">' +
-            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cliente</span>' +
+            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cliente' + escHtml(clienteIdLabel) + '</span>' +
             (clienteNome ? '<p class="text-sm font-medium text-gray-800 truncate mt-0.5" title="' + escHtml(clienteNome) + '">' + escHtml(clienteNome) + '</p>' : '') +
             '<span class="text-[10px] text-gray-400 mt-1 block">Código CC</span>' +
             '<div class="flex items-center gap-1.5 mt-0.5">' +
@@ -375,7 +391,7 @@ function renderModalPisLista(pis) {
             '</div>' +
           '</div>' +
           '<div class="min-w-0 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">' +
-            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Agência</span>' +
+            '<span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Agência' + escHtml(agenciaIdLabel) + '</span>' +
             (agenciaNomePi ? '<p class="text-sm font-medium text-gray-800 truncate mt-0.5" title="' + escHtml(agenciaNomePi) + '">' + escHtml(agenciaNomePi) + '</p>' : '') +
             '<span class="text-[10px] text-gray-400 mt-1 block">Código AG</span>' +
             '<div class="flex items-center gap-1.5 mt-0.5">' +

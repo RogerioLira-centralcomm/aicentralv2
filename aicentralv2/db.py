@@ -20754,10 +20754,10 @@ def obter_relatorio_incentivos_agencias(
     id_status_pi=None,
     id_sub_status_pi=None,
 ):
-    """Relatório de incentivos por cliente_id com volume de PIs no período.
+    """Relatório por cadastro incentivado com volume de PIs no período.
 
-    Volume agregado exclusivamente por p.id_cliente (= i.cliente_id).
-    O ID, e não o nome da entidade, separa cadastros homônimos.
+    Inclui o vínculo direto (p.id_cliente) e o vínculo de agência
+    (p.id_agencia), classificando cada PI uma única vez.
     id_status_pi / id_sub_status_pi são opcionais (não aplicados por padrão).
     """
     conn = get_db()
@@ -20767,8 +20767,6 @@ def obter_relatorio_incentivos_agencias(
     agg_where = [
         "p.mes_ref_comp IS NOT NULL",
         "p.mes_ref_comp != ''",
-        'p.id_cliente IS NOT NULL',
-        'p.id_cliente > 0',
     ]
     agg_params = []
 
@@ -20806,18 +20804,29 @@ def obter_relatorio_incentivos_agencias(
                     cli.razao_social AS agencia_razao,
                     {cols},
                     COALESCE(agg.total_pis, 0) AS total_pis,
+                    COALESCE(agg.total_pis_cliente, 0) AS total_pis_cliente,
+                    COALESCE(agg.total_pis_agencia, 0) AS total_pis_agencia,
                     COALESCE(agg.volume_liquido, 0) AS volume_liquido
                 FROM cadu_pi_incentivos i
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
-                LEFT JOIN (
+                LEFT JOIN LATERAL (
                     SELECT
-                        p.id_cliente,
                         COUNT(p.id_pi) AS total_pis,
+                        COUNT(p.id_pi) FILTER (
+                            WHERE p.id_cliente = i.cliente_id
+                        ) AS total_pis_cliente,
+                        COUNT(p.id_pi) FILTER (
+                            WHERE p.id_cliente IS DISTINCT FROM i.cliente_id
+                              AND p.id_agencia = i.cliente_id
+                        ) AS total_pis_agencia,
                         SUM({parse_liquido}) AS volume_liquido
                     FROM cadu_pi p
                     WHERE {agg_where_sql}
-                    GROUP BY p.id_cliente
-                ) agg ON agg.id_cliente = i.cliente_id
+                      AND (
+                          p.id_cliente = i.cliente_id
+                          OR p.id_agencia = i.cliente_id
+                      )
+                ) agg ON TRUE
                 ORDER BY COALESCE(agg.volume_liquido, 0) DESC, i.cliente_id ASC NULLS LAST
                 ''',
                 tuple(agg_params),
@@ -20854,6 +20863,8 @@ def obter_relatorio_incentivos_agencias(
             'agencia_nome': row.get('agencia_nome') or row.get('agencia_razao') or '—',
             'agencia_razao': row.get('agencia_razao'),
             'total_pis': int(row.get('total_pis') or 0),
+            'total_pis_cliente': int(row.get('total_pis_cliente') or 0),
+            'total_pis_agencia': int(row.get('total_pis_agencia') or 0),
             'volume_liquido': volume,
             'faixa_atual': faixa_info['faixa_label'],
             'faixa_key': faixa_info['faixa_key'],
@@ -20874,18 +20885,16 @@ def obter_pis_relatorio_incentivo_agencia(
     id_status_pi=None,
     id_sub_status_pi=None,
 ):
-    """Lista PIs do cliente_id exato cadastrado no incentivo."""
+    """Lista PIs ligados ao cadastro incentivado como cliente ou agência."""
     if not cliente_id:
         return []
 
     where = [
         "p.mes_ref_comp IS NOT NULL",
         "p.mes_ref_comp != ''",
-        'p.id_cliente IS NOT NULL',
-        'p.id_cliente > 0',
-        'p.id_cliente = %s',
+        '(p.id_cliente = %s OR p.id_agencia = %s)',
     ]
-    params = [int(cliente_id)]
+    params = [int(cliente_id), int(cliente_id)]
 
     if id_status_pi is not None:
         where.append('p.id_status_pi = %s')
@@ -20917,12 +20926,18 @@ def obter_pis_relatorio_incentivo_agencia(
                 f'''
                 SELECT
                     p.id_pi,
+                    p.id_cliente,
+                    p.id_agencia,
                     p.codigo_pi_cc,
                     p.codigo_pi_ag,
                     p.titulo_pi,
                     p.mes_ref_comp,
                     COALESCE(NULLIF(TRIM(cli.nome_fantasia), ''), cli.razao_social) AS cliente_nome,
                     COALESCE(NULLIF(TRIM(cli_ag.nome_fantasia), ''), cli_ag.razao_social) AS agencia_nome,
+                    CASE
+                        WHEN p.id_cliente = %s THEN 'cliente'
+                        ELSE 'agencia'
+                    END AS vinculo_relatorio,
                     ({parse_bruto}) AS valor_bruto,
                     ({parse_liquido}) AS valor_liquido
                 FROM cadu_pi p
@@ -20935,7 +20950,7 @@ def obter_pis_relatorio_incentivo_agencia(
                     p.codigo_pi_cc ASC NULLS LAST,
                     p.id_pi DESC
                 ''',
-                tuple(params),
+                tuple([int(cliente_id), *params]),
             )
             return cursor.fetchall() or []
     except Exception as e:

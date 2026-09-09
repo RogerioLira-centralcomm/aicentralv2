@@ -44,17 +44,19 @@ class RecordingConnection:
 
 
 class RelatorioIncentivosClienteIdTest(unittest.TestCase):
-    def test_resumo_agrega_pelo_cliente_id_exato(self):
+    def test_resumo_agrega_cliente_e_agencia_sem_union_duplicado(self):
         connection = RecordingConnection()
         with patch.object(db, "get_db", return_value=connection):
             resultado = db.obter_relatorio_incentivos_agencias(ano_ref=26)
 
         self.assertEqual(resultado, [])
         query = connection.cursor_instance.query
-        self.assertIn("GROUP BY p.id_cliente", query)
-        self.assertIn("agg.id_cliente = i.cliente_id", query)
-        self.assertIn("p.id_cliente IS NOT NULL", query)
-        self.assertNotIn("GROUP BY p.id_agencia", query)
+        self.assertIn("LEFT JOIN LATERAL", query)
+        self.assertIn("p.id_cliente = i.cliente_id", query)
+        self.assertIn("OR p.id_agencia = i.cliente_id", query)
+        self.assertIn("AS total_pis_cliente", query)
+        self.assertIn("AS total_pis_agencia", query)
+        self.assertNotIn("UNION", query)
 
     def test_resumo_usa_liquido_para_faixa_e_provisionamento(self):
         connection = RecordingConnection(rows=[{
@@ -63,6 +65,8 @@ class RelatorioIncentivosClienteIdTest(unittest.TestCase):
             "agencia_nome": "Cliente Teste",
             "agencia_razao": None,
             "total_pis": 2,
+            "total_pis_cliente": 1,
+            "total_pis_agencia": 1,
             "volume_liquido": 40_000,
         }])
         with (
@@ -80,11 +84,13 @@ class RelatorioIncentivosClienteIdTest(unittest.TestCase):
         self.assertIn("AS volume_liquido", query)
         self.assertNotIn("p.vr_bruto_pi", query)
         self.assertEqual(resultado[0]["volume_liquido"], 40_000)
+        self.assertEqual(resultado[0]["total_pis_cliente"], 1)
+        self.assertEqual(resultado[0]["total_pis_agencia"], 1)
         self.assertEqual(resultado[0]["faixa_atual"], "50K")
         self.assertEqual(resultado[0]["perc_atual"], 5.0)
         self.assertEqual(resultado[0]["incentivo_provisionado"], 2_000)
 
-    def test_modal_lista_pis_pelo_mesmo_cliente_id(self):
+    def test_modal_lista_pis_por_cliente_ou_agencia(self):
         connection = RecordingConnection()
         with patch.object(db, "get_db", return_value=connection):
             resultado = db.obter_pis_relatorio_incentivo_agencia(
@@ -94,9 +100,11 @@ class RelatorioIncentivosClienteIdTest(unittest.TestCase):
 
         self.assertEqual(resultado, [])
         query = connection.cursor_instance.query
-        self.assertIn("p.id_cliente = %s", query)
-        self.assertNotIn("p.id_agencia = %s", query)
-        self.assertEqual(connection.cursor_instance.params[0], 174)
+        self.assertIn("(p.id_cliente = %s OR p.id_agencia = %s)", query)
+        self.assertIn("END AS vinculo_relatorio", query)
+        self.assertIn("p.id_cliente,", query)
+        self.assertIn("p.id_agencia,", query)
+        self.assertEqual(connection.cursor_instance.params[:3], (174, 174, 174))
 
     def test_template_identifica_cadastro_e_cliente(self):
         root = Path(__file__).resolve().parents[1]
@@ -115,6 +123,9 @@ class RelatorioIncentivosClienteIdTest(unittest.TestCase):
         self.assertIn("linha.volume_liquido", source)
         self.assertIn("ID cadastro", source)
         self.assertIn("#{{ linha.cliente_id }}", source)
+        self.assertIn("linha.total_pis_agencia", source)
+        self.assertIn("via agência", source)
+        self.assertIn("vinculo_relatorio", source)
         self.assertNotIn("totais.volume_bruto", source)
 
 
@@ -195,7 +206,12 @@ class RelatorioIncentivosAnoPadraoTest(unittest.TestCase):
             patch.object(
                 financeiro_routes.main_db,
                 "obter_pis_relatorio_incentivo_agencia",
-                return_value=[],
+                return_value=[{
+                    "id_pi": 99,
+                    "id_cliente": 321,
+                    "id_agencia": 174,
+                    "vinculo_relatorio": "agencia",
+                }],
             ) as obter_pis,
             patch.object(
                 financeiro_routes.main_db,
@@ -205,7 +221,11 @@ class RelatorioIncentivosAnoPadraoTest(unittest.TestCase):
         ):
             resposta = financeiro_routes.api_relatorio_incentivos_pis.__wrapped__()
 
-        self.assertTrue(resposta.get_json()["success"])
+        payload = resposta.get_json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["pis"][0]["id_cliente"], 321)
+        self.assertEqual(payload["pis"][0]["id_agencia"], 174)
+        self.assertEqual(payload["pis"][0]["vinculo_relatorio"], "agencia")
         obter_pis.assert_called_once_with(
             cliente_id=174,
             ano_ref=26,

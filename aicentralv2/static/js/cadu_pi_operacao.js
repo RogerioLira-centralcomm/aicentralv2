@@ -28,7 +28,7 @@
   var emailDialogOpener = null;
   var currentEmailType = '';
   var currentEmailCampaignId = null;
-  var mobileMedia = window.matchMedia('(max-width: 720px)');
+  var mobileMedia = window.matchMedia('(max-width: 900px)');
   var mobileTabs = Array.prototype.slice.call(root.querySelectorAll('[data-mobile-tab]'));
   var mobileViews = ['summary', 'edit', 'operation'];
 

@@ -147,13 +147,18 @@ class CrmPipelineLogosContractTest(unittest.TestCase):
         self.assertIn("e.key.toLowerCase() === 'h'", self.template)
 
     def test_pipeline_assets_have_responsive_contract(self):
-        self.assertIn("cotacao_pipeline.css') }}?v=9", self.template)
+        self.assertIn("cotacao_pipeline.css') }}?v=10", self.template)
         self.assertIn("scrollbar-width: none", self.css)
-        self.assertNotIn("scroll-snap-type: x proximity", self.css)
+        self.assertIn("scroll-snap-type: x mandatory", self.css)
+        self.assertIn("pp-stage-rail", self.template)
+        self.assertIn("irParaEstagio", self.template)
         self.assertIn("LIMITE_CARDS_COLUNA = 25", self.template)
         self.assertIn("alternarColunaCompleta", self.template)
+        self.assertIn("@media (max-width: 1180px)", self.css)
+        self.assertIn("@media (max-width: 900px)", self.css)
         self.assertIn("@media (max-width: 640px)", self.css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
+        self.assertIn("min(20.5rem, calc(100vw - 2.5rem))", self.css)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,9 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn('data-label="Atingido"', source)
         self.assertIn(".campaign-daily-table td::before", css)
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", css)
+        self.assertIn("@media (max-width: 900px)", css)
+        self.assertIn(".camp-field--lead", css)
+        self.assertIn("campaign-daily-form { grid-template-columns: 1fr; }", css)
 
     def test_css_corrige_header_sidebar_modais_e_safe_area(self):
         css = self._source(STATIC / "css" / "pi-operacao.css")
@@ -66,6 +69,7 @@ class PiMobileUiContractTest(unittest.TestCase):
         campaign_js = self._source(STATIC / "js" / "campanha_pi_detalhe.js")
 
         self.assertIn("function setMobileView(", operation_js)
+        self.assertIn("matchMedia('(max-width: 900px)')", operation_js)
         self.assertIn("mobileViewFromHash", operation_js)
         self.assertIn("root.addEventListener('invalid'", operation_js)
         self.assertIn("window.location.href = campaignDetailUrl", operation_js)

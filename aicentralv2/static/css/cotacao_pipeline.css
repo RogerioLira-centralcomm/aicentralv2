@@ -1693,3 +1693,105 @@ dialog.modal[open] {
 @media (prefers-reduced-motion: reduce) {
   .pp-history-sidebar { transition: none; }
 }
+
+.pp-stage-rail { display: none; }
+
+@media (max-width: 1180px) {
+  .pp-header { height: auto; }
+  .pp-toolbar-main {
+    height: auto;
+    min-height: 3rem;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.85rem;
+    padding-block: 0.5rem;
+  }
+  .pp-header-identity { flex: 1 1 14rem; }
+  .pp-header-actions { flex: 1 1 auto; justify-content: flex-end; }
+  .pp-filters.pp-filter-bar {
+    display: grid;
+    height: auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+  }
+  .pp-search {
+    min-width: 0;
+    max-width: none;
+  }
+  .pp-filters #filtro_executivo,
+  .pp-filters #filtro_mes,
+  .pp-filters #filtro_status {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+  .pp-clear-filters { margin-left: 0; }
+  .pp-detail-values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-detail-values > div:nth-child(2) { border-right: 0; }
+  .pp-detail-values > div:nth-child(-n + 2) { border-bottom: 1px solid #e5e9ed; }
+}
+
+@media (max-width: 900px) {
+  .pp-toolbar-main { align-items: flex-start; }
+  .pp-header-identity,
+  .pp-header-actions { flex: 1 1 100%; }
+  .pp-header-actions { justify-content: flex-start; }
+  .pp-filters.pp-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pp-search,
+  .pp-filter--owner,
+  .pp-clear-filters { grid-column: span 2; }
+  .pp-stage-rail {
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding: 0.15rem 0.15rem 0.25rem;
+    scrollbar-width: thin;
+  }
+  .pp-stage-rail button {
+    flex: 0 0 auto;
+    min-height: 1.85rem;
+    border: 1px solid #d8e3e2;
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    background: #fff;
+    color: #1e4d4f;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .pp-stage-rail button.is-current,
+  .pp-stage-rail button:focus-visible {
+    border-color: #183436;
+    background: #183436;
+    color: #fff;
+  }
+  .pp-board {
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+  .pp-board::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+  .pp-board::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #a9bcbb;
+  }
+  .pp-col {
+    flex: 0 0 min(20.5rem, calc(100vw - 2.5rem));
+    min-width: min(20.5rem, calc(100vw - 2.5rem));
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-board {
+    scroll-snap-type: none;
+    scroll-behavior: auto;
+  }
+}

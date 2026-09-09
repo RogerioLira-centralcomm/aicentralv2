@@ -752,19 +752,23 @@ body.pi-op-lock { overflow: hidden; }
   .camp-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .camp-col-4 { grid-column: span 2; }
   .camp-margem-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .camp-field--lead { grid-column: 1 / -1; }
+  .campaign-daily-form { grid-template-columns: minmax(140px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
 }
 @media (max-width: 1050px) {
   .campaign-detail-layout { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 720px) {
-  .campaign-detail-header .pi-op-header__row { gap: 10px; }
+@media (max-width: 900px) {
   .campaign-flight-deck { grid-template-columns: 1fr; }
   .campaign-flight-period { grid-column: auto; }
   .campaign-flight-deck article + article { border-top: 1px solid rgba(255,255,255,.13); border-left: 0; }
   .campaign-daily-form { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .campaign-detail-header .pi-op-header__row { gap: 10px; }
   .campaign-detail-section-head { align-items: flex-start; }
   .camp-form-grid, .camp-margem-grid { grid-template-columns: 1fr; }
-  .camp-col-2, .camp-col-4 { grid-column: span 1; }
+  .camp-col-2, .camp-col-4, .camp-field--lead { grid-column: span 1; }
   .campaign-detail-form-foot { align-items: stretch; flex-direction: column; }
 }
 
@@ -774,7 +778,7 @@ body.pi-op-lock { overflow: hidden; }
 .pi-mobile-savebar,
 .pi-mobile-edit-index { display: none; }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   html:has(.pi-has-mobile-tabs),
   body:has(.pi-has-mobile-tabs) { overflow-x: clip; }
 
@@ -1044,16 +1048,19 @@ body.pi-op-lock { overflow: hidden; }
   .pi-has-mobile-tabs .pi-op-context-actions { grid-template-columns: 1fr; }
 
   .campaign-flight-deck {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
   .campaign-flight-period {
-    grid-column: 1 / -1;
+    grid-column: auto;
     border-bottom: 1px solid rgba(255,255,255,.13);
   }
   .campaign-flight-deck article { padding: 13px 14px; }
-  .campaign-flight-deck article + article { border-top: 0; }
+  .campaign-flight-deck article + article {
+    border-top: 1px solid rgba(255,255,255,.13);
+    border-left: 0;
+  }
   .campaign-flight-deck .campaign-flight-metric + .campaign-flight-metric {
-    border-left: 1px solid rgba(255,255,255,.13);
+    border-left: 0;
   }
   .campaign-flight-value {
     align-items: flex-start;

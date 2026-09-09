@@ -120,7 +120,7 @@
       ('perc_com_vendas', '% Comissão'), ('perc_pl_incentivos', '% PL incentivos'),
       ('perc_impostos', '% Impostos')
     ] %}
-      <div class="camp-field">
+      <div class="camp-field{% if field == 'perc_margem_cc' %} camp-field--lead{% endif %}">
         <label for="{{ field }}">{{ label }}</label>
         <input type="text" id="{{ field }}" name="{{ field }}"
                value="{{ form_camp[field] if form_camp and form_camp[field] is not none else '' }}" placeholder="0,00">

@@ -4,7 +4,7 @@
 {% block page_subtitle %}Pipeline comercial{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=10">
 {% endblock %}
 
 {% block content %}
@@ -116,6 +116,13 @@
       </label>
       <button type="button" class="pp-clear-filters" onclick="limparFiltrosPipeline()">Limpar filtros</button>
   </form>
+  {% set status_list = ['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar', 'Aprovada'] %}
+  {% set status_labels = {'Em Acompanhamento': 'Follow-up'} %}
+  <nav class="pp-stage-rail" aria-label="Estágios do pipeline">
+    {% for status in status_list %}
+    <button type="button" data-stage="{{ status }}"{% if loop.first %} class="is-current"{% endif %}>{{ status_labels.get(status, status) }}</button>
+    {% endfor %}
+  </nav>
 
   {% macro pp_avatar(cotacao) %}
     {% if cotacao.executivo_foto_url %}
@@ -222,8 +229,6 @@
   {% endmacro %}
 
   <div class="pp-board">
-    {% set status_list = ['Rascunho', 'Enviada', 'Em Acompanhamento', 'Próximo de Aprovar', 'Aprovada'] %}
-    {% set status_labels = {'Em Acompanhamento': 'Follow-up'} %}
     {% for status in status_list %}
     <div class="pp-col kanban-column"
          data-status="{{ status }}"
@@ -608,6 +613,25 @@
 // ==================== FILTROS ====================
 let cardFilterAtivo = '';
 const LIMITE_CARDS_COLUNA = 25;
+
+function irParaEstagio(status) {
+  const coluna = document.querySelector(`.pp-col[data-status="${status}"]`);
+  if (!coluna) return;
+  const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  coluna.scrollIntoView({
+    inline: 'start',
+    block: 'nearest',
+    behavior: reduzir ? 'auto' : 'smooth',
+  });
+  document.querySelectorAll('.pp-stage-rail [data-stage]').forEach((botao) => {
+    botao.classList.toggle('is-current', botao.dataset.stage === status);
+  });
+}
+
+document.querySelector('.pp-stage-rail')?.addEventListener('click', (event) => {
+  const botao = event.target.closest('[data-stage]');
+  if (botao) irParaEstagio(botao.dataset.stage);
+});
 
 function atualizarLimiteColuna(coluna) {
   const cards = Array.from(coluna.querySelectorAll('.kanban-card:not([hidden])'));

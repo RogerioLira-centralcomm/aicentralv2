@@ -237,6 +237,12 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
         self.assertIn("KPI e período", template)
         self.assertIn("data-open-media-item", template)
         self.assertIn("data-line-id=", template)
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+        self.assertIn("cotacao_detalhes.css') }}?v=6", template)
+        self.assertIn("@media (max-width: 900px)", css)
+        self.assertIn("tr[data-media-row]", css)
+        self.assertIn('content: "Praça"', css)
+        self.assertIn('[data-cot-header-action="pdf"]', css)
         self.assertNotIn(
             'data-investimento-liquido="{{ linha.investimento_liquido or 0 }}" onclick="visualizarOuEditarLinha',
             template,

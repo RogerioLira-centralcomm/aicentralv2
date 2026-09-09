@@ -1360,6 +1360,21 @@ body.cot-op-lock {
   .cot-op-summary-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .cot-op-metric:nth-child(3) { border-right: 0; }
   .cot-op-metric:nth-child(-n + 3) { border-bottom: 1px solid #e7ecec; }
+  .cot-op-header__row { flex-wrap: wrap; }
+  .cot-op-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+  .cot-op-actions > [data-cot-header-action="pdf"],
+  .cot-op-actions > [data-cot-header-action="copy-link"],
+  .cot-op-actions > [data-cot-header-action="configure-link"],
+  .cot-op-client-preview {
+    display: none;
+  }
+  .cot-media-table,
+  .cot-op-table-wrap table {
+    min-width: 820px;
+  }
 }
 
 @media (max-width: 1050px) {
@@ -1403,6 +1418,96 @@ body.cot-op-lock {
 
   .cot-op-sidebar-backdrop.is-open {
     display: block;
+  }
+}
+
+@media (max-width: 900px) {
+  .cot-op-header__row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cot-op-actions { width: 100%; justify-content: flex-start; }
+  .cot-op-summary-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cot-op-metric:nth-child(3) { border-right: 1px solid #e7ecec; }
+  .cot-op-metric:nth-child(2n) { border-right: 0; }
+  .cot-op-metric:nth-child(-n + 4) { border-bottom: 1px solid #e7ecec; }
+
+  .cot-op-table-wrap { overflow: visible; }
+  .cot-media-table,
+  .cot-op-table-wrap .cot-media-table {
+    min-width: 0;
+  }
+  .cot-media-table thead { display: none; }
+  .cot-media-table,
+  .cot-media-table tbody,
+  .cot-media-table tfoot { display: block; width: 100%; }
+  .cot-media-table tbody tr[data-media-row] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.2rem 0.85rem;
+    margin: 0 0 0.7rem;
+    border: 1px solid #d8e3e2;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.85rem 0.95rem;
+  }
+  .cot-media-table tbody tr[data-media-row] td {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 0;
+    padding: 0.2rem 0;
+    text-align: right;
+    white-space: normal;
+  }
+  .cot-media-table tbody tr[data-media-row] td::before {
+    color: #53696a;
+    font-size: 0.66rem;
+    font-weight: 650;
+  }
+  .cot-media-table .cot-media-identity {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.15rem;
+    text-align: left;
+  }
+  .cot-media-table .cot-media-identity::before { display: none; }
+  .cot-media-table .cot-media-identity strong {
+    color: #183436;
+    font-size: 0.95rem;
+  }
+  .cot-media-table .cot-media-place::before { content: "Praça"; }
+  .cot-media-table .cot-media-flight::before { content: "KPI e período"; }
+  .cot-media-table td:nth-child(4)::before { content: "Preço unitário"; }
+  .cot-media-table td:nth-child(5)::before { content: "Volume"; }
+  .cot-media-table td.is-primary::before { content: "Valor líquido"; }
+  .cot-media-table td:nth-child(7)::before { content: "Valor bruto"; }
+  .cot-media-table td:nth-child(8)::before { content: "Custo de mídia"; }
+  .cot-media-table .is-action {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    padding-top: 0.35rem;
+  }
+  .cot-media-table .is-action::before { display: none; }
+  .cot-media-table tbody tr:not([data-media-row]) {
+    display: block;
+  }
+  .cot-media-table tbody tr:not([data-media-row]) td {
+    display: block;
+    border: 0;
+  }
+  .cot-media-table tfoot tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.75rem;
+    border-top: 1px solid #d8e3e2;
+    padding-top: 0.65rem;
+  }
+  .cot-media-table tfoot td {
+    border: 0;
+    padding: 0.2rem 0;
   }
 }
 
@@ -1450,7 +1555,7 @@ body.cot-op-lock {
     width: 100%;
   }
 
-  .cot-op-table-wrap table {
+  .cot-op-table-wrap table:not(.cot-media-table) {
     min-width: 980px;
   }
 

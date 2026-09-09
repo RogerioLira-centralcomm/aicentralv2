@@ -30,11 +30,10 @@
         </span>
         <b id="pi-origin-status">{{ pi.sub_status_descricao or pi.status_descricao or '' if pi else '' }}</b>
       </a>
-      <div id="pi-origin-facts" class="pi-op-origin-facts" aria-label="Resumo do PI">
+      <div id="pi-origin-facts" class="pi-op-origin-facts" aria-label="Contexto complementar do PI">
         <div><span>Cliente</span><strong id="pi-origin-client">{{ pi.cliente_nome or 'Não informado' if pi else '—' }}</strong></div>
-        <div><span>Período</span><strong id="pi-origin-period">—</strong></div>
-        <div><span>Responsável</span><strong id="pi-origin-owner">{{ pi.responsavel_comercial_nome or 'Não informado' if pi else '—' }}</strong></div>
-        <div><span>Campanhas</span><strong id="pi-origin-campaign-count">{{ pi.total_campanhas or 0 if pi else 0 }}</strong></div>
+        <div id="pi-origin-agency-row" {% if not pi or not pi.agencia_nome %}hidden{% endif %}><span>Agência</span><strong id="pi-origin-agency">{{ pi.agencia_nome or '' if pi else '' }}</strong></div>
+        <div><span>Veiculação</span><strong id="pi-origin-period">—</strong></div>
       </div>
       <div id="pi-route-campaigns" class="pi-op-route-map__campaigns" aria-live="polite">
         <span class="pi-op-state">Carregando campanhas…</span>
@@ -172,11 +171,13 @@
           <strong>Pré-visualização</strong>
           <span>Conteúdo que será enviado</span>
         </div>
-        <div id="pi-email-preview-state" class="pi-op-state pi-op-state--loading">
-          <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…
+        <div class="pi-email-preview-content">
+          <div id="pi-email-preview-state" class="pi-op-state pi-op-state--loading">
+            <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…
+          </div>
+          <iframe id="pi-email-frame" class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" hidden></iframe>
+          <div id="pi-email-text-preview" class="pi-op-email-preview" hidden></div>
         </div>
-        <iframe id="pi-email-frame" class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" hidden></iframe>
-        <div id="pi-email-text-preview" class="pi-op-email-preview" hidden></div>
       </section>
     </div>
     <footer class="pi-email-modal__footer">

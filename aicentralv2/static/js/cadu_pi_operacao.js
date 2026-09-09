@@ -311,9 +311,20 @@
 
   function shortDate(value) {
     if (!value) return '';
-    var raw = String(value).slice(0, 10);
-    var parts = raw.split('-');
-    return parts.length === 3 ? [parts[2], parts[1], parts[0]].join('/') : raw;
+    var raw = String(value).trim();
+    var iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return [iso[3], iso[2], iso[1]].join('/');
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
+    var parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'UTC'
+      }).format(parsed);
+    }
+    return raw;
   }
 
   function renderPiOrigin(data) {
@@ -327,10 +338,10 @@
     setText('pi-origin-title', pi.titulo_pi, 'Título não informado');
     setText('pi-origin-status', pi.sub_status_descricao || pi.status_descricao, 'Sem status');
     setText('pi-origin-client', pi.cliente_nome || pi.nome_cliente, 'Não informado');
-    setText('pi-origin-owner', summary.executivo_vendas || pi.responsavel_comercial_nome, 'Não informado');
-    setText('pi-origin-campaign-count', String(summary.total_campanhas == null
-      ? list(data.campanhas).length
-      : summary.total_campanhas), '0');
+    var agency = summary.agencia || pi.agencia_nome || '';
+    var agencyRow = document.getElementById('pi-origin-agency-row');
+    setText('pi-origin-agency', agency, '');
+    if (agencyRow) agencyRow.hidden = !agency;
     var start = shortDate(pi.periodo_inicio);
     var finish = shortDate(pi.periodo_fim);
     setText('pi-origin-period', start || finish ? (start || '—') + ' a ' + (finish || '—') : '', 'Não informado');
@@ -776,6 +787,13 @@
   }
 
   async function previewEmail(type, campaignId, draft) {
+    if (!type) {
+      notify('Selecione uma comunicação para gerar a prévia.', 'warning');
+      var communications = document.getElementById('pi-communications-panel');
+      openSidebar();
+      scrollSidebarTo(communications);
+      return;
+    }
     if (!savedEmailRecipients(operationData).length) {
       focusRecipientSelection();
       return;
@@ -793,9 +811,13 @@
     var frame = document.getElementById('pi-email-frame');
     var textPreview = document.getElementById('pi-email-text-preview');
     var status = document.getElementById('pi-email-status');
+    var selectedCommunication = communicationCatalog.find(function (item) {
+      return String(communicationId(item)) === String(type);
+    });
+    var communicationLabel = selectedCommunication ? communicationName(selectedCommunication) : 'Comunicação do PI';
     if (context) context.textContent = campaignId && selectedCampaign
-      ? selectedCampaign.nome_campanha || 'Comunicação da campanha'
-      : 'Comunicação do PI';
+      ? communicationLabel + ' · ' + (selectedCampaign.nome_campanha || 'Campanha')
+      : communicationLabel;
     if (title) title.textContent = 'Preparar e-mail';
     if (status) status.textContent = '';
     if (previewState) {
@@ -803,7 +825,10 @@
       previewState.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…';
       previewState.hidden = false;
     }
-    if (frame) frame.hidden = true;
+    if (frame) {
+      frame.hidden = true;
+      frame.removeAttribute('srcdoc');
+    }
     if (textPreview) textPreview.hidden = true;
     if (!emailDialog.open) emailDialog.showModal();
     try {

@@ -757,6 +757,11 @@ class PiOperacaoService:
                     else ""
                 )
             ),
+            "logo_centralcomm_url": (
+                url_for("static", filename="images/cc_logo.png", _external=True)
+                if has_request_context()
+                else "https://ai.centralcomm.media/static/images/cc_logo.png"
+            ),
         }
         html = self.renderer(
             f"emails/externos/pi_operacao/{tipo}.html", **contexto

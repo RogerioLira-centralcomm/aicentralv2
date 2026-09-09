@@ -85,7 +85,46 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("% campaigns.length", operation_js)
         self.assertIn('id="pi-origin-facts"', sidebar)
         self.assertIn('id="pi-origin-client"', sidebar)
+        self.assertIn('id="pi-origin-agency"', sidebar)
+        self.assertNotIn('id="pi-origin-owner"', sidebar)
+        self.assertNotIn('id="pi-origin-campaign-count"', sidebar)
         self.assertIn("function renderPiOrigin(", operation_js)
+        self.assertIn("new Intl.DateTimeFormat('pt-BR'", operation_js)
+
+    def test_sidebar_exibe_contexto_complementar_e_datas_brasileiras(self):
+        sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
+        operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
+
+        self.assertIn('id="pi-origin-agency-row"', sidebar)
+        self.assertIn('id="pi-origin-period"', sidebar)
+        self.assertNotIn('id="pi-origin-owner"', sidebar)
+        self.assertNotIn('id="pi-origin-campaign-count"', sidebar)
+        self.assertIn("new Intl.DateTimeFormat('pt-BR'", operation_js)
+        self.assertIn("timeZone: 'UTC'", operation_js)
+
+    def test_campanhas_usam_drawer_vanilla_medio(self):
+        pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+
+        self.assertIn('id="campanha_editor_source"', pi_detail)
+        self.assertIn('id="campanha_view_source"', pi_detail)
+        self.assertIn("window.cxDrawer.open({", pi_detail)
+        self.assertIn("size: 'md'", pi_detail)
+        self.assertIn("pi-campaign-editor-section", pi_detail)
+        self.assertNotIn('id="modal_nova_campanha"', pi_detail)
+        self.assertNotIn('id="modal_ver_campanha"', pi_detail)
+
+    def test_preview_email_exige_comunicacao_e_usa_area_unica(self):
+        sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
+        operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
+        email_base = self._source(
+            TEMPLATES / "emails" / "externos" / "pi_operacao" / "base.html"
+        )
+
+        self.assertIn('class="pi-email-preview-content"', sidebar)
+        self.assertIn("Selecione uma comunicação para gerar a prévia.", operation_js)
+        self.assertIn("communicationCatalog.find(", operation_js)
+        self.assertIn("logo_centralcomm_url", email_base)
+        self.assertNotIn("cadu-logo-variant-2.png", email_base)
 
     def test_sidebar_desktop_usa_rolagem_unica_e_mobile_preserva_drawer(self):
         css = self._source(STATIC / "css" / "pi-operacao.css")
@@ -108,6 +147,8 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("Revise quem receberá esta comunicação", operation_js)
         self.assertIn("emailDialog.showModal()", operation_js)
         self.assertIn("frame.srcdoc = data.html", operation_js)
+        self.assertIn("pi-email-preview-content", sidebar)
+        self.assertIn("Selecione uma comunicação para gerar a prévia.", operation_js)
         self.assertIn(".pi-email-dialog {", css)
         self.assertIn(".pi-confirm-dialog.is-email .pi-confirm-dialog__actions { justify-content: flex-start; }", css)
 

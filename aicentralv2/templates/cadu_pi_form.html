@@ -59,7 +59,7 @@
             </button>
           {% endif %}
           <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
-            <i class="fa-regular fa-envelope-open" aria-hidden="true"></i>Pré-visualizar e-mails
+            <i class="fa-regular fa-envelope" aria-hidden="true"></i>Comunicações
           </button>
           {% if pi.id_sub_status_pi|string == '2' %}
           <button type="button" id="btn_enviar_producao"
@@ -92,7 +92,7 @@
             <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
           </button>
           <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
-            <i class="fa-regular fa-envelope-open" aria-hidden="true"></i>Pré-visualizar e-mails
+            <i class="fa-regular fa-envelope" aria-hidden="true"></i>Comunicações
           </button>
         {% endif %}
         {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string == '4') and not somente_leitura %}
@@ -297,7 +297,7 @@
 
       <!-- Período (card estilo cotação) -->
       <section class="pi-edit-card" id="pi-edit-period">
-        <div class="pi-edit-section__head"><div><h2>Período</h2><p>Janela contratada para veiculação das campanhas.</p></div></div>
+        <div class="pi-edit-card__head"><div><h2>Período</h2><p>Janela contratada para veiculação das campanhas.</p></div></div>
         <div class="pi-edit-card__body">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
@@ -332,27 +332,32 @@
 
       <!-- Calculadora / Valores Financeiros -->
       <section class="pi-edit-card pi-edit-finance" id="calculadora_pi_block">
-        <div class="pi-edit-card__body">
-        <div class="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-gray-100">
-          <h2 class="text-[10px] font-semibold text-gray-800">Valores Financeiros</h2>
-          <div class="text-right min-w-[120px]">
-            <label for="input_valor_bruto" class="text-[9px] text-gray-400 block">Valor Bruto</label>
+        <div class="pi-edit-card__head pi-finance-head">
+          <div>
+            <h2>Valores financeiros</h2>
+            <p>Parâmetros comerciais e composição prevista do PI.</p>
+          </div>
+          <div class="pi-finance-gross">
+            <label for="input_valor_bruto">Valor bruto</label>
             {% if pi_valores_editaveis %}
             <input type="text" name="valor_bruto" id="input_valor_bruto"
-              class="w-full text-[11px] font-bold text-emerald-700 tabular-nums border border-gray-200 rounded px-2 py-0.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-right"
+              class="tabular-nums"
               placeholder="R$ 0,00"
               value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
             {% else %}
-            <span id="badge_valor_bruto" class="text-[11px] font-bold text-emerald-700 tabular-nums">{% if pi and pi.valor_bruto %}{{ pi.valor_bruto }}{% else %}—{% endif %}</span>
+            <span id="badge_valor_bruto" class="tabular-nums">{% if pi and pi.valor_bruto %}{{ pi.valor_bruto }}{% else %}—{% endif %}</span>
             <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
             {% endif %}
           </div>
         </div>
+        <div class="pi-edit-card__body">
         {% if pi_valores_editaveis %}
-        <p class="text-[9px] text-gray-500 mb-2">Valores em R$ podem ser corrigidos manualmente.</p>
+        <p class="pi-finance-help">Revise os parâmetros abaixo. Valores monetários podem ser corrigidos manualmente.</p>
         {% endif %}
         <div id="calc_warning" class="hidden mb-2 text-[10px] text-red-600"></div>
 
+        <div class="pi-finance-group">
+          <h3>Configuração do cálculo</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
           <div class="col-span-2 md:col-span-1">
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Plataforma</label>
@@ -391,7 +396,10 @@
             </label>
           </div>
         </div>
+        </div>
 
+        <div class="pi-finance-group">
+          <h3>Composição percentual</h3>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Margem CC</label>
@@ -435,6 +443,7 @@
               {% if not pi_valores_editaveis %}readonly tabindex="-1"{% endif %}>
           </div>
         </div>
+        </div>
 
         <input type="hidden" name="val_margem_cc" id="input_val_margem_cc" value="{{ pi.val_margem_cc if pi and pi.val_margem_cc else '' }}">
         <input type="hidden" name="val_tech_fee" id="input_val_tech_fee" value="{{ pi.val_tech_fee if pi and pi.val_tech_fee else '' }}">
@@ -442,7 +451,9 @@
         <input type="hidden" name="val_pl_incentivos" id="input_val_pl_incentivos" value="{{ pi.val_pl_incentivos if pi and pi.val_pl_incentivos else '' }}">
         <input type="hidden" name="val_impostos" id="input_val_impostos" value="{{ pi.val_impostos if pi and pi.val_impostos else '' }}">
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 mt-2 pt-2 border-t border-gray-100">
+        <div class="pi-finance-results">
+          <h3>Composição calculada</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
           <div class="rounded border border-gray-100 bg-gray-50/80 px-2 py-1.5 text-center">
             <span class="block text-[9px] text-gray-400 uppercase">Preço Cliente</span>
             <span id="card_preco_cliente" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
@@ -471,6 +482,7 @@
             <span class="block text-[9px] text-gray-400 uppercase">Imp. Orç.</span>
             <span id="card_imp_orc" class="block text-[10px] font-semibold text-gray-800 tabular-nums">—</span>
           </div>
+        </div>
         </div>
         </div>
       </section>
@@ -1835,41 +1847,33 @@
 {% endif %}
 
 {% if pi_campanhas_editaveis %}
-<style>
-  #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
-</style>
-<dialog id="modal_nova_campanha" class="cx-modal-shell">
-  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-[10px] text-white">Operação: <span id="modal_camp_title_text" class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
-      <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
-      </button>
-    </div>
-    <div class="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+<div id="campanha_editor_source" hidden>
+  <div id="campanha_editor_content" class="pi-campaign-drawer-content">
+    <div class="pi-campaign-drawer-context">
       <div class="flex items-center gap-1">
-        <span class="text-gray-400 text-[9px]">Cliente:</span>
-        <span class="font-semibold text-gray-800 text-[10px]">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+        <span>Cliente</span>
+        <strong>{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</strong>
       </div>
       <div class="flex items-center gap-1">
-        <span class="text-gray-400 text-[9px]">PI:</span>
-        <span class="text-gray-500 text-[9px]">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+        <span>PI</span>
+        <strong>{{ pi.codigo_pi_cc or pi.id_pi }}</strong>
       </div>
     </div>
-    <div class="px-4 py-3">
-      <form id="formNovaCampanha" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+      <form id="formNovaCampanha" class="cx-drawer-form pi-campaign-editor" data-drawer-form="campanha" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" id="camp_form_mode" value="create">
         <input type="hidden" id="camp_edit_id" value="">
         <input type="hidden" name="id_pi" value="{{ pi.id_pi }}">
         <input type="hidden" name="return_to_pi" value="1">
         <input type="hidden" name="id_cliente" value="{{ pi.id_cliente }}">
 
-        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+        <div class="pi-campaign-editor-fields">
+          <h3 class="pi-campaign-editor-section">Identificação</h3>
           <div class="col-span-2">
             <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Nome da Campanha <span class="text-red-400">*</span></label>
             <input type="text" name="nome_campanha" required placeholder="Nome da Campanha"
               class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
+          <h3 class="pi-campaign-editor-section">Entrega e investimento</h3>
           <div>
             <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Obj Contratado <span class="text-red-400">*</span></label>
             <input type="text" name="obj_contratados" required data-mask="numero" placeholder="0"
@@ -1895,6 +1899,7 @@
               {% endfor %}
             </select>
           </div>
+          <h3 class="pi-campaign-editor-section">Período e operação</h3>
           <div>
             <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Data Início</label>
             <div class="relative">
@@ -1966,22 +1971,16 @@
           <input type="hidden" name="under" id="nova_camp_under" value="">
 
         </div>
-        <div class="pi-mobile-modal-actions mt-3 pt-2 border-t border-gray-100 flex justify-center">
-          <button type="submit" id="btnSalvarCampanha"
-            class="px-6 py-1.5 text-[10px] font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
-            Salvar Campanha
-          </button>
-        </div>
       </form>
-    </div>
   </div>
-  <form method="dialog" class="cx-modal-dismiss bg-black/40 backdrop-blur-sm"><button>close</button></form>
-</dialog>
+</div>
 <script>
 (function() {
-  var modal = document.getElementById('modal_nova_campanha');
+  var source = document.getElementById('campanha_editor_source');
+  var content = document.getElementById('campanha_editor_content');
   var form = document.getElementById('formNovaCampanha');
-  if (!modal || !form) return;
+  var campaignDrawerId = null;
+  if (!source || !content || !form) return;
 
   var urlNova = {{ url_for('campanha_pi_nova')|tojson }};
   var urlEditarTpl = {{ url_for('campanha_pi_editar', id_camp=0)|tojson }};
@@ -2013,8 +2012,8 @@
       if (!this.value) this.value = 'R$ 0,00';
     });
   }
-  modal.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
-  modal.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+  content.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
+  content.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
 
   function parseReal(s) {
     if (!s) return 0;
@@ -2059,10 +2058,40 @@
     if (el) el.value = value != null ? value : '';
   }
 
+  function openCampaignDrawer(title) {
+    if (!window.cxDrawer || typeof window.cxDrawer.open !== 'function') {
+      if (typeof showToast === 'function') showToast('Não foi possível abrir o editor da campanha.', 'error');
+      return;
+    }
+    if (campaignDrawerId && window.cxDrawer.isOpen(campaignDrawerId)) return;
+    var contextValues = content.querySelectorAll('.pi-campaign-drawer-context strong');
+    var breadcrumb = Array.prototype.map.call(contextValues, function(el) {
+      return el.textContent.trim();
+    }).filter(Boolean).join(' · PI ');
+    campaignDrawerId = window.cxDrawer.open({
+      title: title,
+      breadcrumb: breadcrumb,
+      size: 'md',
+      contentEl: content,
+      actions: [
+        { label: 'Cancelar', variant: 'ghost', close: true },
+        {
+          id: 'btnSalvarCampanha',
+          label: title === 'Adicionar campanha' ? 'Criar campanha' : 'Salvar alterações',
+          variant: 'primary',
+          onClick: function() { form.requestSubmit(); }
+        }
+      ],
+      onClose: function() {
+        source.appendChild(content);
+        campaignDrawerId = null;
+      }
+    });
+  }
+
   function resetModalForm() {
     document.getElementById('camp_form_mode').value = 'create';
     document.getElementById('camp_edit_id').value = '';
-    document.getElementById('modal_camp_title_text').textContent = 'Adicionar Campanha';
     form.action = urlNova;
     form.reset();
     setFormField('id_pi', {{ pi.id_pi|tojson }});
@@ -2085,14 +2114,13 @@
 
   window.abrirModalNovaCampanha = function() {
     resetModalForm();
-    modal.showModal();
+    openCampaignDrawer('Adicionar campanha');
   };
 
   window.abrirModalEditarCampanha = function(c) {
     if (!c || !c.id_campanha) return;
     document.getElementById('camp_form_mode').value = 'edit';
     document.getElementById('camp_edit_id').value = c.id_campanha;
-    document.getElementById('modal_camp_title_text').textContent = 'Editar Campanha';
     form.action = urlEditarTpl.replace('/0/', '/' + c.id_campanha + '/');
     setFormField('id_pi', c.id_pi || {{ pi.id_pi|tojson }});
     setFormField('return_to_pi', '1');
@@ -2133,7 +2161,7 @@
       if (el) el.value = c[pair[1]] != null ? String(c[pair[1]]) : '';
     });
     calcDistPct();
-    modal.showModal();
+    openCampaignDrawer('Editar campanha');
   };
 
   function onCampanhaPiAjaxSuccess(data) {
@@ -2187,6 +2215,7 @@
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     var btn = document.getElementById('btnSalvarCampanha');
+    var btnLabel = btn ? btn.textContent : 'Salvar alterações';
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvando...';
@@ -2200,7 +2229,7 @@
     .then(function(data) {
       if (data.success) {
         if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
-        modal.close();
+        if (campaignDrawerId) window.cxDrawer.close(campaignDrawerId);
         onCampanhaPiAjaxSuccess(data);
       } else if (typeof showToast === 'function') {
         showToast(data.error || 'Erro ao salvar campanha.', 'error');
@@ -2212,7 +2241,7 @@
     .finally(function() {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Salvar Campanha';
+        btn.textContent = btnLabel;
       }
     });
   });
@@ -2258,26 +2287,19 @@
 </script>
 {% endif %}
 
-<dialog id="modal_ver_campanha" class="cx-modal-shell">
-  <div class="cx-modal-panel cx-modal-panel-md w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
-      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
-      </button>
-    </div>
-    <div class="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+<div id="campanha_view_source" hidden>
+  <div id="campanha_view_content" class="pi-campaign-view">
+    <div class="pi-campaign-drawer-context">
       <div class="flex items-center gap-1">
-        <span class="text-gray-400 text-[9px]">Cliente:</span>
-        <span class="font-semibold text-gray-800 text-[10px]">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+        <span>Cliente</span>
+        <strong>{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</strong>
       </div>
       <div class="flex items-center gap-1">
-        <span class="text-gray-400 text-[9px]">PI:</span>
-        <span class="text-gray-500 text-[9px]">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+        <span>PI</span>
+        <strong>{{ pi.codigo_pi_cc or pi.id_pi }}</strong>
       </div>
     </div>
-    <div class="px-4 py-3">
-      <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+      <div class="pi-campaign-view-grid">
         <div class="col-span-2">
           <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
           <span id="view_nome_campanha" class="text-[10px] font-medium text-gray-800">—</span>
@@ -2335,10 +2357,8 @@
           <span id="view_link_dash" class="text-[10px] text-gray-700 break-all">—</span>
         </div>
       </div>
-    </div>
   </div>
-  <form method="dialog" class="cx-modal-dismiss bg-black/40 backdrop-blur-sm"><button>close</button></form>
-</dialog>
+</div>
 
 {% if modo == 'editar' and pi %}
 <style>
@@ -2354,7 +2374,9 @@ function siglaMetricaPrecoPi(nomeObjetivo, modalidade) {
   }
   return '—';
 }
+var campanhaViewDrawerId = null;
 function abrirViewCampanha(c) {
+  if (campanhaViewDrawerId && window.cxDrawer && window.cxDrawer.isOpen(campanhaViewDrawerId)) return;
   var fmtBrl = function(v) { return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'; };
   document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
   document.getElementById('view_obj_contratados').textContent = c.obj_contratados || '—';
@@ -2383,7 +2405,31 @@ function abrirViewCampanha(c) {
   } else {
     linkEl.textContent = '—';
   }
-  document.getElementById('modal_ver_campanha').showModal();
+  var source = document.getElementById('campanha_view_source');
+  var content = document.getElementById('campanha_view_content');
+  if (!source || !content || !window.cxDrawer) return;
+  var actions = [{ label: 'Fechar', variant: 'ghost', close: true }];
+  {% if pi_campanhas_editaveis %}
+  actions.push({
+    label: 'Editar campanha',
+    variant: 'primary',
+    onClick: function(event, drawerId) {
+      window.cxDrawer.close(drawerId);
+      window.setTimeout(function() { abrirModalEditarCampanha(c); }, 240);
+    }
+  });
+  {% endif %}
+  campanhaViewDrawerId = window.cxDrawer.open({
+    title: c.nome_campanha || 'Visualizar campanha',
+    breadcrumb: 'PI {{ pi.codigo_pi_cc or pi.id_pi }}',
+    size: 'md',
+    contentEl: content,
+    actions: actions,
+    onClose: function() {
+      source.appendChild(content);
+      campanhaViewDrawerId = null;
+    }
+  });
 }
 
 (function() {

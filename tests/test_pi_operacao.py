@@ -419,6 +419,10 @@ class PiOperacaoServiceTest(unittest.TestCase):
         self.assertEqual(
             sum(bool(item["destaque"]) for item in contexto["campanhas"]), 1
         )
+        self.assertEqual(
+            contexto["logo_centralcomm_url"],
+            "https://ai.centralcomm.media/static/images/cc_logo.png",
+        )
 
     def test_saude_sem_metricas_retorna_sem_dados(self):
         repo = FakeRepository(substatus=3)

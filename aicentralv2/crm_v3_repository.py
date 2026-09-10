@@ -2132,7 +2132,10 @@ class CrmV3Repository:
             executivo_id=self._current_executivo_id(),
             funcao=function,
             origem=data.get("source") or "fallback",
-            modelo="google/gemini-2.5-flash" if data.get("source") == "openrouter" else None,
+            modelo=(
+                data.get("modelo")
+                or "openai/gpt-4o-mini"
+            ) if data.get("source") == "openrouter" else None,
             conteudo=conteudo,
             atividade_id=data.get("atividade_id") or None,
         )

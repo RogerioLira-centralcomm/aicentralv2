@@ -913,14 +913,17 @@
         list.insertBefore(row, list.firstChild);
     }
 
-    function loadIaHistory(wrapper, form, clienteId) {
-        if (!clienteId) return;
-        apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/ia/historico?limit=8')
+    function loadIaHistory(wrapper, form, clienteId, atividadeId) {
+        if (!clienteId || !atividadeId) return;
+        apiFetch(
+            '/clientes/' + encodeURIComponent(clienteId) +
+            '/ia/historico?limit=8&atividade_id=' + encodeURIComponent(atividadeId)
+        )
             .then(function (res) {
                 var data = res.data || res;
                 var items = data.historico || (Array.isArray(data) ? data : []);
                 items.slice().reverse().forEach(function (item) {
-                    if (['gerar-roteiro', 'melhorar-texto'].indexOf(item.function) === -1) return;
+                    if (['gerar-roteiro', 'melhorar-texto', 'gerar-comunicacao'].indexOf(item.function) === -1) return;
                     var content = item.content || {};
                     var texto = content.texto || content.mensagem || content.titulo || '';
                     if (!texto) return;
@@ -935,21 +938,26 @@
             }).catch(function () { /* migration ainda não aplicada */ });
     }
 
-    function wireAtividadeModelo(wrapper, form) {
-        var btn = wrapper.querySelector('[data-atividade-modelo]');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-            var tipo = (form.querySelector('[data-field="tipo"]') || {}).value || 'atividade';
-            var modelos = {
-                ligacao: 'Objetivo: \n\nPerguntas principais:\n- \n- \n\nArgumentos e informações:\n- \n\nPróximo passo combinado: ',
-                reuniao: 'Objetivo da reunião: \n\nAgenda:\n- Contexto e alinhamento\n- Necessidades e prioridades\n- Proposta de próximo passo\n\nDecisões e responsáveis: ',
-                email: 'Objetivo da mensagem: \n\nContexto: \n\nPontos principais:\n- \n- \n\nChamada para ação: ',
-                whatsapp: 'Objetivo da conversa: \n\nMensagem principal: \n\nPergunta de fechamento: ',
-                planejamento: 'Objetivo: \n\nCenário atual: \n\nAções:\n- \n- \n\nPrazo e responsável: ',
-                atividade: 'Objetivo: \n\nO que executar:\n- \n- \n\nResultado esperado: \n\nPróximo passo: '
-            };
-            applyTextSafely(form, modelos[tipo] || modelos.atividade);
+    function rememberPendingIa(form, historyId) {
+        if (!historyId) return;
+        var savedId = ((form.querySelector('[data-field="id"]') || {}).value || '').trim();
+        if (savedId) return;
+        form._pendingIaIds = form._pendingIaIds || [];
+        if (form._pendingIaIds.indexOf(historyId) === -1) {
+            form._pendingIaIds.push(historyId);
+        }
+    }
+
+    function attachPendingIa(form, atividadeId) {
+        var pending = (form._pendingIaIds || []).slice();
+        if (!atividadeId || !pending.length) return;
+        pending.forEach(function (historyId) {
+            apiFetch('/ia/historico/' + encodeURIComponent(historyId) + '/aplicar', {
+                method: 'PATCH',
+                body: { atividade_id: atividadeId }
+            }).catch(function () { /* migration opcional */ });
         });
+        form._pendingIaIds = [];
     }
 
     function setupMeetingEditor(wrapper, form, atividade) {
@@ -1209,7 +1217,11 @@
         var tituloField = form.querySelector('[data-field="titulo"]');
         var canalInferido = inferCanalProduto(tituloField && tituloField.value, canalField && canalField.value);
         if (canalField && canalInferido) canalField.value = canalInferido;
-        if (focoField && canalInferido && (!focoField.value || focoField.value === 'entender_necessidades')) {
+        if (focoField && canalInferido && (
+            !focoField.value
+            || focoField.value === 'entender_necessidades'
+            || focoField.value === 'apresentar_solucao'
+        )) {
             focoField.value = 'falar_sobre_canal';
         }
         if (!(atividade && atividade.id)) {
@@ -1229,8 +1241,7 @@
         // Conecta os chip-groups (Tipo, Status, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
-        wireAtividadeModelo(wrapper, form);
-        loadIaHistory(wrapper, form, clienteId);
+        loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
         var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
 
         function syncAssistantChannel(value) {
@@ -1366,6 +1377,10 @@
                     toast('Atividade salva, mas o convite não foi sincronizado.', true);
                     notifyEntityUpdated('cliente', clienteId);
                     return;
+                }
+                if (!isEdit) {
+                    var created = res.atividade || res.data || {};
+                    attachPendingIa(form, created.id);
                 }
                 toast(isEdit ? 'Atividade atualizada' : 'Atividade criada');
                 notifyEntityUpdated('cliente', clienteId);
@@ -1603,6 +1618,8 @@
         var action = btn.getAttribute('data-ia-action');
         var payload = enrichAtividadeIaPayload(serializeForm(form), form, clienteId);
         payload.cliente_id = clienteId;
+        var atividadeId = ((form.querySelector('[data-field="id"]') || {}).value || '').trim();
+        if (atividadeId) payload.atividade_id = atividadeId;
         var instrucoes = wrapper && wrapper.querySelector('[data-ia-field="instrucoes"]');
         payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
@@ -1642,6 +1659,7 @@
 
         apiFetch('/ia/' + endpoint, { method: 'POST', body: payload }).then(function (res) {
             var data = res.data || res;
+            rememberPendingIa(form, data && data.history_id);
             if (endpoint === 'melhorar-texto') {
                 var texto = stripMarkdown((data && (data.texto || data.descricao || data.texto_melhorado)) || '');
                 if (texto) {
@@ -3053,7 +3071,7 @@
                     tipo: s.tipo,
                     data: d.toISOString().slice(0, 10),
                     status: 'pendente',
-                    foco: s.canal ? 'falar_sobre_canal' : 'entender_necessidades',
+                    foco: s.canal ? 'falar_sobre_canal' : 'apresentar_solucao',
                     canal_produto: s.canal || ''
                 }, clienteId, { gerarRoteiro: true });
             });
@@ -3071,7 +3089,7 @@
                             tipo: data.tipo || 'atividade',
                             data: data.data_sugerida,
                             status: 'pendente',
-                            foco: data.canal_produto ? 'falar_sobre_canal' : 'entender_necessidades',
+                            foco: data.canal_produto ? 'falar_sobre_canal' : 'apresentar_solucao',
                             canal_produto: data.canal_produto || ''
                         }, clienteId);
                     })

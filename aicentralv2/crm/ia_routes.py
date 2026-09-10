@@ -9,7 +9,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "google/gemini-2.5-flash"
 
 
-def _call_openrouter(system_prompt, user_content, max_tokens=1000, temperature=0.7):
+def _call_openrouter(system_prompt, user_content, max_tokens=1000, temperature=0.7, model=None):
     api_key = os.getenv('OPENROUTER_API_KEY')
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY não configurada")
@@ -20,7 +20,7 @@ def _call_openrouter(system_prompt, user_content, max_tokens=1000, temperature=0
         "X-Title": "CentralComm AI - CRM"
     }
     payload = {
-        "model": MODEL,
+        "model": model or MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}

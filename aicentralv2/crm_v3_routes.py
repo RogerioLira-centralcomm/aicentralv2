@@ -566,7 +566,11 @@ def api_create_atividade_sequence(cliente_id):
 @bp.route("/api/clientes/<cliente_id>/ia/historico")
 @login_required_api
 def api_ai_history(cliente_id):
-    items = store.list_ai_history(cliente_id, limit=request.args.get("limit", 20))
+    items = store.list_ai_history(
+        cliente_id,
+        limit=request.args.get("limit", 20),
+        atividade_id=request.args.get("atividade_id") or None,
+    )
     if items is None:
         return _err("Cliente não encontrado", 404)
     return _ok(items, historico=items)
@@ -953,15 +957,17 @@ def api_web_info_refresh(cliente_id):
 # =============================================================================
 # IA — Fase 3
 # -----------------------------------------------------------------------------
-# Rotas /crm-v3/api/ia/* usam OpenRouter (Gemini) via `_call_openrouter` do
-# módulo real `crm.ia_routes`. Se `OPENROUTER_API_KEY` estiver ausente ou a
-# chamada falhar por qualquer motivo, caímos em fallback determinístico para
-# preservar a experiência (útil em dev/testes offline). Nada de mock silencioso:
-# quando o fallback é usado, a resposta traz `source: 'fallback'`.
+# Rotas /crm-v3/api/ia/* usam OpenRouter via `_call_openrouter` do
+# módulo real `crm.ia_routes`. Texto da atividade (roteiro, e-mail, WhatsApp)
+# usa GPT-4o mini — melhor em seguir o registro e o tom comercial.
+# OCR/multimodal permanece em Gemini. Sem chave ou com falha, cai no
+# fallback determinístico e a resposta traz `source: 'fallback'`.
 # =============================================================================
 
 import os
 from datetime import date, timedelta
+
+CRM_V3_ACTIVITY_MODEL = os.getenv("CRM_V3_ACTIVITY_MODEL", "openai/gpt-4o-mini")
 
 
 def _openrouter_available() -> bool:
@@ -975,7 +981,13 @@ def _call_openrouter(system_prompt: str, user_content: str, max_tokens: int = 10
     a lógica HTTP: reaproveitamos o mesmo cliente OpenRouter do CRM oficial.
     """
     from .crm.ia_routes import _call_openrouter as _real_call  # type: ignore
-    return _real_call(system_prompt, user_content, max_tokens=max_tokens, temperature=temperature)
+    return _real_call(
+        system_prompt,
+        user_content,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        model=CRM_V3_ACTIVITY_MODEL,
+    )
 
 
 def _call_openrouter_multimodal(system_prompt: str, text_prompt: str, image_data_url: str,
@@ -1122,7 +1134,12 @@ def _registrar_saida_ia(data: dict, funcao: str, saida: dict) -> dict:
     if not cliente_id:
         return saida
     try:
-        history_id = store.register_ai_interaction(cliente_id, funcao, saida)
+        payload = dict(saida)
+        if data.get("atividade_id"):
+            payload["atividade_id"] = data.get("atividade_id")
+        if saida.get("source") == "openrouter":
+            payload.setdefault("modelo", CRM_V3_ACTIVITY_MODEL)
+        history_id = store.register_ai_interaction(cliente_id, funcao, payload)
         if history_id:
             saida["history_id"] = history_id
     except Exception as exc:  # compatível sem migration
@@ -1185,10 +1202,15 @@ def _regras_texto_externo() -> str:
         "O destinatário não pode perceber que isto é uma atividade, tarefa ou item "
         "agendado no CRM. Não cite atividade, prazo interno, cadastro, sistema, "
         "pipeline ou follow-up administrativo. Fale como conversa comercial ao vivo.\n"
-        "Ancore cerca de 75% do texto no título, no registro do executivo e nos "
-        "nomes reais (contato, executivo, cliente, agência e clientes da agência).\n"
-        "Se houver canal ou produto, ele é o assunto da conversa. "
-        "A CentralComm só entra quando o foco for apresentar a casa."
+        "O assunto da conversa é o título e o registro do executivo. "
+        "Puxe a solução da CentralComm a partir desse assunto "
+        "(ex.: formatos interativos e métricas de atenção para o mercado imobiliário). "
+        "Não caia em descoberta genérica nem em 'entender necessidades', "
+        "salvo se o foco for explicitamente esse.\n"
+        "Ancore cerca de 75% do texto no título, no registro e nos nomes reais "
+        "(contato, executivo, cliente, agência e clientes da agência).\n"
+        "Canal ou produto só entra se estiver no registro, no título ou no foco. "
+        "A CentralComm como casa só entra quando o foco for apresentar a empresa."
     )
 
 
@@ -1226,13 +1248,14 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
     quem = ((contato or {}).get("nome") or "").strip()
     alvo = f"{quem} ({nome})" if quem else nome
     foco_label = {
+        "apresentar_solucao": "apresentar a solução descrita no registro e no título",
         "apresentar_empresa": "apresentar a CentralComm quando isso for o pedido explícito",
         "entender_necessidades": "entender necessidades e prioridades",
         "apresentar_proposta": "apresentar a proposta",
         "follow_up": "realizar o follow-up",
         "falar_sobre_canal": "falar sobre o canal ou produto escolhido",
         "outro": "conduzir o objetivo informado",
-    }.get(foco, "executar a atividade")
+    }.get(foco, "apresentar a solução descrita no registro e no título")
     tom_label = {
         "institucional": "institucional",
         "consultivo": "consultivo",
@@ -1293,26 +1316,23 @@ def _abordagem_ligacao_fallback(titulo, cliente, contato=None) -> dict:
 
 
 def _montar_roteiro(data: dict) -> dict:
-    """Gera roteiro sem reutilizar o campo de descrição editável."""
+    """Gera roteiro ancorado no título e no registro da atividade."""
     titulo = texto_sem_markdown(data.get("titulo") or "").strip()
     tipo = (data.get("tipo") or "atividade").strip()
     formato = (data.get("formato") or "").strip().lower()
-    # `descricao` pode conter uma saída de IA aplicada anteriormente. Reutilizá-la
-    # criaria um ciclo de realimentação e textos progressivamente mais longos.
-    # Somente notas enviadas explicitamente para esta finalidade entram no prompt.
-    notas_executivo = texto_sem_markdown(data.get("notas_executivo") or "").strip()[:1000]
-    foco = (data.get("foco") or "").strip().lower()
+    foco = (data.get("foco") or "apresentar_solucao").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
     canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
     foco_label = {
+        "apresentar_solucao": "Apresentar a solução do registro",
         "apresentar_empresa": "Apresentar a CentralComm",
         "entender_necessidades": "Entender necessidades",
         "apresentar_proposta": "Apresentar proposta",
         "follow_up": "Follow-up",
         "falar_sobre_canal": f"Falar sobre {canal_produto}" if canal_produto else "Falar sobre um canal ou produto",
         "outro": "Outro objetivo informado",
-    }.get(foco, "Executar a atividade")
+    }.get(foco, "Apresentar a solução do registro")
     tom_label = {
         "institucional": "Institucional",
         "consultivo": "Consultivo",

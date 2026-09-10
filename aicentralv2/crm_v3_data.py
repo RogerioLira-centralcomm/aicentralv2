@@ -1662,18 +1662,31 @@ class CrmTestStore:
             "id": f"ia-{uuid.uuid4().hex[:8]}",
             "function": function,
             "source": data.get("source") or "fallback",
-            "model": "google/gemini-2.5-flash" if data.get("source") == "openrouter" else None,
+            "model": (
+                data.get("modelo") or "openai/gpt-4o-mini"
+            ) if data.get("source") == "openrouter" else None,
             "content": dict(data),
             "applied": False,
+            "atividade_id": data.get("atividade_id") or None,
             "created_at": date.today().isoformat(),
         }
         self._ai_history.setdefault(cliente_id, []).insert(0, item)
         return item["id"]
 
-    def list_ai_history(self, cliente_id, limit=20):
+    def list_ai_history(self, cliente_id, limit=20, atividade_id=None):
         if not self.get_cliente(cliente_id):
             return None
-        return list(getattr(self, "_ai_history", {}).get(cliente_id, []))[:limit]
+        try:
+            limit = int(limit or 20)
+        except (TypeError, ValueError):
+            limit = 20
+        items = list(getattr(self, "_ai_history", {}).get(cliente_id, []))
+        if atividade_id:
+            items = [
+                item for item in items
+                if str(item.get("atividade_id") or "") == str(atividade_id)
+            ]
+        return items[:limit]
 
     def mark_ai_interaction_applied(self, interaction_id, atividade_id=None):
         for items in getattr(self, "_ai_history", {}).values():

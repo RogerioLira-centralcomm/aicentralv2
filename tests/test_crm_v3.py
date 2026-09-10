@@ -732,11 +732,14 @@ class CrmTestApiTest(unittest.TestCase):
         try:
             result = routes._montar_roteiro({
                 "cliente_id": "auto-shopping",
-                "titulo": "Reunião de descoberta",
+                "titulo": "Apresentar formatos interativos",
                 "tipo": "reuniao",
-                "foco": "entender_necessidades",
+                "foco": "apresentar_solucao",
                 "tom": "consultivo",
-                "descricao": "ROTEIRO ANTIGO GERADO POR IA NÃO PODE VOLTAR AO PROMPT",
+                "notas_executivo": (
+                    "Formatos interativos e métricas de atenção "
+                    "para o mercado imobiliário."
+                ),
                 "instrucoes": "Antecipar objeções sobre prazo",
             })
         finally:
@@ -744,10 +747,11 @@ class CrmTestApiTest(unittest.TestCase):
             routes._call_openrouter = original_call
 
         self.assertEqual(result["source"], "openrouter")
-        self.assertIn("Foco principal: Entender necessidades", captured["user"])
-        self.assertIn("Tom da comunicação: Consultivo", captured["user"])
+        self.assertIn("Foco: Apresentar a solução do registro", captured["user"])
+        self.assertIn("Tom: Consultivo", captured["user"])
         self.assertIn("Antecipar objeções sobre prazo", captured["user"])
-        self.assertNotIn("ROTEIRO ANTIGO GERADO POR IA", captured["user"])
+        self.assertIn("Formatos interativos", captured["user"])
+        self.assertIn("mercado imobiliário", captured["user"])
         self.assertEqual(len(result["perguntas"]), 4)
 
     def test_contexto_ia_nao_expoe_dados_pessoais(self):
@@ -841,9 +845,20 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(listed.get_json()["historico"][0]["id"], history_id)
         applied = self.client.patch(
-            f"/crm-v3/api/ia/historico/{history_id}/aplicar", json={}
+            f"/crm-v3/api/ia/historico/{history_id}/aplicar",
+            json={"atividade_id": "ativ-1"},
         )
         self.assertEqual(applied.status_code, 200)
+        filtered = self.client.get(
+            "/crm-v3/api/clientes/auto-shopping/ia/historico?atividade_id=ativ-1"
+        )
+        self.assertEqual(filtered.status_code, 200)
+        self.assertEqual(filtered.get_json()["historico"][0]["id"], history_id)
+        empty = self.client.get(
+            "/crm-v3/api/clientes/auto-shopping/ia/historico?atividade_id=outra"
+        )
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.get_json()["historico"], [])
 
     def test_reuniao_salva_agenda_e_convidados_sem_enviar(self):
         res = self.client.post(

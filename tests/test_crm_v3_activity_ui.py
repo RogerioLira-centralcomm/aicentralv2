@@ -45,6 +45,8 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
     def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
         self.assertIn("cx-atividade-ia-toolbar", self.template)
         self.assertIn("falar_sobre_canal", self.template)
+        self.assertIn('value="apresentar_solucao"', self.template)
+        self.assertIn('data-value="apresentar_solucao"', self.template)
         self.assertIn("data-canal-produtos", self.template)
         self.assertIn("Spotify", self.template)
         self.assertIn("payload.notas_executivo = payload.descricao", self.js)
@@ -52,6 +54,11 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("canApply: false", self.js)
         self.assertIn("enrichAtividadeIaPayload", self.js)
         self.assertIn("archiveCurrentPreview", self.js)
+        self.assertIn("ia/historico?limit=8&atividade_id=", self.js)
+        self.assertIn("attachPendingIa", self.js)
+        self.assertNotIn("data-atividade-modelo", self.template)
+        self.assertNotIn("Usar modelo", self.template)
+        self.assertNotIn("wireAtividadeModelo", self.js)
         self.assertNotIn("A descrição não foi alterada", self.js)
 
     def test_right_side_prioritizes_channel_result_and_keeps_history(self):
@@ -60,7 +67,7 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         history = self.template.index("Histórico")
         self.assertLess(toolbar, output)
         self.assertLess(output, history)
-        self.assertIn("['gerar-roteiro', 'melhorar-texto']", self.js)
+        self.assertIn("['gerar-roteiro', 'melhorar-texto', 'gerar-comunicacao']", self.js)
         self.assertIn("renderAssistantResult", self.js)
         self.assertIn("Abrir WhatsApp", self.js)
         self.assertIn("Criar e-mail", self.js)

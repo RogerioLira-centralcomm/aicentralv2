@@ -2981,7 +2981,7 @@
                         tipo: sTipo,
                         data: dataISO,
                         status: 'pendente',
-                        foco: sCanal ? 'falar_sobre_canal' : 'entender_necessidades',
+                        foco: sCanal ? 'falar_sobre_canal' : 'apresentar_solucao',
                         canal_produto: sCanal
                     }, state.clienteId, { gerarRoteiro: true });
                     return;

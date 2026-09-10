@@ -7,7 +7,7 @@
     <input type="hidden" name="tipo" data-field="tipo" value="atividade" />
     <input type="hidden" name="status" data-field="status" value="pendente" />
     <input type="hidden" name="formato" data-field="formato" value="roteiro" />
-    <input type="hidden" name="foco" data-field="foco" value="entender_necessidades" />
+    <input type="hidden" name="foco" data-field="foco" value="apresentar_solucao" />
     <input type="hidden" name="tom" data-field="tom" value="consultivo" />
     <input type="hidden" name="canal_produto" data-field="canal_produto" value="" />
 
@@ -156,10 +156,6 @@
         <section class="cx-atividade-roteiro">
           <div class="cx-atividade-roteiro-head">
             <label for="cx-ativ-desc">Registro da atividade</label>
-            <button type="button" class="cx-atividade-modelo-btn" data-atividade-modelo>
-              <i class="fa-regular fa-rectangle-list" aria-hidden="true"></i>
-              Usar modelo
-            </button>
           </div>
           <textarea id="cx-ativ-desc" name="descricao" data-field="descricao"
                     placeholder="Registre objetivo, contexto e próximo passo. O roteiro sugerido fica separado até você aplicá-lo."></textarea>
@@ -187,11 +183,12 @@
           <div class="cx-atividade-ia-toolbar" role="group" aria-label="Opções do assistente">
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
                  data-chip-group="foco" role="radiogroup" aria-label="Objetivo da conversa">
-              <button type="button" class="cx-drawer-chip is-active" data-value="entender_necessidades" role="radio" aria-checked="true">Entender</button>
+              <button type="button" class="cx-drawer-chip is-active" data-value="apresentar_solucao" role="radio" aria-checked="true">Solução</button>
               <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
               <button type="button" class="cx-drawer-chip" data-value="falar_sobre_canal" role="radio" aria-checked="false">Canal</button>
               <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Proposta</button>
               <button type="button" class="cx-drawer-chip" data-value="apresentar_empresa" role="radio" aria-checked="false">CentralComm</button>
+              <button type="button" class="cx-drawer-chip" data-value="entender_necessidades" role="radio" aria-checked="false">Entender</button>
             </div>
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
                  data-chip-group="tom" role="radiogroup" aria-label="Tom da comunicação">

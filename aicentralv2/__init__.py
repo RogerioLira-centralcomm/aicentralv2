@@ -196,9 +196,11 @@ def create_app(config_class=Config):
             register_creative_modeling_routes,
         )
         from .integration_settings_routes import register_integration_settings_routes
+        from .training_studio.routes import register_training_studio_routes
 
         register_creative_modeling_routes(parametros_bp)
         register_integration_settings_routes(parametros_bp)
+        register_training_studio_routes(parametros_bp)
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)
         app.register_blueprint(parametros_bp)

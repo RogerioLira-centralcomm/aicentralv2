@@ -1,0 +1,161 @@
+{% extends "base_erp.html" %}
+{% block title %}Treinamentos — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Studio de conteúdo{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<main class="ts-shell" data-training-studio>
+  <nav class="ts-sessions" aria-label="Sessões da Imersão">
+    <p class="ts-sessions-kicker">Imersão · 28/set</p>
+    <h2>Sessões</h2>
+    <ol id="tsSessionList"></ol>
+    <button type="button" id="tsEnrichBtn" class="ts-enrich">Enriquecer canais</button>
+  </nav>
+  <section class="ts-editor-pane" aria-label="Editor do treinamento">
+    <header class="ts-toolbar">
+      <label class="ts-import">
+        <i class="fa-solid fa-link" aria-hidden="true"></i>
+        <input id="tsImportUrl" type="url" placeholder="Cole um link para adicionar contexto" autocomplete="off">
+        <button type="button" id="tsImportBtn" class="ts-import-btn">
+          <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+          Importar
+        </button>
+      </label>
+      <div class="ts-format" role="toolbar" aria-label="Formatação">
+        <button type="button" data-cmd="bold" title="Negrito"><strong>B</strong></button>
+        <button type="button" data-cmd="italic" title="Itálico"><em>I</em></button>
+        <button type="button" data-cmd="underline" title="Sublinhado"><u>U</u></button>
+        <button type="button" data-cmd="createLink" title="Link"><i class="fa-solid fa-link"></i></button>
+        <button type="button" data-cmd="insertUnorderedList" title="Lista"><i class="fa-solid fa-list-ul"></i></button>
+        <button type="button" data-cmd="insertOrderedList" title="Lista numerada"><i class="fa-solid fa-list-ol"></i></button>
+        <select id="tsBlock" aria-label="Parágrafo">
+          <option value="P">Parágrafo</option>
+          <option value="H2">Título</option>
+          <option value="H3">Subtítulo</option>
+        </select>
+      </div>
+      <div class="ts-cost" id="tsCost" title="Consumo de IA nesta sessão">
+        Sessão <strong>R$ 0,00</strong>
+        <span id="tsCostTotal">Treino R$ 0,00</span>
+      </div>
+    </header>
+
+    <div id="tsImportCard" class="ts-import-card" hidden>
+      <p class="ts-import-kicker">Resumo da página</p>
+      <h3 id="tsImportTitle"></h3>
+      <p id="tsImportSummary"></p>
+      <div class="ts-import-actions">
+        <button type="button" id="tsImportApply">Adicionar como contexto desta sessão</button>
+        <button type="button" id="tsImportDismiss" class="ts-btn-ghost">Descartar</button>
+      </div>
+    </div>
+
+    <article id="tsEditor" class="ts-document" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Comece a escrever o conteúdo do treinamento…"></article>
+  </section>
+
+  <aside class="ts-agent" aria-label="Agente">
+    <header class="ts-agent-head">
+      <span class="ts-agent-avatar" aria-hidden="true">
+        <i class="fa-solid fa-sparkles"></i>
+      </span>
+      <div>
+        <strong>Agente</strong>
+        <span>Seu assistente de IA no editor</span>
+      </div>
+      <div class="ts-more">
+        <button type="button" id="tsMoreToggle" class="ts-icon-btn" aria-label="Mais ações" aria-expanded="false">
+          <i class="fa-solid fa-ellipsis"></i>
+        </button>
+        <div id="tsMoreMenu" class="ts-more-menu" hidden>
+          <button type="button" data-action="resumir">Resumir</button>
+          <button type="button" data-action="ajustar_tom">Ajustar tom</button>
+          <button type="button" data-action="continuar">Continuar</button>
+        </div>
+      </div>
+    </header>
+
+    <section id="tsSelectionCard" class="ts-selection" hidden>
+      <p>Texto selecionado</p>
+      <blockquote id="tsSelectionText"></blockquote>
+    </section>
+
+    <div class="ts-actions" role="toolbar" aria-label="Ações do agente">
+      <button type="button" data-action="reescrever" disabled>
+        <i class="fa-solid fa-rotate"></i> Reescrever
+      </button>
+      <button type="button" data-action="pesquisar" disabled>
+        <i class="fa-solid fa-magnifying-glass"></i> Pesquisar
+      </button>
+      <button type="button" data-action="gerar_imagem" disabled>
+        <i class="fa-regular fa-image"></i> Gerar imagem
+      </button>
+      <button type="button" data-action="expandir" disabled>
+        <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Expandir
+      </button>
+    </div>
+
+    <section id="tsPanelEdit" class="ts-panel" hidden>
+      <header>
+        <span id="tsPanelEditTitle">Reescrever</span>
+        <span class="ts-badge" data-tool="edicao">edição</span>
+      </header>
+      <div id="tsEditPreview" class="ts-preview"></div>
+      <button type="button" id="tsApplyEdit" class="ts-btn-primary">Aplicar no texto</button>
+    </section>
+
+    <section id="tsPanelResearch" class="ts-panel" hidden>
+      <header>
+        <span>Pesquisa de mercado</span>
+        <span class="ts-badge" data-tool="pesquisa">pesquisa</span>
+      </header>
+      <div id="tsResearchPreview" class="ts-preview"></div>
+      <button type="button" id="tsApplyResearch" class="ts-btn-primary">Incorporar ao texto</button>
+    </section>
+
+    <section id="tsPanelImage" class="ts-panel" hidden>
+      <header>
+        <span><i class="fa-regular fa-image"></i> Gerar imagem</span>
+        <span class="ts-badge" data-tool="imagem">imagem</span>
+      </header>
+      <textarea id="tsImagePrompt" rows="4" placeholder="Descreva a ilustração…"></textarea>
+      <div class="ts-style-row">
+        <span><i class="fa-solid fa-palette"></i> Guia de estilo do treinamento</span>
+        <span class="ts-swatches" id="tsSwatches"></span>
+      </div>
+      <button type="button" id="tsGenerateImage" class="ts-btn-primary">
+        <i class="fa-solid fa-sparkles"></i> Gerar
+      </button>
+      <div id="tsImageResult" class="ts-image-result" hidden>
+        <p>Imagem gerada</p>
+        <div class="ts-image-frame">
+          <img id="tsImagePreview" alt="Imagem gerada">
+          <button type="button" id="tsInsertImage" class="ts-icon-btn" title="Inserir no texto">
+            <i class="fa-solid fa-border-all"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ts-thumbs" aria-label="Imagens da sessão">
+      <p>Imagens da sessão</p>
+      <div id="tsThumbs" class="ts-thumbs-grid"></div>
+    </section>
+
+    <form id="tsChatForm" class="ts-chat">
+      <input id="tsChatInput" type="text" placeholder="Peça algo ao agente…" autocomplete="off">
+      <button type="submit" class="ts-icon-btn" aria-label="Enviar">
+        <i class="fa-solid fa-arrow-up"></i>
+      </button>
+    </form>
+    <div id="tsChatLog" class="ts-chat-log" aria-live="polite"></div>
+  </aside>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=2" defer></script>
+{% endblock %}

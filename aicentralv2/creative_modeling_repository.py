@@ -809,6 +809,7 @@ class CreativeModelingRepository:
                        cl.name AS client_name, cl.sector AS client_sector,
                        cl.tone_of_voice, cl.logo_url, cl.logo_upload_path,
                        cl.primary_color, cl.secondary_color, cl.brand_profile,
+                       f.slug AS format_slug,
                        f.name_pt AS format_name, f.mechanic, f.media_type,
                        f.engine, f.aspect_ratio, f.default_size, f.safe_area,
                        f.background_guidance, f.foreground_guidance,

@@ -2,18 +2,25 @@
   <div class="cx-section-header mc-history-head">
     <div>
       <h2>Histórico de produção</h2>
-      <p>Prompts, roteiros, imagens, custos, falhas e payloads preparados.</p>
+      <p>Modelagens criadas, jobs e o gasto com todas as IAs em reais.</p>
     </div>
-    <div class="mc-filter-row">
-      <select class="cx-select" id="mcHistoryCampaign">
-        <option value="">Todas as campanhas</option>
-      </select>
-      <button class="cx-btn cx-btn-secondary" id="mcRefreshHistory" type="button">
-        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
-      </button>
+    <div class="mc-history-toolbar">
+      <p class="mc-history-spend" id="mcHistorySpend" hidden>
+        <span>Gasto nesta vista</span>
+        <strong>R$ 0,00</strong>
+      </p>
+      <div class="mc-filter-row">
+        <select class="cx-select" id="mcHistoryCampaign" aria-label="Filtrar modelagem">
+          <option value="">Todas as modelagens</option>
+        </select>
+        <button class="cx-btn cx-btn-secondary" id="mcRefreshHistory" type="button">
+          <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+        </button>
+      </div>
     </div>
   </div>
-  <div class="cx-section-body">
+  <div class="cx-section-body mc-history-body-wrap">
+    <div id="mcModelingLedger" class="mc-modeling-ledger" aria-label="Modelagens criadas"></div>
     <div id="mcHistoryList" class="mc-history-list">
       <div class="mc-skeleton-list" aria-label="Carregando histórico">
         <span></span><span></span><span></span>

@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
+import base64
 import json
 import os
 import re
@@ -23,8 +24,20 @@ from .creative_modeling_repository import (
     CreativeNotFoundError,
     scene_count_for_format,
 )
+from .creative_format_compose import compose_native_piece
+from .creative_modeling_fx import annotate_cost, brl_from_usd
+from .creative_format_geometry import (
+    canvas_mismatch,
+    default_render_mode,
+    hygiene_instruction,
+    resolve_format_geometry,
+    should_compose,
+)
 from .creative_modeling_storage import CreativeAssetStorage
-from .creative_modeling_prompts import compose_format_mockup_prompt
+from .creative_modeling_prompts import (
+    apply_render_mode_to_prompt,
+    compose_format_mockup_prompt,
+)
 
 
 MOCKUPS = {
@@ -149,7 +162,7 @@ def _brand_palette(value):
     return result
 
 
-def _quality_review_data(value):
+def _quality_review_data(value, force_wrong_canvas=False):
     if not isinstance(value, dict):
         raise ValueError("Revisão visual inválida.")
     try:
@@ -171,16 +184,32 @@ def _quality_review_data(value):
         "language_pt_br", "cta_correct", "brand_consistent",
         "price_authorized", "continuity", "safe_area",
     }
+    allowed_defects = {
+        "dangling_line", "icon_bar", "cta_overflow",
+        "wrong_canvas", "extra_chrome",
+    }
     checks = {
         key: raw
         for key, raw in raw_checks.items()
         if key in allowed_checks and isinstance(raw, bool)
     }
+    defects = [
+        item
+        for item in (value.get("defects") or [])
+        if item in allowed_defects
+    ]
+    if (
+        force_wrong_canvas or value.get("wrong_canvas") is True
+    ) and "wrong_canvas" not in defects:
+        defects.append("wrong_canvas")
+    if "wrong_canvas" in defects:
+        checks["safe_area"] = False
     return {
         "approved_recommendation": value.get("approved_recommendation") is True,
         "score": score,
         "warnings": warnings,
         "checks": checks,
+        "defects": defects,
     }
 
 
@@ -441,6 +470,14 @@ class CreativeModelingService:
         formats = self.repository.list_formats()
         for format_data in formats:
             format_data["scene_count"] = scene_count_for_format(format_data)
+            geometry = resolve_format_geometry(format_data)
+            format_data["iab_family"] = geometry["family"]
+            format_data["iab_cousin"] = geometry.get("iab_cousin")
+            format_data["target_size"] = geometry.get("target_size")
+            format_data["default_render_mode"] = default_render_mode(
+                geometry["family"]
+            )
+            format_data["element_budget"] = geometry.get("budget")
         return _serialize(formats)
 
     def list_viewer_profiles(self):
@@ -897,7 +934,10 @@ class CreativeModelingService:
         return client.get("logo_upload_path")
 
     def list_campaigns(self):
-        return _serialize(self.repository.list_campaigns())
+        return _serialize([
+            annotate_cost(campaign, campaign.get("spent_usd"))
+            for campaign in self.repository.list_campaigns()
+        ])
 
     def create_production_plan(self, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -1137,6 +1177,7 @@ class CreativeModelingService:
                 key: context.get(key)
                 for key in (
                     "format_name",
+                    "format_slug",
                     "mechanic",
                     "media_type",
                     "aspect_ratio",
@@ -1151,6 +1192,21 @@ class CreativeModelingService:
                 )
             },
         }
+        geometry = resolve_format_geometry(context)
+        render_mode = self._resolve_render_mode(
+            payload.get("render_mode"), geometry["family"]
+        )
+        request_context["format"]["iab_family"] = geometry["family"]
+        request_context["format"]["target_size"] = geometry.get("target_size")
+        request_context["format"]["render_mode"] = render_mode
+        request_context["format"]["element_budget"] = geometry.get("budget")
+        if render_mode == "native":
+            request_context["render_constraints"] = apply_render_mode_to_prompt(
+                "",
+                render_mode,
+                geometry,
+                self._compose_copy(context),
+            )
         estimate = self._estimate("prompt")
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
@@ -1176,6 +1232,12 @@ class CreativeModelingService:
             )
             if "VISIBLE COPY REQUIREMENT" not in prompt:
                 prompt += language_guard
+            prompt = apply_render_mode_to_prompt(
+                prompt,
+                render_mode,
+                geometry,
+                self._compose_copy(context),
+            )
             scene = self.repository.update_scene_prompt(
                 scene_id, prompt, "generated"
             )
@@ -1208,7 +1270,7 @@ class CreativeModelingService:
             )
         )
 
-    def generate_scene(self, scene_id, files, created_by=None):
+    def generate_scene(self, scene_id, files, created_by=None, render_mode=None):
         scene_id = _integer(scene_id, "Cena")
         references = list(files or [])
         if len(references) > 2:
@@ -1218,7 +1280,14 @@ class CreativeModelingService:
             raise ValueError("Vídeo está indisponível para novas produções.")
         if context.get("prompt_status") != "approved":
             raise ValueError("Revise e aprove a direção antes de gerar a imagem.")
-        prompt = context["prompt"]
+        geometry = resolve_format_geometry(context)
+        render_mode = self._resolve_render_mode(render_mode, geometry["family"])
+        prompt = apply_render_mode_to_prompt(
+            context["prompt"],
+            render_mode,
+            geometry,
+            self._compose_copy(context),
+        )
         estimate = self._estimate("image")
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
@@ -1233,6 +1302,10 @@ class CreativeModelingService:
                 "production_id": context["production_id"],
                 "scene_id": scene_id,
                 "scene_position": context["position"],
+                "render_mode": render_mode,
+                "iab_family": geometry["family"],
+                "target_size": geometry.get("target_size"),
+                "iab_cousin": geometry.get("iab_cousin"),
             },
             created_by=created_by,
             scene_id=scene_id,
@@ -1264,14 +1337,24 @@ class CreativeModelingService:
                 data_urls,
                 aspect_ratio=context.get("aspect_ratio") or "16:9",
             )
-            asset_url = self.storage.save_generated_base64(
+            source_url = self.storage.save_generated_base64(
                 generated["b64_json"], generated.get("output_format", "png")
             )
+            composed = self._compose_native_asset(
+                source_url,
+                generated["b64_json"],
+                context,
+                geometry,
+                render_mode,
+            )
+            asset_url = composed["asset_url"]
+            response_meta = generated.get("response_metadata") or {}
             quality_review = {
                 "approved_recommendation": True,
                 "score": None,
                 "warnings": [],
                 "checks": {},
+                "defects": [],
             }
             review_cost = 0
             try:
@@ -1287,16 +1370,33 @@ class CreativeModelingService:
                             (context.get("creative_brief") or {}).get("visual_bible")
                         ),
                         "required_language": "pt-BR",
+                        "target_size": geometry.get("target_size"),
+                        "iab_family": geometry["family"],
+                        "render_mode": render_mode,
                     },
                     self.storage.generated_as_data_url(asset_url),
                 )
-                quality_review = _quality_review_data(review.get("result"))
+                quality_review = _quality_review_data(
+                    review.get("result"),
+                    force_wrong_canvas=canvas_mismatch(
+                        geometry.get("size"),
+                        response_meta.get("provider_aspect_ratio")
+                        or context.get("aspect_ratio"),
+                    ),
+                )
                 review_cost = float(review.get("actual_cost_usd") or 0)
             except Exception as review_error:
                 quality_review["warnings"] = [
                     "A revisão automática não pôde ser concluída; revise a imagem manualmente."
                 ]
                 quality_review["review_error"] = str(review_error)[:240]
+                if canvas_mismatch(
+                    geometry.get("size"),
+                    response_meta.get("provider_aspect_ratio")
+                    or context.get("aspect_ratio"),
+                ):
+                    quality_review["defects"] = ["wrong_canvas"]
+                    quality_review["checks"]["safe_area"] = False
             asset = self.repository.add_generated_asset(
                 job_id,
                 None,
@@ -1307,6 +1407,17 @@ class CreativeModelingService:
                     "production_id": context["production_id"],
                     "scene_position": context["position"],
                     "quality_review": quality_review,
+                    "render_mode": render_mode,
+                    "iab_family": geometry["family"],
+                    "target_size": geometry.get("target_size"),
+                    "iab_cousin": geometry.get("iab_cousin"),
+                    "source_raster": composed.get("source_raster"),
+                    "requested_aspect_ratio": response_meta.get(
+                        "requested_aspect_ratio"
+                    ),
+                    "provider_aspect_ratio": response_meta.get(
+                        "provider_aspect_ratio"
+                    ),
                 },
                 scene_id=scene_id,
             )
@@ -1332,12 +1443,6 @@ class CreativeModelingService:
         scene_id = _integer(scene_id, "Cena")
         asset_id = _integer(asset_id, "Asset")
         payload = payload if isinstance(payload, dict) else {}
-        instruction = _text(
-            payload.get("instruction"),
-            "Instrução de ajuste",
-            required=True,
-            max_length=400,
-        )
         intent = _text(payload.get("intent"), "Intenção", max_length=40)
         extras = list(files or [])
         if len(extras) > 1:
@@ -1351,15 +1456,29 @@ class CreativeModelingService:
         if not assets or assets[0].get("scene_id") != scene_id:
             raise CreativeNotFoundError("Asset da cena não encontrado.")
         asset = assets[0]
+        geometry = resolve_format_geometry(context)
+        parent_meta = asset.get("metadata") or {}
+        render_mode = self._resolve_render_mode(
+            payload.get("render_mode") or parent_meta.get("render_mode"),
+            geometry["family"],
+        )
+        instruction = self._refine_instruction(
+            payload.get("instruction"), intent, geometry["family"]
+        )
         job_prompt = (asset.get("job_prompt") or context.get("prompt") or "").strip()
         if not job_prompt:
             raise ValueError("Não há prompt do job para ajustar esta imagem.")
-        prompt = (
-            f"{job_prompt}\n\nRefinement instruction: {instruction}\n"
-            "Use the attached generated image as the primary reference. "
-            "Change only what the refinement instruction requests. "
-            "Preserve the inherited visual system, brand identity and CTA "
-            "unless the instruction asks otherwise."
+        prompt = apply_render_mode_to_prompt(
+            (
+                f"{job_prompt}\n\nRefinement instruction: {instruction}\n"
+                "Use the attached generated image as the primary reference. "
+                "Change only what the refinement instruction requests. "
+                "Preserve the inherited visual system, brand identity and CTA "
+                "unless the instruction asks otherwise."
+            ),
+            render_mode,
+            geometry,
+            self._compose_copy(context),
         )
         if intent:
             prompt += f"\nRefinement intent: {intent}."
@@ -1380,6 +1499,9 @@ class CreativeModelingService:
                 "parent_asset_id": asset_id,
                 "refinement_instruction": instruction,
                 "refine_intent": intent,
+                "render_mode": render_mode,
+                "iab_family": geometry["family"],
+                "target_size": geometry.get("target_size"),
             },
             created_by=created_by,
             scene_id=scene_id,
@@ -1388,7 +1510,8 @@ class CreativeModelingService:
         )
         saved_paths = []
         try:
-            data_urls = [self.storage.generated_as_data_url(asset["asset_url"])]
+            source_url = parent_meta.get("source_raster") or asset["asset_url"]
+            data_urls = [self.storage.generated_as_data_url(source_url)]
             for file_storage in extras:
                 saved = self.storage.save_reference(file_storage)
                 saved_paths.append(saved["asset_path"])
@@ -1407,14 +1530,21 @@ class CreativeModelingService:
                 data_urls,
                 aspect_ratio=context.get("aspect_ratio") or "16:9",
             )
-            asset_url = self.storage.save_generated_base64(
+            raw_url = self.storage.save_generated_base64(
                 generated["b64_json"], generated.get("output_format", "png")
+            )
+            composed = self._compose_native_asset(
+                raw_url,
+                generated["b64_json"],
+                context,
+                geometry,
+                render_mode,
             )
             result = self.repository.add_generated_asset(
                 job_id,
                 None,
                 "image",
-                asset_url,
+                composed["asset_url"],
                 {
                     "model": generated.get("model"),
                     "production_id": context["production_id"],
@@ -1423,6 +1553,12 @@ class CreativeModelingService:
                     "refinement_instruction": instruction,
                     "refine_intent": intent,
                     "source_job_prompt": job_prompt,
+                    "render_mode": render_mode,
+                    "iab_family": geometry["family"],
+                    "target_size": geometry.get("target_size"),
+                    "iab_cousin": geometry.get("iab_cousin"),
+                    "source_raster": composed.get("source_raster"),
+                    **(generated.get("response_metadata") or {}),
                 },
                 scene_id=scene_id,
             )
@@ -1553,9 +1689,8 @@ class CreativeModelingService:
         return _serialize(campaign)
 
     def campaign_detail(self, campaign_id):
-        return _serialize(
-            self.repository.get_campaign(_integer(campaign_id, "Campanha"))
-        )
+        campaign = self.repository.get_campaign(_integer(campaign_id, "Campanha"))
+        return _serialize(annotate_cost(campaign, campaign.get("spent_usd")))
 
     def create_variation(self, campaign_id, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -2130,6 +2265,73 @@ class CreativeModelingService:
         return {"job_id": job_id, "payload": payload}
 
     @staticmethod
+    def _resolve_render_mode(value, family):
+        mode = str(value or "").strip().lower()
+        if mode in {"native", "mockup"}:
+            return mode
+        return default_render_mode(family)
+
+    @staticmethod
+    def _compose_copy(context):
+        return {
+            "headline": context.get("campaign_name") or "",
+            "cta": context.get("cta_text") or "",
+            "brand_color": context.get("primary_color") or "#1E4D4F",
+        }
+
+    @staticmethod
+    def _refine_instruction(instruction, intent, family):
+        text = _text(instruction, "Instrução de ajuste", max_length=400) or ""
+        if intent in {"chrome", "geometry"}:
+            fixed = hygiene_instruction(intent, family)
+            return f"{fixed} {text}".strip() if text else fixed
+        if not text:
+            raise ValueError("Instrução de ajuste é obrigatório.")
+        return text
+
+    def _logo_bytes(self, context):
+        path = context.get("logo_upload_path")
+        reader = getattr(self.storage, "absolute_reference_path", None)
+        if not path or not callable(reader):
+            return None
+        try:
+            absolute = reader(path)
+        except Exception:
+            return None
+        if absolute is None:
+            return None
+        try:
+            return absolute.read_bytes()
+        except Exception:
+            return None
+
+    def _compose_native_asset(
+        self, source_url, encoded, context, geometry, render_mode
+    ):
+        if not should_compose(
+            geometry.get("family"),
+            render_mode,
+            context.get("position") or 1,
+            context.get("scene_count") or 1,
+        ):
+            return {"asset_url": source_url, "source_raster": None}
+        try:
+            raw = base64.b64decode(encoded)
+            composed = compose_native_piece(
+                raw,
+                geometry,
+                self._compose_copy(context),
+                self._logo_bytes(context),
+            )
+        except Exception:
+            return {"asset_url": source_url, "source_raster": None}
+        composed_url = self.storage.save_generated_base64(
+            base64.b64encode(composed).decode("ascii"),
+            "png",
+        )
+        return {"asset_url": composed_url, "source_raster": source_url}
+
+    @staticmethod
     def build_format_mockup_prompt(
         format_data,
         client=None,
@@ -2369,7 +2571,51 @@ class CreativeModelingService:
         campaign = (
             _integer(campaign_id, "Campanha") if campaign_id not in (None, "") else None
         )
-        return _serialize(self.repository.list_generation_jobs(campaign))
+        jobs = [
+            annotate_cost(job)
+            for job in self.repository.list_generation_jobs(campaign)
+        ]
+        modelings = [
+            annotate_cost(
+                {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "client": item.get("client"),
+                    "spent_usd": item.get("spent_usd"),
+                },
+                item.get("spent_usd"),
+            )
+            for item in self.repository.list_campaigns()
+        ]
+        if campaign is not None:
+            modelings = [
+                item for item in modelings if int(item.get("id") or 0) == campaign
+            ]
+            if not modelings:
+                detail = self.repository.get_campaign(campaign)
+                client = detail.get("client")
+                client_name = (
+                    detail.get("client_name")
+                    or (client.get("name") if isinstance(client, dict) else client)
+                )
+                modelings = [
+                    annotate_cost(
+                        {
+                            "id": detail.get("id"),
+                            "name": detail.get("name"),
+                            "client": client_name,
+                            "spent_usd": detail.get("spent_usd"),
+                        },
+                        detail.get("spent_usd"),
+                    )
+                ]
+        total_usd = sum(float(item.get("cost_usd") or 0) for item in modelings)
+        return _serialize({
+            "jobs": jobs,
+            "modelings": modelings,
+            "total_usd": round(total_usd, 6),
+            "total_brl": brl_from_usd(total_usd),
+        })
 
     def review_asset(self, asset_id, payload):
         payload = payload if isinstance(payload, dict) else {}

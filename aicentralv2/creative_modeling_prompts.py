@@ -2,6 +2,14 @@
 
 from .creative_brand_analysis import format_copy_system_lines
 
+NATIVE_RENDER_RULES = """NATIVE ADVERTISING STILL
+Render a photographic still of the campaign subject only.
+Do not draw a portal, television, smartphone, tablet, browser chrome,
+player chrome, icon bars, leader lines or typeset headline/CTA.
+Leave a clean photographic field. Copy and CTA are composed later.
+Do not invent extra chrome or a second advertising frame."""
+
+
 MASTER_RENDER_RULES = """You are a senior advertising art director specialized in
 premium digital media, rich media advertising, programmatic media formats,
 mobile advertising, luxury branding and client-presentation mockups.
@@ -119,6 +127,41 @@ Do not:
 
 The objective is to demonstrate the advertising FORMAT to a client, not merely to
 generate an attractive campaign image."""
+
+
+def native_scene_prompt_suffix(geometry, copy=None):
+    """Restrições determinísticas da peça nativa, sem device/portal."""
+    geometry = geometry if isinstance(geometry, dict) else {}
+    copy = copy if isinstance(copy, dict) else {}
+    size = geometry.get("size") or ()
+    budget = geometry.get("budget") or {}
+    target = (
+        f"{size[0]}x{size[1]}px"
+        if len(size) == 2
+        else geometry.get("target_size") or "native rectangle"
+    )
+    lines = [
+        NATIVE_RENDER_RULES,
+        f"Target canvas: {target}.",
+        f"IAB family: {geometry.get('family') or 'native'}.",
+    ]
+    if budget.get("summary"):
+        lines.append(f"Element budget: {budget['summary']}.")
+    if copy.get("headline"):
+        lines.append(f"Headline will be composed later: {copy['headline']}.")
+    if copy.get("cta"):
+        lines.append(f"CTA will be composed later: {copy['cta']}.")
+    return "\n".join(lines)
+
+
+def apply_render_mode_to_prompt(prompt, render_mode, geometry, copy=None):
+    text = str(prompt or "").strip()
+    if render_mode != "native":
+        return text
+    suffix = native_scene_prompt_suffix(geometry, copy)
+    if "NATIVE ADVERTISING STILL" in text:
+        return text
+    return f"{text}\n\n{suffix}".strip()
 
 
 def _value(data, key, fallback=""):

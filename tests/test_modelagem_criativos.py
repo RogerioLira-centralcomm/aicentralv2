@@ -14,11 +14,19 @@ from jinja2 import Environment
 from werkzeug.datastructures import FileStorage
 
 from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
+from aicentralv2.creative_format_compose import compose_native_piece, png_size
+from aicentralv2.creative_format_geometry import (
+    canvas_mismatch,
+    format_family_spec,
+    should_compose,
+)
 from aicentralv2.creative_modeling_generation import (
     CreativeGenerationClient,
     build_higgsfield_payload,
     normalize_image_aspect_ratio,
 )
+from aicentralv2.creative_modeling_fx import reset_rate_cache
+from aicentralv2.creative_modeling_prompts import apply_render_mode_to_prompt
 from aicentralv2.creative_modeling_repository import scene_count_for_format
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
 from aicentralv2.creative_modeling_service import CreativeModelingService
@@ -302,6 +310,9 @@ class FakeRepository:
 
     def list_generation_jobs(self, campaign_id=None):
         return self.jobs
+
+    def list_campaigns(self):
+        return []
 
 
 class FakeGenerator:
@@ -944,6 +955,96 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertFalse(captured["context"]["inherit_from_master"])
         self.assertIsNone(captured["context"]["master_prompt"])
 
+    def test_prompt_nativo_traz_px_e_budget_sem_mockup_de_device(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "position": 1,
+            "description": "Peça display",
+            "campaign_name": "Campanha",
+            "campaign_id": 30,
+            "production_id": 50,
+            "format_template_id": 7,
+            "format_slug": "iab-leaderboard",
+            "default_size": "728x90",
+            "master_prompt": "",
+            "storyboard": [],
+            "creative_brief": {},
+            "cta_text": "Saiba mais",
+            "campaign_text": "Mensagem",
+            "show_price": False,
+            "objective": "Conversão",
+            "client_name": "Marca",
+            "client_sector": "Varejo",
+            "tone_of_voice": "Direto",
+            "logo_url": None,
+            "logo_upload_path": None,
+            "primary_color": "#1E4D4F",
+            "secondary_color": "#9CCF31",
+            "brand_profile": {},
+            "scene_count": 1,
+        }
+        repository.create_generation_job.return_value = 2
+        repository.update_scene_prompt.return_value = {
+            "id": 51, "prompt": "Native", "prompt_status": "generated",
+        }
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_prompt(self, context):
+                captured["context"] = context
+                return super().generate_prompt(context)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene_prompt(51, payload={"render_mode": "native"})
+        saved = repository.update_scene_prompt.call_args.args[1]
+        self.assertEqual(captured["context"]["format"]["render_mode"], "native")
+        self.assertIn("728x90", saved)
+        self.assertIn("wide_banner", saved)
+        self.assertIn("Element budget", saved)
+        self.assertIn("NATIVE ADVERTISING STILL", saved)
+        self.assertNotIn("CLIENT-PRESENTATION MOCKUP", saved)
+        self.assertNotIn("DEVICE PRESENTATION", saved)
+
+    @patch.dict("os.environ", {"USD_BRL_RATE": "5"})
+    def test_campanha_e_historico_trazem_custo_em_reais(self):
+        reset_rate_cache()
+        repository = Mock()
+        repository.list_campaigns.return_value = [{
+            "id": 30, "name": "Campanha", "client": "Marca", "spent_usd": 2,
+        }]
+        repository.list_generation_jobs.return_value = [{
+            "id": 1,
+            "campaign_name": "Campanha",
+            "job_type": "image",
+            "model": "openai/gpt-image-2",
+            "actual_cost_usd": 1.2,
+            "estimated_cost_usd": 1,
+            "status": "done",
+        }]
+        repository.get_campaign.return_value = {
+            "id": 30, "name": "Campanha", "spent_usd": 2,
+            "client": {"name": "Marca"},
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        campaigns = service.list_campaigns()
+        history = service.history()
+        detail = service.campaign_detail(30)
+        self.assertEqual(campaigns[0]["spent_brl"], 10.0)
+        self.assertEqual(history["jobs"][0]["spent_brl"], 6.0)
+        self.assertEqual(history["modelings"][0]["spent_brl"], 10.0)
+        self.assertEqual(history["total_brl"], 10.0)
+        self.assertEqual(detail["spent_brl"], 10.0)
+        reset_rate_cache()
+
     def test_adaptacao_nao_usa_contrato_from_scratch(self):
         captured = {}
 
@@ -1018,6 +1119,55 @@ class CreativeServiceTest(unittest.TestCase):
             repository.create_generation_job.call_args.kwargs["allow_existing_scene"]
         )
         self.assertEqual(len(captured["references"]), 1)
+
+    def test_refine_chrome_usa_instrucao_fixa_sem_texto_livre(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "position": 1,
+            "production_id": 50,
+            "campaign_id": 30,
+            "format_template_id": 7,
+            "format_slug": "iab-leaderboard",
+            "default_size": "728x90",
+            "prompt": "Approved scene prompt",
+            "media_type": "image",
+            "aspect_ratio": "8:1",
+            "client_id": 10,
+        }
+        repository.get_assets.return_value = [{
+            "id": 88,
+            "scene_id": 51,
+            "asset_url": "/asset-88.png",
+            "job_prompt": "ORIGINAL JOB PROMPT for scene 1",
+            "metadata": {"render_mode": "native", "source_raster": "/raw.png"},
+        }]
+        repository.create_generation_job.return_value = 8
+        repository.add_generated_asset.return_value = {
+            "id": 89,
+            "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio):
+                captured["prompt"] = prompt
+                return super().generate_image(prompt, references, aspect_ratio)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.refine_scene_asset(51, 88, {"intent": "chrome"})
+        self.assertIn("Remove all icon rows", captured["prompt"])
+        self.assertEqual(
+            repository.create_generation_job.call_args.kwargs["request_payload"][
+                "refine_intent"
+            ],
+            "chrome",
+        )
 
     def test_cliente_valida_cores_e_salva_identidade(self):
         result = self.service.create_client(
@@ -1226,6 +1376,11 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(metadata["quality_review"]["score"], 78)
         self.assertFalse(
             metadata["quality_review"]["checks"]["language_pt_br"]
+        )
+        self.assertEqual(repository.create_generation_job.call_count, 1)
+        self.assertNotIn(
+            "refine_intent",
+            repository.create_generation_job.call_args.kwargs["request_payload"],
         )
 
     def test_campanha_crm_cria_primeiro_step_no_mesmo_comando(self):
@@ -1658,6 +1813,51 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertEqual(normalize_image_aspect_ratio("6:5"), "4:3")
         self.assertEqual(normalize_image_aspect_ratio("1:2"), "9:16")
         self.assertEqual(normalize_image_aspect_ratio("91:11"), "21:9")
+        self.assertEqual(normalize_image_aspect_ratio("32:5"), "21:9")
+
+    def test_familia_iab_relaciona_streaming_sem_confundir_pixel(self):
+        leader = format_family_spec("iab-leaderboard", "728x90")
+        netflix = format_family_spec("netflix-pause-banner", "1920x300")
+        self.assertEqual(leader["family"], "wide_banner")
+        self.assertEqual(netflix["family"], "wide_banner")
+        self.assertEqual(netflix["iab_cousin"], "billboard")
+        self.assertNotEqual(leader["size"], netflix["size"])
+        self.assertEqual(
+            format_family_spec("hbomax-pause-ad")["family"], "slate_16x9"
+        )
+        self.assertEqual(
+            format_family_spec("video-outstream")["family"], "sequence_16x9"
+        )
+        self.assertFalse(should_compose("sequence_16x9", "native", 1, 4))
+        self.assertTrue(should_compose("sequence_16x9", "native", 4, 4))
+        self.assertTrue(canvas_mismatch((728, 90), "21:9"))
+        self.assertFalse(canvas_mismatch((1920, 1080), "16:9"))
+
+    def test_compose_devolve_png_no_retangulo_alvo(self):
+        rectangle = compose_native_piece(
+            b"not-a-png",
+            format_family_spec("iab-medium-rectangle", "300x250"),
+            {"headline": "Marca", "cta": "Saiba mais"},
+        )
+        pause = compose_native_piece(
+            b"not-a-png",
+            format_family_spec("netflix-pause-banner", "1920x300"),
+            {"headline": "Campanha", "cta": "Assista"},
+        )
+        self.assertEqual(png_size(rectangle), (300, 250))
+        self.assertEqual(png_size(pause), (1920, 300))
+
+    def test_prompt_nativo_nao_usa_regras_de_mockup(self):
+        prompt = apply_render_mode_to_prompt(
+            "Premium still of the product.",
+            "native",
+            format_family_spec("iab-leaderboard", "728x90"),
+            {"cta": "Saiba mais"},
+        )
+        self.assertIn("728x90", prompt)
+        self.assertIn("wide_banner", prompt)
+        self.assertIn("Element budget", prompt)
+        self.assertNotIn("CLIENT-PRESENTATION MOCKUP", prompt)
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
     def test_erro_de_credito_openrouter_e_acionavel(self):
@@ -1922,8 +2122,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=17", page)
-        self.assertIn("modelagem_criativos.js') }}?v=17", page)
+        self.assertIn("modelagem_criativos.css') }}?v=20", page)
+        self.assertIn("modelagem_criativos.js') }}?v=20", page)
         for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -1998,6 +2198,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcCreativeLineResult"', clients)
         self.assertIn('class="mc-visually-hidden"', clients)
         self.assertNotIn('class="cx-input" name="brand_image"', clients)
+        historico = (template_dir / "_mc_historico.html").read_text(encoding="utf-8")
+        self.assertIn('id="mcHistorySpend"', historico)
+        self.assertIn('id="mcModelingLedger"', historico)
+        self.assertIn("Todas as modelagens", historico)
         self.assertIn("setupBrandDropzone(", production_js)
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
@@ -2237,6 +2441,19 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Ajustar esta imagem", frontend)
         self.assertIn("mc-refine-bar", frontend)
         self.assertIn("/assets/${assetId}/refine", frontend)
+        self.assertNotIn("Roteiro herdado", frontend)
+        self.assertIn("Peça nativa", frontend)
+        self.assertIn("Limpar chrome", frontend)
+        self.assertIn("Recentrar", frontend)
+        self.assertIn('data-render-mode="native"', frontend)
+        self.assertIn("mc-native-frame", frontend)
+        self.assertEqual(frontend.count('id="mcPromptEditor"'), 2)
+        self.assertIn("const brl = (value)", frontend)
+        self.assertIn("mcHistorySpend", frontend)
+        self.assertIn("mcModelingLedger", frontend)
+        self.assertIn("function historyTotal", frontend)
+        self.assertIn("mc-campaign-cost", frontend)
+        self.assertIn("mc-scene-thumb", frontend)
         self.assertIn("copy_system", frontend)
         self.assertIn("/parametros/api/scenes/${scene.id}", frontend)
         self.assertIn("format.media_type === 'image'", frontend)

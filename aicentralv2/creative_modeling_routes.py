@@ -252,12 +252,16 @@ def api_production_detail(production_id):
 
 @admin_required_api
 def api_generate_scene(scene_id):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = request.form.to_dict()
     return _execute(
         lambda: _ok(
             _service().generate_scene(
                 scene_id,
                 request.files.getlist("references"),
                 session.get("user_id"),
+                payload.get("render_mode"),
             ),
             201,
         )

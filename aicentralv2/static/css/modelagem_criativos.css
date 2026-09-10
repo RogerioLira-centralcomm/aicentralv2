@@ -709,12 +709,12 @@
 .mc-scene-stop {
   display: grid;
   min-width: 0;
-  grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+  grid-template-columns: 3.4rem minmax(0, 1fr);
   align-items: center;
   gap: 0.55rem;
   border: 0;
   border-right: 1px solid #d8e3e2;
-  padding: 0.75rem;
+  padding: 0.65rem 0.75rem;
   background: transparent;
   color: #53696a;
   cursor: pointer;
@@ -722,22 +722,32 @@
 }
 
 .mc-scene-stop:last-child { border-right: 0; }
-.mc-scene-stop > span:first-child {
+.mc-scene-thumb {
   display: grid;
-  width: 1.8rem;
-  height: 1.8rem;
-  place-items: center;
-  border: 1px solid #a9bcbb;
-  border-radius: 999px;
+  width: 3.4rem;
+  height: 2.3rem;
+  overflow: hidden;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.35rem;
   background: #fff;
-  font-size: 0.68rem;
+  place-items: center;
+}
+.mc-scene-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mc-scene-thumb i {
+  color: #183436;
+  font-size: 0.72rem;
+  font-style: normal;
   font-weight: 800;
 }
 .mc-scene-stop > span:nth-child(2) { display: grid; min-width: 0; gap: 0.1rem; }
 .mc-scene-stop strong { color: #29494a; font-size: 0.72rem; }
 .mc-scene-stop small { overflow: hidden; font-size: 0.61rem; text-overflow: ellipsis; white-space: nowrap; }
 .mc-scene-stop.is-active { background: #fff; box-shadow: inset 0 -3px #183436; }
-.mc-scene-stop.is-approved > span:first-child { border-color: #66865f; background: #e5f2df; color: #31552d; }
+.mc-scene-stop.is-approved .mc-scene-thumb { border-color: #9ccf31; }
 .mc-scene-rail-empty { grid-column: 1 / -1; padding: 1rem; color: #64748b; font-size: 0.72rem; }
 
 .mc-production-grid {
@@ -777,6 +787,8 @@
 
 .mc-scene-prompt,
 .mc-scene-delta,
+.mc-scene-frame,
+.mc-scene-adjust,
 .mc-scene-output {
   display: grid;
   gap: 0.75rem;
@@ -786,12 +798,20 @@
 }
 .mc-scene-prompt > label,
 .mc-scene-delta > label { color: #1e4d4f; font-size: 0.72rem; font-weight: 750; }
+.mc-scene-delta-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.mc-scene-delta-line label { margin: 0; }
 .mc-scene-story {
   margin: 0;
   color: #183436;
   font-size: 0.92rem;
   line-height: 1.4;
 }
+.mc-scene-direction,
 .mc-master-prompt,
 .mc-asset-history {
   border: 1px solid #d8e3e2;
@@ -799,6 +819,11 @@
   background: #eef4f3;
   color: #53696a;
 }
+.mc-scene-direction .cx-textarea,
+.mc-scene-direction .mc-inspector-actions {
+  margin: 0 0.75rem 0.75rem;
+}
+.mc-scene-direction summary,
 .mc-master-prompt summary,
 .mc-asset-history summary {
   cursor: pointer;
@@ -814,6 +839,80 @@
   font-size: 0.66rem;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+.mc-scene-frame-toolbar,
+.mc-scene-frame-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+.mc-render-mode {
+  display: flex;
+  gap: 0.35rem;
+}
+.mc-render-mode button {
+  border: 1px solid #a9bcbb;
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  background: #fff;
+  color: #1e4d4f;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.mc-render-mode button.is-active {
+  border-color: #183436;
+  background: #183436;
+  color: #fff;
+}
+.mc-frame-meta {
+  margin: 0;
+  color: #53696a;
+  font-size: 0.68rem;
+}
+.mc-defect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.mc-defect-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #5c4a12;
+  font-size: 0.64rem;
+}
+.mc-defect-chip i {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #c45b4a;
+}
+.mc-native-frame {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-height: 22rem;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.8rem;
+  background: #eef4f3;
+}
+.mc-native-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.mc-format-size-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 .mc-scene-hero {
   display: grid;
@@ -1941,11 +2040,19 @@
 .mc-campaign-brief {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: 0.5rem 1rem;
   margin: 1rem 0;
   padding: 0 0.25rem;
   color: #475569;
   font-size: 0.8125rem;
+}
+.mc-campaign-cost,
+.mc-job-cost {
+  color: #183436;
+  font-style: normal;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
 }
 
 .mc-studio {
@@ -2327,6 +2434,110 @@
   font-size: 0.8125rem;
 }
 
+.mc-history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 0.85rem 1.25rem;
+}
+
+.mc-history-spend {
+  margin: 0;
+  text-align: right;
+  color: #53696a;
+  font-size: 0.78rem;
+}
+
+.mc-history-spend strong {
+  display: block;
+  color: #183436;
+  font-size: 1.15rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-history-body-wrap {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.mc-modeling-ledger header {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.65rem;
+}
+
+.mc-modeling-ledger h3 {
+  margin: 0;
+  color: #183436;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.mc-modeling-ledger header p {
+  margin: 0;
+  color: #53696a;
+  font-size: 0.78rem;
+}
+
+.mc-modeling-ledger ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #d8e3e2;
+}
+
+.mc-modeling-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.7rem 0.15rem;
+  border: 0;
+  border-bottom: 1px solid #e7eeed;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mc-modeling-row strong {
+  display: block;
+  color: #183436;
+  font-size: 0.9rem;
+}
+
+.mc-modeling-row small {
+  color: #53696a;
+  font-size: 0.75rem;
+}
+
+.mc-modeling-row.is-active {
+  box-shadow: inset 3px 0 0 #1e4d4f;
+  padding-left: 0.65rem;
+}
+
+.mc-history-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.75rem;
+  background: #eef4f3;
+  color: #53696a;
+  font-size: 0.78rem;
+}
+.mc-history-total strong {
+  color: #183436;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .mc-prompt-card,
 .mc-history-item {
   margin-bottom: 0.75rem;
@@ -2527,6 +2738,12 @@
   .mc-asset-plan-head {
     align-items: stretch;
     flex-direction: column;
+  }
+  .mc-history-toolbar {
+    justify-content: stretch;
+  }
+  .mc-history-spend {
+    text-align: left;
   }
   .mc-studio {
     display: block;

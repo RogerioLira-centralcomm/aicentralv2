@@ -51,6 +51,7 @@
     creativeLineFiles: [],
     creativeLineClientId: null,
     refineIntent: 'copy',
+    renderMode: null,
     enhancedBrief: null,
     locks: new Set(),
   };
@@ -63,6 +64,15 @@
   const money = (value) => `US$ ${Number(value || 0).toLocaleString('pt-BR', {
     minimumFractionDigits: 2, maximumFractionDigits: 4,
   })}`;
+  const brl = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  })}`;
+  const spendValue = (record) => {
+    const value = Number(record?.spent_brl ?? record?.total_brl ?? 0);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const campaignCost = (campaign) => brl(spendValue(campaign));
+  let historyRequestId = 0;
   const toast = (message, type = 'info') => {
     if (typeof window.showToast === 'function') window.showToast(message, type);
   };
@@ -131,7 +141,7 @@
     if (updateHash) history.replaceState(null, '', `#${name}`);
     if (name === 'formatos') renderLibrary();
     if (name === 'marcas') renderClients();
-    if (name === 'historico') loadHistory();
+    if (name === 'historico' && state.campaigns.length) loadHistory();
     if (name === 'produzir') renderWorkspace();
   }
 
@@ -160,6 +170,9 @@
     renderClients();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
+    }
+    if ($('#mcTabs [data-tab="historico"]')?.classList.contains('cx-tab-active')) {
+      loadHistory();
     }
   }
 
@@ -191,9 +204,9 @@
       const select = $(selector);
       if (!select) return;
       const current = select.value;
-      const first = selector === '#mcHistoryCampaign' ? 'Todas as campanhas' : 'Escolha uma campanha';
+      const first = selector === '#mcHistoryCampaign' ? 'Todas as modelagens' : 'Escolha uma campanha';
       select.innerHTML = `<option value="">${first}</option>` + state.campaigns.map((campaign) => (
-        `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)}</option>`
+        `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)} · ${campaignCost(campaign)}</option>`
       )).join('');
       select.value = selector === '#mcCampaignSelect' && state.campaign
         ? String(state.campaign.id)
@@ -285,16 +298,23 @@
     const placement = clonePlacement(format);
     const context = placement.context || 'portal';
     const sceneCount = sceneCountForFormat(format);
+    const size = parseDefaultSize(format.default_size || format.target_size);
+    const slotStyle = size
+      ? `left:50%;top:50%;width:min(72%, ${(size.w / Math.max(size.h, 1)) * 28}%);height:auto;aspect-ratio:${size.w}/${size.h};transform:translate(-50%,-50%)`
+      : `left:${placement.slot.x}%;top:${placement.slot.y}%;width:${placement.slot.width}%;height:${placement.slot.height}%`;
     root.innerHTML = `
       <div class="mc-generator-preview-screen is-${escapeHtml(context)}">
         <span class="mc-generator-preview-chrome">Prévia do formato</span>
-        <span class="mc-generator-preview-slot" style="left:${placement.slot.x}%;top:${placement.slot.y}%;width:${placement.slot.width}%;height:${placement.slot.height}%">
+        <span class="mc-generator-preview-slot" style="${slotStyle}">
           <i class="fa-solid ${format.media_type === 'video' ? 'fa-play' : 'fa-bullseye'}"></i>
         </span>
       </div>
       <div class="mc-generator-preview-copy">
         <span><strong>${escapeHtml(format.name_pt)}</strong><small>${sceneCount > 1 ? 'Carrossel interativo' : 'Peça estática'}</small></span>
-        <span class="cx-badge cx-badge-muted">${escapeHtml(format.default_size || format.aspect_ratio || 'Flexível')}</span>
+        <span class="mc-format-size-stack">
+          <span class="cx-badge cx-badge-muted">${escapeHtml(formatSizeLabel(format))}</span>
+          ${format.iab_family ? `<span class="cx-badge">${escapeHtml(format.iab_family)}</span>` : ''}
+        </span>
       </div>`;
     $('#mcGeneratorScenePlan').innerHTML = `
       <strong>${sceneCount === 1 ? '1 imagem' : '4 cenas'}</strong>
@@ -302,6 +322,22 @@
         ? 'Banner estático: uma composição final para revisão.'
         : 'Quatro imagens complementares formam o carrossel exibido no portal.'}</span>
       <div>${Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>`;
+  }
+
+  function parseDefaultSize(value) {
+    const match = String(value || '').match(/(\d+)\s*[xX×]\s*(\d+)/);
+    return match ? { w: Number(match[1]), h: Number(match[2]) } : null;
+  }
+
+  function formatSizeLabel(format) {
+    const size = parseDefaultSize(format?.default_size || format?.target_size);
+    if (size) return `${size.w}×${size.h}`;
+    return format?.default_size || format?.aspect_ratio || 'Flexível';
+  }
+
+  function activeRenderMode() {
+    if (state.renderMode === 'native' || state.renderMode === 'mockup') return state.renderMode;
+    return activeProductionFormat()?.default_render_mode || 'mockup';
   }
 
   function sceneCountForFormat(format) {
@@ -503,7 +539,8 @@
     $('#mcCampaignBrief').innerHTML = `
       <strong>${escapeHtml(c.client.name)}</strong>
       <span>${escapeHtml(c.objective || 'Sem objetivo')}</span>
-      <span>${escapeHtml(c.campaign_text || 'Sem mensagem principal')}</span>`;
+      <span>${escapeHtml(c.campaign_text || 'Sem mensagem principal')}</span>
+      <em class="mc-campaign-cost" title="Soma de todas as IAs desta modelagem">${campaignCost(c)}</em>`;
     renderProduction();
     renderAssetPlan();
   }
@@ -529,14 +566,16 @@
     const status = state.production?.status || (scenes.length ? 'Em produção' : 'Aguardando cenas');
     $('#mcProductionState').textContent = status;
     $('#mcSceneRail').innerHTML = scenes.map((scene, index) => {
-      const approved = sceneAssets(scene).some((asset) => asset.status === 'approved')
-        || scene.status === 'approved';
+      const assets = sceneAssets(scene);
+      const thumb = assets.find((asset) => asset.status === 'approved') || assets[0];
+      const approved = Boolean(thumb && thumb.status === 'approved') || scene.status === 'approved';
       return `
         <button type="button" class="mc-scene-stop ${String(scene.id) === String(state.activeSceneId) ? 'is-active' : ''} ${approved ? 'is-approved' : ''}"
                 data-scene-id="${scene.id}" aria-current="${String(scene.id) === String(state.activeSceneId) ? 'step' : 'false'}">
-          <span>${index + 1}</span>
-          <span><strong>Cena ${index + 1}</strong><small>${approved ? 'Imagem aprovada' : 'Em preparação'}</small></span>
-          <i class="fa-solid ${approved ? 'fa-check' : 'fa-angle-right'}" aria-hidden="true"></i>
+          <span class="mc-scene-thumb">${thumb
+            ? `<img src="${escapeHtml(assetUrl(thumb))}" alt="">`
+            : `<i>${index + 1}</i>`}</span>
+          <span><strong>Cena ${index + 1}</strong><small>${escapeHtml(scene.description || (approved ? 'Imagem aprovada' : 'Em preparação'))}</small></span>
         </button>`;
     }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
     renderContinuitySpine();
@@ -604,86 +643,126 @@
     const hero = assets.find((asset) => String(asset.id) === String(state.previewAssetId))
       || assets.find((asset) => asset.status === 'approved')
       || assets[0];
+    const format = activeProductionFormat();
+    const size = parseDefaultSize(format.default_size || format.target_size);
+    const renderMode = activeRenderMode();
+    const family = hero?.metadata?.iab_family || format.iab_family || '';
+    const targetSize = hero?.metadata?.target_size || format.target_size || format.default_size || '';
+    const providerRatio = hero?.metadata?.provider_aspect_ratio || '';
+    const defects = hero?.metadata?.quality_review?.defects || [];
+    const defectLabels = {
+      dangling_line: 'Linha solta',
+      icon_bar: 'Barra de ícones',
+      cta_overflow: 'CTA estourado',
+      wrong_canvas: 'Canvas divergente',
+      extra_chrome: 'Chrome extra',
+    };
     const refineIntents = [
       ['copy', 'copy'],
       ['cta', 'CTA'],
       ['light', 'luz'],
       ['crop', 'recorte'],
     ];
+    const frameStyle = size
+      ? `--frame-w:${size.w};--frame-h:${size.h};aspect-ratio:${size.w}/${size.h}`
+      : '';
+    const frameMeta = [
+      providerRatio ? `gerado em ${providerRatio}` : '',
+      targetSize ? `alvo ${String(targetSize).replace(/x/i, '×')}` : '',
+      family ? `família ${family}` : '',
+    ].filter(Boolean).join(' · ');
     root.innerHTML = `
       <header class="mc-scene-review-head">
         <div><span>Cena ${index + 1} de ${scenes.length}</span><h3>${escapeHtml(scene.description || `Cena ${index + 1}`)}</h3></div>
         ${statusBadge(scene.status || scene.prompt_status || 'draft')}
       </header>
       <section class="mc-scene-delta">
-        <p class="mc-scene-story">${escapeHtml(scene.description || 'Sem delta no storyboard.')}</p>
-        <details class="mc-master-prompt" ${inheritedOnly && isFirst ? 'open' : ''}>
-          <summary>Roteiro herdado</summary>
-          <pre>${escapeHtml(prompt || 'Ainda sem sistema herdado.')}</pre>
-        </details>
-        <textarea class="cx-textarea" id="mcPromptEditor" hidden>${escapeHtml(prompt)}</textarea>
-        <label for="mcSceneDelta">O que muda nesta cena</label>
+        <div class="mc-scene-delta-line">
+          <label for="mcSceneDelta">O que muda</label>
+          <p class="mc-scene-story">${escapeHtml(scene.description || 'Sem delta no storyboard.')}</p>
+        </div>
         <textarea class="cx-textarea" id="mcSceneDelta" rows="2" placeholder="Ajuste curto: luz, recorte, copy ou CTA."></textarea>
         <div class="mc-inspector-actions">
           <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">${escapeHtml(generateLabel)}</button>
-          <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="save-prompt">Salvar</button>
-          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>
         </div>
-      </section>
-      <section class="mc-scene-output">
-        ${hero ? `
-          <figure class="mc-scene-hero">
-            <img src="${escapeHtml(assetUrl(hero))}" alt="Imagem gerada da cena ${index + 1}">
-            <figcaption>
-              ${statusBadge(hero.status || 'review')}
-              ${hero.status === 'approved'
-                ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${hero.id}">Simular esta</button>`
-                : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${hero.id}">Aprovar</button>`}
-            </figcaption>
-          </figure>
-          <div class="mc-refine-bar">
-            <strong>Ajustar esta imagem</strong>
-            <div class="mc-refine-intents">
-              ${refineIntents.map(([value, label]) => `
-                <button type="button" data-refine-intent="${value}" class="${state.refineIntent === value ? 'is-active' : ''}">${escapeHtml(label)}</button>
-              `).join('')}
-            </div>
-            <input class="cx-input" id="mcRefineInstruction" maxlength="400" placeholder="Uma linha: o que mudar nesta imagem">
-            <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="refine-asset" data-asset-id="${hero.id}">Ajustar imagem</button>
+        <details class="mc-scene-direction">
+          <summary>Direção</summary>
+          <textarea class="cx-textarea" id="mcPromptEditor" rows="6" placeholder="Gere ou escreva a direção desta cena">${escapeHtml(prompt)}</textarea>
+          <div class="mc-inspector-actions">
+            <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="save-prompt">Salvar</button>
+            <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>
           </div>
-          ${hero.metadata?.source_job_prompt || hero.metadata?.refinement_instruction ? `
-            <details class="mc-asset-history">
-              <summary>Histórico do asset</summary>
-              ${hero.metadata?.source_job_prompt ? `<pre>${escapeHtml(hero.metadata.source_job_prompt)}</pre>` : ''}
-              ${hero.metadata?.refinement_instruction ? `<p>${escapeHtml(hero.metadata.refinement_instruction)}</p>` : ''}
-            </details>` : ''}
-        ` : `
-          <div class="mc-scene-output-head">
-            <div><strong>Imagem da cena</strong><small>Gere a partir do roteiro herdado.</small></div>
+        </details>
+      </section>
+      <section class="mc-scene-frame">
+        <div class="mc-scene-frame-toolbar">
+          <div class="mc-render-mode" role="group" aria-label="Modo de render">
+            <button type="button" data-render-mode="native" class="${renderMode === 'native' ? 'is-active' : ''}">Peça nativa</button>
+            <button type="button" data-render-mode="mockup" class="${renderMode === 'mockup' ? 'is-active' : ''}">Mockup</button>
+          </div>
+          ${frameMeta ? `<p class="mc-frame-meta">${escapeHtml(frameMeta)}</p>` : ''}
+        </div>
+        ${defects.length ? `<div class="mc-defect-chips" aria-label="Possíveis ajustes detectados">${defects.map((item) => `
+          <span class="mc-defect-chip"><i></i>${escapeHtml(defectLabels[item] || item)}</span>
+        `).join('')}</div>` : ''}
+        <figure class="mc-native-frame" style="${frameStyle}">
+          ${hero
+            ? `<img src="${escapeHtml(assetUrl(hero))}" alt="Imagem gerada da cena ${index + 1}">`
+            : `<div class="mc-scene-assets-empty">Nenhuma imagem gerada para esta cena.</div>`}
+        </figure>
+        <div class="mc-scene-frame-actions">
+          ${hero ? `
+            ${statusBadge(hero.status || 'review')}
+            ${hero.status === 'approved'
+              ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${hero.id}">Simular esta</button>`
+              : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${hero.id}">Aprovar</button>`}
+          ` : `
             <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="generate-image"
                     ${scene.prompt_status && scene.prompt_status !== 'approved' ? 'disabled title="Aprove a direção primeiro"' : ''}>
               <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar imagem
             </button>
-          </div>
+          `}
+        </div>
+        ${hero ? '' : `
           <label class="mc-reference-upload">
             <input id="mcImageReferences" type="file" accept=".png,.jpg,.jpeg,.webp" multiple>
             <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
             <span>Até duas referências visuais</span>
           </label>
-          <div class="mc-scene-assets-empty">Nenhuma imagem gerada para esta cena.</div>
         `}
-        ${assets.length > 1 ? `<div class="mc-scene-assets">${assets.map((asset) => `
-          <article class="mc-scene-asset ${String(asset.id) === String(hero?.id) ? 'is-preview' : ''}">
-            <img src="${escapeHtml(assetUrl(asset))}" alt="Variante da cena ${index + 1}">
-            ${asset.metadata?.refinement_instruction ? `<p class="mc-asset-delta">${escapeHtml(asset.metadata.refinement_instruction)}</p>` : ''}
-            <div>
-              ${statusBadge(asset.status || 'review')}
-              ${asset.status === 'approved'
-                ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
-                : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar</button>`}
-            </div>
-          </article>`).join('')}</div>` : ''}
-      </section>`;
+      </section>
+      ${hero ? `
+      <section class="mc-scene-adjust">
+        <div class="mc-refine-bar">
+          <strong>Ajustar esta imagem</strong>
+          <div class="mc-refine-intents">
+            ${refineIntents.map(([value, label]) => `
+              <button type="button" data-refine-intent="${value}" class="${state.refineIntent === value ? 'is-active' : ''}">${escapeHtml(label)}</button>
+            `).join('')}
+            <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="refine-chrome" data-asset-id="${hero.id}">Limpar chrome</button>
+            <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="refine-geometry" data-asset-id="${hero.id}">Recentrar</button>
+          </div>
+          <input class="cx-input" id="mcRefineInstruction" maxlength="400" placeholder="Uma linha: o que mudar nesta imagem">
+          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="refine-asset" data-asset-id="${hero.id}">Ajustar imagem</button>
+        </div>
+        ${hero.metadata?.source_job_prompt || hero.metadata?.refinement_instruction ? `
+          <details class="mc-asset-history">
+            <summary>Histórico do asset</summary>
+            ${hero.metadata?.source_job_prompt ? `<pre>${escapeHtml(hero.metadata.source_job_prompt)}</pre>` : ''}
+            ${hero.metadata?.refinement_instruction ? `<p>${escapeHtml(hero.metadata.refinement_instruction)}</p>` : ''}
+          </details>` : ''}
+      </section>` : ''}
+      ${assets.length > 1 ? `<div class="mc-scene-assets">${assets.map((asset) => `
+        <article class="mc-scene-asset ${String(asset.id) === String(hero?.id) ? 'is-preview' : ''}">
+          <img src="${escapeHtml(assetUrl(asset))}" alt="Variante da cena ${index + 1}">
+          ${asset.metadata?.refinement_instruction ? `<p class="mc-asset-delta">${escapeHtml(asset.metadata.refinement_instruction)}</p>` : ''}
+          <div>
+            ${statusBadge(asset.status || 'review')}
+            ${asset.status === 'approved'
+              ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
+              : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar</button>`}
+          </div>
+        </article>`).join('')}</div>` : ''}`;
   }
 
   function renderProductionViewer() {
@@ -1132,7 +1211,11 @@
         <span class="mc-catalog-format-icon"><i class="fa-solid ${formatExperienceIcon(format)}" aria-hidden="true"></i></span>
         <span>
           <strong>${escapeHtml(format.name_pt)}</strong>
-          <small>${escapeHtml(formatExperienceLabel(format))}</small>
+          <small>${escapeHtml([
+            format.iab_family,
+            formatSizeLabel(format),
+            format.iab_cousin ? `primo ${format.iab_cousin}` : '',
+          ].filter(Boolean).join(' · ') || formatExperienceLabel(format))}</small>
         </span>
         <em>${sceneCountForFormat(format) > 1 ? 'Carrossel' : 'Estático'}</em>
       </button>`).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
@@ -1357,7 +1440,12 @@
     $('#mcStageEmpty').classList.add('hidden');
     $('#mcFormatStage').classList.remove('hidden');
     $('#mcStageTitle').textContent = format.name_pt;
-    $('#mcStageMetrics').innerHTML = `<span>${escapeHtml(displayPlacement.context)}</span><strong>${escapeHtml(format.default_size || format.aspect_ratio || '')}</strong>`;
+    const stageSize = parseDefaultSize(format.default_size || format.target_size);
+    $('#mcStageMetrics').innerHTML = `
+      <span>${escapeHtml(displayPlacement.context)}</span>
+      <strong>${escapeHtml(formatSizeLabel(format))}</strong>
+      ${format.iab_family ? `<span>${escapeHtml(format.iab_family)}</span>` : ''}
+      ${stageSize ? `<small>${stageSize.w} px × ${stageSize.h} px</small>` : ''}`;
     $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}`;
     $('#mcDeviceFrame').style.aspectRatio = `${Number(displayPlacement.viewport.width) || 1280} / ${Number(displayPlacement.viewport.height) || 800}`;
     const profile = activeViewerProfile(format, placement);
@@ -1945,17 +2033,75 @@
   }
 
   // ====== HISTÓRICO ======
+  function historyTotal(payload, campaignId) {
+    const apiTotal = Number(payload?.total_brl);
+    if (Number.isFinite(apiTotal)) return apiTotal;
+    const modelings = Array.isArray(payload?.modelings) ? payload.modelings : [];
+    if (modelings.length) return modelings.reduce((sum, item) => sum + spendValue(item), 0);
+    if (campaignId) {
+      const selected = state.campaigns.find((item) => String(item.id) === String(campaignId));
+      if (selected) return spendValue(selected);
+    }
+    const catalogTotal = state.campaigns.reduce((sum, item) => sum + spendValue(item), 0);
+    if (catalogTotal) return catalogTotal;
+    const jobs = Array.isArray(payload) ? payload : (payload?.jobs || []);
+    return jobs.reduce((sum, job) => sum + spendValue(job), 0);
+  }
+
+  function renderHistorySpend(total) {
+    const spend = $('#mcHistorySpend');
+    if (!spend) return;
+    spend.hidden = false;
+    spend.querySelector('strong').textContent = brl(total);
+  }
+
+  function renderModelingLedger(modelings, campaignId) {
+    const root = $('#mcModelingLedger');
+    if (!root) return;
+    const rows = (Array.isArray(modelings) && modelings.length)
+      ? modelings
+      : state.campaigns;
+    if (!rows.length) {
+      root.innerHTML = '';
+      return;
+    }
+    root.innerHTML = `
+      <header>
+        <h3>Modelagens criadas</h3>
+        <p>Gasto acumulado de todas as IAs em cada modelagem.</p>
+      </header>
+      <ul>
+        ${rows.map((item) => `
+          <li>
+            <button type="button" class="mc-modeling-row ${String(item.id) === String(campaignId) ? 'is-active' : ''}" data-modeling-id="${item.id}">
+              <span>
+                <strong>${escapeHtml(item.name)}</strong>
+                <small>${escapeHtml(item.client || item.client_name || 'Sem cliente')}</small>
+              </span>
+              <em class="mc-campaign-cost" title="Soma de todas as IAs desta modelagem">${campaignCost(item)}</em>
+            </button>
+          </li>`).join('')}
+      </ul>`;
+  }
+
   async function loadHistory() {
     const root = $('#mcHistoryList');
+    const requestId = ++historyRequestId;
     root.innerHTML = '<div class="mc-skeleton-list"><span></span><span></span><span></span></div>';
     try {
       const campaignId = $('#mcHistoryCampaign').value;
-      const jobs = await api(`${API.history}${campaignId ? `?campaign_id=${campaignId}` : ''}`);
+      const payload = await api(`${API.history}${campaignId ? `?campaign_id=${campaignId}` : ''}`);
+      if (requestId !== historyRequestId) return;
+      const jobs = Array.isArray(payload) ? payload : (payload.jobs || []);
+      const modelings = Array.isArray(payload?.modelings) ? payload.modelings : [];
+      const headlineTotal = historyTotal(payload, campaignId);
+      renderHistorySpend(headlineTotal);
+      renderModelingLedger(modelings, campaignId);
       root.innerHTML = jobs.map((job) => `
         <details class="mc-history-item">
           <summary>
             <span><strong>${escapeHtml(job.campaign_name)}</strong><br><small>${escapeHtml(job.job_type)} · ${escapeHtml(job.model)}</small></span>
-            <span>${statusBadge(job.status)} ${money(job.actual_cost_usd ?? job.estimated_cost_usd)}</span>
+            <span>${statusBadge(job.status)} <em class="mc-job-cost">${brl(job.spent_brl)}</em></span>
           </summary>
           <div class="mc-history-body">
             ${job.error_message ? `<div class="cx-alert cx-alert-danger">${escapeHtml(job.error_message)}</div>` : ''}
@@ -1964,6 +2110,8 @@
           </div>
         </details>`).join('') || '<div class="cx-empty-state"><p>Nenhuma produção registrada.</p></div>';
     } catch (error) {
+      if (requestId !== historyRequestId) return;
+      renderHistorySpend(0);
       root.innerHTML = `<div class="cx-alert cx-alert-danger">${escapeHtml(error.message)}</div>`;
     }
   }
@@ -2146,7 +2294,10 @@
         if (action === 'generate-prompt') {
           await withLock(`scene-prompt-${scene.id}`, button, () => api(`${base}/prompt/generate`, {
             method: 'POST',
-            body: JSON.stringify({ delta: $('#mcSceneDelta')?.value || '' }),
+            body: JSON.stringify({
+              delta: $('#mcSceneDelta')?.value || '',
+              render_mode: activeRenderMode(),
+            }),
           }));
           toast(scene.prompt ? 'Cena ajustada a partir do roteiro-mãe.' : 'Direção criada para revisão.', 'success');
         } else if (action === 'save-prompt' || action === 'approve-prompt') {
@@ -2163,6 +2314,7 @@
           if (files.length > 2) throw new Error('Escolha no máximo duas referências.');
           const body = new FormData();
           files.forEach((file) => body.append('references', file));
+          body.append('render_mode', activeRenderMode());
           await withLock(`scene-image-${scene.id}`, button, () => apiFirst([
             { url: `${base}/image/generate`, options: { method: 'POST', body } },
             { url: `${base}/generate`, options: { method: 'POST', body } },
@@ -2185,21 +2337,36 @@
             { url: `/parametros/api/productions/${state.production.id}/simulation-asset`, options: selection },
           ]);
           toast('Imagem aprovada e aplicada à simulação.', 'success');
-        } else if (action === 'refine-asset') {
+        } else if (action === 'refine-asset' || action === 'refine-chrome' || action === 'refine-geometry') {
           const assetId = Number(button.dataset.assetId);
           const instruction = ($('#mcRefineInstruction')?.value || '').trim();
-          if (!instruction) throw new Error('Descreva o ajuste em uma linha.');
+          const intent = action === 'refine-chrome'
+            ? 'chrome'
+            : action === 'refine-geometry'
+              ? 'geometry'
+              : (state.refineIntent || 'copy');
+          if (action === 'refine-asset' && !instruction) {
+            throw new Error('Descreva o ajuste em uma linha.');
+          }
           await withLock(`scene-refine-${scene.id}-${assetId}`, button, () => api(
             `${base}/assets/${assetId}/refine`,
             {
               method: 'POST',
               body: JSON.stringify({
                 instruction,
-                intent: state.refineIntent || 'copy',
+                intent,
+                render_mode: activeRenderMode(),
               }),
             },
           ));
-          toast('Variante gerada a partir da imagem.', 'success');
+          toast(
+            action === 'refine-chrome'
+              ? 'Chrome removido a partir da imagem.'
+              : action === 'refine-geometry'
+                ? 'Peça recentrada.'
+                : 'Variante gerada a partir da imagem.',
+            'success',
+          );
         } else if (action === 'choose-preview') {
           state.previewAssetId = Number(button.dataset.assetId);
           const selection = {
@@ -2230,6 +2397,12 @@
         || scene?.approved_asset_id
         || sceneAssets(scene).find((asset) => asset.status === 'approved')?.id
         || null;
+      renderProduction();
+      return;
+    }
+    const renderModeButton = event.target.closest('[data-render-mode]');
+    if (renderModeButton) {
+      state.renderMode = renderModeButton.dataset.renderMode;
       renderProduction();
       return;
     }
@@ -2800,6 +2973,14 @@
     $('#mcLibraryCategory').addEventListener('change', renderLibrary);
     $('#mcRefreshHistory').addEventListener('click', loadHistory);
     $('#mcHistoryCampaign').addEventListener('change', loadHistory);
+    $('#mcModelingLedger')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-modeling-id]');
+      if (!button) return;
+      const select = $('#mcHistoryCampaign');
+      const next = String(button.dataset.modelingId) === String(select.value) ? '' : button.dataset.modelingId;
+      select.value = next;
+      loadHistory();
+    });
     $('#mcLogoForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.currentTarget;

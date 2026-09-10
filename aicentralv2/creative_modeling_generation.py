@@ -68,10 +68,16 @@ IMAGE_REVIEW_SYSTEM = """Você é revisor de qualidade de publicidade digital.
 Analise a imagem contra o briefing informado. Não presuma falhas que não estejam
 visíveis. Retorne somente JSON puro:
 {"approved_recommendation":true,"score":0,"warnings":[],
+"defects":[],
 "checks":{"language_pt_br":true,"cta_correct":true,"brand_consistent":true,
 "price_authorized":true,"continuity":true,"safe_area":true}}.
 O score deve ser inteiro de 0 a 100. Cada warning deve ser curto, em português,
-e explicar uma correção acionável."""
+e explicar uma correção acionável.
+defects deve ser uma lista com zero ou mais destes códigos:
+dangling_line, icon_bar, cta_overflow, wrong_canvas, extra_chrome.
+Se o canvas gerado não coincidir com o retângulo-alvo (target_size),
+inclua wrong_canvas e marque safe_area como false.
+safe_area não pode ser true quando wrong_canvas estiver presente."""
 
 
 def _json_content(content):

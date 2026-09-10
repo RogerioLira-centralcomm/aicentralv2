@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Vincula marcas órfãs da modelagem ao cliente CentralComm."""
+"""Remove a unicidade de crm_client_id antes das demais migrations da modelagem."""
 
 import sys
 from pathlib import Path
@@ -8,22 +8,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cx_clients_crm import connect, liberar_crm_client_id, validar_crm_client_id
 
 
-SQL_PATH = Path(__file__).with_name("add_creative_house_client.sql")
-
-
 def main():
     conn = connect()
     try:
         with conn.cursor() as cursor:
             liberar_crm_client_id(cursor)
+            validar_crm_client_id(cursor, exigir_tabela=False)
         conn.commit()
-
-        with conn.cursor() as cursor:
-            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
-            liberar_crm_client_id(cursor)
-            validar_crm_client_id(cursor)
-        conn.commit()
-        print("Migração do cliente CentralComm da modelagem executada e validada.")
+        print("Índice de crm_client_id liberado para marcas compartilhadas.")
     except Exception:
         conn.rollback()
         raise

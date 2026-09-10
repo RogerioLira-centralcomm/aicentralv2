@@ -1,6 +1,7 @@
 -- Marcas da modelagem sem cliente comercial passam a viver no CentralComm (174).
 -- Várias marcas podem compartilhar o mesmo cliente CRM.
 
+ALTER TABLE cx_clients DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client;
 DROP INDEX IF EXISTS uq_cx_clients_crm_client;
 
 CREATE INDEX IF NOT EXISTS idx_cx_clients_crm_client

@@ -1,6 +1,18 @@
 -- Modelagem de Criativos com variações A/B.
 -- Idempotente e compatível com o executor de migrations do CentralX.
 
+-- Várias marcas compartilham o mesmo cliente CRM (ex.: CentralComm 174).
+-- O campo continua INTEGER + FK; a unicidade precisa sair antes do resto.
+DO $$
+BEGIN
+    IF to_regclass('public.cx_clients') IS NOT NULL THEN
+        ALTER TABLE cx_clients
+            DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client;
+    END IF;
+END
+$$;
+DROP INDEX IF EXISTS uq_cx_clients_crm_client;
+
 CREATE TABLE IF NOT EXISTS cx_format_categories (
     id SERIAL PRIMARY KEY,
     slug VARCHAR(30) NOT NULL UNIQUE,
@@ -89,6 +101,9 @@ CREATE TABLE IF NOT EXISTS cx_clients (
 
 CREATE INDEX IF NOT EXISTS idx_cx_clients_created_at
     ON cx_clients(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cx_clients_crm_client
+    ON cx_clients(crm_client_id)
+    WHERE crm_client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cx_campaigns (
     id SERIAL PRIMARY KEY,
@@ -386,7 +401,11 @@ BEGIN
 END
 $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client
+-- Várias marcas compartilham o mesmo cliente CRM (ex.: CentralComm 174).
+-- O campo continua INTEGER + FK; só a unicidade sai.
+ALTER TABLE cx_clients DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client;
+DROP INDEX IF EXISTS uq_cx_clients_crm_client;
+CREATE INDEX IF NOT EXISTS idx_cx_clients_crm_client
     ON cx_clients(crm_client_id)
     WHERE crm_client_id IS NOT NULL;
 

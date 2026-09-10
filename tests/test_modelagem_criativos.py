@@ -2727,15 +2727,21 @@ class CreativeFilesContractTest(unittest.TestCase):
             add_column,
         )
         unique_index = migration.index(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
+            "DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client",
             add_column,
         )
+        drop_unique_start = migration.index(
+            "DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client"
+        )
 
+        self.assertLess(drop_unique_start, migration.index("CREATE TABLE IF NOT EXISTS"))
         self.assertLess(add_column, foreign_key)
         self.assertLess(foreign_key, unique_index)
+        self.assertIn("DROP INDEX IF EXISTS uq_cx_clients_crm_client", migration)
+        self.assertIn("CREATE INDEX IF NOT EXISTS idx_cx_clients_crm_client", migration)
         self.assertNotIn(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
-            migration[:add_column],
+            migration,
         )
 
         incremental = (
@@ -2746,6 +2752,29 @@ class CreativeFilesContractTest(unittest.TestCase):
             incremental,
         )
         self.assertIn("column_row.attname = 'crm_client_id'", incremental)
+        self.assertIn("DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client", incremental)
+        self.assertIn("DROP INDEX IF EXISTS uq_cx_clients_crm_client", incremental)
+        self.assertLess(
+            incremental.index("DROP INDEX IF EXISTS uq_cx_clients_crm_client"),
+            incremental.index("ADD COLUMN IF NOT EXISTS crm_client_id"),
+        )
+        self.assertNotIn(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
+            incremental,
+        )
+        for runner in (
+            "run_fix_cx_clients_crm_index.py",
+            "run_create_creative_modeling.py",
+            "run_add_creative_campaign_flow.py",
+            "run_add_creative_house_client.py",
+        ):
+            source = (root / "migrations" / runner).read_text(encoding="utf-8")
+            self.assertIn("liberar_crm_client_id", source)
+            self.assertIn("validar_crm_client_id", source)
+            self.assertNotIn(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client",
+                source,
+            )
 
     def test_migration_cobre_custos_referencias_iab_e_video(self):
         root = Path(__file__).resolve().parents[1]
@@ -2822,6 +2851,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn(migration_call, deploy)
         self.assertIn(seed_call, deploy)
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_fix_cx_clients_crm_index.py',
+            deploy,
+        )
+        self.assertLess(
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_fix_cx_clients_crm_index.py'
+            ),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_create_creative_modeling.py'
+            ),
+        )
         self.assertIn(
             '"$VENV_PYTHON" migrations/run_create_creative_modeling.py',
             deploy,
@@ -3024,6 +3065,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         house_sql = (
             root / "migrations" / "add_creative_house_client.sql"
         ).read_text(encoding="utf-8")
+        self.assertIn("DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client", house_sql)
         self.assertIn("DROP INDEX IF EXISTS uq_cx_clients_crm_client", house_sql)
         self.assertIn("SET crm_client_id = 174", house_sql)
         repository = (

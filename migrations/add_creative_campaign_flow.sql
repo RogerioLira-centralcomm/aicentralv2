@@ -1,5 +1,8 @@
 -- Integra clientes do CRM e corrige contratos do fluxo de campanhas criativas.
 
+ALTER TABLE cx_clients DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client;
+DROP INDEX IF EXISTS uq_cx_clients_crm_client;
+
 ALTER TABLE cx_clients
     ADD COLUMN IF NOT EXISTS crm_client_id INTEGER;
 
@@ -25,7 +28,9 @@ BEGIN
 END
 $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_cx_clients_crm_client
+ALTER TABLE cx_clients DROP CONSTRAINT IF EXISTS uq_cx_clients_crm_client;
+DROP INDEX IF EXISTS uq_cx_clients_crm_client;
+CREATE INDEX IF NOT EXISTS idx_cx_clients_crm_client
     ON cx_clients(crm_client_id)
     WHERE crm_client_id IS NOT NULL;
 

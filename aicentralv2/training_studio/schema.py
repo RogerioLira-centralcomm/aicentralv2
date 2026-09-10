@@ -20,7 +20,7 @@ DEFAULT_STYLE_GUIDE = {
     "motto": "Pessoas · Mídia · Resultados",
     "event": {
         "title": "Imersão em Mídias Complexas",
-        "date": "28 de setembro",
+        "date": "28 de setembro, 9h30–12h30",
         "speakers": [
             {"name": "Alexandre Borges", "role": "CEO"},
             {"name": "Apolo Lira", "role": "Co-CEO"},
@@ -197,7 +197,7 @@ def _seed_imersao(conn, created_by=None):
                     "Imersão em Mídias Complexas",
                     (
                         "Evento de treinamento MediaHacks + Centralcomm Media Hub. "
-                        "28 de setembro, com Alexandre Borges (CEO) e Apolo Lira (Co-CEO)."
+                        "28 de setembro, 9h30–12h30, com Alexandre Borges (CEO) e Apolo Lira (Co-CEO)."
                     ),
                     IMMERSAO_SLUG,
                     Json(DEFAULT_STYLE_GUIDE),
@@ -224,7 +224,9 @@ def _upsert_agenda(cursor, treinamento_id):
         html = session_html(item)
         if row:
             sessao_id = row["id"]
-            if not (row.get("conteudo_html") or "").strip():
+            current = row.get("conteudo_html") or ""
+            next_html = _refresh_session_html(item["slug"], current, html)
+            if next_html is not None:
                 cursor.execute(
                     """
                     UPDATE cx_treinamento_sessoes
@@ -240,7 +242,7 @@ def _upsert_agenda(cursor, treinamento_id):
                         item["horario_fim"],
                         item["facilitadores"],
                         item["tipo"],
-                        html,
+                        next_html,
                         sessao_id,
                     ),
                 )
@@ -298,3 +300,30 @@ def _upsert_agenda(cursor, treinamento_id):
         (treinamento_id,),
     )
     return first_id
+
+
+_OLD_TIME_MARKERS = (
+    "9h–12h30",
+    "9h45–10h15",
+    "10h15–10h30",
+    "10h30–11h00",
+    "11h–11h45",
+    "11h45–12h00",
+    "12h00–12h30",
+)
+
+
+def _refresh_session_html(slug, current, fresh):
+    text = current or ""
+    if not text.strip():
+        return fresh
+    if slug == "mercado-canais":
+        updated = text.replace("9h–12h30", "9h30–12h30").replace(
+            "bloco de 45 minutos", "bloco"
+        )
+        return updated if updated != text else None
+    if slug == "dinamica-planos" and "ponto alto" not in text.lower():
+        return fresh
+    if any(marker in text for marker in _OLD_TIME_MARKERS):
+        return fresh
+    return None

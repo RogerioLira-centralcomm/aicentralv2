@@ -4,13 +4,13 @@
 {% block page_subtitle %}Studio de conteúdo{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
 <main class="ts-shell" data-training-studio>
   <nav class="ts-sessions" aria-label="Sessões da Imersão">
-    <p class="ts-sessions-kicker">Imersão · 28/set</p>
+    <p class="ts-sessions-kicker">Imersão · 28/set · 9h30–12h30</p>
     <h2>Sessões</h2>
     <ol id="tsSessionList"></ol>
     <button type="button" id="tsEnrichBtn" class="ts-enrich">Enriquecer canais</button>
@@ -157,5 +157,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=2" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=3" defer></script>
 {% endblock %}

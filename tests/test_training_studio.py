@@ -75,6 +75,7 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("Gerar imagem", page)
         self.assertIn("tsSessionList", page)
         self.assertIn("Enriquecer canais", page)
+        self.assertIn("9h30–12h30", page)
 
     def test_agenda_has_seven_sessions_and_dinamica(self):
         from aicentralv2.training_studio.agenda import CHANNELS, SESSIONS, session_html
@@ -82,12 +83,19 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertEqual(len(SESSIONS), 7)
         slugs = [item["slug"] for item in SESSIONS]
         self.assertEqual(slugs[0], "mercado-canais")
-        self.assertEqual(slugs[3], "dinamica-planos")
-        dinamica = session_html(SESSIONS[3])
+        self.assertEqual(slugs[-1], "dinamica-planos")
+        self.assertEqual(SESSIONS[0]["horario_inicio"], "09:30")
+        self.assertEqual(SESSIONS[-1]["horario_inicio"], "11:50")
+        self.assertEqual(SESSIONS[-1]["horario_fim"], "12:30")
+        dinamica = session_html(SESSIONS[-1])
+        self.assertIn("ponto alto", dinamica)
         self.assertIn("R$ 80 mil", dinamica)
         self.assertIn("R$ 250 mil", dinamica)
         self.assertIn("R$ 800 mil", dinamica)
         self.assertGreaterEqual(len(CHANNELS), 14)
+        coffee_idx = slugs.index("coffee")
+        self.assertLess(coffee_idx, slugs.index("dinamica-planos"))
+        self.assertEqual(SESSIONS[-1]["titulo"], "Dinâmica e resultado")
 
     def test_replace_channel_block(self):
         from aicentralv2.training_studio.research import replace_channel_block

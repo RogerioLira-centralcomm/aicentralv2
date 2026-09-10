@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from pathlib import Path
 
 from flask import Flask
 
@@ -16,6 +17,7 @@ from aicentralv2.crm_v3_helpers import (
 )
 from aicentralv2.crm_v3_data import store
 from aicentralv2.crm_v3_routes import bp
+from aicentralv2.db import CRM_AI_STYLE_MODELS_DDL
 
 
 def _crm_v3_app():
@@ -44,6 +46,18 @@ def _login(client, user_id=1, user_name="Executivo Teste"):
 
 
 class CrmTestHelpersTest(unittest.TestCase):
+    def test_ddl_do_modelo_estilo_bate_com_a_migration(self):
+        sql = (
+            Path(__file__).resolve().parents[1]
+            / "migrations"
+            / "create_crm_ai_style_models.sql"
+        ).read_text()
+        self.assertIn("CREATE TABLE IF NOT EXISTS crm_ai_style_models", CRM_AI_STYLE_MODELS_DDL)
+        self.assertIn("CREATE TABLE IF NOT EXISTS crm_ai_style_models", sql)
+        for col in ("executivo_id", "texto", "formato", "atualizado_em"):
+            self.assertIn(col, CRM_AI_STYLE_MODELS_DDL)
+            self.assertIn(col, sql)
+
     def test_pluralizar_contatos(self):
         self.assertEqual(pluralizar_contatos(0), "0 contatos")
         self.assertEqual(pluralizar_contatos(1), "1 contato")
@@ -859,6 +873,79 @@ class CrmTestApiTest(unittest.TestCase):
         )
         self.assertEqual(empty.status_code, 200)
         self.assertEqual(empty.get_json()["historico"], [])
+
+        edited = self.client.patch(
+            f"/crm-v3/api/ia/historico/{history_id}",
+            json={"texto": "Abertura revisada pelo executivo."},
+        )
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(
+            edited.get_json()["data"]["content"]["texto"],
+            "Abertura revisada pelo executivo.",
+        )
+        removed = self.client.delete(f"/crm-v3/api/ia/historico/{history_id}")
+        self.assertEqual(removed.status_code, 200)
+        listed_after = self.client.get("/crm-v3/api/clientes/auto-shopping/ia/historico")
+        self.assertEqual(listed_after.status_code, 200)
+        self.assertEqual(listed_after.get_json()["historico"], [])
+
+    def test_modelo_estilo_pessoal_entra_no_prompt(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        saved = self.client.put(
+            "/crm-v3/api/ia/modelo-estilo",
+            json={
+                "texto": "Abrir com o case de formatos interativos e fechar com data.",
+                "formato": "roteiro",
+            },
+        )
+        self.assertEqual(saved.status_code, 200)
+        fetched = self.client.get("/crm-v3/api/ia/modelo-estilo")
+        self.assertEqual(fetched.status_code, 200)
+        self.assertIn("formatos interativos", fetched.get_json()["modelo"]["texto"])
+
+        captured = {}
+        original_available = routes._openrouter_available
+        original_call = routes._call_openrouter
+        routes._openrouter_available = lambda: True
+
+        def fake_call(system, user, **kwargs):
+            captured["user"] = user
+            return json.dumps({
+                "abertura": "Vamos falar dos formatos interativos.",
+                "perguntas": [
+                    "Qual campanha entra primeiro?",
+                    "Quem aprova a verba?",
+                    "Qual prazo de veiculação?",
+                    "O que já foi testado?",
+                ],
+                "fechamento": "Combinar retorno na sexta.",
+                "motivo": "Modelo pessoal",
+            })
+
+        routes._call_openrouter = fake_call
+        try:
+            result = routes._montar_roteiro({
+                "cliente_id": "auto-shopping",
+                "titulo": "Apresentar formatos interativos",
+                "tipo": "reuniao",
+                "foco": "apresentar_solucao",
+                "tom": "consultivo",
+                "notas_executivo": "Formatos interativos para o mercado imobiliário.",
+            })
+        finally:
+            routes._openrouter_available = original_available
+            routes._call_openrouter = original_call
+
+        self.assertEqual(result["source"], "openrouter")
+        self.assertIn("MODELO DE ESTILO DO EXECUTIVO", captured["user"])
+        self.assertIn("case de formatos interativos", captured["user"])
+
+        cleared = self.client.delete("/crm-v3/api/ia/modelo-estilo")
+        self.assertEqual(cleared.status_code, 200)
+        empty_model = self.client.get("/crm-v3/api/ia/modelo-estilo")
+        self.assertEqual(empty_model.status_code, 200)
+        self.assertFalse((empty_model.get_json().get("modelo") or {}).get("texto"))
 
     def test_reuniao_salva_agenda_e_convidados_sem_enviar(self):
         res = self.client.post(

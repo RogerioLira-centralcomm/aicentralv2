@@ -862,6 +862,215 @@
         return parts.join('\n');
     }
 
+    function inferAssistantFormato(form) {
+        var tipo = String(((form && form.querySelector('[data-field="tipo"]')) || {}).value || '').toLowerCase();
+        if (tipo === 'email' || tipo === 'whatsapp') return tipo;
+        return 'roteiro';
+    }
+
+    function persistHistoryText(historyId, texto) {
+        if (!historyId || !texto) return Promise.resolve(null);
+        return apiFetch('/ia/historico/' + encodeURIComponent(historyId), {
+            method: 'PATCH',
+            body: { texto: texto }
+        });
+    }
+
+    function deleteHistoryItem(historyId) {
+        if (!historyId) return Promise.resolve(null);
+        return apiFetch('/ia/historico/' + encodeURIComponent(historyId), {
+            method: 'DELETE'
+        });
+    }
+
+    function renderStyleModel(wrapper, modelo) {
+        var section = wrapper.querySelector('[data-ia-style-section]');
+        var preview = wrapper.querySelector('[data-ia-style-preview]');
+        if (!section || !preview) return;
+        var texto = String((modelo && modelo.texto) || '').trim();
+        if (!texto) {
+            section.hidden = true;
+            preview.textContent = '';
+            wrapper._styleModel = null;
+            return;
+        }
+        wrapper._styleModel = modelo;
+        section.hidden = false;
+        preview.textContent = texto.length > 90 ? texto.slice(0, 87) + '…' : texto;
+    }
+
+    function loadStyleModel(wrapper) {
+        apiFetch('/ia/modelo-estilo').then(function (res) {
+            var data = res.data || res;
+            renderStyleModel(wrapper, (data && data.modelo) || data);
+        }).catch(function () { renderStyleModel(wrapper, null); });
+    }
+
+    function saveStyleModel(wrapper, texto, formato) {
+        texto = String(texto || '').trim();
+        if (!texto) {
+            toast('Não há texto para salvar como modelo', true);
+            return;
+        }
+        apiFetch('/ia/modelo-estilo', {
+            method: 'PUT',
+            body: { texto: texto, formato: formato || 'roteiro' }
+        }).then(function (res) {
+            var data = res.data || res;
+            renderStyleModel(wrapper, (data && data.modelo) || data);
+            toast('Modelo pessoal salvo');
+        }).catch(function (err) {
+            toast(err.message || 'Não foi possível salvar o modelo', true);
+        });
+    }
+
+    function clearStyleModel(wrapper) {
+        apiFetch('/ia/modelo-estilo', { method: 'DELETE' }).then(function () {
+            renderStyleModel(wrapper, null);
+            toast('Modelo pessoal removido');
+        }).catch(function (err) {
+            toast(err.message || 'Não foi possível remover o modelo', true);
+        });
+    }
+
+    function wireStyleModel(wrapper) {
+        var clearBtn = wrapper.querySelector('[data-ia-style-clear]');
+        if (!clearBtn) return;
+        clearBtn.addEventListener('click', function () { clearStyleModel(wrapper); });
+        loadStyleModel(wrapper);
+    }
+
+    function appendHistoryActions(target, item, form, wrapper) {
+        var actions = document.createElement('nav');
+        actions.className = 'cx-atividade-ia-history-actions';
+        actions.setAttribute('aria-label', 'Ações da geração');
+
+        function addAction(label, onClick) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = label;
+            btn.addEventListener('click', onClick);
+            actions.appendChild(btn);
+            return btn;
+        }
+
+        addAction('Editar', function () { startInlineEdit(target, item, form, wrapper); });
+        addAction('Apagar', function () { removeHistoryEntry(target, item, wrapper); });
+        addAction('Modelo', function () {
+            saveStyleModel(wrapper, item.texto, inferAssistantFormato(form));
+        });
+        addAction('Copiar', function () { copyAssistantText(item.texto); });
+        if (item.canApply) {
+            addAction('Aplicar', function () {
+                if (!applyTextSafely(form, item.texto)) return;
+                if (item.historyId) {
+                    apiFetch('/ia/historico/' + encodeURIComponent(item.historyId) + '/aplicar', {
+                        method: 'PATCH',
+                        body: {}
+                    }).catch(function () { /* migration opcional */ });
+                }
+            });
+        }
+        target.appendChild(actions);
+    }
+
+    function startInlineEdit(row, item, form, wrapper) {
+        if (row.querySelector('textarea')) return;
+        var textEl = row.querySelector('[data-ia-history-text]') ||
+            row.querySelector('.cx-atividade-result-message') ||
+            row.querySelector('.cx-atividade-ia-history-copy span');
+        var original = item.texto || (textEl && textEl.textContent) || '';
+        var editor = document.createElement('div');
+        editor.className = 'cx-atividade-ia-history-editor';
+        var area = document.createElement('textarea');
+        area.value = original;
+        area.rows = 6;
+        var save = document.createElement('button');
+        save.type = 'button';
+        save.textContent = 'Salvar';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancelar';
+        editor.append(area, save, cancel);
+        if (textEl) textEl.hidden = true;
+        row.appendChild(editor);
+        area.focus();
+
+        function closeEditor() {
+            editor.remove();
+            if (textEl) textEl.hidden = false;
+        }
+
+        cancel.addEventListener('click', closeEditor);
+        area.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeEditor();
+            }
+        });
+        save.addEventListener('click', function () {
+            var next = String(area.value || '').trim();
+            if (!next) {
+                toast('O texto não pode ficar vazio', true);
+                return;
+            }
+            var done = function () {
+                item.texto = next;
+                if (textEl) textEl.textContent = next;
+                if (row.classList.contains('cx-atividade-result')) {
+                    row.querySelectorAll(
+                        'section, .cx-atividade-result-subject, .cx-atividade-result-guidance'
+                    ).forEach(function (el) { el.remove(); });
+                    var message = row.querySelector('.cx-atividade-result-message');
+                    if (!message) {
+                        message = document.createElement('div');
+                        message.className = 'cx-atividade-result-message';
+                        var nav = row.querySelector('.cx-atividade-ia-history-actions');
+                        row.insertBefore(message, nav);
+                    }
+                    message.textContent = next;
+                }
+                closeEditor();
+                toast('Geração atualizada');
+            };
+            if (!item.historyId) {
+                done();
+                return;
+            }
+            persistHistoryText(item.historyId, next).then(done).catch(function (err) {
+                toast(err.message || 'Não foi possível salvar a edição', true);
+            });
+        });
+    }
+
+    function removeHistoryEntry(row, item, wrapper) {
+        function drop() {
+            if (row.classList.contains('cx-atividade-result')) {
+                var output = wrapper.querySelector('[data-ia-output]');
+                if (output) {
+                    output.classList.remove('is-result');
+                    output.innerHTML = '<p class="cx-atividade-ia-empty">A visualização fica aqui. O histórico só guarda gerações anteriores.</p>';
+                    delete output.dataset.historyId;
+                }
+                return;
+            }
+            row.remove();
+            var list = wrapper.querySelector('[data-ia-history]');
+            var section = wrapper.querySelector('[data-ia-history-section]');
+            if (section && list && !list.children.length) section.hidden = true;
+        }
+        if (!item.historyId) {
+            drop();
+            return;
+        }
+        deleteHistoryItem(item.historyId).then(function () {
+            drop();
+            toast('Geração apagada');
+        }).catch(function (err) {
+            toast(err.message || 'Não foi possível apagar', true);
+        });
+    }
+
     function archiveCurrentPreview(wrapper, form, output) {
         if (!output || !output.classList.contains('is-result')) return;
         var texto = previewTextFromOutput(output);
@@ -869,6 +1078,7 @@
         addIaHistory(wrapper, form, {
             label: 'Abordagem anterior',
             texto: texto,
+            historyId: output.dataset.historyId || '',
             canApply: false
         });
     }
@@ -886,30 +1096,12 @@
         var meta = document.createElement('strong');
         meta.textContent = (item.label || 'Roteiro') + (item.source ? ' — ' + item.source : '');
         var text = document.createElement('span');
+        text.setAttribute('data-ia-history-text', '');
         text.textContent = item.texto;
         copy.appendChild(meta);
         copy.appendChild(text);
-        var apply = document.createElement('button');
-        apply.type = 'button';
-        apply.className = 'cx-atividade-ia-history-apply';
-        apply.textContent = item.canApply ? 'Aplicar no registro' : 'Copiar';
-        apply.addEventListener('click', function () {
-            if (!item.canApply) {
-                navigator.clipboard.writeText(item.texto).then(function () {
-                    toast('Conteúdo copiado');
-                }).catch(function () { toast('Não foi possível copiar', true); });
-                return;
-            }
-            if (!applyTextSafely(form, item.texto)) return;
-            if (item.historyId) {
-                apiFetch('/ia/historico/' + encodeURIComponent(item.historyId) + '/aplicar', {
-                    method: 'PATCH',
-                    body: {}
-                }).catch(function () { /* migration opcional */ });
-            }
-        });
         row.appendChild(copy);
-        row.appendChild(apply);
+        appendHistoryActions(row, item, form, wrapper);
         list.insertBefore(row, list.firstChild);
     }
 
@@ -1241,6 +1433,7 @@
         // Conecta os chip-groups (Tipo, Status, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
+        wireStyleModel(wrapper);
         loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
         var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
 
@@ -1439,9 +1632,10 @@
         });
     }
 
-    function renderAssistantResult(output, data, channel) {
+    function renderAssistantResult(output, data, channel, form, wrapper) {
         output.replaceChildren();
         output.classList.add('is-visible', 'is-result');
+        output.dataset.historyId = data.history_id || '';
         var result = document.createElement('article');
         result.className = 'cx-atividade-result';
         var head = document.createElement('header');
@@ -1563,6 +1757,13 @@
             actions.appendChild(email);
         }
         result.appendChild(actions);
+        if (form && wrapper) {
+            appendHistoryActions(result, {
+                texto: stripMarkdown(data.texto || (subject ? subject + '\n\n' + message : message)),
+                historyId: data.history_id || '',
+                canApply: false
+            }, form, wrapper);
+        }
         if (
             (channel === 'whatsapp' && actions.children.length === 1)
             || (channel === 'email' && actions.children.length === 1)
@@ -1684,7 +1885,9 @@
                 renderAssistantResult(
                     output,
                     data,
-                    payload.tipo === 'reuniao' ? 'reuniao' : 'ligacao'
+                    payload.tipo === 'reuniao' ? 'reuniao' : 'ligacao',
+                    form,
+                    wrapper
                 );
             } else if (action === 'sugerir-atividade' || endpoint === 'sugerir-atividade') {
                 if (data) {
@@ -1790,7 +1993,7 @@
                     var msg = stripMarkdown(data.mensagem);
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
-                    renderAssistantResult(output, data, payload.tipo);
+                    renderAssistantResult(output, data, payload.tipo, form, wrapper);
                 } else {
                     output.textContent = 'Sem conteúdo gerado.';
                 }

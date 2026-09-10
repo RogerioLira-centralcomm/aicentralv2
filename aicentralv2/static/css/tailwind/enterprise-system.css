@@ -2355,6 +2355,37 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   color: var(--cx-text-subtle);
   font-size: 10.5px;
 }
+.cx-atividade-ia-style {
+  flex: 0 0 auto;
+  border: 1px solid var(--cx-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px 12px;
+}
+.cx-atividade-ia-style-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.cx-atividade-ia-style-line strong {
+  color: #173c3e;
+}
+.cx-atividade-ia-style-line span {
+  min-width: 0;
+  flex: 1 1 140px;
+  color: var(--cx-text-muted);
+}
+.cx-atividade-ia-style-line button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--cx-brand);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .cx-atividade-ia-history {
   flex: 0 0 auto;
   border: 1px solid var(--cx-border);
@@ -2376,9 +2407,7 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 .cx-atividade-ia-history-title { margin-bottom: 7px; }
 .cx-atividade-ia-history-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 8px 0;
   border-top: 1px solid var(--cx-border);
 }
@@ -2399,6 +2428,47 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 }
 .cx-atividade-ia-history-copy span {
   white-space: pre-wrap;
+}
+.cx-atividade-ia-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.cx-atividade-ia-history-actions button,
+.cx-atividade-result .cx-atividade-ia-history-actions button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--cx-brand);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cx-atividade-ia-history-editor {
+  display: grid;
+  gap: 6px;
+}
+.cx-atividade-ia-history-editor textarea {
+  width: 100%;
+  min-height: 96px;
+  border: 1px solid var(--cx-border);
+  border-radius: 7px;
+  padding: 8px;
+  color: var(--cx-text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+.cx-atividade-ia-history-editor button {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  margin-right: 10px;
+  background: none;
+  color: var(--cx-brand);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
 }
 .cx-atividade-ia-history-apply {
   border: 1px solid var(--cx-border);
@@ -2680,7 +2750,7 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   background: #22c55e;
   content: "";
 }
-@media (max-width: 899px) {
+@media (max-width: 1279px) {
   .erp-topbar .cx-agent-trigger {
     width: 2.25rem;
     min-width: 2.25rem;

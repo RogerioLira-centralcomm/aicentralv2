@@ -21374,6 +21374,169 @@ def marcar_interacao_ia_aplicada(interacao_id, atividade_id=None):
         return None
 
 
+CRM_AI_STYLE_MODELS_DDL = """
+CREATE TABLE IF NOT EXISTS crm_ai_style_models (
+    executivo_id INTEGER PRIMARY KEY,
+    texto TEXT NOT NULL,
+    formato VARCHAR(20) NOT NULL DEFAULT 'roteiro',
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+
+def _regclass_existe(cur, nome):
+    cur.execute("SELECT to_regclass(%s) AS tabela", (nome,))
+    row = cur.fetchone() or {}
+    return bool(row.get("tabela") if isinstance(row, dict) else row[0])
+
+
+def _ensure_crm_ai_style_models(conn, cur):
+    """Cria a tabela se o Python chegar antes da migration. Idempotente."""
+    if _regclass_existe(cur, "public.crm_ai_style_models"):
+        return True
+    try:
+        cur.execute(CRM_AI_STYLE_MODELS_DDL)
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+
+
+def atualizar_interacao_ia(interacao_id, campos, executivo_id=None):
+    """Merge no JSONB de uma geração. Sem a tabela, retorna None."""
+    import json
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crm_ai_interactions') AS tabela")
+            row = cur.fetchone() or {}
+            tabela = row.get("tabela") if isinstance(row, dict) else row[0]
+            if not tabela:
+                return None
+            cur.execute(
+                """
+                UPDATE crm_ai_interactions
+                SET conteudo = COALESCE(conteudo, '{}'::jsonb) || %s::jsonb
+                WHERE id = %s
+                  AND (%s IS NULL OR executivo_id IS NULL OR executivo_id = %s)
+                RETURNING id, conteudo
+                """,
+                (
+                    json.dumps(campos or {}, ensure_ascii=False, default=str),
+                    interacao_id,
+                    executivo_id,
+                    executivo_id,
+                ),
+            )
+            updated = cur.fetchone()
+        conn.commit()
+        return updated
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def excluir_interacao_ia(interacao_id, executivo_id=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crm_ai_interactions') AS tabela")
+            row = cur.fetchone() or {}
+            tabela = row.get("tabela") if isinstance(row, dict) else row[0]
+            if not tabela:
+                return None
+            cur.execute(
+                """
+                DELETE FROM crm_ai_interactions
+                WHERE id = %s
+                  AND (%s IS NULL OR executivo_id IS NULL OR executivo_id = %s)
+                RETURNING id
+                """,
+                (interacao_id, executivo_id, executivo_id),
+            )
+            deleted = cur.fetchone()
+        conn.commit()
+        return deleted
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def obter_modelo_estilo_ia(executivo_id):
+    if not executivo_id:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if not _ensure_crm_ai_style_models(conn, cur):
+                return None
+            cur.execute(
+                """
+                SELECT executivo_id, texto, formato, atualizado_em
+                FROM crm_ai_style_models
+                WHERE executivo_id = %s
+                """,
+                (executivo_id,),
+            )
+            return cur.fetchone()
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def upsert_modelo_estilo_ia(executivo_id, texto, formato="roteiro"):
+    if not executivo_id or not (texto or "").strip():
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if not _ensure_crm_ai_style_models(conn, cur):
+                return None
+            cur.execute(
+                """
+                INSERT INTO crm_ai_style_models (executivo_id, texto, formato, atualizado_em)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (executivo_id) DO UPDATE
+                SET texto = EXCLUDED.texto,
+                    formato = EXCLUDED.formato,
+                    atualizado_em = CURRENT_TIMESTAMP
+                RETURNING executivo_id, texto, formato, atualizado_em
+                """,
+                (executivo_id, str(texto).strip()[:4000], (formato or "roteiro")[:20]),
+            )
+            saved = cur.fetchone()
+        conn.commit()
+        return saved
+    except Exception:
+        conn.rollback()
+        return None
+
+
+def excluir_modelo_estilo_ia(executivo_id):
+    if not executivo_id:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if not _ensure_crm_ai_style_models(conn, cur):
+                return None
+            cur.execute(
+                """
+                DELETE FROM crm_ai_style_models
+                WHERE executivo_id = %s
+                RETURNING executivo_id
+                """,
+                (executivo_id,),
+            )
+            deleted = cur.fetchone()
+        conn.commit()
+        return deleted
+    except Exception:
+        conn.rollback()
+        return None
+
+
 def criar_sequencia_atividades(cliente_id, executivo_id, titulo, origem, itens):
     """Cria todos os passos em uma transação; qualquer erro faz rollback."""
     itens = list(itens or [])

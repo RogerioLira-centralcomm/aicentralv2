@@ -262,6 +262,9 @@ def _map_cliente(row: Dict[str, Any]) -> Dict[str, Any]:
         # ID do executivo (vendas_central_comm) — usado por filtros
         # opcionais no frontend (data-executivo-id no <option>).
         "executivo_id": str(row.get("vendas_central_comm")) if row.get("vendas_central_comm") else "",
+        "email": row.get("email") or "",
+        "telefone": row.get("telefone") or "",
+        "categoria_abc": row.get("categoria_abc") or "",
         "data_cadastro": _fmt_iso(row.get("data_cadastro")),
         "data_modificacao": _fmt_iso(row.get("data_modificacao")),
         "status": row.get("status") if row.get("status") is not None else True,
@@ -2151,22 +2154,74 @@ class CrmV3Repository:
         rows = _db().listar_interacoes_ia(
             cliente_id, limit=limit, atividade_id=atividade_id
         ) or []
-        return [
-            {
+        items = []
+        for r in rows:
+            content = r.get("conteudo") or {}
+            if content.get("oculto"):
+                continue
+            items.append({
                 "id": str(r.get("id")),
                 "function": r.get("funcao") or "",
                 "source": r.get("origem") or "fallback",
                 "model": r.get("modelo"),
-                "content": r.get("conteudo") or {},
+                "content": content,
                 "applied": bool(r.get("aplicado")),
                 "atividade_id": str(r.get("atividade_id")) if r.get("atividade_id") else None,
                 "created_at": self._iso_date(r.get("criado_em")) or "",
-            }
-            for r in rows
-        ]
+            })
+        return items
 
     def mark_ai_interaction_applied(self, interaction_id: str, atividade_id=None):
         return bool(_db().marcar_interacao_ia_aplicada(interaction_id, atividade_id))
+
+    def update_ai_interaction(self, interaction_id: str, data: Dict[str, Any]):
+        texto = str(data.get("texto") or data.get("mensagem") or "").strip()[:8000]
+        if not texto:
+            return None
+        campos = {"texto": texto, "mensagem": texto}
+        assunto = str(data.get("assunto") or "").strip()[:300]
+        if assunto:
+            campos["assunto"] = assunto
+        row = _db().atualizar_interacao_ia(
+            interaction_id, campos, self._current_executivo_id()
+        )
+        if not row:
+            return None
+        return {"id": str(row.get("id")), "content": row.get("conteudo") or campos}
+
+    def delete_ai_interaction(self, interaction_id: str):
+        return bool(_db().excluir_interacao_ia(
+            interaction_id, self._current_executivo_id()
+        ))
+
+    def get_style_model(self):
+        row = _db().obter_modelo_estilo_ia(self._current_executivo_id())
+        if not row:
+            return None
+        return {
+            "texto": row.get("texto") or "",
+            "formato": row.get("formato") or "roteiro",
+            "atualizado_em": self._iso_date(row.get("atualizado_em")) or "",
+        }
+
+    def upsert_style_model(self, data: Dict[str, Any]):
+        texto = str(data.get("texto") or "").strip()[:4000]
+        formato = str(data.get("formato") or "roteiro").strip().lower()[:20]
+        if formato not in ("roteiro", "email", "whatsapp", "ligacao", "reuniao"):
+            formato = "roteiro"
+        row = _db().upsert_modelo_estilo_ia(
+            self._current_executivo_id(), texto, formato
+        )
+        if not row:
+            return None
+        return {
+            "texto": row.get("texto") or texto,
+            "formato": row.get("formato") or formato,
+            "atualizado_em": self._iso_date(row.get("atualizado_em")) or "",
+        }
+
+    def delete_style_model(self):
+        return bool(_db().excluir_modelo_estilo_ia(self._current_executivo_id()))
 
     def create_activity_sequence(self, cliente_id: str, data: Dict[str, Any]):
         if not self.get_cliente(cliente_id):

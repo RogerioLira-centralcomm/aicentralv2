@@ -817,6 +817,7 @@ class CrmTestStore:
                 cotacao.setdefault("tipo_comercial_label", "Mídia")
         self.notas = copy.deepcopy(_INITIAL_NOTAS)
         self._ai_history = {}
+        self._style_model = None
         self.google_connections = {}
         self.activity_meetings = {}
 
@@ -1686,6 +1687,10 @@ class CrmTestStore:
                 item for item in items
                 if str(item.get("atividade_id") or "") == str(atividade_id)
             ]
+        items = [
+            item for item in items
+            if not (item.get("content") or {}).get("oculto")
+        ]
         return items[:limit]
 
     def mark_ai_interaction_applied(self, interaction_id, atividade_id=None):
@@ -1696,6 +1701,55 @@ class CrmTestStore:
                     item["atividade_id"] = atividade_id
                     return True
         return False
+
+    def update_ai_interaction(self, interaction_id, data):
+        texto = str(data.get("texto") or data.get("mensagem") or "").strip()[:8000]
+        if not texto:
+            return None
+        for items in getattr(self, "_ai_history", {}).values():
+            for item in items:
+                if item["id"] == interaction_id:
+                    content = item.setdefault("content", {})
+                    content["texto"] = texto
+                    content["mensagem"] = texto
+                    assunto = str(data.get("assunto") or "").strip()[:300]
+                    if assunto:
+                        content["assunto"] = assunto
+                    return {"id": item["id"], "content": content}
+        return None
+
+    def delete_ai_interaction(self, interaction_id):
+        for items in getattr(self, "_ai_history", {}).values():
+            for index, item in enumerate(items):
+                if item["id"] == interaction_id:
+                    items.pop(index)
+                    return True
+        return False
+
+    def get_style_model(self):
+        modelo = getattr(self, "_style_model", None)
+        if not modelo:
+            return None
+        return dict(modelo)
+
+    def upsert_style_model(self, data):
+        texto = str((data or {}).get("texto") or "").strip()[:4000]
+        if not texto:
+            return None
+        formato = str((data or {}).get("formato") or "roteiro").strip().lower()[:20]
+        if formato not in ("roteiro", "email", "whatsapp", "ligacao", "reuniao"):
+            formato = "roteiro"
+        self._style_model = {
+            "texto": texto,
+            "formato": formato,
+            "atualizado_em": date.today().isoformat(),
+        }
+        return dict(self._style_model)
+
+    def delete_style_model(self):
+        had = bool(getattr(self, "_style_model", None))
+        self._style_model = None
+        return had
 
     def create_activity_sequence(self, cliente_id, data):
         if not self.get_cliente(cliente_id):

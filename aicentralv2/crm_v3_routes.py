@@ -588,6 +588,51 @@ def api_apply_ai_history(interaction_id):
     return _ok(applied=True)
 
 
+@bp.route("/api/ia/historico/<interaction_id>", methods=["PATCH"])
+@login_required_api
+def api_update_ai_history(interaction_id):
+    updated = store.update_ai_interaction(
+        interaction_id, request.get_json(silent=True) or {}
+    )
+    if not updated:
+        return _err("Interação não encontrada ou texto vazio", 404)
+    return _ok(updated, historico=updated)
+
+
+@bp.route("/api/ia/historico/<interaction_id>", methods=["DELETE"])
+@login_required_api
+def api_delete_ai_history(interaction_id):
+    if not store.delete_ai_interaction(interaction_id):
+        return _err("Interação não encontrada ou migration não aplicada", 404)
+    return _ok(deleted=True)
+
+
+@bp.route("/api/ia/modelo-estilo", methods=["GET"])
+@login_required_api
+def api_get_style_model():
+    modelo = store.get_style_model()
+    return _ok(modelo or {}, modelo=modelo)
+
+
+@bp.route("/api/ia/modelo-estilo", methods=["PUT"])
+@login_required_api
+def api_put_style_model():
+    data = request.get_json(silent=True) or {}
+    if not str(data.get("texto") or "").strip():
+        return _err("Informe o texto do modelo", 400)
+    modelo = store.upsert_style_model(data)
+    if not modelo:
+        return _err("Não foi possível salvar o modelo", 503)
+    return _ok(modelo, modelo=modelo)
+
+
+@bp.route("/api/ia/modelo-estilo", methods=["DELETE"])
+@login_required_api
+def api_delete_style_model():
+    store.delete_style_model()
+    return _ok(deleted=True)
+
+
 @bp.route("/api/atividades/<atividade_id>", methods=["PATCH"])
 @login_required_api
 def api_update_atividade(atividade_id):
@@ -1234,6 +1279,21 @@ def _bloco_ancora(ancora: dict) -> str:
     return "\n".join(linhas) + "\n"
 
 
+def _bloco_modelo_estilo() -> str:
+    try:
+        modelo = store.get_style_model() or {}
+    except Exception:
+        modelo = {}
+    texto = texto_sem_markdown(modelo.get("texto") or "").strip()[:4000]
+    if not texto:
+        return ""
+    return (
+        "MODELO DE ESTILO DO EXECUTIVO (seguir estrutura, tom e extensão; "
+        "não copiar fatos nem nomes; adaptar ao registro e às pessoas desta conversa):\n"
+        f"{texto}\n"
+    )
+
+
 def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> str:
     nome = (cliente or {}).get("nome") or "o cliente"
     tipo_label = {
@@ -1348,6 +1408,7 @@ def _montar_roteiro(data: dict) -> dict:
         try:
             user = (
                 f"{_bloco_ancora(ancora)}\n"
+                f"{_bloco_modelo_estilo()}"
                 "APOIO COMERCIAL (usar só se confirmar o registro):\n"
                 f"{_contexto_ia_json(data, 'roteiro')}\n\n"
                 f"Formato: {formato or tipo or 'roteiro'}\n"
@@ -1772,6 +1833,7 @@ def api_ia_gerar_comunicacao():
             )
             user_prompt = (
                 f"{_bloco_ancora(ancora)}\n"
+                f"{_bloco_modelo_estilo()}"
                 f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
                 f"Contato: {nome_contato}\nAssinatura: {responsavel}\n"
                 f"Apoio comercial:\n{contexto}"

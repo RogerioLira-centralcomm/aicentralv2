@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{{ family }}</title>
+  <style>
+    @font-face {
+      font-family: "ComposeSans";
+      src: url("{{ font_url }}") format("truetype");
+      font-display: block;
+    }
+    html, body {
+      margin: 0;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      overflow: hidden;
+      background: {{ brand_color }};
+    }
+    .ad {
+      width: {{ width }}px;
+      height: {{ height }}px;
+      color: #fff;
+      font-family: "ComposeSans", "Open Sans", sans-serif;
+      background: {{ brand_color }};
+    }
+  </style>
+</head>
+<body>
+  {% include 'mapped_slots.html' %}
+</body>
+</html>

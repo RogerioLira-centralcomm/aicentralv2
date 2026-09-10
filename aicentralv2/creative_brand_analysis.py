@@ -489,6 +489,33 @@ def _text(value, limit):
     return value[:limit] or None
 
 
+def _fonts(raw):
+    fonts = []
+    if isinstance(raw, dict):
+        items = raw.items()
+    elif isinstance(raw, list):
+        items = enumerate(raw)
+    else:
+        return []
+    for key, item in items:
+        if isinstance(item, str):
+            family = _text(item, 80)
+            role = _text(str(key), 40) if not isinstance(key, int) else None
+        elif isinstance(item, dict):
+            family = _text(item.get("family") or item.get("name"), 80)
+            role = _text(item.get("role") or item.get("type") or str(key), 40)
+        else:
+            continue
+        if not family:
+            continue
+        if isinstance(key, int) and not role:
+            role = "display" if not fonts else "body"
+        fonts.append({"family": family, "role": role or "display"})
+        if len(fonts) >= 6:
+            break
+    return fonts
+
+
 def _string_list(value, limit=5, item_limit=300):
     if not isinstance(value, list):
         return []
@@ -905,6 +932,9 @@ class CreativeBrandAnalyzer:
             ),
             "forbidden_elements": _string_list(
                 result.get("forbidden_elements"), limit=8
+            ),
+            "fonts": _fonts(result.get("fonts")) or _fonts(
+                (evidence.get("branding") or {}).get("fonts")
             ),
             "asset_candidates": asset_candidates,
             "confidence": confidence,

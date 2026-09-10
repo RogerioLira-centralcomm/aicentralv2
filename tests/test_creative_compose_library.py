@@ -32,6 +32,22 @@ class CreativeComposeLibraryTest(unittest.TestCase):
         self.assertEqual(params["photo_side"], "left")
         self.assertEqual(params["cta_gap"], 8)
 
+    def test_clamp_mantem_regioes_extraidas(self):
+        params = clamp_params(
+            LAYOUT_SQUARE_SCHEMA,
+            {
+                "headline_font_size": 26,
+                "regions": [
+                    {"tipo": "headline", "x": -4, "y": 10, "w": 40, "h": 12},
+                    {"tipo": "", "x": 1, "y": 1, "w": 10, "h": 10},
+                    {"tipo": "cta", "x": 10, "y": 80, "w": 0, "h": 8},
+                ],
+            },
+        )
+        self.assertEqual(params["regions"], [
+            {"tipo": "headline", "x": 0.0, "y": 10.0, "w": 40.0, "h": 12.0},
+        ])
+
     def test_promocao_e_arquivo_pelos_cliques(self):
         self.assertEqual(next_variation_status(3, 0, "experimental"), "approved")
         self.assertEqual(next_variation_status(3, 2, "experimental"), "approved")
@@ -89,6 +105,14 @@ class CreativeComposeLibraryTest(unittest.TestCase):
             }
         })
         self.assertEqual(tokens["palette"][0], "#0033A0")
+        tokens = tokens_from_brand_profile({
+            "fonts": [
+                {"family": "Recoleta", "role": "display"},
+                {"family": "Inter", "role": "body"},
+            ],
+        })
+        self.assertEqual(tokens["fonts"]["display"], "Recoleta")
+        self.assertEqual(tokens["fonts"]["body"], "Inter")
 
     def test_plano_anexa_variacao_do_feed_quadrado(self):
         repository = Mock()

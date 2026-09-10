@@ -11,6 +11,7 @@ import secrets
 from .creative_brand_analysis import (
     CreativeBrandAnalyzer,
     _compact_web_evidence,
+    _fonts,
     _normalized_public_url,
     format_copy_system_lines,
 )
@@ -308,6 +309,14 @@ def hydrate_client_from_creative_line(client):
         profile["forbidden_elements"] = [str(item) for item in line["avoid"][:8]]
     if not profile.get("visual_motifs") and line.get("graphic_devices"):
         profile["visual_motifs"] = [str(item) for item in line["graphic_devices"][:8]]
+    if not profile.get("fonts"):
+        typography = (line.get("copy_system") or {}).get("typography") or {}
+        family = typography.get("family")
+        if family:
+            profile["fonts"] = [{
+                "family": str(family),
+                "role": str(typography.get("role") or "display"),
+            }]
     if not client.get("tone_of_voice"):
         patterns = [str(item) for item in (line.get("copy_patterns") or []) if item]
         if patterns:
@@ -977,6 +986,7 @@ class CreativeModelingService:
                 payload.get("forbidden_elements"), "Restrições criativas", max_items=10
             ),
             "color_palette": _brand_palette(payload.get("color_palette")),
+            "fonts": _fonts(payload.get("fonts")),
         }
         incoming_line = payload.get("creative_line")
         if isinstance(incoming_line, dict) and incoming_line:
@@ -1048,6 +1058,8 @@ class CreativeModelingService:
             merged["analysis_metadata"] = current.get("analysis_metadata")
         if not merged.get("color_palette") and current_profile.get("color_palette"):
             merged["color_palette"] = current_profile.get("color_palette")
+        if not merged.get("fonts") and current_profile.get("fonts"):
+            merged["fonts"] = current_profile.get("fonts")
         data = self._client_write_data(merged, include_crm=False)
         self.repository.update_client(client_id, data)
         self._import_candidate_brand_assets(client_id, merged)

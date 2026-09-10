@@ -63,13 +63,13 @@ def _execute(callback):
 MC_DESKS = {
     "preparar": {
         "title": "Roteiro da campanha",
-        "lead": "Escolha a carta da biblioteca e as batidas. Sem layout novo.",
+        "lead": "Passo 3: escolha o rascunho extraído e as batidas. O HTML fecha a peça.",
         "panel": "parametros/_mc_gerador.html",
         "studio": True,
     },
     "produzir": {
         "title": "Montar a peça",
-        "lead": "A IA gera só a foto. Texto e logo entram na montagem.",
+        "lead": "Passo 4: a IA gera só a foto. Headline, CTA e logo entram no HTML.",
         "panel": "parametros/_mc_variacoes.html",
         "studio": True,
     },
@@ -87,7 +87,7 @@ MC_DESKS = {
     },
     "marcas": {
         "title": "Sistema da marca",
-        "lead": "Paleta, fonte e tom. Sem oferta de campanha.",
+        "lead": "Passo 1: logo, paleta, fontes, peças e regras. Sem oferta de campanha.",
         "panel": "parametros/_mc_clientes.html",
         "studio": True,
     },
@@ -99,14 +99,14 @@ MC_DESKS = {
     },
     "extrair": {
         "title": "Extrair o template",
-        "lead": "Um criativo de referência vira o mapa. Copy fica de fora.",
+        "lead": "Passo 2: um criativo de referência vira o mapa HTML. Copy fica de fora.",
         "panel": "parametros/_mc_extrair.html",
         "studio": False,
         "page_js": "js/mc-extrair.js",
     },
     "revisao": {
         "title": "Revisar a peça",
-        "lead": "Passou ou volta. Sem reescrever copy ou foto.",
+        "lead": "Passo 5: passou ou volta. Sem reescrever copy ou foto.",
         "panel": "parametros/_mc_revisao.html",
         "studio": False,
         "page_js": "js/mc-revisao.js",

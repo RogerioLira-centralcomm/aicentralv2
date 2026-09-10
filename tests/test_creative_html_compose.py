@@ -24,8 +24,13 @@ class CreativeHtmlComposeTest(unittest.TestCase):
             self.assertTrue(can_html_compose("sequence_16x9", "model"))
             self.assertFalse(can_html_compose("sequence_16x9", "unfold"))
             self.assertTrue(can_html_compose("square_1x1", "model"))
-            self.assertFalse(can_html_compose("half_page", "model"))
+            self.assertTrue(can_html_compose("half_page", "model"))
+            self.assertTrue(can_html_compose("story_9x16", "model"))
+            self.assertTrue(can_html_compose("rectangle", "model"))
+            self.assertFalse(can_html_compose("portal_unit", "model"))
         with patch.dict(os.environ, {"CREATIVE_HTML_COMPOSE": ""}):
+            self.assertTrue(can_html_compose("sequence_16x9", "model"))
+        with patch.dict(os.environ, {"CREATIVE_HTML_COMPOSE": "0"}):
             self.assertFalse(can_html_compose("sequence_16x9", "model"))
 
     def test_template_sequence_injeta_copy_e_logo(self):
@@ -69,6 +74,52 @@ class CreativeHtmlComposeTest(unittest.TestCase):
         self.assertIn("font-size: 30px", html)
         self.assertIn("Oferta TIM", html)
         self.assertIn("Assine", html)
+
+    def test_mapa_extraido_vira_slots_absolutos(self):
+        html = render_compose_html(
+            {"family": "square_1x1", "size": (1080, 1080)},
+            {
+                "headline": "Oferta TIM",
+                "cta": "Assine",
+                "price": "R$ 29",
+                "compose_params": {
+                    "regions": [
+                        {"tipo": "foto_produto", "x": 0, "y": 0, "w": 60, "h": 100},
+                        {"tipo": "headline", "x": 62, "y": 20, "w": 36, "h": 20},
+                        {"tipo": "cta", "x": 62, "y": 70, "w": 30, "h": 12},
+                        {"tipo": "preco", "x": 62, "y": 50, "w": 20, "h": 10},
+                    ],
+                },
+            },
+            still_url="data:image/png;base64,c3RpbGw=",
+        )
+        self.assertIn('data-mapped="1"', html)
+        self.assertIn('data-tipo="foto_produto"', html)
+        self.assertIn("slot-photo", html)
+        self.assertIn("slot-headline", html)
+        self.assertIn("slot-cta", html)
+        self.assertIn("slot-price", html)
+        self.assertIn("left:62.0%;top:20.0%;width:36.0%;height:20.0%;", html)
+        self.assertIn("Oferta TIM", html)
+        self.assertIn("R$ 29", html)
+        self.assertNotIn('data-photo-side=', html)
+
+    def test_iab_e_story_usam_geometria_do_formato(self):
+        rectangle = render_compose_html(
+            {"family": "rectangle", "size": (300, 250)},
+            {"headline": "Oferta", "cta": "Ver"},
+            still_url="data:image/png;base64,c3RpbGw=",
+        )
+        self.assertIn('data-family="rectangle"', rectangle)
+        self.assertIn('data-mapped="1"', rectangle)
+        self.assertIn("slot-photo", rectangle)
+        self.assertIn("Oferta", rectangle)
+        story = render_compose_html(
+            {"family": "story_9x16", "size": (1080, 1920)},
+            {"headline": "Stories", "cta": "Abrir"},
+        )
+        self.assertIn('data-family="story_9x16"', story)
+        self.assertIn("Stories", story)
 
     def test_sem_browser_cai_no_pillow(self):
         with patch.dict(os.environ, {"CREATIVE_HTML_COMPOSE": "1"}):

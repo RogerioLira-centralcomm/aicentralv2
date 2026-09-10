@@ -3,6 +3,92 @@
   max-width: none;
 }
 
+.mc-brand-inventory {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--cx-border, #dbe1ea);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.mc-brand-inventory header {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.mc-brand-inventory header small,
+.mc-brand-inventory > p {
+  margin: 0;
+  color: var(--cx-text-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+.mc-brand-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.mc-brand-inventory-grid article {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 4.5rem;
+}
+
+.mc-brand-inventory-grid span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #64748b;
+}
+
+.mc-brand-inventory-grid img {
+  width: 3.2rem;
+  height: 3.2rem;
+  object-fit: contain;
+  background: #f8fafc;
+  border-radius: 0.45rem;
+}
+
+.mc-brand-inventory-grid em,
+.mc-brand-inventory-grid li {
+  font-size: 0.75rem;
+  font-style: normal;
+}
+
+.mc-brand-inventory-grid ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.mc-brand-inventory-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.mc-brand-inventory-swatches i {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.mc-brand-inventory-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.mc-brand-inventory-chips span {
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #115e59;
+  font-size: 0.68rem;
+}
+
 .mc-compose-variations,
 .mc-library-variations {
   display: grid;
@@ -5142,6 +5228,43 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.mc-html-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.mc-html-path a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.mc-html-path a span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  font-weight: 700;
+}
+
+.mc-html-path a.is-current {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.mc-html-path a.is-current span {
+  background: #0f766e;
+  color: #fff;
 }
 
 .mc-extract-bench,

@@ -8,12 +8,25 @@ APPROVE_PROMOTE_RATE = 0.60
 REJECT_ARCHIVE_MIN = 3
 REJECT_ARCHIVE_RATE = 0.40
 
-LIBRARY_FAMILIES = frozenset({"square_1x1", "sequence_16x9"})
+LIBRARY_FAMILIES = frozenset({
+    "square_1x1",
+    "sequence_16x9",
+    "rectangle",
+    "wide_banner",
+    "half_page",
+    "story_9x16",
+    "landscape_social",
+    "slate_16x9",
+})
 
 LAYOUT_SQUARE_SCHEMA = {
     "headline_font_size": {"min": 22, "max": 32, "step": 2},
     "photo_side": ["left", "right"],
     "cta_gap": {"min": 8, "max": 16},
+}
+LAYOUT_STUDIO_SCHEMA = {
+    "headline_font_size": {"min": 14, "max": 32, "step": 2},
+    "cta_gap": {"min": 6, "max": 16},
 }
 SCRIPT_SEQUENCE_SCHEMA = {
     "scenography": ["line", "change"],
@@ -41,6 +54,42 @@ FAMILY_SPECS = {
             "cast_count": 1,
             "copy_on_last_only": True,
         },
+    },
+    "rectangle": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 18, "cta_gap": 8},
+    },
+    "wide_banner": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 16, "cta_gap": 6},
+    },
+    "half_page": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 20, "cta_gap": 10},
+    },
+    "story_9x16": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 28, "cta_gap": 12},
+    },
+    "landscape_social": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 22, "cta_gap": 10},
+    },
+    "slate_16x9": {
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 26, "cta_gap": 12},
     },
 }
 
@@ -76,6 +125,90 @@ SEED_VARIATIONS = {
             "cast_count": 1,
             "copy_on_last_only": True,
         },
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-rectangle": {
+        "id": "seed-rectangle",
+        "template_slug": "iab-rectangle-v1",
+        "name": "Mapa 300×250",
+        "family": "rectangle",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 18, "cta_gap": 8},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-wide-banner": {
+        "id": "seed-wide-banner",
+        "template_slug": "iab-banner-v1",
+        "name": "Mapa faixa",
+        "family": "wide_banner",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 16, "cta_gap": 6},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-half-page": {
+        "id": "seed-half-page",
+        "template_slug": "iab-half-page-v1",
+        "name": "Mapa 300×600",
+        "family": "half_page",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 20, "cta_gap": 10},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-story": {
+        "id": "seed-story",
+        "template_slug": "story-v1",
+        "name": "Mapa 9:16",
+        "family": "story_9x16",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 28, "cta_gap": 12},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-landscape": {
+        "id": "seed-landscape",
+        "template_slug": "landscape-v1",
+        "name": "Mapa paisagem",
+        "family": "landscape_social",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 22, "cta_gap": 10},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-slate": {
+        "id": "seed-slate",
+        "template_slug": "slate-v1",
+        "name": "Mapa slate",
+        "family": "slate_16x9",
+        "kind": "layout",
+        "html_key": "studio.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {"headline_font_size": 26, "cta_gap": 12},
         "status": "experimental",
         "approve_count": 0,
         "reject_count": 0,
@@ -268,9 +401,30 @@ def tokens_from_brand_profile(profile):
             colors.append(str(item["hex"]))
         elif isinstance(item, str) and item.strip():
             colors.append(item.strip())
+    fonts_raw = profile.get("fonts") or []
+    if not isinstance(fonts_raw, list):
+        fonts_raw = []
+    display = None
+    body = None
+    for item in fonts_raw:
+        if not isinstance(item, dict):
+            continue
+        family = str(item.get("family") or "").strip()
+        role = str(item.get("role") or "").strip().lower()
+        if not family:
+            continue
+        if role in {"display", "heading", "headline", "title"} and not display:
+            display = family
+        elif not body:
+            body = family
+        elif not display:
+            display = family
+    if not display and fonts_raw:
+        first = fonts_raw[0]
+        display = first.get("family") if isinstance(first, dict) else None
     return {
         "palette": colors or ["#1E4D4F"],
-        "fonts": {"display": None, "body": None},
+        "fonts": {"display": display, "body": body or display},
         "spacing": {"unit": 8, "cta_gap_max": 16},
     }
 

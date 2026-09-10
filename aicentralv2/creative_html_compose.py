@@ -11,11 +11,28 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .creative_compose_library import clamp_params, sanitize_compose_regions, schema_for_family
 from .creative_format_compose import APP_FONT, compose_native_result
+from .creative_format_geometry import compose_layout
 
-HTML_COMPOSE_FAMILIES = frozenset({"sequence_16x9", "square_1x1"})
+HTML_COMPOSE_FAMILIES = frozenset({
+    "sequence_16x9",
+    "square_1x1",
+    "rectangle",
+    "wide_banner",
+    "half_page",
+    "story_9x16",
+    "landscape_social",
+    "slate_16x9",
+})
 HTML_COMPOSE_TEMPLATES = {
     "sequence_16x9": "sequence_16x9.html",
     "square_1x1": "square_1x1.html",
+}
+LAYOUT_SLOT_ROLES = {
+    "visual": "photo",
+    "headline": "headline",
+    "cta": "cta",
+    "logo": "logo",
+    "legal": "legal",
 }
 HTML_COMPOSE_FLAG = "CREATIVE_HTML_COMPOSE"
 HTML_FONT_NAME = "OpenSans-Regular.ttf"
@@ -45,6 +62,35 @@ def html_compose_enabled():
     if raw is None or str(raw).strip() == "":
         return True
     return str(raw).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def layout_slots(family, size):
+    """Usa a geometria do formato quando o extrator ainda não gravou o mapa."""
+    width, height = int(size[0]), int(size[1])
+    if width <= 0 or height <= 0:
+        return []
+    slots = []
+    for tipo, box in compose_layout(family, (width, height)).items():
+        role = LAYOUT_SLOT_ROLES.get(tipo)
+        if not role or not box or len(box) != 4:
+            continue
+        x, y, w, h = box
+        px = max(0.0, min(100.0, 100.0 * x / width))
+        py = max(0.0, min(100.0, 100.0 * y / height))
+        pw = max(0.0, min(100.0, 100.0 * w / width))
+        ph = max(0.0, min(100.0, 100.0 * h / height))
+        if pw <= 0 or ph <= 0:
+            continue
+        slots.append({
+            "tipo": tipo,
+            "role": role,
+            "x": px,
+            "y": py,
+            "w": pw,
+            "h": ph,
+            "style": f"left:{px}%;top:{py}%;width:{pw}%;height:{ph}%;",
+        })
+    return slots
 
 
 def region_slots(params=None):
@@ -98,10 +144,18 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
     size = geometry.get("size") or (1920, 1080)
     width, height = int(size[0]), int(size[1])
     cta = "" if copy.get("omit_cta") else str(copy.get("cta") or "").strip()
-    template = HTML_COMPOSE_TEMPLATES.get(family) or "sequence_16x9.html"
+    template = HTML_COMPOSE_TEMPLATES.get(family) or "studio.html"
     params = clamp_params(schema_for_family(family), copy.get("compose_params"))
+    if not params.get("regions"):
+        extra = sanitize_compose_regions(copy.get("regions"))
+        if extra:
+            params = dict(params)
+            params["regions"] = extra
     mapped = region_slots(params)
+    if not mapped and family not in HTML_COMPOSE_TEMPLATES:
+        mapped = layout_slots(family, (width, height))
     return _env.get_template(template).render(
+        family=family,
         width=width,
         height=height,
         brand_color=copy.get("brand_color") or "#1E4D4F",
@@ -151,7 +205,7 @@ def compose_html_result(source_bytes, geometry, copy=None, logo_bytes=None):
     family = geometry.get("family")
     size = geometry.get("size")
     if family not in HTML_COMPOSE_FAMILIES or not size:
-        raise ValueError("HTML compose só cobre filme 16:9 e feed quadrado do Estúdio.")
+        raise ValueError("HTML compose só cobre as famílias nativas do Estúdio.")
     html = render_compose_html(
         geometry,
         copy,

@@ -928,6 +928,9 @@ class CreativeServiceTest(unittest.TestCase):
                     "must_preserve": ["Azul profundo e números grandes."],
                     "avoid": ["Paletas quentes."],
                     "graphic_devices": ["Gradientes azuis."],
+                    "copy_system": {
+                        "typography": {"family": "TIM Sans", "role": "display"},
+                    },
                     "color_palette": [
                         {"hex": "#082C9C", "name": "azul TIM"},
                         {"hex": "#FFFFFF", "name": "branco"},
@@ -944,6 +947,7 @@ class CreativeServiceTest(unittest.TestCase):
             "Banners azuis com oferta à esquerda.",
         )
         self.assertEqual(client["brand_profile"]["color_palette"][0]["hex"], "#082C9C")
+        self.assertEqual(client["brand_profile"]["fonts"][0]["family"], "TIM Sans")
 
         identity = client_identity_payload({
             "client_name": "TIM CELULAR S.A.",
@@ -1451,6 +1455,7 @@ class CreativeServiceTest(unittest.TestCase):
                     "usage": "Assinatura",
                     "confidence": 0.91,
                 }],
+                "fonts": [{"family": "Recoleta", "role": "display"}],
                 "analysis_metadata": {"model": "perplexity/sonar-pro"},
             }
         )
@@ -1465,6 +1470,7 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(
             saved["brand_profile"]["color_palette"][0]["hex"], "#7A1632"
         )
+        self.assertEqual(saved["brand_profile"]["fonts"][0]["family"], "Recoleta")
         self.service.update_client(
             10,
             {
@@ -2925,11 +2931,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("mc-hub-steps", page)
-        self.assertIn("modelagem_criativos.css') }}?v=46", page)
+        self.assertIn("Passo a passo do modelo HTML", page)
+        self.assertIn("Desdobrar fica para depois", page)
+        self.assertIn("modelagem_criativos.css') }}?v=50", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-header", shell)
+        self.assertIn("mc-html-path", shell)
         self.assertNotIn("cx-tabs", shell)
         self.assertNotIn("mc-desk-rail", shell)
         self.assertNotIn("mc-masthead", shell)
@@ -2956,7 +2965,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcPreparePathBar"', generator)
         self.assertIn('name="prepare_engine" value="construct" checked', generator)
         self.assertIn('name="prepare_pack" value="4" checked', generator)
-        self.assertIn("A bancada abre com as batidas que você marcar", generator)
+        self.assertIn("Use o rascunho extraído", generator)
         self.assertNotIn("Variação A", generator)
         self.assertNotIn("Limite de IA", generator)
         self.assertNotIn("Limite inicial", generator)
@@ -3025,6 +3034,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcBrandSelectionTray"', clients)
         self.assertIn('id="mcBrandPalette"', clients)
         self.assertIn('id="mcCreativeLine"', clients)
+        self.assertIn('id="mcBrandInventory"', clients)
         self.assertIn('id="mcCreativeLineDropzone"', clients)
         self.assertIn('id="mcCreativeLineResult"', clients)
         self.assertIn('class="mc-visually-hidden"', clients)
@@ -3377,7 +3387,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Como a peça fecha", gerador)
         self.assertIn("Batidas", gerador)
         self.assertIn('name="prepare_pack" value="4" checked', gerador)
-        self.assertIn("A bancada abre com as batidas que você marcar", gerador)
+        self.assertIn("Use o rascunho extraído", gerador)
         self.assertIn("function renderProduction", frontend)
         self.assertIn("function renderContinuitySpine", frontend)
         self.assertIn("Gerar roteiro desta cena", frontend)
@@ -3438,13 +3448,26 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function createUnfolding", frontend)
         self.assertIn("function liveStudioFrame", frontend)
         self.assertIn("function renderContextDesign", frontend)
+        self.assertIn("function isLibraryFormat", frontend)
+        self.assertIn("'rectangle', 'wide_banner'", frontend)
+        self.assertIn("function renderBrandInventory", frontend)
         self.assertIn("function renderComposeVariations", frontend)
+        self.assertIn("Rascunho HTML", frontend)
+        self.assertIn("regiões", frontend)
         self.assertIn("function deskPath", frontend)
         self.assertIn("/parametros/modelagem-criativos/", frontend)
         extract_js = (
             root / "aicentralv2" / "static" / "js" / "mc-extrair.js"
         ).read_text(encoding="utf-8")
         self.assertIn("/api/agents/extractor", extract_js)
+        self.assertIn("mcExtractOverlay", extract_js)
+        self.assertIn("mcExtractOpenPrepare", extract_js)
+        extract_html = (
+            root / "aicentralv2" / "templates" / "parametros" / "_mc_extrair.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("mc-extract-steps", extract_html)
+        self.assertIn("2. Ler regiões", extract_html)
+        self.assertIn("3. Abrir no Preparar", extract_html)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

@@ -431,7 +431,32 @@
         <div><strong>Tom de voz</strong><p>${escapeHtml(tone || 'Não informado')}</p></div>
         ${summary ? `<div><strong>Assinatura visual</strong><p>${escapeHtml(summary)}</p></div>` : ''}
         ${client.brand_profile?.target_audience ? `<div><strong>Público prioritário</strong><p>${escapeHtml(client.brand_profile.target_audience)}</p></div>` : ''}
+        ${brandInventoryChips(client)}
       </div>`;
+  }
+
+  function brandFonts(source) {
+    const profile = source?.brand_profile || source || {};
+    const fonts = Array.isArray(profile.fonts) ? profile.fonts : [];
+    const lineFont = brandLine(source).copy_system?.typography?.family;
+    if (fonts.length) return fonts;
+    return lineFont ? [{ family: lineFont, role: 'display' }] : [];
+  }
+
+  function brandInventoryChips(client) {
+    const assets = client?.brand_assets || [];
+    const fonts = brandFonts(client);
+    const chips = [
+      brandLine(client).signature_summary && 'Linha criativa',
+      fonts[0]?.family && `Fonte ${fonts[0].family}`,
+      assets.filter((item) => item.role === 'logo').length && 'Logo',
+      assets.filter((item) => item.role === 'reference').length
+        && `${assets.filter((item) => item.role === 'reference').length} refs`,
+      assets.filter((item) => item.role === 'creative').length
+        && `${assets.filter((item) => item.role === 'creative').length} peças`,
+    ].filter(Boolean);
+    if (!chips.length) return '';
+    return `<div class="mc-brand-inventory-chips">${chips.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>`;
   }
 
   function generatorSelectedFormat() {
@@ -626,7 +651,10 @@
   }
 
   function isLibraryFormat(format) {
-    return isSequenceFormat(format) || format?.iab_family === 'square_1x1';
+    return [
+      'sequence_16x9', 'square_1x1', 'rectangle', 'wide_banner',
+      'half_page', 'story_9x16', 'landscape_social', 'slate_16x9',
+    ].includes(format?.iab_family) || isSequenceFormat(format);
   }
 
   function variationsForFormat(format) {
@@ -676,8 +704,8 @@
     root.classList.remove('hidden');
     root.innerHTML = `
       <header>
-        <strong>Variação da biblioteca</strong>
-        <small>A IA só ajusta dentro do que o template já permite</small>
+        <strong>Rascunho HTML</strong>
+        <small>O mapa extraído posiciona foto, logo e textos no HTML</small>
       </header>
       <div class="mc-compose-variation-grid">
         ${items.map((item) => `
@@ -685,7 +713,7 @@
                   type="button" data-compose-variation="${escapeHtml(String(item.id))}">
             <span class="mc-compose-card-status is-${escapeHtml(item.status || 'experimental')}">${escapeHtml(variationStatusLabel(item.status))}</span>
             <strong>${escapeHtml(item.name || 'Variação')}</strong>
-            <small>${escapeHtml(item.kind === 'script' ? 'Roteiro' : 'Layout')}</small>
+            <small>${escapeHtml(item.kind === 'script' ? 'Roteiro' : 'Layout')}${Array.isArray(item.params?.regions) && item.params.regions.length ? ` · ${item.params.regions.length} regiões` : ''}</small>
           </button>
         `).join('')}
       </div>`;
@@ -2712,6 +2740,7 @@
       summary.innerHTML = '';
     }
     renderBrandPalette([]);
+    renderBrandInventory(null);
     const status = $('#mcClientFormStatus');
     if (status) status.textContent = '';
   }
@@ -2751,6 +2780,7 @@
       form.elements.show_price.checked = client.price_policy === 'show_price';
     }
     renderBrandPalette(brandPalette(client));
+    renderBrandInventory(client);
   }
 
   function selectBrand(id, { keepDraft = false } = {}) {
@@ -2826,7 +2856,72 @@
           <span style="--brand-color:${escapeHtml(color.hex)}"></span>
           <strong>${escapeHtml(color.name || color.hex)}</strong>
           <small>${escapeHtml(color.hex)} · ${Math.round(Number(color.confidence || 0) * 100)}%</small>
-        </button>`).join('')}</div>` : '';
+        </button>        `).join('')}</div>` : '';
+  }
+
+  function renderBrandInventory(source) {
+    const root = $('#mcBrandInventory');
+    if (!root) return;
+    const client = source?.id ? source : creativeLineClient();
+    const profile = client?.brand_profile || source || {};
+    const analysis = source?.asset_candidates ? source : state.brandAnalysis;
+    let palette = brandPalette(client || { brand_profile: profile });
+    if (!palette.length) {
+      palette = analysis?.color_palette || profile.color_palette || [];
+    }
+    const fonts = brandFonts(client || { brand_profile: { fonts: analysis?.fonts || profile.fonts } });
+    const assets = client?.brand_assets || [];
+    const candidates = Array.isArray(analysis?.asset_candidates)
+      ? analysis.asset_candidates
+      : state.brandAssetCandidates;
+    const logo = client?.logo_upload_path || client?.logo_url || analysis?.logo_url || '';
+    const groups = [
+      ['Logo', candidates.filter((item) => item.kind === 'logo').length || (logo ? 1 : 0)],
+      ['Produto', candidates.filter((item) => item.category === 'Produto').length],
+      ['Campanha', candidates.filter((item) => item.category === 'Campanha').length],
+      ['Ambiente', candidates.filter((item) => item.category === 'Ambiente').length],
+      ['Refs salvas', assets.filter((item) => item.role === 'reference').length],
+      ['Peças reais', assets.filter((item) => item.role === 'creative').length],
+    ].filter(([, count]) => count);
+    const line = brandLine(client || { brand_profile: profile });
+    const rules = [
+      ...(profile.visual_motifs || analysis?.visual_motifs || []),
+      ...(profile.mandatory_elements || analysis?.mandatory_elements || []),
+    ].slice(0, 6);
+    if (!logo && !palette.length && !fonts.length && !groups.length && !line.signature_summary) {
+      root.innerHTML = '<p>Selecione uma marca ou analise o site para ver logo, paleta, fontes, peças e regras.</p>';
+      return;
+    }
+    root.innerHTML = `
+      <header>
+        <strong>Assets identificados</strong>
+        <small>O que a leitura e a auditoria já separaram para a produção.</small>
+      </header>
+      <div class="mc-brand-inventory-grid">
+        <article>
+          <span>Logo</span>
+          ${logo ? `<img src="${escapeHtml(logo)}" alt="">` : '<em>Ainda sem arquivo</em>'}
+        </article>
+        <article>
+          <span>Paleta</span>
+          <div class="mc-brand-inventory-swatches">
+            ${palette.slice(0, 6).map((color) => {
+              const hex = color?.hex || color;
+              return `<i style="background:${escapeHtml(hex)}" title="${escapeHtml(hex)}"></i>`;
+            }).join('') || '<em>Sem cores</em>'}
+          </div>
+        </article>
+        <article>
+          <span>Fontes</span>
+          ${fonts.length ? `<ul>${fonts.map((item) => `<li>${escapeHtml(item.family)}${item.role ? ` · ${escapeHtml(item.role)}` : ''}</li>`).join('')}</ul>` : '<em>Site ainda sem fonte nomeada</em>'}
+        </article>
+        <article>
+          <span>Peças</span>
+          ${groups.length ? `<ul>${groups.map(([label, count]) => `<li>${escapeHtml(label)} · ${count}</li>`).join('')}</ul>` : '<em>Nenhuma peça ainda</em>'}
+        </article>
+      </div>
+      ${line.signature_summary || rules.length ? `<p>${escapeHtml(line.signature_summary || rules.join(' · '))}</p>` : ''}
+    `;
   }
 
   function renderCreativeLineClientOptions() {
@@ -2921,6 +3016,7 @@
       </article>`).join('') : '<p>Nenhum criativo real salvo para esta marca.</p>';
     analyze.disabled = !(assets.length || state.creativeLineFiles.length);
     renderCreativeLineResult(client.brand_profile?.creative_line);
+    renderBrandInventory(client);
   }
 
   function addCreativeLineFiles(files) {
@@ -3107,6 +3203,7 @@
         ].forEach((name) => setFormValue(form, `${name}_text`, (data[name] || []).join('\n')));
         renderBrandAnalysisSummary(data);
         renderBrandPalette(data.color_palette);
+        renderBrandInventory(data);
         renderBrandCandidates();
         $('#mcClientFormStatus').textContent = '';
         toast('Leitura da marca concluída. Revise as sugestões.', 'success');
@@ -3146,6 +3243,7 @@
         mandatory_elements: lines(formData.get('mandatory_elements_text')),
         forbidden_elements: lines(formData.get('forbidden_elements_text')),
         color_palette: state.brandAnalysis?.color_palette || current?.brand_profile?.color_palette || [],
+        fonts: state.brandAnalysis?.fonts || current?.brand_profile?.fonts || [],
         brand_assets: selectedBrandCandidates().map((asset) => ({
           source_url: brandAssetKey(asset),
           page_url: asset.page_url,

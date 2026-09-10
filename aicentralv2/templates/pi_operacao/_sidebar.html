@@ -154,30 +154,35 @@
       </button>
     </header>
     <div class="pi-email-modal__body">
-      <section class="pi-email-compose" aria-label="Conteúdo e destinatários">
+      <section class="pi-email-compose" aria-label="Carta e destinatários">
+        <label for="pi-email-sender">
+          <strong>Quem assina</strong>
+          <small>A resposta do cliente chega nesta pessoa</small>
+        </label>
+        <select id="pi-email-sender"></select>
         <label for="pi-email-subject"><strong>Assunto</strong></label>
         <input id="pi-email-subject" maxlength="180" autocomplete="off">
         <label for="pi-email-message">
-          <strong>Mensagem complementar</strong>
-          <small>Inclua apenas o contexto que não está no modelo.</small>
+          <strong>O que você quer acrescentar</strong>
+          <small>Entra no corpo da carta, no seu tom</small>
         </label>
-        <textarea id="pi-email-message" rows="5" maxlength="5000" placeholder="Inclua contexto adicional, se necessário."></textarea>
+        <textarea id="pi-email-message" rows="5" maxlength="5000" placeholder="Um parágrafo a mais, se fizer falta."></textarea>
         <div id="pi-email-audience" class="pi-op-email-audience">
-          <strong>Destinatários</strong>
+          <strong>Para quem vai</strong>
           <div class="pi-op-state">Carregando contatos…</div>
         </div>
       </section>
       <section class="pi-email-preview-pane" aria-label="Pré-visualização do e-mail">
         <div class="pi-email-preview-pane__head">
-          <strong>Pré-visualização</strong>
-          <span>Conteúdo que será enviado</span>
+          <strong>Como o cliente lê</strong>
+          <span>A prévia atualiza sozinha</span>
         </div>
         <div class="pi-email-preview-content">
-          <div id="pi-email-preview-state" class="pi-op-state pi-op-state--loading">
-            <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…
-          </div>
           <iframe id="pi-email-frame" class="pi-op-email-frame" sandbox="" title="Pré-visualização do e-mail" hidden></iframe>
           <div id="pi-email-text-preview" class="pi-op-email-preview" hidden></div>
+          <div id="pi-email-preview-state" class="pi-email-preview-veil" hidden>
+            <span><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia</span>
+          </div>
         </div>
       </section>
     </div>
@@ -187,6 +192,7 @@
         <button type="button" class="pi-op-btn pi-op-btn--secondary" data-email-close>Voltar</button>
         <button type="button" id="pi-email-refresh" class="pi-op-btn pi-op-btn--secondary">Atualizar prévia</button>
         {% if not somente_leitura %}
+        <button type="button" id="pi-email-test" class="pi-op-btn pi-op-btn--secondary">Enviar teste para você</button>
         <button type="button" id="pi-email-send" class="pi-op-btn pi-op-btn--primary">Enviar e-mail</button>
         {% endif %}
       </div>

@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Campanha otimizada — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Atualização de otimização das campanhas do PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Campanha otimizada{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Realizamos otimizações nas campanhas do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">As alterações foram aplicadas com base no acompanhamento operacional e no desempenho observado.</p>{% endblock %}
+{% block title %}Ajustamos a campanha — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Fiz um ajuste na campanha com base no que estamos vendo no ar.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Fiz um ajuste na campanha do <strong>{{ cliente }}</strong>, com base no que estamos vendo no ar.</p>
+<p style="margin:0 0 18px;">Nada disso muda o combinado: só afinei o que estava pedindo atenção para manter a entrega no ritmo. Se quiser o detalhe do que mexi, responda este e-mail.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>{% if titulo_pi %} · {{ titulo_pi }}{% endif %}.</p>
+{% endblock %}

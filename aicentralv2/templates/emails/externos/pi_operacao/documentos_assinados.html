@@ -1,0 +1,8 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Documentos assinados — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Seguem os documentos assinados deste PI.{% endblock %}
+{% block heading %}Documentos assinados{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Seguem os documentos do PI <strong>{{ codigo_pi }}</strong> já assinados. Os PDFs estão em anexo.</p>
+<p style="margin:0;">Guarde as vias. Se precisar de uma cópia extra, me avisa nesta conversa.</p>
+{% endblock %}

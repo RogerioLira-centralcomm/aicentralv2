@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Campanha finalizada — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}As campanhas do PI {{ codigo_pi }} foram finalizadas.{% endblock %}
-{% block heading %}Campanha finalizada{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">As campanhas do cliente <strong>{{ cliente }}</strong> foram finalizadas.</p><p style="margin:0;">A veiculação referente a este PI foi encerrada conforme o período operacional informado.</p>{% endblock %}
+{% block title %}Encerramos a campanha — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}A veiculação desta campanha foi encerrada.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Encerramos a campanha do <strong>{{ cliente }}</strong>. A veiculação deste PI chegou ao fim do período combinado.</p>
+<p style="margin:0 0 18px;">Se precisar dos números ou de uma leitura do que rodou, me escreve. Os dashboards e a pasta, quando existirem, estão abaixo.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>{% if titulo_pi %} · {{ titulo_pi }}{% endif %}.</p>
+{% endblock %}

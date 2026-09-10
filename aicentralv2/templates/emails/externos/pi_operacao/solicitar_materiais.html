@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Solicitação de materiais — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Precisamos dos materiais para prosseguir com o PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Solicitação de materiais{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Para avançarmos com a preparação das campanhas do cliente <strong>{{ cliente }}</strong>, solicitamos o envio dos materiais necessários.</p><p style="margin:0;">Envie os arquivos e orientações disponíveis para que a operação possa dar continuidade ao PI.</p>{% endblock %}
+{% block title %}Falta material para começar — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Preciso do material para colocar a campanha no ar.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Para colocar a campanha do <strong>{{ cliente }}</strong> no ar, ainda preciso do material.</p>
+<p style="margin:0 0 18px;">Pode ser o criativo, as peças finais ou a orientação de como usar o que já existe. Assim que chegar, eu sigo com a configuração.</p>
+<p style="margin:0;">Se preferir, deixe os arquivos na pasta do Drive — ou responda este e-mail com o que tiver.</p>
+{% endblock %}

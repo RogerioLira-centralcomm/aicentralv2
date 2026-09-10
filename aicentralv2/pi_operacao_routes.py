@@ -48,6 +48,14 @@ def _erro(error, status):
     return jsonify({"success": False, "error": str(error)}), status
 
 
+def _autor():
+    return {
+        "id": session.get("user_id"),
+        "nome": session.get("user_name") or "",
+        "email": session.get("user_email") or "",
+    }
+
+
 def _json(opcional=False):
     payload = request.get_json(silent=True)
     if payload is None and opcional:
@@ -154,15 +162,30 @@ def criar_interacao(id_pi):
 @bp.post("/<int:id_pi>/operacao/email/preview")
 @operacao_required_api
 def preview_email(id_pi):
-    return _executar(lambda: _ok(_service().preview_email(id_pi, _json())))
+    return _executar(
+        lambda: _ok(_service().preview_email(id_pi, _json(), _autor()))
+    )
 
 
 @bp.post("/<int:id_pi>/operacao/email/enviar")
 @operacao_required_api
 def enviar_email(id_pi):
     def executar():
+        payload = _json()
+        if payload.get("teste"):
+            resultado = _service().enviar_email_teste(id_pi, payload, _autor())
+            if not resultado["success"]:
+                envio = resultado.get("envio") or {}
+                return _erro(
+                    {
+                        "message": envio.get("user_message")
+                        or "Não foi possível enviar o e-mail de teste.",
+                    },
+                    502,
+                )
+            return _ok(resultado)
         resultado = _service().enviar_email(
-            id_pi, _json(), session["user_id"]
+            id_pi, payload, session["user_id"], _autor()
         )
         if not resultado["success"]:
             return _erro(

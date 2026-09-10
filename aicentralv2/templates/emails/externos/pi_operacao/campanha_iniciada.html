@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Campanha iniciada — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}As campanhas do PI {{ codigo_pi }} foram iniciadas.{% endblock %}
-{% block heading %}Campanha iniciada{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">As campanhas do cliente <strong>{{ cliente }}</strong> foram iniciadas.</p><p style="margin:0;">A equipe acompanhará a veiculação e realizará os ajustes operacionais necessários ao longo do período.</p>{% endblock %}
+{% block title %}Sua campanha já está no ar — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Coloquei a campanha no ar e vou acompanhar a veiculação.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Passei aqui para avisar que a campanha do <strong>{{ cliente }}</strong> já está no ar.</p>
+<p style="margin:0 0 18px;">Vou acompanhar a veiculação ao longo do período e faço os ajustes finos se o ritmo pedir. Se algo mudar do lado de vocês — peça, criativo ou data — me escreve nesta conversa.</p>
+{% if titulo_pi %}<p style="margin:0;">Referência: <strong>{{ titulo_pi }}</strong> · PI {{ codigo_pi }}.</p>{% else %}<p style="margin:0;">Referência: PI <strong>{{ codigo_pi }}</strong>.</p>{% endif %}
+{% endblock %}

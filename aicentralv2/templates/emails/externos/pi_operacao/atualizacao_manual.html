@@ -1,5 +1,7 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Atualização operacional — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Há uma nova atualização sobre o PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Atualização operacional{% endblock %}
-{% block message %}<p style="margin:0;">Compartilhamos uma nova atualização sobre o PI do cliente <strong>{{ cliente }}</strong>.</p>{% endblock %}
+{% block title %}Atualização da campanha — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Uma atualização rápida sobre a campanha.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Uma atualização rápida sobre a campanha do <strong>{{ cliente }}</strong>.</p>
+<p style="margin:0;">O detalhe está abaixo. Se algo não bater com o que vocês esperavam, me responde neste e-mail que eu ajusto.</p>
+{% endblock %}

@@ -28,6 +28,9 @@
   var emailDialogOpener = null;
   var currentEmailType = '';
   var currentEmailCampaignId = null;
+  var emailPreviewReady = false;
+  var userEmail = String(root.dataset.userEmail || '').trim();
+  var userName = String(root.dataset.userName || '').trim();
   var mobileMedia = window.matchMedia('(max-width: 900px)');
   var mobileTabs = Array.prototype.slice.call(root.querySelectorAll('[data-mobile-tab]'));
   var mobileViews = ['summary', 'edit', 'operation'];
@@ -736,8 +739,12 @@
 
   function legacyCampaignAction(action) {
     if (!selectedCampaign) return;
-    if (action === 'edit' && typeof window.abrirModalEditarCampanha === 'function') {
-      window.abrirModalEditarCampanha(selectedCampaign);
+    if (action === 'edit') {
+      if (typeof window.abrirModalEditarCampanha === 'function') {
+        window.abrirModalEditarCampanha(selectedCampaign);
+        return;
+      }
+      notify('Não foi possível abrir o editor desta campanha.', 'error');
       return;
     }
     if (action === 'follow' && mobileMedia.matches) {
@@ -770,15 +777,58 @@
     }
   }
 
-  function emailDraft(type, campaignId) {
+  function emailDraft(type, campaignId, extra) {
     var subject = document.getElementById('pi-email-subject');
     var message = document.getElementById('pi-email-message');
-    return {
+    var sender = document.getElementById('pi-email-sender');
+    var draft = {
       tipo: type,
       id_campanha: campaignId || null,
       assunto: subject ? subject.value.trim() : '',
       mensagem: message ? message.value.trim() : ''
     };
+    if (sender && sender.value) draft.remetente_id = Number(sender.value);
+    return Object.assign(draft, extra || {});
+  }
+
+  function senderLabel(item) {
+    var name = item.nome || item.email || 'Pessoa da operação';
+    var origin = item.origem === 'voce' ? 'Você'
+      : item.origem === 'comercial' ? 'Comercial'
+      : 'Operação';
+    return origin + ' · ' + name;
+  }
+
+  function fillSenders(remetentes, selected) {
+    var sender = document.getElementById('pi-email-sender');
+    if (!sender) return;
+    var items = list(remetentes);
+    var selectedId = selected && selected.id != null ? String(selected.id) : '';
+    if (!items.length && userName) {
+      items = [{ id: root.dataset.userId, nome: userName, email: userEmail, origem: 'voce' }];
+    }
+    sender.innerHTML = items.map(function (item) {
+      var id = item.id != null ? String(item.id) : '';
+      return '<option value="' + esc(id) + '"' +
+        (id && id === selectedId ? ' selected' : '') + '>' +
+        esc(senderLabel(item)) + '</option>';
+    }).join('');
+  }
+
+  function showPreviewVeil(mode, text) {
+    var previewState = document.getElementById('pi-email-preview-state');
+    if (!previewState) return;
+    previewState.hidden = false;
+    previewState.className = mode === 'error' ? 'pi-email-preview-veil is-error' : 'pi-email-preview-veil';
+    previewState.innerHTML = mode === 'error'
+      ? esc(text || 'Não foi possível gerar a prévia.')
+      : '<span><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>' +
+        esc(text || 'Gerando prévia') + '</span>';
+  }
+
+  function hidePreviewVeil() {
+    var previewState = document.getElementById('pi-email-preview-state');
+    if (previewState) previewState.hidden = true;
   }
 
   function recipientLabel(item) {
@@ -811,7 +861,6 @@
     if (!emailDialog.open) emailDialogOpener = document.activeElement;
     var context = document.getElementById('pi-email-context');
     var title = document.getElementById('pi-email-title');
-    var previewState = document.getElementById('pi-email-preview-state');
     var frame = document.getElementById('pi-email-frame');
     var textPreview = document.getElementById('pi-email-text-preview');
     var status = document.getElementById('pi-email-status');
@@ -824,19 +873,12 @@
       : communicationLabel;
     if (title) title.textContent = 'Preparar e-mail';
     if (status) status.textContent = '';
-    if (previewState) {
-      previewState.className = 'pi-op-state pi-op-state--loading';
-      previewState.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Gerando prévia…';
-      previewState.hidden = false;
-    }
-    if (frame) {
-      frame.hidden = true;
-      frame.removeAttribute('srcdoc');
-    }
+    emailPreviewReady = false;
+    showPreviewVeil('loading');
     if (textPreview) textPreview.hidden = true;
     if (!emailDialog.open) emailDialog.showModal();
     try {
-      var payload = Object.assign({ tipo: type, id_campanha: campaignId || null }, draft || {});
+      var payload = Object.assign({ tipo: type, id_campanha: campaignId || null }, draft || emailDraft(type, campaignId));
       var data = await request(base + '/email/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -847,30 +889,32 @@
       var subject = document.getElementById('pi-email-subject');
       var message = document.getElementById('pi-email-message');
       var audience = document.getElementById('pi-email-audience');
-      if (subject) subject.value = data.assunto || payload.assunto || '';
-      if (message) message.value = payload.mensagem || '';
+      fillSenders(data.remetentes, data.remetente);
+      if (subject && !subject.value) subject.value = data.assunto || '';
       if (audience) {
         audience.innerHTML = recipients.length
-          ? '<strong>Para quem será enviado</strong><ul>' +
+          ? '<strong>Para quem vai</strong><ul>' +
             recipients.map(recipientLabel).join('') + '</ul>'
           : '<div class="pi-op-error">Selecione ao menos um destinatário antes de enviar.</div>';
       }
-      if (previewState) previewState.hidden = true;
       if (data.html && frame) {
-        frame.srcdoc = data.html;
         frame.hidden = false;
+        frame.srcdoc = data.html;
       } else if (textPreview) {
         textPreview.textContent = data.corpo_texto || data.corpo || data.preview || 'Prévia sem conteúdo.';
         textPreview.hidden = false;
+        hidePreviewVeil();
+        emailPreviewReady = true;
+      } else {
+        hidePreviewVeil();
       }
       if (status) status.textContent = 'Prévia atualizada.';
-      if (subject) subject.focus({ preventScroll: true });
-    } catch (error) {
-      if (previewState) {
-        previewState.className = 'pi-op-error';
-        previewState.textContent = error.message;
-        previewState.hidden = false;
+      if (subject && !emailDialog.dataset.focused) {
+        subject.focus({ preventScroll: true });
+        emailDialog.dataset.focused = '1';
       }
+    } catch (error) {
+      showPreviewVeil('error', error.message);
       if (status) status.textContent = 'Não foi possível gerar a prévia.';
       notify(error.message, 'error');
     }
@@ -900,6 +944,29 @@
       notify(data.message || 'E-mail enviado com sucesso.', 'success');
       if (emailDialog && emailDialog.open) emailDialog.close('sent');
       loadOperation();
+    } catch (error) { notify(error.message, 'error'); }
+    finally { setBusy(button, false); }
+  }
+
+  async function sendTestEmail(type, campaignId, button) {
+    if (!userEmail) {
+      notify('Seu usuário não tem e-mail para receber o teste.', 'warning');
+      return;
+    }
+    if (!emailPreviewData) {
+      notify('Gere a prévia antes de enviar o teste.', 'warning');
+      return;
+    }
+    setBusy(button, true, 'Enviando teste…');
+    try {
+      var data = await request(base + '/email/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailDraft(type, campaignId, { teste: true }))
+      });
+      notify(data.message || ('Teste enviado para ' + userEmail + '.'), 'success');
+      var status = document.getElementById('pi-email-status');
+      if (status) status.textContent = 'Teste enviado para ' + userEmail + '.';
     } catch (error) { notify(error.message, 'error'); }
     finally { setBusy(button, false); }
   }
@@ -998,11 +1065,32 @@
       if (event.target === emailDialog) emailDialog.close('cancel');
     });
     emailDialog.addEventListener('close', function () {
+      delete emailDialog.dataset.focused;
+      emailPreviewReady = false;
       if (emailDialogOpener && typeof emailDialogOpener.focus === 'function') {
         emailDialogOpener.focus({ preventScroll: true });
       }
       emailDialogOpener = null;
     });
+    var frame = document.getElementById('pi-email-frame');
+    if (frame) {
+      frame.addEventListener('load', function () {
+        if (!frame.getAttribute('srcdoc')) return;
+        hidePreviewVeil();
+        emailPreviewReady = true;
+      });
+    }
+    var sender = document.getElementById('pi-email-sender');
+    if (sender) {
+      sender.addEventListener('change', function () {
+        if (!currentEmailType) return;
+        previewEmail(
+          currentEmailType,
+          currentEmailCampaignId,
+          emailDraft(currentEmailType, currentEmailCampaignId)
+        );
+      });
+    }
     var refreshEmail = document.getElementById('pi-email-refresh');
     if (refreshEmail) refreshEmail.addEventListener('click', function () {
       previewEmail(
@@ -1011,6 +1099,15 @@
         emailDraft(currentEmailType, currentEmailCampaignId)
       );
     });
+    var testEmailButton = document.getElementById('pi-email-test');
+    if (testEmailButton) {
+      if (userEmail) {
+        testEmailButton.textContent = 'Enviar teste para ' + userEmail;
+      }
+      testEmailButton.addEventListener('click', function () {
+        sendTestEmail(currentEmailType, currentEmailCampaignId, testEmailButton);
+      });
+    }
     var sendEmailButton = document.getElementById('pi-email-send');
     if (sendEmailButton) sendEmailButton.addEventListener('click', function () {
       sendEmail(currentEmailType, currentEmailCampaignId, sendEmailButton);
@@ -1205,8 +1302,13 @@
       : button.classList.contains('btn-duplicar-camp') ? 'duplicate'
       : button.classList.contains('btn-email-camp') ? 'email'
       : 'follow';
+    selectedCampaign = campaign;
+    if (action === 'edit') {
+      campaignPanel(campaign, 'edit');
+      legacyCampaignAction('edit');
+      return;
+    }
     if (action === 'follow' && mobileMedia.matches) {
-      selectedCampaign = campaign;
       legacyCampaignAction('follow');
       return;
     }

@@ -1,0 +1,13 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Nota fiscal — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Segue a nota fiscal deste PI.{% endblock %}
+{% block heading %}Nota fiscal{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Segue a nota fiscal do PI <strong>{{ codigo_pi }}</strong>, com o status de pagamento atual. O arquivo está em anexo.</p>
+{% if notas %}
+<p style="margin:0 0 10px;">Notas deste PI:</p>
+{% for nota in notas %}
+<p style="margin:0 0 8px;"><strong>NF {{ nota.numero_nota or nota.id }}</strong> — {{ nota.status_descricao or 'Sem status' }}</p>
+{% endfor %}
+{% endif %}
+{% endblock %}

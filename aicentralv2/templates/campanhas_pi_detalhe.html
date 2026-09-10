@@ -3,7 +3,7 @@
 {% block title %}{{ campanha.nome_campanha or 'Campanha' }} - Operação{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=11">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=16">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 {% endblock %}
 
@@ -25,7 +25,10 @@
      data-campanha-label="{{ (campanha.nome_campanha or 'Campanha')|e }}"
      data-base-plataformas="{{ campanha.valor_plataformas_pi or '' }}"
      data-stage="{{ pi.id_sub_status_pi if pi else '' }}"
-     data-readonly="{{ 'true' if somente_leitura else 'false' }}">
+     data-readonly="{{ 'true' if somente_leitura else 'false' }}"
+     data-user-id="{{ session.get('user_id') or '' }}"
+     data-user-name="{{ session.get('user_name') or '' }}"
+     data-user-email="{{ session.get('user_email') or '' }}">
   <header class="pi-op-header campaign-detail-header">
     <div class="pi-op-header__row">
       <div class="pi-op-title-wrap">
@@ -187,6 +190,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/campanha_pi_detalhe.js') }}?v=2"></script>
 {% endblock %}

@@ -1,8 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Fechamento da campanha — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Resultado do PI {{ codigo_pi }} para a agência.{% endblock %}
-{% block heading %}Fechamento da campanha{% endblock %}
+{% block title %}Fechamento do PI {{ codigo_pi }} para a agência{% endblock %}
+{% block preheader %}Segue o consolidado deste PI para a agência.{% endblock %}
+{% block heading %}Fechamento para a agência{% endblock %}
 {% block message %}
-<p style="margin:0 0 16px;">O PI <strong>{{ codigo_pi }}</strong> foi encerrado pela operação. Segue o consolidado para a agência.</p>
-<p style="margin:0;">Confira dashboards, comprovação e, quando houver, as informações de incentivo vinculadas a este PI.</p>
+<p style="margin:0 0 18px;">O PI <strong>{{ codigo_pi }}</strong> do <strong>{{ cliente }}</strong> foi encerrado pela operação. Segue o consolidado para a agência.</p>
+<p style="margin:0;">Dashboards, comprovação e, quando houver, as informações de incentivo estão nos links abaixo. Qualquer dúvida, responde este e-mail.</p>
 {% endblock %}

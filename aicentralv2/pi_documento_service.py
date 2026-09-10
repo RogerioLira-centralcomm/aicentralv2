@@ -33,6 +33,8 @@ except ImportError:  # pragma: no cover
     Image = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
     REPORTLAB_AVAILABLE = False
 
+from flask import has_request_context, url_for
+
 from .pi_fechamento_service import PiFechamentoService, ZONA_LABELS
 
 
@@ -40,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 TIPOS = ("fechamento", "comprovacao", "bonificacao", "passagem")
 VARIANTES = ("cliente", "agencia", "interno")
+TIPOS_CLIENTE = ("financeiro", "nota_fiscal", "documentos_assinados")
 
 CATALOGO_AGENCIA = (
     {
@@ -56,6 +59,34 @@ CATALOGO_AGENCIA = (
         "requer_incentivo": True,
     },
 )
+
+CATALOGO_CLIENTE = (
+    {
+        "tipo": "financeiro",
+        "label": "Resultado financeiro",
+        "proposito": "E-mail ao cliente com o fechamento, valores e o PDF do resultado.",
+        "template": "financeiro_cliente",
+    },
+    {
+        "tipo": "nota_fiscal",
+        "label": "Nota fiscal",
+        "proposito": "Envia a NF em PDF e o status de pagamento.",
+        "template": "nota_fiscal_cliente",
+        "requer_nf": True,
+    },
+    {
+        "tipo": "documentos_assinados",
+        "label": "Documentos assinados",
+        "proposito": "Encaminha comprovação e cartas para assinatura eletrônica, com download dos PDFs.",
+        "template": "documentos_assinados",
+    },
+)
+
+STATUS_NF_PARA_FINANCEIRO = {
+    "nf emitida": "nf_emitida",
+    "aguardando pagamento": "aguardando_pagamento",
+    "pagamento realizado": "encerrado",
+}
 
 _COR_FUNDO = colors.HexColor("#172d32") if colors else None
 _COR_ACCENT = colors.HexColor("#72cd80") if colors else None
@@ -124,6 +155,88 @@ def _contato(snapshot):
         "nome": _texto(dest.get("nome")),
         "email": _texto(dest.get("email")),
     }
+
+
+def _contato_cliente(snapshot):
+    dest = snapshot.get("contato_cliente") or {}
+    return {
+        "id": dest.get("id"),
+        "nome": _texto(dest.get("nome")),
+        "email": _texto(dest.get("email")),
+    }
+
+
+def mensagem_cliente(tipo, snapshot, notas=None):
+    dest = _contato_cliente(snapshot)
+    codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi")) or "este PI"
+    cliente = _texto(snapshot.get("cliente_nome")) or "o anunciante"
+    primeiro = dest["nome"].split()[0] if dest["nome"] else ""
+    saudacao = f"Olá, {primeiro}" if primeiro else "Olá"
+    liquido = _fmt_brl(snapshot.get("valor_liquido"))
+    if tipo == "nota_fiscal":
+        numeros = [
+            _texto(nota.get("numero_nota")) or f"NF {nota.get('id')}"
+            for nota in (notas or [])
+        ]
+        lista = ", ".join(numeros) if numeros else "a nota fiscal"
+        return (
+            f"{saudacao},\n\n"
+            f"Segue {lista} do PI {codigo} ({cliente}) em anexo, "
+            f"com o status de pagamento atualizado.\n\n"
+            f"Atenciosamente,\nCentralComm"
+        )
+    if tipo == "documentos_assinados":
+        return (
+            f"{saudacao},\n\n"
+            f"Encaminhamos os documentos do PI {codigo} ({cliente}) "
+            f"para assinatura eletrônica. Os PDFs seguem em anexo; "
+            f"você também pode baixá-los neste e-mail.\n\n"
+            f"Atenciosamente,\nCentralComm"
+        )
+    return (
+        f"{saudacao},\n\n"
+        f"Segue o resultado financeiro do PI {codigo} ({cliente}). "
+        f"O valor líquido apurado é {liquido}. "
+        f"O PDF do fechamento está em anexo.\n\n"
+        f"Atenciosamente,\nCentralComm"
+    )
+
+
+def _url_nf_pdf(id_nota):
+    if has_request_context():
+        return url_for("api_download_nota_fiscal_pdf", id_nota=id_nota)
+    return f"/api/cadu_pi_nota_fiscal/{id_nota}/pdf"
+
+
+def _url_doc_pdf(id_pi, tipo, variante):
+    if has_request_context():
+        return url_for(
+            "pi_financeiro.documento_pdf",
+            id_pi=id_pi,
+            tipo=tipo,
+            variante=variante,
+        )
+    return f"/cadu_pi/{id_pi}/financeiro/documento/{tipo}.pdf?variante={variante}"
+
+
+def _chave_carta_cliente(tipo):
+    return f"cliente_{tipo}"
+
+
+def status_financeiro_por_notas(notas):
+    if not notas:
+        return None
+    descricoes = [
+        _texto(nota.get("status_descricao")).lower()
+        for nota in notas
+    ]
+    if descricoes and all(item == "pagamento realizado" for item in descricoes):
+        return "encerrado"
+    if any(item == "aguardando pagamento" for item in descricoes):
+        return "aguardando_pagamento"
+    if any(item == "nf emitida" for item in descricoes):
+        return "nf_emitida"
+    return None
 
 
 def _tratamento(snapshot):
@@ -226,6 +339,257 @@ class PiDocumentoService:
                 }
             )
         return documentos
+
+    def listar_cliente(self, snapshot, notas=None):
+        cartas = snapshot.get("cartas") or {}
+        dest = _contato_cliente(snapshot)
+        persistido = bool(snapshot.get("persistido"))
+        notas = list(notas or snapshot.get("notas_fiscais") or [])
+        tem_nf_pdf = any(nota.get("tem_pdf") or nota.get("nf_arquivo_path") for nota in notas)
+        id_pi = snapshot.get("id_pi")
+        documentos = []
+        for item in CATALOGO_CLIENTE:
+            tipo = item["tipo"]
+            salvo = cartas.get(_chave_carta_cliente(tipo)) or {}
+            arquivos = self._arquivos_cliente(tipo, id_pi, snapshot, notas)
+            pode_anexo = True
+            if item.get("requer_nf"):
+                pode_anexo = tem_nf_pdf
+            elif tipo == "financeiro":
+                pode_anexo = persistido
+            documentos.append(
+                {
+                    **item,
+                    "mensagem": _texto(salvo.get("mensagem")) or mensagem_cliente(tipo, snapshot, notas),
+                    "destinatario": dest,
+                    "enviado_em": salvo.get("enviado_em"),
+                    "enviado_para": salvo.get("destinatario_nome") or dest.get("nome"),
+                    "pode_enviar": bool(dest.get("email")) and pode_anexo,
+                    "pode_baixar": any(arquivo.get("disponivel") for arquivo in arquivos),
+                    "arquivos": arquivos,
+                }
+            )
+        return documentos
+
+    def _arquivos_cliente(self, tipo, id_pi, snapshot, notas):
+        if tipo == "nota_fiscal":
+            arquivos = []
+            for nota in notas:
+                numero = _texto(nota.get("numero_nota")) or f"NF {nota.get('id')}"
+                disponivel = bool(nota.get("tem_pdf") or nota.get("nf_arquivo_path"))
+                arquivos.append(
+                    {
+                        "label": f"Baixar {numero}",
+                        "url": _url_nf_pdf(nota.get("id")) if nota.get("id") else "",
+                        "disponivel": disponivel,
+                    }
+                )
+            return arquivos
+        if tipo == "documentos_assinados":
+            arquivos = [
+                {
+                    "label": "Baixar comprovação",
+                    "url": _url_doc_pdf(id_pi, "comprovacao", "cliente"),
+                    "disponivel": True,
+                }
+            ]
+            if _tem_incentivo(snapshot):
+                arquivos.append(
+                    {
+                        "label": "Baixar bonificação",
+                        "url": _url_doc_pdf(id_pi, "bonificacao", "cliente"),
+                        "disponivel": True,
+                    }
+                )
+            return arquivos
+        return [
+            {
+                "label": "Baixar resultado financeiro",
+                "url": _url_doc_pdf(id_pi, "fechamento", "cliente"),
+                "disponivel": bool(snapshot.get("persistido")),
+            }
+        ]
+
+    def enviar_ao_cliente(self, id_pi, tipo, mensagem=None, autor_id=None, pedir_assinatura=False):
+        tipo = str(tipo or "").strip()
+        if tipo not in TIPOS_CLIENTE:
+            raise DocumentoIndisponivelError("Tipo de comunicação ao cliente inválido.")
+        snapshot = self.fechamento.resultado(id_pi)
+        dest = _contato_cliente(snapshot)
+        if not dest.get("email"):
+            raise DocumentoIndisponivelError(
+                "Cadastre o contato financeiro do cliente no PI para enviar este e-mail."
+            )
+        notas = list(snapshot.get("notas_fiscais") or [])
+        if tipo == "nota_fiscal" and not notas:
+            try:
+                from flask import has_app_context
+
+                if has_app_context():
+                    from . import db
+                    notas = [
+                        dict(item)
+                        for item in (db.obter_notas_fiscais_por_pi(id_pi) or [])
+                    ]
+            except Exception:
+                logger.exception("Não leu as notas fiscais do PI %s para o e-mail ao cliente.", id_pi)
+                notas = []
+        texto = _texto(mensagem) or mensagem_cliente(tipo, snapshot, notas)
+        anexos = self._anexos_cliente(id_pi, tipo, snapshot, notas)
+        if tipo == "nota_fiscal" and not anexos:
+            raise DocumentoIndisponivelError("Nenhuma nota fiscal com PDF anexado neste PI.")
+        if tipo == "financeiro" and not snapshot.get("persistido"):
+            raise DocumentoIndisponivelError(
+                "O resultado financeiro só pode ser enviado depois do handoff."
+            )
+        nome = dest.get("nome") or _texto(snapshot.get("cliente_nome")) or "Cliente"
+        html = self._email_html_cliente(tipo, snapshot, dest, texto, notas)
+        assunto = self._assunto_cliente(tipo, snapshot, pedir_assinatura=pedir_assinatura)
+        resultado = self.fechamento.brevo.enviar_email(
+            to_email=dest["email"],
+            to_name=nome,
+            subject=assunto,
+            html_content=html,
+            text_content=texto,
+            attachments=anexos or None,
+        )
+        if not (resultado.get("success") or resultado.get("messageId")):
+            raise DocumentoIndisponivelError(
+                resultado.get("user_message")
+                or resultado.get("error")
+                or "Não foi possível enviar o e-mail ao cliente."
+            )
+        self._registrar_envio(
+            id_pi,
+            f"cliente_{tipo}",
+            assunto,
+            {"nome_completo": nome, "email": dest["email"]},
+            html,
+            autor_id,
+            resultado,
+        )
+        self.fechamento.registrar_documento(
+            id_pi,
+            _chave_carta_cliente(tipo),
+            {
+                "mensagem": texto,
+                "enviado_em": datetime.now(timezone.utc).isoformat(),
+                "destinatario_nome": nome,
+                "destinatario_email": dest["email"],
+                "pedir_assinatura": bool(pedir_assinatura),
+            },
+            autor_id=autor_id,
+        )
+        if pedir_assinatura:
+            try:
+                self.fechamento.repository.upsert_status(id_pi, "aguardando_assinatura", autor_id)
+            except Exception:
+                logger.exception("Não atualizou o status financeiro do PI %s após e-mail ao cliente.", id_pi)
+        elif tipo == "nota_fiscal":
+            try:
+                self.fechamento.repository.upsert_status(id_pi, "nf_emitida", autor_id)
+            except Exception:
+                logger.exception("Não atualizou o status financeiro do PI %s após e-mail da NF.", id_pi)
+        return {
+            "tipo": tipo,
+            "destinatario": {"nome": nome, "email": dest["email"]},
+            "enviado": True,
+            "anexos": [item.get("name") for item in anexos],
+        }
+
+    def _anexos_cliente(self, id_pi, tipo, snapshot, notas):
+        anexos = []
+        if tipo == "financeiro":
+            pdf, filename = self.gerar(id_pi, "fechamento", variante="cliente")
+            anexos.append({"name": filename, "content": base64.b64encode(pdf).decode()})
+            return anexos
+        if tipo == "nota_fiscal":
+            from .services.nf_pdf_storage import NfPdfStorage
+
+            storage = NfPdfStorage()
+            for nota in notas:
+                path_key = nota.get("nf_arquivo_path")
+                if not path_key:
+                    continue
+                abs_path = storage.absolute_path(path_key)
+                if not abs_path or not os.path.exists(abs_path):
+                    continue
+                with open(abs_path, "rb") as handle:
+                    content = base64.b64encode(handle.read()).decode()
+                numero = _texto(nota.get("numero_nota")) or nota.get("id")
+                anexos.append({"name": f"NF_{numero}.pdf", "content": content})
+            return anexos
+        for doc_tipo in ("comprovacao", "bonificacao"):
+            try:
+                pdf, filename = self.gerar(id_pi, doc_tipo, variante="cliente")
+            except DocumentoIndisponivelError:
+                continue
+            anexos.append({"name": filename, "content": base64.b64encode(pdf).decode()})
+        return anexos
+
+    def _assunto_cliente(self, tipo, snapshot, pedir_assinatura=False):
+        from .pi_operacao_service import assunto_email
+
+        codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi")) or "PI"
+        if tipo == "nota_fiscal":
+            return assunto_email("nota_fiscal_cliente", codigo)
+        if tipo == "documentos_assinados":
+            if pedir_assinatura:
+                return f"Documentos para assinar — {codigo}"
+            return assunto_email("documentos_assinados", codigo)
+        return assunto_email("financeiro_cliente", codigo)
+
+    def _email_html_cliente(self, tipo, snapshot, dest, mensagem, notas):
+        catalogo = next((item for item in CATALOGO_CLIENTE if item["tipo"] == tipo), {})
+        template = catalogo.get("template") or "cliente_fechamento"
+        renderer = getattr(self.fechamento, "renderer", None)
+        if not callable(renderer):
+            return self._email_html(mensagem)
+        codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi"))
+        logo = (
+            url_for("static", filename="images/cc_logo.png", _external=True)
+            if has_request_context()
+            else "https://ai.centralcomm.media/static/images/cc_logo.png"
+        )
+        corpo = escape(mensagem or "").replace("\n", "<br/>")
+        try:
+            return renderer(
+                f"emails/externos/pi_operacao/{template}.html",
+                codigo_pi=codigo,
+                titulo_pi=_texto(snapshot.get("titulo_pi")),
+                cliente=_texto(snapshot.get("cliente_nome")),
+                agencia=_texto(snapshot.get("agencia_nome")),
+                destinatario_nome=dest.get("nome") or "",
+                corpo_editavel=corpo,
+                mensagem=mensagem,
+                notas=notas,
+                preview=snapshot,
+                campanhas=[
+                    {
+                        "nome": item.get("nome_campanha"),
+                        "link_dashboard": item.get("link_dash"),
+                    }
+                    for item in snapshot.get("campanhas") or []
+                ],
+                executivo_vendas=_texto(snapshot.get("executivo")),
+                logo_centralcomm_url=logo,
+                link_drive=_texto(
+                    snapshot.get("googled_pi_princ")
+                    or (snapshot.get("pastas") or {}).get("principal")
+                ),
+                remetente={
+                    "nome": dest.get("remetente_nome")
+                    or _texto(snapshot.get("executivo")),
+                    "email": dest.get("remetente_email") or "",
+                    "papel": dest.get("remetente_papel") or "Operação",
+                },
+                modo_email="aviso",
+                periodo_inicio="",
+                periodo_fim="",
+            )
+        except Exception:
+            logger.exception("Falha ao renderizar e-mail %s do PI %s.", tipo, snapshot.get("id_pi"))
+            return self._email_html(mensagem)
 
     def gerar(self, id_pi, tipo, variante="agencia", id_campanha=None, mensagem=None):
         tipo = str(tipo or "").strip()

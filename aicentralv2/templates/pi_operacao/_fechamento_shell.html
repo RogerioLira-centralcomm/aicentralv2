@@ -8,7 +8,10 @@
      data-pi-id="{{ pi.id_pi }}"
      data-stage="{{ pi.id_sub_status_pi }}"
      data-readonly="{{ 'true' if somente_leitura else 'false' }}"
-     data-fechamento-modo="{{ modo }}">
+     data-fechamento-modo="{{ modo }}"
+     data-user-id="{{ session.get('user_id') or '' }}"
+     data-user-name="{{ session.get('user_name') or '' }}"
+     data-user-email="{{ session.get('user_email') or '' }}">
   <header class="pi-op-header">
     <div class="pi-op-header__row">
       <div class="pi-op-title-wrap">

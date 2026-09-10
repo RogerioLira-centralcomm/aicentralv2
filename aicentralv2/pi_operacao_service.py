@@ -54,22 +54,41 @@ TIPOS_POR_SUBSTATUS = {
 }
 
 ASSUNTOS = {
-    "solicitar_materiais": "Materiais necessários para sua campanha",
-    "confirmar_recebimento_pi": "PI recebido e em configuração",
-    "pendencias_dados": "Pendências para configuração da campanha",
-    "atualizacao_manual": "Atualização da sua campanha",
-    "solicitar_ajustes": "Ajustes necessários no PI",
-    "informar_pendencias": "Pendências para aprovação do PI",
-    "confirmar_aprovacao": "PI aprovado",
-    "previsao_inicio": "Previsão de início da campanha",
-    "campanha_iniciada": "Sua campanha foi iniciada",
-    "campanha_otimizada": "Atualização de otimização da campanha",
-    "risco_entrega": "Atenção ao ritmo de entrega da campanha",
-    "campanha_finalizada": "Campanha finalizada",
-    "relatorios_faturamento": "Dashboard e relatórios para faturamento",
-    "cliente_fechamento": "Fechamento da campanha e relatórios",
-    "agencia_fechamento": "Fechamento da campanha para a agência",
+    "solicitar_materiais": "Falta material para começar a campanha — {codigo}",
+    "confirmar_recebimento_pi": "Recebemos o {codigo} e já estamos configurando",
+    "pendencias_dados": "O {codigo} está parado por falta de dados",
+    "atualizacao_manual": "Atualização da campanha — {codigo}",
+    "solicitar_ajustes": "Precisamos de um ajuste no {codigo} antes de seguir",
+    "informar_pendencias": "O {codigo} ainda tem pendências para aprovação",
+    "confirmar_aprovacao": "{codigo} aprovado — seguimos para o ar",
+    "previsao_inicio": "Previsão de início da campanha — {codigo}",
+    "campanha_iniciada": "Sua campanha já está no ar — {codigo}",
+    "campanha_otimizada": "Ajustamos a campanha — o que mudou no {codigo}",
+    "risco_entrega": "Precisamos alinhar o ritmo da campanha — {codigo}",
+    "campanha_finalizada": "Encerramos a campanha — {codigo}",
+    "relatorios_faturamento": "Relatórios do {codigo} para faturamento",
+    "cliente_fechamento": "Fechamento da campanha — relatórios do {codigo}",
+    "agencia_fechamento": "Fechamento do {codigo} para a agência",
+    "financeiro_cliente": "Resultado financeiro do {codigo}",
+    "nota_fiscal_cliente": "Nota fiscal do {codigo}",
+    "documentos_assinados": "Documentos assinados do {codigo}",
 }
+
+EMAIL_CARTA = frozenset(
+    {
+        "campanha_iniciada",
+        "campanha_otimizada",
+        "previsao_inicio",
+        "atualizacao_manual",
+        "solicitar_materiais",
+        "solicitar_ajustes",
+        "informar_pendencias",
+        "pendencias_dados",
+        "confirmar_recebimento_pi",
+        "confirmar_aprovacao",
+        "campanha_finalizada",
+    }
+)
 
 ITENS_PI = (
     {
@@ -204,6 +223,11 @@ ITENS_CAMPANHA = (
 )
 
 
+def assunto_email(tipo, codigo):
+    modelo = ASSUNTOS.get(tipo) or "Atualização da campanha — PI {codigo}"
+    return modelo.format(codigo=codigo)
+
+
 def _data(value):
     if isinstance(value, datetime):
         return value.date()
@@ -231,11 +255,12 @@ class PiOperacaoService:
         pi = self.repository.obter_pi(id_pi)
         substatus = int(pi["id_sub_status_pi"]) if pi.get("id_sub_status_pi") is not None else None
         permitidos = TIPOS_POR_SUBSTATUS.get(substatus, ())
+        codigo = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or id_pi
         return {
             "substatus": substatus,
             "substatus_descricao": pi.get("sub_status_descricao"),
             "tipos": [
-                {"tipo": tipo, "assunto_padrao": ASSUNTOS[tipo]}
+                {"tipo": tipo, "assunto_padrao": assunto_email(tipo, codigo)}
                 for tipo in permitidos
             ],
         }
@@ -745,15 +770,118 @@ class PiOperacaoService:
             raise ValueError("Nenhum destinatário operacional foi selecionado.")
         return vinculados
 
-    def preview_email(self, id_pi, payload):
+    def _contato_remetente(self, contato_id, origem, papel, fallback_nome=""):
+        if not contato_id:
+            return None
+        contato = self.repository.obter_contato(contato_id)
+        if not contato:
+            return None
+        return {
+            "id": contato.get("id_contato_cliente") or contato_id,
+            "nome": contato.get("nome_completo") or fallback_nome or "",
+            "email": contato.get("email") or "",
+            "origem": origem,
+            "papel": papel,
+        }
+
+    def _autor_remetente(self, autor):
+        if not autor:
+            return None
+        autor_id = autor.get("id")
+        contato = self.repository.obter_contato(autor_id) if autor_id else None
+        nome = (contato or {}).get("nome_completo") or autor.get("nome") or ""
+        email = (contato or {}).get("email") or autor.get("email") or ""
+        if not nome and not email:
+            return None
+        return {
+            "id": autor_id,
+            "nome": nome,
+            "email": email,
+            "origem": "voce",
+            "papel": "Operação",
+        }
+
+    def _remetentes_disponiveis(self, pi, campanhas, autor):
+        vistos = set()
+        itens = []
+
+        def adicionar(item):
+            if not item:
+                return
+            chave = item.get("id") or item.get("email")
+            if not chave or chave in vistos:
+                return
+            if not (item.get("nome") or item.get("email")):
+                return
+            vistos.add(chave)
+            itens.append(item)
+
+        adicionar(self._autor_remetente(autor))
+        adicionar(
+            self._contato_remetente(
+                pi.get("id_resp_comercial"),
+                "comercial",
+                "Comercial",
+                pi.get("responsavel_comercial_nome") or "",
+            )
+        )
+        for campanha in campanhas or []:
+            adicionar(
+                self._contato_remetente(
+                    campanha.get("id_responsavel_operacao"),
+                    "operacao",
+                    "Operação",
+                    campanha.get("responsavel_operacao_nome") or "",
+                )
+            )
+        return itens
+
+    def _escolher_remetente(self, disponiveis, payload):
+        wanted = payload.get("remetente_id")
+        if wanted is not None:
+            for item in disponiveis:
+                if str(item.get("id")) == str(wanted):
+                    return item
+        return disponiveis[0] if disponiveis else None
+
+    def _reply_to(self, remetente):
+        if not remetente or not str(remetente.get("email") or "").strip():
+            return None
+        return {
+            "email": remetente["email"],
+            "name": remetente.get("nome") or remetente["email"],
+        }
+
+    def _resolver_autor(self, autor_id, autor=None):
+        if autor and (autor.get("id") or autor.get("email") or autor.get("nome")):
+            return {
+                "id": autor.get("id") or autor_id,
+                "nome": autor.get("nome") or "",
+                "email": autor.get("email") or "",
+            }
+        if not autor_id:
+            return None
+        contato = self.repository.obter_contato(autor_id)
+        if not contato:
+            return {"id": autor_id}
+        return {
+            "id": autor_id,
+            "nome": contato.get("nome_completo") or "",
+            "email": contato.get("email") or "",
+        }
+
+    def preview_email(self, id_pi, payload, autor=None):
         pi = self.repository.obter_pi(id_pi)
         tipo = str(payload.get("tipo", "")).strip()
         self._validar_tipo(pi, tipo)
         destinatarios = self._destinatarios(
             id_pi, payload.get("destinatarios")
         )
-        assunto = str(payload.get("assunto") or ASSUNTOS[tipo]).strip()
         campanhas = self.repository.listar_campanhas(id_pi)
+        codigo = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or id_pi
+        assunto = str(payload.get("assunto") or assunto_email(tipo, codigo)).strip()
+        remetentes = self._remetentes_disponiveis(pi, campanhas, autor)
+        remetente = self._escolher_remetente(remetentes, payload)
         campanha_destaque_id = None
         if payload.get("id_campanha") is not None:
             campanha_destaque_id = int(payload["id_campanha"])
@@ -787,7 +915,7 @@ class PiOperacaoService:
             "pi": pi,
             "cliente": pi.get("cliente_nome") or "",
             "agencia": pi.get("agencia_nome") or "",
-            "codigo_pi": pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or id_pi,
+            "codigo_pi": codigo,
             "titulo_pi": pi.get("titulo_pi") or "",
             "periodo_inicio": pi.get("periodo_inicio"),
             "periodo_fim": pi.get("periodo_fim"),
@@ -799,14 +927,9 @@ class PiOperacaoService:
             ),
             "corpo_editavel": corpo,
             "mensagem": str(payload.get("mensagem") or "").strip(),
-            "link_pi": (
-                str(payload.get("link_pi") or "").strip()
-                or (
-                    url_for("cadu_pi_editar", id_pi=id_pi, _external=True)
-                    if has_request_context()
-                    else ""
-                )
-            ),
+            "link_drive": (pi.get("googled_pi_princ") or "").strip(),
+            "remetente": remetente,
+            "modo_email": "carta" if tipo in EMAIL_CARTA else "aviso",
             "logo_centralcomm_url": (
                 url_for("static", filename="images/cc_logo.png", _external=True)
                 if has_request_context()
@@ -821,10 +944,14 @@ class PiOperacaoService:
             "assunto": assunto,
             "html": html,
             "destinatarios": destinatarios,
+            "remetentes": remetentes,
+            "remetente": remetente,
         }
 
-    def enviar_email(self, id_pi, payload, autor_id):
-        preview = self.preview_email(id_pi, payload)
+    def enviar_email(self, id_pi, payload, autor_id, autor=None):
+        autor = self._resolver_autor(autor_id, autor)
+        preview = self.preview_email(id_pi, payload, autor)
+        reply_to = self._reply_to(preview.get("remetente"))
         resultados = []
         for destinatario in preview["destinatarios"]:
             individual = self.preview_email(
@@ -834,6 +961,7 @@ class PiOperacaoService:
                     "destinatarios": [destinatario["id_contato_cliente"]],
                     "assunto": preview["assunto"],
                 },
+                autor,
             )
             log_id = self.repository.criar_email_log(
                 id_pi,
@@ -848,6 +976,7 @@ class PiOperacaoService:
                 to_name=destinatario.get("nome_completo") or "Cliente",
                 subject=individual["assunto"],
                 html_content=individual["html"],
+                reply_to=reply_to,
             )
             self.repository.concluir_email_log(log_id, resultado)
             resultados.append(
@@ -861,6 +990,25 @@ class PiOperacaoService:
         return {
             "enviados": resultados,
             "success": all(item.get("success") for item in resultados),
+        }
+
+    def enviar_email_teste(self, id_pi, payload, autor):
+        autor = self._resolver_autor((autor or {}).get("id"), autor)
+        email = str((autor or {}).get("email") or "").strip()
+        if not email:
+            raise ValueError("Seu usuário não tem e-mail para receber o teste.")
+        preview = self.preview_email(id_pi, payload, autor)
+        resultado = self.brevo.enviar_email(
+            to_email=email,
+            to_name=autor.get("nome") or "Você",
+            subject="[Teste] " + preview["assunto"],
+            html_content=preview["html"],
+            reply_to=self._reply_to(preview.get("remetente")),
+        )
+        return {
+            "success": bool(resultado.get("success")),
+            "destinatario": email,
+            "envio": resultado,
         }
 
     def _calcular_saude(self, campanhas, desvio_aceitavel_pct=None):

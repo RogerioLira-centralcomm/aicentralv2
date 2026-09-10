@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Dados pendentes — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Há dados pendentes no PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Pendências de dados{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Durante a conferência do PI do cliente <strong>{{ cliente }}</strong>, identificamos informações que precisam ser complementadas.</p><p style="margin:0;">Consulte as pendências abaixo e encaminhe os dados necessários para continuidade da operação.</p>{% endblock %}
+{% block title %}Falta dado para configurar — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}A configuração está parada por falta de informação.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Estou configurando o PI do <strong>{{ cliente }}</strong> e a operação parou por falta de dado.</p>
+<p style="margin:0 0 18px;">Sem essa informação eu não consigo seguir com segurança. Me devolve o que faltar nesta conversa — ou deixa na pasta do Drive, se fizer mais sentido.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>.</p>
+{% endblock %}

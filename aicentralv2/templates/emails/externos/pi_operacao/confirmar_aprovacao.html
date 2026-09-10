@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Aprovação confirmada — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}A aprovação do PI {{ codigo_pi }} foi confirmada.{% endblock %}
-{% block heading %}Aprovação confirmada{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Confirmamos a aprovação do PI do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">A operação seguirá com a preparação das campanhas conforme as informações aprovadas.</p>{% endblock %}
+{% block title %}PI aprovado — {{ codigo_pi }}{% endblock %}
+{% block preheader %}O PI foi aprovado e seguimos para o ar.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">O PI do <strong>{{ cliente }}</strong> está aprovado. A partir daqui, seguimos para a preparação e, em seguida, para o ar.</p>
+<p style="margin:0 0 18px;">Se ainda faltar alguma peça ou confirmação do lado de vocês, me avisa agora — é mais fácil ajustar antes da veiculação.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>{% if titulo_pi %} · {{ titulo_pi }}{% endif %}.</p>
+{% endblock %}

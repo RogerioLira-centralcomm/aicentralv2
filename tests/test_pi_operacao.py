@@ -29,6 +29,11 @@ class FakeRepository:
             "periodo_inicio": date.today() - timedelta(days=5),
             "periodo_fim": date.today() + timedelta(days=5),
             "sub_status_descricao": "Em configuração",
+            "cliente_nome": "Cliente Teste",
+            "codigo_pi_cc": "PI036826",
+            "titulo_pi": "Contesta Premiada",
+            "googled_pi_princ": "https://drive.google.com/drive/folders/abc",
+            "responsavel_comercial_nome": "Ana Comercial",
         }
         self.campanhas = [
             {
@@ -61,6 +66,17 @@ class FakeRepository:
         self.interacoes = []
         self.sync_calls = []
         self.logs = []
+
+    def obter_contato(self, id_contato):
+        if not id_contato:
+            return None
+        if int(id_contato) == 99:
+            return {
+                "id_contato_cliente": 99,
+                "nome_completo": "Ana Operacao",
+                "email": "ana@centralcomm.media",
+            }
+        return None
 
     def obter_pi(self, id_pi):
         return dict(self.pi)
@@ -452,6 +468,12 @@ class PiOperacaoServiceTest(unittest.TestCase):
             contexto["logo_centralcomm_url"],
             "https://ai.centralcomm.media/static/images/cc_logo.png",
         )
+        self.assertNotIn("link_pi", contexto)
+        self.assertEqual(
+            contexto["link_drive"],
+            "https://drive.google.com/drive/folders/abc",
+        )
+        self.assertEqual(contexto["modo_email"], "carta")
 
     def test_saude_sem_metricas_retorna_sem_dados(self):
         repo = FakeRepository(substatus=3)
@@ -480,8 +502,39 @@ class PiOperacaoServiceTest(unittest.TestCase):
         )
         self.assertTrue(resultado["success"])
         self.assertEqual(brevo.envios[0]["to_email"], "cliente@example.com")
+        self.assertEqual(
+            brevo.envios[0]["reply_to"],
+            {"email": "ana@centralcomm.media", "name": "Ana Operacao"},
+        )
         self.assertEqual(repo.logs[0]["resultado"]["messageId"], "brevo-123")
         self.assertEqual(len(repo.sync_calls), 1)
+
+    def test_email_de_teste_vai_para_quem_esta_logado(self):
+        repo = FakeRepository(substatus=3)
+        brevo = FakeBrevo()
+        service = PiOperacaoService(
+            repository=repo,
+            brevo_service=brevo,
+            renderer=lambda template, **ctx: "<p>Campanha iniciada</p>",
+        )
+        resultado = service.enviar_email_teste(
+            10,
+            {"tipo": "campanha_iniciada"},
+            {"id": 99, "nome": "Ana Operacao", "email": "ana@centralcomm.media"},
+        )
+        self.assertTrue(resultado["success"])
+        self.assertEqual(brevo.envios[0]["to_email"], "ana@centralcomm.media")
+        self.assertTrue(brevo.envios[0]["subject"].startswith("[Teste] "))
+        self.assertEqual(repo.logs, [])
+        self.assertEqual(repo.sync_calls, [])
+
+    def test_assunto_prioriza_o_pi_na_caixa(self):
+        from aicentralv2.pi_operacao_service import assunto_email
+
+        self.assertEqual(
+            assunto_email("campanha_iniciada", "PI036826"),
+            "Sua campanha já está no ar — PI036826",
+        )
 
 
 class PiOperacaoRoutesTest(unittest.TestCase):

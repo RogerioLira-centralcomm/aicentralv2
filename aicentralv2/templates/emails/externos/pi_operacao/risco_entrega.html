@@ -1,5 +1,9 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Risco de entrega — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}Atenção: há risco de entrega no PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Risco de entrega{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Identificamos uma condição que pode impactar a entrega das campanhas do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">Confira o contexto abaixo para alinharmos as medidas necessárias e reduzir o impacto na veiculação.</p>{% endblock %}
+{% block title %}Ritmo da campanha — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}O ritmo da campanha pediu um alinhamento.{% endblock %}
+{% block heading %}Precisamos alinhar o ritmo{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Olhando a campanha do <strong>{{ cliente }}</strong>, o ritmo de entrega está pedindo um alinhamento. Prefiro avisar agora do que deixar isso aparecer só no fechamento.</p>
+<p style="margin:0 0 18px;">Pode ser entrega abaixo do esperado ou gasto mais acelerado do que o período. Me responde com o que fizer sentido do lado de vocês — ajustar peça, recorte ou expectativa — que eu movo a operação.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>.</p>
+{% endblock %}

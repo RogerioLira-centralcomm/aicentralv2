@@ -16,6 +16,7 @@ class PiMobileUiContractTest(unittest.TestCase):
     def test_templates_mobile_sao_sintaticamente_validos(self):
         paths = [
             TEMPLATES / "cadu_pi_form.html",
+            TEMPLATES / "cadu_pi" / "_campaign_modals.html",
             TEMPLATES / "campanhas_pi_detalhe.html",
             TEMPLATES / "pi_operacao" / "_mobile_tabs.html",
             TEMPLATES / "pi_operacao" / "_mobile_summary.html",
@@ -132,16 +133,18 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("data['id_agencia'] = pi.get('id_agencia')", routes)
         self.assertIn("data['id_parceiro'] = pi.get('id_parceiro')", routes)
 
-    def test_campanhas_usam_drawer_vanilla_medio(self):
+    def test_campanhas_usam_modal_enterprise_vanilla(self):
         pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+        modals = self._source(TEMPLATES / "cadu_pi" / "_campaign_modals.html")
 
-        self.assertIn('id="campanha_editor_source"', pi_detail)
-        self.assertIn('id="campanha_view_source"', pi_detail)
-        self.assertIn("window.cxDrawer.open({", pi_detail)
-        self.assertIn("size: 'md'", pi_detail)
-        self.assertIn("pi-campaign-editor-section", pi_detail)
-        self.assertNotIn('id="modal_nova_campanha"', pi_detail)
-        self.assertNotIn('id="modal_ver_campanha"', pi_detail)
+        self.assertIn("{% include 'cadu_pi/_campaign_modals.html' %}", pi_detail)
+        self.assertIn('id="modal_campanha_pi"', modals)
+        self.assertIn('id="modal_campanha_view_pi"', modals)
+        self.assertIn("dialog.showModal()", modals)
+        self.assertIn("pi-campaign-editor-section", modals)
+        self.assertNotIn("window.cxDrawer.open({", pi_detail + modals)
+        self.assertNotIn('id="modal_nova_campanha"', pi_detail + modals)
+        self.assertNotIn('id="modal_ver_campanha"', pi_detail + modals)
 
     def test_preview_email_exige_comunicacao_e_usa_area_unica(self):
         sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
@@ -155,6 +158,29 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("communicationCatalog.find(", operation_js)
         self.assertIn("logo_centralcomm_url", email_base)
         self.assertNotIn("cadu-logo-variant-2.png", email_base)
+        self.assertNotIn("Acessar PI", email_base)
+        self.assertNotIn("cadu_pi_editar", email_base)
+        self.assertNotIn("link_pi", email_base)
+        self.assertIn("link_drive", email_base)
+        self.assertIn("link_dashboard", email_base)
+        self.assertIn("remetente.nome", email_base)
+        self.assertIn("pi-email-preview-veil", sidebar)
+        self.assertIn("pi-email-sender", sidebar)
+        self.assertIn("pi-email-test", sidebar)
+        self.assertIn("hidePreviewVeil", operation_js)
+        self.assertIn("teste: true", operation_js)
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+        self.assertIn(".pi-email-preview-veil[hidden] { display: none; }", css)
+
+    def test_emails_ao_cliente_nao_levam_para_o_centralx(self):
+        pasta = TEMPLATES / "emails" / "externos" / "pi_operacao"
+        for path in pasta.glob("*.html"):
+            source = self._source(path)
+            with self.subTest(path=path.name):
+                self.assertNotIn("Acessar PI", source)
+                self.assertNotIn("cadu_pi_editar", source)
+                self.assertNotIn("/cadu_pi/", source)
+                self.assertNotIn("ai.centralcomm.media/cadu", source)
 
     def test_sidebar_desktop_usa_rolagem_unica_e_mobile_preserva_drawer(self):
         css = self._source(STATIC / "css" / "pi-operacao.css")
@@ -177,6 +203,8 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("Revise quem receberá esta comunicação", operation_js)
         self.assertIn("emailDialog.showModal()", operation_js)
         self.assertIn("frame.srcdoc = data.html", operation_js)
+        self.assertIn("pi-email-preview-veil", sidebar)
+        self.assertIn("Enviar teste para", sidebar)
         self.assertIn("pi-email-preview-content", sidebar)
         self.assertIn("Selecione uma comunicação para gerar a prévia.", operation_js)
         self.assertIn(".pi-email-dialog {", css)

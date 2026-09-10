@@ -1,5 +1,8 @@
 {% extends "emails/externos/pi_operacao/base.html" %}
-{% block title %}Solicitação de ajustes — PI {{ codigo_pi }}{% endblock %}
-{% block preheader %}São necessários ajustes no PI {{ codigo_pi }}.{% endblock %}
-{% block heading %}Solicitação de ajustes{% endblock %}
-{% block message %}<p style="margin:0 0 16px;">Precisamos de ajustes nas informações ou nos materiais vinculados ao PI do cliente <strong>{{ cliente }}</strong>.</p><p style="margin:0;">Revise os pontos indicados abaixo e retorne com a versão atualizada.</p>{% endblock %}
+{% block title %}Precisamos de um ajuste — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Tem um ponto no PI que preciso alinhar antes de seguir.{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Revendo o PI do <strong>{{ cliente }}</strong>, encontrei um ponto que preciso alinhar com vocês antes de seguir.</p>
+<p style="margin:0 0 18px;">Pode ser informação, peça ou algum detalhe que não fecha com o combinado. Me devolve a versão ajustada nesta conversa que eu atualizo a operação.</p>
+<p style="margin:0;">PI <strong>{{ codigo_pi }}</strong>.</p>
+{% endblock %}

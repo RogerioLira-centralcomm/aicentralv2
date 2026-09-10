@@ -1,0 +1,10 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Resultado financeiro — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Segue o resultado financeiro deste PI.{% endblock %}
+{% block heading %}Resultado financeiro{% endblock %}
+{% block message %}
+<p style="margin:0 0 18px;">Consolidei o resultado financeiro do PI <strong>{{ codigo_pi }}</strong>. O PDF do fechamento segue em anexo.</p>
+{% if preview %}
+<p style="margin:0;">Valor líquido: <strong>{{ preview.valor_liquido }}</strong>{% if preview.zona_label %} · {{ preview.zona_label }}{% endif %}.</p>
+{% endif %}
+{% endblock %}

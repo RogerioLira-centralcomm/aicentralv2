@@ -6,9 +6,9 @@
 {% block title %}PIs - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=10">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=11">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -23,7 +23,7 @@
 <div class="pi-page{% if origem_lista != 'nf_emitida' %} pi-operation camp-list-page{% endif %}{% if origem_lista == 'nf_emitida' %} pi-page--fiscal{% endif %}" data-pi-list>
   {% include 'cadu_pi/_header_filters.html' %}
 
-  <main class="pi-list-surface{% if origem_lista != 'nf_emitida' %} camp-list-content{% endif %}">
+  <main class="pi-list-surface{% if origem_lista != 'nf_emitida' %} camp-list-content{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-surface--grid{% endif %}">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-2 space-y-1">
@@ -36,7 +36,7 @@
     {% endif %}
   {% endwith %}
     {% if (visao_por_agencia|default(false) and agencias_grupo) or (not visao_por_agencia|default(false) and pis) %}
-      <div class="cx-table-scroll">
+      <div class="cx-table-scroll{% if sub_status_atual|string in ['1', '2', '3'] %} cx-table-scroll--grid{% endif %}">
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
@@ -1064,9 +1064,9 @@
 {% include 'partials/nf_import.html' %}
 {% endif %}
 
-<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=7"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

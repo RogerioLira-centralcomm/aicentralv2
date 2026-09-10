@@ -5,7 +5,7 @@
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
 <style>
   .badge-status { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -1017,7 +1017,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
   let currentSidebarCamp = null;

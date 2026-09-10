@@ -80,6 +80,15 @@
   flex-shrink: 0;
 }
 .platform-icon-wrap i { font-size: 11px; line-height: 1; }
+.platform-icon-wrap.is-programmatic {
+  background: #1e4d4f14;
+  color: #1e4d4f;
+}
+.platform-icon-wrap .platform-logo {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
 .link-count-badge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 18px; padding: 0 5px; border-radius: 99px;

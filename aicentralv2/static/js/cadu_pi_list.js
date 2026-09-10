@@ -325,7 +325,6 @@
     const platNome = escapeHtml(c.plataforma_nome || 'Não informado');
     const statusNome = c.status_nome || 'Status não informado';
     const statusClass = campaignStatusPillClass(statusNome);
-    const linkCount = (c.googled_pi_princ ? 1 : 0) + (c.link_dash ? 1 : 0);
 
     let celObjetivo = UI.cellEmptyHtml('empty-na');
     if (objContratadoNum > 0) {
@@ -341,17 +340,26 @@
         '<span class="pi-inner-muted">de ' + fmtBrl(previsto) + '</span>';
     }
 
+    const piRow = document.getElementById('pi-' + idPi);
+    const inherited = function (selector) {
+      const cell = piRow && piRow.querySelector(selector);
+      return cell ? cell.innerHTML : '<span class="cx-cell-empty empty-na">—</span>';
+    };
+
     return '<tr class="pi-campaign-detail-row pi-campaign-row row-campaign--child" data-campaign-parent="' + idPi + '" data-plataforma-id="' + platId + '" data-plataforma-nome="' + platNome + '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
-      '<td data-label="Nome" class="pi-campaign-detail-name"><strong>' + escapeHtml(c.nome_campanha || 'Campanha sem nome') + '</strong>' +
-      '<span class="pi-campaign-status-pill ' + statusClass + '">' + escapeHtml(statusNome) + '</span></td>' +
-      '<td data-label="Cliente" class="pi-campaign-detail-platform platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
-      '<span class="link-count-badge' + (linkCount === 0 ? ' empty' : '') + '">L' + linkCount + '</span></div>' +
-      '<span>' + platNome + '</span></td>' +
-      '<td data-label="Responsável" class="pi-commercial-owner"><span class="cx-cell-empty empty-na">—</span></td>' +
+      '<td data-label="Nome" class="pi-campaign-detail-name"><div class="pi-campaign-identity">' +
+      '<span class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn" aria-hidden="true"></i></span></span>' +
+      '<div class="min-w-0"><strong>' + escapeHtml(c.nome_campanha || 'Campanha sem nome') + '</strong>' +
+      '<span class="pi-campaign-status-pill ' + statusClass + '">' + escapeHtml(statusNome) + '</span>' +
+      '<span class="pi-campaign-platform-name">' + platNome + '</span></div></div></td>' +
+      '<td data-label="Cliente" class="pi-commercial-client">' + inherited('.pi-commercial-client') + '</td>' +
+      '<td data-label="Responsável" class="pi-commercial-owner">' + inherited('.pi-commercial-owner') + '</td>' +
       '<td data-label="Veiculação" class="pi-inner-flight-cell">' + celPeriodo + '</td>' +
       '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
       '<td data-label="Investimento" class="pi-campaign-detail-money pi-inner-investment">' + celMidia + '</td>' +
-      '<td data-label="Ações" class="pi-commercial-actions" aria-hidden="true"></td>' +
+      '<td data-label="Ações" class="pi-commercial-actions">' +
+      '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Abrir campanha">' +
+      '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button></td>' +
       '</tr>';
   }
 

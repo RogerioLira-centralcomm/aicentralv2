@@ -141,8 +141,13 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "pi-campaign-status-pill",
         ):
             self.assertIn(marker, self.js)
-        for label in ("Veiculação", "Entrega", "Investimento"):
-            self.assertIn(label, self.js)
+        for label in ("Nome", "Cliente", "Responsável", "Veiculação", "Entrega", "Investimento", "Ações"):
+            self.assertIn(f'data-label="{label}"', self.js)
+        self.assertIn("pi-campaign-identity", self.js)
+        self.assertIn("inherited('.pi-commercial-client')", self.js)
+        self.assertIn("inherited('.pi-commercial-owner')", self.js)
+        self.assertNotIn('data-label="Cliente" class="pi-campaign-detail-platform', self.js)
+        self.assertNotIn("aria-hidden=\"true\"></td>", self.js)
         self.assertIn("camp-table--operational", self.js)
         self.assertIn(".pi-page .pi-list-table--hierarchy .pi-campaign-detail-row", self.css)
 
@@ -165,9 +170,15 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn(".pi-page .pi-list-table--hierarchy > thead", self.css)
         self.assertIn("display: table-header-group;", self.css)
         self.assertNotIn("var(--pi-filter-height", self.css)
-        for index, width in enumerate(("20%", "18%", "11%", "13%", "14%", "18%", "6%"), start=1):
+        for index, width in enumerate(("26%", "15%", "12%", "13%", "12%", "13%", "9%"), start=1):
             self.assertIn(f".pi-hierarchy-head th:nth-child({index}) {{ width: {width}; }}", self.css)
         self.assertIn(".pi-page .pi-list-table--hierarchy th,", self.css)
+        self.assertIn("pi-list-surface--grid", self.template)
+        self.assertIn("cx-table-scroll--grid", self.template)
+        self.assertIn(".pi-page .cx-table-scroll--grid", self.css)
+        self.assertIn("overflow-x: visible", self.css)
+        self.assertIn("position: sticky", self.css)
+        self.assertNotIn("@media (max-width: 1280px)", self.css)
         self.assertNotIn("updateListStickyOffsets", self.js)
         self.assertIn(".pi-page.pi-operation .camp-list-toolbar .camp-filter-control > i", self.css)
         self.assertIn(".pi-page.pi-operation .camp-list-toolbar .camp-filter-control input", self.css)
@@ -372,6 +383,13 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("^[0-9]{1,2}/[0-9]{2,4}$", dbmod._MES_REF_SQL_VALIDO)
         self.assertIn("anexar_lista(pis)", ROUTES.read_text())
         self.assertIn("Falha ao anexar resultado financeiro na lista de PIs", ROUTES.read_text())
+
+    def test_programmatic_platform_uses_inventory_mark_not_pro_icon(self):
+        shared_js = (ROOT / "aicentralv2/static/js/campanhas-ui.js").read_text()
+        self.assertIn("mark: 'programatica'", shared_js)
+        self.assertIn("platform-logo--programatica", shared_js)
+        self.assertNotIn("fa-chart-network", shared_js)
+        self.assertIn(".platform-icon-wrap.is-programmatic", self.shared_css)
 
     def test_new_partials_do_not_introduce_daisyui_components(self):
         forbidden = re.compile(

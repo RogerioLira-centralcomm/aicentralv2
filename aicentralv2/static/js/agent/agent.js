@@ -522,6 +522,7 @@
     if (/tiktok/.test(n)) return 'fa-brands fa-tiktok';
     if (/linkedin/.test(n)) return 'fa-brands fa-linkedin';
     if (/twitter|\bx\b/.test(n)) return 'fa-brands fa-x-twitter';
+    if (/program[aá]tica|(^|\s)dsp(\s|$)/.test(n)) return 'fa-solid fa-display';
     return 'fa-solid fa-bullhorn';
   }
 

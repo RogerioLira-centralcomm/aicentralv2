@@ -146,7 +146,7 @@
   vertical-align: top;
 }
 
-.pi-page .pi-list-table-detail {
+.pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) {
   min-width: 74rem;
 }
 
@@ -1826,6 +1826,10 @@
   margin: 0;
 }
 
+.pi-page.pi-operation.camp-list-page {
+  --pi-grid-sticky-top: calc(var(--erp-topbar-h, 3.5rem) + 6.25rem);
+}
+
 .pi-page.pi-operation > .pi-list-surface.camp-list-content {
   max-width: none;
   width: 100%;
@@ -1836,42 +1840,66 @@
   padding-inline: clamp(12px, 1.7vw, 24px);
 }
 
+.pi-page.pi-operation > .pi-list-surface--grid,
+.pi-page.pi-operation > .pi-list-surface.pi-list-surface--grid.camp-list-content {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--pi-line, #dfe5e7);
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.pi-page .cx-table-scroll--grid {
+  overflow-x: visible;
+  overflow-y: visible;
+  border-radius: 0;
+}
+
+.pi-page .pi-list-table-detail.pi-list-table--hierarchy,
 .pi-page .pi-list-table--hierarchy {
   width: 100%;
   min-width: 0;
   table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.pi-hierarchy-columns .pi-col-primary { width: 20%; }
-.pi-hierarchy-columns .pi-col-client { width: 18%; }
-.pi-hierarchy-columns .pi-col-owner { width: 11%; }
+.pi-hierarchy-columns .pi-col-primary { width: 26%; }
+.pi-hierarchy-columns .pi-col-client { width: 15%; }
+.pi-hierarchy-columns .pi-col-owner { width: 12%; }
 .pi-hierarchy-columns .pi-col-period { width: 13%; }
-.pi-hierarchy-columns .pi-col-delivery { width: 14%; }
-.pi-hierarchy-columns .pi-col-finance { width: 18%; }
-.pi-hierarchy-columns .pi-col-actions { width: 6%; }
+.pi-hierarchy-columns .pi-col-delivery { width: 12%; }
+.pi-hierarchy-columns .pi-col-finance { width: 13%; }
+.pi-hierarchy-columns .pi-col-actions { width: 9%; }
 
-.pi-hierarchy-head th:nth-child(1) { width: 20%; }
-.pi-hierarchy-head th:nth-child(2) { width: 18%; }
-.pi-hierarchy-head th:nth-child(3) { width: 11%; }
+.pi-hierarchy-head th:nth-child(1) { width: 26%; }
+.pi-hierarchy-head th:nth-child(2) { width: 15%; }
+.pi-hierarchy-head th:nth-child(3) { width: 12%; }
 .pi-hierarchy-head th:nth-child(4) { width: 13%; }
-.pi-hierarchy-head th:nth-child(5) { width: 14%; }
-.pi-hierarchy-head th:nth-child(6) { width: 18%; }
-.pi-hierarchy-head th:nth-child(7) { width: 6%; }
+.pi-hierarchy-head th:nth-child(5) { width: 12%; }
+.pi-hierarchy-head th:nth-child(6) { width: 13%; }
+.pi-hierarchy-head th:nth-child(7) { width: 9%; }
 
 .pi-page .pi-list-table--hierarchy > thead {
   display: table-header-group;
-  position: static;
 }
 
 .pi-page .pi-list-table--hierarchy > thead th {
+  position: sticky;
+  top: var(--pi-grid-sticky-top, calc(var(--erp-topbar-h, 3.5rem) + 6.25rem));
+  z-index: 4;
   border-bottom: 1px solid var(--pi-line, #e2e8f0);
   background: #f6f8f8;
 }
 
 .pi-page .pi-list-table--hierarchy th,
 .pi-page .pi-list-table--hierarchy td {
+  min-width: 0;
   padding: 0.65rem 0.75rem;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .pi-page .pi-list-table--hierarchy .pi-col-finance,
@@ -1960,7 +1988,26 @@
 }
 
 .pi-campaign-detail-name {
-  padding-left: 1.75rem !important;
+  padding-left: 1.5rem !important;
+}
+
+.pi-campaign-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pi-campaign-identity .platform-badge {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.pi-campaign-platform-name {
+  display: block;
+  margin-top: 0.15rem;
+  color: #718083;
+  font-size: 0.75rem;
 }
 
 .pi-campaign-status-pill {
@@ -1997,14 +2044,6 @@
   background: #f8fafc;
   color: #94a3b8;
   font-size: 0.75rem;
-}
-
-@media (max-width: 1280px) {
-  .pi-hierarchy-columns .pi-col-owner,
-  .pi-page .pi-list-table--hierarchy .pi-commercial-owner,
-  .pi-page .pi-list-table--hierarchy .pi-hierarchy-head th:nth-child(3) {
-    display: none;
-  }
 }
 
 .pi-page .pi-list-table--commercial {
@@ -2599,6 +2638,17 @@
   text-align: right;
 }
 
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity,
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity .platform-badge,
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity .platform-icon-wrap {
+  display: flex;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity .min-w-0 {
+  display: grid;
+  min-width: 0;
+}
+
 @media (max-width: 1024px) {
   .pi-list-filters {
     min-height: auto;
@@ -2623,7 +2673,7 @@
     margin: 0;
   }
 
-  .pi-page .cx-table-scroll {
+  .pi-page .cx-table-scroll:not(.cx-table-scroll--grid) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -2641,7 +2691,7 @@
     padding-left: 0.75rem;
   }
 
-  .pi-list-surface {
+  .pi-list-surface:not(.pi-list-surface--grid) {
     margin-right: 0.5rem;
     margin-left: 0.5rem;
   }

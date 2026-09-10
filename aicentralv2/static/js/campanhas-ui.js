@@ -19,10 +19,24 @@
       { re: /twitter|x\s*ads/i, icon: 'fa-brands fa-x-twitter', bg: '#00000012', color: '#14171a' },
       { re: /youtube/i, icon: 'fa-brands fa-youtube', bg: '#ff000022', color: '#ff0000' },
       { re: /pinterest/i, icon: 'fa-brands fa-pinterest', bg: '#e6002322', color: '#e60023' },
-      { re: /program[aá]tica|dsp/i, icon: 'fa-solid fa-chart-network', bg: '#6366f122', color: '#6366f1' },
+      {
+        re: /program[aá]tica|(^|\s)dsp(\s|$)/i,
+        mark: 'programatica',
+        icon: 'fa-solid fa-display',
+        bg: '#1e4d4f14',
+        color: '#1e4d4f',
+      },
     ],
     fallback: { icon: 'fa-solid fa-bullhorn', bg: '#f1f5f9', color: '#64748b' }
   };
+
+  const PROGRAMMATIC_LOGO_SVG =
+    '<svg class="platform-logo platform-logo--programatica" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<rect x="1" y="1" width="6.2" height="6.2" rx="1.2" fill="currentColor"/>' +
+      '<rect x="8.8" y="1" width="6.2" height="6.2" rx="1.2" fill="currentColor" opacity=".38"/>' +
+      '<rect x="1" y="8.8" width="6.2" height="6.2" rx="1.2" fill="currentColor" opacity=".38"/>' +
+      '<rect x="8.8" y="8.8" width="6.2" height="6.2" rx="1.2" fill="currentColor" opacity=".78"/>' +
+    '</svg>';
 
   function calcProgressTier(pct) {
     const p = Number(pct) || 0;
@@ -49,14 +63,22 @@
     scope.querySelectorAll('tr[data-plataforma-id], tr[data-plataforma-nome]').forEach(function (row) {
       const wrap = row.querySelector('[data-platform-badge] .platform-icon-wrap')
         || row.querySelector('.platform-icon-wrap');
-      const iconEl = row.querySelector('.platform-icon');
-      if (!wrap || !iconEl) return;
+      if (!wrap) return;
       const id = row.dataset.plataformaId || row.getAttribute('data-plataforma-id');
       const nome = row.dataset.plataformaNome || row.getAttribute('data-plataforma-nome');
       const cfg = resolvePlatformIcon(id, nome);
-      iconEl.className = 'platform-icon ' + cfg.icon;
+      wrap.classList.toggle('is-programmatic', cfg.mark === 'programatica');
       wrap.style.background = cfg.bg;
       wrap.style.color = cfg.color;
+      if (cfg.mark === 'programatica') {
+        wrap.innerHTML = PROGRAMMATIC_LOGO_SVG;
+        return;
+      }
+      if (!wrap.querySelector('.platform-icon')) {
+        wrap.innerHTML = '<i class="platform-icon" aria-hidden="true"></i>';
+      }
+      const mark = wrap.querySelector('.platform-icon');
+      if (mark) mark.className = 'platform-icon ' + cfg.icon;
     });
   }
 

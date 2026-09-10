@@ -38,6 +38,11 @@ Quando houver um registro selecionado no agente (entity_id), use esse ID:
 listar_cotacoes(cliente_id=...), listar_contatos, listar_atividades, listar_pis_cliente, consultar_*.
 Nunca busque de novo pelo nome do registro já selecionado.
 Não peça dados que as ferramentas já consultam na base.
+Perguntas sobre prazos, o que vence hoje, esta semana ou atrasadas devem usar listar_atividades
+com prazo=hoje|semana|atrasadas. Sem prazo explícito, chame listar_atividades sem prazo
+e mostre só o resumo (hoje / esta semana / atrasadas). Não liste dezenas de atividades.
+Para uma atividade específica, use consultar_atividade. Não narre o histórico do assistente;
+o painel de contexto mostra e permite copiar.
 Perguntas vagas (“quais PIs temos?”, “como estão as campanhas?”) devem usar resumir_operacao
 com o ano corrente e escopo adequado. Não liste centenas de registros. Mostre o resumo por status
 e ofereça aprofundar. Evite listar todos os finalizados.
@@ -176,7 +181,7 @@ def _contextual_arguments(tool_name, arguments, context):
     client_types = CLIENT_ENTITY_TYPES | {canonical_type("agencia")}
     if "cliente_id" in tool.required and "cliente_id" not in args and entity_type in client_types:
         args["cliente_id"] = entity_id
-    if tool_name == "resumir_operacao" and "cliente_id" not in args and entity_type in client_types:
+    if tool_name in {"resumir_operacao", "listar_atividades"} and "cliente_id" not in args and entity_type in client_types:
         args["cliente_id"] = entity_id
     if "cotacao_id" in tool.required and "cotacao_id" not in args and entity_type in {"cotacao", "quote"}:
         args["cotacao_id"] = entity_id
@@ -186,6 +191,8 @@ def _contextual_arguments(tool_name, arguments, context):
         args["pi_id"] = entity_id
     if "campanha_id" in tool.required and "campanha_id" not in args and entity_type in {"campanha", "campaign"}:
         args["campanha_id"] = entity_id
+    if "atividade_id" in tool.required and "atividade_id" not in args and entity_type == "atividade":
+        args["atividade_id"] = entity_id
     return args
 
 

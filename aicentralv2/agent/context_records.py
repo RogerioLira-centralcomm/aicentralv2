@@ -5,6 +5,8 @@ from urllib.parse import urlsplit
 
 from ..pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 from .presenters import (
+    activity_due_iso,
+    activity_history_items,
     drive_folders,
     format_brl,
     format_date_br,
@@ -62,6 +64,7 @@ def type_label_for(entity_type, subtype=""):
         "cotacao": "Cotação",
         "pi": "PI",
         "campanha": "Campanha",
+        "atividade": "Atividade",
     }.get(entity_type, "Registro")
 
 
@@ -739,6 +742,80 @@ def _campaign_context(store, pi_repo, campaign):
     return payload
 
 
+def _activity_context(store, activity, client_allowed):
+    if not activity:
+        raise ContextRecordError("Atividade não encontrada.")
+    client_id = str(activity.get("cliente_id") or "")
+    client = store.get_cliente(client_id) if client_id else None
+    if not client or not client_allowed(client):
+        raise ContextRecordError("Atividade não encontrada.")
+    quote_id = str(activity.get("cotacao_id") or "")
+    quote = store.get_cotacao(quote_id) if quote_id else None
+    history = activity_history_items(
+        store.list_ai_history(client_id, limit=20, atividade_id=activity.get("id")) or []
+    )
+    url = f"/crm-v3/#cliente={client_id}"
+    title = activity.get("titulo") or activity.get("tipo") or "Atividade"
+    status = activity.get("status") or ""
+    due_br = format_date_br(activity_due_iso(activity))
+    context = {
+        "module": "crm",
+        "screen": "atividade",
+        "entity_type": "atividade",
+        "entity_id": str(activity.get("id") or ""),
+        "entity_label": title,
+        "entity_subtype": "",
+    }
+    relations = [{
+        "key": "client", "title": "Cliente", "count": 1,
+        "items": [_entity(
+            "cliente", client_id, client.get("nome") or "Cliente",
+            type_label_for("cliente", client_subtype(client)),
+            f"/crm-v3/#cliente={client_id}",
+            entity_subtype=client_subtype(client),
+        )],
+    }]
+    if quote:
+        relations.append({
+            "key": "quote", "title": "Cotação", "count": 1,
+            "items": [_entity(
+                "cotacao", quote_id,
+                quote.get("titulo") or quote.get("codigo") or f"Cotação {quote_id}",
+                quote.get("status_label") or "",
+                f"/cotacoes/{quote_id}/detalhes",
+            )],
+        })
+    payload = _base(
+        "atividade", activity, context, title, status, url,
+        _facts(
+            _fact("Tipo", activity.get("tipo")),
+            _fact("Status", status),
+            _fact("Prazo", due_br),
+            _fact("Data planejada", format_date_br(activity.get("data"))),
+            _fact("Contato", activity.get("contato_nome")),
+        ),
+        relations,
+        [
+            {"kind": "open", "label": "Abrir atividade", "url": url},
+            {"kind": "prompt", "label": "Ver cliente", "prompt": "Abra o cliente desta atividade."},
+        ],
+        "Atividade",
+    )
+    payload["identity"]["photo_url"] = ""
+    payload["identity"]["responsible"] = activity.get("responsavel") or ""
+    payload["identity"]["responsible_photo"] = activity.get("responsavel_foto_url") or ""
+    payload["identity"]["meta"] = " · ".join(filter(None, [status, due_br]))
+    payload["history"] = history
+    payload["actions_secondary"] = _secondary_actions(
+        {"kind": "copy", "label": "Copiar link", "value": url},
+    )
+    if history:
+        payload["sections"] = [{
+            "key": "history", "title": "Histórico do assistente", "count": len(history),
+        }]
+    return payload
+
+
 def build_context_record(
     entity_type, entity_id, store, client_allowed, quote_allowed, pi_repo=None
 ):
@@ -755,6 +832,8 @@ def build_context_record(
             return _pi_context(store, pi_repo, pi_repo.obter_pi(str(entity_id)))
         if entity_type == "campanha":
             return _campaign_context(store, pi_repo, pi_repo.obter_campanha(str(entity_id)))
+        if entity_type == "atividade":
+            return _activity_context(store, store.get_atividade(str(entity_id)), client_allowed)
     except (PiNaoEncontradoError, LookupError) as exc:
         raise ContextRecordError(str(exc)) from exc
     raise ValueError("Tipo de contexto inválido.")

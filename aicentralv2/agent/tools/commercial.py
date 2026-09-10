@@ -12,6 +12,8 @@ from ..context_records import client_subtype, type_label_for
 from ..presenters import (
     COT_CODE_RE,
     DEFAULT_OPERATION_YEAR,
+    activity_due_bucket,
+    activity_due_iso,
     drive_folders,
     format_brl,
     format_date_br,
@@ -441,50 +443,196 @@ def _similar_counterpart(store, client, viewer_user_id=None, allow_global=False)
     return None
 
 
-def listar_atividades(
-    cliente_id, limit=20, status=None,
-    _viewer_user_id=None, _allow_global=False, **_
-):
-    store = get_store()
-    client = store.get_cliente(str(cliente_id))
-    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
-        return _error("Cliente não encontrado ou indisponível.")
-    activities = store.list_atividades(str(cliente_id))
-    if activities is None:
-        return _error("Cliente não encontrado ou indisponível.")
+ACTIVITY_BUCKET_LABELS = {
+    "hoje": "Hoje",
+    "semana": "Esta semana",
+    "atrasadas": "Atrasadas",
+}
+
+
+def _activity_item(item, client=None):
+    client_id = str(item.get("cliente_id") or (client or {}).get("id") or "")
+    client_name = item.get("cliente_nome") or (client or {}).get("nome") or ""
+    due = activity_due_iso(item)
+    due_br = format_date_br(due)
+    status = item.get("status") or ""
+    return {
+        "id": item.get("id"),
+        "type": "atividade",
+        "type_label": "Atividade",
+        "title": item.get("titulo") or item.get("tipo") or "Atividade",
+        "subtitle": " · ".join(filter(None, [client_name, due_br, status])),
+        "client": client_name,
+        "client_id": client_id,
+        "due": due_br,
+        "due_iso": due,
+        "bucket": activity_due_bucket(item),
+        "status": status,
+        "kind": item.get("tipo") or "",
+        "responsible": item.get("responsavel") or "",
+        "url": f"/crm-v3/#cliente={client_id}" if client_id else "/crm-v3/",
+    }
+
+
+def _activity_groups(items):
+    buckets = {key: [] for key in ACTIVITY_BUCKET_LABELS}
+    others = []
+    for item in items:
+        bucket = item.get("bucket") or ""
+        if bucket in buckets:
+            buckets[bucket].append(item)
+        else:
+            others.append(item)
+    groups = [
+        {"title": label, "items": buckets[key]}
+        for key, label in ACTIVITY_BUCKET_LABELS.items()
+        if buckets[key]
+    ]
+    if others:
+        groups.append({"title": "Sem prazo", "items": others})
+    return groups
+
+
+def _filter_open_activities(activities, status=None):
     if status:
         wanted = status.casefold()
         if wanted in {"aberta", "aberto", "pendente", "pendentes"}:
+            return [
+                item for item in activities
+                if str(item.get("status") or "").casefold() not in DONE_ACTIVITY_STATUS
+            ]
+        return [
+            item for item in activities
+            if str(item.get("status") or "").casefold() == wanted
+        ]
+    return [
+        item for item in activities
+        if str(item.get("status") or "").casefold() not in DONE_ACTIVITY_STATUS
+    ]
+
+
+def listar_atividades(
+    cliente_id=None, limit=20, status=None, prazo=None,
+    _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = None
+    if cliente_id:
+        client = store.get_cliente(str(cliente_id))
+        if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+            return _error("Cliente não encontrado ou indisponível.")
+        activities = store.list_atividades(str(cliente_id))
+        if activities is None:
+            return _error("Cliente não encontrado ou indisponível.")
+    else:
+        if _viewer_user_id in (None, ""):
+            return _error("Não foi possível identificar o responsável pelas atividades.")
+        activities = store.list_atividades_responsavel(executivo_id=_viewer_user_id) or []
+    activities = _filter_open_activities(activities or [], status)
+    wanted_prazo = str(prazo or "").casefold()
+    if wanted_prazo in ACTIVITY_BUCKET_LABELS:
+        if wanted_prazo == "semana":
             activities = [
-                a for a in activities
-                if str(a.get("status") or "").casefold() not in DONE_ACTIVITY_STATUS
+                item for item in activities
+                if activity_due_bucket(item) in {"hoje", "semana"}
             ]
         else:
-            activities = [a for a in activities if str(a.get("status") or "").casefold() == wanted]
-    items = [{
-        "id": item.get("id"),
-        "type": "atividade",
-        "title": item.get("titulo") or item.get("tipo") or "Atividade",
-        "subtitle": " · ".join(filter(None, [item.get("data"), item.get("status")])),
-        "url": f"/crm-v3/#cliente={cliente_id}",
-    } for item in activities[:min(limit, MAX_RESULTS)]]
-    if not items:
-        return _ok(
-            items, "Nenhuma atividade", items,
-            display_type="empty",
-            summary="Nenhuma atividade encontrada.",
-            empty={
-                "title": "Nenhuma atividade aberta" if status else "Nenhuma atividade",
-                "body": f"Não encontramos atividades para:\n{client.get('nome') or 'este registro'}",
-                "actions": [
-                    {"kind": "prompt", "label": "Ver cotações", "prompt": "Liste as cotações deste registro."},
-                ],
-            },
+            activities = [
+                item for item in activities
+                if activity_due_bucket(item) == wanted_prazo
+            ]
+        items = [_activity_item(item, client) for item in activities[:min(limit, MAX_RESULTS)]]
+        if not items:
+            scope = (client or {}).get("nome") or "sua carteira"
+            return _ok(
+                items, "Nenhuma atividade", items,
+                display_type="empty",
+                summary="Nenhuma atividade encontrada.",
+                empty={
+                    "title": f"Nenhuma atividade {ACTIVITY_BUCKET_LABELS[wanted_prazo].casefold()}",
+                    "body": f"Não encontramos atividades com esse prazo para:\n{scope}",
+                    "actions": [
+                        {"kind": "prompt", "label": "Ver resumo", "prompt": "Resuma as atividades por prazo."},
+                    ],
+                },
+            )
+        result = _ok(
+            items,
+            f"{len(items)} atividade{'s' if len(items) != 1 else ''} · {ACTIVITY_BUCKET_LABELS[wanted_prazo]}",
+            items,
+            display_type="activity_list",
+            summary=f"{len(items)} atividade{'s' if len(items) != 1 else ''} {ACTIVITY_BUCKET_LABELS[wanted_prazo].casefold()}.",
         )
+        result["display"]["groups"] = _activity_groups(items)
+        return result
+    buckets = {"hoje": 0, "semana": 0, "atrasadas": 0}
+    for item in activities:
+        bucket = activity_due_bucket(item)
+        if bucket in buckets:
+            buckets[bucket] += 1
+    counts = [
+        {"status": ACTIVITY_BUCKET_LABELS[key], "count": buckets[key], "label": ACTIVITY_BUCKET_LABELS[key]}
+        for key in ("hoje", "semana", "atrasadas")
+    ]
+    display_items = [{
+        "title": item["label"],
+        "subtitle": str(item["count"]),
+        "count": item["count"],
+        "group": "atividades",
+    } for item in counts]
+    actions = []
+    prompts = {
+        "hoje": ("Ver hoje", "Liste as atividades que vencem hoje."),
+        "semana": ("Ver esta semana", "Liste as atividades que vencem esta semana."),
+        "atrasadas": ("Ver atrasadas", "Liste as atividades atrasadas."),
+    }
+    for key, (label, prompt) in prompts.items():
+        if buckets[key] > 0:
+            actions.append({"kind": "prompt", "label": label, "prompt": prompt})
+    result = _ok(
+        {"counts": counts, "total": sum(buckets.values())},
+        "Atividades por prazo",
+        display_items,
+        display_type="status_summary",
+        summary=(
+            f"Hoje {buckets['hoje']}. Esta semana {buckets['semana']}. "
+            f"Atrasadas {buckets['atrasadas']}."
+        ),
+        actions=actions,
+    )
+    result["display"]["groups"] = [{
+        "title": "Prazos",
+        "items": [{"label": item["label"], "count": item["count"]} for item in counts],
+    }]
+    result["display"]["metrics"] = [
+        {"label": item["label"], "value": item["count"]} for item in counts
+    ]
+    return result
+
+
+def consultar_atividade(
+    atividade_id, _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    activity = store.get_atividade(str(atividade_id))
+    if not activity:
+        return _error("Atividade não encontrada ou indisponível.")
+    client_id = str(activity.get("cliente_id") or "")
+    client = store.get_cliente(client_id) if client_id else None
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Atividade não encontrada ou indisponível.")
+    if not activity.get("cliente_nome"):
+        activity = dict(activity)
+        activity["cliente_nome"] = client.get("nome") or ""
+    item = _activity_item(activity, client)
     return _ok(
-        items, f"{len(items)} atividade{'s' if len(items) != 1 else ''}", items,
-        display_type="status_list",
-        summary=f"{len(items)} atividade{'s' if len(items) != 1 else ''}.",
+        item,
+        item["title"],
+        [item],
+        [{"label": "Abrir atividade", "url": item["url"]}],
+        _focus("atividade", item["id"], item["title"], "crm", "atividade"),
+        display_type="activity_summary",
+        summary="Encontrei a atividade.",
     )
 
 

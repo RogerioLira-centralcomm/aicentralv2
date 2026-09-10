@@ -1,6 +1,7 @@
 """Contratos de segurança e comportamento básico do Agente CentralX."""
 
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -41,9 +42,10 @@ class AgentContractsTest(unittest.TestCase):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
     def test_registry_contains_only_allowlisted_read_tools(self):
-        self.assertEqual(len(TOOLS), 25)
+        self.assertEqual(len(TOOLS), 26)
         self.assertIn("buscar_cotacao", TOOLS)
         self.assertIn("consultar_contato", TOOLS)
+        self.assertIn("consultar_atividade", TOOLS)
         self.assertIn("consultar_pi", TOOLS)
         self.assertIn("consultar_campanha", TOOLS)
         self.assertIn("listar_pis_cliente", TOOLS)
@@ -68,6 +70,8 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("PARE", SYSTEM_POLICY)
         self.assertIn("ano corrente", SYSTEM_POLICY)
         self.assertIn("Não simule raciocínio interno", SYSTEM_POLICY)
+        self.assertIn("prazo=hoje|semana|atrasadas", SYSTEM_POLICY)
+        self.assertIn("consultar_atividade", SYSTEM_POLICY)
 
     def test_context_completes_agency_alias_as_cliente_id(self):
         args = _contextual_arguments(
@@ -182,6 +186,20 @@ class AgentContractsTest(unittest.TestCase):
                 {"entity_type": "pi", "entity_id": "72"},
             )["pi_id"],
             "72",
+        )
+        self.assertEqual(
+            _contextual_arguments(
+                "listar_atividades", {},
+                {"entity_type": "cliente", "entity_id": "1843"},
+            )["cliente_id"],
+            "1843",
+        )
+        self.assertEqual(
+            _contextual_arguments(
+                "consultar_atividade", {},
+                {"entity_type": "atividade", "entity_id": "55"},
+            )["atividade_id"],
+            "55",
         )
 
     @patch("aicentralv2.agent.tools.commercial.get_store")
@@ -822,6 +840,51 @@ class AgentInsightsTest(unittest.TestCase):
         self.assertIn("quote_follow_up", {item["id"] for item in data["alerts"]})
 
 
+class AgentActivityContractTest(unittest.TestCase):
+    def test_activity_due_buckets(self):
+        from aicentralv2.agent.presenters import activity_due_bucket
+        today = date(2026, 9, 10)
+        self.assertEqual(activity_due_bucket({"data_prazo": "2026-09-10"}, today), "hoje")
+        self.assertEqual(activity_due_bucket({"data_prazo": "2026-09-11"}, today), "semana")
+        self.assertEqual(activity_due_bucket({"data_prazo": "2026-09-17"}, today), "semana")
+        self.assertEqual(activity_due_bucket({"data_prazo": "2026-09-18"}, today), "")
+        self.assertEqual(activity_due_bucket({"data_prazo": "2026-09-09"}, today), "atrasadas")
+        self.assertEqual(activity_due_bucket({"data": "2026-09-10"}, today), "hoje")
+
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_listar_atividades_hoje_isolates_due_today(self, mock_store):
+        today = date.today().isoformat()
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        store = mock_store.return_value
+        store.get_cliente.return_value = {"id": "7", "nome": "Acme", "executivo_id": "33"}
+        store.list_atividades.return_value = [
+            {"id": "1", "titulo": "Hoje", "status": "pendente", "data_prazo": today, "cliente_id": "7"},
+            {"id": "2", "titulo": "Amanhã", "status": "pendente", "data_prazo": tomorrow, "cliente_id": "7"},
+            {"id": "3", "titulo": "Atrasada", "status": "pendente", "data_prazo": "2020-01-01", "cliente_id": "7"},
+        ]
+        result = commercial.listar_atividades(
+            cliente_id="7", prazo="hoje", _viewer_user_id=33
+        )
+        self.assertEqual([item["id"] for item in result["display"]["items"]], ["1"])
+        self.assertEqual(result["display"]["type"], "activity_list")
+
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_listar_atividades_without_prazo_returns_counts_only(self, mock_store):
+        today = date.today().isoformat()
+        store = mock_store.return_value
+        store.list_atividades_responsavel.return_value = [
+            {"id": "1", "titulo": "Hoje", "status": "pendente", "data_prazo": today},
+            {"id": "2", "titulo": "Atrasada", "status": "pendente", "data_prazo": "2020-01-01"},
+        ]
+        result = commercial.listar_atividades(_viewer_user_id=33)
+        self.assertEqual(result["display"]["type"], "status_summary")
+        labels = {item["label"]: item["count"] for item in result["display"]["groups"][0]["items"]}
+        self.assertEqual(labels["Hoje"], 1)
+        self.assertEqual(labels["Atrasadas"], 1)
+        self.assertIn("Hoje 1", result["display"]["summary"])
+        store.list_atividades_responsavel.assert_called_once_with(executivo_id=33)
+
+
 class ContextRecordContractTest(unittest.TestCase):
     def setUp(self):
         self.store = MagicMock()
@@ -869,6 +932,43 @@ class ContextRecordContractTest(unittest.TestCase):
         self.assertIn("E-mail", labels)
         self.assertNotIn("Telefone", labels)
 
+    def test_activity_context_includes_copyable_history(self):
+        self.store.get_atividade.return_value = {
+            "id": "55",
+            "titulo": "Follow-up Copasa",
+            "status": "pendente",
+            "tipo": "ligacao",
+            "data": "2026-09-08",
+            "data_prazo": "2026-09-10",
+            "cliente_id": "7",
+            "cliente_nome": "Acme",
+            "responsavel": "Ana",
+            "responsavel_foto_url": "/static/ana.jpg",
+            "contato_nome": "Bruno",
+        }
+        self.store.get_cliente.return_value = {"id": "7", "nome": "Acme", "is_agencia": False}
+        self.store.get_cotacao.return_value = None
+        self.store.list_ai_history.return_value = [{
+            "id": "9",
+            "function": "gerar-comunicacao",
+            "content": {"assunto": "Reunião", "mensagem": "Olá, Bruno"},
+            "created_at": "2026-09-09",
+        }]
+        data = build_context_record(
+            "atividade", "55", self.store, self.allow, self.allow, self.pi_repo
+        )
+        facts = {item["label"]: item["value"] for item in data["facts"]}
+        self.assertEqual(data["type"], "atividade")
+        self.assertEqual(data["identity"]["type_label"], "Atividade")
+        self.assertEqual(facts["Prazo"], "10/09/2026")
+        self.assertEqual(facts["Contato"], "Bruno")
+        self.assertEqual(data["history"][0]["subject"], "Reunião")
+        self.assertEqual(data["history"][0]["message"], "Olá, Bruno")
+        self.assertTrue(any(item["kind"] == "open" for item in data["actions"]))
+        self.store.list_ai_history.assert_called_once_with(
+            "7", limit=20, atividade_id="55"
+        )
+
     def test_external_context_url_rejects_unsafe_protocols_and_credentials(self):
         self.assertEqual(safe_context_url("javascript:alert(1)", True), "")
         self.assertEqual(safe_context_url("https://user:pass@example.com", True), "")
@@ -908,6 +1008,11 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertNotIn("cx-agent-thinking", agent_js)
         self.assertIn("quote_summary", agent_js)
         self.assertIn("data-open-drive", agent_js)
+        self.assertNotIn("['atividade', 'canal', 'audiencia']", agent_js)
+        self.assertIn("Abrir atividade", agent_js)
+        self.assertIn("renderActivityHistory", agent_js)
+        self.assertIn("Consultando atividades", agent_js)
+        self.assertIn("activity_summary", agent_js)
 
 
 if __name__ == "__main__":

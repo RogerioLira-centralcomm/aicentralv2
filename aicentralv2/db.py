@@ -5899,6 +5899,64 @@ def obter_atividades_cliente(cliente_id, contato_id=None, cotacao_id=None):
     return rows
 
 
+def obter_atividades_responsavel(executivo_id=None, cliente_id=None, abertas=True):
+    """Atividades do executivo e/ou cliente, com prazo e nome do cliente."""
+    if executivo_id in (None, "") and cliente_id in (None, ""):
+        return []
+    conn = get_db()
+    with conn.cursor() as cur:
+        has_new = _atividades_tem_colunas_novas(cur)
+        has_hora = _atividades_tem_hora(cur)
+        has_cotacao = _atividades_tem_cotacao(cur)
+        select_extra = (
+            "COALESCE(sa.tipo, 'atividade') AS tipo, sa.data_prazo, sa.titulo"
+            if has_new
+            else "'atividade' AS tipo, NULL AS data_prazo, NULL AS titulo"
+        )
+        select_extra += (
+            ", sa.hora_atividade" if has_hora else ", NULL AS hora_atividade"
+        )
+        select_extra += (
+            ", sa.cotacao_id" if has_cotacao else ", NULL AS cotacao_id"
+        )
+        order = (
+            "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
+            "COALESCE(sa.data_prazo, sa.data_atividade) ASC NULLS LAST, sa.id DESC"
+            if has_new
+            else "CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, "
+                 "sa.data_atividade ASC NULLS LAST, sa.id DESC"
+        )
+        clauses = []
+        params = []
+        if cliente_id not in (None, ""):
+            clauses.append("sa.cliente_id = %s")
+            params.append(cliente_id)
+        if executivo_id not in (None, ""):
+            clauses.append("sa.executivo_id = %s")
+            params.append(executivo_id)
+        if abertas:
+            clauses.append("COALESCE(sa.status, '') NOT IN ('concluida', 'cancelada')")
+        query = f"""
+            SELECT
+                sa.id, sa.cliente_id, sa.descricao, sa.data_atividade, sa.status,
+                sa.contato_id, sa.created_at,
+                {select_extra},
+                c.nome_completo AS contato_nome,
+                sa.executivo_id,
+                ex.nome_completo AS responsavel_nome,
+                ex.foto_url AS responsavel_foto_url,
+                cli.nome_fantasia AS cliente_nome
+            FROM sales_atividades sa
+            LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+            LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+            LEFT JOIN tbl_cliente cli ON cli.id_cliente = sa.cliente_id
+            WHERE {' AND '.join(clauses)}
+            ORDER BY {order}
+        """
+        cur.execute(query, params)
+        return cur.fetchall() or []
+
+
 def criar_atividade_cliente(cliente_id, executivo_id, descricao, data_atividade,
                             contato_id=None, tipo="atividade", titulo=None,
                             data_prazo=None, hora_atividade=None,
@@ -6073,6 +6131,10 @@ def obter_atividade_cliente_por_id(atividade_id):
         select_extra += (
             ", sa.hora_atividade" if has_hora else ", NULL AS hora_atividade"
         )
+        has_cotacao = _atividades_tem_cotacao(cur)
+        select_extra += (
+            ", sa.cotacao_id" if has_cotacao else ", NULL AS cotacao_id"
+        )
         cur.execute(
             f"""
             SELECT
@@ -6081,10 +6143,12 @@ def obter_atividade_cliente_por_id(atividade_id):
                 {select_extra},
                 c.nome_completo AS contato_nome,
                 ex.nome_completo AS responsavel_nome,
-                ex.foto_url AS responsavel_foto_url
+                ex.foto_url AS responsavel_foto_url,
+                cli.nome_fantasia AS cliente_nome
             FROM sales_atividades sa
             LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
             LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+            LEFT JOIN tbl_cliente cli ON cli.id_cliente = sa.cliente_id
             WHERE sa.id = %s
             """,
             (atividade_id,),

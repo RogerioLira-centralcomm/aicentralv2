@@ -69,9 +69,20 @@ TOOLS = {
             commercial.consultar_contato, {"contato_id": ID}, ("contato_id",),
         ),
         Tool(
-            "listar_atividades", "Lista atividades comerciais de um cliente.",
+            "listar_atividades",
+            "Lista ou resume atividades do responsável logado ou de um cliente. Sem prazo, devolve só o resumo (hoje / esta semana / atrasadas). Use prazo para listar.",
             commercial.listar_atividades,
-            {"cliente_id": ID, "limit": LIMIT, "status": STATUS}, ("cliente_id",),
+            {
+                "cliente_id": ID,
+                "limit": LIMIT,
+                "status": STATUS,
+                "prazo": {"type": "string", "enum": ["hoje", "semana", "atrasadas"]},
+            },
+            (),
+        ),
+        Tool(
+            "consultar_atividade", "Consulta uma atividade específica por ID e abre o contexto.",
+            commercial.consultar_atividade, {"atividade_id": ID}, ("atividade_id",),
         ),
         Tool(
             "listar_cotacoes", "Lista cotações de um cliente.",

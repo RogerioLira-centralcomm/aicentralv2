@@ -685,11 +685,31 @@
 }
 .cx-drawer[data-size="editor"] .cx-drawer-titles {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 .cx-drawer[data-size="editor"] .cx-drawer-breadcrumb {
   margin-top: 0;
+}
+.cx-drawer-titles .cx-atividade-status-field {
+  margin-left: auto;
+}
+.cx-atividade-save-hint {
+  flex-shrink: 0;
+  color: var(--cx-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .cx-drawer-title {
   font-size: 16px;
@@ -1289,6 +1309,10 @@ body.cx-drawer-open {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.cx-drawer-chip-group[data-chip-group="tipo"] {
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 .cx-drawer-chip {
   display: inline-flex;
@@ -5149,6 +5173,7 @@ dialog.cx-modal-shell::backdrop {
 .cx-agent-context-identity.is-cotacao > span { background: #695c36; }
 .cx-agent-context-identity.is-pi > span { background: #5d4b78; }
 .cx-agent-context-identity.is-campanha > span { background: #8a4c3b; }
+.cx-agent-context-identity.is-atividade > span { background: #3d5f6a; }
 .cx-agent-context-identity > div { display: grid; min-width: 0; }
 .cx-agent-context-identity small {
   color: #687a7b;
@@ -5670,6 +5695,72 @@ dialog.cx-modal-shell::backdrop {
   margin: 0.7rem 0 0.2rem;
 }
 .cx-agent-context-explorer h3 { margin: 0; font-size: 0.78rem; }
+
+.cx-agent-list-heading {
+  margin: 0.15rem 0 0.35rem;
+  color: #687a7b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cx-agent-ai-history { display: grid; gap: 0.55rem; margin-top: 0.85rem; }
+.cx-agent-ai-history > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cx-agent-ai-history h3 { margin: 0; font-size: 0.78rem; }
+.cx-agent-ai-history > header span {
+  color: #687a7b;
+  font-size: 0.7rem;
+}
+.cx-agent-ai-history-item {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--agent-line);
+  border-radius: 0.7rem;
+  padding: 0.65rem 0.75rem;
+  background: #f7fafa;
+}
+.cx-agent-ai-history-item header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.cx-agent-ai-history-item strong { font-size: 0.75rem; }
+.cx-agent-ai-history-item small { color: #687a7b; font-size: 0.68rem; }
+.cx-agent-ai-history-subject {
+  margin: 0;
+  color: var(--agent-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.cx-agent-ai-history-message {
+  margin: 0;
+  color: #415456;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.cx-agent-ai-history-item footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.cx-agent-ai-history-item footer button {
+  border: 1px solid var(--agent-line);
+  border-radius: 999px;
+  padding: 0.22rem 0.55rem;
+  background: #fff;
+  color: var(--agent-teal);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+.cx-agent-ai-history-item footer button:hover,
+.cx-agent-ai-history-item footer button.is-copied { background: #edf4f3; }
 
 .cx-agent-message-more { position: relative; }
 .cx-agent-message-menu {

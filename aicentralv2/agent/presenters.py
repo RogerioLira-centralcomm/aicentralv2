@@ -377,3 +377,53 @@ def document_hints(text, attachments=None):
         "invoices": invoices[:5],
         "cnpjs": cnpjs[:5],
     }
+
+
+AI_HISTORY_FUNCTIONS = {"gerar-roteiro", "melhorar-texto", "gerar-comunicacao"}
+
+
+def activity_due_iso(item):
+    return str(item.get("data_prazo") or item.get("data") or "").strip()[:10]
+
+
+def activity_due_bucket(item, today=None):
+    iso = activity_due_iso(item)
+    if not iso:
+        return ""
+    try:
+        due = datetime.strptime(iso, "%Y-%m-%d").date()
+    except ValueError:
+        return ""
+    diff = (due - (today or date.today())).days
+    if diff < 0:
+        return "atrasadas"
+    if diff == 0:
+        return "hoje"
+    if diff <= 7:
+        return "semana"
+    return ""
+
+
+def activity_history_items(rows):
+    items = []
+    for row in rows or []:
+        function = str(row.get("function") or "").strip()
+        if function and function not in AI_HISTORY_FUNCTIONS:
+            continue
+        content = row.get("content") or {}
+        subject = str(content.get("assunto") or content.get("titulo") or "").strip()
+        body = str(content.get("mensagem") or content.get("texto") or "").strip()
+        if subject and body.startswith(subject):
+            body = body[len(subject):].strip()
+        if not subject and not body:
+            continue
+        items.append({
+            "id": row.get("id"),
+            "function": function,
+            "label": "Registro revisado" if function == "melhorar-texto" else "Geração",
+            "subject": subject,
+            "message": body,
+            "created_at": format_date_br(row.get("created_at"), with_time=True)
+            or format_date_br(row.get("created_at")),
+        })
+    return items

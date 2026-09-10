@@ -1228,6 +1228,10 @@ class CrmV3Repository:
             ),
             "data_prazo": self._iso_date(row.get("data_prazo")) or "",
             "created_at": self._iso_date(row.get("created_at")) or "",
+            "cliente_id": (
+                str(row.get("cliente_id")) if row.get("cliente_id") is not None else ""
+            ),
+            "cliente_nome": row.get("cliente_nome") or "",
         }
 
     def list_atividades(self, cliente_id: str) -> Optional[List[Dict[str, Any]]]:
@@ -1236,6 +1240,20 @@ class CrmV3Repository:
             return None
         try:
             rows = _db().obter_atividades_cliente(cliente_id) or []
+        except Exception:
+            return []
+        mapped = [self._map_atividade(r) for r in rows]
+        nome = cliente.get("nome_fantasia") or cliente.get("nome") or ""
+        for item in mapped:
+            item.setdefault("cliente_id", str(cliente_id))
+            item.setdefault("cliente_nome", nome)
+        return mapped
+
+    def list_atividades_responsavel(self, executivo_id=None, cliente_id=None):
+        try:
+            rows = _db().obter_atividades_responsavel(
+                executivo_id=executivo_id, cliente_id=cliente_id, abertas=True
+            ) or []
         except Exception:
             return []
         return [self._map_atividade(r) for r in rows]

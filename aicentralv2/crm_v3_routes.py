@@ -1402,6 +1402,7 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
         "reuniao": "reunião",
         "email": "e-mail",
         "whatsapp": "WhatsApp",
+        "linkedin": "LinkedIn",
         "doc": "documento",
         "planejamento": "planejamento",
     }.get((tipo or "").lower(), "atividade")
@@ -1415,8 +1416,9 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
         "apresentar_proposta": "apresentar a proposta",
         "follow_up": "realizar o follow-up",
         "falar_sobre_canal": "falar sobre o canal ou produto escolhido",
+        "estudar": "estudar o cliente e o que ainda falta saber, sem apresentar oferta",
         "outro": "conduzir o objetivo informado",
-    }.get(foco, "apresentar a solução descrita no registro e no título")
+    }.get(foco, "seguir o título e o registro, sem forçar apresentação ou estudo")
     tom_label = {
         "institucional": "institucional",
         "consultivo": "consultivo",
@@ -1595,7 +1597,7 @@ def _montar_roteiro(data: dict) -> dict:
     titulo = texto_sem_markdown(data.get("titulo") or "").strip()
     tipo = _tipo_atividade(data)
     formato = (data.get("formato") or "").strip().lower()
-    foco = (data.get("foco") or "apresentar_solucao").strip().lower()
+    foco = (data.get("foco") or "").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
     canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
@@ -1609,8 +1611,9 @@ def _montar_roteiro(data: dict) -> dict:
         "apresentar_proposta": "Apresentar proposta",
         "follow_up": "Follow-up",
         "falar_sobre_canal": f"Falar sobre {canal_produto}" if canal_produto else "Falar sobre um canal ou produto",
+        "estudar": "Estudar o cliente e o que ainda falta saber, sem apresentar oferta",
         "outro": "Outro objetivo informado",
-    }.get(foco, "Apresentar a solução do registro")
+    }.get(foco, "Seguir o título e o registro, sem forçar apresentação ou estudo")
     tom_label = {
         "institucional": "Institucional",
         "consultivo": "Consultivo",
@@ -2090,15 +2093,50 @@ def api_ia_touchpoints():
     }))
 
 
+def _tipo_comunicacao(data: dict) -> str:
+    tipo = (data.get("formato") or data.get("tipo") or "email").strip().lower()
+    if tipo in ("email", "whatsapp", "linkedin"):
+        return tipo
+    if "linked" in tipo:
+        return "linkedin"
+    return "whatsapp" if "whats" in tipo else "email"
+
+
+def _system_prompt_comunicacao(tipo: str, ancora) -> str:
+    comum = (
+        "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
+        f"{_regras_texto_externo()} "
+        f"{_regras_destinatario(ancora)} "
+        "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
+    )
+    if tipo == "linkedin":
+        return (
+            comum
+            + "Canal: LinkedIn (InMail ou mensagem direta). "
+            "Tom profissional e humano. Sem gíria de WhatsApp, sem emojis, sem assinatura de e-mail. "
+            "1 a 3 parágrafos curtos. Um único CTA concreto. "
+            "Não invente cargo, empresa ou case. Não peça conexão genérica se já houver conversa. "
+            "assunto fica vazio no DM; se for InMail, use uma linha de gancho. "
+            "Retorne APENAS JSON: "
+            '{"assunto":"gancho curto ou vazio","mensagem":"texto puro",'
+            '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
+        )
+    return (
+        comum
+        + "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
+        "Retorne APENAS JSON: "
+        '{"assunto":"vazio para WhatsApp","mensagem":"texto puro",'
+        '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
+    )
+
+
 @bp.route("/api/ia/gerar-comunicacao", methods=["POST"])
 @login_required_api
 def api_ia_gerar_comunicacao():
     data = request.get_json(silent=True) or {}
     cliente_id = data.get("cliente_id") or ""
     cliente = store.get_cliente(cliente_id) if cliente_id else None
-    tipo = (data.get("formato") or data.get("tipo") or "email").strip().lower()
-    if tipo not in ("email", "whatsapp"):
-        tipo = "whatsapp" if "whats" in tipo else "email"
+    tipo = _tipo_comunicacao(data)
     tamanho = (data.get("tamanho") or "medio").strip().lower()
     objetivo = texto_sem_markdown(
         data.get("objetivo") or data.get("titulo") or data.get("descricao") or ""
@@ -2113,16 +2151,7 @@ def api_ia_gerar_comunicacao():
             responsavel = _nome_responsavel_interno(data, cliente)
             contexto = _contexto_ia_json(data, "comunicacao")
             ancora = _ancora_conversa(data, cliente, contato_principal)
-            system_prompt = (
-                "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
-                f"{_regras_texto_externo()} "
-                f"{_regras_destinatario(ancora)} "
-                "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
-                "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
-                "Retorne APENAS JSON: "
-                '{"assunto":"vazio para WhatsApp","mensagem":"texto puro",'
-                '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
-            )
+            system_prompt = _system_prompt_comunicacao(tipo, ancora)
             user_prompt = (
                 f"{_bloco_ancora(ancora)}\n"
                 f"{_bloco_modelo_estilo(ancora)}"
@@ -2155,7 +2184,7 @@ def api_ia_gerar_comunicacao():
     nome_cliente = (cliente or {}).get("nome") or "cliente"
     responsavel = _nome_responsavel_interno(data, cliente)
     destinatario, tem_contato = _nome_destinatario(data, cliente, contato_principal)
-    assunto = f"Follow-up comercial — {nome_cliente}"
+    assunto = "" if tipo == "linkedin" else f"Follow-up comercial — {nome_cliente}"
     contexto_atividade = objetivo or "retomar o relacionamento comercial"
     saudacao = destinatario if tem_contato else destinatario
     if tipo == "whatsapp":
@@ -2165,6 +2194,13 @@ def api_ia_gerar_comunicacao():
             f"Preparei este contato considerando o momento da {nome_cliente} "
             "e gostaria de alinhar o próximo passo.\n\n"
             "Faz sentido conversarmos rapidamente esta semana?"
+        )
+    elif tipo == "linkedin":
+        mensagem = (
+            f"Olá {saudacao}, aqui é {responsavel} da CentralComm.\n\n"
+            f"Acompanho o momento da {nome_cliente} e gostaria de trocar uma ideia "
+            f"sobre {contexto_atividade}.\n\n"
+            "Se fizer sentido, me confirma um horário breve nesta semana."
         )
     else:
         mensagem = (

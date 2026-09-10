@@ -3164,6 +3164,7 @@
             { id: 'reuniao',   icon: 'fa-solid fa-video',          label: 'Reunião' },
             { id: 'email',     icon: 'fa-solid fa-envelope',       label: 'E-mail' },
             { id: 'whatsapp',  icon: 'fa-brands fa-whatsapp',      label: 'WhatsApp' },
+            { id: 'linkedin',  icon: 'fa-brands fa-linkedin',      label: 'LinkedIn' },
             { id: 'doc',       icon: 'fa-regular fa-file-lines',   label: 'Documento' },
             { id: 'planejamento', icon: 'fa-solid fa-diagram-project', label: 'Planejamento' }
         ];

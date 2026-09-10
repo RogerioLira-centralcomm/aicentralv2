@@ -47,11 +47,14 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
 
     def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
         self.assertIn("cx-atividade-ia-toolbar", self.template)
-        self.assertIn("Tópicos sugeridos", self.template)
+        self.assertIn("Rumo da geração", self.template)
+        self.assertIn("data-chip-optional", self.template)
         self.assertIn("Canais de referência", self.template)
         self.assertIn("falar_sobre_canal", self.template)
-        self.assertIn('value="apresentar_solucao"', self.template)
         self.assertIn('data-value="apresentar_solucao"', self.template)
+        self.assertIn('data-value="estudar"', self.template)
+        self.assertIn('data-value="linkedin"', self.template)
+        self.assertIn("Abrir LinkedIn", self.js)
         self.assertIn("data-canal-produtos", self.template)
         self.assertNotIn("data-canal-produtos hidden", self.template)
         self.assertIn("Spotify", self.template)
@@ -132,7 +135,14 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         )
         self.assertIn("c.principal", self.js)
         self.assertIn("form._flushAtividadeSave", self.js)
+        self.assertIn("refreshAtividadeLists", self.js)
         self.assertIn("Registro atualizado.", self.js)
+        self.assertIn(">Ativ.<", self.template)
+        self.assertIn(">Zap<", self.template)
+        self.assertIn(">Plano<", self.template)
+        self.assertNotIn(">WhatsApp<", self.template)
+        self.assertNotIn(">Documento<", self.template)
+        self.assertNotIn(">Planejamento<", self.template)
 
     def test_mobile_falls_back_to_one_column(self):
         self.assertIn("@media (max-width: 1024px)", self.css)

@@ -780,6 +780,7 @@
             opt.textContent = c.nome + (c.cargo ? ' — ' + c.cargo : '');
             opt.dataset.email = c.email || '';
             opt.dataset.name = c.nome || '';
+            opt.dataset.linkedin = c.linkedin || c.linkedin_url || '';
             select.appendChild(opt);
         });
         var pref = atividade && (atividade.contato_id != null ? String(atividade.contato_id) : '');
@@ -816,12 +817,19 @@
             }
 
             // Sincroniza com o valor inicial da hidden.
-            var initial = hidden ? hidden.value : (chips[0] && chips[0].getAttribute('data-value'));
+            var optional = group.hasAttribute('data-chip-optional');
+            var initial = hidden ? hidden.value : (!optional && chips[0] && chips[0].getAttribute('data-value'));
             if (initial) markActive(initial);
 
             chips.forEach(function (chip) {
                 chip.addEventListener('click', function () {
                     var val = chip.getAttribute('data-value');
+                    if (optional && hidden && hidden.value === val) {
+                        hidden.value = '';
+                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                        markActive('');
+                        return;
+                    }
                     if (hidden) {
                         hidden.value = val;
                         hidden.dispatchEvent(new Event('change', { bubbles: true }));
@@ -946,7 +954,7 @@
 
     function inferAssistantFormato(form) {
         var tipo = String(((form && form.querySelector('[data-field="tipo"]')) || {}).value || '').toLowerCase();
-        if (tipo === 'email' || tipo === 'whatsapp') return tipo;
+        if (tipo === 'email' || tipo === 'whatsapp' || tipo === 'linkedin') return tipo;
         return 'roteiro';
     }
 
@@ -1609,21 +1617,13 @@
             if (pick && pick.id) contatoEl.value = String(pick.id);
         }
         var canalField = form.querySelector('[data-field="canal_produto"]');
-        var focoField = form.querySelector('[data-field="foco"]');
         var tituloField = form.querySelector('[data-field="titulo"]');
         var canalInferido = inferCanalProduto(tituloField && tituloField.value, canalField && canalField.value);
         if (canalField && canalInferido) canalField.value = canalInferido;
-        if (focoField && canalInferido && (
-            !focoField.value
-            || focoField.value === 'entender_necessidades'
-            || focoField.value === 'apresentar_solucao'
-        )) {
-            focoField.value = 'falar_sobre_canal';
-        }
         var tipoVal = (form.querySelector('[data-field="tipo"]') || {}).value || '';
         var fmtEl = form.querySelector('[data-field="formato"]');
         if (fmtEl && (!fmtEl.value || fmtEl.value === 'roteiro')) {
-            if (tipoVal === 'email' || tipoVal === 'whatsapp') fmtEl.value = tipoVal;
+            if (tipoVal === 'email' || tipoVal === 'whatsapp' || tipoVal === 'linkedin') fmtEl.value = tipoVal;
         }
 
         // Conecta os chip-groups (Tipo, Formato) à respectiva hidden.
@@ -1643,8 +1643,13 @@
             contentEl: wrapper,
             split: false,
             onClose: function (id) {
-                if (typeof form._flushAtividadeSave === 'function') form._flushAtividadeSave();
-                if (_atividadeDrawerId === id) _atividadeDrawerId = null;
+                var done = typeof form._flushAtividadeSave === 'function'
+                    ? form._flushAtividadeSave()
+                    : Promise.resolve();
+                Promise.resolve(done).finally(function () {
+                    refreshAtividadeLists(clienteId);
+                    if (_atividadeDrawerId === id) _atividadeDrawerId = null;
+                });
             }
         });
         mountAtividadeHeaderChrome(_atividadeDrawerId, wrapper, form);
@@ -1706,9 +1711,18 @@
         return payload;
     }
 
+    function refreshAtividadeLists(clienteId) {
+        notifyEntityUpdated('cliente', clienteId);
+        if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
+            window.crmV3.reloadAtividades();
+        }
+    }
+
     function persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId, opts) {
         opts = opts || {};
-        if (form.dataset.submitting === '1') return Promise.resolve();
+        if (form.dataset.submitting === '1') {
+            return form._atividadePersistInFlight || Promise.resolve();
+        }
         var payload = atividadePersistPayload(form, meetingEditor, !!opts.confirmedGoogle);
         if (!payload.titulo || !String(payload.titulo).trim() || !payload.data) {
             return Promise.resolve();
@@ -1735,7 +1749,7 @@
         var req = isEdit
             ? apiFetch('/atividades/' + encodeURIComponent(atividadeRef.id), { method: 'PATCH', body: payload })
             : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
-        return req.then(function (res) {
+        form._atividadePersistInFlight = req.then(function (res) {
             var saved = res.atividade || res.data || {};
             var meeting = res.meeting || (res.data && res.data.meeting);
             if (!isEdit && saved.id) {
@@ -1751,10 +1765,6 @@
                 meetingEditor.renderStatus(meeting);
                 toast('Atividade salva, mas o convite não foi sincronizado.', true);
             }
-            notifyEntityUpdated('cliente', clienteId);
-            if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
-                window.crmV3.reloadAtividades();
-            }
             setDrawerSaveHint(drawerId, 'Salvo');
         }).catch(function (err) {
             setDrawerSaveHint(drawerId, '');
@@ -1763,6 +1773,7 @@
             form.dataset.submitting = '0';
             form.removeAttribute('aria-busy');
         });
+        return form._atividadePersistInFlight;
     }
 
     function wireAtividadeAutosave(form, atividadeRef, clienteId, meetingEditor, drawerId) {
@@ -1779,7 +1790,7 @@
         }
         function flush() {
             window.clearTimeout(timer);
-            persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId);
+            return persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId);
         }
         form._scheduleAtividadeSave = schedule;
         form._flushAtividadeSave = flush;
@@ -1847,6 +1858,7 @@
         var labels = {
             whatsapp: 'Mensagem de WhatsApp',
             email: 'E-mail pronto',
+            linkedin: 'Mensagem de LinkedIn',
             ligacao: 'Guia para ligação',
             reuniao: 'Pauta da reunião',
             doc: 'Estrutura do documento',
@@ -1858,6 +1870,7 @@
             reuniao: 'fa-solid fa-users',
             email: 'fa-regular fa-envelope',
             whatsapp: 'fa-brands fa-whatsapp',
+            linkedin: 'fa-brands fa-linkedin',
             doc: 'fa-regular fa-file-lines',
             planejamento: 'fa-solid fa-diagram-project',
             atividade: 'fa-regular fa-circle-check'
@@ -1960,6 +1973,24 @@
             email.innerHTML = '<i class="fa-regular fa-envelope"></i> Criar e-mail';
             actions.appendChild(email);
         }
+        if (channel === 'linkedin') {
+            var linkedin = document.createElement('a');
+            linkedin.className = 'cx-atividade-result-action is-primary';
+            linkedin.target = '_blank';
+            linkedin.rel = 'noopener noreferrer';
+            var profile = String(
+                data.linkedin || contact.linkedin || contact.linkedin_url ||
+                (contactSelect && contactSelect.selectedOptions[0] && contactSelect.selectedOptions[0].dataset.linkedin) ||
+                ''
+            ).trim();
+            if (profile && !/^https?:\/\//i.test(profile)) profile = 'https://' + profile.replace(/^\/+/, '');
+            var query = encodeURIComponent(
+                (contact.nome || selectedOptionLabel(contactSelect) || '').trim()
+            );
+            linkedin.href = profile || ('https://www.linkedin.com/search/results/all/?keywords=' + query);
+            linkedin.innerHTML = '<i class="fa-brands fa-linkedin"></i> Abrir LinkedIn';
+            actions.appendChild(linkedin);
+        }
         result.appendChild(actions);
         if (form && wrapper) {
             appendHistoryActions(result, {
@@ -2015,9 +2046,6 @@
             return item.nome || item.nome_fantasia || '';
         }).filter(Boolean).slice(0, 12);
         payload.canal_produto = inferCanalProduto(payload.titulo, payload.canal_produto);
-        if (payload.canal_produto && payload.foco !== 'apresentar_empresa') {
-            payload.foco = payload.foco || 'falar_sobre_canal';
-        }
         return payload;
     }
 
@@ -2088,7 +2116,7 @@
         var fmt = form.querySelector('[data-field="formato"]');
         var label = wrapper.querySelector('[data-ia-channel-label]');
         var generate = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
-        var channel = value === 'email' || value === 'whatsapp' ? value : 'roteiro';
+        var channel = value === 'email' || value === 'whatsapp' || value === 'linkedin' ? value : 'roteiro';
         if (fmt) fmt.value = channel;
         if (label) {
             label.textContent = 'Use o contexto do CRM para gerar conteúdos, sugestões e próximos passos.';
@@ -2117,7 +2145,7 @@
                     .filter(Boolean).join('\n\n');
                 delete payload.descricao;
             }
-            if (activityType === 'email' || activityType === 'whatsapp') {
+            if (activityType === 'email' || activityType === 'whatsapp' || activityType === 'linkedin') {
                 endpoint = 'gerar-comunicacao';
                 payload.formato = activityType;
                 payload.tipo = activityType;
@@ -2128,7 +2156,7 @@
             if (fmt === 'sequencia') endpoint = 'touchpoints';
             else {
                 endpoint = 'gerar-comunicacao';
-                payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : 'email';
+                payload.tipo = fmt === 'whatsapp' ? 'whatsapp' : (fmt === 'linkedin' ? 'linkedin' : 'email');
             }
         }
         if (endpoint === 'gerar-roteiro' || endpoint === 'gerar-comunicacao') {
@@ -2297,7 +2325,7 @@
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
                     addIaHistory(wrapper, form, {
-                        label: payload.tipo === 'whatsapp' ? 'WhatsApp' : 'E-mail',
+                        label: payload.tipo === 'whatsapp' ? 'WhatsApp' : (payload.tipo === 'linkedin' ? 'LinkedIn' : 'E-mail'),
                         texto: msg,
                         assunto: data.assunto,
                         source: data.source === 'openrouter' ? 'IA' : 'fallback',

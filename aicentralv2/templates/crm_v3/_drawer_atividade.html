@@ -7,7 +7,7 @@
     <input type="hidden" name="tipo" data-field="tipo" value="atividade" />
     <input type="hidden" name="status" data-field="status" value="pendente" />
     <input type="hidden" name="formato" data-field="formato" value="roteiro" />
-    <input type="hidden" name="foco" data-field="foco" value="apresentar_solucao" />
+    <input type="hidden" name="foco" data-field="foco" value="" />
     <input type="hidden" name="tom" data-field="tom" value="consultivo" />
     <input type="hidden" name="canal_produto" data-field="canal_produto" value="" />
 
@@ -57,13 +57,14 @@
             <label>Tipo de atividade <span class="cx-required">*</span></label>
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
                  data-chip-group="tipo" role="radiogroup" aria-label="Tipo de atividade">
-              <button type="button" class="cx-drawer-chip is-active" data-value="atividade" role="radio" aria-checked="true"><i class="fa-regular fa-circle-check"></i>Atividade</button>
-              <button type="button" class="cx-drawer-chip" data-value="ligacao" role="radio" aria-checked="false"><i class="fa-solid fa-phone"></i>Ligação</button>
-              <button type="button" class="cx-drawer-chip" data-value="reuniao" role="radio" aria-checked="false"><i class="fa-solid fa-users"></i>Reunião</button>
-              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false"><i class="fa-regular fa-envelope"></i>E-mail</button>
-              <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false"><i class="fa-brands fa-whatsapp"></i>WhatsApp</button>
-              <button type="button" class="cx-drawer-chip" data-value="doc" role="radio" aria-checked="false"><i class="fa-regular fa-file-lines"></i>Documento</button>
-              <button type="button" class="cx-drawer-chip" data-value="planejamento" role="radio" aria-checked="false"><i class="fa-solid fa-diagram-project"></i>Planejamento</button>
+              <button type="button" class="cx-drawer-chip is-active" data-value="atividade" role="radio" aria-checked="true" title="Atividade"><i class="fa-regular fa-circle-check"></i>Ativ.</button>
+              <button type="button" class="cx-drawer-chip" data-value="ligacao" role="radio" aria-checked="false" title="Ligação"><i class="fa-solid fa-phone"></i>Liga.</button>
+              <button type="button" class="cx-drawer-chip" data-value="reuniao" role="radio" aria-checked="false" title="Reunião"><i class="fa-solid fa-users"></i>Reun.</button>
+              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false" title="E-mail"><i class="fa-regular fa-envelope"></i>Email</button>
+              <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i>Zap</button>
+              <button type="button" class="cx-drawer-chip" data-value="linkedin" role="radio" aria-checked="false" title="LinkedIn"><i class="fa-brands fa-linkedin"></i>In</button>
+              <button type="button" class="cx-drawer-chip" data-value="doc" role="radio" aria-checked="false" title="Documento"><i class="fa-regular fa-file-lines"></i>Doc</button>
+              <button type="button" class="cx-drawer-chip" data-value="planejamento" role="radio" aria-checked="false" title="Planejamento"><i class="fa-solid fa-diagram-project"></i>Plano</button>
             </div>
           </div>
         </section>
@@ -200,12 +201,17 @@
             <span data-ia-progress-pct>0%</span>
           </div>
 
-          <section class="cx-atividade-ia-topics" aria-labelledby="cx-atividade-ia-topics-title">
-            <h3 id="cx-atividade-ia-topics-title">Tópicos sugeridos</h3>
-            <div class="cx-atividade-ia-toolbar" role="group" aria-label="Tópicos sugeridos">
+          <details class="cx-atividade-ia-topics" data-ia-topics>
+            <summary id="cx-atividade-ia-topics-title">
+              Rumo da geração
+              <em>opcional</em>
+            </summary>
+            <p class="cx-atividade-ia-topics-hint">Apresentar ou estudar só entra se você escolher. Sem seleção, o título e o registro bastam.</p>
+            <div class="cx-atividade-ia-toolbar" role="group" aria-label="Rumo opcional da geração">
               <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                   data-chip-group="foco" role="radiogroup" aria-label="Objetivo da conversa">
-                <button type="button" class="cx-drawer-chip is-active" data-value="apresentar_solucao" role="radio" aria-checked="true">Solução</button>
+                   data-chip-group="foco" data-chip-optional role="radiogroup" aria-label="Objetivo da conversa">
+                <button type="button" class="cx-drawer-chip" data-value="apresentar_solucao" role="radio" aria-checked="false">Apresentar</button>
+                <button type="button" class="cx-drawer-chip" data-value="estudar" role="radio" aria-checked="false">Estudar</button>
                 <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
                 <button type="button" class="cx-drawer-chip" data-value="falar_sobre_canal" role="radio" aria-checked="false">Canal</button>
                 <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Proposta</button>
@@ -220,7 +226,7 @@
                 <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Informal</button>
               </div>
             </div>
-          </section>
+          </details>
 
           <section class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
             <h3 id="cx-atividade-ia-canais-title">Canais de referência</h3>

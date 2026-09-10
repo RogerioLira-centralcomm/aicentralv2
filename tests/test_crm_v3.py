@@ -144,6 +144,17 @@ class CrmTestHelpersTest(unittest.TestCase):
         self.assertNotEqual(out["texto"].strip(), "Enviar recorte da campanha")
         self.assertEqual(out["source"], "fallback")
 
+    def test_comunicacao_linkedin_tem_prompt_proprio(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        self.assertEqual(routes._tipo_comunicacao({"tipo": "linkedin"}), "linkedin")
+        self.assertEqual(routes._tipo_comunicacao({"formato": "linkedin"}), "linkedin")
+        self.assertEqual(routes._tipo_comunicacao({"tipo": "whatsapp"}), "whatsapp")
+        prompt = routes._system_prompt_comunicacao("linkedin", {})
+        self.assertIn("LinkedIn", prompt)
+        self.assertIn("InMail", prompt)
+        self.assertNotIn("Para WhatsApp, use até 3 parágrafos", prompt)
+
 
 class CrmTestApiTest(unittest.TestCase):
     def setUp(self):

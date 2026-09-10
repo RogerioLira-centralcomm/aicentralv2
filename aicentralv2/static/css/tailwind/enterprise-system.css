@@ -1312,7 +1312,13 @@ body.cx-drawer-open {
 }
 .cx-drawer-chip-group[data-chip-group="tipo"] {
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow: hidden;
+  gap: 4px;
+}
+.cx-drawer-chip-group[data-chip-group="tipo"] .cx-drawer-chip {
+  padding: 6px 8px;
+  gap: 4px;
+  font-size: 12px;
 }
 .cx-drawer-chip {
   display: inline-flex;
@@ -2259,6 +2265,29 @@ body.cx-drawer-open {
 .cx-atividade-ia-topics,
 .cx-atividade-ia-products {
   margin: 0 0 12px;
+}
+.cx-atividade-ia-topics summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: pointer;
+  color: #173c3e;
+  font-size: 12.5px;
+  font-weight: 700;
+  list-style: none;
+}
+.cx-atividade-ia-topics summary::-webkit-details-marker { display: none; }
+.cx-atividade-ia-topics summary em {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--cx-text-muted);
+}
+.cx-atividade-ia-topics-hint {
+  margin: 6px 0 8px;
+  color: var(--cx-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 .cx-atividade-ia-topics h3,
 .cx-atividade-ia-products h3 {

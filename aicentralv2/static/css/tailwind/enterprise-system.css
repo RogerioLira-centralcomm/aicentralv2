@@ -2448,27 +2448,46 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   display: grid;
   gap: 6px;
 }
+.cx-atividade-ia-history-editor label {
+  color: #173c3e;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.cx-atividade-ia-history-editor input,
 .cx-atividade-ia-history-editor textarea {
   width: 100%;
-  min-height: 96px;
   border: 1px solid var(--cx-border);
   border-radius: 7px;
   padding: 8px;
   color: var(--cx-text);
   font: inherit;
   line-height: 1.45;
+}
+.cx-atividade-ia-history-editor textarea {
+  min-height: 120px;
   resize: vertical;
+}
+.cx-atividade-ia-history-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 .cx-atividade-ia-history-editor button {
   justify-self: start;
   border: 0;
   padding: 0;
-  margin-right: 10px;
+  margin-right: 0;
   background: none;
   color: var(--cx-brand);
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
+}
+.cx-atividade-ia-history-copy em {
+  color: var(--cx-text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
 }
 .cx-atividade-ia-history-apply {
   border: 1px solid var(--cx-border);
@@ -4369,6 +4388,14 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 @media (max-width: 640px) {
   .cx-atividade-editor-main { padding: 14px; }
   .cx-atividade-editor-side { padding: 10px; }
+  .cx-atividade-ia-history-editor,
+  .cx-atividade-ia-history-editor-actions {
+    display: grid;
+    gap: 8px;
+  }
+  .cx-atividade-ia-history-editor-actions {
+    justify-items: start;
+  }
   .cx-cotacao-editor-main,
   .cx-cotacao-editor-side { padding: 14px; }
   .cx-cotacao-editor .cx-drawer-context { padding-inline: 14px; }

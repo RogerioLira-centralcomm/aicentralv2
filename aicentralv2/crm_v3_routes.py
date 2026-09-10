@@ -618,8 +618,19 @@ def api_get_style_model():
 @login_required_api
 def api_put_style_model():
     data = request.get_json(silent=True) or {}
-    if not str(data.get("texto") or "").strip():
+    texto = str(data.get("texto") or "").strip()
+    assunto = str(data.get("assunto") or "").strip()
+    if assunto:
+        texto = f"Assunto: {assunto}\n\n{texto}".strip()
+    if not texto:
         return _err("Informe o texto do modelo", 400)
+    data = dict(data)
+    data["texto"] = _generalizar_modelo_estilo(texto, {
+        "contato": data.get("contato_nome"),
+        "executivo": data.get("executivo_nome"),
+        "cliente": data.get("cliente_nome"),
+        "agencia": data.get("agencia_nome"),
+    })
     modelo = store.upsert_style_model(data)
     if not modelo:
         return _err("Não foi possível salvar o modelo", 503)
@@ -1279,7 +1290,43 @@ def _bloco_ancora(ancora: dict) -> str:
     return "\n".join(linhas) + "\n"
 
 
-def _bloco_modelo_estilo() -> str:
+def _generalizar_modelo_estilo(texto, nomes) -> str:
+    """Troca nomes reais por {{contato}}, {{executivo}}, {{cliente}}, {{agencia}}."""
+    import re
+    texto = texto_sem_markdown(texto or "")
+    pares = []
+    for chave in ("contato", "executivo", "cliente", "agencia"):
+        valor = texto_sem_markdown((nomes or {}).get(chave) or "").strip()
+        if len(valor) >= 3:
+            pares.append((chave, valor))
+    pares.sort(key=lambda item: len(item[1]), reverse=True)
+    vistos = set()
+    for chave, valor in pares:
+        marca = valor.casefold()
+        if marca in vistos:
+            continue
+        vistos.add(marca)
+        texto = re.sub(
+            r"(?<!\w)" + re.escape(valor) + r"(?!\w)",
+            "{{" + chave + "}}",
+            texto,
+            flags=re.IGNORECASE,
+        )
+    return texto.strip()
+
+
+def _variaveis_estilo(ancora=None) -> dict:
+    ancora = ancora or {}
+    cliente = (ancora.get("cliente") or "o cliente").strip()
+    return {
+        "contato": (ancora.get("contato") or "responsável").strip(),
+        "executivo": (ancora.get("executivo") or "Equipe CentralComm").strip(),
+        "cliente": cliente,
+        "agencia": (ancora.get("agencia") or cliente).strip(),
+    }
+
+
+def _bloco_modelo_estilo(ancora=None) -> str:
     try:
         modelo = store.get_style_model() or {}
     except Exception:
@@ -1287,11 +1334,17 @@ def _bloco_modelo_estilo() -> str:
     texto = texto_sem_markdown(modelo.get("texto") or "").strip()[:4000]
     if not texto:
         return ""
-    return (
-        "MODELO DE ESTILO DO EXECUTIVO (seguir estrutura, tom e extensão; "
-        "não copiar fatos nem nomes; adaptar ao registro e às pessoas desta conversa):\n"
-        f"{texto}\n"
-    )
+    linhas = [
+        "MODELO (preencha as variáveis; mantenha estrutura, tom e extensão; "
+        "não copie fatos do exemplo; use o registro e as pessoas desta conversa):",
+        texto,
+        "",
+        "VARIÁVEIS DESTA CONVERSA:",
+    ]
+    for chave, valor in _variaveis_estilo(ancora).items():
+        if valor:
+            linhas.append(f"{chave}={valor}")
+    return "\n".join(linhas) + "\n"
 
 
 def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> str:
@@ -1408,7 +1461,7 @@ def _montar_roteiro(data: dict) -> dict:
         try:
             user = (
                 f"{_bloco_ancora(ancora)}\n"
-                f"{_bloco_modelo_estilo()}"
+                f"{_bloco_modelo_estilo(ancora)}"
                 "APOIO COMERCIAL (usar só se confirmar o registro):\n"
                 f"{_contexto_ia_json(data, 'roteiro')}\n\n"
                 f"Formato: {formato or tipo or 'roteiro'}\n"
@@ -1833,7 +1886,7 @@ def api_ia_gerar_comunicacao():
             )
             user_prompt = (
                 f"{_bloco_ancora(ancora)}\n"
-                f"{_bloco_modelo_estilo()}"
+                f"{_bloco_modelo_estilo(ancora)}"
                 f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
                 f"Contato: {nome_contato}\nAssinatura: {responsavel}\n"
                 f"Apoio comercial:\n{contexto}"

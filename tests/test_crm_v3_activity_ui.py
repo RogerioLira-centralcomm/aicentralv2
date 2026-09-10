@@ -78,12 +78,18 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("Abrir WhatsApp", self.js)
         self.assertIn("Criar e-mail", self.js)
         self.assertIn("Copiar assunto", self.js)
+        self.assertIn("Copiar mensagem", self.js)
+        self.assertIn("Copiar tudo", self.js)
+        self.assertIn("styleModelNames", self.js)
+        self.assertIn("contato_nome", self.js)
         self.assertIn("Objeções e orientações adicionais", self.js)
         self.assertIn("encodeURIComponent(message)", self.js)
         self.assertIn("encodeURIComponent(contactEmail)", self.js)
         self.assertIn("if (phone)", self.js)
         self.assertIn("if (channel === 'email' && contactEmail)", self.js)
         self.assertIn("white-space: pre-wrap", self.css)
+        self.assertIn(".cx-atividade-ia-history-editor input", self.css)
+        self.assertIn(".cx-atividade-ia-history-editor-actions", self.css)
 
     def test_mobile_falls_back_to_one_column(self):
         self.assertIn("@media (max-width: 900px)", self.css)

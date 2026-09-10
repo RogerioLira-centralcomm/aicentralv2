@@ -16,7 +16,7 @@ from aicentralv2.crm_v3_helpers import (
     titulo_atividade_lista,
 )
 from aicentralv2.crm_v3_data import store
-from aicentralv2.crm_v3_routes import bp
+from aicentralv2.crm_v3_routes import bp, _generalizar_modelo_estilo
 from aicentralv2.db import CRM_AI_STYLE_MODELS_DDL
 
 
@@ -109,6 +109,20 @@ class CrmTestHelpersTest(unittest.TestCase):
         longo = "A" * 100
         self.assertTrue(titulo_atividade_lista(longo).endswith("…"))
         self.assertEqual(len(titulo_atividade_lista(longo)), 91)
+
+    def test_generalizar_modelo_estilo_troca_nomes_por_variaveis(self):
+        texto = _generalizar_modelo_estilo(
+            "Oi Maria, aqui é Apolo na Indie",
+            {"contato": "Maria", "executivo": "Apolo", "agencia": "Indie"},
+        )
+        self.assertEqual(
+            texto, "Oi {{contato}}, aqui é {{executivo}} na {{agencia}}"
+        )
+        curto = _generalizar_modelo_estilo(
+            "Oi Al, tudo bem?",
+            {"contato": "Al"},
+        )
+        self.assertEqual(curto, "Oi Al, tudo bem?")
 
 
 class CrmTestApiTest(unittest.TestCase):
@@ -895,11 +909,19 @@ class CrmTestApiTest(unittest.TestCase):
         saved = self.client.put(
             "/crm-v3/api/ia/modelo-estilo",
             json={
-                "texto": "Abrir com o case de formatos interativos e fechar com data.",
+                "texto": "Oi Maria, aqui é Apolo na Indie. Abrir com o case de formatos interativos.",
                 "formato": "roteiro",
+                "contato_nome": "Maria",
+                "executivo_nome": "Apolo",
+                "agencia_nome": "Indie",
             },
         )
         self.assertEqual(saved.status_code, 200)
+        modelo = saved.get_json()["modelo"]["texto"]
+        self.assertIn("{{contato}}", modelo)
+        self.assertIn("{{executivo}}", modelo)
+        self.assertIn("{{agencia}}", modelo)
+        self.assertNotIn("Maria", modelo)
         fetched = self.client.get("/crm-v3/api/ia/modelo-estilo")
         self.assertEqual(fetched.status_code, 200)
         self.assertIn("formatos interativos", fetched.get_json()["modelo"]["texto"])
@@ -932,13 +954,19 @@ class CrmTestApiTest(unittest.TestCase):
                 "foco": "apresentar_solucao",
                 "tom": "consultivo",
                 "notas_executivo": "Formatos interativos para o mercado imobiliário.",
+                "contato_nome": "Ana",
+                "executivo_nome": "Apolo",
             })
         finally:
             routes._openrouter_available = original_available
             routes._call_openrouter = original_call
 
         self.assertEqual(result["source"], "openrouter")
-        self.assertIn("MODELO DE ESTILO DO EXECUTIVO", captured["user"])
+        self.assertIn("MODELO (preencha as variáveis", captured["user"])
+        self.assertIn("VARIÁVEIS DESTA CONVERSA", captured["user"])
+        self.assertIn("contato=Ana", captured["user"])
+        self.assertIn("executivo=Apolo", captured["user"])
+        self.assertIn("{{contato}}", captured["user"])
         self.assertIn("case de formatos interativos", captured["user"])
 
         cleared = self.client.delete("/crm-v3/api/ia/modelo-estilo")

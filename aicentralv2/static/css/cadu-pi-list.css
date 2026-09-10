@@ -1868,10 +1868,6 @@
   margin: 0;
 }
 
-.pi-page.pi-operation.camp-list-page {
-  --pi-grid-sticky-top: calc(var(--erp-topbar-h, 3.5rem) + 6.25rem);
-}
-
 .pi-page.pi-operation > .pi-list-surface.camp-list-content {
   max-width: none;
   width: 100%;
@@ -1930,9 +1926,7 @@
 }
 
 .pi-page .pi-list-table--hierarchy > thead th {
-  position: sticky;
-  top: var(--pi-grid-sticky-top, calc(var(--erp-topbar-h, 3.5rem) + 6.25rem));
-  z-index: 4;
+  position: static;
   border-bottom: 1px solid var(--pi-line, #e2e8f0);
   background: #f6f8f8;
 }

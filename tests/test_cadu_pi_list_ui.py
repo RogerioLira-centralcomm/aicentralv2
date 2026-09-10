@@ -190,6 +190,11 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("cx-table-scroll--grid", self.template)
         self.assertIn(".pi-page .cx-table-scroll--grid", self.css)
         self.assertIn("overflow-x: visible", self.css)
+        self.assertRegex(
+            self.css,
+            r"\.pi-page \.pi-list-table--hierarchy > thead th\s*\{[^}]*position:\s*static;",
+        )
+        self.assertNotIn("--pi-grid-sticky-top", self.css)
         self.assertIn("position: sticky", self.css)
         self.assertNotIn("@media (max-width: 1280px)", self.css)
         self.assertNotIn("updateListStickyOffsets", self.js)
@@ -312,6 +317,33 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("Cliente", table)
         self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 24%; }", self.css)
         self.assertIn("toggleInvoiceGroup", self.js)
+
+    def test_fiscal_rows_render_campaign_count_without_missing_macro(self):
+        self.assertNotIn("campaign_toggle", self.template)
+        self.assertIn("pi.get('total_campanhas', 0)", self.template)
+        env = Environment(loader=FileSystemLoader(ROOT / "aicentralv2/templates"))
+        env.filters["format_brl"] = lambda value: f"R$ {float(value or 0):.2f}"
+        env.globals["url_for"] = lambda endpoint, **values: f"/pi/{values.get('id_pi', '')}"
+        snippet = (
+            "{% import 'cadu_pi/_pi_row.html' as pi_row with context %}"
+            "{% set n = pi.get('total_campanhas', 0) %}"
+            "{% if n %}<span>{{ n }}</span>{% else %}<span>—</span>{% endif %}"
+            "{{ pi_row.executive(pi, true) }}"
+        )
+        template = env.from_string(snippet)
+        for origem in ("faturamento", "nf_emitida"):
+            html = template.render(
+                origem_lista=origem,
+                pi={
+                    "id_pi": 88,
+                    "total_campanhas": 3,
+                    "resp_comercial_nome": "Ana Silva",
+                    "valor_liquido": 1500,
+                },
+            )
+            self.assertIn(">3<", html)
+            self.assertIn("Ana", html)
+            self.assertNotIn("campaign_toggle", html)
 
     def test_invoice_actions_are_neutral_and_status_change_refreshes_groups(self):
         fiscal_start = self.template.index('<div class="pi-nf-cell">')

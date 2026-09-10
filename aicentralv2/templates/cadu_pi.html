@@ -8,7 +8,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=14">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=15">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -153,7 +153,12 @@
               {% endif %}
             </td>
             <td class="text-center px-2 align-top">
-              {{ pi_row.campaign_toggle(pi, true) }}
+              {% set n = pi.get('total_campanhas', 0) %}
+              {% if n %}
+              <span class="text-[11px] tabular-nums text-gray-700">{{ n }}</span>
+              {% else %}
+              <span class="cx-cell-empty empty-na">—</span>
+              {% endif %}
             </td>
             {% if sub_status_atual|string == '3' %}
             {% set pct_midia_pi = pi.get('camp_pct_midia', 0) %}

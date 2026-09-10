@@ -1035,6 +1035,39 @@
   table-layout: fixed;
 }
 
+.pi-page .pi-list-table--billing th,
+.pi-page .pi-list-table--billing td {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.pi-page .pi-list-table--billing td {
+  max-width: 0;
+}
+
+.pi-page .pi-list-table--billing td > *,
+.pi-page .pi-list-table--billing .pi-billing-document-actions,
+.pi-page .pi-list-table--billing .pi-executive {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pi-page .pi-list-table--billing .pi-code-link {
+  display: inline-block;
+  max-width: 100% !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.pi-page .pi-list-table--billing .pi-billing-finance strong,
+.pi-page .pi-list-table--billing .pi-billing-client {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pi-billing-columns .pi-col-title { width: 22%; }
 .pi-billing-columns .pi-col-media { width: 18%; }
 .pi-billing-columns .pi-col-finance { width: 16%; }
@@ -1668,16 +1701,16 @@
     min-width: 0;
   }
 
-  .pi-page .pi-list-table-detail,
-  .pi-page .pi-list-table-detail tbody {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy),
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody {
     display: block;
   }
 
-  .pi-page .pi-list-table-detail > thead {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) > thead {
     display: none;
   }
 
-  .pi-page .pi-list-table-detail tbody > .pi-row {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem 1rem;
@@ -1718,7 +1751,7 @@
     min-width: 0;
   }
 
-  .pi-page .pi-list-table-detail tbody > .pi-row > td {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td {
     display: block;
     min-width: 0;
     border: 0;
@@ -1726,7 +1759,7 @@
     text-align: left;
   }
 
-  .pi-page .pi-list-table-detail tbody > .pi-row > td::before {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td::before {
     display: block;
     margin-bottom: 0.2rem;
     color: #718083;
@@ -1735,9 +1768,9 @@
     font-weight: 750;
   }
 
-  .pi-page .pi-list-table-detail tbody > .pi-row > td:first-child,
-  .pi-page .pi-list-table-detail tbody > .pi-row > td:nth-child(2),
-  .pi-page .pi-list-table-detail tbody > .pi-row > td:last-child {
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td:first-child,
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td:nth-child(2),
+  .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td:last-child {
     grid-column: 1 / -1;
   }
 
@@ -1840,6 +1873,7 @@
   padding-inline: clamp(12px, 1.7vw, 24px);
 }
 
+.pi-page.pi-operation > .pi-list-surface.camp-list-content,
 .pi-page.pi-operation > .pi-list-surface--grid,
 .pi-page.pi-operation > .pi-list-surface.pi-list-surface--grid.camp-list-content {
   margin: 0;
@@ -1899,7 +1933,54 @@
   min-width: 0;
   padding: 0.65rem 0.75rem;
   vertical-align: top;
+  overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.pi-page .pi-list-table--hierarchy td {
+  max-width: 0;
+}
+
+.pi-page .pi-list-table--hierarchy td > *,
+.pi-page .pi-list-table--hierarchy .pi-commercial-primary__lead,
+.pi-page .pi-list-table--hierarchy .pi-commercial-primary__lead > .min-w-0,
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity,
+.pi-page .pi-list-table--hierarchy .pi-campaign-identity > .min-w-0,
+.pi-page .pi-list-table--hierarchy .pi-executive,
+.pi-page .pi-list-table--hierarchy .pi-commercial-finance > div,
+.pi-page .pi-list-table--hierarchy .pi-commercial-media {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-code-link {
+  display: inline-block;
+  max-width: 100% !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-executive > span:last-child,
+.pi-page .pi-list-table--hierarchy .pi-commercial-client > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-commercial-period > strong,
+.pi-page .pi-list-table--hierarchy .pi-inner-flight {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-commercial-media,
+.pi-page .pi-list-table--hierarchy .pi-inner-delivery > div,
+.pi-page .pi-list-table--hierarchy .pi-inner-investment > div {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .pi-page .pi-list-table--hierarchy .pi-col-finance,

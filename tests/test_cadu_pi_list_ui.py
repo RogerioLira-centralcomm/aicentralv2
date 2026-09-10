@@ -173,6 +173,12 @@ class CaduPiListUiContractTest(unittest.TestCase):
         for index, width in enumerate(("26%", "15%", "12%", "13%", "12%", "13%", "9%"), start=1):
             self.assertIn(f".pi-hierarchy-head th:nth-child({index}) {{ width: {width}; }}", self.css)
         self.assertIn(".pi-page .pi-list-table--hierarchy th,", self.css)
+        self.assertIn(".pi-page .pi-list-table--hierarchy td {", self.css)
+        self.assertIn(".pi-page .pi-list-table--billing td {", self.css)
+        self.assertIn("overflow: hidden", self.css)
+        self.assertIn("max-width: 0", self.css)
+        self.assertIn(".pi-list-table-detail:not(.pi-list-table--hierarchy)", self.css)
+        self.assertIn(".pi-page.pi-operation > .pi-list-surface.camp-list-content", self.css)
         self.assertIn("pi-list-surface--grid", self.template)
         self.assertIn("cx-table-scroll--grid", self.template)
         self.assertIn(".pi-page .cx-table-scroll--grid", self.css)

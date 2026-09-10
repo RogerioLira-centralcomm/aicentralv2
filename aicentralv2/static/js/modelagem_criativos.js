@@ -1753,10 +1753,16 @@
     const root = $('#mcFormatTableBody');
     if (!root) return;
     const formats = filteredFormats('#mcLibrarySearch', '#mcLibraryCategory');
-    root.innerHTML = formats.map((format) => `
+    root.innerHTML = formats.map((format) => {
+      const orientation = formatOrientationKey(format);
+      const orientationLabel = formatOrientationLabel(format) || 'Quadrado';
+      return `
       <button class="mc-catalog-format ${String(format.id) === String(state.selectedFormatId) ? 'is-active' : ''}"
               type="button" data-library-format="${format.id}">
-        <span class="mc-catalog-format-icon"><i class="fa-solid ${formatExperienceIcon(format)}" aria-hidden="true"></i></span>
+        <span class="mc-catalog-format-icon" title="${escapeHtml(orientationLabel)}">
+          <span class="mc-orient is-${orientation}" aria-hidden="true"></span>
+          <span class="sr-only">${escapeHtml(orientationLabel)}</span>
+        </span>
         <span>
           <strong>${escapeHtml(format.name_pt)}</strong>
           <small>${escapeHtml([
@@ -1766,7 +1772,8 @@
           ].filter(Boolean).join(' · ') || formatExperienceLabel(format))}</small>
         </span>
         <em>${sceneCountForFormat(format) > 1 ? 'Carrossel' : 'Estático'}</em>
-      </button>`).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
+      </button>`;
+    }).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
   }
 
   function clonePlacement(format) {

@@ -3396,7 +3396,7 @@
   align-items: center;
   gap: 0.6rem;
   border: 1px solid transparent;
-  border-radius: 0.6rem;
+  border-radius: 0;
   padding: 0.65rem;
   background: transparent;
   color: #0f172a;
@@ -3416,9 +3416,24 @@
   width: 2rem;
   height: 2rem;
   place-items: center;
-  border-radius: 0.45rem;
-  background: #e7efee;
-  color: #294f50;
+  border-radius: 0;
+  background: transparent;
+  color: #183436;
+}
+
+.mc-catalog-format-icon .mc-orient.is-horizontal {
+  width: 1.15rem;
+  height: 0.62rem;
+}
+
+.mc-catalog-format-icon .mc-orient.is-vertical {
+  width: 0.62rem;
+  height: 1.15rem;
+}
+
+.mc-catalog-format-icon .mc-orient.is-square {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .mc-catalog-format > span:nth-child(2) { display: grid; min-width: 0; gap: 0.1rem; }

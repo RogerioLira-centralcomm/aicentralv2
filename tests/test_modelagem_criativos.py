@@ -2689,8 +2689,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=35", page)
-        self.assertIn("modelagem_criativos.js') }}?v=35", page)
+        self.assertIn("modelagem_criativos.css') }}?v=36", page)
+        self.assertIn("modelagem_criativos.js') }}?v=36", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -3110,6 +3110,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function formatOrientationKey", frontend)
         self.assertIn("mc-format-group", frontend)
         self.assertIn("mc-orient is-${orientation}", frontend)
+        library_js = frontend.split("function renderLibrary()")[1].split("function clonePlacement")[0]
+        self.assertIn("mc-orient is-${orientation}", library_js)
+        self.assertNotIn("formatExperienceIcon", library_js)
         self.assertIn("aspect-ratio:${direction.width}/${direction.height}", frontend)
         self.assertIn("mc-slot-map", frontend)
         generator_js = frontend.split("function renderGeneratorFormats")[1].split("function updateGeneratorAvailability")[0]

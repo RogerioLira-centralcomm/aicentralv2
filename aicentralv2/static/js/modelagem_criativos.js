@@ -216,7 +216,9 @@
       .map((client) => {
         const suffix = client.source === 'crm'
           ? (client.profile_status === 'ready' ? 'CRM · marca pronta' : 'CRM · perfil será criado')
-          : 'Perfil de marca';
+          : (client.house || Number(client.crm_client_id) === 174
+            ? 'CentralComm · marca'
+            : 'Perfil de marca');
         return `<option value="${escapeHtml(client.selection_key)}">${escapeHtml(client.name)} — ${suffix}</option>`;
       }).join('');
     const params = new URLSearchParams(window.location.search);

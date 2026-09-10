@@ -1230,6 +1230,7 @@ class CreativeServiceTest(unittest.TestCase):
         )
         self.assertEqual(result["id"], 10)
         self.assertEqual(self.repo.clients[0]["primary_color"], "#123ABC")
+        self.assertEqual(self.repo.clients[0]["crm_client_id"], 174)
         with self.assertRaisesRegex(ValueError, "RRGGBB"):
             self.service.create_client({"name": "Inválido", "primary_color": "azul"})
 
@@ -1574,6 +1575,35 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(result["productions"][0]["scenes"]), 4)
         self.assertIn("visual_bible", saved["creative_brief"])
         self.assertEqual(len(saved["creative_brief"]["scenes"]), 4)
+
+    def test_campanha_sem_cliente_usa_centralcomm(self):
+        repository = Mock()
+        repository.get_format.return_value = {
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+        }
+        repository.create_campaign_with_productions.return_value = {
+            "id": 30,
+            "productions": [{"id": 50}],
+        }
+        repository.get_campaign.return_value = {"id": 30, "name": "Sem vínculo"}
+        repository.get_production.return_value = {
+            "id": 50,
+            "scene_count": 1,
+            "scenes": [{"id": 1}],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service.create_production_plan({
+            "name": "Sem vínculo",
+            "productions": [{"format_template_id": 7, "scene_descriptions": ["Peça"]}],
+        })
+        saved = repository.create_campaign_with_productions.call_args.args[0]
+        self.assertEqual(saved["client_id"], 174)
+        self.assertEqual(saved["client_source"], "crm")
 
     def test_prompt_deterministico_contem_variacao_e_identidades(self):
         context = self.repo.get_step_context(8)
@@ -2333,8 +2363,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=28", page)
-        self.assertIn("modelagem_criativos.js') }}?v=28", page)
+        self.assertIn("modelagem_criativos.css') }}?v=29", page)
+        self.assertIn("modelagem_criativos.js') }}?v=29", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2580,6 +2610,10 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_house_client.py',
+            deploy,
+        )
+        self.assertIn(
             '"$VENV_PYTHON" migrations/run_add_creative_scene_productions.py',
             deploy,
         )
@@ -2668,6 +2702,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("production?.scenes?.[0]?.id", create_flow)
         self.assertNotIn("/parametros/api/variations/", create_flow)
         self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
+        self.assertIn("CentralComm · marca", frontend)
+        repository = (
+            root / "aicentralv2" / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("HOUSE_CRM_CLIENT_ID = 174", repository)
+        self.assertIn("'profile:' || cx.id::text", repository)
+        self.assertNotIn(
+            "WHERE cx.crm_client_id IS NULL",
+            repository,
+        )
         self.assertIn("function sceneCountForFormat", frontend)
         self.assertIn("function renderProduction", frontend)
         self.assertIn("function renderContinuitySpine", frontend)
@@ -2733,6 +2777,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("crm_client_id", campaign_flow_sql)
         self.assertIn("display_motion_payload", campaign_flow_sql)
+        house_sql = (
+            root / "migrations" / "add_creative_house_client.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("DROP INDEX IF EXISTS uq_cx_clients_crm_client", house_sql)
+        self.assertIn("SET crm_client_id = 174", house_sql)
         repository = (
             root / "aicentralv2" / "creative_modeling_repository.py"
         ).read_text(encoding="utf-8")

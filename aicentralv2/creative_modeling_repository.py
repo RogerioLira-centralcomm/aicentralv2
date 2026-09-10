@@ -9,6 +9,8 @@ from psycopg.types.json import Json
 from .creative_format_geometry import scene_count_for_format
 from .creative_modeling_prompts import build_inherited_scene_prompt
 
+HOUSE_CRM_CLIENT_ID = 174
+
 
 class CreativeNotFoundError(LookupError):
     pass
@@ -16,6 +18,86 @@ class CreativeNotFoundError(LookupError):
 
 class CreativeConflictError(ValueError):
     pass
+
+
+def _house_crm_client_id(cursor):
+    cursor.execute(
+        """
+        SELECT id_cliente
+          FROM tbl_cliente
+         WHERE id_cliente = %s AND status = TRUE
+        """,
+        (HOUSE_CRM_CLIENT_ID,),
+    )
+    row = cursor.fetchone()
+    return row["id_cliente"] if row else None
+
+
+def _resolve_cx_client_id(cursor, client_source, source_client_id):
+    if client_source == "crm":
+        cursor.execute(
+            """
+            SELECT id_cliente,
+                   COALESCE(
+                       nome_fantasia, razao_social,
+                       'Cliente #' || id_cliente::text
+                   ) AS name
+              FROM tbl_cliente
+             WHERE id_cliente = %s AND status = TRUE
+            """,
+            (source_client_id,),
+        )
+        crm_client = cursor.fetchone()
+        if not crm_client:
+            raise CreativeNotFoundError("Cliente do CRM não encontrado.")
+        cursor.execute(
+            """
+            SELECT id
+              FROM cx_clients
+             WHERE crm_client_id = %s
+             ORDER BY id
+             LIMIT 1
+            """,
+            (source_client_id,),
+        )
+        existing = cursor.fetchone()
+        if existing:
+            return existing["id"]
+        cursor.execute(
+            """
+            INSERT INTO cx_clients (
+                crm_client_id, name, brand_profile,
+                analysis_metadata, price_policy
+            )
+            VALUES (%s, %s, '{}'::jsonb, '{}'::jsonb, 'hide_price')
+            RETURNING id
+            """,
+            (source_client_id, crm_client["name"]),
+        )
+        return cursor.fetchone()["id"]
+    cursor.execute(
+        """
+        SELECT id, crm_client_id
+          FROM cx_clients
+         WHERE id = %s
+        """,
+        (source_client_id,),
+    )
+    client = cursor.fetchone()
+    if not client:
+        raise CreativeNotFoundError("Perfil de marca não encontrado.")
+    if not client.get("crm_client_id"):
+        house = _house_crm_client_id(cursor)
+        if house:
+            cursor.execute(
+                """
+                UPDATE cx_clients
+                   SET crm_client_id = %s
+                 WHERE id = %s AND crm_client_id IS NULL
+                """,
+                (house, client["id"]),
+            )
+    return client["id"]
 
 
 class CreativeModelingRepository:
@@ -175,7 +257,7 @@ class CreativeModelingRepository:
                        CASE WHEN cx.id IS NULL THEN 'minimal' ELSE 'ready' END
                            AS profile_status,
                        COALESCE(
-                           cx.name, crm.nome_fantasia, crm.razao_social,
+                           crm.nome_fantasia, crm.razao_social,
                            'Cliente #' || crm.id_cliente::text
                        )
                            AS name,
@@ -187,10 +269,19 @@ class CreativeModelingRepository:
                            AS analysis_metadata,
                        COALESCE(cx.price_policy, 'hide_price') AS price_policy
                   FROM tbl_cliente crm
-                  LEFT JOIN cx_clients cx ON cx.crm_client_id = crm.id_cliente
+                  LEFT JOIN LATERAL (
+                      SELECT id, sector, tone_of_voice, logo_url,
+                             logo_upload_path, primary_color, secondary_color,
+                             website_url, brand_profile, analysis_metadata,
+                             price_policy
+                        FROM cx_clients
+                       WHERE crm_client_id = crm.id_cliente
+                       ORDER BY id
+                       LIMIT 1
+                  ) cx ON TRUE
                  WHERE crm.status = TRUE
                 UNION ALL
-                SELECT cx.id AS profile_id, NULL::integer AS crm_client_id,
+                SELECT cx.id AS profile_id, cx.crm_client_id,
                        'profile:' || cx.id::text AS selection_key,
                        'creative' AS source, 'ready' AS profile_status,
                        cx.name, cx.sector, cx.tone_of_voice, cx.logo_url,
@@ -198,11 +289,13 @@ class CreativeModelingRepository:
                        cx.secondary_color, cx.website_url,
                        cx.brand_profile, cx.analysis_metadata, cx.price_policy
                   FROM cx_clients cx
-                 WHERE cx.crm_client_id IS NULL
                  ORDER BY name
                 """
             )
-            return [dict(row) for row in cursor.fetchall()]
+            rows = [dict(row) for row in cursor.fetchall()]
+        for row in rows:
+            row["house"] = row.get("crm_client_id") == HOUSE_CRM_CLIENT_ID
+        return rows
 
     def get_client(self, client_id):
         with self.conn.cursor() as cursor:
@@ -224,17 +317,19 @@ class CreativeModelingRepository:
 
     def create_client(self, data):
         with self._write() as cursor:
+            crm_client_id = data.get("crm_client_id") or _house_crm_client_id(cursor)
             cursor.execute(
                 """
                 INSERT INTO cx_clients (
-                    name, sector, tone_of_voice, logo_url, primary_color,
-                    secondary_color, website_url, brand_profile,
+                    crm_client_id, name, sector, tone_of_voice, logo_url,
+                    primary_color, secondary_color, website_url, brand_profile,
                     analysis_metadata, price_policy
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
+                    crm_client_id,
                     data["name"],
                     data.get("sector"),
                     data.get("tone_of_voice"),
@@ -448,48 +543,11 @@ class CreativeModelingRepository:
 
     def create_campaign_with_variation_a(self, data):
         with self._write() as cursor:
-            client_source = data.get("client_source", "creative")
-            source_client_id = data["client_id"]
-            if client_source == "crm":
-                cursor.execute(
-                    """
-                    SELECT id_cliente,
-                           COALESCE(
-                               nome_fantasia, razao_social,
-                               'Cliente #' || id_cliente::text
-                           ) AS name
-                      FROM tbl_cliente
-                     WHERE id_cliente = %s AND status = TRUE
-                    """,
-                    (source_client_id,),
-                )
-                crm_client = cursor.fetchone()
-                if not crm_client:
-                    raise CreativeNotFoundError("Cliente do CRM não encontrado.")
-                cursor.execute(
-                    """
-                    INSERT INTO cx_clients (
-                        crm_client_id, name, brand_profile,
-                        analysis_metadata, price_policy
-                    )
-                    VALUES (%s, %s, '{}'::jsonb, '{}'::jsonb, 'hide_price')
-                    ON CONFLICT (crm_client_id)
-                        WHERE crm_client_id IS NOT NULL
-                    DO UPDATE SET name = EXCLUDED.name
-                    RETURNING id
-                    """,
-                    (source_client_id, crm_client["name"]),
-                )
-                client_id = cursor.fetchone()["id"]
-            else:
-                cursor.execute(
-                    "SELECT id FROM cx_clients WHERE id = %s",
-                    (source_client_id,),
-                )
-                client = cursor.fetchone()
-                if not client:
-                    raise CreativeNotFoundError("Perfil de marca não encontrado.")
-                client_id = client["id"]
+            client_id = _resolve_cx_client_id(
+                cursor,
+                data.get("client_source", "creative"),
+                data["client_id"],
+            )
 
             first_step = data["first_step"]
             cursor.execute(
@@ -560,48 +618,11 @@ class CreativeModelingRepository:
     def create_campaign_with_productions(self, data):
         """Cria campanha, uma produção por formato e suas cenas atomicamente."""
         with self._write() as cursor:
-            client_source = data.get("client_source", "creative")
-            source_client_id = data["client_id"]
-            if client_source == "crm":
-                cursor.execute(
-                    """
-                    SELECT id_cliente,
-                           COALESCE(
-                               nome_fantasia, razao_social,
-                               'Cliente #' || id_cliente::text
-                           ) AS name
-                      FROM tbl_cliente
-                     WHERE id_cliente = %s AND status = TRUE
-                    """,
-                    (source_client_id,),
-                )
-                crm_client = cursor.fetchone()
-                if not crm_client:
-                    raise CreativeNotFoundError("Cliente do CRM não encontrado.")
-                cursor.execute(
-                    """
-                    INSERT INTO cx_clients (
-                        crm_client_id, name, brand_profile,
-                        analysis_metadata, price_policy
-                    )
-                    VALUES (%s, %s, '{}'::jsonb, '{}'::jsonb, 'hide_price')
-                    ON CONFLICT (crm_client_id)
-                        WHERE crm_client_id IS NOT NULL
-                    DO UPDATE SET name = EXCLUDED.name
-                    RETURNING id
-                    """,
-                    (source_client_id, crm_client["name"]),
-                )
-                client_id = cursor.fetchone()["id"]
-            else:
-                cursor.execute(
-                    "SELECT id FROM cx_clients WHERE id = %s",
-                    (source_client_id,),
-                )
-                client = cursor.fetchone()
-                if not client:
-                    raise CreativeNotFoundError("Perfil de marca não encontrado.")
-                client_id = client["id"]
+            client_id = _resolve_cx_client_id(
+                cursor,
+                data.get("client_source", "creative"),
+                data["client_id"],
+            )
 
             format_ids = [item["format_template_id"] for item in data["productions"]]
             cursor.execute(

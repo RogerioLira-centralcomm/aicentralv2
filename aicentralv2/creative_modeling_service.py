@@ -20,6 +20,7 @@ from .creative_modeling_generation import (
     build_higgsfield_payload,
 )
 from .creative_modeling_repository import (
+    HOUSE_CRM_CLIENT_ID,
     CreativeModelingRepository,
     CreativeNotFoundError,
     scene_count_for_format,
@@ -139,6 +140,17 @@ def _serialize(value):
     if isinstance(value, dict):
         return {key: _serialize(item) for key, item in value.items()}
     return value
+
+
+def _campaign_client_ref(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    source = payload.get("client_source", "creative")
+    if source not in {"creative", "crm"}:
+        raise ValueError("Origem do cliente inválida.")
+    raw = payload.get("client_id")
+    if raw in (None, ""):
+        return HOUSE_CRM_CLIENT_ID, "crm"
+    return _integer(raw, "Cliente"), source
 
 
 def _color(value, field):
@@ -695,6 +707,11 @@ class CreativeModelingService:
             ),
             "brand_profile": brand_profile,
             "analysis_metadata": analysis_metadata,
+            "crm_client_id": (
+                HOUSE_CRM_CLIENT_ID
+                if payload.get("crm_client_id") in (None, "")
+                else _integer(payload.get("crm_client_id"), "Cliente CentralComm")
+            ),
         }
         client_id = self.repository.create_client(data)
         saved_assets = []
@@ -1011,9 +1028,7 @@ class CreativeModelingService:
         show_price = payload.get("show_price", False)
         if not isinstance(show_price, bool):
             raise ValueError("Exibir preço deve ser verdadeiro ou falso.")
-        client_source = payload.get("client_source", "creative")
-        if client_source not in {"creative", "crm"}:
-            raise ValueError("Origem do cliente inválida.")
+        client_id, client_source = _campaign_client_ref(payload)
         raw_productions = payload.get("productions")
         if not isinstance(raw_productions, list) or not raw_productions:
             raise ValueError("Informe ao menos uma produção.")
@@ -1065,7 +1080,7 @@ class CreativeModelingService:
             )
 
         data = {
-            "client_id": _integer(payload.get("client_id"), "Cliente"),
+            "client_id": client_id,
             "client_source": client_source,
             "name": _text(
                 payload.get("name"),
@@ -1874,9 +1889,7 @@ class CreativeModelingService:
         show_price = payload.get("show_price", False)
         if not isinstance(show_price, bool):
             raise ValueError("Exibir preço deve ser verdadeiro ou falso.")
-        client_source = payload.get("client_source", "creative")
-        if client_source not in {"creative", "crm"}:
-            raise ValueError("Origem do cliente inválida.")
+        client_id, client_source = _campaign_client_ref(payload)
         raw_first_step = payload.get("first_step")
         if not isinstance(raw_first_step, dict):
             raise ValueError("Formato inicial é obrigatório.")
@@ -1888,7 +1901,7 @@ class CreativeModelingService:
         if mockup not in MOCKUPS:
             raise ValueError("Ambiente inicial inválido.")
         data = {
-            "client_id": _integer(payload.get("client_id"), "Cliente"),
+            "client_id": client_id,
             "client_source": client_source,
             "name": _text(
                 payload.get("name"),

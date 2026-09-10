@@ -9815,7 +9815,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             filtros = {}
             user_set_filters = '_f' in request.args or '_restored' in request.args
-            origem_lista = request.args.get('origem', '')
+            origem_lista = (request.args.get('origem') or '').strip()
 
             if request.args.get('resp_comercial'):
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
@@ -9823,6 +9823,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['id_status_pi'] = int(request.args.get('id_status_pi'))
             if request.args.get('id_sub_status_pi'):
                 filtros['id_sub_status_pi'] = int(request.args.get('id_sub_status_pi'))
+            if not origem_lista and filtros.get('id_sub_status_pi') == 4:
+                origem_lista = 'faturamento'
 
             tipo_entidade = request.args.get('tipo_entidade', '').strip()
             if tipo_entidade in ('cliente', 'agencia', 'agencia_incentivo'):

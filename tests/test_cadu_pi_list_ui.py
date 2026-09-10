@@ -125,6 +125,11 @@ class CaduPiListUiContractTest(unittest.TestCase):
         header = (PARTIALS / "_header_filters.html").read_text()
         self.assertIn("PIs enviados ao Financeiro", header)
         self.assertIn("Fila de faturamento", header)
+        self.assertIn("origemEfetiva", self.js)
+        self.assertIn("subStatusAtual === '4'", self.js)
+        routes = ROUTES.read_text()
+        self.assertIn("if not origem_lista and filtros.get('id_sub_status_pi') == 4", routes)
+        self.assertIn("_garantir_indice_unico_whatsapp_mensagens", (ROOT / "aicentralv2/db.py").read_text())
 
     def test_internal_campaign_grid_matches_operational_tracking(self):
         for marker in (

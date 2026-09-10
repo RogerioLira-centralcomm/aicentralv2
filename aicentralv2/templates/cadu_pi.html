@@ -1,7 +1,7 @@
 {% extends 'base_erp.html' %}
 
-{% block page_label %}{% if origem_lista == 'nf_emitida' %}Financeiro{% else %}Comercial{% endif %}{% endblock %}
-{% block page_subtitle %}{% if origem_lista == 'nf_emitida' %}Notas fiscais e pagamentos dos PIs{% else %}Gestão comercial e operacional de PIs{% endif %}{% endblock %}
+{% block page_label %}{% if origem_lista in ['nf_emitida', 'faturamento'] %}Financeiro{% else %}Comercial{% endif %}{% endblock %}
+{% block page_subtitle %}{% if origem_lista == 'nf_emitida' %}Notas fiscais e pagamentos dos PIs{% elif origem_lista == 'faturamento' %}PIs no financeiro{% else %}Gestão comercial e operacional de PIs{% endif %}{% endblock %}
 
 {% block title %}PIs - CentralComm AI{% endblock %}
 
@@ -1066,7 +1066,7 @@
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=6"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

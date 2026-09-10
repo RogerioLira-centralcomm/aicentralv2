@@ -18,6 +18,12 @@
   let visaoComercial = new URLSearchParams(window.location.search).get('visao') || '';
   const origemLista = new URLSearchParams(window.location.search).get('origem') || '';
 
+  function origemEfetiva() {
+    if (origemLista) return origemLista;
+    if (subStatusAtual === '4') return 'faturamento';
+    return '';
+  }
+
   function setFilterFeedback(message) {
     const feedback = document.querySelector('[data-filter-feedback]');
     if (feedback) feedback.textContent = message || '';
@@ -71,14 +77,15 @@
     const clienteId = (document.getElementById('filtro_cliente_id') || {}).value || '';
 
     setCookie('cc_filtro_exec', exec, 30);
-    if (origemLista === 'faturamento' || origemLista === 'nf_emitida') {
-      setCookie('cc_pi_origem_lista', origemLista, 30);
-      setCookie('cc_filtro_mes_' + origemLista, mes, 30);
-      setCookie('cc_filtro_ano_' + origemLista, ano, 30);
-      setCookie('cc_filtro_tipo_entidade_' + origemLista, tipoEntidade, 30);
+    var origem = origemEfetiva();
+    if (origem === 'faturamento' || origem === 'nf_emitida') {
+      setCookie('cc_pi_origem_lista', origem, 30);
+      setCookie('cc_filtro_mes_' + origem, mes, 30);
+      setCookie('cc_filtro_ano_' + origem, ano, 30);
+      setCookie('cc_filtro_tipo_entidade_' + origem, tipoEntidade, 30);
     } else {
       setCookie('cc_filtro_mes', mes, 30);
-      if (origemLista === 'operacao') setCookie('cc_pi_origem_lista', 'operacao', 30);
+      if (origem === 'operacao') setCookie('cc_pi_origem_lista', 'operacao', 30);
     }
 
     if (exec) params.set('resp_comercial', exec);
@@ -91,8 +98,8 @@
     if (mesVal) params.set('mes_ref_comp', mesVal);
     else if (ano) params.set('ano_ref_comp', ano);
     if (busca) params.set('busca', busca);
-    if (origemLista) params.set('origem', origemLista);
-    if (origemLista === 'nf_emitida') {
+    if (origemEfetiva()) params.set('origem', origemEfetiva());
+    if (origemEfetiva() === 'nf_emitida') {
       const nfStatus = new URLSearchParams(window.location.search).get('nf_status');
       if (nfStatus) params.set('nf_status', nfStatus);
     }
@@ -206,13 +213,14 @@
     const params = new URLSearchParams(window.location.search);
     if (params.has('_restored')) return;
     const exec = getCookie('cc_filtro_exec');
-    const month = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
-      ? (getCookie('cc_filtro_mes_' + origemLista) || getCookie('cc_filtro_mes'))
+    const origemRestore = origemEfetiva();
+    const month = (origemRestore === 'faturamento' || origemRestore === 'nf_emitida')
+      ? (getCookie('cc_filtro_mes_' + origemRestore) || getCookie('cc_filtro_mes'))
       : getCookie('cc_filtro_mes');
-    const year = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
-      ? (getCookie('cc_filtro_ano_' + origemLista) || getCookie('cc_filtro_ano')) : '';
-    const entity = (origemLista === 'faturamento' || origemLista === 'nf_emitida')
-      ? getCookie('cc_filtro_tipo_entidade_' + origemLista) : '';
+    const year = (origemRestore === 'faturamento' || origemRestore === 'nf_emitida')
+      ? (getCookie('cc_filtro_ano_' + origemRestore) || getCookie('cc_filtro_ano')) : '';
+    const entity = (origemRestore === 'faturamento' || origemRestore === 'nf_emitida')
+      ? getCookie('cc_filtro_tipo_entidade_' + origemRestore) : '';
     const restored = new URLSearchParams(params);
     let changed = false;
 
@@ -241,10 +249,10 @@
     }
     if (!changed) return;
     if (visaoComercial && !restored.has('visao')) restored.set('visao', visaoComercial);
-    if (origemLista && !restored.has('origem')) restored.set('origem', origemLista);
+    if (origemEfetiva() && !restored.has('origem')) restored.set('origem', origemEfetiva());
     else if (!restored.has('origem') && subStatusAtual === '4') {
       const savedOrigin = getCookie('cc_pi_origem_lista');
-      if (['faturamento', 'operacao', 'nf_emitida'].indexOf(savedOrigin) !== -1) restored.set('origem', savedOrigin);
+      restored.set('origem', ['operacao', 'nf_emitida'].indexOf(savedOrigin) !== -1 ? savedOrigin : 'faturamento');
     }
     restored.set('_restored', '1');
     window.location.href = '/cadu_pi?' + restored.toString();

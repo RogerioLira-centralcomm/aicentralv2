@@ -146,6 +146,48 @@ def close_db(e=None):
             current_app.logger.error(f"FALHA Erro ao fechar conexão: {ex}")
 
 
+def _garantir_indice_unico_whatsapp_mensagens(cursor):
+    """Dedup + índice único, sem derrubar o boot se outro worker já estiver nisso."""
+    cursor.execute(
+        """
+        SELECT 1 FROM pg_indexes
+         WHERE indexname = 'uq_whatsapp_msg_provider_id'
+        """
+    )
+    if cursor.fetchone():
+        return
+    cursor.execute("SAVEPOINT whatsapp_msg_dedup")
+    try:
+        cursor.execute("SELECT pg_try_advisory_xact_lock(%s)", (87473102,))
+        if not (cursor.fetchone() or [False])[0]:
+            cursor.execute("ROLLBACK TO SAVEPOINT whatsapp_msg_dedup")
+            return
+        cursor.execute(
+            """
+            DELETE FROM whatsapp_mensagens a
+            USING whatsapp_mensagens b
+            WHERE a.provider_message_id IS NOT NULL
+              AND btrim(a.provider_message_id) <> ''
+              AND a.provider_message_id = b.provider_message_id
+              AND a.id > b.id
+            """
+        )
+        cursor.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_msg_provider_id
+            ON whatsapp_mensagens (provider_message_id)
+            WHERE provider_message_id IS NOT NULL AND btrim(provider_message_id) <> ''
+            """
+        )
+        cursor.execute("RELEASE SAVEPOINT whatsapp_msg_dedup")
+    except Exception as exc:
+        try:
+            cursor.execute("ROLLBACK TO SAVEPOINT whatsapp_msg_dedup")
+        except Exception:
+            pass
+        logger.warning("Deduplicação de whatsapp_mensagens ignorada: %s", exc)
+
+
 def init_db(app):
     """Inicializa o banco de dados"""
     with app.app_context():
@@ -446,19 +488,7 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_conversa ON whatsapp_mensagens(conversa_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_provider_id ON whatsapp_mensagens(provider_message_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_msg_created ON whatsapp_mensagens(created_at)')
-            cursor.execute('''
-                DELETE FROM whatsapp_mensagens a
-                USING whatsapp_mensagens b
-                WHERE a.provider_message_id IS NOT NULL
-                  AND btrim(a.provider_message_id) <> ''
-                  AND a.provider_message_id = b.provider_message_id
-                  AND a.id > b.id
-            ''')
-            cursor.execute('''
-                CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_msg_provider_id
-                ON whatsapp_mensagens (provider_message_id)
-                WHERE provider_message_id IS NOT NULL AND btrim(provider_message_id) <> ''
-            ''')
+            _garantir_indice_unico_whatsapp_mensagens(cursor)
 
             # Garantir coluna de vendas_central_comm em tbl_cliente (inteiro 0/1)
             cursor.execute('''

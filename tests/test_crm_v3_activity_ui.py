@@ -57,8 +57,14 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("Spotify", self.template)
         self.assertIn("cx-atividade-brand", self.template)
         self.assertIn("payload.notas_executivo = payload.descricao", self.js)
+        self.assertIn("if (activityType !== 'atividade')", self.js)
         self.assertIn("delete payload.descricao", self.js)
+        self.assertLess(
+            self.js.index("if (activityType !== 'atividade')"),
+            self.js.index("delete payload.descricao"),
+        )
         self.assertIn("canApply: false", self.js)
+        self.assertIn("canApply: activityType === 'atividade'", self.js)
         self.assertIn("enrichAtividadeIaPayload", self.js)
         self.assertIn("destinatario", self.js)
         self.assertIn("responsavel_interno", self.js)
@@ -69,7 +75,13 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("appendHistoryActions", self.js)
         self.assertIn("wireAtividadeAssistente", self.js)
         self.assertIn("/ia/modelo-estilo", self.js)
-        self.assertIn("/ia/sugerir-data", self.js)
+        self.assertNotIn("/ia/sugerir-data", self.js)
+        self.assertIn("addBusinessDays", self.js)
+        self.assertIn("wireAtividadeAutosave", self.js)
+        self.assertIn("persistAtividade", self.js)
+        self.assertIn("mountAtividadeHeaderChrome", self.js)
+        self.assertNotIn("breadcrumb: 'CRM v3 · Atividade'", self.js)
+        self.assertNotIn("function submitAtividade", self.js)
         self.assertIn("data-ia-style-section", self.template)
         self.assertNotIn("data-atividade-modelo", self.template)
         self.assertNotIn("Usar modelo", self.template)
@@ -107,9 +119,20 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn(".cx-atividade-ia-history-editor-actions", self.css)
         self.assertIn("maxlength=\"50000\"", self.template)
         self.assertIn("0/50000", self.template)
-        self.assertIn("Sugerir data com IA", self.template)
-        self.assertIn("Você também pode registrar atividades passadas.", self.template)
+        self.assertIn("Sugerir prazo", self.template)
+        self.assertIn("2 dias úteis", self.template)
+        self.assertNotIn("Sugerir data com IA", self.template)
+        self.assertNotIn("Você também pode registrar atividades passadas.", self.template)
         self.assertIn("data-status-select", self.template)
+        self.assertIn("data-status-field", self.template)
+        self.assertIn('[data-chip-group="tipo"]', self.css)
+        self.assertRegex(
+            self.css,
+            r'\[data-chip-group="tipo"\]\s*\{[^}]*flex-wrap:\s*nowrap',
+        )
+        self.assertIn("c.principal", self.js)
+        self.assertIn("form._flushAtividadeSave", self.js)
+        self.assertIn("Registro atualizado.", self.js)
 
     def test_mobile_falls_back_to_one_column(self):
         self.assertIn("@media (max-width: 1024px)", self.css)

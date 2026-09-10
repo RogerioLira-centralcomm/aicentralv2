@@ -124,6 +124,26 @@ class CrmTestHelpersTest(unittest.TestCase):
         )
         self.assertEqual(curto, "Oi Al, tudo bem?")
 
+    def test_montar_roteiro_respeita_tipo_sem_forcar_ligacao(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        self.assertEqual(routes._tipo_atividade({"tipo": "planejamento"}), "planejamento")
+        self.assertEqual(routes._tipo_atividade({"tipo": "DOC"}), "doc")
+        self.assertEqual(routes._tipo_atividade({}), "atividade")
+        original = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            out = routes._montar_roteiro({
+                "titulo": "Enviar recorte da campanha",
+                "tipo": "atividade",
+            })
+        finally:
+            routes._openrouter_available = original
+        self.assertIn("O que fazer", out["texto"])
+        self.assertNotIn("Abertura:", out["texto"])
+        self.assertNotEqual(out["texto"].strip(), "Enviar recorte da campanha")
+        self.assertEqual(out["source"], "fallback")
+
 
 class CrmTestApiTest(unittest.TestCase):
     def setUp(self):
@@ -860,6 +880,39 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertTrue(data["objecoes_a_explorar"])
         self.assertTrue(data["fechamento"])
         self.assertTrue(data["texto"])
+
+    def test_gerar_roteiro_preserva_tipo_real_e_registro_basico(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            atividade = self.client.post(
+                "/crm-v3/api/ia/gerar-roteiro",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "titulo": "Enviar recorte da campanha",
+                    "tipo": "atividade",
+                },
+            )
+            planejamento = self.client.post(
+                "/crm-v3/api/ia/gerar-roteiro",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "titulo": "Planejar Q4",
+                    "tipo": "planejamento",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+        self.assertEqual(atividade.status_code, 200)
+        data = atividade.get_json()["data"]
+        self.assertEqual(data["tipo"], "atividade")
+        self.assertIn("O que fazer", data["texto"])
+        self.assertNotIn("Abertura:", data["texto"])
+        self.assertNotEqual(data["texto"].strip(), "Enviar recorte da campanha")
+        self.assertEqual(planejamento.status_code, 200)
+        self.assertEqual(planejamento.get_json()["data"]["tipo"], "planejamento")
 
     def test_roteiro_sem_contato_sauda_a_equipe(self):
         import aicentralv2.crm_v3_routes as routes

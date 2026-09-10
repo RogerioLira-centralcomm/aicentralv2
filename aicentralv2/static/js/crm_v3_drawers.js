@@ -783,6 +783,10 @@
             select.appendChild(opt);
         });
         var pref = atividade && (atividade.contato_id != null ? String(atividade.contato_id) : '');
+        if (!pref && contatos.length) {
+            var principal = contatos.filter(function (c) { return c && c.principal; })[0];
+            pref = String((principal || contatos[0]).id || '');
+        }
         if (pref) {
             for (var i = 0; i < select.options.length; i++) {
                 if (select.options[i].value === pref) { select.selectedIndex = i; break; }
@@ -818,7 +822,10 @@
             chips.forEach(function (chip) {
                 chip.addEventListener('click', function () {
                     var val = chip.getAttribute('data-value');
-                    if (hidden) hidden.value = val;
+                    if (hidden) {
+                        hidden.value = val;
+                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                     markActive(val);
                 });
             });
@@ -869,7 +876,24 @@
         sync();
     }
 
-    function wireSuggestDate(wrapper, form, clienteId) {
+    function addBusinessDays(from, days) {
+        var date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        var added = 0;
+        while (added < days) {
+            date.setDate(date.getDate() + 1);
+            var weekday = date.getDay();
+            if (weekday !== 0 && weekday !== 6) added += 1;
+        }
+        return date;
+    }
+
+    function isoDateLocal(date) {
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        return date.getFullYear() + '-' + month + '-' + day;
+    }
+
+    function wireSuggestDate(wrapper, form) {
         var card = wrapper.querySelector('[data-suggest-date]');
         var btn = wrapper.querySelector('[data-suggest-date-btn]');
         var dataEl = form.querySelector('[data-field="data"]');
@@ -879,28 +903,18 @@
             var empty = !(dataEl && dataEl.value) || !(prazoEl && prazoEl.value);
             card.hidden = !empty;
         }
+        function applyPrazo(force) {
+            var next = isoDateLocal(addBusinessDays(new Date(), 2));
+            if (dataEl && (force || !dataEl.value)) dataEl.value = next;
+            if (prazoEl && (force || !prazoEl.value)) prazoEl.value = next;
+            syncCard();
+            if (typeof form._scheduleAtividadeSave === 'function') form._scheduleAtividadeSave();
+        }
         [dataEl, prazoEl].forEach(function (el) {
             if (el) el.addEventListener('input', syncCard);
         });
-        btn.addEventListener('click', function () {
-            if (btn.disabled) return;
-            btn.disabled = true;
-            var payload = enrichAtividadeIaPayload(serializeForm(form), form, clienteId);
-            payload.cliente_id = clienteId;
-            apiFetch('/ia/sugerir-data', { method: 'POST', body: payload }).then(function (res) {
-                var data = res.data || res;
-                if (dataEl && data.data) dataEl.value = data.data;
-                if (prazoEl && (data.data_prazo || data.data)) {
-                    prazoEl.value = data.data_prazo || data.data;
-                }
-                syncCard();
-                toast(data.motivo || 'Data sugerida aplicada');
-            }).catch(function (err) {
-                toast(err.message || 'Não foi possível sugerir a data', true);
-            }).then(function () {
-                btn.disabled = false;
-            });
-        });
+        btn.addEventListener('click', function () { applyPrazo(true); });
+        applyPrazo(false);
         syncCard();
     }
 
@@ -1070,7 +1084,7 @@
             copyAssistantText(item.assunto ? item.assunto + '\n\n' + item.texto : item.texto);
         });
         if (item.canApply) {
-            addAction('Aplicar', function () {
+            addAction('Aplicar', 'fa-solid fa-check', function () {
                 if (!applyTextSafely(form, item.texto)) return;
                 if (item.historyId) {
                     apiFetch('/ia/historico/' + encodeURIComponent(item.historyId) + '/aplicar', {
@@ -1178,26 +1192,23 @@
             editor.remove();
             hideEls.forEach(function (el) { el.hidden = false; });
         }
-        addLink('Salvar', function () {
+        var historyTimer = null;
+        function saveEdit() {
             var next = String(area.value || '').trim();
             var assunto = subjectInput ? String(subjectInput.value || '').trim() : '';
-            if (!next) {
-                toast('O texto não pode ficar vazio', true);
-                return;
-            }
-            var done = function () {
-                applyEditedPreview(row, item, assunto, next);
-                closeEditor();
-                toast('Geração atualizada');
-            };
-            if (!item.historyId) {
-                done();
-                return;
-            }
-            persistHistoryText(item.historyId, next, assunto).then(done).catch(function (err) {
+            if (!next) return;
+            applyEditedPreview(row, item, assunto, next);
+            if (!item.historyId) return;
+            persistHistoryText(item.historyId, next, assunto).catch(function (err) {
                 toast(err.message || 'Não foi possível salvar a edição', true);
             });
-        });
+        }
+        function scheduleEdit() {
+            window.clearTimeout(historyTimer);
+            historyTimer = window.setTimeout(saveEdit, 500);
+        }
+        area.addEventListener('input', scheduleEdit);
+        if (subjectInput) subjectInput.addEventListener('input', scheduleEdit);
         addLink('Cancelar', closeEditor);
         editor.append(messageLabel, area, actions);
         hideEls.forEach(function (el) { el.hidden = true; });
@@ -1217,7 +1228,7 @@
                 var output = wrapper.querySelector('[data-ia-output]');
                 if (output) {
                     output.classList.remove('is-result');
-                    output.innerHTML = '<p class="cx-atividade-ia-empty">A visualização fica aqui. O histórico só guarda gerações anteriores.</p>';
+                    output.innerHTML = '<p class="cx-atividade-ia-empty">A visualização fica aqui.</p>';
                     delete output.dataset.historyId;
                 }
                 return;
@@ -1303,15 +1314,17 @@
                     var texto = content.texto || content.mensagem || content.titulo || '';
                     if (!texto) return;
                     addIaHistory(wrapper, form, {
-                        label: item.function === 'melhorar-texto' ? 'Registro revisado' : 'Roteiro',
+                        label: item.function === 'melhorar-texto' ? 'Registro revisado' : 'Geração',
                         source: item.source === 'openrouter' ? 'IA' : 'fallback',
                         texto: stripMarkdown(content.mensagem || texto),
                         assunto: stripMarkdown(content.assunto || ''),
                         historyId: item.id,
-                        canApply: item.function === 'melhorar-texto'
+                        canApply: item.function === 'melhorar-texto' || content.tipo === 'atividade'
                     });
                 });
-            }).catch(function () { /* migration ainda não aplicada */ });
+            }).catch(function () {
+                toast('Não foi possível carregar o histórico do assistente', true);
+            });
     }
 
     function rememberPendingIa(form, historyId) {
@@ -1588,6 +1601,13 @@
         // do objeto atividade. Isso alimenta as hiddens `tipo` e
         // `status` — que serão sincronizadas com os chips logo abaixo.
         fillForm(form, atividade || {});
+        var contatoEl = wrapper.querySelector('#cx-ativ-contato');
+        if (contatoEl && !String(contatoEl.value || '').trim()) {
+            var contatosState = (window.crmV3 && window.crmV3.state && window.crmV3.state.contatos) || [];
+            var principal = contatosState.filter(function (c) { return c && c.principal; })[0];
+            var pick = principal || contatosState[0];
+            if (pick && pick.id) contatoEl.value = String(pick.id);
+        }
         var canalField = form.querySelector('[data-field="canal_produto"]');
         var focoField = form.querySelector('[data-field="foco"]');
         var tituloField = form.querySelector('[data-field="titulo"]');
@@ -1609,40 +1629,27 @@
         // Conecta os chip-groups (Tipo, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
-        wireStatusSelect(wrapper, form);
         wireRegistroCounter(form);
-        wireSuggestDate(wrapper, form, clienteId);
         wireStyleModel(wrapper);
         loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
         var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
         meetingEditor.toggle(tipoVal);
         wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor);
+        var atividadeRef = atividade ? Object.assign({}, atividade) : {};
 
         _atividadeDrawerId = cxDrawer.open({
-            title: (atividade && atividade.id) ? 'Editar atividade' : 'Nova atividade',
-            breadcrumb: 'CRM v3 · Atividade',
+            title: atividadeRef.id ? 'Editar atividade' : 'Nova atividade',
             size: 'editor',
             contentEl: wrapper,
-            // Sobreposto — não empurra as colunas do CRM.
             split: false,
             onClose: function (id) {
+                if (typeof form._flushAtividadeSave === 'function') form._flushAtividadeSave();
                 if (_atividadeDrawerId === id) _atividadeDrawerId = null;
-            },
-            actions: [
-                { label: 'Cancelar', variant: 'ghost', close: true },
-                {
-                    label: (atividade && atividade.id) ? 'Salvar alterações' : 'Criar atividade',
-                    variant: 'primary',
-                    id: 'cx-drawer-atividade-submit',
-                    onClick: function (ev, id) {
-                        submitAtividade(
-                            form, atividade, clienteId, id, ev.currentTarget,
-                            meetingEditor
-                        );
-                    }
-                }
-            ]
+            }
         });
+        mountAtividadeHeaderChrome(_atividadeDrawerId, wrapper, form);
+        wireAtividadeAutosave(form, atividadeRef, clienteId, meetingEditor, _atividadeDrawerId);
+        wireSuggestDate(wrapper, form);
 
         if (opts.gerarRoteiro) {
             var roteiroBtn = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
@@ -1652,93 +1659,154 @@
         return _atividadeDrawerId;
     }
 
-    function submitAtividade(form, atividade, clienteId, drawerId, submitBtn, meetingEditor) {
-        if (form.dataset.submitting === '1') return;
-        if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
-        var payload = serializeForm(form);
-        if (!payload.titulo || !payload.titulo.trim()) { toast('Título é obrigatório', true); return; }
-        if (!payload.data) { toast('Data é obrigatória', true); return; }
-        // Normalizações:
-        // - status vazio → pendente (default do banco)
-        // - contato_id "" (sem seleção) → null para o backend
+    function mountAtividadeHeaderChrome(drawerId, wrapper, form) {
+        var drawer = document.getElementById(drawerId);
+        var titles = drawer && drawer.querySelector('.cx-drawer-titles');
+        var field = wrapper.querySelector('[data-status-field]');
+        if (titles && field) titles.appendChild(field);
+        wireStatusSelect(drawer || wrapper, form);
+        setDrawerSaveHint(drawerId, '');
+    }
+
+    function setDrawerSaveHint(drawerId, text) {
+        var drawer = document.getElementById(drawerId);
+        if (!drawer) return;
+        var hint = drawer.querySelector('[data-atividade-save-hint]');
+        if (!hint) {
+            hint = document.createElement('span');
+            hint.setAttribute('data-atividade-save-hint', '');
+            hint.className = 'cx-atividade-save-hint';
+            var titles = drawer.querySelector('.cx-drawer-titles');
+            if (titles) titles.appendChild(hint);
+        }
+        hint.textContent = text || '';
+    }
+
+    function atividadePersistPayload(form, meetingEditor, allowGoogleSync) {
+        var raw = serializeForm(form);
+        var payload = {
+            titulo: raw.titulo,
+            descricao: raw.descricao,
+            data: raw.data,
+            data_prazo: raw.data_prazo,
+            hora: raw.hora,
+            tipo: raw.tipo,
+            status: raw.status,
+            executivo_id: raw.executivo_id,
+            contato_id: raw.contato_id
+        };
         if (!payload.status) payload.status = 'pendente';
         if (payload.contato_id === '' || payload.contato_id == null) payload.contato_id = null;
-        // Prazo vazio significa "sem prazo" — mande null para o server.
         if (!payload.data_prazo) payload.data_prazo = payload.data || null;
-        // Hora vazia significa "sem hora" — mande null. Só é persistido
-        // no banco se a base tiver a coluna `hora_atividade` (opcional).
         if (!payload.hora) payload.hora = null;
         if (payload.tipo === 'reuniao' && meetingEditor) {
             payload.meeting = meetingEditor.payload();
-            if (!payload.hora) {
-                toast('Informe a hora de início da reunião', true);
-                return;
-            }
-            if (payload.meeting.sync_google) {
-                var googleStatus = form.querySelector('[data-meeting-sync]');
-                if (googleStatus && googleStatus.dataset.googleConnected !== 'true') {
-                    toast('Conecte o Google Calendar no seu perfil ou salve sem enviar o convite.', true);
-                    return;
-                }
-            }
+            if (!allowGoogleSync) payload.meeting.sync_google = false;
         }
+        return payload;
+    }
 
-        function persist() {
-            form.dataset.submitting = '1';
-            form.setAttribute('aria-busy', 'true');
-            var submitLabel = submitBtn ? submitBtn.textContent : '';
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Salvando…';
-            }
-            var isEdit = !!(atividade && atividade.id);
-            var req = isEdit
-                ? apiFetch('/atividades/' + encodeURIComponent(atividade.id), { method: 'PATCH', body: payload })
-                : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
-            req.then(function (res) {
-                var meeting = res.meeting || (res.data && res.data.meeting);
-                if (meetingEditor && (res.atividade || res.data)) {
-                    meetingEditor.setActivity(res.atividade || res.data);
-                }
-                if (meeting && meeting.sync_status === 'error') {
-                    meetingEditor.renderStatus(meeting);
-                    toast('Atividade salva, mas o convite não foi sincronizado.', true);
-                    notifyEntityUpdated('cliente', clienteId);
-                    return;
-                }
-                if (!isEdit) {
-                    var created = res.atividade || res.data || {};
-                    attachPendingIa(form, created.id);
-                }
-                toast(isEdit ? 'Atividade atualizada' : 'Atividade criada');
-                notifyEntityUpdated('cliente', clienteId);
-                cxDrawer.close(drawerId);
-                if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
-                    window.crmV3.reloadAtividades();
-                }
-            }).catch(function (err) {
-                toast(err.message, true);
-            }).finally(function () {
-                form.dataset.submitting = '0';
-                form.removeAttribute('aria-busy');
-                if (submitBtn && document.body.contains(submitBtn)) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = submitLabel;
-                }
-            });
+    function persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId, opts) {
+        opts = opts || {};
+        if (form.dataset.submitting === '1') return Promise.resolve();
+        var payload = atividadePersistPayload(form, meetingEditor, !!opts.confirmedGoogle);
+        if (!payload.titulo || !String(payload.titulo).trim() || !payload.data) {
+            return Promise.resolve();
         }
-
-        if (payload.meeting && payload.meeting.sync_google) {
+        if (payload.tipo === 'reuniao' && !payload.hora) return Promise.resolve();
+        if (payload.meeting && payload.meeting.sync_google && !opts.confirmedGoogle) {
             window.showConfirm({
-                title: atividade && atividade.id ? 'Atualizar convite' : 'Enviar convite',
+                title: atividadeRef.id ? 'Atualizar convite' : 'Enviar convite',
                 message: 'A atividade será salva e o Google Calendar avisará os convidados.',
-                detail: payload.meeting.attendees.length + ' convidado(s) receberão a atualização.',
-                confirmText: atividade && atividade.id ? 'Salvar e atualizar' : 'Salvar e enviar',
-                onConfirm: persist
+                detail: (payload.meeting.attendees || []).length + ' convidado(s) receberão a atualização.',
+                confirmText: atividadeRef.id ? 'Salvar e atualizar' : 'Salvar e enviar',
+                onConfirm: function () {
+                    persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId, {
+                        confirmedGoogle: true
+                    });
+                }
             });
-            return;
+            return Promise.resolve();
         }
-        persist();
+        form.dataset.submitting = '1';
+        form.setAttribute('aria-busy', 'true');
+        setDrawerSaveHint(drawerId, 'Salvando…');
+        var isEdit = !!atividadeRef.id;
+        var req = isEdit
+            ? apiFetch('/atividades/' + encodeURIComponent(atividadeRef.id), { method: 'PATCH', body: payload })
+            : apiFetch('/clientes/' + encodeURIComponent(clienteId) + '/atividades', { method: 'POST', body: payload });
+        return req.then(function (res) {
+            var saved = res.atividade || res.data || {};
+            var meeting = res.meeting || (res.data && res.data.meeting);
+            if (!isEdit && saved.id) {
+                atividadeRef.id = saved.id;
+                var idField = form.querySelector('[data-field="id"]');
+                if (idField) idField.value = saved.id;
+                var titleEl = document.querySelector('#' + drawerId + '-title');
+                if (titleEl) titleEl.textContent = 'Editar atividade';
+                attachPendingIa(form, saved.id);
+            }
+            if (meetingEditor && saved) meetingEditor.setActivity(saved);
+            if (meeting && meeting.sync_status === 'error') {
+                meetingEditor.renderStatus(meeting);
+                toast('Atividade salva, mas o convite não foi sincronizado.', true);
+            }
+            notifyEntityUpdated('cliente', clienteId);
+            if (window.crmV3 && typeof window.crmV3.reloadAtividades === 'function') {
+                window.crmV3.reloadAtividades();
+            }
+            setDrawerSaveHint(drawerId, 'Salvo');
+        }).catch(function (err) {
+            setDrawerSaveHint(drawerId, '');
+            toast(err.message, true);
+        }).finally(function () {
+            form.dataset.submitting = '0';
+            form.removeAttribute('aria-busy');
+        });
+    }
+
+    function wireAtividadeAutosave(form, atividadeRef, clienteId, meetingEditor, drawerId) {
+        var timer = null;
+        var persistFields = {
+            titulo: 1, descricao: 1, data: 1, data_prazo: 1, hora: 1,
+            tipo: 1, status: 1, executivo_id: 1, contato_id: 1
+        };
+        function schedule() {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(function () {
+                persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId);
+            }, 600);
+        }
+        function flush() {
+            window.clearTimeout(timer);
+            persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId);
+        }
+        form._scheduleAtividadeSave = schedule;
+        form._flushAtividadeSave = flush;
+        form.addEventListener('input', function (ev) {
+            var field = ev.target.getAttribute && ev.target.getAttribute('data-field');
+            if (persistFields[field]) schedule();
+        });
+        form.addEventListener('change', function (ev) {
+            var field = ev.target.getAttribute && ev.target.getAttribute('data-field');
+            if (persistFields[field] || ev.target.hasAttribute('data-status-select')) schedule();
+        });
+        var statusSelect = document.querySelector('#' + drawerId + ' [data-status-select]');
+        if (statusSelect) {
+            statusSelect.addEventListener('change', function () {
+                schedule();
+            });
+        }
+        var syncBox = form.querySelector('[data-meeting-sync]');
+        if (syncBox) {
+            syncBox.addEventListener('change', function () {
+                if (syncBox.checked) {
+                    persistAtividade(form, atividadeRef, clienteId, meetingEditor, drawerId);
+                } else {
+                    schedule();
+                }
+            });
+        }
     }
 
     function stripMarkdown(s) {
@@ -1780,13 +1848,19 @@
             whatsapp: 'Mensagem de WhatsApp',
             email: 'E-mail pronto',
             ligacao: 'Guia para ligação',
-            reuniao: 'Guia para reunião'
+            reuniao: 'Pauta da reunião',
+            doc: 'Estrutura do documento',
+            planejamento: 'Plano da atividade',
+            atividade: 'Registro atualizado'
         };
         var icons = {
             ligacao: 'fa-solid fa-phone',
             reuniao: 'fa-solid fa-users',
             email: 'fa-regular fa-envelope',
-            whatsapp: 'fa-brands fa-whatsapp'
+            whatsapp: 'fa-brands fa-whatsapp',
+            doc: 'fa-regular fa-file-lines',
+            planejamento: 'fa-solid fa-diagram-project',
+            atividade: 'fa-regular fa-circle-check'
         };
         heading.innerHTML = (icons[channel]
             ? '<i class="' + icons[channel] + '" aria-hidden="true"></i> '
@@ -1810,7 +1884,7 @@
             subjectBlock.innerHTML = '<span>Assunto</span><strong>' + escapeHtml(subject) + '</strong>';
             result.appendChild(subjectBlock);
         }
-        if (channel === 'ligacao' || channel === 'reuniao') {
+        if (channel === 'ligacao' || channel === 'reuniao' || channel === 'doc' || channel === 'planejamento') {
             if (data.objetivo) {
                 var goal = document.createElement('section');
                 goal.innerHTML = '<h3>Objetivo da conversa</h3><p>' +
@@ -2035,12 +2109,14 @@
         payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
         var endpoint = action;
+        var activityType = String(payload.tipo || 'atividade').toLowerCase();
         if (action === 'gerar-roteiro') {
-            var activityType = String(payload.tipo || 'atividade').toLowerCase();
-            payload.notas_executivo = payload.descricao || '';
-            payload.objetivo = [payload.titulo, payload.descricao]
-                .filter(Boolean).join('\n\n');
-            delete payload.descricao;
+            if (activityType !== 'atividade') {
+                payload.notas_executivo = payload.descricao || '';
+                payload.objetivo = [payload.titulo, payload.descricao]
+                    .filter(Boolean).join('\n\n');
+                delete payload.descricao;
+            }
             if (activityType === 'email' || activityType === 'whatsapp') {
                 endpoint = 'gerar-comunicacao';
                 payload.formato = activityType;
@@ -2093,13 +2169,29 @@
                     output.textContent = 'A IA não devolveu texto. Tente novamente.';
                 }
             } else if (endpoint === 'gerar-roteiro') {
-                renderAssistantResult(
-                    output,
-                    data,
-                    payload.tipo === 'reuniao' ? 'reuniao' : 'ligacao',
-                    form,
-                    wrapper
-                );
+                var generated = stripMarkdown((data && (data.texto || data.descricao)) || '');
+                addIaHistory(wrapper, form, {
+                    label: activityType === 'atividade' ? 'Registro' : 'Geração',
+                    texto: generated,
+                    source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                    historyId: data.history_id,
+                    canApply: activityType === 'atividade'
+                });
+                if (activityType === 'atividade') {
+                    if (generated) applyTextSafely(form, generated);
+                    output.classList.add('is-visible');
+                    output.classList.remove('is-result');
+                    output.textContent = 'Registro atualizado.';
+                    if (typeof form._scheduleAtividadeSave === 'function') form._scheduleAtividadeSave();
+                } else {
+                    renderAssistantResult(
+                        output,
+                        data,
+                        activityType,
+                        form,
+                        wrapper
+                    );
+                }
             } else if (action === 'sugerir-atividade' || endpoint === 'sugerir-atividade') {
                 if (data) {
                     // Helper defensivo: só atualiza se o campo existir
@@ -2204,6 +2296,14 @@
                     var msg = stripMarkdown(data.mensagem);
                     data.mensagem = msg;
                     data.assunto = stripMarkdown(data.assunto || '');
+                    addIaHistory(wrapper, form, {
+                        label: payload.tipo === 'whatsapp' ? 'WhatsApp' : 'E-mail',
+                        texto: msg,
+                        assunto: data.assunto,
+                        source: data.source === 'openrouter' ? 'IA' : 'fallback',
+                        historyId: data.history_id,
+                        canApply: false
+                    });
                     renderAssistantResult(output, data, payload.tipo, form, wrapper);
                 } else {
                     output.textContent = 'Sem conteúdo gerado.';

@@ -1483,15 +1483,125 @@ def _abordagem_ligacao_fallback(titulo, cliente, contato=None, data=None) -> dic
     }
 
 
+def _tipo_atividade(data: dict) -> str:
+    return str(data.get("tipo") or "atividade").strip().lower()
+
+
+def _registro_atividade_fallback(titulo, cliente, contato=None) -> dict:
+    nome = (cliente or {}).get("nome") or "o cliente"
+    quem = ((contato or {}).get("nome") or "").strip()
+    alvo = f"{quem} ({nome})" if quem else nome
+    texto = (
+        f"O que fazer: executar o combinado com {alvo}, usando o contexto do CRM.\n\n"
+        f"Com quem: {alvo}.\n\n"
+        "Próximo passo: registrar o resultado e a data do retorno."
+    )
+    return {
+        "texto": texto,
+        "objetivo": titulo or "Executar a atividade",
+        "abertura": "",
+        "perguntas": [],
+        "objecoes_a_explorar": [],
+        "pontos_de_atencao": [],
+        "fechamento": "Registrar o resultado nesta atividade.",
+    }
+
+
+def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
+    """Retorna (system_prompt, required_keys) conforme o tipo da atividade."""
+    comum = (
+        f"{_regras_texto_externo()}\n"
+        f"{_regras_destinatario(ancora)}\n"
+        "Não invente dados. Sem markdown. "
+    )
+    if tipo == "atividade":
+        return (
+            "Você é o copiloto comercial da CentralComm.\n"
+            "O título já está no formulário. Escreva o REGISTRO da atividade: "
+            "o que fazer, com quem e o próximo passo, para o executivo executar. "
+            "Não repita o título. Não escreva roteiro de ligação nem mensagem pronta. "
+            "Se já houver registro, aprofunde esse texto.\n"
+            + comum
+            + 'Retorne APENAS JSON: {"texto":"registro em texto puro",'
+            '"motivo":"por que este registro ajuda a executar agora",'
+            '"contexto_utilizado":["dado verificável"]}.'
+        ), ("texto", "motivo")
+    if tipo == "reuniao":
+        return (
+            "Você é o copiloto comercial da CentralComm.\n"
+            "Crie uma PAUTA de reunião (objetivo, pontos e fechamento), "
+            "não um script de telefone.\n"
+            + comum
+            + "Retorne APENAS JSON válido no formato "
+            '{"abertura":"como abrir a reunião",'
+            '"objetivo":"resultado esperado",'
+            '"perguntas":["ponto da pauta"],'
+            '"objecoes_a_explorar":["risco a tratar"],'
+            '"pontos_de_atencao":["ponto verificável"],'
+            '"fechamento":"próximo passo",'
+            '"motivo":"por que esta pauta é adequada",'
+            '"contexto_utilizado":["dado verificável"]}. '
+            "Crie de 4 a 6 pontos. Sem markdown."
+        ), ("abertura", "perguntas", "fechamento", "motivo")
+    if tipo == "doc":
+        return (
+            "Você é o copiloto comercial da CentralComm.\n"
+            "Estruture um DOCUMENTO comercial: objetivo, seções e o que anexar ou enviar.\n"
+            + comum
+            + "Retorne APENAS JSON válido no formato "
+            '{"abertura":"objetivo do documento",'
+            '"objetivo":"para que serve",'
+            '"perguntas":["seção do documento"],'
+            '"objecoes_a_explorar":[],'
+            '"pontos_de_atencao":["o que anexar ou validar"],'
+            '"fechamento":"como enviar ou usar",'
+            '"motivo":"por que esta estrutura",'
+            '"contexto_utilizado":["dado verificável"]}.'
+        ), ("abertura", "perguntas", "fechamento", "motivo")
+    if tipo == "planejamento":
+        return (
+            "Você é o copiloto comercial da CentralComm.\n"
+            "Monte um PLANO curto: objetivo, marcos e próximo passo, com dono quando souber.\n"
+            + comum
+            + "Retorne APENAS JSON válido no formato "
+            '{"abertura":"objetivo do plano",'
+            '"objetivo":"resultado esperado",'
+            '"perguntas":["marco ou etapa"],'
+            '"objecoes_a_explorar":["risco"],'
+            '"pontos_de_atencao":["dependência"],'
+            '"fechamento":"próximo passo",'
+            '"motivo":"por que este plano",'
+            '"contexto_utilizado":["dado verificável"]}.'
+        ), ("abertura", "perguntas", "fechamento", "motivo")
+    return (
+        "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
+        "Crie um guia prático para ligação, não uma mensagem pronta.\n"
+        + comum
+        + "Retorne APENAS JSON válido no formato "
+        '{"abertura":"abertura curta e natural",'
+        '"objetivo":"resultado esperado desta conversa",'
+        '"perguntas":["pergunta aberta e específica"],'
+        '"objecoes_a_explorar":["objeção que deve ser investigada, sem presumir que existe"],'
+        '"pontos_de_atencao":["ponto verificável"],'
+        '"fechamento":"próximo passo objetivo",'
+        '"motivo":"por que este roteiro é adequado agora",'
+        '"contexto_utilizado":["dado verificável 1","dado verificável 2"]}. '
+        "Crie de 4 a 6 perguntas. Sem markdown."
+    ), ("abertura", "perguntas", "fechamento", "motivo")
+
+
 def _montar_roteiro(data: dict) -> dict:
-    """Gera roteiro ancorado no título e no registro da atividade."""
+    """Gera roteiro, pauta, plano ou registro conforme o tipo da atividade."""
     titulo = texto_sem_markdown(data.get("titulo") or "").strip()
-    tipo = (data.get("tipo") or "atividade").strip()
+    tipo = _tipo_atividade(data)
     formato = (data.get("formato") or "").strip().lower()
     foco = (data.get("foco") or "apresentar_solucao").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
     canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
+    registro_atual = texto_sem_markdown(
+        data.get("descricao") or data.get("notas_executivo") or ""
+    ).strip()
     foco_label = {
         "apresentar_solucao": "Apresentar a solução do registro",
         "apresentar_empresa": "Apresentar a CentralComm",
@@ -1511,6 +1621,7 @@ def _montar_roteiro(data: dict) -> dict:
     cliente = store.get_cliente(cliente_id) if cliente_id else None
     contato, _ = _contato_para_ia(data, cliente_id)
     ancora = _ancora_conversa(data, cliente, contato)
+    system_prompt, required = _system_prompt_por_tipo(tipo, ancora)
 
     if _openrouter_available():
         try:
@@ -1519,32 +1630,37 @@ def _montar_roteiro(data: dict) -> dict:
                 f"{_bloco_modelo_estilo(ancora)}"
                 "APOIO COMERCIAL (usar só se confirmar o registro):\n"
                 f"{_contexto_ia_json(data, 'roteiro')}\n\n"
+                f"Tipo da atividade: {tipo}\n"
                 f"Formato: {formato or tipo or 'roteiro'}\n"
                 f"Foco: {foco_label}\n"
                 f"Tom: {tom_label}\n"
             )
+            if registro_atual and tipo == "atividade":
+                user += f"Registro atual (aprofundar, não recomeçar):\n{registro_atual[:3000]}\n"
             if instrucoes:
                 user += f"Ajuste do executivo:\n{instrucoes}\n"
-            system_prompt = (
-                "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
-                "Crie um guia prático para ligação ou reunião, não uma mensagem pronta.\n"
-                f"{_regras_texto_externo()}\n"
-                f"{_regras_destinatario(ancora)}\n"
-                "Não invente dados. Retorne APENAS JSON válido no formato "
-                '{"abertura":"abertura curta e natural",'
-                '"objetivo":"resultado esperado desta conversa",'
-                '"perguntas":["pergunta aberta e específica"],'
-                '"objecoes_a_explorar":["objeção que deve ser investigada, sem presumir que existe"],'
-                '"pontos_de_atencao":["ponto verificável"],'
-                '"fechamento":"próximo passo objetivo",'
-                '"motivo":"por que este roteiro é adequado agora",'
-                '"contexto_utilizado":["dado verificável 1","dado verificável 2"]}. '
-                "Crie de 4 a 6 perguntas. Sem markdown."
-            )
             parsed = _parse_ia_json(
                 _call_openrouter(system_prompt, user, max_tokens=650, temperature=0.35),
-                required=("abertura", "perguntas", "fechamento", "motivo"),
+                required=required,
             )
+            if tipo == "atividade":
+                texto = _texto_ia_limpo(parsed.get("texto"))
+                if not texto:
+                    texto = _registro_atividade_fallback(titulo, cliente, contato)["texto"]
+                return {
+                    "texto": texto,
+                    "objetivo": titulo,
+                    "abertura": "",
+                    "perguntas": [],
+                    "objecoes_a_explorar": [],
+                    "pontos_de_atencao": [],
+                    "fechamento": "",
+                    "motivo": _texto_ia_limpo(parsed.get("motivo")),
+                    "contexto_utilizado": [
+                        _texto_ia_limpo(x) for x in (parsed.get("contexto_utilizado") or [])[:5]
+                    ],
+                    "source": "openrouter",
+                }
             perguntas = [
                 _texto_ia_limpo(item)
                 for item in (parsed.get("perguntas") or [])[:6]
@@ -1564,8 +1680,8 @@ def _montar_roteiro(data: dict) -> dict:
                 for item in (parsed.get("objecoes_a_explorar") or [])[:4]
                 if _texto_ia_limpo(item)
             ]
-            abertura = _texto_ia_limpo(parsed["abertura"])
-            fechamento = _texto_ia_limpo(parsed["fechamento"])
+            abertura = _texto_ia_limpo(parsed.get("abertura"))
+            fechamento = _texto_ia_limpo(parsed.get("fechamento"))
             objetivo_saida = _texto_ia_limpo(parsed.get("objetivo")) or titulo
             texto = (
                 f"Abertura:\n{abertura}\n\nPerguntas:\n- "
@@ -1588,10 +1704,15 @@ def _montar_roteiro(data: dict) -> dict:
             }
         except Exception as exc:
             _log_provider_failure("gerar-roteiro", exc)
-    fallback = _abordagem_ligacao_fallback(titulo, cliente, contato, data)
+    if tipo == "atividade":
+        fallback = _registro_atividade_fallback(titulo, cliente, contato)
+        motivo = "Registro seguro para executar a atividade sem repetir o título."
+    else:
+        fallback = _abordagem_ligacao_fallback(titulo, cliente, contato, data)
+        motivo = "Roteiro seguro baseado no tipo, foco e classificação disponíveis."
     return {
         **fallback,
-        "motivo": "Roteiro seguro baseado no tipo, foco e classificação disponíveis.",
+        "motivo": motivo,
         "contexto_utilizado": ["cliente", "contato selecionado", "foco e tom"],
         "source": "fallback",
     }
@@ -1658,7 +1779,7 @@ def api_ia_gerar_roteiro():
         "objecoes_a_explorar": out.get("objecoes_a_explorar") or [],
         "pontos_de_atencao": out.get("pontos_de_atencao") or [],
         "fechamento": out.get("fechamento"),
-        "tipo": "reuniao" if str(data.get("tipo") or "").lower() == "reuniao" else "ligacao",
+        "tipo": _tipo_atividade(data),
         "contato": contato,
         **dados_canal,
         "motivo": out.get("motivo"),

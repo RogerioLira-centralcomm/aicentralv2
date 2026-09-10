@@ -30,20 +30,21 @@
           </div>
         </section>
 
+        <label class="cx-atividade-status-field" for="cx-ativ-status" data-status-field>
+          <span class="sr-only">Status da atividade</span>
+          <select id="cx-ativ-status" data-status-select>
+            <option value="pendente">Pendente</option>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluida">Concluída</option>
+          </select>
+        </label>
+
         <section class="cx-atividade-side-card cx-atividade-details">
           <header class="cx-atividade-details-head">
             <div class="cx-atividade-side-title">
               <i class="fa-regular fa-clipboard" aria-hidden="true"></i>
               Detalhes da atividade
             </div>
-            <label class="cx-atividade-status-field" for="cx-ativ-status">
-              <span>Status da atividade</span>
-              <select id="cx-ativ-status" data-status-select>
-                <option value="pendente">Pendente</option>
-                <option value="em_andamento">Em andamento</option>
-                <option value="concluida">Concluída</option>
-              </select>
-            </label>
           </header>
 
           <div class="cx-drawer-field cx-drawer-field-full">
@@ -92,19 +93,12 @@
               </select>
             </div>
           </div>
-          <p class="cx-atividade-date-note">
-            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            Você também pode registrar atividades passadas.
-          </p>
           <div class="cx-atividade-suggest-date" data-suggest-date hidden>
             <div>
               <strong>Sem prazo definido?</strong>
-              <p>O assistente pode sugerir uma data com base no contexto.</p>
+              <p>Sugere 2 dias úteis a partir de hoje.</p>
             </div>
-            <button type="button" data-suggest-date-btn>
-              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-              Sugerir data com IA
-            </button>
+            <button type="button" data-suggest-date-btn>Sugerir prazo</button>
           </div>
         </section>
 
@@ -264,7 +258,7 @@
           </div>
 
           <div class="cx-drawer-ia-output" data-ia-output aria-live="polite">
-            <p class="cx-atividade-ia-empty">A visualização fica aqui. O histórico só guarda gerações anteriores.</p>
+            <p class="cx-atividade-ia-empty">A visualização fica aqui.</p>
           </div>
         </section>
 

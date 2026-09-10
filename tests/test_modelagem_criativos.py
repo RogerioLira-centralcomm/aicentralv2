@@ -3175,6 +3175,10 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_compose_library.py',
+            deploy,
+        )
+        self.assertIn(
             '"$VENV_PYTHON" migrations/run_add_creative_campaign_flow.py',
             deploy,
         )

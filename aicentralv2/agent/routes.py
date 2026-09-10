@@ -16,6 +16,7 @@ from .context_records import (
     ContextRecordError,
     build_context_record,
     canonical_type,
+    normalize_agent_context,
     search_operational_records,
 )
 from .insights import build_insights, suggestion_prompts
@@ -61,11 +62,18 @@ CONTACT_EDITABLE_FIELDS = {
 
 def _context(raw=None):
     raw = raw or {}
+    incoming = dict(raw)
+    if not incoming.get("entity_label") and incoming.get("entity_name"):
+        incoming["entity_label"] = incoming.get("entity_name")
+    normalized = normalize_agent_context(incoming)
     clean = {}
-    limits = {"module": 50, "screen": 80, "entity_type": 50, "entity_id": 80, "entity_label": 200}
+    limits = {
+        "module": 50, "screen": 80, "entity_type": 50,
+        "entity_id": 80, "entity_label": 200, "entity_subtype": 40,
+    }
     for key, limit in limits.items():
-        value = str(raw.get(key) or "").strip()[:limit]
-        if key in {"module", "screen", "entity_type"}:
+        value = str(normalized.get(key) or "").strip()[:limit]
+        if key in {"module", "screen", "entity_type", "entity_subtype"}:
             value = re.sub(r"[^a-zA-Z0-9_.-]", "", value)
         elif key == "entity_id":
             value = re.sub(r"[^a-zA-Z0-9_-]", "", value)
@@ -163,6 +171,7 @@ def _conversation_payload(row):
             "entity_type": row.get("context_entity_type") or "",
             "entity_id": row.get("context_entity_id") or "",
             "entity_label": row.get("context_entity_label") or "",
+            "entity_subtype": row.get("context_entity_subtype") or "",
         },
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),

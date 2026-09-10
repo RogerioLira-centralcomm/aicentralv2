@@ -8,6 +8,7 @@ from ...crm_v3_repository import get_store
 from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 from ...pi_operacao_service import PiOperacaoService
 from .. import storage
+from ..context_records import client_subtype, type_label_for
 
 MAX_RESULTS = 20
 
@@ -53,20 +54,40 @@ def _serializable(value):
     return value
 
 
-def _ok(data, title, items=None, links=None, focus=None, confirmation=None):
+FINAL_QUOTE_STATUS = {
+    "rejeitada", "cancelada", "perdida", "arquivada", "encerrada", "recusada",
+}
+OPEN_QUOTE_HINTS = ("abert", "andamento", "enviad", "aprovad")
+DRAFT_QUOTE_HINTS = ("rascunho",)
+DONE_ACTIVITY_STATUS = {"concluida", "concluída", "cancelada"}
+
+
+def _ok(
+    data, title, items=None, links=None, focus=None, confirmation=None,
+    display_type="result_list", summary=None, actions=None, empty=None,
+    ambiguous=False,
+):
     items = items if items is not None else (data if isinstance(data, list) else [data])
+    display = {
+        "title": title,
+        "type": display_type,
+        "summary": summary or "",
+        "items": items[:MAX_RESULTS],
+        "links": links or [],
+        "actions": actions or [],
+        "ambiguous": bool(ambiguous),
+    }
+    if empty:
+        display["empty"] = empty
+        display["type"] = display.get("type") or "empty"
     result = {
         "success": True,
         "data": data,
-        "display": {
-            "title": title,
-            "type": "result_list",
-            "items": items[:MAX_RESULTS],
-            "links": links or [],
-        },
+        "display": display,
         "links": links or [],
-        "metadata": {"count": len(items)},
+        "metadata": {"count": len(items), "ambiguous": bool(ambiguous)},
         "error": None,
+        "ambiguous": bool(ambiguous),
     }
     if focus:
         result["context_focus"] = focus
@@ -95,26 +116,31 @@ def _query_or_fail(fn):
 
 
 def _client_item(item):
+    subtype = client_subtype(item)
+    type_label = item.get("tipo_label") or type_label_for("cliente", subtype)
     return {
         "type": "cliente",
         "id": item.get("id"),
         "title": item.get("nome") or "Cliente sem nome",
-        "subtitle": " · ".join(filter(None, [
-            item.get("tipo_label"), " / ".join(filter(None, [item.get("cidade"), item.get("uf")])),
-        ])),
+        "type_label": type_label,
+        "entity_subtype": subtype,
+        "subtitle": type_label,
+        "location": " / ".join(filter(None, [item.get("cidade"), item.get("uf")])),
         "is_agency": bool(item.get("is_agencia")),
         "responsible": item.get("responsavel") or "Não informado",
         "url": f"/crm-v3/#cliente={item.get('id')}",
+        "primary_action": "use_context",
     }
 
 
-def _focus(entity_type, entity_id, label, module, screen):
+def _focus(entity_type, entity_id, label, module, screen, subtype=""):
     return {
         "module": module,
         "screen": screen,
         "entity_type": entity_type,
         "entity_id": str(entity_id),
         "entity_label": label,
+        "entity_subtype": subtype or client_subtype(raw_type=entity_type),
     }
 
 
@@ -131,7 +157,10 @@ def _unique_exact_focus(query, items, entity_type, module, screen):
     candidates = [item.get("title"), item.get("code"), item.get("id"), item.get("email")]
     if _normalized(query) not in {_normalized(value) for value in candidates if value}:
         return None
-    return _focus(entity_type, item["id"], item.get("title") or entity_type.title(), module, screen)
+    return _focus(
+        entity_type, item["id"], item.get("title") or entity_type.title(),
+        module, screen, item.get("entity_subtype") or "",
+    )
 
 
 def _client_allowed(client, viewer_user_id=None, allow_global=False):
@@ -157,11 +186,39 @@ def buscar_cliente(
     if failed:
         return failed
     items = [_client_item(item) for item in clients]
+    ambiguous = len(items) > 1
+    if not items:
+        return _ok(
+            items, "Nenhum resultado", items,
+            display_type="empty",
+            summary=f'Nenhum registro encontrado para “{query}”.',
+            empty={
+                "title": "Nenhum registro encontrado",
+                "body": f'Não encontramos cliente ou agência para “{query}”.',
+                "actions": [
+                    {"kind": "prompt", "label": "Buscar cotação", "prompt": f"Busque a cotação {query}."},
+                    {"kind": "prompt", "label": "Buscar PI", "prompt": f"Busque o PI {query}."},
+                ],
+            },
+        )
+    if ambiguous:
+        summary = (
+            f'Encontrei {len(items)} registros com nomes semelhantes. '
+            "Qual você quer consultar?"
+        )
+    else:
+        summary = f'Encontrei {len(items)} resultado{"s" if len(items) != 1 else ""} para “{query}”.'
     return _ok(
         items,
-        f"{len(items)} cliente(s) ou agência(s) encontrado(s)",
+        f"{len(items)} resultado{'s' if len(items) != 1 else ''}",
         items,
-        focus=_unique_exact_focus(query, items, "cliente", "crm", "cliente_detalhe"),
+        summary=summary,
+        display_type="entity_list",
+        ambiguous=ambiguous,
+        actions=[{"kind": "use_context", "label": "Usar como contexto"}] if items else [],
+        focus=None if ambiguous else _unique_exact_focus(
+            query, items, "cliente", "crm", "cliente_detalhe"
+        ),
     )
 
 
@@ -189,7 +246,10 @@ def consultar_cliente(
         item["title"],
         [item],
         [{"label": "Abrir cliente", "url": item["url"]}],
-        _focus("cliente", item["id"], item["title"], "crm", "cliente_detalhe"),
+        _focus(
+            "cliente", item["id"], item["title"], "crm", "cliente_detalhe",
+            item.get("entity_subtype") or "",
+        ),
     )
 
 
@@ -207,12 +267,29 @@ def listar_contatos(
         "type": "contato",
         "id": item.get("id"),
         "title": item.get("nome") or "Contato sem nome",
-        "subtitle": item.get("cargo") or item.get("email") or "",
+        "subtitle": item.get("cargo") or "",
         "email": item.get("email") or "",
         "phone": item.get("telefone") or "",
         "url": f"/crm-v3/#cliente={cliente_id}",
     } for item in contacts[:min(limit, MAX_RESULTS)]]
-    return _ok(items, f"{len(items)} contato(s)", items)
+    if not items:
+        return _ok(
+            items, "Nenhum contato", items,
+            display_type="empty",
+            summary="Nenhum contato encontrado.",
+            empty={
+                "title": "Nenhum contato",
+                "body": f"Não encontramos contatos para:\n{client.get('nome') or 'este registro'}",
+                "actions": [
+                    {"kind": "prompt", "label": "Ver cotações", "prompt": "Liste as cotações deste cliente."},
+                ],
+            },
+        )
+    return _ok(
+        items, f"{len(items)} contato{'s' if len(items) != 1 else ''}", items,
+        display_type="contact_list",
+        summary=f"{len(items)} contato{'s' if len(items) != 1 else ''}.",
+    )
 
 
 def buscar_contato(
@@ -279,16 +356,57 @@ def consultar_contato(
 
 
 def _quote_list_item(item):
+    valor_num = _number(item.get("valor_total"))
+    status = item.get("status_label") or item.get("status") or ""
     return {
         "type": "cotacao",
         "id": item.get("id"),
         "title": item.get("titulo") or item.get("numero_cotacao") or "Cotação",
-        "subtitle": " · ".join(filter(None, [
-            item.get("cliente_nome"), item.get("status_label"), item.get("valor"),
-        ])),
-        "responsible": item.get("vendedor_nome") or "Não informado",
+        "subtitle": status,
+        "status": status,
+        "value": item.get("valor") if valor_num else "",
+        "value_number": valor_num,
+        "updated": item.get("data") or "",
+        "responsible": item.get("vendedor_nome") or "",
         "url": f"/cotacoes/{item.get('id')}/detalhes",
+        "primary_action": "use_context",
     }
+
+
+def _quote_status_text(item):
+    return str(item.get("status_label") or item.get("status") or "").casefold()
+
+
+def _is_open_quote(item):
+    status = _quote_status_text(item)
+    if any(term in status for term in FINAL_QUOTE_STATUS):
+        return False
+    return any(hint in status for hint in OPEN_QUOTE_HINTS) or not status
+
+
+def _is_draft_quote(item):
+    status = _quote_status_text(item)
+    return any(hint in status for hint in DRAFT_QUOTE_HINTS)
+
+
+def _similar_counterpart(store, client, viewer_user_id=None, allow_global=False):
+    query = str(client.get("nome") or "").strip()
+    if len(query) < 3:
+        return None
+    try:
+        others = store.search_clientes(
+            query, 8, executivo_id=None if allow_global else viewer_user_id,
+        ) or []
+    except Exception:
+        storage.rollback_failed_transaction()
+        return None
+    want_agency = not bool(client.get("is_agencia"))
+    for item in others:
+        if str(item.get("id") or "") == str(client.get("id") or ""):
+            continue
+        if bool(item.get("is_agencia")) == want_agency:
+            return _client_item(item)
+    return None
 
 
 def listar_atividades(
@@ -303,14 +421,39 @@ def listar_atividades(
     if activities is None:
         return _error("Cliente não encontrado ou indisponível.")
     if status:
-        activities = [a for a in activities if str(a.get("status") or "").casefold() == status.casefold()]
+        wanted = status.casefold()
+        if wanted in {"aberta", "aberto", "pendente", "pendentes"}:
+            activities = [
+                a for a in activities
+                if str(a.get("status") or "").casefold() not in DONE_ACTIVITY_STATUS
+            ]
+        else:
+            activities = [a for a in activities if str(a.get("status") or "").casefold() == wanted]
     items = [{
         "id": item.get("id"),
+        "type": "atividade",
         "title": item.get("titulo") or item.get("tipo") or "Atividade",
         "subtitle": " · ".join(filter(None, [item.get("data"), item.get("status")])),
         "url": f"/crm-v3/#cliente={cliente_id}",
     } for item in activities[:min(limit, MAX_RESULTS)]]
-    return _ok(items, f"{len(items)} atividade(s)", items)
+    if not items:
+        return _ok(
+            items, "Nenhuma atividade", items,
+            display_type="empty",
+            summary="Nenhuma atividade encontrada.",
+            empty={
+                "title": "Nenhuma atividade aberta" if status else "Nenhuma atividade",
+                "body": f"Não encontramos atividades para:\n{client.get('nome') or 'este registro'}",
+                "actions": [
+                    {"kind": "prompt", "label": "Ver cotações", "prompt": "Liste as cotações deste registro."},
+                ],
+            },
+        )
+    return _ok(
+        items, f"{len(items)} atividade{'s' if len(items) != 1 else ''}", items,
+        display_type="status_list",
+        summary=f"{len(items)} atividade{'s' if len(items) != 1 else ''}.",
+    )
 
 
 def listar_cotacoes(
@@ -321,7 +464,7 @@ def listar_cotacoes(
     client = store.get_cliente(str(cliente_id))
     if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
         return _error("Cliente não encontrado ou indisponível.")
-    quotes = store.list_cotacoes(str(cliente_id))
+    quotes = store.list_cotacoes(str(cliente_id), include_vinculados=False)
     if quotes is None:
         return _error("Cliente não encontrado ou indisponível.")
     if not _allow_global and _viewer_user_id is not None:
@@ -329,11 +472,68 @@ def listar_cotacoes(
             quote for quote in quotes
             if _quote_allowed(quote, _viewer_user_id, False)
         ]
+    all_quotes = list(quotes)
+    wanted = str(status or "").casefold()
+    open_filter = wanted and any(hint in wanted for hint in ("abert", "andamento"))
     if status:
-        wanted = status.casefold()
-        quotes = [q for q in quotes if wanted in str(q.get("status_label") or q.get("status") or "").casefold()]
+        if open_filter:
+            quotes = [q for q in quotes if _is_open_quote(q)]
+        else:
+            quotes = [q for q in quotes if wanted in _quote_status_text(q)]
     items = [_quote_list_item(item) for item in quotes[:min(limit, MAX_RESULTS)]]
-    return _ok(items, f"{len(items)} cotação(ões)", items)
+    type_label = type_label_for("cliente", client_subtype(client))
+    name = client.get("nome") or type_label
+    if not items:
+        drafts = [q for q in all_quotes if _is_draft_quote(q)]
+        counterpart = _similar_counterpart(store, client, _viewer_user_id, _allow_global)
+        actions = [{"kind": "prompt", "label": "Ver todas as cotações", "prompt": "Liste todas as cotações deste registro."}]
+        if drafts:
+            actions.insert(0, {
+                "kind": "prompt",
+                "label": "Ver rascunhos",
+                "prompt": "Liste as cotações em rascunho deste registro.",
+            })
+        related = []
+        if counterpart:
+            related.append(counterpart)
+            actions.append({
+                "kind": "use_context",
+                "label": f"Consultar {counterpart.get('type_label')}",
+                "entity_type": "cliente",
+                "entity_id": counterpart.get("id"),
+                "entity_label": counterpart.get("title"),
+                "entity_subtype": counterpart.get("entity_subtype"),
+            })
+        empty = {
+            "title": "Nenhuma cotação aberta" if open_filter else "Nenhuma cotação encontrada",
+            "body": f"Não encontramos cotações{' abertas' if open_filter else ''} para:\n{name}",
+            "record_name": name,
+            "record_type": type_label,
+            "actions": actions,
+            "related_candidates": related,
+        }
+        if counterpart:
+            empty["hint"] = (
+                f"Nenhuma cotação encontrada para esta {type_label.lower()}. "
+                f"Existe um registro com nome semelhante: {counterpart.get('title')}."
+            )
+        summary = empty["title"]
+        if drafts:
+            summary = f"{empty['title']}. Este registro possui {len(drafts)} cotação(ões) em rascunho."
+        return _ok(
+            items, empty["title"], items,
+            display_type="empty",
+            summary=summary,
+            empty=empty,
+            actions=actions,
+        )
+    return _ok(
+        items,
+        f"{len(items)} cotação{'ões' if len(items) != 1 else ''}",
+        items,
+        display_type="quote_list",
+        summary=f"{len(items)} cotação{'ões' if len(items) != 1 else ''} encontrada{'s' if len(items) != 1 else ''}.",
+    )
 
 
 def buscar_cotacao(
@@ -347,11 +547,18 @@ def buscar_cotacao(
     if failed:
         return failed
     items = [_quote_list_item(item) for item in quotes]
+    ambiguous = len(items) > 1
     return _ok(
         items,
-        f"{len(items)} cotação(ões) encontrada(s)",
+        f"{len(items)} cotação{'ões' if len(items) != 1 else ''} encontrada{'s' if len(items) != 1 else ''}",
         items,
-        focus=_unique_exact_focus(query, items, "cotacao", "comercial", "cotacao"),
+        display_type="quote_list",
+        summary=(
+            f'Encontrei {len(items)} cotações. Qual você quer consultar?'
+            if ambiguous else f"{len(items)} cotação encontrada."
+        ) if items else f'Nenhuma cotação encontrada para “{query}”.',
+        ambiguous=ambiguous,
+        focus=None if ambiguous else _unique_exact_focus(query, items, "cotacao", "comercial", "cotacao"),
     )
 
 
@@ -466,11 +673,18 @@ def buscar_pi(query, limit=10, **_):
     if failed:
         return failed
     items = [_pi_item(item) for item in rows]
+    ambiguous = len(items) > 1
     return _ok(
         items,
         f"{len(items)} PI(s) encontrado(s)",
         items,
-        focus=_unique_exact_focus(query, items, "pi", "operacao", "pi"),
+        display_type="entity_list",
+        summary=(
+            f"Encontrei {len(items)} PIs. Qual você quer consultar?"
+            if ambiguous else (f"{len(items)} PI encontrado." if items else f'Nenhum PI encontrado para “{query}”.')
+        ),
+        ambiguous=ambiguous,
+        focus=None if ambiguous else _unique_exact_focus(query, items, "pi", "operacao", "pi"),
     )
 
 
@@ -639,22 +853,50 @@ def resumir_operacao(**_):
         "campaigns_by_status": campanhas_por_status,
         "campaigns_by_platform": plataformas,
     }
-    display = [
+    display_items = [
         {
             "title": item["status"],
             "subtitle": f'{item["count"]} PI(s)',
+            "count": item["count"],
             "value": item["gross_value"],
+            "group": "pi",
         }
         for item in pis_por_status
     ] + [
         {
             "title": item["status"],
             "subtitle": f'{item["count"]} campanha(s)',
+            "count": item["count"],
             "delivery_percent": item["delivery_percent"],
+            "group": "campaign",
         }
         for item in campanhas_por_status
     ]
-    return _ok(data, "Resumo da operação", display)
+    actions = []
+    if any("ativ" in str(item["status"]).casefold() for item in campanhas_por_status):
+        actions.append({"kind": "prompt", "label": "Campanhas ativas", "prompt": "Liste as campanhas ativas."})
+    if any("fatur" in str(item["status"]).casefold() for item in pis_por_status):
+        actions.append({"kind": "prompt", "label": "PIs em faturamento", "prompt": "Liste os PIs em faturamento."})
+    result = _ok(
+        data,
+        "Operação hoje",
+        display_items,
+        display_type="operation_summary",
+        summary="Operação hoje",
+        actions=actions,
+    )
+    result["display"]["metrics"] = [
+        {"label": "PIs", "value": data["total_pis"]},
+        {"label": "Campanhas", "value": data["total_campaigns"]},
+        {"label": "Valor bruto", "value": data["gross_value"], "kind": "currency"},
+    ]
+    result["display"]["groups"] = [
+        {"title": "PIs", "items": [{"label": item["status"], "count": item["count"]} for item in pis_por_status]},
+        {"title": "Campanhas", "count": data["total_campaigns"], "items": [
+            {"label": item["status"], "count": item["count"]} for item in campanhas_por_status
+        ]},
+    ]
+    return result
 
 
 def listar_objetivos(

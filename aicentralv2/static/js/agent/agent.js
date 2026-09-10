@@ -13,6 +13,10 @@
     csrf: '',
     conversationId: sessionStorage.getItem('centralx_agent_conversation_id') || '',
     context: readBodyContext(),
+    contextSource: 'page',
+    explorerStack: [],
+    explorerView: null,
+    lastQuery: { text: '', entityId: '', message: '' },
     suggestions: [],
     insights: { entity: null, alerts: [], prompts: [] },
     attachments: [],
@@ -86,7 +90,16 @@
     moreMenu: document.getElementById('cx-agent-more-menu'),
     historyOpen: document.getElementById('cx-agent-history-open'),
     historyBack: document.getElementById('cx-agent-history-back'),
-    composerSuggestions: document.getElementById('cx-agent-composer-suggestions')
+    composerSuggestions: document.getElementById('cx-agent-composer-suggestions'),
+    consulting: document.getElementById('cx-agent-consulting'),
+    consultingName: document.getElementById('cx-agent-consulting-name'),
+    consultingType: document.getElementById('cx-agent-consulting-type'),
+    breadcrumb: document.getElementById('cx-agent-breadcrumb'),
+    recordMore: document.getElementById('cx-agent-record-more'),
+    recordMoreMenu: document.getElementById('cx-agent-record-more-menu'),
+    recordCopyLink: document.getElementById('cx-agent-record-copy-link'),
+    recordSwitch: document.getElementById('cx-agent-record-switch'),
+    clearConversation: document.getElementById('cx-agent-clear-conversation')
   };
 
   function escapeHtml(value) {
@@ -115,19 +128,23 @@
       screen: data.cxScreen || '',
       entity_type: data.cxEntityType || '',
       entity_id: data.cxEntityId || '',
-      entity_label: data.cxEntityLabel || ''
+      entity_label: data.cxEntityLabel || '',
+      entity_subtype: data.cxEntitySubtype || ''
     };
   }
 
   function outgoingContext() {
-    if (state.prefs.usePageContext) return Object.assign({}, state.context);
-    return {
-      module: state.context.module || '',
-      screen: state.context.screen || '',
-      entity_type: '',
-      entity_id: '',
-      entity_label: ''
-    };
+    var ctx = Object.assign({
+      module: '', screen: '', entity_type: '', entity_id: '',
+      entity_label: '', entity_subtype: ''
+    }, state.context || {});
+    if (!state.prefs.usePageContext && state.contextSource !== 'agent') {
+      ctx.entity_type = '';
+      ctx.entity_id = '';
+      ctx.entity_label = '';
+      ctx.entity_subtype = '';
+    }
+    return ctx;
   }
 
   function contextQuery(context) {
@@ -171,28 +188,32 @@
     els.status.innerHTML = '<i class="cx-agent-status-dot" aria-hidden="true"></i> ' + (isOnline ? (text || 'Online') : text);
   }
 
-  function entityTypeLabel(type) {
+  function entityTypeLabel(type, subtype) {
+    var normalized = String(type || '').toLowerCase();
+    var kind = String(subtype || '').toLowerCase();
+    if (normalized === 'agencia' || normalized === 'agency' || kind === 'agencia') return 'Agência';
+    if (normalized === 'cliente' || normalized === 'client') return 'Cliente final';
     var map = {
-      cliente: 'Cliente', client: 'Cliente',
+      cliente: 'Cliente final', client: 'Cliente final',
       contato: 'Contato', contact: 'Contato',
       cotacao: 'Cotação', quote: 'Cotação',
       pi: 'PI',
       campanha: 'Campanha', campaign: 'Campanha'
     };
-    return map[String(type || '').toLowerCase()] || 'Registro';
+    return map[normalized] || 'Registro';
   }
 
   function clientContext() {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
-    if ((type === 'cliente' || type === 'client') && ctx.entity_id) return ctx;
+    if (['cliente', 'client', 'agencia', 'agency'].indexOf(type) >= 0 && ctx.entity_id) return ctx;
     return null;
   }
 
   function commercialContext() {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
-    return ['cliente', 'client', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) >= 0 && ctx.entity_id
+    return ['cliente', 'client', 'agencia', 'agency', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) >= 0 && ctx.entity_id
       ? ctx : null;
   }
 
@@ -212,9 +233,10 @@
   function updateContext() {
     var ctx = outgoingContext();
     var hasEntity = Boolean(ctx.entity_id);
+    var typeLabel = entityTypeLabel(ctx.entity_type, ctx.entity_subtype);
     if (els.entity) {
       els.contextLabel.textContent = hasEntity ? ctx.entity_label : 'Nenhum registro na tela';
-      els.contextType.textContent = hasEntity ? entityTypeLabel(ctx.entity_type) : 'Busque ou peça detalhes ao agente';
+      els.contextType.textContent = hasEntity ? typeLabel : 'Busque ou peça detalhes ao agente';
       els.entity.classList.toggle('is-empty', !hasEntity);
       var icon = els.entity.querySelector('.cx-agent-entity-icon i');
       if (icon) {
@@ -224,6 +246,16 @@
           ['cotacao', 'pi'].indexOf(String(ctx.entity_type || '').toLowerCase()) >= 0 ? 'fa-file-lines' : 'fa-building'
         );
       }
+    }
+    if (els.consulting) {
+      els.consulting.hidden = !hasEntity;
+      if (els.consultingName) els.consultingName.textContent = ctx.entity_label || '';
+      if (els.consultingType) els.consultingType.textContent = hasEntity ? typeLabel : '';
+    }
+    if (els.input) {
+      els.input.placeholder = hasEntity
+        ? ('Pergunte sobre ' + (ctx.entity_label || typeLabel) + '...')
+        : 'Pergunte ao CentralX...';
     }
     renderActions();
     if (state.contextWallOpen) loadCommercialRecord();
@@ -278,6 +310,21 @@
     dock.dataset.contextWall = 'closed';
     els.record.setAttribute('aria-hidden', 'true');
     syncWorkspaceView('conversation');
+  }
+
+  function clearSelectedContext() {
+    state.explorerStack = [];
+    state.explorerView = null;
+    state.contextSource = 'page';
+    setAgentContext({
+      entity_type: '',
+      entity_id: '',
+      entity_label: '',
+      entity_subtype: ''
+    }, true, 'page');
+    closeContextWall();
+    setSearchOpen(true);
+    if (els.commercialQuery) els.commercialQuery.focus();
   }
 
   function setRecordEmpty(message) {
@@ -436,77 +483,130 @@
   }
 
   function renderContextRelations(relations) {
-    return (relations || []).filter(function (section) {
-      return Array.isArray(section.items) && section.items.length;
-    }).map(function (section) {
-      return '<section class="cx-agent-context-section"><header><h3>' +
-        escapeHtml(section.title || 'Relacionados') + '</h3><span>' +
-        escapeHtml(String(section.count == null ? section.items.length : section.count)) +
-        '</span></header><div class="cx-agent-context-list">' +
-        section.items.map(function (item) {
-          return '<button type="button" data-select-record="' + escapeHtml(item.type || '') +
-            '" data-record-id="' + escapeHtml(item.id || '') +
-            '" data-record-label="' + escapeHtml(item.title || 'Registro') + '">' +
-            '<i class="fa-regular ' + contextIcon(item.type) + '"></i><span><strong>' +
-            escapeHtml(item.title || 'Registro') + '</strong>' +
-            (item.subtitle ? '<small>' + escapeHtml(item.subtitle) + '</small>' : '') +
-            (item.phone ? '<small><i class="fa-solid fa-phone"></i> ' + escapeHtml(item.phone) + '</small>' : '') +
-            (item.email ? '<small><i class="fa-regular fa-envelope"></i> ' + escapeHtml(item.email) + '</small>' : '') +
-            '</span><i class="fa-solid fa-chevron-right"></i></button>';
-        }).join('') + '</div></section>';
+    return (relations || []).map(function (section) {
+      var count = section.count == null ? (section.items || []).length : section.count;
+      return '<button type="button" class="cx-agent-relation-row" data-explore-key="' +
+        escapeHtml(section.key || '') + '" data-explore-title="' + escapeHtml(section.title || 'Relacionados') + '">' +
+        '<span>' + escapeHtml(section.title || 'Relacionados') + '</span>' +
+        '<strong>' + escapeHtml(String(count)) + '</strong>' +
+        '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>';
     }).join('');
   }
 
+  function renderExplorerList(title, items) {
+    if (!items || !items.length) {
+      return '<div class="cx-agent-empty">Nenhum registro em ' + escapeHtml(title) + '.</div>';
+    }
+    return '<div class="cx-agent-context-list">' + items.map(function (item) {
+      var typeLabel = item.type_label || entityTypeLabel(item.type, item.entity_subtype);
+      var meta = item.subtitle && item.subtitle !== typeLabel ? item.subtitle : (item.email || item.phone || '');
+      return '<button type="button" class="cx-agent-entity-row" data-select-record="' +
+        escapeHtml(item.type || '') + '" data-record-id="' + escapeHtml(item.id || '') +
+        '" data-record-label="' + escapeHtml(item.title || 'Registro') +
+        '" data-record-subtype="' + escapeHtml(item.entity_subtype || '') + '">' +
+        '<span><strong>' + escapeHtml(item.title || 'Registro') + '</strong>' +
+        '<small>' + escapeHtml(typeLabel) + '</small>' +
+        (meta ? '<small>' + escapeHtml(meta) + '</small>' : '') +
+        '</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>';
+    }).join('') + '</div>';
+  }
+
   function renderContextActions(actions) {
-    var html = (actions || []).map(function (action) {
+    var html = (actions || []).filter(function (action) {
+      return action.kind !== 'copy';
+    }).map(function (action) {
       if (action.kind === 'open') {
         var href = safeActionUrl(action.url, action.external);
         if (!href) return '';
         return '<a href="' + escapeHtml(href) + '"' +
           (action.external ? ' target="_blank" rel="noopener noreferrer"' : '') +
-          '><i class="fa-solid fa-arrow-up-right-from-square"></i>' + escapeHtml(action.label || 'Abrir') + '</a>';
-      }
-      if (action.kind === 'copy' && action.value) {
-        return '<button type="button" data-copy-value="' + escapeHtml(action.value) +
-          '"><i class="fa-regular fa-copy"></i>' + escapeHtml(action.label || 'Copiar') + '</button>';
+          '><i class="fa-solid fa-arrow-up-right-from-square"></i>' + escapeHtml(action.label || 'Abrir registro') + '</a>';
       }
       if (action.kind === 'prompt' && action.prompt) {
         return '<button type="button" data-record-prompt="' + escapeHtml(action.prompt) +
-          '"><i class="fa-regular fa-message"></i>' + escapeHtml(action.label || 'Usar no chat') + '</button>';
+          '">' + escapeHtml(action.label || 'Usar no agente') + '</button>';
       }
       return '';
     }).join('');
+    html += '<button type="button" data-switch-context>Trocar</button>';
     return html ? '<div class="cx-agent-context-actions">' + html + '</div>' : '';
+  }
+
+  function renderBreadcrumb() {
+    if (!els.breadcrumb) return;
+    var stack = state.explorerStack || [];
+    if (!stack.length) {
+      els.breadcrumb.hidden = true;
+      els.breadcrumb.innerHTML = '';
+      return;
+    }
+    els.breadcrumb.hidden = false;
+    els.breadcrumb.innerHTML = stack.map(function (crumb, index) {
+      return '<button type="button" data-breadcrumb-index="' + index + '">' +
+        escapeHtml(crumb.label || crumb.title || 'Registro') + '</button>';
+    }).join('<span aria-hidden="true">›</span>');
   }
 
   function renderCommercialRecord(data) {
     state.record = data;
+    if (data.context && data.context.entity_subtype) {
+      state.context.entity_subtype = data.context.entity_subtype;
+      if (data.context.entity_label) state.context.entity_label = data.context.entity_label;
+      if (els.consulting) {
+        els.consulting.hidden = !state.context.entity_id;
+        if (els.consultingName) els.consultingName.textContent = state.context.entity_label || '';
+        if (els.consultingType) {
+          els.consultingType.textContent = entityTypeLabel(state.context.entity_type, state.context.entity_subtype);
+        }
+      }
+      if (els.input && state.context.entity_label) {
+        els.input.placeholder = 'Pergunte sobre ' + state.context.entity_label + '...';
+      }
+    }
     var identity = data.identity || {};
     var title = identity.title || 'Registro';
+    var typeLabel = identity.type_label || entityTypeLabel(data.type, identity.entity_subtype || (data.context || {}).entity_subtype);
     var openUrl = safeActionUrl(data.url, false);
     var identityPhoto = safeInternalUrl(identity.photo_url) ? identity.photo_url : '';
     els.recordTitle.textContent = title;
     els.recordOpen.href = openUrl || '#';
     els.recordOpen.hidden = !openUrl;
+    if (els.recordCopyLink) els.recordCopyLink.dataset.copyValue = openUrl || '';
+    if (state.explorerView) {
+      renderBreadcrumb();
+      els.recordBody.innerHTML =
+        '<div class="cx-agent-context-explorer">' +
+          '<header><h3>' + escapeHtml(state.explorerView.title || 'Explorar') + '</h3>' +
+          '<span>' + escapeHtml(String((state.explorerView.items || []).length)) + '</span></header>' +
+          renderExplorerList(state.explorerView.title, state.explorerView.items) +
+        '</div>';
+      return;
+    }
+    renderBreadcrumb();
+    var responsible = identity.responsible || '';
+    var location = identity.location || identity.subtitle || '';
     els.recordBody.innerHTML =
       '<div class="cx-agent-context-identity is-' + escapeHtml(data.type || 'record') + '">' +
         '<span>' + (identityPhoto
           ? '<img src="' + escapeHtml(identityPhoto) + '" alt="">'
           : '<i class="fa-regular ' + contextIcon(data.type) + '"></i>') + '</span>' +
-        '<div><small>' + escapeHtml(identity.type_label || entityTypeLabel(data.type)) + '</small>' +
+        '<div><small>' + escapeHtml(typeLabel) + '</small>' +
         '<strong>' + escapeHtml(title) + '</strong>' +
-        (identity.subtitle ? '<p>' + escapeHtml(identity.subtitle) + '</p>' : '') + '</div>' +
+        (responsible ? '<p>' + escapeHtml(responsible) + '</p>' : '') +
+        (location ? '<p>' + escapeHtml(location) + '</p>' : '') + '</div>' +
       '</div>' +
       renderContextActions(data.actions) +
-      renderContextFacts(data.facts) +
-      renderContextRelations(data.relations);
+      '<section class="cx-agent-context-explorer">' +
+        '<header><h3>Explorar</h3></header>' +
+        renderContextRelations(data.relations) +
+      '</section>';
   }
 
   function loadCommercialRecord(force) {
     var ctx = outgoingContext();
     var type = String(ctx.entity_type || '').toLowerCase();
     if (!state.contextWallOpen) return Promise.resolve();
-    if (!ctx.entity_id || ['cliente', 'client', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) === -1) {
+    if (!ctx.entity_id || ['cliente', 'client', 'agencia', 'agency', 'contato', 'contact', 'cotacao', 'quote', 'pi', 'campanha', 'campaign'].indexOf(type) === -1) {
       state.recordKey = '';
       setRecordEmpty();
       return Promise.resolve();
@@ -526,20 +626,33 @@
       });
   }
 
-  function selectCommercialRecord(type, id, label) {
+  function selectCommercialRecord(type, id, label, subtype) {
     var normalized = type === 'client' ? 'cliente' : type === 'quote' ? 'cotacao' :
-      type === 'contact' ? 'contato' : type === 'campaign' ? 'campanha' : type;
+      type === 'contact' ? 'contato' : type === 'campaign' ? 'campanha' :
+      type === 'agency' || type === 'agencia' ? 'cliente' : type;
+    if (['atividade', 'canal', 'audiencia'].indexOf(normalized) >= 0) return;
+    var resolvedSubtype = subtype || (type === 'agencia' || type === 'agency' ? 'agencia' : '');
     var operational = ['pi', 'campanha'].indexOf(normalized) >= 0;
+    var stack = state.explorerStack || [];
+    var last = stack[stack.length - 1];
+    if (!last || last.id !== String(id || '') || last.type !== normalized) {
+      state.explorerStack = stack.concat([{
+        type: normalized, id: String(id || ''), label: String(label || ''), subtype: resolvedSubtype
+      }]);
+    }
+    state.explorerView = null;
     setAgentContext({
       module: operational ? 'operacao' : (normalized === 'cotacao' ? 'comercial' : 'crm'),
       screen: normalized,
       entity_type: normalized,
       entity_id: String(id || ''),
-      entity_label: String(label || '')
-    }, true);
+      entity_label: String(label || ''),
+      entity_subtype: resolvedSubtype
+    }, true, 'agent');
     els.commercialResults.hidden = true;
     els.commercialQuery.value = '';
     openContextWall();
+    if (state.record) renderCommercialRecord(state.record);
   }
 
   function renderCommercialResults(data) {
@@ -565,7 +678,8 @@
         var item = mapper(raw);
         var attrs = item.interactive === false ? '' :
           ' data-search-record="' + type + '" data-record-id="' + escapeHtml(item.id) +
-          '" data-record-label="' + escapeHtml(item.title) + '"';
+          '" data-record-label="' + escapeHtml(item.title) +
+          '" data-record-subtype="' + escapeHtml(item.subtype || (type === 'agencia' ? 'agencia' : '')) + '"';
         return '<button type="button"' + attrs + '><i class="fa-regular ' + contextIcon(type) + '"></i>' +
           '<span><strong>' + escapeHtml(item.title) + '</strong>' +
           (item.subtitle ? '<small>' + escapeHtml(item.subtitle) + '</small>' : '') +
@@ -578,11 +692,12 @@
       return {
         id: item.id,
         title: item.nome || 'Cliente',
-        subtitle: [item.tipo_label || (item.is_agencia ? 'Agência' : ''), item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')
+        subtype: item.is_agencia ? 'agencia' : 'cliente_final',
+        subtitle: [item.tipo_label || (item.is_agencia ? 'Agência' : 'Cliente final'), item.responsavel].filter(Boolean).join(' · ')
       };
     }
     addGroup('Clientes', 'cliente', clientRecords, mapParty);
-    addGroup('Agências', 'cliente', agencies, mapParty);
+    addGroup('Agências', 'agencia', agencies, mapParty);
     addGroup('Contatos', 'contato', contacts, function (item) {
       return {
         id: item.id,
@@ -619,6 +734,42 @@
     });
     els.commercialResults.innerHTML = groups.join('');
     els.commercialResults.hidden = false;
+  }
+
+  function openExplorer(key, title, push) {
+    var relations = (state.record && state.record.relations) || [];
+    var section = relations.filter(function (item) { return item.key === key; })[0];
+    if (!section) return;
+    var ctx = outgoingContext();
+    state.explorerView = { key: key, title: title || section.title, items: section.items || [] };
+    if (push !== false) {
+      if (!state.explorerStack.length && ctx.entity_id) {
+        state.explorerStack = [{
+          type: ctx.entity_type, id: ctx.entity_id, label: ctx.entity_label, subtype: ctx.entity_subtype || ''
+        }];
+      }
+      state.explorerStack = (state.explorerStack || []).concat([{
+        type: 'relation', id: key, label: title || section.title, subtype: ''
+      }]);
+    }
+    renderCommercialRecord(state.record);
+  }
+
+  function popExplorer(index) {
+    var stack = (state.explorerStack || []).slice(0, index + 1);
+    var crumb = stack[stack.length - 1];
+    state.explorerStack = stack;
+    if (!crumb) {
+      state.explorerView = null;
+      if (state.record) renderCommercialRecord(state.record);
+      return;
+    }
+    if (crumb.type === 'relation') {
+      openExplorer(crumb.id, crumb.label, false);
+      return;
+    }
+    state.explorerView = null;
+    selectCommercialRecord(crumb.type, crumb.id, crumb.label, crumb.subtype);
   }
 
   function searchCommercial() {
@@ -894,21 +1045,7 @@
   }
 
   function suggestionCatalog() {
-    var commercial = [
-      { label: 'Buscar cliente ou agência', prompt: 'Busque o cliente ou a agência pelo nome e mostre o cadastro.' },
-      { label: 'Buscar PI pelo código', prompt: 'Busque o PI pelo código e apresente status, cliente, campanha, período e valores.' },
-      { label: 'Buscar cotação', prompt: 'Busque a cotação pelo número, campanha ou cliente.' },
-      { label: 'Consultar canais e plataformas', prompt: 'Consulte os canais e plataformas disponíveis na base comercial.' },
-      { label: 'Buscar audiência CADU', prompt: 'Busque audiências do CADU relacionadas ao que estou descrevendo.' },
-      { label: 'Consultar formatos', prompt: 'Consulte formatos comerciais relacionados ao meu pedido.' }
-    ];
-    var seen = {};
-    return state.suggestions.concat(commercial).filter(function (item) {
-      var key = String(item.prompt || item.label || '').toLowerCase();
-      if (!key || seen[key]) return false;
-      seen[key] = true;
-      return true;
-    });
+    return (state.suggestions || []).slice();
   }
 
   function renderComposerSuggestions() {
@@ -927,7 +1064,7 @@
     }
     catalog.sort(function (a, b) { return b.score - a.score; });
     els.composerSuggestions.replaceChildren();
-    catalog.slice(0, 2).forEach(function (entry) {
+    catalog.slice(0, 4).forEach(function (entry) {
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'cx-agent-composer-suggestion';
@@ -1219,19 +1356,40 @@
     if (cards.children.length) wrapper.appendChild(cards);
     var actions = document.createElement('div');
     actions.className = 'cx-agent-message-actions';
+    var menu = document.createElement('div');
+    menu.className = 'cx-agent-message-more';
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'cx-agent-message-action';
+    toggle.setAttribute('aria-label', 'Ações da resposta');
+    toggle.innerHTML = '<i class="fa-solid fa-ellipsis" aria-hidden="true"></i>';
+    var panel = document.createElement('div');
+    panel.className = 'cx-agent-message-menu';
+    panel.hidden = true;
     var copy = document.createElement('button');
     copy.type = 'button';
-    copy.className = 'cx-agent-message-action';
-    copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar';
+    copy.textContent = 'Copiar resposta';
     copy.addEventListener('click', function () {
       copyText(String(content || '')).then(function () {
         copy.textContent = 'Copiado';
-        setTimeout(function () { copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar'; }, 1200);
-      }).catch(function () {
-        copy.textContent = 'Não foi possível copiar';
+        setTimeout(function () { copy.textContent = 'Copiar resposta'; }, 1200);
       });
     });
-    actions.appendChild(copy);
+    var reuse = document.createElement('button');
+    reuse.type = 'button';
+    reuse.textContent = 'Reutilizar';
+    reuse.addEventListener('click', function () {
+      els.input.value = String(content || '');
+      resizeInput();
+      els.input.focus();
+    });
+    panel.append(copy, reuse);
+    toggle.addEventListener('click', function (event) {
+      event.stopPropagation();
+      panel.hidden = !panel.hidden;
+    });
+    menu.append(toggle, panel);
+    actions.appendChild(menu);
     wrapper.appendChild(actions);
   }
 
@@ -1257,6 +1415,22 @@
     return avatar;
   }
 
+  function structuredDisplaySummary(display) {
+    var groups = display && Array.isArray(display.results) ? display.results : [];
+    if (!groups.length && display && (display.items || display.empty || display.summary)) groups = [display];
+    var summaries = groups.map(function (group) { return String(group.summary || '').trim(); }).filter(Boolean);
+    if (summaries.length) return summaries[summaries.length - 1];
+    return '';
+  }
+
+  function hasStructuredResults(display) {
+    var groups = display && Array.isArray(display.results) ? display.results : [];
+    if (!groups.length && display && (display.items || display.empty || display.type)) groups = [display];
+    return groups.some(function (group) {
+      return (group.items && group.items.length) || group.empty || group.type === 'operation_summary' || group.type === 'empty';
+    });
+  }
+
   function appendMessage(role, content, display, extraClass) {
     var welcome = els.messages.querySelector('.cx-agent-welcome');
     if (welcome) welcome.hidden = true;
@@ -1264,12 +1438,19 @@
     wrapper.className = 'cx-agent-message is-' + role + (extraClass ? ' ' + extraClass : '');
     var body = document.createElement('div');
     body.className = 'cx-agent-message-body';
-    if (role === 'assistant' && !extraClass) body.appendChild(renderMarkdown(content));
-    else body.textContent = content || '';
+    var text = content || '';
+    if (role === 'assistant' && !extraClass && hasStructuredResults(display)) {
+      text = structuredDisplaySummary(display) || text;
+      body.textContent = text;
+    } else if (role === 'assistant' && !extraClass) {
+      body.appendChild(renderMarkdown(content));
+    } else {
+      body.textContent = text;
+    }
     if (role === 'user') wrapper.append(body, messageAvatar(role));
     else wrapper.append(messageAvatar(role), body);
     if (role === 'assistant' && !extraClass) {
-      addAssistantMessageExtras(wrapper, body, content, display);
+      addAssistantMessageExtras(wrapper, body, text, display);
     } else {
       renderAttachmentSummary(body, display && display.attachments);
     }
@@ -1313,119 +1494,195 @@
     return typeof url === 'string' && /^\/(?!\/)[a-zA-Z0-9/_?#=&.%+-]*$/.test(url);
   }
 
-  function looksOpen(text) {
-    var value = String(text || '').toLowerCase();
-    return /andamento|abert|enviad|rascunho|aprovad/.test(value);
+  function relativeTime(value) {
+    if (!value) return '';
+    var parsed = Date.parse(String(value).indexOf('/') >= 0
+      ? String(value).split('/').reverse().join('-')
+      : value);
+    if (Number.isNaN(parsed)) return String(value);
+    var days = Math.round((Date.now() - parsed) / 86400000);
+    if (days <= 0) return 'Atualizada hoje';
+    if (days === 1) return 'Atualizada há 1 dia';
+    return 'Atualizada há ' + days + ' dias';
+  }
+
+  function recordCtaLabel(item, ambiguous) {
+    var type = String(item.type || '').toLowerCase();
+    var subtype = String(item.entity_subtype || '').toLowerCase();
+    if (ambiguous || item.primary_action === 'use_context') return 'Usar como contexto';
+    if (type === 'cliente' && subtype === 'agencia') return 'Abrir agência';
+    if (type === 'cliente') return 'Abrir cliente';
+    if (type === 'cotacao') return 'Abrir cotação';
+    if (type === 'pi') return 'Abrir PI';
+    if (type === 'campanha') return 'Abrir campanha';
+    if (type === 'contato') return 'Abrir contato';
+    return 'Usar como contexto';
+  }
+
+  function bindSelect(node, item) {
+    if (!item.type || !item.id) return;
+    node.classList.add('is-selectable');
+    node.setAttribute('role', 'button');
+    node.tabIndex = 0;
+    node.addEventListener('click', function () {
+      selectCommercialRecord(item.type, item.id, item.title || 'Registro', item.entity_subtype || '');
+    });
+    node.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectCommercialRecord(item.type, item.id, item.title || 'Registro', item.entity_subtype || '');
+      }
+    });
+  }
+
+  function renderEntityRow(item, ambiguous) {
+    var row = document.createElement('div');
+    row.className = 'cx-agent-entity-row';
+    var typeLabel = item.type_label || entityTypeLabel(item.type, item.entity_subtype);
+    var details = [];
+    if (item.responsible && item.responsible !== 'Não informado') details.push(item.responsible);
+    if (item.email) details.push(item.email);
+    else if (item.phone) details.push(item.phone);
+    if (item.status) details.push(item.status);
+    if (item.value) details.push(item.value);
+    if (item.updated) details.push(relativeTime(item.updated));
+    row.innerHTML =
+      '<span><strong>' + escapeHtml(item.title || 'Registro') + '</strong>' +
+      '<small>' + escapeHtml(typeLabel) + '</small>' +
+      (details.length ? '<small>' + escapeHtml(details.join(' · ')) + '</small>' : '') +
+      '</span>' +
+      '<em>' + escapeHtml(recordCtaLabel(item, ambiguous)) + '</em>' +
+      '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
+    bindSelect(row, item);
+    return row;
+  }
+
+  function renderEmptyState(group) {
+    var empty = group.empty || {};
+    var box = document.createElement('div');
+    box.className = 'cx-agent-empty';
+    var title = document.createElement('strong');
+    title.textContent = empty.title || group.title || 'Nenhum resultado';
+    box.appendChild(title);
+    if (empty.body) {
+      var body = document.createElement('p');
+      body.textContent = empty.body;
+      box.appendChild(body);
+    }
+    (empty.related_candidates || []).forEach(function (item) {
+      box.appendChild(renderEntityRow(item, true));
+    });
+    var actions = empty.actions || group.actions || [];
+    if (actions.length) {
+      var bar = document.createElement('div');
+      bar.className = 'cx-agent-empty-actions';
+      actions.forEach(function (action) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = action.label || 'Continuar';
+        button.addEventListener('click', function () {
+          if (action.kind === 'use_context' && action.entity_id) {
+            selectCommercialRecord(
+              action.entity_type || 'cliente', action.entity_id,
+              action.entity_label || '', action.entity_subtype || ''
+            );
+            return;
+          }
+          if (action.prompt) usePrompt(action.prompt);
+        });
+        bar.appendChild(button);
+      });
+      box.appendChild(bar);
+    }
+    return box;
+  }
+
+  function renderOperationSummary(parent, group) {
+    var summary = document.createElement('div');
+    summary.className = 'cx-agent-summary';
+    var heading = document.createElement('h3');
+    heading.textContent = group.title || 'Operação hoje';
+    summary.appendChild(heading);
+    var metrics = document.createElement('div');
+    metrics.className = 'cx-agent-summary-metrics';
+    (group.metrics || []).forEach(function (metric) {
+      var cell = document.createElement('div');
+      var value = metric.kind === 'currency' && metric.value
+        ? Number(metric.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : String(metric.value);
+      cell.innerHTML = '<strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(metric.label || '') + '</span>';
+      metrics.appendChild(cell);
+    });
+    summary.appendChild(metrics);
+    (group.groups || []).forEach(function (block) {
+      var list = document.createElement('div');
+      list.className = 'cx-agent-status-list';
+      var title = document.createElement('h4');
+      title.textContent = block.title || '';
+      list.appendChild(title);
+      (block.items || []).forEach(function (item) {
+        var row = document.createElement('div');
+        row.className = 'cx-agent-metric-row';
+        row.innerHTML = '<strong>' + escapeHtml(String(item.count || 0)) + '</strong><span>' +
+          escapeHtml(item.label || item.title || '') + '</span>';
+        list.appendChild(row);
+      });
+      summary.appendChild(list);
+    });
+    if ((group.actions || []).length) {
+      var bar = document.createElement('div');
+      bar.className = 'cx-agent-empty-actions';
+      group.actions.forEach(function (action) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = action.label || 'Ver';
+        button.addEventListener('click', function () {
+          if (action.prompt) usePrompt(action.prompt);
+        });
+        bar.appendChild(button);
+      });
+      summary.appendChild(bar);
+    }
+    parent.appendChild(summary);
   }
 
   function renderDisplay(parent, display) {
     var groups = display && Array.isArray(display.results) ? display.results : [];
     groups.forEach(function (group) {
+      if (group.type === 'operation_summary') {
+        renderOperationSummary(parent, group);
+        return;
+      }
+      if (group.type === 'empty' || (group.empty && !(group.items || []).length)) {
+        parent.appendChild(renderEmptyState(group));
+        return;
+      }
       var results = document.createElement('div');
-      results.className = 'cx-agent-results';
+      results.className = 'cx-agent-result-list cx-agent-results';
       var items = group.items || [];
+      var ambiguous = Boolean(group.ambiguous);
       items.slice(0, 8).forEach(function (item) {
-        var selectable = item.type && item.id;
-        var card = document.createElement('div');
-        card.className = 'cx-agent-result';
-        if (selectable) {
-          card.classList.add('is-selectable');
-          card.setAttribute('role', 'button');
-          card.tabIndex = 0;
-          card.setAttribute('aria-label', 'Ver contexto de ' + (item.title || 'registro'));
-          card.addEventListener('click', function () {
-            selectCommercialRecord(item.type, item.id, item.title || 'Registro');
-          });
-          card.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              selectCommercialRecord(item.type, item.id, item.title || 'Registro');
-            }
-          });
-        }
-        if (item.responsible_photo || item.photo_url) {
-          card.classList.add('has-avatar');
-          var ownerAvatar = document.createElement('span');
-          ownerAvatar.className = 'cx-agent-result-avatar';
-          var ownerPhoto = item.responsible_photo || item.photo_url;
-          if (safeInternalUrl(ownerPhoto)) {
-            var ownerImage = document.createElement('img');
-            ownerImage.src = ownerPhoto;
-            ownerImage.alt = '';
-            ownerAvatar.appendChild(ownerImage);
-          }
-          ownerAvatar.appendChild(document.createTextNode(
-            String(item.responsible || item.title || 'CX').slice(0, 2).toUpperCase()
-          ));
-          card.appendChild(ownerAvatar);
-        }
-        var title = document.createElement('strong');
-        title.textContent = item.title || 'Resultado';
-        card.appendChild(title);
-        if (item.subtitle || item.period || item.status) {
-          var meta = document.createElement('span');
-          var status = item.status || item.subtitle || '';
-          meta.className = 'cx-agent-result-meta';
-          if (looksOpen(status)) {
-            var dot = document.createElement('i');
-            dot.className = 'cx-agent-live-dot';
-            meta.appendChild(dot);
-            meta.appendChild(document.createTextNode('Em andamento'));
-          } else {
-            meta.textContent = item.subtitle || '';
-          }
-          card.appendChild(meta);
-        }
-        if (item.period) {
-          var period = document.createElement('span');
-          period.textContent = item.period;
-          card.appendChild(period);
-        } else if (item.responsible) {
-          var line = document.createElement('span');
-          line.textContent = item.responsible;
-          card.appendChild(line);
-        }
-        var contactLines = [
-          { icon: 'fa-phone', value: item.phone || item.telefone, label: 'Copiar telefone' },
-          { icon: 'fa-envelope', value: item.email, label: 'Copiar e-mail' }
-        ].filter(function (entry) { return entry.value; });
-        contactLines.forEach(function (entry) {
-          var contactLine = document.createElement('div');
-          contactLine.className = 'cx-agent-result-contact';
-          var text = document.createElement('span');
-          text.innerHTML = '<i class="fa-solid ' + entry.icon + '" aria-hidden="true"></i>';
-          text.appendChild(document.createTextNode(' ' + entry.value));
-          var copy = document.createElement('button');
-          copy.type = 'button';
-          copy.setAttribute('aria-label', entry.label);
-          copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
-          copy.addEventListener('click', function (event) {
-            event.stopPropagation();
-            copyText(entry.value).then(function () {
-              copy.classList.add('is-copied');
-              window.setTimeout(function () { copy.classList.remove('is-copied'); }, 900);
-            });
-          });
-          contactLine.append(text, copy);
-          card.appendChild(contactLine);
-        });
-        if (selectable) {
-          var contextHint = document.createElement('span');
-          contextHint.className = 'cx-agent-result-context';
-          contextHint.innerHTML = 'Ver contexto <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
-          card.appendChild(contextHint);
-        }
-        results.appendChild(card);
+        results.appendChild(renderEntityRow(item, ambiguous));
       });
-      parent.appendChild(results);
+      (group.actions || []).filter(function (action) { return action.kind === 'prompt'; }).forEach(function (action) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cx-agent-suggestion';
+        button.textContent = action.label || 'Continuar';
+        button.addEventListener('click', function () { usePrompt(action.prompt); });
+        results.appendChild(button);
+      });
+      if (results.children.length) parent.appendChild(results);
     });
   }
 
-  function setAgentContext(patch, persist) {
+  function setAgentContext(patch, persist, source) {
     state.context = Object.assign({}, state.context, patch || {});
     Object.keys(state.context).forEach(function (key) {
       state.context[key] = String(state.context[key] || '').slice(0, key === 'entity_label' ? 200 : 80);
     });
+    if (source) state.contextSource = source;
+    else if (patch && patch.entity_id) state.contextSource = 'agent';
     updateContext();
     if (persist === false) window.clearTimeout(state.contextPersistTimer);
     if (state.bootstrapped) loadInsights();
@@ -1518,8 +1775,9 @@
   function handleAssistantUi(message) {
     var display = message.display || {};
     var ui = message.ui || display.ui || {};
+    if (ui.ambiguous) return;
     if (ui.context_focus) {
-      setAgentContext(ui.context_focus, true);
+      setAgentContext(ui.context_focus, true, 'agent');
       openContextWall();
     }
     if (ui.confirmation) renderContactConfirmation(ui.confirmation);
@@ -1784,6 +2042,14 @@
     var content = els.input.value.trim();
     if (!content && !state.attachments.length) return;
     if (!content) content = 'Analise os arquivos anexados e apresente os pontos mais importantes.';
+    var ctx = outgoingContext();
+    var normalized = content.replace(/\s+/g, ' ').toLowerCase();
+    if (!state.attachments.length && state.lastQuery.text === normalized && state.lastQuery.entityId === String(ctx.entity_id || '')) {
+      appendMessage('assistant', state.lastQuery.message || 'O resultado continua o mesmo.');
+      els.input.value = '';
+      resizeInput();
+      return;
+    }
     var outgoingAttachments = state.attachments.slice();
     var attachmentMetadata = outgoingAttachments.map(function (file) {
       return { name: file.name, mime: file.mime, size: file.size };
@@ -1815,6 +2081,11 @@
       clearLoadingProgress(loading);
       hideExtract();
       var message = payload.data.message;
+      state.lastQuery = {
+        text: normalized,
+        entityId: String(outgoingContext().entity_id || ''),
+        message: structuredDisplaySummary(message.display) || message.content || 'O resultado continua o mesmo.'
+      };
       return appendProgressiveMessage(message.content, message.display).then(function () {
         handleAssistantUi(message);
       });
@@ -1902,7 +2173,8 @@
       selectCommercialRecord(
         button.dataset.searchRecord,
         button.dataset.recordId,
-        button.dataset.recordLabel
+        button.dataset.recordLabel,
+        button.dataset.recordSubtype
       );
     }
   });
@@ -1925,12 +2197,22 @@
       else closeContextWall();
       return;
     }
+    var explorer = event.target.closest('[data-explore-key]');
+    if (explorer) {
+      openExplorer(explorer.dataset.exploreKey, explorer.dataset.exploreTitle);
+      return;
+    }
+    if (event.target.closest('[data-switch-context]')) {
+      clearSelectedContext();
+      return;
+    }
     var selector = event.target.closest('[data-select-record]');
     if (selector) {
       selectCommercialRecord(
         selector.dataset.selectRecord,
         selector.dataset.recordId,
-        selector.dataset.recordLabel
+        selector.dataset.recordLabel,
+        selector.dataset.recordSubtype
       );
       return;
     }
@@ -1994,12 +2276,52 @@
     state.conversationId = '';
     sessionStorage.removeItem('centralx_agent_conversation_id');
     state.context = readBodyContext();
+    state.contextSource = 'page';
+    state.explorerStack = [];
+    state.explorerView = null;
+    state.lastQuery = { text: '', entityId: '', message: '' };
     updateContext();
     closeContextWall();
     clearConversationView();
     switchTab('chat');
     els.input.focus();
   });
+  if (els.clearConversation) {
+    els.clearConversation.addEventListener('click', function () {
+      setMoreOpen(false);
+      state.lastQuery = { text: '', entityId: '', message: '' };
+      clearConversationView();
+      switchTab('chat');
+      els.input.focus();
+    });
+  }
+  if (els.breadcrumb) {
+    els.breadcrumb.addEventListener('click', function (event) {
+      var crumb = event.target.closest('[data-breadcrumb-index]');
+      if (crumb) popExplorer(Number(crumb.dataset.breadcrumbIndex));
+    });
+  }
+  if (els.recordMore) {
+    els.recordMore.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (els.recordMoreMenu) els.recordMoreMenu.hidden = !els.recordMoreMenu.hidden;
+      els.recordMore.setAttribute('aria-expanded', String(els.recordMoreMenu && !els.recordMoreMenu.hidden));
+    });
+  }
+  if (els.recordCopyLink) {
+    els.recordCopyLink.addEventListener('click', function () {
+      copyText(els.recordCopyLink.dataset.copyValue || els.recordOpen.href || '').then(function () {
+        showComposerFeedback('Link copiado.');
+      });
+      if (els.recordMoreMenu) els.recordMoreMenu.hidden = true;
+    });
+  }
+  if (els.recordSwitch) {
+    els.recordSwitch.addEventListener('click', function () {
+      if (els.recordMoreMenu) els.recordMoreMenu.hidden = true;
+      clearSelectedContext();
+    });
+  }
   els.historyQuery.addEventListener('input', renderHistory);
   els.historyFilter.addEventListener('click', function () {
     state.historyFilter = state.historyFilter === 'all' ? 'all' : 'all';
@@ -2037,7 +2359,8 @@
     }
   });
   window.addEventListener('centralx:contextchange', function (event) {
-    setAgentContext((event && event.detail) || {}, true);
+    if (state.contextSource === 'agent' && outgoingContext().entity_id) return;
+    setAgentContext((event && event.detail) || {}, true, 'page');
   });
   window.addEventListener('centralx:entity-updated', function (event) {
     var detail = (event && event.detail) || {};
@@ -2064,6 +2387,11 @@
       els.composer.classList.remove('is-dragover');
       if (name === 'drop' && event.dataTransfer) addFiles(event.dataTransfer.files);
     });
+  });
+
+  document.addEventListener('click', function () {
+    dock.querySelectorAll('.cx-agent-message-menu').forEach(function (menu) { menu.hidden = true; });
+    if (els.recordMoreMenu) els.recordMoreMenu.hidden = true;
   });
 
   applyPrefsUi();

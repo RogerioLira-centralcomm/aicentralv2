@@ -16,6 +16,7 @@ REQUIRED_COLUMNS = {
     "agent_conversations": {
         "id", "user_id", "title", "context_module", "context_screen",
         "context_entity_type", "context_entity_id", "context_entity_label",
+        "context_entity_subtype",
         "created_at", "updated_at",
     },
     "agent_messages": {
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS agent_conversations (
     context_entity_type VARCHAR(50),
     context_entity_id VARCHAR(80),
     context_entity_label VARCHAR(200),
+    context_entity_subtype VARCHAR(40),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -87,6 +89,7 @@ ALTER TABLE agent_conversations
     ADD COLUMN IF NOT EXISTS context_entity_type VARCHAR(50),
     ADD COLUMN IF NOT EXISTS context_entity_id VARCHAR(80),
     ADD COLUMN IF NOT EXISTS context_entity_label VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS context_entity_subtype VARCHAR(40),
     ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
@@ -180,7 +183,8 @@ def list_conversations(user_id, limit=30, page=1):
         cur.execute(
             """
             SELECT id, title, context_module, context_screen, context_entity_type,
-                   context_entity_id, context_entity_label, created_at, updated_at
+                   context_entity_id, context_entity_label, context_entity_subtype,
+                   created_at, updated_at
             FROM agent_conversations
             WHERE user_id = %s
             ORDER BY updated_at DESC
@@ -204,8 +208,9 @@ def create_conversation(user_id, context=None, title=None):
             """
             INSERT INTO agent_conversations (
                 user_id, title, context_module, context_screen,
-                context_entity_type, context_entity_id, context_entity_label
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                context_entity_type, context_entity_id, context_entity_label,
+                context_entity_subtype
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -216,6 +221,7 @@ def create_conversation(user_id, context=None, title=None):
                 context.get("entity_type"),
                 str(context.get("entity_id") or "") or None,
                 (context.get("entity_label") or "")[:200] or None,
+                (context.get("entity_subtype") or "")[:40] or None,
             ),
         )
         row = cur.fetchone()
@@ -261,6 +267,7 @@ def update_conversation_context(conversation_id, user_id, context):
                    context_entity_type = %s,
                    context_entity_id = %s,
                    context_entity_label = %s,
+                   context_entity_subtype = %s,
                    updated_at = NOW()
              WHERE id = %s AND user_id = %s
          RETURNING *
@@ -271,6 +278,7 @@ def update_conversation_context(conversation_id, user_id, context):
                 context.get("entity_type") or None,
                 str(context.get("entity_id") or "") or None,
                 (context.get("entity_label") or "")[:200] or None,
+                (context.get("entity_subtype") or "")[:40] or None,
                 conversation_id,
                 user_id,
             ),

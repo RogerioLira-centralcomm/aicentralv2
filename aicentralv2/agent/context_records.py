@@ -12,15 +12,68 @@ class ContextRecordError(LookupError):
 
 ALIASES = {
     "client": "cliente",
+    "agency": "cliente",
+    "agencia": "cliente",
     "quote": "cotacao",
     "contact": "contato",
     "campaign": "campanha",
+}
+
+CLIENT_ENTITY_TYPES = {"cliente", "client", "agencia", "agency"}
+SUBTYPE_ALIASES = {
+    "agency": "agencia",
+    "agencia": "agencia",
+    "cliente_final": "cliente_final",
+    "clientefinal": "cliente_final",
 }
 
 
 def canonical_type(entity_type):
     value = str(entity_type or "").strip().casefold()
     return ALIASES.get(value, value)
+
+
+def client_subtype(record=None, raw_type="", explicit=""):
+    explicit = str(explicit or "").casefold().replace("-", "_").replace(" ", "_")
+    if explicit in SUBTYPE_ALIASES:
+        return SUBTYPE_ALIASES[explicit]
+    raw = str(raw_type or "").casefold()
+    if raw in {"agencia", "agency"}:
+        return "agencia"
+    if record is not None:
+        return "agencia" if record.get("is_agencia") else "cliente_final"
+    return ""
+
+
+def type_label_for(entity_type, subtype=""):
+    entity_type = canonical_type(entity_type)
+    if entity_type == "cliente":
+        return "Agência" if subtype == "agencia" else "Cliente final"
+    return {
+        "contato": "Contato",
+        "cotacao": "Cotação",
+        "pi": "PI",
+        "campanha": "Campanha",
+    }.get(entity_type, "Registro")
+
+
+def normalize_agent_context(raw=None):
+    raw = raw or {}
+    entity_type = str(raw.get("entity_type") or "").strip()
+    subtype = client_subtype(
+        raw_type=entity_type,
+        explicit=raw.get("entity_subtype") or raw.get("subtype") or "",
+    )
+    canonical = canonical_type(entity_type)
+    label = str(raw.get("entity_label") or raw.get("entity_name") or "").strip()
+    return {
+        "module": str(raw.get("module") or "").strip(),
+        "screen": str(raw.get("screen") or "").strip(),
+        "entity_type": canonical,
+        "entity_id": str(raw.get("entity_id") or "").strip(),
+        "entity_label": label,
+        "entity_subtype": subtype if canonical == "cliente" else str(raw.get("entity_subtype") or "").strip(),
+    }
 
 
 def safe_context_url(value, allow_external=False):
@@ -82,7 +135,8 @@ def _entity(entity_type, entity_id, title, subtitle="", url="", **extra):
     return item
 
 
-def _base(entity_type, record, context, title, subtitle, url, facts, relations=None, actions=None):
+def _base(entity_type, record, context, title, subtitle, url, facts, relations=None, actions=None, type_label=""):
+    subtype = str((context or {}).get("entity_subtype") or "")
     return {
         "type": entity_type,
         "record": record,
@@ -96,13 +150,11 @@ def _base(entity_type, record, context, title, subtitle, url, facts, relations=N
                 or record.get("responsavel_operacao_foto_url")
                 or ""
             ),
-            "type_label": {
-                "cliente": "Cliente",
-                "contato": "Contato",
-                "cotacao": "Cotação",
-                "pi": "PI",
-                "campanha": "Campanha",
-            }.get(entity_type, "Registro"),
+            "type_label": type_label or type_label_for(entity_type, subtype),
+            "responsible": record.get("responsavel") or record.get("vendedor_nome")
+            or record.get("responsavel_comercial_nome") or record.get("responsavel_operacao_nome") or "",
+            "location": " · ".join(filter(None, [record.get("cidade"), record.get("uf")])),
+            "entity_subtype": subtype,
         },
         "facts": facts,
         "relations": relations or [],
@@ -115,8 +167,19 @@ def _client_context(store, pi_repo, client, client_allowed):
     if not client or not client_allowed(client):
         raise ContextRecordError("Cliente não encontrado.")
     client_id = str(client["id"])
+    subtype = client_subtype(client)
+    type_label = type_label_for("cliente", subtype)
     contacts = store.list_contatos(client_id) or []
     quotes = [item for item in (store.list_cotacoes(client_id, include_vinculados=False) or [])]
+    activities = store.list_atividades(client_id) or []
+    if not isinstance(activities, list):
+        activities = []
+    done_status = {"concluida", "concluída", "cancelada"}
+    open_activities = [
+        item for item in activities
+        if str(item.get("status") or "").casefold() not in done_status
+    ]
+    finais = client.get("clientes_finais") or []
     try:
         pis = pi_repo.listar_pis_cliente(client_id, 8)
     except Exception:
@@ -140,14 +203,104 @@ def _client_context(store, pi_repo, client, client_allowed):
         "screen": "cliente_detalhe",
         "entity_type": "cliente",
         "entity_id": client_id,
-        "entity_label": client.get("nome") or "Cliente",
+        "entity_label": client.get("nome") or type_label,
+        "entity_subtype": subtype,
     }
+    relations = []
+    if subtype == "agencia":
+        relations.append({
+            "key": "clients",
+            "title": "Clientes finais",
+            "count": int(client.get("clientes_finais_count") or len(finais)),
+            "items": [
+                _entity(
+                    "cliente", item["id"], item.get("nome") or "Cliente final",
+                    "Cliente final", url,
+                    entity_subtype="cliente_final",
+                )
+                for item in finais[:8]
+            ],
+        })
+    relations.extend([
+        {
+            "key": "contacts",
+            "title": "Contatos",
+            "count": len(contacts),
+            "items": [
+                _entity(
+                    "contato", item["id"], item.get("nome") or "Contato",
+                    item.get("cargo") or "",
+                    url, email=item.get("email"), phone=item.get("telefone"),
+                )
+                for item in contacts[:8]
+            ],
+        },
+        {
+            "key": "quotes",
+            "title": "Cotações",
+            "count": len(quotes),
+            "items": [
+                _entity(
+                    "cotacao", item["id"],
+                    item.get("titulo") or item.get("numero_cotacao") or "Cotação",
+                    item.get("status_label") or item.get("status") or "",
+                    f"/cotacoes/{item['id']}/detalhes",
+                    value=item.get("valor") if item.get("valor_total") else "",
+                    updated=item.get("data") or "",
+                )
+                for item in quotes[:8]
+            ],
+        },
+        {
+            "key": "pis",
+            "title": "PIs",
+            "count": len(pis),
+            "items": [
+                _entity(
+                    "pi", item["id_pi"],
+                    item.get("titulo_pi") or item.get("codigo_pi_cc") or f"PI {item['id_pi']}",
+                    item.get("sub_status_descricao") or "",
+                    f"/cadu_pi/editar/{item['id_pi']}",
+                    code=item.get("codigo_pi_cc") or item.get("codigo_pi_ag"),
+                )
+                for item in pis
+            ],
+        },
+        {
+            "key": "campaigns",
+            "title": "Campanhas",
+            "count": len(campaigns),
+            "items": [
+                _entity(
+                    "campanha", item["id_campanha"],
+                    item.get("nome_campanha") or f"Campanha {item['id_campanha']}",
+                    item.get("status_descricao") or item.get("plataforma_nome") or "",
+                    f"/campanhas-pi/{item['id_campanha']}",
+                )
+                for item in campaigns[:8]
+            ],
+        },
+        {
+            "key": "activities",
+            "title": "Atividades abertas",
+            "count": len(open_activities),
+            "items": [
+                _entity(
+                    "atividade", item.get("id") or index,
+                    item.get("titulo") or item.get("tipo") or "Atividade",
+                    " · ".join(filter(None, [item.get("data"), item.get("status")])),
+                    url,
+                )
+                for index, item in enumerate(open_activities[:8])
+            ],
+        },
+    ])
     payload = _base(
         "cliente",
         client,
         context,
-        client.get("nome") or "Cliente",
-        " · ".join(filter(None, [client.get("tipo_label"), client.get("cidade"), client.get("uf")])),
+        client.get("nome") or type_label,
+        " · ".join(filter(None, [client.get("cidade"), client.get("uf")])),
         url,
         _facts(
             _fact("Etapa", stage),
@@ -156,74 +309,17 @@ def _client_context(store, pi_repo, client, client_allowed):
             _fact("CNPJ", client.get("cnpj"), True),
             _fact("Site", client.get("site_url"), True),
         ),
+        relations,
         [
-            {
-                "key": "contacts",
-                "title": "Contatos",
-                "count": len(contacts),
-                "items": [
-                    _entity(
-                        "contato", item["id"], item.get("nome") or "Contato",
-                        " · ".join(filter(None, [item.get("cargo"), item.get("setor")])),
-                        url, email=item.get("email"), phone=item.get("telefone"),
-                    )
-                    for item in contacts[:8]
-                ],
-            },
-            {
-                "key": "quotes",
-                "title": "Cotações",
-                "count": len(quotes),
-                "items": [
-                    _entity(
-                        "cotacao", item["id"],
-                        item.get("titulo") or item.get("numero_cotacao") or "Cotação",
-                        item.get("status_label") or item.get("status") or "",
-                        f"/cotacoes/{item['id']}/detalhes",
-                        value=item.get("valor"),
-                    )
-                    for item in quotes[:8]
-                ],
-            },
-            {
-                "key": "pis",
-                "title": "PIs",
-                "count": len(pis),
-                "items": [
-                    _entity(
-                        "pi", item["id_pi"],
-                        item.get("titulo_pi") or item.get("codigo_pi_cc") or f"PI {item['id_pi']}",
-                        item.get("sub_status_descricao") or "",
-                        f"/cadu_pi/editar/{item['id_pi']}",
-                        code=item.get("codigo_pi_cc") or item.get("codigo_pi_ag"),
-                    )
-                    for item in pis
-                ],
-            },
-            {
-                "key": "campaigns",
-                "title": "Campanhas",
-                "count": len(campaigns),
-                "items": [
-                    _entity(
-                        "campanha", item["id_campanha"],
-                        item.get("nome_campanha") or f"Campanha {item['id_campanha']}",
-                        item.get("status_descricao") or item.get("plataforma_nome") or "",
-                        f"/campanhas-pi/{item['id_campanha']}",
-                    )
-                    for item in campaigns[:8]
-                ],
-            },
-        ],
-        [
-            {"kind": "open", "label": "Abrir no CentralX", "url": url},
+            {"kind": "open", "label": "Abrir registro", "url": url},
             {"kind": "copy", "label": "Copiar link", "value": url},
             {
                 "kind": "prompt",
                 "label": "Resumir pendências",
-                "prompt": f"Resuma as pendências e próximos passos do cliente {client.get('nome') or client_id}.",
+                "prompt": "Resuma as pendências e próximos passos deste registro.",
             },
         ],
+        type_label,
     )
     payload.update({
         "contacts": contacts[:8],
@@ -250,6 +346,7 @@ def _contact_context(store, contact, client_allowed):
         "entity_type": "contato",
         "entity_id": contact_id,
         "entity_label": contact.get("nome") or "Contato",
+        "entity_subtype": "",
     }
     return _base(
         "contato",
@@ -270,7 +367,11 @@ def _contact_context(store, contact, client_allowed):
             "key": "client",
             "title": "Cliente",
             "count": 1,
-            "items": [_entity("cliente", client_id, client.get("nome") or "Cliente", "", url)],
+            "items": [_entity(
+                "cliente", client_id, client.get("nome") or "Cliente",
+                type_label_for("cliente", client_subtype(client)), url,
+                entity_subtype=client_subtype(client),
+            )],
         }],
         [
             {"kind": "open", "label": "Abrir cliente", "url": url},
@@ -310,12 +411,18 @@ def _quote_context(store, pi_repo, quote, quote_allowed):
         "entity_type": "cotacao",
         "entity_id": quote_id,
         "entity_label": title,
+        "entity_subtype": "",
     }
     relations = []
     if client:
         relations.append({
             "key": "client", "title": "Cliente", "count": 1,
-            "items": [_entity("cliente", client_id, client.get("nome") or "Cliente", "", f"/crm-v3/#cliente={client_id}")],
+            "items": [_entity(
+                "cliente", client_id, client.get("nome") or "Cliente",
+                type_label_for("cliente", client_subtype(client)),
+                f"/crm-v3/#cliente={client_id}",
+                entity_subtype=client_subtype(client),
+            )],
         })
     if pis:
         relations.append({
@@ -359,12 +466,18 @@ def _pi_context(store, pi_repo, pi):
         "entity_type": "pi",
         "entity_id": pi_id,
         "entity_label": title,
+        "entity_subtype": "",
     }
     relations = []
     if client:
         relations.append({
             "key": "client", "title": "Cliente", "count": 1,
-            "items": [_entity("cliente", client_id, client.get("nome") or "Cliente", "", f"/crm-v3/#cliente={client_id}")],
+            "items": [_entity(
+                "cliente", client_id, client.get("nome") or "Cliente",
+                type_label_for("cliente", client_subtype(client)),
+                f"/crm-v3/#cliente={client_id}",
+                entity_subtype=client_subtype(client),
+            )],
         })
     relations.append({
         "key": "campaigns", "title": "Campanhas", "count": len(campaigns),
@@ -408,6 +521,7 @@ def _campaign_context(store, pi_repo, campaign):
         "entity_type": "campanha",
         "entity_id": campaign_id,
         "entity_label": title,
+        "entity_subtype": "",
     }
     relations = []
     if pi:
@@ -419,7 +533,12 @@ def _campaign_context(store, pi_repo, campaign):
     if client:
         relations.append({
             "key": "client", "title": "Cliente", "count": 1,
-            "items": [_entity("cliente", client_id, client.get("nome") or "Cliente", "", f"/crm-v3/#cliente={client_id}")],
+            "items": [_entity(
+                "cliente", client_id, client.get("nome") or "Cliente",
+                type_label_for("cliente", client_subtype(client)),
+                f"/crm-v3/#cliente={client_id}",
+                entity_subtype=client_subtype(client),
+            )],
         })
     actions = [
         {"kind": "open", "label": "Abrir campanha", "url": url},

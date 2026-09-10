@@ -17,38 +17,57 @@ DONE_ACTIVITY_STATUS = {"concluida", "concluída", "cancelada"}
 
 def suggestion_prompts(context):
     entity_type = (context.get("entity_type") or "").casefold()
+    subtype = (context.get("entity_subtype") or "").casefold()
     screen = (context.get("screen") or "").casefold()
+    if entity_type in {"agencia", "agency"}:
+        subtype = "agencia"
+        entity_type = "cliente"
     if entity_type in {"cliente", "client"}:
+        if subtype == "agencia":
+            return [
+                {"label": "Clientes finais", "prompt": "Liste os clientes finais desta agência.", "icon": "fa-building"},
+                {"label": "Contatos", "prompt": "Liste os contatos desta agência.", "icon": "fa-user"},
+                {"label": "Cotações", "prompt": "Liste as cotações desta agência.", "icon": "fa-file-invoice"},
+                {"label": "Atividades abertas", "prompt": "Liste as atividades abertas desta agência.", "icon": "fa-clock"},
+                {"label": "PIs relacionados", "prompt": "Liste os PIs desta agência.", "icon": "fa-receipt"},
+                {"label": "Campanhas relacionadas", "prompt": "Liste as campanhas relacionadas a esta agência.", "icon": "fa-bullhorn"},
+            ]
         return [
-            {"label": "Quais cotações estão abertas?", "prompt": "Liste as cotações abertas deste cliente.", "icon": "fa-magnifying-glass"},
-            {"label": "Mostrar histórico de atividades", "prompt": "Liste as atividades deste cliente.", "icon": "fa-magnifying-glass"},
-            {"label": "Listar PIs deste cliente", "prompt": "Liste os PIs deste cliente.", "icon": "fa-receipt"},
+            {"label": "Cotações abertas", "prompt": "Liste as cotações abertas deste cliente.", "icon": "fa-file-invoice"},
+            {"label": "Histórico comercial", "prompt": "Liste as atividades deste cliente.", "icon": "fa-clock"},
+            {"label": "Contatos", "prompt": "Liste os contatos deste cliente.", "icon": "fa-user"},
+            {"label": "Atividades pendentes", "prompt": "Liste as atividades pendentes deste cliente.", "icon": "fa-list-check"},
+            {"label": "PIs do cliente", "prompt": "Liste os PIs deste cliente.", "icon": "fa-receipt"},
+            {"label": "Campanhas em andamento", "prompt": "Liste as campanhas em andamento deste cliente.", "icon": "fa-bullhorn"},
         ]
     if entity_type == "pi":
         return [
-            {"label": "Resumir este PI", "prompt": "Consulte este PI e resuma status, valor, período e responsável.", "icon": "fa-receipt"},
-            {"label": "Listar campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega, gasto e orçamento.", "icon": "fa-bullhorn"},
-            {"label": "Analisar operação", "prompt": "Analise a situação operacional deste PI e destaque riscos nos números das campanhas.", "icon": "fa-chart-line"},
+            {"label": "Resumo do PI", "prompt": "Consulte este PI e resuma status, valor, período e responsável.", "icon": "fa-receipt"},
+            {"label": "Campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega, gasto e orçamento.", "icon": "fa-bullhorn"},
+            {"label": "Faturamento", "prompt": "Resuma o faturamento e a situação operacional deste PI.", "icon": "fa-chart-line"},
+            {"label": "Histórico", "prompt": "Analise a situação operacional deste PI e destaque riscos nos números das campanhas.", "icon": "fa-clock"},
         ]
     if entity_type in {"campanha", "campaign"}:
         return [
             {"label": "Consultar campanha", "prompt": "Consulte esta campanha e resuma seus indicadores operacionais.", "icon": "fa-bullhorn"},
             {"label": "Analisar entrega", "prompt": "Compare objetivo, entrega, gasto e orçamento desta campanha.", "icon": "fa-chart-line"},
             {"label": "Consultar o PI", "prompt": "Consulte o PI relacionado a esta campanha.", "icon": "fa-receipt"},
+            {"label": "Histórico", "prompt": "Resuma o histórico operacional desta campanha.", "icon": "fa-clock"},
         ]
     if entity_type in {"cotacao", "quote"} or screen == "pipeline":
         return [
-            {"label": "Consultar esta cotação", "prompt": "Consulte os detalhes desta cotação.", "icon": "fa-file-invoice"},
-            {"label": "Buscar um cliente", "prompt": "Quero buscar um cliente.", "icon": "fa-magnifying-glass"},
-            {"label": "Ver cotações de um cliente", "prompt": "Liste as cotações de um cliente.", "icon": "fa-chart-column"},
-            {"label": "Analisar proposta", "prompt": "Vou anexar uma proposta. Resuma escopo, valores, riscos e próximos passos.", "icon": "fa-file-lines"},
+            {"label": "Resumo da cotação", "prompt": "Consulte os detalhes desta cotação.", "icon": "fa-file-invoice"},
+            {"label": "Histórico", "prompt": "Resuma o histórico comercial desta cotação.", "icon": "fa-clock"},
+            {"label": "Cliente relacionado", "prompt": "Consulte o cliente relacionado a esta cotação.", "icon": "fa-building"},
+            {"label": "Itens da proposta", "prompt": "Resuma os itens e valores desta proposta.", "icon": "fa-list"},
+            {"label": "PI relacionado", "prompt": "Liste os PIs relacionados a esta cotação.", "icon": "fa-receipt"},
+            {"label": "Próximo follow-up", "prompt": "Sugira o próximo follow-up desta cotação.", "icon": "fa-phone"},
         ]
     return [
-        {"label": "Buscar cliente ou agência", "prompt": "Busque na base o cliente ou a agência que eu citar.", "icon": "fa-magnifying-glass"},
-        {"label": "Buscar um PI", "prompt": "Busque o PI pelo código ou título e resuma status, cliente, agência e valor.", "icon": "fa-receipt"},
-        {"label": "Buscar uma cotação", "prompt": "Busque a cotação pelo número, campanha ou cliente.", "icon": "fa-file-invoice"},
-        {"label": "Canais e plataformas", "prompt": "Busque canais e plataformas do CADU relacionados ao que eu citar.", "icon": "fa-tower-broadcast"},
-        {"label": "Buscar audiências", "prompt": "Busque audiências do CADU pelo nome ou perfil.", "icon": "fa-users"},
+        {"label": "Buscar cliente", "prompt": "Busque o cliente pelo nome e mostre o cadastro.", "icon": "fa-magnifying-glass"},
+        {"label": "Buscar agência", "prompt": "Busque a agência pelo nome e mostre o cadastro.", "icon": "fa-building"},
+        {"label": "Buscar cotação", "prompt": "Busque a cotação pelo número, campanha ou cliente.", "icon": "fa-file-invoice"},
+        {"label": "Buscar PI", "prompt": "Busque o PI pelo código ou título e resuma status, cliente, agência e valor.", "icon": "fa-receipt"},
     ]
 
 

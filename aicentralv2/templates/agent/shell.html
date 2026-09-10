@@ -24,6 +24,9 @@
           <button type="button" id="cx-agent-history-open">
             <i class="fa-regular fa-clock" aria-hidden="true"></i><span>Histórico</span>
           </button>
+          <button type="button" id="cx-agent-clear-conversation">
+            <i class="fa-regular fa-trash-can" aria-hidden="true"></i><span>Limpar conversa</span>
+          </button>
           <button type="button" id="cx-agent-settings">
             <i class="fa-solid fa-gear" aria-hidden="true"></i><span>Configurações</span>
           </button>
@@ -69,6 +72,11 @@
         <div class="cx-agent-panels">
       <section id="cx-agent-panel-chat" class="cx-agent-panel is-active" role="tabpanel" data-agent-panel="chat">
         <div id="cx-agent-messages" class="cx-agent-messages" aria-live="polite">
+          <div id="cx-agent-consulting" class="cx-agent-consulting" hidden>
+            <span>Consultando</span>
+            <strong id="cx-agent-consulting-name"></strong>
+            <em id="cx-agent-consulting-type"></em>
+          </div>
           <div class="cx-agent-welcome">
             <div class="cx-agent-welcome-mark" aria-hidden="true">
               <span></span><span></span><span></span>
@@ -139,13 +147,27 @@
       <aside id="cx-agent-record" class="cx-agent-record" aria-label="Contexto do registro" aria-hidden="true">
         <header class="cx-agent-record-head">
           <div>
-            <span>Contexto</span>
+            <span>Contexto atual</span>
+            <nav id="cx-agent-breadcrumb" class="cx-agent-breadcrumb" hidden aria-label="Explorar contexto"></nav>
             <strong id="cx-agent-record-title">Selecione um registro</strong>
           </div>
           <div class="cx-agent-record-head-actions">
             <a id="cx-agent-record-open" href="/crm-v3/" hidden>
-              Abrir <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+              Abrir registro <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
             </a>
+            <div class="cx-agent-more">
+              <button type="button" id="cx-agent-record-more" class="cx-agent-icon-btn" aria-label="Mais ações do contexto" aria-expanded="false">
+                <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+              </button>
+              <div id="cx-agent-record-more-menu" class="cx-agent-more-menu" hidden>
+                <button type="button" id="cx-agent-record-copy-link">
+                  <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copiar link</span>
+                </button>
+                <button type="button" id="cx-agent-record-switch">
+                  <i class="fa-solid fa-right-left" aria-hidden="true"></i><span>Trocar</span>
+                </button>
+              </div>
+            </div>
             <button type="button" id="cx-agent-record-close" class="cx-agent-icon-btn" aria-label="Fechar contexto">
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>

@@ -65,6 +65,19 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("Nunca peça ao usuário ID", SYSTEM_POLICY)
         self.assertIn("buscar_cotacao", SYSTEM_POLICY)
         self.assertIn("buscar_audiencias", SYSTEM_POLICY)
+        self.assertIn("PARE", SYSTEM_POLICY)
+
+    def test_context_completes_agency_alias_as_cliente_id(self):
+        args = _contextual_arguments(
+            "listar_cotacoes", {}, {"entity_type": "agencia", "entity_id": "42"}
+        )
+        self.assertEqual(args["cliente_id"], "42")
+        search = _contextual_arguments(
+            "buscar_cliente", {"query": "INDIE"},
+            {"entity_type": "cliente", "entity_id": "98", "entity_label": "INDIE"},
+        )
+        self.assertEqual(search["query"], "INDIE")
+        self.assertNotIn("cliente_id", search)
 
     @patch("aicentralv2.agent.tools.commercial.db")
     def test_catalog_tools_expose_platform_audience_and_format(self, mock_db):
@@ -104,6 +117,8 @@ class AgentContractsTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(item["responsible"], "Executiva Central")
         self.assertEqual(item["url"], "/crm-v3/#cliente=1843")
+        self.assertEqual(item["entity_subtype"], "cliente_final")
+        self.assertEqual(item["type_label"], "Cliente final")
 
     def test_parses_brazilian_currency_text(self):
         self.assertEqual(commercial._number("R$ 8.000,00"), 8000.0)
@@ -175,6 +190,19 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(exact["context_focus"]["entity_id"], "7")
         self.assertNotIn("context_focus", partial)
 
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_ambiguous_client_search_does_not_focus_and_exposes_subtype(self, mock_store):
+        mock_store.return_value.search_clientes.return_value = [
+            {"id": "42", "nome": "AGÊNCIA INDIE", "is_agencia": True, "tipo_label": "Agência", "responsavel": "Demétrius"},
+            {"id": "98", "nome": "CLIENTE FINAL AGÊNCIA INDIE", "is_agencia": False, "tipo_label": "Cliente final", "responsavel": "Demétrius"},
+        ]
+        result = commercial.buscar_cliente("INDIE")
+        self.assertTrue(result["ambiguous"])
+        self.assertNotIn("context_focus", result)
+        self.assertEqual(result["display"]["items"][0]["entity_subtype"], "agencia")
+        self.assertEqual(result["display"]["items"][1]["entity_subtype"], "cliente_final")
+        self.assertIn("semelhantes", result["display"]["summary"])
+
     @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
     def test_operational_summary_exposes_real_counts_and_delivery(self, repository):
         repository.return_value.resumo_operacao.return_value = {
@@ -218,6 +246,25 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(result["data"][0]["type"], "pi")
         self.assertEqual(result["data"][0]["client"], "Acme")
         self.assertEqual(result["data"][0]["value"], 50000.0)
+
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_open_quotes_empty_returns_structured_empty_and_skips_vinculos(self, mock_store):
+        store = mock_store.return_value
+        store.get_cliente.return_value = {
+            "id": "42", "nome": "AGÊNCIA INDIE", "is_agencia": True, "tipo_label": "Agência",
+        }
+        store.list_cotacoes.return_value = [
+            {"id": "1", "titulo": "Rascunho 100K", "status_label": "Rascunho", "valor_total": 0},
+        ]
+        store.search_clientes.return_value = [
+            {"id": "42", "nome": "AGÊNCIA INDIE", "is_agencia": True},
+            {"id": "98", "nome": "CLIENTE FINAL AGÊNCIA INDIE", "is_agencia": False, "tipo_label": "Cliente final"},
+        ]
+        result = commercial.listar_cotacoes("42", status="aberta", _allow_global=True)
+        store.list_cotacoes.assert_called_with("42", include_vinculados=False)
+        self.assertEqual(result["display"]["type"], "empty")
+        self.assertTrue(result["display"]["empty"]["actions"])
+        self.assertEqual(result["display"]["empty"]["related_candidates"][0]["id"], "98")
 
     @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
     def test_lists_campaigns_with_operational_metrics(self, repository):
@@ -625,6 +672,9 @@ class AgentInsightsTest(unittest.TestCase):
         self.assertIsNone(data["entity"])
         self.assertEqual(data["alerts"], [])
         self.assertTrue(data["prompts"])
+        labels = {item["label"] for item in data["prompts"]}
+        self.assertIn("Buscar cliente", labels)
+        self.assertIn("Buscar agência", labels)
 
     @patch("aicentralv2.agent.insights.get_store")
     def test_insights_for_client_include_overdue_and_open_quotes(self, mock_store):
@@ -642,6 +692,19 @@ class AgentInsightsTest(unittest.TestCase):
         ids = {item["id"] for item in data["alerts"]}
         self.assertIn("overdue_activities", ids)
         self.assertIn("open_campaigns", ids)
+
+    def test_agency_suggestions_differ_from_final_client(self):
+        from aicentralv2.agent.insights import suggestion_prompts
+        agency = {item["label"] for item in suggestion_prompts({
+            "entity_type": "cliente", "entity_id": "42", "entity_subtype": "agencia",
+        })}
+        client = {item["label"] for item in suggestion_prompts({
+            "entity_type": "cliente", "entity_id": "98", "entity_subtype": "cliente_final",
+        })}
+        self.assertIn("Clientes finais", agency)
+        self.assertIn("Cotações abertas", client)
+        self.assertNotIn("Buscar cliente", agency)
+        self.assertNotIn("Buscar um PI", client)
 
     @patch("aicentralv2.agent.insights.get_store")
     def test_quote_insights_recommend_follow_up(self, mock_store):
@@ -688,7 +751,8 @@ class ContextRecordContractTest(unittest.TestCase):
         facts = {item["label"]: item["value"] for item in data["facts"]}
         keys = {item["key"] for item in data["relations"]}
         self.assertEqual(facts["Etapa"], "Em operação")
-        self.assertTrue({"contacts", "quotes", "pis", "campaigns"}.issubset(keys))
+        self.assertTrue({"contacts", "quotes", "pis", "campaigns", "activities"}.issubset(keys))
+        self.assertEqual(data["identity"]["type_label"], "Cliente final")
         contacts = next(item for item in data["relations"] if item["key"] == "contacts")
         self.assertEqual(contacts["items"][0]["phone"], "(31) 99999-0000")
         self.assertIn("Mídia", contacts["items"][0]["subtitle"])
@@ -736,6 +800,11 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertIn("appendMessage('assistant', String(content || ''), display)", agent_js)
         self.assertIn("cx-agent-message-cards", agent_js)
         self.assertNotIn("renderDisplay(body, display);", agent_js)
+        self.assertNotIn("Ver contexto", agent_js)
+        self.assertIn("cx-agent-entity-row", agent_js)
+        self.assertIn("Usar como contexto", agent_js)
+        self.assertIn("cx-agent-consulting", shell)
+        self.assertIn("cx-agent-clear-conversation", shell)
 
 
 if __name__ == "__main__":

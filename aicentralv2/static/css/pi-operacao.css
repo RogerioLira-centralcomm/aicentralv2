@@ -192,8 +192,6 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   padding: 0;
 }
 .cx-modal.pi-campaign-modal[open] {
-  display: flex;
-  flex-direction: column;
   animation: pi-campaign-modal-in 160ms ease-out;
 }
 .cx-modal.pi-campaign-modal::backdrop {
@@ -208,7 +206,6 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 }
 .pi-campaign-modal .cx-modal-header {
   align-items: flex-start;
-  flex-shrink: 0;
 }
 .pi-campaign-modal .cx-modal-header h2 {
   margin: 0;
@@ -228,7 +225,6 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-shrink: 0;
 }
 .pi-campaign-modal__ticket > span {
   color: #173c3e;
@@ -238,11 +234,8 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 }
 .pi-campaign-modal .cx-modal-body {
   display: block;
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
+  max-height: min(62vh, 36rem);
 }
-.pi-campaign-modal .cx-modal-footer { flex-shrink: 0; }
 .pi-campaign-req { color: #b4473c; }
 .pi-campaign-editor { min-width: 0; }
 .pi-campaign-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }

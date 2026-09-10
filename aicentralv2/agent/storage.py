@@ -1,6 +1,7 @@
 """Persistência de conversas e chamadas do Agente CentralX."""
 
 import json
+import logging
 
 from .. import db
 
@@ -8,6 +9,8 @@ from .. import db
 class AgentStorageUnavailable(RuntimeError):
     pass
 
+
+logger = logging.getLogger("aicentral.agent")
 
 REQUIRED_COLUMNS = {
     "agent_conversations": {
@@ -26,8 +29,98 @@ REQUIRED_COLUMNS = {
     },
 }
 
+SCHEMA_SQL = """
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
-def _ensure_tables():
+CREATE TABLE IF NOT EXISTS agent_conversations (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE CASCADE,
+    title VARCHAR(160) NOT NULL DEFAULT 'Nova conversa',
+    context_module VARCHAR(50),
+    context_screen VARCHAR(80),
+    context_entity_type VARCHAR(50),
+    context_entity_id VARCHAR(80),
+    context_entity_label VARCHAR(200),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_conversations_user_updated
+    ON agent_conversations (user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_messages (
+    id BIGSERIAL PRIMARY KEY,
+    conversation_id BIGINT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL DEFAULT '',
+    display_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    model VARCHAR(120),
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_messages_conversation
+    ON agent_messages (conversation_id, created_at, id);
+
+CREATE TABLE IF NOT EXISTS agent_tool_calls (
+    id BIGSERIAL PRIMARY KEY,
+    conversation_id BIGINT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+    message_id BIGINT REFERENCES agent_messages(id) ON DELETE SET NULL,
+    tool_name VARCHAR(80) NOT NULL,
+    operation_type VARCHAR(20) NOT NULL DEFAULT 'read',
+    arguments_sanitized JSONB NOT NULL DEFAULT '{}'::jsonb,
+    result_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status VARCHAR(20) NOT NULL,
+    duration_ms INTEGER,
+    request_id VARCHAR(64),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_conversation
+    ON agent_tool_calls (conversation_id, created_at DESC);
+
+ALTER TABLE agent_conversations
+    ADD COLUMN IF NOT EXISTS title VARCHAR(160) NOT NULL DEFAULT 'Nova conversa',
+    ADD COLUMN IF NOT EXISTS context_module VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS context_screen VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS context_entity_type VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS context_entity_id VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS context_entity_label VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE agent_messages
+    ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS display_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS model VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER,
+    ADD COLUMN IF NOT EXISTS completion_tokens INTEGER,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE agent_tool_calls
+    ADD COLUMN IF NOT EXISTS message_id BIGINT REFERENCES agent_messages(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS operation_type VARCHAR(20) NOT NULL DEFAULT 'read',
+    ADD COLUMN IF NOT EXISTS arguments_sanitized JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS result_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'error',
+    ADD COLUMN IF NOT EXISTS duration_ms INTEGER,
+    ADD COLUMN IF NOT EXISTS request_id VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+"""
+
+
+def rollback_failed_transaction():
+    """Libera a conexão após uma consulta de tool falhar no PostgreSQL."""
+    try:
+        conn = db.get_db()
+        if not conn.closed:
+            conn.rollback()
+    except Exception:
+        pass
+
+
+def _schema_columns():
     conn = db.get_db()
     with conn.cursor() as cur:
         cur.execute(
@@ -43,26 +136,41 @@ def _ensure_tables():
     found = {table: set() for table in REQUIRED_COLUMNS}
     for row in rows:
         found.setdefault(row.get("table_name"), set()).add(row.get("column_name"))
-    missing = {
+    return {
         table: sorted(columns - found.get(table, set()))
         for table, columns in REQUIRED_COLUMNS.items()
         if columns - found.get(table, set())
     }
-    if missing:
-        raise AgentStorageUnavailable(
-            "Schema do agente incompleto; execute upgrade_agent_tables_20260908.sql. "
-            f"Ausências: {missing}"
-        )
 
 
-def rollback_failed_transaction():
-    """Libera a conexão após uma consulta de tool falhar no PostgreSQL."""
+def _apply_schema():
+    conn = db.get_db()
+    with conn.cursor() as cur:
+        cur.execute(SCHEMA_SQL)
+    conn.commit()
+
+
+def _ensure_tables():
     try:
-        conn = db.get_db()
-        if not conn.closed:
-            conn.rollback()
-    except Exception:
-        pass
+        missing = _schema_columns()
+        if not missing:
+            return
+        logger.warning("Schema do agente incompleto; aplicando DDL. Ausências: %s", missing)
+        _apply_schema()
+        missing = _schema_columns()
+        if missing:
+            raise AgentStorageUnavailable(
+                "Schema do agente incompleto após auto-atualização. "
+                f"Ausências: {missing}"
+            )
+    except AgentStorageUnavailable:
+        rollback_failed_transaction()
+        raise
+    except Exception as exc:
+        rollback_failed_transaction()
+        raise AgentStorageUnavailable(
+            "Não foi possível preparar o banco do agente."
+        ) from exc
 
 
 def list_conversations(user_id, limit=30, page=1):

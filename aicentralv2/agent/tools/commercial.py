@@ -4,6 +4,7 @@ from ... import db
 from ...crm_v3_repository import get_store
 from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 from ...pi_operacao_service import PiOperacaoService
+from .. import storage
 
 MAX_RESULTS = 20
 
@@ -67,6 +68,18 @@ def _error(message, code="not_found"):
     }
 
 
+def _query_or_fail(fn):
+    try:
+        return fn(), None
+    except Exception:
+        storage.rollback_failed_transaction()
+        return None, _error(
+            "A consulta aos dados falhou. Informe que a busca não pôde ser "
+            "concluída; não invente registros nem IDs.",
+            "query_failed",
+        )
+
+
 def _client_item(item):
     return {
         "type": "cliente",
@@ -119,11 +132,13 @@ def _quote_allowed(quote, viewer_user_id=None, allow_global=False):
 def buscar_cliente(
     query, limit=10, _viewer_user_id=None, _allow_global=False, **_
 ):
-    clients = get_store().search_clientes(
+    clients, failed = _query_or_fail(lambda: get_store().search_clientes(
         query,
         min(limit, MAX_RESULTS),
         executivo_id=None if _allow_global else _viewer_user_id,
-    )
+    ))
+    if failed:
+        return failed
     items = [_client_item(item) for item in clients]
     return _ok(
         items,
@@ -178,13 +193,20 @@ def listar_contatos(
 def buscar_contato(
     query, limit=10, _viewer_user_id=None, _allow_global=False, **_
 ):
-    store = get_store()
-    search = getattr(store, "search_contatos", None)
-    contacts = search(
-        query,
-        min(limit, MAX_RESULTS),
-        executivo_id=None if _allow_global else _viewer_user_id,
-    ) if search else []
+    def _run():
+        store = get_store()
+        search = getattr(store, "search_contatos", None)
+        if not search:
+            return []
+        return search(
+            query,
+            min(limit, MAX_RESULTS),
+            executivo_id=None if _allow_global else _viewer_user_id,
+        )
+
+    contacts, failed = _query_or_fail(_run)
+    if failed:
+        return failed
     items = [{
         "type": "contato",
         "id": item.get("id"),
@@ -379,7 +401,12 @@ def _pi_item(item):
 
 
 def buscar_pi(query, limit=10, **_):
-    items = [_pi_item(item) for item in PiOperacaoRepository().buscar_pis(query, min(limit, MAX_RESULTS))]
+    rows, failed = _query_or_fail(
+        lambda: PiOperacaoRepository().buscar_pis(query, min(limit, MAX_RESULTS))
+    )
+    if failed:
+        return failed
+    items = [_pi_item(item) for item in rows]
     return _ok(
         items,
         f"{len(items)} PI(s) encontrado(s)",

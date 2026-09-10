@@ -8,7 +8,7 @@ import uuid
 from flask import current_app, jsonify, request, session
 
 from .. import db
-from ..crm_v3_repository import get_store
+from ..crm_v3_repository import StoreUnavailable, get_store
 from ..pi_operacao_repository import PiOperacaoRepository
 from ..services.openrouter_service import DEFAULT_CHAT_MODEL
 from . import bp, storage
@@ -257,20 +257,43 @@ def _authorized_insights(context):
     return build_insights(context)
 
 
+def _safe_insights(context):
+    try:
+        return _authorized_insights(context)
+    except Exception:
+        storage.rollback_failed_transaction()
+        current_app.logger.exception("Falha ao montar insights do agente")
+        return {"entity": None, "alerts": [], "prompts": _suggestions(context)}
+
+
+def _safe_search(label, fn, fallback=None):
+    try:
+        return fn()
+    except Exception:
+        storage.rollback_failed_transaction()
+        current_app.logger.exception("Falha na busca %s do agente", label)
+        return [] if fallback is None else fallback
+
+
 @bp.get("/bootstrap")
 @agent_internal_required_api
 def bootstrap():
     context = _context(request.args)
     requested_id = request.args.get("conversation_id", type=int)
     active = None
-    if requested_id:
-        found = storage.get_conversation(requested_id, session["user_id"])
-        if found:
-            active = _conversation_payload(found["conversation"])
-    if not active:
-        conversations = storage.list_conversations(session["user_id"], limit=1)
-        if conversations:
-            active = _conversation_payload(conversations[0])
+    try:
+        if requested_id:
+            found = storage.get_conversation(requested_id, session["user_id"])
+            if found:
+                active = _conversation_payload(found["conversation"])
+        if not active:
+            conversations = storage.list_conversations(session["user_id"], limit=1)
+            if conversations:
+                active = _conversation_payload(conversations[0])
+    except Exception:
+        storage.rollback_failed_transaction()
+        current_app.logger.exception("Histórico do agente indisponível no bootstrap")
+        active = None
     return jsonify({
         "success": True,
         "data": {
@@ -281,7 +304,7 @@ def bootstrap():
             "context": context,
             "active_conversation": active,
             "suggestions": _suggestions(context),
-            "insights": _authorized_insights(context),
+            "insights": _safe_insights(context),
         },
     })
 
@@ -453,12 +476,7 @@ def suggestions():
 @agent_internal_required_api
 def insights():
     context = _context(request.args)
-    try:
-        data = _authorized_insights(context)
-    except Exception:
-        current_app.logger.exception("Falha ao montar insights do agente")
-        data = {"entity": None, "alerts": [], "prompts": _suggestions(context)}
-    return jsonify({"success": True, "data": data})
+    return jsonify({"success": True, "data": _safe_insights(context)})
 
 
 @bp.get("/commercial/search")
@@ -476,31 +494,40 @@ def commercial_search():
     limit = max(1, min(request.args.get("limit", 8, type=int) or 8, 20))
     global_scope = _requested_global_scope()
     executive_id = None if global_scope else session["user_id"]
-    store = get_store()
-    clients = (
-        store.search_clientes(query, limit, executivo_id=executive_id)
-        if kind in {"all", "clients"}
-        else []
-    )
-    quotes = (
-        store.search_cotacoes(query, limit, executivo_id=executive_id)
-        if kind in {"all", "quotes"}
-        else []
-    )
-    search_contacts = getattr(store, "search_contatos", None)
-    contacts = (
-        search_contacts(query, limit, executivo_id=executive_id)
-        if search_contacts and kind in {"all", "contacts"}
-        else []
-    )
+    try:
+        store = get_store()
+    except StoreUnavailable:
+        storage.rollback_failed_transaction()
+        current_app.logger.warning("CRM indisponível na busca comercial do agente")
+        store = None
+    clients = []
+    quotes = []
+    contacts = []
+    if store and kind in {"all", "clients"}:
+        clients = _safe_search(
+            "clientes",
+            lambda: store.search_clientes(query, limit, executivo_id=executive_id),
+        )
+    if store and kind in {"all", "quotes"}:
+        quotes = _safe_search(
+            "cotacoes",
+            lambda: store.search_cotacoes(query, limit, executivo_id=executive_id),
+        )
+    search_contacts = getattr(store, "search_contatos", None) if store else None
+    if search_contacts and kind in {"all", "contacts"}:
+        contacts = _safe_search(
+            "contatos",
+            lambda: search_contacts(query, limit, executivo_id=executive_id),
+        )
     if not isinstance(contacts, list):
         contacts = []
     operational = {"pis": [], "campaigns": []}
     if kind in {"all", "pis", "campaigns"}:
-        try:
-            operational = search_operational_records(query, limit=limit)
-        except Exception:
-            current_app.logger.exception("Falha na busca operacional do agente")
+        operational = _safe_search(
+            "operacional",
+            lambda: search_operational_records(query, limit=limit),
+            {"pis": [], "campaigns": []},
+        ) or {"pis": [], "campaigns": []}
     return jsonify({
         "success": True,
         "data": {
@@ -637,4 +664,14 @@ def storage_unavailable(exc):
     return jsonify({
         "success": False,
         "error": "O Agente CentralX ainda não foi ativado no banco. Execute a migration pendente.",
+    }), 503
+
+
+@bp.errorhandler(StoreUnavailable)
+def crm_store_unavailable(exc):
+    storage.rollback_failed_transaction()
+    current_app.logger.warning("CRM indisponível no agente: %s", exc)
+    return jsonify({
+        "success": False,
+        "error": "Os dados comerciais estão temporariamente indisponíveis.",
     }), 503

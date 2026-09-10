@@ -9977,10 +9977,19 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             count_params.append(filtros['status'])
         
         if filtros.get('search'):
-            where_clauses.append('(unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli.razao_social) ILIKE unaccent(%s))')
+            where_clauses.append(
+                '('
+                'unaccent(COALESCE(cli.nome_fantasia, \'\')) ILIKE unaccent(%s)'
+                ' OR unaccent(COALESCE(cli.razao_social, \'\')) ILIKE unaccent(%s)'
+                ' OR COALESCE(cli.cnpj, \'\') ILIKE %s'
+                ' OR regexp_replace(COALESCE(cli.cnpj, \'\'), \'[^0-9]\', \'\', \'g\') ILIKE %s'
+                ')'
+            )
             search_term = f"%{filtros['search']}%"
-            params.extend([search_term, search_term])
-            count_params.extend([search_term, search_term])
+            digits = re.sub(r'\D', '', str(filtros['search']))
+            cnpj_term = f"%{digits}%" if len(digits) >= 4 else search_term
+            params.extend([search_term, search_term, search_term, cnpj_term])
+            count_params.extend([search_term, search_term, search_term, cnpj_term])
         
         if filtros.get('categoria_abc'):
             where_clauses.append('cli.categoria_abc = %s')
@@ -10022,14 +10031,23 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             WHERE 1=1 {where_sql}
         '''
         
-        with conn.cursor() as cursor:
-            # Obter total
-            cursor.execute(count_query, count_params)
-            total = cursor.fetchone()['count']
-            
-            # Obter clientes
-            cursor.execute(query, params)
-            clientes = cursor.fetchall()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(count_query, count_params)
+                total = cursor.fetchone()['count']
+                cursor.execute(query, params)
+                clientes = cursor.fetchall()
+        except Exception as inner:
+            if not (filtros.get('search') and 'unaccent' in str(inner).lower()):
+                raise
+            conn.rollback()
+            plain_count = count_query.replace('unaccent(', '(')
+            plain_query = query.replace('unaccent(', '(')
+            with conn.cursor() as cursor:
+                cursor.execute(plain_count, count_params)
+                total = cursor.fetchone()['count']
+                cursor.execute(plain_query, params)
+                clientes = cursor.fetchall()
         
         pages = (total + per_page - 1) // per_page  # Ceiling division
         
@@ -10043,6 +10061,11 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
         
     except Exception as e:
         current_app.logger.error(f"Erro ao obter clientes paginados: {e}")
+        try:
+            if conn is not None and not conn.closed:
+                conn.rollback()
+        except Exception:
+            pass
         raise
 
 
@@ -21295,7 +21318,7 @@ def registrar_interacao_ia(cliente_id, executivo_id, funcao, origem, conteudo,
         return None
 
 
-def listar_interacoes_ia(cliente_id, limit=20):
+def listar_interacoes_ia(cliente_id, limit=20, atividade_id=None):
     """Histórico mais recente; degrada para lista vazia sem a migration."""
     conn = get_db()
     try:
@@ -21305,17 +21328,19 @@ def listar_interacoes_ia(cliente_id, limit=20):
             tabela = row.get("tabela") if isinstance(row, dict) else row[0]
             if not tabela:
                 return []
-            cur.execute(
-                """
+            sql = """
                 SELECT id, cliente_id, atividade_id, executivo_id, funcao,
                        origem, modelo, conteudo, aplicado, aplicado_em, criado_em
                 FROM crm_ai_interactions
                 WHERE cliente_id = %s
-                ORDER BY criado_em DESC
-                LIMIT %s
-                """,
-                (cliente_id, max(1, min(int(limit or 20), 100))),
-            )
+            """
+            params = [cliente_id]
+            if atividade_id:
+                sql += " AND atividade_id = %s"
+                params.append(atividade_id)
+            sql += " ORDER BY criado_em DESC LIMIT %s"
+            params.append(max(1, min(int(limit or 20), 100)))
+            cur.execute(sql, params)
             return cur.fetchall() or []
     except Exception:
         conn.rollback()

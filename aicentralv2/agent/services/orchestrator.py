@@ -230,8 +230,11 @@ def run(
                     started_result = {
                         "success": False,
                         "error": {
-                            "code": "tool_unavailable",
-                            "message": "Dados temporariamente indisponíveis.",
+                            "code": "query_failed",
+                            "message": (
+                                "A consulta aos dados falhou. Informe que a busca não "
+                                "pôde ser concluída; não invente registros nem IDs."
+                            ),
                         },
                     }
                     storage.record_tool_call(

@@ -11,6 +11,7 @@ from aicentralv2.agent.context_records import build_context_record, safe_context
 from aicentralv2.agent.services.orchestrator import _contextual_arguments, _sanitize_markdown_links
 from aicentralv2.agent.tools import commercial
 from aicentralv2.agent.tools.registry import TOOLS, ToolValidationError, get_tool, validate_arguments
+from aicentralv2.crm_v3_repository import StoreUnavailable
 from aicentralv2.services.openrouter_service import OpenRouterError, chat_completion
 
 
@@ -339,6 +340,59 @@ class AgentApiSecurityTest(unittest.TestCase):
         mock_store.return_value.search_clientes.assert_called_once_with(
             "acme", 8, executivo_id=None
         )
+
+    @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
+    @patch("aicentralv2.agent.routes.db.obter_usuario_por_id", return_value={})
+    @patch("aicentralv2.agent.routes.get_store")
+    @patch("aicentralv2.agent.routes.storage.list_conversations", side_effect=RuntimeError("db down"))
+    def test_bootstrap_stays_online_when_history_fails(self, _mock_list, mock_store, _mock_user, _rollback):
+        mock_store.side_effect = StoreUnavailable("crm down")
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="client")
+        response = self.client.get(
+            "/api/agent/bootstrap?module=crm&screen=cliente&entity_type=cliente&entity_id=7"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertTrue(data["csrf_token"])
+        self.assertIsNone(data["active_conversation"])
+        self.assertEqual(data["insights"]["entity"], None)
+
+    @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [{"id": "1"}], "campaigns": []})
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_commercial_search_returns_partial_results_when_crm_fails(self, mock_store, _mock_ops, _rollback):
+        store = mock_store.return_value
+        store.search_clientes.side_effect = RuntimeError("unaccent missing")
+        store.search_cotacoes.return_value = []
+        store.search_contatos.return_value = []
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="admin")
+        response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()["data"]
+        self.assertEqual(payload["clients"], [])
+        self.assertEqual(payload["pis"][0]["id"], "1")
+
+    @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
+    @patch("aicentralv2.agent.routes.get_store", side_effect=StoreUnavailable("crm down"))
+    def test_commercial_search_survives_store_unavailable(self, _mock_store, _mock_ops, _rollback):
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="admin")
+        response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()["data"]
+        self.assertEqual(payload["clients"], [])
+        self.assertEqual(payload["quotes"], [])
+
+    @patch("aicentralv2.agent.tools.commercial.storage.rollback_failed_transaction")
+    @patch("aicentralv2.agent.tools.commercial.get_store")
+    def test_client_search_query_failure_is_not_empty_success(self, mock_store, _rollback):
+        mock_store.return_value.search_clientes.side_effect = RuntimeError("sql")
+        result = commercial.buscar_cliente("COPASA")
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"]["code"], "query_failed")
 
     @patch("aicentralv2.agent.routes.build_insights")
     @patch("aicentralv2.agent.routes.get_store")

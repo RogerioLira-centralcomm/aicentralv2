@@ -496,7 +496,26 @@ class CrmV3Repository:
         if not term:
             return []
         conn = _db().get_db()
-        sql = """
+        match_unaccent = """
+                    unaccent(COALESCE(c.numero_cotacao, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(c.nome_campanha, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(cli.nome_fantasia, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(cli.razao_social, '')) ILIKE unaccent(%s)
+        """
+        match_plain = """
+                    COALESCE(c.numero_cotacao, '') ILIKE %s
+                    OR COALESCE(c.nome_campanha, '') ILIKE %s
+                    OR COALESCE(cli.nome_fantasia, '') ILIKE %s
+                    OR COALESCE(cli.razao_social, '') ILIKE %s
+        """
+        sql_tail = ""
+        params: List[Any] = [f"%{term}%"] * 4
+        if executivo_id:
+            sql_tail += " AND c.responsavel_comercial = %s"
+            params.append(int(executivo_id))
+        sql_tail += " ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC LIMIT %s"
+        params.append(max(1, min(int(limit or 20), 20)))
+        select_sql = """
             SELECT c.*, cli.nome_fantasia AS cliente_nome,
                    cont.nome_completo AS contato_nome,
                    vend.nome_completo AS vendedor_nome,
@@ -509,21 +528,18 @@ class CrmV3Repository:
                 ON vend.id_contato_cliente = c.responsavel_comercial
              WHERE c.deleted_at IS NULL
                AND (
-                    unaccent(COALESCE(c.numero_cotacao, '')) ILIKE unaccent(%s)
-                    OR unaccent(COALESCE(c.nome_campanha, '')) ILIKE unaccent(%s)
-                    OR unaccent(COALESCE(cli.nome_fantasia, '')) ILIKE unaccent(%s)
-                    OR unaccent(COALESCE(cli.razao_social, '')) ILIKE unaccent(%s)
+                    {match}
                )
         """
-        params: List[Any] = [f"%{term}%"] * 4
-        if executivo_id:
-            sql += " AND c.responsavel_comercial = %s"
-            params.append(int(executivo_id))
-        sql += " ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC LIMIT %s"
-        params.append(max(1, min(int(limit or 20), 20)))
-        with conn.cursor() as cursor:
-            cursor.execute(sql, params)
-            rows = cursor.fetchall() or []
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(select_sql.format(match=match_unaccent) + sql_tail, params)
+                rows = cursor.fetchall() or []
+        except Exception:
+            conn.rollback()
+            with conn.cursor() as cursor:
+                cursor.execute(select_sql.format(match=match_plain) + sql_tail, params)
+                rows = cursor.fetchall() or []
         return [self._map_cotacao(dict(row)) for row in rows]
 
     def list_lookups(self) -> Dict[str, Any]:
@@ -2107,6 +2123,8 @@ class CrmV3Repository:
             "texto", "mensagem", "assunto", "titulo", "tipo", "prioridade",
             "descricao", "acao_sugerida", "data_sugerida", "motivo",
             "contexto_utilizado", "touchpoints", "objetivos", "source",
+            "abertura", "perguntas", "fechamento", "objetivo",
+            "canal_produto",
         }
         conteudo = {k: data.get(k) for k in allowed if k in data}
         row = _db().registrar_interacao_ia(
@@ -2116,13 +2134,20 @@ class CrmV3Repository:
             origem=data.get("source") or "fallback",
             modelo="google/gemini-2.5-flash" if data.get("source") == "openrouter" else None,
             conteudo=conteudo,
+            atividade_id=data.get("atividade_id") or None,
         )
         return str(row.get("id")) if row else None
 
-    def list_ai_history(self, cliente_id: str, limit: int = 20):
+    def list_ai_history(self, cliente_id: str, limit: int = 20, atividade_id=None):
         if not self.get_cliente(cliente_id):
             return None
-        rows = _db().listar_interacoes_ia(cliente_id, limit=limit) or []
+        try:
+            limit = int(limit or 20)
+        except (TypeError, ValueError):
+            limit = 20
+        rows = _db().listar_interacoes_ia(
+            cliente_id, limit=limit, atividade_id=atividade_id
+        ) or []
         return [
             {
                 "id": str(r.get("id")),
@@ -2131,6 +2156,7 @@ class CrmV3Repository:
                 "model": r.get("modelo"),
                 "content": r.get("conteudo") or {},
                 "applied": bool(r.get("aplicado")),
+                "atividade_id": str(r.get("atividade_id")) if r.get("atividade_id") else None,
                 "created_at": self._iso_date(r.get("criado_em")) or "",
             }
             for r in rows
@@ -2222,6 +2248,12 @@ def get_store():
         return repository
     except Exception as e:
         import sys, traceback
+        try:
+            conn = _db().get_db()
+            if conn is not None and not conn.closed:
+                conn.rollback()
+        except Exception:
+            pass
         err_short = f"{type(e).__name__}: {str(e).splitlines()[0][:240]}"
         diag.update({
             "mode": "unavailable",

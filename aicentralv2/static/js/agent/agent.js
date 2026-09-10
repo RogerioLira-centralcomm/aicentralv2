@@ -149,7 +149,13 @@
     return fetch(url, options).then(function (response) {
       return response.json().catch(function () { return {}; }).then(function (payload) {
         if (!response.ok || payload.success === false) {
-          var error = new Error(payload.error || 'Não foi possível concluir a operação.');
+          var message = payload.error;
+          if (!message) {
+            if (response.status === 401) message = 'Sessão expirada.';
+            else if (response.status === 403) message = 'Acesso restrito à equipe CentralComm.';
+            else message = 'Não foi possível concluir a operação. HTTP ' + response.status;
+          }
+          var error = new Error(message);
           error.status = response.status;
           error.requestId = payload.request_id || '';
           throw error;

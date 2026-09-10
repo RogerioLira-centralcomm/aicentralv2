@@ -1,0 +1,36 @@
+{% extends "base_erp.html" %}
+{% block title %}{{ mc_title }} — Modelagem de Criativos{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Modelagem e produção criativa{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mc-desk.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="mc-shell" id="mcApp" data-mc-page="{{ mc_page }}">
+  {% include "parametros/_mc_shell.html" %}
+  <section class="mc-panel" data-panel="{{ mc_page }}" role="tabpanel">
+    {% include panel %}
+  </section>
+  {% if mc_page == 'produzir' %}
+  <dialog class="cx-modal" id="mcPublishDialog">
+    <header class="cx-modal-header">
+      <strong>Publicáveis em lote</strong>
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-action="close-publish">Fechar</button>
+    </header>
+    <div class="cx-modal-body mc-publish-batch" id="mcPublishBatch"></div>
+  </dialog>
+  {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+{% if mc_studio_js %}
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=45" defer></script>
+{% endif %}
+{% if mc_page_js %}
+<script src="{{ url_for('static', filename=mc_page_js) }}?v=1" defer></script>
+{% endif %}
+{% endblock %}

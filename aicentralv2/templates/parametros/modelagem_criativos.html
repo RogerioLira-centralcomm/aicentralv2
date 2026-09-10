@@ -4,70 +4,76 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=44">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mc-desk.css') }}?v=1">
 {% endblock %}
 
 {% block content %}
-<main class="mc-shell" id="mcApp">
-  <header class="mc-header">
-    <div>
-      <h1>Modelagem de Criativos</h1>
-      <p>Prepare campanhas, produza cenas e revise peças no contexto de mídia.</p>
-    </div>
-  </header>
-
-  <nav class="cx-tabs mc-tabs" id="mcTabs" role="tablist" aria-label="Áreas da modelagem">
-    <button class="cx-tab cx-tab-active" type="button" role="tab" aria-selected="true" data-tab="preparar">
-      <i class="fa-solid fa-sliders" aria-hidden="true"></i> Preparar
-    </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="produzir">
-      <i class="fa-solid fa-layer-group" aria-hidden="true"></i> Produzir
-    </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="desdobrar">
-      <i class="fa-solid fa-clone" aria-hidden="true"></i> Desdobrar
-    </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="formatos">
-      <i class="fa-solid fa-shapes" aria-hidden="true"></i> Formatos
-    </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="marcas">
-      <i class="fa-solid fa-building" aria-hidden="true"></i> Marcas
-    </button>
-    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="historico">
-      <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Histórico
-    </button>
-  </nav>
-
-  <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>
-
-  <section class="mc-panel" data-panel="preparar" role="tabpanel">
-    {% include "parametros/_mc_gerador.html" %}
+{% set mc_page = 'hub' %}
+{% set mc_title = 'A peça na mesa' %}
+{% set mc_lead = 'Cada mesa decide uma coisa. Ninguém pinta logo na foto.' %}
+<main class="mc-shell" id="mcApp" data-mc-page="hub">
+  {% include "parametros/_mc_shell.html" %}
+  <section class="mc-hub" aria-labelledby="mcHubTitle">
+    <h2 id="mcHubTitle">Uma peça anda nesta ordem</h2>
+    <p class="mc-hub-lead">Marca e template primeiro. Copy e foto só na montagem. Aprovar é o último clique.</p>
+    <ol class="mc-hub-strip">
+      <li>
+        <a href="{{ url_for('parametros.modelagem_marcas') }}">
+          <strong>Marcas</strong>
+          <span>Paleta, fonte e tom. Sem oferta.</span>
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('parametros.modelagem_extrair') }}">
+          <strong>Extrair</strong>
+          <span>Um criativo vira o mapa do template.</span>
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('parametros.modelagem_preparar') }}">
+          <strong>Roteiro</strong>
+          <span>Quantas cenas e qual carta da biblioteca.</span>
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('parametros.modelagem_produzir') }}">
+          <strong>Montar</strong>
+          <span>Foto limpa. Texto e logo no HTML.</span>
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('parametros.modelagem_revisao') }}">
+          <strong>Revisar</strong>
+          <span>Passou ou volta. Sem reescrever a peça.</span>
+        </a>
+      </li>
+    </ol>
+    <p class="mc-hub-aside">
+      <a href="{{ url_for('parametros.modelagem_biblioteca') }}">Biblioteca de cartas</a>
+      <a href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar um KV</a>
+      <a href="{{ url_for('parametros.modelagem_historico') }}">Histórico de custo</a>
+    </p>
   </section>
-  <section class="mc-panel hidden" data-panel="produzir" role="tabpanel">
-    {% include "parametros/_mc_variacoes.html" %}
-  </section>
-  <section class="mc-panel hidden" data-panel="desdobrar" role="tabpanel">
-    {% include "parametros/_mc_desdobrar.html" %}
-  </section>
-  <section class="mc-panel hidden" data-panel="formatos" role="tabpanel">
-    {% include "parametros/_mc_biblioteca.html" %}
-  </section>
-  <section class="mc-panel hidden" data-panel="marcas" role="tabpanel">
-    {% include "parametros/_mc_clientes.html" %}
-  </section>
-  <section class="mc-panel hidden" data-panel="historico" role="tabpanel">
-    {% include "parametros/_mc_historico.html" %}
-  </section>
-
-  <dialog class="cx-modal" id="mcPublishDialog">
-    <header class="cx-modal-header">
-      <strong>Publicáveis em lote</strong>
-      <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-action="close-publish">Fechar</button>
-    </header>
-    <div class="cx-modal-body mc-publish-batch" id="mcPublishBatch"></div>
-  </dialog>
 </main>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=44" defer></script>
+<script>
+  (function () {
+    var map = {
+      preparar: "preparar",
+      produzir: "produzir",
+      desdobrar: "desdobrar",
+      formatos: "biblioteca",
+      biblioteca: "biblioteca",
+      marcas: "marcas",
+      historico: "historico",
+      extrair: "extrair",
+      revisao: "revisao"
+    };
+    var key = (location.hash || "").replace("#", "");
+    if (map[key]) location.replace("/parametros/modelagem-criativos/" + map[key]);
+  })();
+</script>
 {% endblock %}

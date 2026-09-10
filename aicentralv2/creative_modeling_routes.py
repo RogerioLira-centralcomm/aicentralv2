@@ -60,9 +60,90 @@ def _execute(callback):
         return _error("Não foi possível concluir a solicitação.", 500)
 
 
+MC_DESKS = {
+    "preparar": {
+        "title": "Roteiro da campanha",
+        "lead": "Escolha a carta da biblioteca e as batidas. Sem layout novo.",
+        "panel": "parametros/_mc_gerador.html",
+        "studio": True,
+    },
+    "produzir": {
+        "title": "Montar a peça",
+        "lead": "A IA gera só a foto. Texto e logo entram na montagem.",
+        "panel": "parametros/_mc_variacoes.html",
+        "studio": True,
+    },
+    "desdobrar": {
+        "title": "Desdobrar o KV",
+        "lead": "O mesmo anúncio nos retângulos de mídia.",
+        "panel": "parametros/_mc_desdobrar.html",
+        "studio": True,
+    },
+    "biblioteca": {
+        "title": "Biblioteca de cartas",
+        "lead": "Formatos e variações. Aprovação no Montar promove a carta.",
+        "panel": "parametros/_mc_biblioteca.html",
+        "studio": True,
+    },
+    "marcas": {
+        "title": "Sistema da marca",
+        "lead": "Paleta, fonte e tom. Sem oferta de campanha.",
+        "panel": "parametros/_mc_clientes.html",
+        "studio": True,
+    },
+    "historico": {
+        "title": "Histórico de custo",
+        "lead": "O que já foi gasto nesta mesa.",
+        "panel": "parametros/_mc_historico.html",
+        "studio": True,
+    },
+    "extrair": {
+        "title": "Extrair o template",
+        "lead": "Um criativo de referência vira o mapa. Copy fica de fora.",
+        "panel": "parametros/_mc_extrair.html",
+        "studio": False,
+        "page_js": "js/mc-extrair.js",
+    },
+    "revisao": {
+        "title": "Revisar a peça",
+        "lead": "Passou ou volta. Sem reescrever copy ou foto.",
+        "panel": "parametros/_mc_revisao.html",
+        "studio": False,
+        "page_js": "js/mc-revisao.js",
+    },
+}
+
+
 @admin_required
 def modelagem_criativos():
-    return render_template("parametros/modelagem_criativos.html")
+    return render_template(
+        "parametros/modelagem_criativos.html",
+        mc_page="hub",
+        mc_title="A peça na mesa",
+    )
+
+
+@admin_required
+def modelagem_desk(page):
+    spec = MC_DESKS.get(page)
+    if not spec:
+        abort(404)
+    return render_template(
+        "parametros/modelagem_desk.html",
+        mc_page=page,
+        mc_title=spec["title"],
+        mc_lead=spec["lead"],
+        panel=spec["panel"],
+        mc_studio_js=spec["studio"],
+        mc_page_js=spec.get("page_js"),
+    )
+
+
+@admin_required_api
+def api_creative_agent(name):
+    return _execute(
+        lambda: _ok(_service().run_creative_agent(name, _json()), 200)
+    )
 
 
 @admin_required_api
@@ -736,6 +817,18 @@ def register_creative_modeling_routes(blueprint):
         "/modelagem-criativos",
         endpoint="modelagem_criativos",
         view_func=modelagem_criativos,
+    )
+    for slug in MC_DESKS:
+        blueprint.add_url_rule(
+            f"/modelagem-criativos/{slug}",
+            endpoint=f"modelagem_{slug}",
+            view_func=lambda page=slug: modelagem_desk(page),
+        )
+    blueprint.add_url_rule(
+        "/api/agents/<name>",
+        endpoint="creative_agent_run",
+        view_func=api_creative_agent,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/formats", endpoint="creative_formats", view_func=api_formats

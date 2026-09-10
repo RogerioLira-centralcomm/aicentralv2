@@ -1,0 +1,20 @@
+<section class="mc-extract-bench" aria-labelledby="mcExtractTitle">
+  <div class="mc-extract-stage">
+    <h2 id="mcExtractTitle">Recorte o criativo de referência</h2>
+    <p>A marca entra como foto. Headline e preço ficam de fora — isso é da campanha, não do template.</p>
+    <label class="mc-extract-drop" id="mcExtractDrop">
+      <input id="mcExtractFile" type="file" accept="image/png,image/jpeg,image/webp" class="mc-visually-hidden">
+      <strong>Solte o criativo aqui</strong>
+      <span>PNG, JPG ou WEBP. Um arquivo por vez.</span>
+    </label>
+    <figure class="mc-extract-frame hidden" id="mcExtractFrame">
+      <img id="mcExtractPreview" alt="Referência para extrair o template">
+    </figure>
+  </div>
+  <aside class="mc-extract-map" aria-live="polite">
+    <h3>Mapa do template</h3>
+    <p id="mcExtractStatus">Ainda sem referência. O mapa aparece depois da leitura.</p>
+    <ol class="mc-extract-regions" id="mcExtractRegions"></ol>
+    <button class="cx-btn cx-btn-primary" id="mcExtractRun" type="button" disabled>Ler regiões</button>
+  </aside>
+</section>

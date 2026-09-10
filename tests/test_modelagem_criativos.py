@@ -2842,6 +2842,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         template_dir = root / "aicentralv2" / "templates" / "parametros"
         names = [
             "modelagem_criativos.html",
+            "modelagem_desk.html",
+            "_mc_shell.html",
+            "_mc_extrair.html",
+            "_mc_revisao.html",
             "_mc_gerador.html",
             "_mc_variacoes.html",
             "_mc_biblioteca.html",
@@ -2855,11 +2859,16 @@ class CreativeFilesContractTest(unittest.TestCase):
             self.assertNotIn("btn btn-", source)
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
-        self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=44", page)
-        self.assertIn("modelagem_criativos.js') }}?v=44", page)
-        for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
-            self.assertIn(f'data-tab="{tab}"', page)
+        self.assertIn("mc-hub-strip", page)
+        self.assertIn("modelagem_criativos.css') }}?v=45", page)
+        self.assertNotIn("modelagem_criativos.js", page)
+        shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
+        self.assertIn('data-tab="{{ key }}"', shell)
+        for tab in (
+            "preparar", "produzir", "desdobrar", "biblioteca",
+            "marcas", "historico", "extrair", "revisao",
+        ):
+            self.assertIn(f"'{tab}'", shell)
         self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
@@ -2980,8 +2989,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcShareDialog"', production_html)
         self.assertIn("Abrir apresentação", production_html)
         self.assertIn("Criar e abrir", production_html)
-        self.assertIn('id="mcPublishDialog"', page)
-        self.assertIn('id="mcPublishBatch"', page)
+        desk = (template_dir / "modelagem_desk.html").read_text(encoding="utf-8")
+        self.assertIn('id="mcPublishDialog"', desk)
+        self.assertIn('id="mcPublishBatch"', desk)
         self.assertIn("setupBrandDropzone(", production_js)
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
@@ -3345,6 +3355,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function liveStudioFrame", frontend)
         self.assertIn("function renderContextDesign", frontend)
         self.assertIn("function renderComposeVariations", frontend)
+        self.assertIn("function deskPath", frontend)
+        self.assertIn("/parametros/modelagem-criativos/", frontend)
+        extract_js = (
+            root / "aicentralv2" / "static" / "js" / "mc-extrair.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("/api/agents/extractor", extract_js)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

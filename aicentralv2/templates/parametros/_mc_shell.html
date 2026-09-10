@@ -1,0 +1,30 @@
+{% set mc_page = mc_page|default('hub') %}
+{% set desks = [
+  ('hub', 'Mesa', url_for('parametros.modelagem_criativos')),
+  ('marcas', 'Marcas', url_for('parametros.modelagem_marcas')),
+  ('extrair', 'Extrair', url_for('parametros.modelagem_extrair')),
+  ('preparar', 'Roteiro', url_for('parametros.modelagem_preparar')),
+  ('produzir', 'Montar', url_for('parametros.modelagem_produzir')),
+  ('revisao', 'Revisar', url_for('parametros.modelagem_revisao')),
+  ('biblioteca', 'Biblioteca', url_for('parametros.modelagem_biblioteca')),
+  ('desdobrar', 'Desdobrar', url_for('parametros.modelagem_desdobrar')),
+  ('historico', 'Histórico', url_for('parametros.modelagem_historico')),
+] %}
+<header class="mc-masthead">
+  <div class="mc-masthead-copy">
+    <p class="mc-masthead-kicker">Modelagem de criativos</p>
+    <h1>{{ mc_title|default('A peça na mesa') }}</h1>
+    {% if mc_lead %}<p class="mc-masthead-lead">{{ mc_lead }}</p>{% endif %}
+  </div>
+</header>
+<nav class="mc-desk-rail" id="mcTabs" aria-label="Mesas da modelagem">
+  {% for key, label, href in desks %}
+  <a class="mc-desk-link{% if mc_page == key %} is-current{% endif %}"
+     href="{{ href }}"
+     data-tab="{{ key }}"
+     {% if mc_page == key %}aria-current="page"{% endif %}>
+    <i></i>{{ label }}
+  </a>
+  {% endfor %}
+</nav>
+<div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

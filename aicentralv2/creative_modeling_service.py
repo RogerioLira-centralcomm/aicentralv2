@@ -783,6 +783,21 @@ class CreativeModelingService:
             "variations": variations,
         })
 
+    def run_creative_agent(self, name, payload):
+        from .creative_agents.orchestrator import run_agent
+
+        payload = payload if isinstance(payload, dict) else {}
+        callable_llm = payload.pop("text_callable", None)
+        if callable_llm is None:
+            callable_llm = getattr(self.generator, "text_callable", None)
+        result = run_agent(
+            name,
+            payload,
+            text_callable=callable_llm,
+            repository=self.repository,
+        )
+        return _serialize(result.model_dump())
+
     def list_viewer_profiles(self):
         return _serialize([
             _viewer_profile_data(profile)

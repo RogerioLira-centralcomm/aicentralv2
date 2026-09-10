@@ -222,15 +222,27 @@
   }
 
   // ====== TAB NAVIGATION ======
+  function deskPath(name) {
+    if (name === 'formatos') return 'biblioteca';
+    return name;
+  }
+
   function activateTab(name, updateHash = true) {
+    const dest = deskPath(name);
+    const page = $('#mcApp')?.dataset.mcPage;
+    if (page && page !== dest && dest !== 'hub') {
+      window.location.href = `/parametros/modelagem-criativos/${dest}`;
+      return;
+    }
     $$('#mcTabs [data-tab]').forEach((tab) => {
-      const active = tab.dataset.tab === name;
+      const active = deskPath(tab.dataset.tab) === dest || tab.dataset.tab === name;
       tab.classList.toggle('cx-tab-active', active);
+      tab.classList.toggle('is-current', active);
       tab.setAttribute('aria-selected', String(active));
     });
-    $$('.mc-panel').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== name));
+    $$('.mc-panel').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== dest && panel.dataset.panel !== name));
     if (updateHash) history.replaceState(null, '', `#${name}`);
-    if (name === 'formatos') renderLibrary();
+    if (dest === 'biblioteca' || name === 'formatos') renderLibrary();
     if (name === 'marcas') renderClients();
     if (name === 'historico' && state.campaigns.length) loadHistory();
     if (name === 'produzir') renderWorkspace();
@@ -4137,7 +4149,10 @@
 
   async function handleClick(event) {
     const tab = event.target.closest('[data-tab]');
-    if (tab) return activateTab(tab.dataset.tab);
+    if (tab) {
+      if (tab.tagName === 'A' && tab.getAttribute('href')) return;
+      return activateTab(tab.dataset.tab);
+    }
     const sceneButton = event.target.closest('[data-scene-id]');
     if (sceneButton) {
       state.activeSceneId = Number(sceneButton.dataset.sceneId);
@@ -4949,7 +4964,10 @@
       clientes: 'marcas',
     };
     const requestedTab = tabAliases[location.hash.replace('#', '')] || location.hash.replace('#', '');
-    activateTab(['preparar', 'produzir', 'desdobrar', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
+    const currentPage = $('#mcApp')?.dataset.mcPage;
+    if (!currentPage || currentPage === 'hub') {
+      activateTab(['preparar', 'produzir', 'desdobrar', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
+    }
     loadBaseData();
   });
 })();

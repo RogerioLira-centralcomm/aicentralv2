@@ -1,0 +1,21 @@
+<section class="mc-review-bench" aria-labelledby="mcReviewTitle">
+  <div class="mc-review-stage">
+    <h2 id="mcReviewTitle">A peça passa ou volta</h2>
+    <p>Safe area, contraste e texto pintado. Copy e foto não se reescrevem aqui.</p>
+    <label class="cx-field">
+      <span class="cx-label">Campanha</span>
+      <select class="cx-select" id="mcReviewCampaign">
+        <option value="">Escolha a campanha</option>
+      </select>
+    </label>
+    <div class="mc-review-frame" id="mcReviewFrame">
+      <p id="mcReviewEmpty">Escolha uma campanha com peça montada para conferir.</p>
+      <img id="mcReviewImage" class="hidden" alt="Peça em revisão">
+    </div>
+  </div>
+  <aside class="mc-review-sheet" aria-live="polite">
+    <h3 id="mcReviewVerdict">Aguardando peça</h3>
+    <ul class="mc-review-checks" id="mcReviewChecks"></ul>
+    <button class="cx-btn cx-btn-primary" id="mcReviewRun" type="button" disabled>Conferir peça</button>
+  </aside>
+</section>

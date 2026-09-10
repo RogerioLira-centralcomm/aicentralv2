@@ -14,6 +14,13 @@ from .creative_modeling_generation import (
 COMPOSE_FAMILIES = frozenset({
     "rectangle", "wide_banner", "half_page", "slate_16x9",
 })
+SOCIAL_PAINT_FAMILIES = frozenset({
+    "square_1x1", "story_9x16", "landscape_social",
+})
+SOCIAL_FORMAT_SLUGS = frozenset({
+    "instagram-feed", "instagram-story", "tiktok-vertical",
+    "facebook-feed", "linkedin-share",
+})
 PORTAL_UNIT_SLUGS = frozenset({
     "hotspot", "cartas", "puxe-descubra", "arraste-descubra", "quiz",
     "native-infeed",
@@ -79,6 +86,31 @@ FORMAT_IAB_FAMILY = {
         "size": (1920, 1080),
         "iab_cousin": "digital_video",
     },
+    "instagram-feed": {
+        "family": "square_1x1",
+        "size": (1080, 1080),
+        "iab_cousin": "social_feed",
+    },
+    "facebook-feed": {
+        "family": "square_1x1",
+        "size": (1080, 1080),
+        "iab_cousin": "social_feed",
+    },
+    "instagram-story": {
+        "family": "story_9x16",
+        "size": (1080, 1920),
+        "iab_cousin": "social_story",
+    },
+    "tiktok-vertical": {
+        "family": "story_9x16",
+        "size": (1080, 1920),
+        "iab_cousin": "social_story",
+    },
+    "linkedin-share": {
+        "family": "landscape_social",
+        "size": (1200, 627),
+        "iab_cousin": "social_landscape",
+    },
 }
 
 FAMILY_BUDGET = {
@@ -135,6 +167,33 @@ FAMILY_BUDGET = {
         "max_copy_blocks": 2,
         "allow_leader_lines": True,
         "summary": "respeitar a mecânica; no máximo 3 marcadores ligados",
+    },
+    "square_1x1": {
+        "max_marks": 1,
+        "max_headlines": 1,
+        "max_ctas": 1,
+        "max_icons": 0,
+        "max_copy_blocks": 2,
+        "allow_leader_lines": False,
+        "summary": "peça social completa: 1 headline, 1 CTA, marca intacta",
+    },
+    "story_9x16": {
+        "max_marks": 1,
+        "max_headlines": 1,
+        "max_ctas": 1,
+        "max_icons": 0,
+        "max_copy_blocks": 2,
+        "allow_leader_lines": False,
+        "summary": "story vertical: copy curta, 1 CTA, safe area superior/inferior",
+    },
+    "landscape_social": {
+        "max_marks": 1,
+        "max_headlines": 1,
+        "max_ctas": 1,
+        "max_icons": 0,
+        "max_copy_blocks": 2,
+        "allow_leader_lines": False,
+        "summary": "paisagem social: 1 headline, 1 CTA, sem chrome de feed",
     },
 }
 
@@ -197,7 +256,9 @@ def resolve_format_geometry(context, behavior_spec=None):
 
 
 def default_render_mode(family):
-    if family in {"rectangle", "wide_banner", "half_page", "slate_16x9"}:
+    if family in {
+        "rectangle", "wide_banner", "half_page", "slate_16x9",
+    } | SOCIAL_PAINT_FAMILIES:
         return "native"
     return "mockup"
 
@@ -274,10 +335,16 @@ def _family_from_size(size):
     ratio = width / height
     if height <= 90 or ratio >= 4:
         return "wide_banner"
+    if ratio <= 0.62 and height >= 1000:
+        return "story_9x16"
     if ratio <= 0.6:
         return "half_page"
+    if 0.95 <= ratio <= 1.08:
+        return "square_1x1"
     if 0.9 <= ratio <= 1.4:
         return "rectangle"
+    if 1.85 <= ratio <= 2.05:
+        return "landscape_social"
     if 1.6 <= ratio <= 1.9:
         return "slate_16x9"
     return "portal_unit"

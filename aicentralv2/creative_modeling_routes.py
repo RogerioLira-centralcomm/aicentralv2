@@ -1,6 +1,7 @@
 """Rotas HTML/JSON da Modelagem de Criativos."""
 
 import io
+import json
 import logging
 import mimetypes
 import zipfile
@@ -235,7 +236,9 @@ def api_delete_client_brand_asset(cid, asset_id):
 def api_campaigns():
     if request.method == "POST":
         return _execute(lambda: _ok(_service().create_campaign(_json()), 201))
-    return _execute(lambda: _ok(_service().list_campaigns()))
+    return _execute(
+        lambda: _ok(_service().list_campaigns(request.args.get("flow_kind")))
+    )
 
 
 @admin_required_api
@@ -262,6 +265,8 @@ def api_generate_scene(scene_id):
                 request.files.getlist("references"),
                 session.get("user_id"),
                 payload.get("render_mode"),
+                payload.get("fidelity"),
+                payload.get("source_asset_id"),
             ),
             201,
         )
@@ -448,9 +453,89 @@ def api_prepare_display_motion(asset_id):
 
 
 @admin_required_api
+def api_unfoldings():
+    if request.method != "POST":
+        return _execute(lambda: _ok(_service().list_campaigns("unfold")))
+
+    def execute():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = request.form.to_dict()
+        for key in ("format_ids", "format_template_ids", "locks", "kv_notes"):
+            value = payload.get(key)
+            if isinstance(value, str) and value[:1] in "[{":
+                try:
+                    payload[key] = json.loads(value)
+                except ValueError:
+                    pass
+        files = request.files.getlist("kv") or request.files.getlist("file")
+        created = _service().create_unfolding(
+            payload, files, session.get("user_id")
+        )
+        if str(payload.get("generate") or "").lower() in {"1", "true", "yes"}:
+            created = _service().generate_unfolding(
+                created["campaign"]["id"], session.get("user_id")
+            )
+        return _ok(created, 201)
+
+    return _execute(execute)
+
+
+@admin_required_api
+def api_generate_unfolding(cid):
+    return _execute(
+        lambda: _ok(
+            _service().generate_unfolding(cid, session.get("user_id"))
+        )
+    )
+
+
+@admin_required_api
+def api_image_tiers():
+    return _execute(lambda: _ok(_service().list_image_tiers()))
+
+
+@admin_required_api
+def api_campaign_publish_quote(cid):
+    raw = request.args.get("asset_ids") or ""
+    asset_ids = [item for item in raw.split(",") if item.strip()] or None
+    return _execute(lambda: _ok(_service().quote_campaign_publish(cid, asset_ids)))
+
+
+@admin_required_api
+def api_campaign_publish(cid):
+    return _execute(
+        lambda: _ok(
+            _service().publish_campaign(
+                cid, _json(optional=True), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_publish_scene_asset(scene_id, asset_id):
+    payload = _json(optional=True) or {}
+    return _execute(
+        lambda: _ok(
+            _service().publish_scene_asset(
+                scene_id,
+                asset_id,
+                session.get("user_id"),
+                payload.get("render_mode"),
+            ),
+            201,
+        )
+    )
+
+
+@admin_required_api
 def api_history():
     return _execute(
-        lambda: _ok(_service().history(request.args.get("campaign_id")))
+        lambda: _ok(_service().history(
+            request.args.get("campaign_id"),
+            request.args.get("flow_kind"),
+        ))
     )
 
 
@@ -739,6 +824,28 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/scenes/<int:scene_id>/assets/<int:asset_id>/publish",
+        endpoint="creative_publish_scene_asset",
+        view_func=api_publish_scene_asset,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/image-tiers",
+        endpoint="creative_image_tiers",
+        view_func=api_image_tiers,
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/<int:cid>/publish-quote",
+        endpoint="creative_campaign_publish_quote",
+        view_func=api_campaign_publish_quote,
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/<int:cid>/publish",
+        endpoint="creative_campaign_publish",
+        view_func=api_campaign_publish,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/scenes/<int:scene_id>/preview-asset",
         endpoint="creative_select_scene_preview_asset",
         view_func=api_select_scene_preview_asset,
@@ -831,6 +938,18 @@ def register_creative_modeling_routes(blueprint):
         "/api/assets/<int:asset_id>/display-motion/prepare",
         endpoint="creative_prepare_display_motion",
         view_func=api_prepare_display_motion,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings",
+        endpoint="creative_unfoldings",
+        view_func=api_unfoldings,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings/<int:cid>/generate",
+        endpoint="creative_generate_unfolding",
+        view_func=api_generate_unfolding,
         methods=["POST"],
     )
     blueprint.add_url_rule(

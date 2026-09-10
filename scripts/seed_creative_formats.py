@@ -82,11 +82,32 @@ LAYER_DESCRIPTIONS = {
         "background": "very compact horizontal background with strong tonal separation and no decorative detail",
         "content": "brand mark, ultra-short message and compact call to action legible at 320 by 50 pixels",
     },
+    "instagram-feed": {
+        "background": "square photographic field with one subject and protected margins for locked copy",
+        "content": "complete social advertisement: verbatim headline, optional support line, logo and one CTA",
+    },
+    "instagram-story": {
+        "background": "vertical 9:16 photographic field with safe zones at top and bottom",
+        "content": "full-bleed story piece with locked copy, logo and one CTA clear of UI chrome",
+    },
+    "tiktok-vertical": {
+        "background": "vertical 9:16 photographic field with generous side and caption-safe margins",
+        "content": "complete vertical ad: locked headline, logo and one CTA, no platform chrome",
+    },
+    "facebook-feed": {
+        "background": "square feed field with a single focal subject and quiet negative space",
+        "content": "complete feed advertisement with locked copy, logo and one CTA",
+    },
+    "linkedin-share": {
+        "background": "landscape professional scene with left-to-right reading and calm lighting",
+        "content": "complete share image: locked headline, logo and one CTA without feed chrome",
+    },
 }
 
 CATEGORIES = (
     ("programatica", "Programática"),
     ("streaming", "Streaming"),
+    ("social", "Redes sociais"),
 )
 
 CHANNELS = (
@@ -121,6 +142,30 @@ CHANNELS = (
         "desktop_browser",
         "Premium news or content portal displayed in a desktop browser.",
         "programatica",
+    ),
+    (
+        "meta_social",
+        "Meta",
+        "social",
+        "smartphone_feed",
+        "Social feed and story placements on Meta apps.",
+        "social",
+    ),
+    (
+        "tiktok_social",
+        "TikTok",
+        "social",
+        "smartphone_vertical",
+        "Vertical short-form social placement.",
+        "social",
+    ),
+    (
+        "linkedin_social",
+        "LinkedIn",
+        "social",
+        "desktop_feed",
+        "Professional landscape share placement.",
+        "social",
     ),
 )
 
@@ -248,6 +293,46 @@ FORMATS = (
         "static_display",
         "image",
     ),
+    (
+        "instagram-feed",
+        "Instagram — Feed 1080×1080",
+        "Instagram — Feed 1080x1080",
+        "meta_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "instagram-story",
+        "Instagram — Story 1080×1920",
+        "Instagram — Story 1080x1920",
+        "meta_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "facebook-feed",
+        "Facebook — Feed 1080×1080",
+        "Facebook — Feed 1080x1080",
+        "meta_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "tiktok-vertical",
+        "TikTok — Vertical 1080×1920",
+        "TikTok — Vertical 1080x1920",
+        "tiktok_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "linkedin-share",
+        "LinkedIn — Share 1200×627",
+        "LinkedIn — Share 1200x627",
+        "linkedin_social",
+        "static_display",
+        "image",
+    ),
 )
 
 CHANNEL_BRAND = {
@@ -255,6 +340,9 @@ CHANNEL_BRAND = {
     "hbomax": ("#5822B4", "#0B0714"),
     "disneyplus": ("#113CCF", "#071B47"),
     "portal_generico": ("#1E4D4F", "#F8F9FA"),
+    "meta_social": ("#1877F2", "#F8F9FA"),
+    "tiktok_social": ("#111111", "#FE2C55"),
+    "linkedin_social": ("#0A66C2", "#F3F6F8"),
 }
 
 FORMAT_SPECS = {
@@ -287,6 +375,36 @@ FORMAT_SPECS = {
         "default_size": "320x50",
         "safe_area": {"top": 5, "right": 8, "bottom": 5, "left": 8, "unit": "px"},
         "responsive_rules": "Use logo plus ultra-short message; minimum effective type size 12 px.",
+    },
+    "instagram-feed": {
+        "aspect_ratio": "1:1",
+        "default_size": "1080x1080",
+        "safe_area": {"top": 48, "right": 48, "bottom": 48, "left": 48, "unit": "px"},
+        "responsive_rules": "Paint the complete locked advertisement; keep copy away from the edges.",
+    },
+    "instagram-story": {
+        "aspect_ratio": "9:16",
+        "default_size": "1080x1920",
+        "safe_area": {"top": 160, "right": 64, "bottom": 220, "left": 64, "unit": "px"},
+        "responsive_rules": "Keep locked copy and CTA inside the vertical safe area.",
+    },
+    "tiktok-vertical": {
+        "aspect_ratio": "9:16",
+        "default_size": "1080x1920",
+        "safe_area": {"top": 140, "right": 80, "bottom": 240, "left": 80, "unit": "px"},
+        "responsive_rules": "Leave caption-safe margins; do not invent platform chrome.",
+    },
+    "facebook-feed": {
+        "aspect_ratio": "1:1",
+        "default_size": "1080x1080",
+        "safe_area": {"top": 48, "right": 48, "bottom": 48, "left": 48, "unit": "px"},
+        "responsive_rules": "Complete feed piece with locked copy; no like-bar or comments.",
+    },
+    "linkedin-share": {
+        "aspect_ratio": "1.91:1",
+        "default_size": "1200x627",
+        "safe_area": {"top": 36, "right": 48, "bottom": 36, "left": 48, "unit": "px"},
+        "responsive_rules": "Landscape reading flow; keep headline and CTA fully visible.",
     },
 }
 

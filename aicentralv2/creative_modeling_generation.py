@@ -25,6 +25,9 @@ interfaces de terceiros. Retorne JSON puro com:
 {"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
 O prompt_en deve descrever composição, hierarquia, conteúdo, cores, iluminação,
 texto permitido e restrições técnicas sem inventar preços ou claims.
+Quando context.locks existir, o prompt_en DEVE abrir com um bloco LOCK listando
+headline, subhead, CTA e demais linhas de forma literal. Não reescreva, traduza
+nem omita essas strings.
 Quando client_identity.profile.creative_line existir, trate-a como sistema visual
 aprendido de campanhas reais: preserve assinatura, composição, imagem, recursos
 recorrentes e copy_system (estrutura de título, densidade, tipografia, zonas e
@@ -34,7 +37,9 @@ O prompt deve exigir explicitamente que toda copy publicitária visível esteja 
 português do Brasil, sem slogans em inglês inventados. Nomes registrados de
 marca ou produto podem ser preservados."""
 
-ADAPT_SCENE_SYSTEM = """Você adapta um prompt-mãe já aprovado para a próxima cena.
+ADAPT_SCENE_SYSTEM = """Você adapta um prompt-mãe já aprovado para a próxima cena
+da MESMA sequência e do MESMO formato. Isto não é desdobramento para outro
+formato: não mude canvas, família IAB nem recorte de plataforma.
 Preserve o sistema visual, tipografia, zonas, CTA e DNA da marca.
 Altere somente o que o delta da cena e o storyboard desta posição exigem.
 Nunca recomece a campanha do zero nem invente uma nova direção de marca.
@@ -70,14 +75,20 @@ visíveis. Retorne somente JSON puro:
 {"approved_recommendation":true,"score":0,"warnings":[],
 "defects":[],
 "checks":{"language_pt_br":true,"cta_correct":true,"brand_consistent":true,
-"price_authorized":true,"continuity":true,"safe_area":true}}.
+"price_authorized":true,"continuity":true,"safe_area":true,
+"text_locked":true,"cta_locked":true,"logo_locked":true}}.
 O score deve ser inteiro de 0 a 100. Cada warning deve ser curto, em português,
 e explicar uma correção acionável.
 defects deve ser uma lista com zero ou mais destes códigos:
-dangling_line, icon_bar, cta_overflow, wrong_canvas, extra_chrome.
+dangling_line, icon_bar, cta_overflow, wrong_canvas, extra_chrome,
+text_rewritten, cta_changed, logo_missing.
 Se o canvas gerado não coincidir com o retângulo-alvo (target_size),
 inclua wrong_canvas e marque safe_area como false.
-safe_area não pode ser true quando wrong_canvas estiver presente."""
+safe_area não pode ser true quando wrong_canvas estiver presente.
+Quando context.locks existir: text_locked/cta_locked/logo_locked só são true
+se o texto, o CTA e a marca visíveis forem literais. Se o CTA sumiu ou mudou,
+cta_locked=false e inclua cta_changed. Se a copy foi reescrita, inclua
+text_rewritten. Se havia logo e sumiu, logo_locked=false e logo_missing."""
 
 
 def _json_content(content):
@@ -171,17 +182,47 @@ def _image_http_error(exc):
     return "Não foi possível conectar ao provedor de imagem."
 
 
+def text_temperature(name, default):
+    env = os.getenv(f"CREATIVE_TEMP_{str(name or '').upper()}", "").strip()
+    if env:
+        try:
+            return max(0.0, min(2.0, float(env)))
+        except ValueError:
+            pass
+    return default
+
+
+TEXT_TEMPERATURES = {
+    "prompt": 0.25,
+    "script": 0.3,
+    "brief": 0.35,
+    "review": 0.1,
+    "extract_kv_locks": 0.05,
+    "unfold_prompt": 0.20,
+    "ab_simple_prompt": 0.30,
+    "ab_max_prompt": 0.45,
+    "review_locks": 0.10,
+}
+
+
 class CreativeGenerationClient:
     def __init__(self, text_callable=None, http=None):
         self.text_callable = text_callable or chat_completion
         self.http = http or requests
 
     def generate_prompt(self, context):
-        system = (
-            ADAPT_SCENE_SYSTEM
-            if isinstance(context, dict) and context.get("inherit_from_master")
-            else PROMPT_SYSTEM
-        )
+        from .creative_modeling_prompts import UNFOLD_PROMPT_SYSTEM
+
+        context = context if isinstance(context, dict) else {}
+        if context.get("flow_kind") == "unfold":
+            system = UNFOLD_PROMPT_SYSTEM
+            temperature = text_temperature("unfold_prompt", TEXT_TEMPERATURES["unfold_prompt"])
+        elif context.get("inherit_from_master"):
+            system = ADAPT_SCENE_SYSTEM
+            temperature = text_temperature("prompt", TEXT_TEMPERATURES["prompt"])
+        else:
+            system = PROMPT_SYSTEM
+            temperature = text_temperature("prompt", TEXT_TEMPERATURES["prompt"])
         response = self.text_callable(
             [
                 {"role": "system", "content": system},
@@ -192,11 +233,72 @@ class CreativeGenerationClient:
             ],
             model=DEFAULT_TEXT_MODEL,
             max_tokens=1800,
-            temperature=0.25,
+            temperature=temperature,
         )
         result = _json_content(response["message"].get("content"))
         if not str(result.get("prompt_en") or "").strip():
             raise OpenRouterError("O provedor não gerou o prompt.")
+        return {
+            "result": result,
+            "model": response.get("model") or DEFAULT_TEXT_MODEL,
+            "usage": response.get("usage") or {},
+            "actual_cost_usd": _usage_cost(response.get("usage")),
+        }
+
+    def extract_kv_locks(self, context, image_data_url=None):
+        from .creative_modeling_prompts import UNFOLD_LOCK_SYSTEM
+
+        user_content = json.dumps(context, ensure_ascii=False, default=str)
+        message = {"role": "user", "content": user_content}
+        if image_data_url:
+            message = {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_content},
+                    _image_reference(image_data_url),
+                ],
+            }
+        response = self.text_callable(
+            [
+                {"role": "system", "content": UNFOLD_LOCK_SYSTEM},
+                message,
+            ],
+            model=DEFAULT_TEXT_MODEL,
+            max_tokens=800,
+            temperature=text_temperature(
+                "extract_kv_locks", TEXT_TEMPERATURES["extract_kv_locks"]
+            ),
+        )
+        result = _json_content(response["message"].get("content"))
+        return {
+            "result": result,
+            "model": response.get("model") or DEFAULT_TEXT_MODEL,
+            "usage": response.get("usage") or {},
+            "actual_cost_usd": _usage_cost(response.get("usage")),
+        }
+
+    def generate_ab_prompt(self, context, level):
+        from .creative_modeling_prompts import UNFOLD_AB_MAX, UNFOLD_AB_SIMPLE
+
+        level = "ab_max" if str(level or "") in {"ab_max", "max", "maximum"} else "ab_simple"
+        system = UNFOLD_AB_MAX if level == "ab_max" else UNFOLD_AB_SIMPLE
+        key = "ab_max_prompt" if level == "ab_max" else "ab_simple_prompt"
+        response = self.text_callable(
+            [
+                {"role": "system", "content": system},
+                {
+                    "role": "user",
+                    "content": json.dumps(context, ensure_ascii=False, default=str),
+                },
+            ],
+            model=DEFAULT_TEXT_MODEL,
+            max_tokens=1200,
+            temperature=text_temperature(key, TEXT_TEMPERATURES[key]),
+        )
+        result = _json_content(response["message"].get("content"))
+        if not str(result.get("prompt_en") or "").strip():
+            raise OpenRouterError("O provedor não gerou o prompt da variação.")
+        result["variant_level"] = level
         return {
             "result": result,
             "model": response.get("model") or DEFAULT_TEXT_MODEL,
@@ -215,7 +317,7 @@ class CreativeGenerationClient:
             ],
             model=DEFAULT_TEXT_MODEL,
             max_tokens=1800,
-            temperature=0.3,
+            temperature=text_temperature("script", TEXT_TEMPERATURES["script"]),
         )
         result = _json_content(response["message"].get("content"))
         shots = result.get("shots")
@@ -239,7 +341,7 @@ class CreativeGenerationClient:
             ],
             model=DEFAULT_TEXT_MODEL,
             max_tokens=2200,
-            temperature=0.35,
+            temperature=text_temperature("brief", TEXT_TEMPERATURES["brief"]),
         )
         result = _json_content(response["message"].get("content"))
         return {
@@ -268,7 +370,10 @@ class CreativeGenerationClient:
             ],
             model=DEFAULT_TEXT_MODEL,
             max_tokens=900,
-            temperature=0.1,
+            temperature=text_temperature(
+                "review_locks" if isinstance(context, dict) and context.get("locks") else "review",
+                TEXT_TEMPERATURES["review_locks"] if isinstance(context, dict) and context.get("locks") else TEXT_TEMPERATURES["review"],
+            ),
         )
         result = _json_content(response["message"].get("content"))
         return {
@@ -338,6 +443,8 @@ class CreativeGenerationClient:
                     "created": data.get("created"),
                     "requested_aspect_ratio": requested_aspect_ratio,
                     "provider_aspect_ratio": provider_aspect_ratio,
+                    "quality": quality,
+                    "resolution": resolution,
                 },
             }
         except requests.HTTPError as exc:

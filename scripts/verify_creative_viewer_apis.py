@@ -19,6 +19,8 @@ def main():
         "/parametros/api/clients",
         "/parametros/api/campaign-clients",
         "/parametros/api/campaigns",
+        "/parametros/api/unfoldings",
+        "/parametros/api/image-tiers",
     )
     with app.test_client() as client:
         with client.session_transaction() as session:

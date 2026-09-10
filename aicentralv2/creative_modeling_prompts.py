@@ -7,7 +7,69 @@ Render a photographic still of the campaign subject only.
 Do not draw a portal, television, smartphone, tablet, browser chrome,
 player chrome, icon bars, leader lines or typeset headline/CTA.
 Leave a clean photographic field. Copy and CTA are composed later.
-Do not invent extra chrome or a second advertising frame."""
+Do not invent extra chrome or a second advertising frame.
+Social unfold pieces are the exception: when the format family is square_1x1,
+story_9x16 or landscape_social, paint the complete locked advertisement
+including verbatim headline, CTA and logo."""
+
+
+UNFOLD_LOCK_SYSTEM = """Você extrai travas literais de um KV e das notas da campanha.
+Não invente oferta, benefício, preço ou slogan. Se as notas trouxerem texto,
+elas vencem qualquer leitura da imagem. Retorne somente JSON puro:
+{"headline":"...","subhead":"...","cta":"...","other_lines":[],"has_logo":true}.
+headline, subhead e cta são strings em português do Brasil ou vazias.
+other_lines é uma lista de outras linhas visíveis, sem repetir headline/CTA.
+has_logo é true só se houver marca gráfica visível."""
+
+
+UNFOLD_PROMPT_SYSTEM = """Você é diretor de arte adaptando um KV aprovado para
+OUTRO formato. O GPT Image 2 vai pintar a peça. Retorne JSON puro:
+{"prompt_en":"...","rationale_pt":"...","checks":["..."]}.
+
+O prompt_en deve ser inglês técnico de produção, nesta ordem exata:
+
+LOCK
+Quote every locked string verbatim. Do not rewrite, translate or omit.
+KEEP
+Preserve brand DNA, photography, logo mark and the KV as visual truth.
+ADAPT
+Change only geometry: crop, hierarchy, density and scale for the target size.
+FORBID
+No new claims, invented English slogans, portal/player chrome or a second CTA.
+
+Inclua gpt_image_instruction da creative_line quando existir. Copy visível em
+pt-BR literal. Adaptação de formato não é adaptação de cena da sequência."""
+
+
+UNFOLD_SOCIAL_COMPLETE = """COMPLETE SOCIAL ADVERTISEMENT
+Paint the finished advertising piece, including locked headline, supporting
+line, CTA and logo, inside the target social rectangle.
+The first attached image is the KV: treat it as visual truth, not mood.
+Do not invent a device mockup, feed chrome, like-bar or extra UI.
+Keep every locked string verbatim in Brazilian Portuguese."""
+
+
+UNFOLD_IMAGE_LOCK = """LOCK BLOCK FOR GPT IMAGE 2
+Reproduce locked copy exactly. Do not rewrite, translate, shorten or invent
+words. If a logo is present in the KV or brand references, keep that mark.
+Do not add a second CTA or a new claim."""
+
+
+UNFOLD_AB_SIMPLE = """Você escreve o prompt de uma variação A/B SIMPLES.
+Só pode mudar cores da marca ou do anúncio. Mesmo recorte, mesmas zonas,
+mesmo tamanho de tipo, mesmas posições. Não peça recorte, reposicionamento
+nem still novo. Não reescreva texto, CTA ou logo.
+Retorne JSON: {"prompt_en":"...","rationale_pt":"...","checks":["..."]}.
+O prompt_en deve dizer explicitamente: recolor only; same crop; same type
+size; same positions; locked copy and CTA and logo unchanged."""
+
+
+UNFOLD_AB_MAX = """Você escreve o prompt de uma variação A/B MÁXIMA.
+Pode recortar, reposicionar, mudar escala e restilizar a fotografia.
+Não pode mudar wording, CTA nem a marca gráfica.
+Retorne JSON: {"prompt_en":"...","rationale_pt":"...","checks":["..."]}.
+O prompt_en pode pedir recrop, rebalance e restyle. Deve proibir rewrite
+de copy, CTA ou logo. Liste as travas no bloco LOCK."""
 
 
 MASTER_RENDER_RULES = """You are a senior advertising art director specialized in
@@ -129,21 +191,84 @@ The objective is to demonstrate the advertising FORMAT to a client, not merely t
 generate an attractive campaign image."""
 
 
-def native_scene_prompt_suffix(geometry, copy=None):
+def normalize_locks(value):
+    data = value if isinstance(value, dict) else {}
+    other = data.get("other_lines") or []
+    if not isinstance(other, list):
+        other = []
+    return {
+        "headline": str(data.get("headline") or "").strip(),
+        "subhead": str(data.get("subhead") or "").strip(),
+        "cta": str(data.get("cta") or "").strip(),
+        "other_lines": [str(item).strip() for item in other if str(item).strip()],
+        "has_logo": data.get("has_logo") is True,
+    }
+
+
+def unfold_image_lock(locks=None):
+    locks = normalize_locks(locks)
+    lines = [UNFOLD_IMAGE_LOCK, "LOCK"]
+    if locks["headline"]:
+        lines.append(f'Headline verbatim: "{locks["headline"]}"')
+    if locks["subhead"]:
+        lines.append(f'Supporting line verbatim: "{locks["subhead"]}"')
+    if locks["cta"]:
+        lines.append(f'CTA verbatim: "{locks["cta"]}"')
+    for extra in locks["other_lines"]:
+        lines.append(f'Keep verbatim: "{extra}"')
+    if locks["has_logo"]:
+        lines.append("Keep the existing logo mark. Do not redraw a different brand.")
+    lines.append("Do not rewrite, translate or omit locked copy.")
+    return "\n".join(lines)
+
+
+def unfold_ab_instruction(level, locks=None):
+    locks = normalize_locks(locks)
+    if str(level or "") in {"ab_max", "max", "maximum"}:
+        body = (
+            "Maximum A/B variation: you may recrop, rebalance, resize type "
+            "blocks and restyle photography. You may not change wording, CTA "
+            "or the logo mark."
+        )
+    else:
+        body = (
+            "Simple A/B variation: recolor only, using the brand palette or "
+            "the ad's existing hues. Same crop, same type size, same positions."
+        )
+    return f"{body}\n\n{unfold_image_lock(locks)}"
+
+
+def paints_full_copy(family, flow_kind=None):
+    return (
+        str(flow_kind or "") == "unfold"
+        and family in {"square_1x1", "story_9x16", "landscape_social"}
+    )
+
+
+def native_scene_prompt_suffix(geometry, copy=None, flow_kind=None, locks=None):
     """Restrições determinísticas da peça nativa, sem device/portal."""
     geometry = geometry if isinstance(geometry, dict) else {}
     copy = copy if isinstance(copy, dict) else {}
     size = geometry.get("size") or ()
     budget = geometry.get("budget") or {}
+    family = geometry.get("family") or "native"
     target = (
         f"{size[0]}x{size[1]}px"
         if len(size) == 2
         else geometry.get("target_size") or "native rectangle"
     )
+    if paints_full_copy(family, flow_kind):
+        lines = [
+            UNFOLD_SOCIAL_COMPLETE,
+            f"Target canvas: {target}.",
+            f"Family: {family}.",
+            unfold_image_lock(locks or copy),
+        ]
+        return "\n".join(lines)
     lines = [
         NATIVE_RENDER_RULES,
         f"Target canvas: {target}.",
-        f"IAB family: {geometry.get('family') or 'native'}.",
+        f"IAB family: {family}.",
     ]
     if budget.get("summary"):
         lines.append(f"Element budget: {budget['summary']}.")
@@ -154,14 +279,20 @@ def native_scene_prompt_suffix(geometry, copy=None):
     return "\n".join(lines)
 
 
-def apply_render_mode_to_prompt(prompt, render_mode, geometry, copy=None):
+def apply_render_mode_to_prompt(
+    prompt, render_mode, geometry, copy=None, flow_kind=None, locks=None
+):
     text = str(prompt or "").strip()
-    if render_mode != "native":
-        return text
-    suffix = native_scene_prompt_suffix(geometry, copy)
-    if "NATIVE ADVERTISING STILL" in text:
-        return text
-    return f"{text}\n\n{suffix}".strip()
+    if render_mode == "native":
+        suffix = native_scene_prompt_suffix(geometry, copy, flow_kind, locks)
+        marker = "COMPLETE SOCIAL ADVERTISEMENT" if paints_full_copy(
+            (geometry or {}).get("family"), flow_kind
+        ) else "NATIVE ADVERTISING STILL"
+        if marker not in text:
+            text = f"{text}\n\n{suffix}".strip()
+    if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in text:
+        text = f"{text}\n\n{unfold_image_lock(locks)}".strip()
+    return text
 
 
 def _value(data, key, fallback=""):

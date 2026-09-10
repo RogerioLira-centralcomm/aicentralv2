@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=20">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=22">
 {% endblock %}
 
 {% block content %}
@@ -22,6 +22,9 @@
     </button>
     <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="produzir">
       <i class="fa-solid fa-layer-group" aria-hidden="true"></i> Produzir
+    </button>
+    <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="desdobrar">
+      <i class="fa-solid fa-clone" aria-hidden="true"></i> Desdobrar
     </button>
     <button class="cx-tab" type="button" role="tab" aria-selected="false" data-tab="formatos">
       <i class="fa-solid fa-shapes" aria-hidden="true"></i> Formatos
@@ -42,6 +45,9 @@
   <section class="mc-panel hidden" data-panel="produzir" role="tabpanel">
     {% include "parametros/_mc_variacoes.html" %}
   </section>
+  <section class="mc-panel hidden" data-panel="desdobrar" role="tabpanel">
+    {% include "parametros/_mc_desdobrar.html" %}
+  </section>
   <section class="mc-panel hidden" data-panel="formatos" role="tabpanel">
     {% include "parametros/_mc_biblioteca.html" %}
   </section>
@@ -55,5 +61,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=20" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=22" defer></script>
 {% endblock %}

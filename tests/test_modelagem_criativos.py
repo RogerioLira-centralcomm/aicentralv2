@@ -16,20 +16,37 @@ from werkzeug.datastructures import FileStorage
 from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
 from aicentralv2.creative_format_compose import compose_native_piece, png_size
 from aicentralv2.creative_format_geometry import (
+    SOCIAL_FORMAT_SLUGS,
+    SOCIAL_PAINT_FAMILIES,
     canvas_mismatch,
+    default_render_mode,
     format_family_spec,
     should_compose,
 )
 from aicentralv2.creative_modeling_generation import (
+    TEXT_TEMPERATURES,
     CreativeGenerationClient,
     build_higgsfield_payload,
     normalize_image_aspect_ratio,
+    text_temperature,
 )
 from aicentralv2.creative_modeling_fx import reset_rate_cache
-from aicentralv2.creative_modeling_prompts import apply_render_mode_to_prompt
+from aicentralv2.creative_modeling_prompts import (
+    apply_render_mode_to_prompt,
+    unfold_ab_instruction,
+    unfold_image_lock,
+)
 from aicentralv2.creative_modeling_repository import scene_count_for_format
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
-from aicentralv2.creative_modeling_service import CreativeModelingService
+from aicentralv2.creative_image_fidelity import (
+    apply_publish_upgrade,
+    quote_image_publish,
+    resolve_image_tier,
+)
+from aicentralv2.creative_modeling_service import (
+    CreativeModelingService,
+    _quality_review_data,
+)
 
 
 class FakeRepository:
@@ -353,7 +370,7 @@ class FakeGenerator:
             "actual_cost_usd": 0.01,
         }
 
-    def generate_image(self, prompt, references, aspect_ratio):
+    def generate_image(self, prompt, references, aspect_ratio, **kwargs):
         return {
             "b64_json": base64.b64encode(b"image").decode(),
             "model": "openai/gpt-image-2",
@@ -370,6 +387,33 @@ class FakeGenerator:
                 "voiceover_pt": "Texto",
                 "shots": [{"position": index} for index in range(1, 5)],
                 "endcard": "Saiba mais",
+            },
+            "model": "openai/gpt-test",
+            "usage": {},
+            "actual_cost_usd": 0.01,
+        }
+
+    def extract_kv_locks(self, context, image_data_url=None):
+        return {
+            "result": {
+                "headline": "Coleção Outono",
+                "subhead": "Luz e linho",
+                "cta": "Conheça a coleção",
+                "other_lines": [],
+                "has_logo": True,
+            },
+            "model": "openai/gpt-test",
+            "usage": {},
+            "actual_cost_usd": 0.001,
+        }
+
+    def generate_ab_prompt(self, context, level):
+        return {
+            "result": {
+                "prompt_en": "Recolor only. Same crop.",
+                "rationale_pt": "Variação simples.",
+                "checks": [],
+                "variant_level": level,
             },
             "model": "openai/gpt-test",
             "usage": {},
@@ -1099,7 +1143,7 @@ class CreativeServiceTest(unittest.TestCase):
         repository.list_client_brand_assets.return_value = []
 
         class CapturingGenerator(FakeGenerator):
-            def generate_image(self, prompt, references, aspect_ratio):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
                 captured["prompt"] = prompt
                 captured["references"] = references
                 return super().generate_image(prompt, references, aspect_ratio)
@@ -1151,7 +1195,7 @@ class CreativeServiceTest(unittest.TestCase):
         repository.list_client_brand_assets.return_value = []
 
         class CapturingGenerator(FakeGenerator):
-            def generate_image(self, prompt, references, aspect_ratio):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
                 captured["prompt"] = prompt
                 return super().generate_image(prompt, references, aspect_ratio)
 
@@ -2045,6 +2089,74 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(review.status_code, 200)
         self.assertEqual(preview.status_code, 200)
 
+    def test_api_desdobramentos_lista_e_cria(self):
+        service = Mock()
+        service.list_campaigns.return_value = [{"id": 40, "flow_kind": "unfold"}]
+        service.create_unfolding.return_value = {
+            "campaign": {"id": 40},
+            "productions": [{"id": 80}],
+        }
+        service.generate_unfolding.return_value = {
+            "id": 40,
+            "pieces": [{"scene_id": 81}],
+        }
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            listing = self.client.get("/parametros/api/unfoldings")
+            created = self.client.post(
+                "/parametros/api/unfoldings",
+                data={
+                    "name": "Outono social",
+                    "client_id": "10",
+                    "headline": "Coleção Outono",
+                    "cta_text": "Conheça",
+                    "format_ids": "[7]",
+                    "generate": "true",
+                    "kv": (BytesIO(b"kv"), "kv.png"),
+                },
+                content_type="multipart/form-data",
+            )
+            generate = self.client.post("/parametros/api/unfoldings/40/generate")
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(generate.status_code, 200)
+        service.list_campaigns.assert_called_with("unfold")
+        self.assertTrue(service.create_unfolding.called)
+        service.generate_unfolding.assert_called()
+
+    def test_api_lotes_publicaveis_e_tiers(self):
+        service = Mock()
+        service.list_image_tiers.return_value = [
+            {"name": "draft", "quality": "low", "resolution": "1K"},
+            {"name": "publish", "quality": "high", "resolution": "2K"},
+        ]
+        service.quote_campaign_publish.return_value = {
+            "count": 2, "total_brl": 2.28, "pieces": [],
+        }
+        service.publish_campaign.return_value = {"id": 40, "pieces": []}
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            tiers = self.client.get("/parametros/api/image-tiers")
+            quote = self.client.get("/parametros/api/campaigns/40/publish-quote")
+            published = self.client.post(
+                "/parametros/api/campaigns/40/publish",
+                json={"asset_ids": [90, 91]},
+            )
+        self.assertEqual(tiers.status_code, 200)
+        self.assertEqual(quote.status_code, 200)
+        self.assertEqual(published.status_code, 200)
+        service.publish_campaign.assert_called()
+
     def test_api_analisa_site_e_imagem(self):
         service = Mock()
         service.analyze_brand.return_value = {
@@ -2114,6 +2226,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_biblioteca.html",
             "_mc_clientes.html",
             "_mc_historico.html",
+            "_mc_desdobrar.html",
         ]
         for name in names:
             source = (template_dir / name).read_text(encoding="utf-8")
@@ -2122,9 +2235,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=20", page)
-        self.assertIn("modelagem_criativos.js') }}?v=20", page)
-        for tab in ("preparar", "produzir", "formatos", "marcas", "historico"):
+        self.assertIn("modelagem_criativos.css') }}?v=22", page)
+        self.assertIn("modelagem_criativos.js') }}?v=22", page)
+        for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
@@ -2202,6 +2315,17 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcHistorySpend"', historico)
         self.assertIn('id="mcModelingLedger"', historico)
         self.assertIn("Todas as modelagens", historico)
+        unfold = (template_dir / "_mc_desdobrar.html").read_text(encoding="utf-8")
+        self.assertIn('id="mcUnfoldForm"', unfold)
+        self.assertIn('id="mcUnfoldFormatList"', unfold)
+        self.assertIn('id="mcUnfoldGenerate"', unfold)
+        self.assertIn('id="mcUnfoldSpend"', unfold)
+        self.assertIn('id="mcUnfoldPieces"', unfold)
+        self.assertIn("Gerar desdobramentos", unfold)
+        self.assertIn("publicáveis em alta", unfold)
+        self.assertIn('id="mcUnfoldPublishBatch"', unfold)
+        production_html = (template_dir / "_mc_variacoes.html").read_text(encoding="utf-8")
+        self.assertIn('id="mcPublishBatch"', production_html)
         self.assertIn("setupBrandDropzone(", production_js)
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
@@ -2418,6 +2542,8 @@ class CreativeFilesContractTest(unittest.TestCase):
             "/parametros/api/clients",
             "/parametros/api/campaign-clients",
             "/parametros/api/campaigns",
+            "/parametros/api/unfoldings",
+            "/parametros/api/image-tiers",
         ):
             self.assertIn(path, verifier)
 
@@ -2453,6 +2579,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mcModelingLedger", frontend)
         self.assertIn("function historyTotal", frontend)
         self.assertIn("mc-campaign-cost", frontend)
+        self.assertIn("unfoldings: '/parametros/api/unfoldings'", frontend)
+        self.assertIn("function createUnfolding", frontend)
+        self.assertIn("function unfoldVariation", frontend)
+        self.assertIn("flow_kind: 'model'", frontend)
+        self.assertIn("data-unfold-ab", frontend)
+        self.assertIn("Variação simples", frontend)
+        self.assertIn("Variação máxima", frontend)
+        self.assertIn("function renderPublishBatch", frontend)
+        self.assertIn("Gerar publicáveis", frontend)
+        self.assertIn("Gerar rascunho", frontend)
+        self.assertIn("fidelity', 'draft'", frontend)
+        self.assertNotIn("Confirmar consumo de saldo", frontend)
         self.assertIn("mc-scene-thumb", frontend)
         self.assertIn("copy_system", frontend)
         self.assertIn("/parametros/api/scenes/${scene.id}", frontend)
@@ -2479,6 +2617,529 @@ class CreativeFilesContractTest(unittest.TestCase):
             scene_migration,
         )
         self.assertIn("ADD COLUMN IF NOT EXISTS scene_id", scene_migration)
+
+
+class CreativeUnfoldContractTest(unittest.TestCase):
+    def test_temperaturas_nomeadas_e_override_de_ambiente(self):
+        self.assertEqual(TEXT_TEMPERATURES["extract_kv_locks"], 0.05)
+        self.assertEqual(TEXT_TEMPERATURES["unfold_prompt"], 0.20)
+        self.assertEqual(TEXT_TEMPERATURES["ab_simple_prompt"], 0.30)
+        self.assertEqual(TEXT_TEMPERATURES["ab_max_prompt"], 0.45)
+        self.assertEqual(TEXT_TEMPERATURES["review_locks"], 0.10)
+        with patch.dict("os.environ", {"CREATIVE_TEMP_UNFOLD_PROMPT": "0.33"}):
+            self.assertEqual(text_temperature("unfold_prompt", 0.20), 0.33)
+
+    def test_diretor_de_desdobramento_usa_pacote_e_temperatura(self):
+        captured = {}
+
+        def llm(messages, **kwargs):
+            captured["system"] = messages[0]["content"]
+            captured["user"] = messages[1]["content"]
+            captured["temperature"] = kwargs.get("temperature")
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "prompt_en": (
+                            "LOCK\nHeadline verbatim: \"Coleção Outono\"\n"
+                            "KEEP\nBrand DNA\nADAPT\nCrop for 1080x1080\n"
+                            "FORBID\nNo new claim"
+                        ),
+                        "rationale_pt": "Adapta só a geometria.",
+                        "checks": ["locks"],
+                    })
+                },
+                "model": "openai/gpt-test",
+            }
+
+        client = CreativeGenerationClient(text_callable=llm)
+        result = client.generate_prompt({
+            "flow_kind": "unfold",
+            "locks": {"headline": "Coleção Outono", "cta": "Conheça a coleção"},
+        })
+        self.assertEqual(captured["temperature"], 0.20)
+        self.assertIn("LOCK", captured["system"])
+        self.assertIn("FORBID", captured["system"])
+        self.assertIn("Coleção Outono", result["result"]["prompt_en"])
+
+    def test_extracao_de_travas_e_ab_respeitam_temperatura(self):
+        captured = []
+
+        def llm(messages, **kwargs):
+            captured.append({
+                "system": messages[0]["content"],
+                "temperature": kwargs.get("temperature"),
+            })
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "headline": "Coleção Outono",
+                        "cta": "Conheça",
+                        "prompt_en": "recolor only; same crop; same positions",
+                        "rationale_pt": "ok",
+                        "checks": [],
+                    })
+                },
+                "model": "openai/gpt-test",
+            }
+
+        client = CreativeGenerationClient(text_callable=llm)
+        client.extract_kv_locks({"kv_notes": {"offer": "Outono"}})
+        client.generate_ab_prompt({"locks": {"cta": "Conheça"}}, "ab_simple")
+        client.generate_ab_prompt({"locks": {"cta": "Conheça"}}, "ab_max")
+        client.review_image({"locks": {"cta": "Conheça"}}, "data:image/png;base64,aW1hZ2U=")
+        self.assertEqual(captured[0]["temperature"], 0.05)
+        self.assertIn("Não invente", captured[0]["system"])
+        self.assertEqual(captured[1]["temperature"], 0.30)
+        self.assertIn("SIMPLES", captured[1]["system"])
+        self.assertNotIn("recortar", captured[1]["system"].lower())
+        self.assertEqual(captured[2]["temperature"], 0.45)
+        self.assertIn("MÁXIMA", captured[2]["system"])
+        self.assertNotIn("reescreva texto", captured[2]["system"].lower())
+        self.assertEqual(captured[3]["temperature"], 0.10)
+
+    def test_ab_simples_nao_pede_recorte_e_maxima_nao_reescreve_copy(self):
+        simple = unfold_ab_instruction("ab_simple", {
+            "headline": "Coleção Outono",
+            "cta": "Conheça a coleção",
+        })
+        maximum = unfold_ab_instruction("ab_max", {
+            "headline": "Coleção Outono",
+            "cta": "Conheça a coleção",
+        })
+        self.assertIn("recolor only", simple)
+        self.assertIn("Same crop", simple)
+        self.assertNotIn("recrop", simple)
+        self.assertIn("Coleção Outono", simple)
+        self.assertIn("recrop", maximum)
+        self.assertIn("may not change wording", maximum)
+        self.assertIn("Conheça a coleção", maximum)
+
+    def test_review_recusa_cta_travado_ausente(self):
+        reviewed = _quality_review_data({
+            "approved_recommendation": False,
+            "score": 40,
+            "warnings": ["CTA sumiu."],
+            "checks": {"cta_locked": False, "text_locked": True, "logo_locked": True},
+            "defects": [],
+        })
+        self.assertIn("cta_changed", reviewed["defects"])
+        self.assertNotIn("text_rewritten", reviewed["defects"])
+
+    def test_social_nao_passa_pelo_compositor_e_pinta_a_peca(self):
+        feed = format_family_spec("instagram-feed", "1080x1080")
+        story = format_family_spec("instagram-story", "1080x1920")
+        share = format_family_spec("linkedin-share", "1200x627")
+        self.assertEqual(feed["family"], "square_1x1")
+        self.assertEqual(story["family"], "story_9x16")
+        self.assertEqual(share["family"], "landscape_social")
+        self.assertEqual(SOCIAL_PAINT_FAMILIES, {
+            "square_1x1", "story_9x16", "landscape_social",
+        })
+        self.assertEqual(SOCIAL_FORMAT_SLUGS, {
+            "instagram-feed", "instagram-story", "tiktok-vertical",
+            "facebook-feed", "linkedin-share",
+        })
+        self.assertEqual(default_render_mode("square_1x1"), "native")
+        self.assertFalse(should_compose("square_1x1", "native"))
+        self.assertFalse(should_compose("story_9x16", "native"))
+        prompt = apply_render_mode_to_prompt(
+            "Premium still of the product.",
+            "native",
+            feed,
+            {"cta": "Conheça"},
+            flow_kind="unfold",
+            locks={"headline": "Coleção Outono", "cta": "Conheça a coleção"},
+        )
+        self.assertIn("COMPLETE SOCIAL ADVERTISEMENT", prompt)
+        self.assertIn("Coleção Outono", prompt)
+        self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", prompt)
+        self.assertNotIn("composed later", prompt)
+        leader = apply_render_mode_to_prompt(
+            "Premium still of the product.",
+            "native",
+            format_family_spec("iab-leaderboard", "728x90"),
+            {"cta": "Conheça"},
+            flow_kind="unfold",
+            locks={"headline": "Coleção Outono", "cta": "Conheça a coleção"},
+        )
+        self.assertIn("NATIVE ADVERTISING STILL", leader)
+        self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", leader)
+
+    def test_seed_social_e_cena_unica(self):
+        seed = (
+            Path(__file__).resolve().parents[1]
+            / "scripts" / "seed_creative_formats.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('("social", "Redes sociais")', seed)
+        for slug in SOCIAL_FORMAT_SLUGS:
+            self.assertIn(f'"{slug}"', seed)
+            self.assertEqual(scene_count_for_format({
+                "slug": slug,
+                "mechanic": "static_display",
+                "behavior_spec": {"type": "static"},
+            }), 1)
+        self.assertIn("1080x1080", seed)
+        self.assertIn("1080x1920", seed)
+        self.assertIn("1200x627", seed)
+
+    def test_create_unfolding_grava_flow_kind_e_travas(self):
+        repository = Mock()
+        repository.get_format.return_value = {
+            "id": 7,
+            "slug": "instagram-feed",
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+        }
+        repository.create_campaign_with_productions.return_value = {
+            "id": 40,
+            "productions": [{"id": 80}],
+        }
+        repository.get_campaign.return_value = {
+            "id": 40,
+            "name": "Outono social",
+            "creative_brief": {"flow_kind": "unfold"},
+        }
+        repository.get_production.return_value = {
+            "id": 80,
+            "scene_count": 1,
+            "scenes": [{"id": 81}],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        kv = FileStorage(stream=BytesIO(b"kv-bytes"), filename="kv.png")
+        result = service.create_unfolding({
+            "client_source": "creative",
+            "client_id": 10,
+            "name": "Outono social",
+            "headline": "Coleção Outono",
+            "cta_text": "Conheça a coleção",
+            "offer": "Linho e luz de outono.",
+            "format_ids": [7],
+        }, files=[kv])
+        saved = repository.create_campaign_with_productions.call_args.args[0]
+        self.assertEqual(saved["creative_brief"]["flow_kind"], "unfold")
+        self.assertEqual(saved["creative_brief"]["locks"]["headline"], "Coleção Outono")
+        self.assertEqual(saved["creative_brief"]["locks"]["cta"], "Conheça a coleção")
+        self.assertEqual(saved["creative_brief"]["source"]["type"], "upload")
+        self.assertEqual(len(saved["productions"]), 1)
+        self.assertEqual(result["campaign"]["id"], 40)
+
+    def test_prompt_de_unfold_nao_herda_cena_e_auto_aprova(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 81,
+            "position": 2,
+            "description": "Feed",
+            "campaign_name": "Outono",
+            "campaign_id": 40,
+            "production_id": 80,
+            "format_template_id": 7,
+            "format_slug": "instagram-feed",
+            "default_size": "1080x1080",
+            "master_prompt": "MASTER from scene 1",
+            "storyboard": [],
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "locks": {"headline": "Coleção Outono", "cta": "Conheça a coleção"},
+            },
+            "cta_text": "Conheça a coleção",
+            "campaign_text": "Coleção Outono",
+            "show_price": False,
+            "objective": "Desdobramento",
+            "client_name": "Marca",
+            "client_sector": "Moda",
+            "tone_of_voice": "Calmo",
+            "logo_url": None,
+            "logo_upload_path": None,
+            "primary_color": "#1E4D4F",
+            "secondary_color": "#9CCF31",
+            "brand_profile": {},
+            "scene_count": 1,
+        }
+        repository.create_generation_job.return_value = 9
+        repository.update_scene_prompt.return_value = {
+            "id": 81, "prompt": "Unfold", "prompt_status": "approved",
+        }
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_prompt(self, context):
+                captured["context"] = context
+                return super().generate_prompt(context)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene_prompt(81)
+        self.assertEqual(captured["context"]["flow_kind"], "unfold")
+        self.assertFalse(captured["context"]["inherit_from_master"])
+        self.assertEqual(
+            repository.update_scene_prompt.call_args.args[2], "approved"
+        )
+        prompt = repository.update_scene_prompt.call_args.args[1]
+        self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", prompt)
+        self.assertIn("Coleção Outono", prompt)
+
+    def test_imagem_de_unfold_usa_kv_como_primeira_referencia(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 81,
+            "position": 1,
+            "production_id": 80,
+            "campaign_id": 40,
+            "format_template_id": 7,
+            "format_slug": "instagram-feed",
+            "default_size": "1080x1080",
+            "prompt": "Approved unfold prompt",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "1:1",
+            "client_id": 10,
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "source": {"kv_asset_url": "/static/uploads/creative_references/kv.png"},
+                "locks": {"headline": "Coleção Outono", "cta": "Conheça"},
+            },
+        }
+        repository.create_generation_job.return_value = 11
+        repository.add_generated_asset.return_value = {
+            "id": 90, "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
+                captured["prompt"] = prompt
+                captured["references"] = references
+                return super().generate_image(prompt, references, aspect_ratio)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene(81, [])
+        self.assertTrue(captured["references"])
+        self.assertTrue(captured["references"][0].startswith("data:image/"))
+        payload = repository.create_generation_job.call_args.kwargs["request_payload"]
+        self.assertEqual(payload["variant_level"], "source")
+        self.assertEqual(payload["flow_kind"], "unfold")
+        self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", captured["prompt"])
+
+    def test_refine_ab_grava_variant_level(self):
+        captured = {}
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 81,
+            "position": 1,
+            "production_id": 80,
+            "campaign_id": 40,
+            "format_template_id": 7,
+            "format_slug": "instagram-feed",
+            "default_size": "1080x1080",
+            "prompt": "Approved unfold prompt",
+            "media_type": "image",
+            "aspect_ratio": "1:1",
+            "client_id": 10,
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "locks": {"headline": "Coleção Outono", "cta": "Conheça"},
+            },
+        }
+        repository.get_assets.return_value = [{
+            "id": 90,
+            "scene_id": 81,
+            "asset_url": "/asset-90.png",
+            "job_prompt": "SOURCE UNFOLD PROMPT",
+        }]
+        repository.create_generation_job.return_value = 12
+        repository.add_generated_asset.return_value = {
+            "id": 91, "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
+                captured["prompt"] = prompt
+                return super().generate_image(prompt, references, aspect_ratio)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.refine_scene_asset(81, 90, {"intent": "ab_simple"})
+        payload = repository.create_generation_job.call_args.kwargs["request_payload"]
+        self.assertEqual(payload["variant_level"], "ab_simple")
+        self.assertIn("recolor only", captured["prompt"])
+        self.assertNotIn("recrop", captured["prompt"])
+        service.refine_scene_asset(81, 90, {"intent": "ab_max"})
+        payload = repository.create_generation_job.call_args.kwargs["request_payload"]
+        self.assertEqual(payload["variant_level"], "ab_max")
+        self.assertIn("recrop", captured["prompt"])
+        self.assertIn("may not change wording", captured["prompt"])
+
+    @patch.dict("os.environ", {"USD_BRL_RATE": "5"})
+    def test_flow_kind_isola_gasto_em_reais(self):
+        reset_rate_cache()
+        repository = Mock()
+        repository.list_campaigns.return_value = [
+            {
+                "id": 30, "name": "Modelagem", "client": "Marca",
+                "spent_usd": 2, "flow_kind": "model",
+            },
+            {
+                "id": 40, "name": "Desdobrar", "client": "Marca",
+                "spent_usd": 4, "flow_kind": "unfold",
+                "creative_brief": {"flow_kind": "unfold"},
+            },
+        ]
+        repository.list_generation_jobs.return_value = [
+            {
+                "id": 1, "campaign_id": 30, "campaign_name": "Modelagem",
+                "job_type": "image", "model": "openai/gpt-image-2",
+                "actual_cost_usd": 1.2, "estimated_cost_usd": 1, "status": "done",
+            },
+            {
+                "id": 2, "campaign_id": 40, "campaign_name": "Desdobrar",
+                "job_type": "image", "model": "openai/gpt-image-2",
+                "actual_cost_usd": 3, "estimated_cost_usd": 3, "status": "done",
+            },
+        ]
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        models = service.list_campaigns("model")
+        unfolds = service.list_campaigns("unfold")
+        history = service.history(flow_kind="unfold")
+        self.assertEqual([item["id"] for item in models], [30])
+        self.assertEqual([item["id"] for item in unfolds], [40])
+        self.assertEqual(unfolds[0]["spent_brl"], 20.0)
+        self.assertEqual([item["id"] for item in history["modelings"]], [40])
+        self.assertEqual(history["modelings"][0]["spent_brl"], 20.0)
+        self.assertEqual([job["id"] for job in history["jobs"]], [2])
+        self.assertEqual(history["total_brl"], 20.0)
+        reset_rate_cache()
+
+    def test_sufixo_de_lock_sempre_cita_as_travas(self):
+        lock = unfold_image_lock({
+            "headline": "Coleção Outono",
+            "cta": "Conheça a coleção",
+            "has_logo": True,
+        })
+        self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", lock)
+        self.assertIn("Coleção Outono", lock)
+        self.assertIn("Conheça a coleção", lock)
+        self.assertIn("logo mark", lock)
+
+    @patch.dict("os.environ", {"USD_BRL_RATE": "5.5"})
+    def test_rascunho_e_lote_publicavel_nao_mudam_montagem(self):
+        reset_rate_cache()
+        draft = resolve_image_tier("draft")
+        publish = resolve_image_tier("publicavel")
+        self.assertEqual((draft["quality"], draft["resolution"]), ("low", "1K"))
+        self.assertEqual((publish["quality"], publish["resolution"]), ("high", "2K"))
+        quote = quote_image_publish(3)
+        self.assertEqual(quote["count"], 3)
+        self.assertEqual(quote["quality"], "high")
+        self.assertGreater(quote["total_brl"], quote["unit_brl"])
+        self.assertIn("RESOLUTION UPGRADE ONLY", apply_publish_upgrade("LOCK copy"))
+        captured = {}
+        repository = Mock()
+        context = {
+            "id": 81,
+            "position": 1,
+            "production_id": 80,
+            "campaign_id": 40,
+            "format_template_id": 7,
+            "format_slug": "instagram-feed",
+            "default_size": "1080x1080",
+            "prompt": "Approved unfold prompt",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "1:1",
+            "client_id": 10,
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "source": {"kv_asset_url": "/static/uploads/creative_references/kv.png"},
+                "locks": {"headline": "Coleção Outono", "cta": "Conheça"},
+            },
+        }
+        repository.get_scene_context.return_value = context
+        repository.get_assets.return_value = [{
+            "id": 90,
+            "scene_id": 81,
+            "asset_url": "/draft.png",
+            "job_prompt": "Approved unfold prompt",
+            "metadata": {"fidelity": "draft"},
+        }]
+        repository.create_generation_job.return_value = 21
+        repository.add_generated_asset.return_value = {
+            "id": 92, "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+        repository.get_campaign.return_value = {
+            "id": 40,
+            "name": "Outono",
+            "spent_usd": 0,
+            "client": {"name": "Marca"},
+            "creative_brief": {"flow_kind": "unfold"},
+            "productions": [{
+                "id": 80,
+                "format_template_id": 7,
+                "scenes": [{
+                    "id": 81,
+                    "assets": [{
+                        "id": 90,
+                        "asset_type": "image",
+                        "metadata": {"fidelity": "draft"},
+                    }],
+                }],
+            }],
+        }
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
+                captured.setdefault("calls", []).append({
+                    "prompt": prompt,
+                    "references": references,
+                    "quality": kwargs.get("quality"),
+                    "resolution": kwargs.get("resolution"),
+                })
+                return super().generate_image(prompt, references, aspect_ratio, **kwargs)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene(81, [])
+        self.assertEqual(captured["calls"][0]["quality"], "low")
+        self.assertEqual(captured["calls"][0]["resolution"], "1K")
+        self.assertTrue(
+            repository.create_generation_job.call_args.kwargs.get("allow_existing_scene")
+            in (False, None)
+        )
+        service.publish_scene_asset(81, 90)
+        self.assertEqual(captured["calls"][1]["quality"], "high")
+        self.assertEqual(captured["calls"][1]["resolution"], "2K")
+        self.assertIn("RESOLUTION UPGRADE ONLY", captured["calls"][1]["prompt"])
+        self.assertTrue(captured["calls"][1]["references"])
+        self.assertTrue(
+            repository.create_generation_job.call_args.kwargs["allow_existing_scene"]
+        )
+        quoted = service.quote_campaign_publish(40, [90])
+        self.assertEqual(quoted["count"], 1)
+        self.assertEqual(quoted["pieces"][0]["asset_id"], 90)
+        reset_rate_cache()
 
 
 if __name__ == "__main__":

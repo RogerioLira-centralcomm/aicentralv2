@@ -11,6 +11,8 @@
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
     viewerProfiles: '/parametros/api/viewer-profiles',
+    unfoldings: '/parametros/api/unfoldings',
+    imageTiers: '/parametros/api/image-tiers',
   };
   const MOCKUPS = {
     portal: { label: 'Portal', icon: 'fa-desktop' },
@@ -54,6 +56,10 @@
     renderMode: null,
     enhancedBrief: null,
     locks: new Set(),
+    unfoldFormatIds: new Set(),
+    unfoldCampaign: null,
+    imageTiers: [],
+    publishPicks: {},
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -72,6 +78,17 @@
     return Number.isFinite(value) ? value : 0;
   };
   const campaignCost = (campaign) => brl(spendValue(campaign));
+  const assetFidelity = (asset) => asset?.metadata?.fidelity || asset?.fidelity || (asset?.id ? 'draft' : '');
+  const publishUnitBrl = () => {
+    const tier = (state.imageTiers || []).find((item) => item.name === 'publish');
+    const value = Number(tier?.estimated_brl ?? tier?.spent_brl ?? 0);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const draftUnitBrl = () => {
+    const tier = (state.imageTiers || []).find((item) => item.name === 'draft');
+    const value = Number(tier?.estimated_brl ?? tier?.spent_brl ?? 0);
+    return Number.isFinite(value) ? value : 0;
+  };
   let historyRequestId = 0;
   const toast = (message, type = 'info') => {
     if (typeof window.showToast === 'function') window.showToast(message, type);
@@ -143,6 +160,18 @@
     if (name === 'marcas') renderClients();
     if (name === 'historico' && state.campaigns.length) loadHistory();
     if (name === 'produzir') renderWorkspace();
+    if (name === 'desdobrar') {
+      renderUnfoldFormats();
+      renderUnfoldSources();
+      if (state.unfoldCampaign) {
+        renderUnfoldSpend(state.unfoldCampaign);
+        renderPublishBatch(
+          $('#mcUnfoldPublishBatch'),
+          state.unfoldCampaign.productions,
+          state.unfoldCampaign.id,
+        );
+      }
+    }
   }
 
   // ====== LOADERS ======
@@ -154,6 +183,7 @@
       ['campaignClients', 'clientes para campanha', API.campaignClients],
       ['campaigns', 'campanhas', API.campaigns],
       ['viewerProfiles', 'ambientes de mídia', API.viewerProfiles],
+      ['imageTiers', 'preços de imagem', API.imageTiers],
     ];
     const results = await Promise.allSettled(resources.map(([, , url]) => api(url)));
     const failures = [];
@@ -168,6 +198,8 @@
     renderGeneratorFormats();
     renderLibrary();
     renderClients();
+    renderUnfoldFormats();
+    renderUnfoldSources();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -178,6 +210,7 @@
 
   function renderClientOptions() {
     const select = $('#mcCampaignClient');
+    if (!select) return;
     const current = select.value;
     select.innerHTML = '<option value="">Selecione um cliente</option>' + state.campaignClients
       .map((client) => {
@@ -197,6 +230,16 @@
     renderClientPreview();
     renderGeneratorSummary();
     updateGeneratorAvailability();
+    const unfoldClient = $('#mcUnfoldClient');
+    if (unfoldClient) {
+      const unfoldCurrent = unfoldClient.value;
+      unfoldClient.innerHTML = select.innerHTML;
+      unfoldClient.value = unfoldCurrent;
+    }
+  }
+
+  function modelCampaigns() {
+    return state.campaigns.filter((item) => (item.flow_kind || 'model') !== 'unfold');
   }
 
   function renderCampaignOptions() {
@@ -205,7 +248,7 @@
       if (!select) return;
       const current = select.value;
       const first = selector === '#mcHistoryCampaign' ? 'Todas as modelagens' : 'Escolha uma campanha';
-      select.innerHTML = `<option value="">${first}</option>` + state.campaigns.map((campaign) => (
+      select.innerHTML = `<option value="">${first}</option>` + modelCampaigns().map((campaign) => (
         `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)} · ${campaignCost(campaign)}</option>`
       )).join('');
       select.value = selector === '#mcCampaignSelect' && state.campaign
@@ -561,6 +604,86 @@
     return asset?.asset_url || asset?.url || asset?.preview_url || '';
   }
 
+  function collectDraftPieces(productions) {
+    return (productions || []).flatMap((production) => {
+      const format = state.formats.find((item) => String(item.id) === String(production.format_template_id));
+      return (production.scenes || []).flatMap((scene) => (
+        sceneAssets(scene)
+          .filter((asset) => assetFidelity(asset) !== 'publish')
+          .map((asset) => ({
+            asset_id: asset.id,
+            scene_id: scene.id,
+            label: format?.name_pt || scene.description || `Cena ${scene.position || ''}`,
+            size: format?.target_size || format?.default_size || '',
+          }))
+      ));
+    });
+  }
+
+  function renderPublishBatch(root, productions, campaignId) {
+    if (!root) return;
+    const drafts = collectDraftPieces(productions);
+    if (!drafts.length || !campaignId) {
+      root.hidden = true;
+      root.innerHTML = '';
+      return;
+    }
+    const key = String(campaignId);
+    if (!state.publishPicks[key]) {
+      state.publishPicks[key] = new Set(drafts.map((item) => String(item.asset_id)));
+    } else {
+      const valid = new Set(drafts.map((item) => String(item.asset_id)));
+      Array.from(state.publishPicks[key]).forEach((id) => {
+        if (!valid.has(id)) state.publishPicks[key].delete(id);
+      });
+    }
+    const picks = state.publishPicks[key];
+    const selected = drafts.filter((item) => picks.has(String(item.asset_id)));
+    const total = selected.length * publishUnitBrl();
+    root.hidden = false;
+    root.innerHTML = `
+      <div>
+        <h3>Publicáveis em lote</h3>
+        <p>Os rascunhos saem em low/1K. A alta (high/2K) só roda neste lote, sem mudar a montagem.</p>
+      </div>
+      <ul class="mc-publish-list">
+        ${drafts.map((item) => `
+          <li>
+            <label>
+              <input type="checkbox" data-publish-asset="${item.asset_id}" data-publish-campaign="${campaignId}" ${picks.has(String(item.asset_id)) ? 'checked' : ''}>
+              <span>${escapeHtml(item.label)}${item.size ? ` · ${escapeHtml(item.size)}` : ''}</span>
+            </label>
+          </li>`).join('')}
+      </ul>
+      <p class="mc-publish-quote"><strong>${selected.length} peça${selected.length === 1 ? '' : 's'} · ${brl(total)}</strong></p>
+      <button class="cx-btn cx-btn-primary" type="button" data-publish-batch="${campaignId}" ${selected.length ? '' : 'disabled'}>
+        Gerar publicáveis
+      </button>`;
+  }
+
+  async function publishSelectedBatch(button) {
+    const campaignId = button.dataset.publishBatch;
+    const assetIds = Array.from(state.publishPicks[String(campaignId)] || []);
+    if (!campaignId || !assetIds.length) {
+      toast('Selecione ao menos um rascunho.', 'warning');
+      return;
+    }
+    await withLock(`publish-${campaignId}`, button, async () => {
+      await api(`${API.campaigns}/${campaignId}/publish`, {
+        method: 'POST',
+        body: JSON.stringify({ asset_ids: assetIds.map(Number) }),
+      });
+      toast('Versões publicáveis geradas.', 'success');
+      if (state.unfoldCampaign && String(state.unfoldCampaign.id) === String(campaignId)) {
+        state.unfoldCampaign = await api(`${API.campaigns}/${campaignId}`);
+        renderUnfoldPieces(state.unfoldCampaign);
+      }
+      if (state.campaign && String(state.campaign.id) === String(campaignId)) {
+        await selectCampaign(campaignId, state.activeSceneId);
+      }
+    });
+  }
+
   function renderProduction() {
     const scenes = productionScenes();
     const status = state.production?.status || (scenes.length ? 'Em produção' : 'Aguardando cenas');
@@ -580,6 +703,7 @@
     }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
     renderContinuitySpine();
     renderSceneReview(activeScene());
+    renderPublishBatch($('#mcPublishBatch'), [state.production].filter(Boolean), state.campaign?.id);
     renderProductionViewer();
     renderProductionStage();
   }
@@ -713,13 +837,14 @@
         <div class="mc-scene-frame-actions">
           ${hero ? `
             ${statusBadge(hero.status || 'review')}
+            <span class="mc-fidelity-chip ${assetFidelity(hero) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(hero) === 'publish' ? 'Publicável' : 'Rascunho'}</span>
             ${hero.status === 'approved'
               ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${hero.id}">Simular esta</button>`
               : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${hero.id}">Aprovar</button>`}
           ` : `
             <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="generate-image"
                     ${scene.prompt_status && scene.prompt_status !== 'approved' ? 'disabled title="Aprove a direção primeiro"' : ''}>
-              <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar imagem
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar rascunho
             </button>
           `}
         </div>
@@ -758,6 +883,7 @@
           ${asset.metadata?.refinement_instruction ? `<p class="mc-asset-delta">${escapeHtml(asset.metadata.refinement_instruction)}</p>` : ''}
           <div>
             ${statusBadge(asset.status || 'review')}
+            <span class="mc-fidelity-chip ${assetFidelity(asset) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(asset) === 'publish' ? 'Publicável' : 'Rascunho'}</span>
             ${asset.status === 'approved'
               ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="choose-preview" data-asset-id="${asset.id}">Simular esta</button>`
               : `<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-asset" data-asset-id="${asset.id}">Aprovar</button>`}
@@ -2039,10 +2165,10 @@
     const modelings = Array.isArray(payload?.modelings) ? payload.modelings : [];
     if (modelings.length) return modelings.reduce((sum, item) => sum + spendValue(item), 0);
     if (campaignId) {
-      const selected = state.campaigns.find((item) => String(item.id) === String(campaignId));
+      const selected = modelCampaigns().find((item) => String(item.id) === String(campaignId));
       if (selected) return spendValue(selected);
     }
-    const catalogTotal = state.campaigns.reduce((sum, item) => sum + spendValue(item), 0);
+    const catalogTotal = modelCampaigns().reduce((sum, item) => sum + spendValue(item), 0);
     if (catalogTotal) return catalogTotal;
     const jobs = Array.isArray(payload) ? payload : (payload?.jobs || []);
     return jobs.reduce((sum, job) => sum + spendValue(job), 0);
@@ -2060,7 +2186,7 @@
     if (!root) return;
     const rows = (Array.isArray(modelings) && modelings.length)
       ? modelings
-      : state.campaigns;
+      : modelCampaigns();
     if (!rows.length) {
       root.innerHTML = '';
       return;
@@ -2090,7 +2216,9 @@
     root.innerHTML = '<div class="mc-skeleton-list"><span></span><span></span><span></span></div>';
     try {
       const campaignId = $('#mcHistoryCampaign').value;
-      const payload = await api(`${API.history}${campaignId ? `?campaign_id=${campaignId}` : ''}`);
+      const query = new URLSearchParams({ flow_kind: 'model' });
+      if (campaignId) query.set('campaign_id', campaignId);
+      const payload = await api(`${API.history}?${query.toString()}`);
       if (requestId !== historyRequestId) return;
       const jobs = Array.isArray(payload) ? payload : (payload.jobs || []);
       const modelings = Array.isArray(payload?.modelings) ? payload.modelings : [];
@@ -2114,6 +2242,168 @@
       renderHistorySpend(0);
       root.innerHTML = `<div class="cx-alert cx-alert-danger">${escapeHtml(error.message)}</div>`;
     }
+  }
+
+  function unfoldFormats() {
+    const families = new Set([
+      'rectangle', 'wide_banner', 'half_page',
+      'square_1x1', 'story_9x16', 'landscape_social',
+    ]);
+    return state.formats.filter((format) => (
+      format.media_type === 'image'
+      && Number(format.scene_count || 1) === 1
+      && (
+        format.category === 'social'
+        || String(format.slug || '').startsWith('iab-')
+        || families.has(format.iab_family)
+      )
+    ));
+  }
+
+  function unfoldThumbStyle(format) {
+    const size = String(format.target_size || format.default_size || '1x1').split(/[xX×]/);
+    const width = Number(size[0]) || 1;
+    const height = Number(size[1]) || 1;
+    return `aspect-ratio:${width}/${height}`;
+  }
+
+  function renderUnfoldFormats() {
+    const root = $('#mcUnfoldFormatList');
+    if (!root) return;
+    const formats = unfoldFormats();
+    root.innerHTML = formats.map((format) => `
+      <button type="button" class="mc-unfold-format ${state.unfoldFormatIds.has(String(format.id)) ? 'is-active' : ''}"
+              data-unfold-format="${format.id}">
+        <span class="mc-unfold-thumb" style="${unfoldThumbStyle(format)}"></span>
+        <strong>${escapeHtml(format.name_pt)}</strong>
+        <small>${escapeHtml(format.target_size || format.default_size || '')} · ${escapeHtml(format.iab_family || format.category || '')}</small>
+      </button>`).join('') || '<p class="mc-section-note">Nenhum formato estático disponível.</p>';
+  }
+
+  function renderUnfoldSources() {
+    const select = $('#mcUnfoldSourceCampaign');
+    if (!select) return;
+    const current = select.value;
+    const models = state.campaigns.filter((item) => (item.flow_kind || 'model') !== 'unfold');
+    select.innerHTML = '<option value="">Escolher modelagem</option>' + models.map((campaign) => (
+      `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)} · ${campaignCost(campaign)}</option>`
+    )).join('');
+    select.value = current;
+  }
+
+  function renderUnfoldSpend(campaign) {
+    const spend = $('#mcUnfoldSpend');
+    if (!spend) return;
+    spend.hidden = !campaign;
+    if (campaign) spend.querySelector('strong').textContent = campaignCost(campaign);
+  }
+
+  function renderUnfoldPieces(campaign) {
+    const root = $('#mcUnfoldPieces');
+    if (!root) return;
+    const productions = campaign?.productions || [];
+    const cards = productions.flatMap((production) => {
+      const format = state.formats.find((item) => String(item.id) === String(production.format_template_id));
+      return (production.scenes || []).map((scene) => {
+        const asset = (scene.assets || []).find((item) => item.asset_type !== 'video') || {};
+        const url = asset.asset_url || asset.url || '';
+        return `
+          <article class="mc-unfold-piece">
+            ${url ? `<img src="${escapeHtml(url)}" alt="">` : '<div class="mc-unfold-thumb"></div>'}
+            <strong>${escapeHtml(format?.name_pt || 'Formato')}</strong>
+            <small>${escapeHtml(format?.target_size || '')} · ${brl(asset.spent_brl || campaign?.spent_brl)}</small>
+            ${asset.id ? `<span class="mc-fidelity-chip ${assetFidelity(asset) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(asset) === 'publish' ? 'Publicável' : 'Rascunho'}</span>` : ''}
+            <div class="mc-unfold-piece-actions">
+              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_simple" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Variação simples</button>
+              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_max" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Variação máxima</button>
+            </div>
+          </article>`;
+      });
+    });
+    root.innerHTML = cards.join('') || '<div class="cx-empty-state"><p>Gere um desdobramento para ver as peças no formato.</p></div>';
+    renderUnfoldSpend(campaign);
+    renderPublishBatch($('#mcUnfoldPublishBatch'), productions, campaign?.id);
+  }
+
+  async function loadUnfoldSourceAssets() {
+    const campaignId = $('#mcUnfoldSourceCampaign')?.value;
+    const select = $('#mcUnfoldSourceAsset');
+    if (!select) return;
+    if (!campaignId) {
+      select.innerHTML = '<option value="">Upload do KV</option>';
+      return;
+    }
+    try {
+      const assets = await api(`${API.campaigns}/${campaignId}/assets`);
+      const usable = (assets || []).filter((item) => item.asset_type !== 'video');
+      select.innerHTML = '<option value="">Upload do KV</option>' + usable.map((asset) => (
+        `<option value="${asset.id}">${escapeHtml(asset.original_name || asset.asset_type || `Peça ${asset.id}`)}</option>`
+      )).join('');
+    } catch (error) {
+      select.innerHTML = '<option value="">Upload do KV</option>';
+      toast(error.message, 'error');
+    }
+  }
+
+  async function createUnfolding(button) {
+    const form = $('#mcUnfoldForm');
+    const status = $('#mcUnfoldStatus');
+    await withLock('unfold', button, async () => {
+      const data = new FormData(form);
+      const formatIds = Array.from(state.unfoldFormatIds);
+      if (!formatIds.length) {
+        toast('Escolha ao menos um formato.', 'warning');
+        return;
+      }
+      if (!data.get('kv')?.size && !data.get('source_asset_id')) {
+        toast('Envie o KV ou escolha uma peça aprovada.', 'warning');
+        return;
+      }
+      if (!data.get('source_asset_id')) data.delete('source_asset_id');
+      if (!data.get('kv') || !data.get('kv').size) data.delete('kv');
+      data.set('format_ids', JSON.stringify(formatIds));
+      data.set('generate', 'true');
+      status.textContent = 'Gerando desdobramentos com o DNA da marca e as travas de copy…';
+      try {
+        const created = await api(API.unfoldings, { method: 'POST', body: data });
+        const campaign = created.campaign || created;
+        state.unfoldCampaign = campaign?.id
+          ? await api(`${API.campaigns}/${campaign.id}`)
+          : campaign;
+        try {
+          state.campaigns = await api(API.campaigns);
+          renderCampaignOptions();
+          renderUnfoldSources();
+        } catch (_) { /* o strip de custo já usa a campanha atual */ }
+        renderUnfoldPieces(state.unfoldCampaign);
+        status.textContent = '';
+        toast('Desdobramentos gerados.', 'success');
+      } catch (error) {
+        status.textContent = error.message;
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  async function unfoldVariation(button) {
+    const sceneId = button.dataset.sceneId;
+    const assetId = button.dataset.assetId;
+    const level = button.dataset.unfoldAb;
+    if (!sceneId || !assetId) {
+      toast('Gere a peça antes de pedir a variação.', 'warning');
+      return;
+    }
+    await withLock(`unfold-ab-${assetId}`, button, async () => {
+      await api(`/parametros/api/scenes/${sceneId}/assets/${assetId}/refine`, {
+        method: 'POST',
+        body: JSON.stringify({ intent: level }),
+      });
+      if (state.unfoldCampaign?.id) {
+        state.unfoldCampaign = await api(`${API.campaigns}/${state.unfoldCampaign.id}`);
+        renderUnfoldPieces(state.unfoldCampaign);
+      }
+      toast(level === 'ab_max' ? 'Variação máxima gerada.' : 'Variação simples gerada.', 'success');
+    });
   }
 
   function statusBadge(status) {
@@ -2315,6 +2605,7 @@
           const body = new FormData();
           files.forEach((file) => body.append('references', file));
           body.append('render_mode', activeRenderMode());
+          body.append('fidelity', 'draft');
           await withLock(`scene-image-${scene.id}`, button, () => apiFirst([
             { url: `${base}/image/generate`, options: { method: 'POST', body } },
             { url: `${base}/generate`, options: { method: 'POST', body } },
@@ -2971,6 +3262,49 @@
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
     $('#mcLibrarySearch').addEventListener('input', renderLibrary);
     $('#mcLibraryCategory').addEventListener('change', renderLibrary);
+    $('#mcUnfoldFormatList')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-unfold-format]');
+      if (!button) return;
+      const id = String(button.dataset.unfoldFormat);
+      if (state.unfoldFormatIds.has(id)) state.unfoldFormatIds.delete(id);
+      else state.unfoldFormatIds.add(id);
+      renderUnfoldFormats();
+    });
+    $('#mcUnfoldSourceCampaign')?.addEventListener('change', () => {
+      loadUnfoldSourceAssets().catch((error) => toast(error.message, 'error'));
+    });
+    $('#mcUnfoldGenerate')?.addEventListener('click', (event) => {
+      createUnfolding(event.currentTarget).catch((error) => toast(error.message, 'error'));
+    });
+    $('#mcUnfoldPieces')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-unfold-ab]');
+      if (!button) return;
+      unfoldVariation(button).catch((error) => toast(error.message, 'error'));
+    });
+    document.addEventListener('change', (event) => {
+      const box = event.target.closest('[data-publish-asset]');
+      if (!box) return;
+      const campaignId = String(box.dataset.publishCampaign || '');
+      const id = String(box.dataset.publishAsset);
+      if (!state.publishPicks[campaignId]) state.publishPicks[campaignId] = new Set();
+      if (box.checked) state.publishPicks[campaignId].add(id);
+      else state.publishPicks[campaignId].delete(id);
+      if (state.campaign && String(state.campaign.id) === campaignId) {
+        renderPublishBatch($('#mcPublishBatch'), [state.production].filter(Boolean), state.campaign.id);
+      }
+      if (state.unfoldCampaign && String(state.unfoldCampaign.id) === campaignId) {
+        renderPublishBatch(
+          $('#mcUnfoldPublishBatch'),
+          state.unfoldCampaign.productions,
+          state.unfoldCampaign.id,
+        );
+      }
+    });
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-publish-batch]');
+      if (!button) return;
+      publishSelectedBatch(button).catch((error) => toast(error.message, 'error'));
+    });
     $('#mcRefreshHistory').addEventListener('click', loadHistory);
     $('#mcHistoryCampaign').addEventListener('change', loadHistory);
     $('#mcModelingLedger')?.addEventListener('click', (event) => {
@@ -3040,11 +3374,12 @@
     const tabAliases = {
       gerador: 'preparar',
       variacoes: 'produzir',
+      desdobramentos: 'desdobrar',
       biblioteca: 'formatos',
       clientes: 'marcas',
     };
     const requestedTab = tabAliases[location.hash.replace('#', '')] || location.hash.replace('#', '');
-    activateTab(['preparar', 'produzir', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
+    activateTab(['preparar', 'produzir', 'desdobrar', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
     loadBaseData();
   });
 })();

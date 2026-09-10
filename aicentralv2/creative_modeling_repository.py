@@ -6,6 +6,7 @@ from decimal import Decimal
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from psycopg.types.json import Json
 
+from .creative_format_geometry import SOCIAL_FORMAT_SLUGS
 from .creative_modeling_prompts import build_inherited_scene_prompt
 
 
@@ -18,11 +19,14 @@ class CreativeConflictError(ValueError):
 
 
 def scene_count_for_format(format_row):
-    behavior = format_row.get("behavior_spec") or {}
+    slug = str((format_row or {}).get("slug") or "")
+    if slug in SOCIAL_FORMAT_SLUGS:
+        return 1
+    behavior = (format_row or {}).get("behavior_spec") or {}
     return (
         1
         if behavior.get("type") == "static"
-        and format_row.get("mechanic") == "static_display"
+        and (format_row or {}).get("mechanic") == "static_display"
         else 4
     )
 
@@ -615,7 +619,7 @@ class CreativeModelingRepository:
             format_ids = [item["format_template_id"] for item in data["productions"]]
             cursor.execute(
                 """
-                SELECT id, mechanic, media_type, behavior_spec
+                SELECT id, slug, mechanic, media_type, behavior_spec
                   FROM cx_format_templates
                  WHERE id = ANY(%s) AND is_active = TRUE
                 """,
@@ -859,12 +863,13 @@ class CreativeModelingRepository:
                        c.objective, c.campaign_text, c.cta_text, c.show_price,
                        c.status, c.budget_usd, c.reserved_usd, c.spent_usd,
                        (c.budget_usd - c.reserved_usd - c.spent_usd) AS balance_usd,
-                       c.created_at,
+                       c.created_at, c.creative_brief,
+                       COALESCE(c.creative_brief->>'flow_kind', 'model') AS flow_kind,
                        COUNT(v.id)::integer AS variation_count
                   FROM cx_campaigns c
                   JOIN cx_clients cl ON cl.id = c.client_id
                   LEFT JOIN cx_campaign_variations v ON v.campaign_id = c.id
-                 GROUP BY c.id, cl.name
+                 GROUP BY c.id, cl.name, c.creative_brief
                  ORDER BY c.created_at DESC, c.id DESC
                  LIMIT %s
                 """,

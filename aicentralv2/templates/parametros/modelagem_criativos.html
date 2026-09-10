@@ -4,29 +4,29 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=51">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=52">
 {% endblock %}
 
 {% block content %}
 {% set mc_page = 'hub' %}
-{% set mc_lead = 'O material nasce de um modelo HTML. Extraia o criativo, prepare a campanha, produza o still e revise a peça montada.' %}
+{% set mc_lead = 'Marca, formatos e produção na mesma mesa. Abra a bancada que precisa.' %}
 <main class="mc-shell" id="mcApp" data-mc-page="hub">
   {% include "parametros/_mc_shell.html" %}
   <section class="cx-section" aria-labelledby="mcHubTitle">
     <div class="cx-section-header">
       <div>
-        <h2 id="mcHubTitle">Passo a passo do modelo HTML</h2>
-        <p>Marca e produção no Estúdio. O HTML fecha IAB, social e filme. Desdobrar fica para depois.</p>
+        <h2 id="mcHubTitle">Bancadas</h2>
+        <p>Não é fila. Cada tela faz um trabalho. Formatos continua no catálogo técnico.</p>
       </div>
     </div>
-    <div class="cx-section-body mc-hub-steps">
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_marcas') }}">1. Marcas</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_extrair') }}">2. Extrair template</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_preparar') }}">3. Preparar</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_produzir') }}">4. Produzir</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">5. Revisar</a>
-      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar KV</a>
-      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
+    <div class="cx-section-body mc-hub-desks">
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_marcas') }}">Marcas</a>
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_extrair') }}">Extrair</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">Revisar</a>
+      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
       <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a>
     </div>
   </section>

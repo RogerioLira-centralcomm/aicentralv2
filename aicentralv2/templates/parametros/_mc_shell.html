@@ -8,13 +8,14 @@
   <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_criativos') }}">Início</a>
   {% endif %}
 </header>
-{% if mc_page != 'hub' %}
-<nav class="mc-html-path" aria-label="Passos do modelo HTML">
-  <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}><span>1</span>Marcas</a>
-  <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}><span>2</span>Extrair</a>
-  <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}><span>3</span>Preparar</a>
-  <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}><span>4</span>Produzir</a>
-  <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}><span>5</span>Revisar</a>
+<nav class="mc-desk-nav" aria-label="Mesas da modelagem">
+  <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
+  <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} class="is-current" aria-current="page"{% endif %}>Formatos</a>
+  <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
+  <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
+  <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
+  <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
+  <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
+  <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
 </nav>
-{% endif %}
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

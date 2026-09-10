@@ -50,6 +50,11 @@ format.direction.layout: cada elemento senta no slot modelado (visual,
 headline, CTA, logo). Um banner horizontal não usa a grade de um story
 vertical. Não invente outra composição.
 Preserve a bíblia visual e o DNA da marca. Não recicle a composição anterior.
+A mensagem da campanha, a oferta do pack e o CTA são trava: não invente
+história, produto ou benefício paralelos. Proibido raios, partículas, redes
+neurais, glow de conexão e still com cara de IA.
+Se campaign_pack existir, ele é a oferta desta campanha: use extracted e as
+imagens do pack. Logo e cores só assinam. creative_line não recicla oferta.
 Retorne JSON puro com:
 {"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
 O prompt_en fica em inglês técnico. Toda copy visível em português do Brasil."""
@@ -77,9 +82,12 @@ format.direction.size_label. Retorne somente JSON puro:
 "scenes":[{"position":1,"role":"gancho","description":"..."}]}.
 Para quatro cenas, use os roles dos beats do formato. Para uma cena, use
 composição_final. Descreva toda copy visível em português do Brasil e preserve
-nomes próprios da marca. Se o perfil trouxer uma creative_line aprendida, use
-sua assinatura visual como bíblia de continuidade, sem copiar campanhas,
-ofertas ou claims anteriores."""
+nomes próprios da marca. Se campaign_pack existir, ele é o material principal
+desta campanha (criativos, link, headline, oferta, CTA). Identidade da marca
+(logo, cores, tom) só assina a peça. Se o perfil trouxer uma creative_line
+aprendida, use só a assinatura visual — nunca recicle oferta, composição ou
+copy de outra campanha. Proibido raios, partículas, redes neurais e still
+com cara de IA. Cada cena continua o mesmo anúncio neste retângulo."""
 
 IMAGE_REVIEW_SYSTEM = """Você é revisor de qualidade de publicidade digital.
 Analise a imagem contra o briefing informado. Não presuma falhas que não estejam

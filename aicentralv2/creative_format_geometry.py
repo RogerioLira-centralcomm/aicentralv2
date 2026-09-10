@@ -208,6 +208,27 @@ HYGIENE_INSTRUCTIONS = {
         "Preserve brand identity and CTA. Do not add chrome, icons or "
         "new copy."
     ),
+    "ai_look": (
+        "Remove glowing rays, particle streams, neural-network lines, "
+        "wifi magic, holographic grids and synthetic AI sheen. Keep a "
+        "photographic advertising still of the briefed product."
+    ),
+    "logo": (
+        "Place the existing brand logo in the modeled logo slot. Do not "
+        "invent a new mark or a second logo."
+    ),
+    "remove_cta": (
+        "Remove the CTA button and any endcard command. Do not replace "
+        "it with another command or invented slogan."
+    ),
+    "remove_lines": (
+        "Remove dangling leader lines, extra captions and decorative "
+        "rules. Keep at most the locked headline."
+    ),
+    "brand": (
+        "Restore brand colors, logo and photographic style from the "
+        "campaign pack and identity. Do not invent a new visual system."
+    ),
 }
 
 

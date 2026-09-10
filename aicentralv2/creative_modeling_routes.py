@@ -164,6 +164,18 @@ def api_enhance_campaign_brief():
 
 
 @admin_required_api
+def api_read_campaign_pack():
+    def execute():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = request.form.to_dict()
+        files = request.files.getlist("images") or request.files.getlist("image")
+        return _ok(_service().read_campaign_pack(payload, files))
+
+    return _execute(execute)
+
+
+@admin_required_api
 def api_delete_client(cid):
     def execute():
         service = _service()
@@ -265,7 +277,7 @@ def api_generate_scene(scene_id):
                 request.files.getlist("references"),
                 session.get("user_id"),
                 payload.get("render_mode"),
-                payload.get("fidelity"),
+                "draft",
                 payload.get("source_asset_id"),
             ),
             201,
@@ -526,6 +538,11 @@ def api_campaign_publish(cid):
 
 
 @admin_required_api
+def api_prepare_campaign_video(cid):
+    return _execute(lambda: _ok(_service().prepare_campaign_video(cid)))
+
+
+@admin_required_api
 def api_publish_scene_asset(scene_id, asset_id):
     payload = _json(optional=True) or {}
     return _execute(
@@ -752,6 +769,12 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/campaigns/read-pack",
+        endpoint="creative_read_campaign_pack",
+        view_func=api_read_campaign_pack,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/clients/<int:cid>",
         endpoint="creative_delete_client",
         view_func=api_delete_client,
@@ -855,6 +878,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/campaigns/<int:cid>/publish",
         endpoint="creative_campaign_publish",
         view_func=api_campaign_publish,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/<int:cid>/video/prepare",
+        endpoint="creative_prepare_campaign_video",
+        view_func=api_prepare_campaign_video,
         methods=["POST"],
     )
     blueprint.add_url_rule(

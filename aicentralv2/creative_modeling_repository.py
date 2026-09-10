@@ -681,6 +681,8 @@ class CreativeModelingRepository:
                 )
                 production_id = cursor.fetchone()["id"]
                 descriptions = requested.get("scene_descriptions") or []
+                scene_prompts = requested.get("scene_prompts") or []
+                approve_prompts = bool(requested.get("approve_prompts"))
                 visual_bible = (
                     (data.get("creative_brief") or {}).get("visual_bible")
                 )
@@ -691,11 +693,19 @@ class CreativeModelingRepository:
                         if position <= len(descriptions)
                         else data.get("campaign_text")
                     )
-                    inherited_prompt = build_inherited_scene_prompt(
+                    prepared = (
+                        scene_prompts[position - 1]
+                        if position <= len(scene_prompts)
+                        else ""
+                    )
+                    scene_prompt = prepared or build_inherited_scene_prompt(
                         visual_bible,
                         description,
                         data.get("cta_text"),
                         position,
+                    )
+                    prompt_status = (
+                        "approved" if approve_prompts and prepared else "draft"
                     )
                     cursor.execute(
                         """
@@ -703,14 +713,15 @@ class CreativeModelingRepository:
                             production_id, position, description, prompt,
                             prompt_status, status
                         )
-                        VALUES (%s, %s, %s, %s, 'draft', %s)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         RETURNING id
                         """,
                         (
                             production_id,
                             position,
                             description,
-                            inherited_prompt,
+                            scene_prompt,
+                            prompt_status,
                             "ready" if position == 1 else "blocked",
                         ),
                     )

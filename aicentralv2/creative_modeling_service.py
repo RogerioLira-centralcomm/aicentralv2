@@ -10,6 +10,8 @@ import secrets
 
 from .creative_brand_analysis import (
     CreativeBrandAnalyzer,
+    _compact_web_evidence,
+    _normalized_public_url,
     format_copy_system_lines,
 )
 from .creative_modeling_generation import (
@@ -47,6 +49,8 @@ from .creative_image_fidelity import (
     resolve_image_tier,
 )
 from .creative_modeling_prompts import (
+    ANTI_AI_LOOK,
+    BRIEF_LOCK_RULES,
     apply_render_mode_to_prompt,
     compose_format_mockup_prompt,
     normalize_locks,
@@ -116,6 +120,78 @@ def _brief_locks(record):
     if not isinstance(brief, dict):
         brief = {}
     return normalize_locks(brief.get("locks") or record.get("locks"))
+
+
+def _campaign_pack(value):
+    value = value if isinstance(value, dict) else {}
+    extracted = value.get("extracted") if isinstance(value.get("extracted"), dict) else {}
+    sources = []
+    for item in (value.get("sources") or [])[:4]:
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("kind") if item.get("kind") in {"image", "url"} else None
+        if not kind:
+            continue
+        sources.append({
+            "kind": kind,
+            "name": _text(item.get("name"), "Fonte", max_length=200),
+            "asset_url": _text(item.get("asset_url"), "Arquivo", max_length=2000),
+            "page_url": _text(item.get("page_url"), "URL", max_length=2000),
+        })
+    offer = _text(
+        extracted.get("offer") or extracted.get("notes"),
+        "Oferta",
+        max_length=4000,
+    )
+    pack = {
+        "sources": sources,
+        "extracted": {
+            "headline": _text(extracted.get("headline"), "Headline", max_length=500),
+            "subhead": _text(extracted.get("subhead"), "Subhead", max_length=800),
+            "cta": _text(extracted.get("cta"), "CTA", max_length=200),
+            "offer": offer,
+            "other_lines": _text_list(
+                extracted.get("other_lines") or [], "Linhas", max_items=8
+            ),
+        },
+        "locks": normalize_locks(value.get("locks") or extracted),
+    }
+    return pack
+
+
+def _pack_has_signal(pack):
+    pack = pack if isinstance(pack, dict) else {}
+    extracted = pack.get("extracted") if isinstance(pack.get("extracted"), dict) else {}
+    if any(extracted.get(key) for key in ("headline", "subhead", "cta", "offer")):
+        return True
+    if extracted.get("other_lines"):
+        return True
+    return bool(pack.get("sources"))
+
+
+def _pack_message(pack):
+    extracted = (pack or {}).get("extracted") or {}
+    return (
+        extracted.get("offer")
+        or extracted.get("headline")
+        or extracted.get("subhead")
+        or (extracted.get("other_lines") or [None])[0]
+    )
+
+
+def _pack_image_urls(record):
+    brief = record.get("creative_brief") if isinstance(record, dict) else {}
+    if not isinstance(brief, dict):
+        brief = {}
+    pack = brief.get("campaign_pack") if isinstance(brief.get("campaign_pack"), dict) else {}
+    urls = []
+    for item in pack.get("sources") or []:
+        if not isinstance(item, dict) or item.get("kind") != "image":
+            continue
+        url = item.get("asset_url")
+        if url:
+            urls.append(url)
+    return urls[:2]
 
 
 def _integer(value, field):
@@ -489,7 +565,11 @@ class CreativeModelingService:
         ):
             return []
         used = []
-        assets = self.repository.list_client_brand_assets(client_id)
+        assets = list(self.repository.list_client_brand_assets(client_id) or [])
+        has_campaign_refs = bool(data_urls)
+        logos = [asset for asset in assets if asset.get("role") == "logo"]
+        others = [asset for asset in assets if asset.get("role") != "logo"]
+        assets = logos + ([] if has_campaign_refs else others)
         for asset in assets:
             if len(data_urls) >= 2:
                 break
@@ -890,6 +970,16 @@ class CreativeModelingService:
         scene_count = _integer(payload.get("scene_count", 4), "Quantidade de cenas")
         if scene_count not in (1, 4):
             raise ValueError("A quantidade de cenas deve ser 1 ou 4.")
+        pack = _campaign_pack(payload.get("campaign_pack"))
+        message = _text(
+            payload.get("campaign_text"),
+            "Mensagem principal",
+            max_length=12000,
+        ) or _pack_message(pack)
+        if not message:
+            raise ValueError(
+                "Informe a mensagem ou envie um criativo/link da campanha."
+            )
         context = {
             "client": {
                 "name": _text(
@@ -904,13 +994,15 @@ class CreativeModelingService:
                     payload.get("name"), "Campanha", required=True, max_length=200
                 ),
                 "objective": _text(payload.get("objective"), "Objetivo", max_length=120),
-                "message": _text(
-                    payload.get("campaign_text"),
-                    "Mensagem principal",
-                    required=True,
-                    max_length=12000,
-                ),
-                "cta": _text(payload.get("cta_text"), "CTA", max_length=1000),
+                "message": message,
+                "cta": _text(payload.get("cta_text"), "CTA", max_length=1000)
+                or (pack.get("extracted") or {}).get("cta"),
+            },
+            "campaign_pack": pack,
+            "reference_weight": {
+                "campaign_pack": "primary",
+                "client_identity": "brand_signature",
+                "creative_line": "background_signature_only",
             },
             "format": {
                 "name": _text(payload.get("format_name"), "Formato", max_length=200),
@@ -1063,6 +1155,23 @@ class CreativeModelingService:
                 raise ValueError(
                     f"O formato exige exatamente {expected_scene_count} cena(s)."
                 )
+            storyboard = [
+                {"position": position, "description": description}
+                for position, description in enumerate(descriptions, start=1)
+            ]
+            pack = _campaign_pack(payload.get("campaign_pack"))
+            is_model = payload.get("flow_kind") != "unfold"
+            scene_prompts = [
+                self._approved_scene_prompt(
+                    payload,
+                    format_data,
+                    description,
+                    position,
+                    storyboard,
+                    pack,
+                )
+                for position, description in enumerate(descriptions, start=1)
+            ] if is_model else []
             productions.append(
                 {
                     "format_template_id": format_id,
@@ -1076,6 +1185,8 @@ class CreativeModelingService:
                             descriptions, start=1
                         )
                     ],
+                    "scene_prompts": scene_prompts,
+                    "approve_prompts": is_model,
                 }
             )
 
@@ -1111,6 +1222,7 @@ class CreativeModelingService:
                 "visual_bible": _text(
                     payload.get("visual_bible"), "Bíblia visual", max_length=6000
                 ),
+                "campaign_pack": _campaign_pack(payload.get("campaign_pack")),
                 "scenes": [
                     {
                         "position": index,
@@ -1133,6 +1245,37 @@ class CreativeModelingService:
                 ],
             }
         )
+
+    def _approved_scene_prompt(
+        self, payload, format_data, description, position, storyboard, pack
+    ):
+        format_data = format_data if isinstance(format_data, dict) else {}
+        payload = payload if isinstance(payload, dict) else {}
+        return self.build_scene_prompt({
+            "position": position,
+            "scene_count": len(storyboard) or 1,
+            "description": description,
+            "campaign_text": payload.get("campaign_text"),
+            "campaign_name": payload.get("name"),
+            "objective": payload.get("objective"),
+            "cta_text": payload.get("cta_text"),
+            "show_price": payload.get("show_price"),
+            "creative_brief": {
+                "visual_bible": payload.get("visual_bible"),
+                "campaign_pack": pack,
+                "scenes": storyboard,
+            },
+            "storyboard": storyboard,
+            "format_name": format_data.get("name_pt") or format_data.get("name"),
+            "format_slug": format_data.get("slug"),
+            "mechanic": format_data.get("mechanic"),
+            "aspect_ratio": format_data.get("aspect_ratio"),
+            "default_size": format_data.get("default_size"),
+            "behavior_spec": format_data.get("behavior_spec") or {},
+            "layers": format_data.get("layers") or [],
+            "forbidden_elements": format_data.get("forbidden_elements") or [],
+            "safe_area": format_data.get("safe_area") or {},
+        })
 
     def production_detail(self, production_id):
         return _serialize(
@@ -1215,11 +1358,32 @@ class CreativeModelingService:
             lines.append(f"This format has: {', '.join(present)}.")
         if missing:
             lines.append(f"This format does not have: {', '.join(missing)}.")
+        message = context.get("campaign_text") or context.get("description") or ""
+        if message:
+            lines.append(f"Brief lock — campaign message (literal): {message}.")
+        lines.append(BRIEF_LOCK_RULES)
+        lines.append(ANTI_AI_LOOK)
         if creative_brief.get("visual_bible"):
             lines.append(
                 "Shared visual bible for every scene: "
                 f"{creative_brief['visual_bible']}."
             )
+        pack = _campaign_pack(creative_brief.get("campaign_pack"))
+        extracted = pack.get("extracted") or {}
+        if _pack_has_signal(pack):
+            lines.append(
+                "Campaign pack is the primary offer source. "
+                "Use its extracted copy and images. Brand identity only signs "
+                "the piece. Do not recycle creative_line offers or old campaigns."
+            )
+            if extracted.get("headline"):
+                lines.append(f"Pack headline (literal): {extracted['headline']}.")
+            if extracted.get("subhead"):
+                lines.append(f"Pack subhead (literal): {extracted['subhead']}.")
+            if extracted.get("cta"):
+                lines.append(f"Pack CTA (literal): {extracted['cta']}.")
+            if extracted.get("offer"):
+                lines.append(f"Pack offer: {extracted['offer']}.")
         storyboard = context.get("storyboard") or creative_brief.get("scenes") or []
         if storyboard:
             lines.append(
@@ -1308,6 +1472,9 @@ class CreativeModelingService:
             "flow_kind": flow_kind,
             "locks": locks,
             "kv_notes": ((context.get("creative_brief") or {}).get("kv_notes") or {}),
+            "campaign_pack": _campaign_pack(
+                (context.get("creative_brief") or {}).get("campaign_pack")
+            ),
             "inherit_from_master": False,
             "master_prompt": None,
             "sequence_bible": (
@@ -1381,6 +1548,7 @@ class CreativeModelingService:
                 "image must be Brazilian Portuguese. Preserve supplied brand/product "
                 "names, use the CTA literally, never invent English slogans, and omit "
                 "text that cannot be rendered accurately."
+                f"\n\n{BRIEF_LOCK_RULES}\n\n{ANTI_AI_LOOK}"
             )
             if "VISIBLE COPY REQUIREMENT" not in prompt:
                 prompt += language_guard
@@ -1543,6 +1711,13 @@ class CreativeModelingService:
                 and len(data_urls) < 2
             ):
                 data_urls.insert(0, kv_data)
+            if not draft_data and int(context.get("position") or 1) == 1:
+                for pack_url in _pack_image_urls(context):
+                    if len(data_urls) >= 2:
+                        break
+                    pack_data = self._kv_data_url(pack_url)
+                    if pack_data and pack_data not in data_urls:
+                        data_urls.append(pack_data)
             previous_asset_url = context.get("previous_approved_asset_url")
             if previous_asset_url and len(data_urls) < 2:
                 data_urls.append(
@@ -1957,6 +2132,95 @@ class CreativeModelingService:
         except Exception:
             return None
 
+    def read_campaign_pack(self, payload, files=None):
+        payload = payload if isinstance(payload, dict) else {}
+        files = list(files or [])[:4]
+        page_url = _text(
+            payload.get("page_url") or payload.get("url"),
+            "URL da campanha",
+            max_length=2000,
+        )
+        if not files and not page_url:
+            raise ValueError("Envie um criativo desta campanha ou informe o link.")
+        sources = []
+        extracted = {
+            "headline": "",
+            "subhead": "",
+            "cta": "",
+            "offer": "",
+            "other_lines": [],
+        }
+        locks = normalize_locks({})
+        for uploaded in files:
+            saved = self.storage.save_reference(uploaded)
+            sources.append({
+                "kind": "image",
+                "name": saved.get("original_name") or "criativo",
+                "asset_url": saved.get("asset_path"),
+            })
+            try:
+                data_url = self.storage.reference_as_data_url(
+                    saved["asset_path"], saved.get("mime_type") or "image/png"
+                )
+                result = self.generator.extract_kv_locks({}, data_url)
+                incoming = normalize_locks(result.get("result"))
+                if not extracted["headline"] and incoming.get("headline"):
+                    extracted["headline"] = incoming.get("headline") or ""
+                if not extracted["subhead"] and incoming.get("subhead"):
+                    extracted["subhead"] = incoming.get("subhead") or ""
+                if not extracted["cta"] and incoming.get("cta"):
+                    extracted["cta"] = incoming.get("cta") or ""
+                for line in incoming.get("other_lines") or []:
+                    if line and line not in extracted["other_lines"]:
+                        extracted["other_lines"].append(line)
+                if incoming:
+                    locks = incoming
+            except Exception:
+                pass
+        if page_url:
+            normalized = _normalized_public_url(page_url)
+            sources.append({
+                "kind": "url",
+                "name": normalized,
+                "page_url": normalized,
+            })
+            try:
+                evidence, _record = _compact_web_evidence(normalized)
+                bits = [
+                    evidence.get("title"),
+                    evidence.get("description"),
+                ]
+                pages = evidence.get("pages") or []
+                if pages and isinstance(pages[0], dict):
+                    bits.append(pages[0].get("content"))
+                notes = " ".join(
+                    str(bit).strip() for bit in bits if bit and str(bit).strip()
+                )
+                if notes and not extracted["offer"]:
+                    extracted["offer"] = notes[:4000]
+            except Exception:
+                if not extracted["offer"]:
+                    extracted["offer"] = normalized
+        pack = _campaign_pack({
+            "sources": sources,
+            "extracted": extracted,
+            "locks": locks,
+        })
+        preview_url = next(
+            (
+                item.get("asset_url")
+                for item in pack.get("sources") or []
+                if item.get("kind") == "image" and item.get("asset_url")
+            ),
+            None,
+        )
+        return {
+            "campaign_pack": pack,
+            "extracted": pack.get("extracted") or {},
+            "locks": pack.get("locks") or {},
+            "preview_url": preview_url,
+        }
+
     def read_kv(self, payload, files=None):
         payload = payload if isinstance(payload, dict) else {}
         files = list(files or [])
@@ -2149,6 +2413,10 @@ class CreativeModelingService:
                 ]
                 if wanted is not None:
                     assets = [item for item in assets if item.get("id") in wanted]
+                if _flow_kind(campaign) != "unfold":
+                    assets = [
+                        item for item in assets if item.get("status") == "approved"
+                    ]
                 if not assets:
                     continue
                 publish = next(
@@ -2183,6 +2451,7 @@ class CreativeModelingService:
         quote = quote_image_publish(len(pieces), PUBLISH)
         quote["pieces"] = pieces
         quote["campaign_id"] = campaign.get("id")
+        quote["flow_kind"] = _flow_kind(campaign)
         return _serialize(quote)
 
     def publish_scene_asset(self, scene_id, asset_id, created_by=None, render_mode=None):
@@ -2199,7 +2468,11 @@ class CreativeModelingService:
         payload = payload if isinstance(payload, dict) else {}
         quote = self.quote_campaign_publish(campaign_id, payload.get("asset_ids"))
         if not quote["pieces"]:
-            raise ValueError("Não há rascunhos selecionados para publicar.")
+            raise ValueError(
+                "Não há rascunhos para gerar em alta."
+                if quote.get("flow_kind") == "unfold"
+                else "Não há cenas aprovadas em mockup para gerar em alta."
+            )
         pieces = []
         for item in quote["pieces"]:
             pieces.append({
@@ -2212,6 +2485,43 @@ class CreativeModelingService:
         detail["quote"] = quote
         detail["pieces"] = pieces
         return detail
+
+    def prepare_campaign_video(self, campaign_id):
+        campaign = self.campaign_detail(_integer(campaign_id, "Campanha"))
+        approved = []
+        missing_high = []
+        for production in campaign.get("productions") or []:
+            for scene in production.get("scenes") or []:
+                assets = [
+                    item for item in (scene.get("assets") or [])
+                    if item.get("asset_type") != "video"
+                    and item.get("status") == "approved"
+                ]
+                if not assets:
+                    continue
+                high = next(
+                    (
+                        item for item in reversed(assets)
+                        if (item.get("metadata") or {}).get("fidelity") == PUBLISH
+                    ),
+                    None,
+                )
+                approved.append({"scene_id": scene["id"], "asset_id": (high or assets[-1])["id"]})
+                if not high:
+                    missing_high.append(scene["id"])
+        if not approved:
+            raise ValueError("Aprove as cenas em mockup antes de montar o vídeo.")
+        if missing_high:
+            raise ValueError(
+                "Gere a alta resolução das cenas aprovadas antes de montar o vídeo."
+            )
+        return _serialize({
+            "status": "mocked",
+            "ready": False,
+            "message": "Pipeline de vídeo ainda não está pronto.",
+            "campaign_id": campaign.get("id"),
+            "scenes": approved,
+        })
 
     def create_variation(self, campaign_id, payload):
         payload = payload if isinstance(payload, dict) else {}
@@ -2827,7 +3137,15 @@ class CreativeModelingService:
         text = _text(instruction, "Instrução de ajuste", max_length=400) or ""
         if intent in {"ab_simple", "simple", "ab_max", "max", "maximum"}:
             return unfold_ab_instruction(intent, locks)
-        if intent in {"chrome", "geometry"}:
+        if intent in {
+            "chrome",
+            "geometry",
+            "ai_look",
+            "logo",
+            "remove_cta",
+            "remove_lines",
+            "brand",
+        }:
             fixed = hygiene_instruction(intent, family)
             return f"{fixed} {text}".strip() if text else fixed
         if not text:

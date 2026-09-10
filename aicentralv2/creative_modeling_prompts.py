@@ -2,6 +2,16 @@
 
 from .creative_brand_analysis import format_copy_system_lines
 
+ANTI_AI_LOOK = """FORBID AI LOOK
+No glowing rays, particle streams, neural-network lines, wifi magic,
+lens flares, holographic grids or stock “family on a sofa with light trails”.
+No synthetic skin sheen or invented sci-fi UI. Photographic advertising only."""
+
+BRIEF_LOCK_RULES = """BRIEF LOCK
+The campaign message, pack headline, offer and CTA are the only claims.
+Do not invent a parallel story, product or benefit. Later scenes continue
+this same ad; they are not variations of scene 1 and not a new composition."""
+
 NATIVE_RENDER_RULES = """NATIVE ADVERTISING STILL
 Render a photographic still of the campaign subject only.
 Do not draw a portal, television, smartphone, tablet, browser chrome,
@@ -10,7 +20,8 @@ Leave a clean photographic field. Copy and CTA are composed later.
 Do not invent extra chrome or a second advertising frame.
 Social unfold pieces are the exception: when the format family is square_1x1,
 story_9x16 or landscape_social, paint the complete locked advertisement
-including verbatim headline, CTA and logo."""
+including verbatim headline, CTA and logo.
+""" + ANTI_AI_LOOK
 
 
 UNFOLD_LOCK_SYSTEM = """Você extrai travas literais de um KV e das notas da campanha.
@@ -276,6 +287,8 @@ def native_scene_prompt_suffix(geometry, copy=None, flow_kind=None, locks=None):
         lines.append(f"Headline will be composed later: {copy['headline']}.")
     if copy.get("cta"):
         lines.append(f"CTA will be composed later: {copy['cta']}.")
+    lines.append(BRIEF_LOCK_RULES)
+    lines.append(ANTI_AI_LOOK)
     return "\n".join(lines)
 
 
@@ -470,6 +483,8 @@ def build_inherited_scene_prompt(visual_bible, description, cta_text, position):
         lines.append(f"Scene direction: {description}")
     if cta_text:
         lines.append(f"CTA: {cta_text}")
+    lines.append(BRIEF_LOCK_RULES)
+    lines.append(ANTI_AI_LOOK)
     lines.append(
         "Preserve this visual system across the sequence. Later scenes adapt "
         "only the storyboard delta; do not restart the campaign."

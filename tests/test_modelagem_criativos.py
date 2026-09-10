@@ -25,6 +25,8 @@ from aicentralv2.creative_format_geometry import (
     should_compose,
 )
 from aicentralv2.creative_modeling_generation import (
+    BRIEF_SYSTEM,
+    SCENE_BEAT_SYSTEM,
     TEXT_TEMPERATURES,
     CreativeGenerationClient,
     build_higgsfield_payload,
@@ -780,6 +782,27 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(urls), 1)
         self.assertEqual(used[0]["id"], 31)
 
+    def test_logo_completa_vaga_quando_ja_ha_ref_da_campanha(self):
+        self.repo.list_client_brand_assets = lambda _client_id: [
+            {
+                "id": 41,
+                "role": "creative",
+                "asset_path": "/static/uploads/creative_references/antiga.png",
+                "mime_type": "image/png",
+            },
+            {
+                "id": 42,
+                "role": "logo",
+                "asset_path": "/static/uploads/creative_references/logo.png",
+                "mime_type": "image/png",
+            },
+        ]
+        urls = ["data:image/png;base64,pack"]
+        used = self.service._append_brand_references(10, urls, job_id=4)
+
+        self.assertEqual(len(urls), 2)
+        self.assertEqual([item["id"] for item in used], [42])
+
     def test_aprendizado_da_linha_criativa_persiste_no_perfil(self):
         self.repo.list_client_brand_assets = lambda _client_id: [{
             "id": 41,
@@ -1417,6 +1440,43 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("português", result["campaign_text"])
         self.assertTrue(result["visual_bible"])
 
+    def test_aprimora_briefing_com_pack_sem_mensagem(self):
+        captured = {}
+
+        class CapturingGenerator(FakeGenerator):
+            def generate_campaign_brief(self, context):
+                captured["context"] = context
+                return super().generate_campaign_brief(context)
+
+        service = CreativeModelingService(
+            repository=self.repo,
+            generator=CapturingGenerator(),
+            storage=FakeStorage(),
+        )
+        result = service.enhance_campaign_brief({
+            "client_name": "Marca Exemplo",
+            "name": "Lançamento",
+            "scene_count": 1,
+            "campaign_pack": {
+                "extracted": {
+                    "headline": "Coleção Outono",
+                    "offer": "Linho e luz para a temporada",
+                    "cta": "Conheça",
+                }
+            },
+        })
+        self.assertEqual(len(result["scenes"]), 1)
+        self.assertEqual(
+            captured["context"]["campaign"]["message"],
+            "Linho e luz para a temporada",
+        )
+        self.assertEqual(
+            captured["context"]["reference_weight"]["campaign_pack"],
+            "primary",
+        )
+        self.assertIn("campaign_pack existir", BRIEF_SYSTEM)
+        self.assertIn("campaign_pack existir", SCENE_BEAT_SYSTEM)
+
     def test_fallback_de_cenas_nao_repete_a_mesma_descricao(self):
         scenes = self.service.fallback_scene_descriptions("Produto sustentável", 4)
         self.assertEqual(len(scenes), 4)
@@ -1441,6 +1501,20 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("Full storyboard", prompt)
         self.assertIn("Shared visual bible", prompt)
         self.assertIn("one beat of the same ad", prompt)
+        self.assertIn("BRIEF LOCK", prompt)
+        self.assertIn("FORBID AI LOOK", prompt)
+        pack_prompt = self.service.build_scene_prompt({
+            "position": 1,
+            "scene_count": 1,
+            "description": "Peça",
+            "creative_brief": {
+                "campaign_pack": {
+                    "extracted": {"headline": "Coleção Outono", "cta": "Conheça"},
+                }
+            },
+        })
+        self.assertIn("Campaign pack is the primary offer source", pack_prompt)
+        self.assertIn("Pack headline (literal): Coleção Outono", pack_prompt)
         self.assertIn("não variação", prompt)
 
     def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self):
@@ -1501,6 +1575,80 @@ class CreativeServiceTest(unittest.TestCase):
             "refine_intent",
             repository.create_generation_job.call_args.kwargs["request_payload"],
         )
+
+    def test_cena_1_usa_pack_antes_da_linha_criativa(self):
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 51,
+            "production_id": 50,
+            "campaign_id": 30,
+            "client_id": 10,
+            "format_template_id": 7,
+            "position": 1,
+            "description": "Composição final",
+            "campaign_name": "Campanha",
+            "prompt": "Prompt aprovado em português.",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "16:9",
+            "creative_brief": {
+                "visual_bible": "Luz natural",
+                "campaign_pack": {
+                    "sources": [{
+                        "kind": "image",
+                        "asset_url": "/static/uploads/creative_references/pack.png",
+                    }],
+                    "extracted": {"headline": "Coleção Outono"},
+                },
+            },
+        }
+        repository.list_client_brand_assets.return_value = [{
+            "id": 41,
+            "role": "creative",
+            "asset_path": "/static/uploads/creative_references/antiga.png",
+            "mime_type": "image/png",
+        }]
+        repository.create_generation_job.return_value = 90
+        repository.add_generated_asset.return_value = {
+            "id": 99,
+            "asset_url": "/generated.png",
+            "status": "review",
+        }
+        generator = Mock()
+        generator.generate_image.return_value = {
+            "b64_json": base64.b64encode(b"image").decode(),
+            "model": "openai/gpt-image-2",
+            "usage": {},
+            "actual_cost_usd": 0.13,
+            "output_format": "png",
+        }
+        generator.review_image.return_value = {
+            "result": {"approved_recommendation": True, "score": 90, "warnings": [], "checks": {}},
+            "actual_cost_usd": 0.002,
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=generator,
+            storage=FakeStorage(),
+        )
+        service.generate_scene(51, [], created_by=3)
+        references = generator.generate_image.call_args.args[1]
+        self.assertEqual(len(references), 1)
+        self.assertTrue(references[0].startswith("data:image/"))
+
+    def test_le_pack_da_campanha_a_partir_da_imagem(self):
+        service = CreativeModelingService(
+            repository=FakeRepository(),
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        result = service.read_campaign_pack(
+            {},
+            [FileStorage(stream=BytesIO(b"kv"), filename="kv.png", content_type="image/png")],
+        )
+        self.assertEqual(result["extracted"]["headline"], "Coleção Outono")
+        self.assertEqual(result["campaign_pack"]["sources"][0]["kind"], "image")
+        self.assertTrue(result["preview_url"])
 
     def test_campanha_crm_cria_primeiro_step_no_mesmo_comando(self):
         result = self.service.create_campaign({
@@ -1575,6 +1723,48 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(result["productions"][0]["scenes"]), 4)
         self.assertIn("visual_bible", saved["creative_brief"])
         self.assertEqual(len(saved["creative_brief"]["scenes"]), 4)
+        self.assertTrue(saved["productions"][0]["approve_prompts"])
+        self.assertEqual(len(saved["productions"][0]["scene_prompts"]), 4)
+        self.assertIn("BRIEF LOCK", saved["productions"][0]["scene_prompts"][0])
+        self.assertIn("FORBID AI LOOK", saved["productions"][0]["scene_prompts"][0])
+
+    def test_plano_persiste_campaign_pack(self):
+        repository = Mock()
+        repository.get_format.return_value = {
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+        }
+        repository.create_campaign_with_productions.return_value = {
+            "id": 31,
+            "productions": [{"id": 51}],
+        }
+        repository.get_campaign.return_value = {"id": 31, "name": "Pack"}
+        repository.get_production.return_value = {
+            "id": 51,
+            "scene_count": 1,
+            "scenes": [{"id": 1}],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service.create_production_plan({
+            "name": "Pack",
+            "productions": [{"format_template_id": 7, "scene_descriptions": ["Peça"]}],
+            "campaign_pack": {
+                "sources": [{
+                    "kind": "image",
+                    "name": "kv.png",
+                    "asset_url": "/static/uploads/creative_references/kv.png",
+                }],
+                "extracted": {"headline": "Coleção Outono", "cta": "Conheça"},
+            },
+        })
+        saved = repository.create_campaign_with_productions.call_args.args[0]
+        pack = saved["creative_brief"]["campaign_pack"]
+        self.assertEqual(pack["extracted"]["headline"], "Coleção Outono")
+        self.assertEqual(pack["sources"][0]["kind"], "image")
 
     def test_campanha_sem_cliente_usa_centralcomm(self):
         repository = Mock()
@@ -2257,6 +2447,29 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(payload["cta"], "Conheça a coleção")
         self.assertEqual(payload["name"], "Coleção Outono")
 
+    def test_api_le_pack_da_campanha(self):
+        service = CreativeModelingService(
+            repository=FakeRepository(),
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/campaigns/read-pack",
+                data={"images": (BytesIO(b"kv"), "kv.png")},
+                content_type="multipart/form-data",
+            )
+        payload = response.get_json()["data"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["extracted"]["headline"], "Coleção Outono")
+        self.assertEqual(payload["campaign_pack"]["sources"][0]["kind"], "image")
+
     def test_api_lotes_publicaveis_e_tiers(self):
         service = Mock()
         service.list_image_tiers.return_value = [
@@ -2267,6 +2480,11 @@ class CreativeRoutesTest(unittest.TestCase):
             "count": 2, "total_brl": 2.28, "pieces": [],
         }
         service.publish_campaign.return_value = {"id": 40, "pieces": []}
+        service.prepare_campaign_video.return_value = {
+            "status": "mocked",
+            "ready": False,
+            "message": "Pipeline de vídeo ainda não está pronto.",
+        }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
             session["user_type"] = "admin"
@@ -2280,10 +2498,13 @@ class CreativeRoutesTest(unittest.TestCase):
                 "/parametros/api/campaigns/40/publish",
                 json={"asset_ids": [90, 91]},
             )
+            video = self.client.post("/parametros/api/campaigns/40/video/prepare")
         self.assertEqual(tiers.status_code, 200)
         self.assertEqual(quote.status_code, 200)
         self.assertEqual(published.status_code, 200)
+        self.assertEqual(video.status_code, 200)
         service.publish_campaign.assert_called()
+        service.prepare_campaign_video.assert_called_once_with(40)
 
     def test_api_analisa_site_e_imagem(self):
         service = Mock()
@@ -2363,8 +2584,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=29", page)
-        self.assertIn("modelagem_criativos.js') }}?v=29", page)
+        self.assertIn("modelagem_criativos.css') }}?v=32", page)
+        self.assertIn("modelagem_criativos.js') }}?v=32", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2374,6 +2595,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('form="mcCampaignForm"', generator)
         self.assertIn('name="client_ref"', generator)
         self.assertIn('id="mcEnhanceBrief"', generator)
+        self.assertIn("Gerar roteiro", generator)
+        self.assertIn('id="mcCampaignPackDrop"', generator)
+        self.assertIn('id="mcCampaignPackUrl"', generator)
         self.assertIn('id="mcStoryboardEditor"', generator)
         self.assertIn("Iniciar produção", generator)
         self.assertNotIn("Variação A", generator)
@@ -2442,6 +2666,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         historico = (template_dir / "_mc_historico.html").read_text(encoding="utf-8")
         self.assertIn('id="mcHistorySpend"', historico)
         self.assertIn('id="mcModelingLedger"', historico)
+        self.assertIn('id="mcHistoryFinish"', historico)
         self.assertIn("Todas as modelagens", historico)
         unfold = (template_dir / "_mc_desdobrar.html").read_text(encoding="utf-8")
         self.assertIn('id="mcUnfoldForm"', unfold)
@@ -2716,11 +2941,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function renderProduction", frontend)
         self.assertIn("function renderContinuitySpine", frontend)
         self.assertIn("Gerar roteiro desta cena", frontend)
+        self.assertIn("Confirmar e gerar", frontend)
+        self.assertIn("Gerar outra", frontend)
+        self.assertIn("reject-asset", frontend)
+        self.assertIn("Tirar cara de IA", frontend)
+        self.assertIn("Colocar logo", frontend)
         self.assertIn("function formatDirection", frontend)
         self.assertIn("function renderFormatSlotMap", frontend)
         self.assertIn("mc-slot-map", frontend)
         self.assertIn("mc-scene-px", frontend)
-        self.assertIn("Ajustar esta imagem", frontend)
+        self.assertIn("Direção visual", frontend)
         self.assertIn("mc-refine-bar", frontend)
         self.assertIn("/assets/${assetId}/refine", frontend)
         self.assertNotIn("Roteiro herdado", frontend)
@@ -2737,6 +2967,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-campaign-cost", frontend)
         self.assertIn("unfoldings: '/parametros/api/unfoldings'", frontend)
         self.assertIn("readKv: '/parametros/api/unfoldings/read-kv'", frontend)
+        self.assertIn("readPack: '/parametros/api/campaigns/read-pack'", frontend)
+        self.assertIn("function setupSceneReferenceDrop", frontend)
+        self.assertIn("function acceptSceneReferences", frontend)
+        self.assertIn("sceneRefFiles", frontend)
+        self.assertIn("function acceptCampaignPackFiles", frontend)
         self.assertIn("function readUnfoldKv", frontend)
         self.assertIn("function syncUnfoldReview", frontend)
         self.assertIn("Lendo o KV", frontend)
@@ -2755,17 +2990,26 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function openPublishModal", frontend)
         self.assertIn("Gerar publicáveis", frontend)
         self.assertIn("Os rascunhos saem em low/1K", frontend)
+        self.assertIn("produce.hidden = true", frontend)
+        self.assertIn("Gerar alta resolução", frontend)
+        self.assertIn("video/prepare", frontend)
+        self.assertIn("collectDraftPieces(productions, true)", frontend)
+        self.assertIn("Pipeline de vídeo ainda não está pronto.", frontend)
         review_js = frontend[frontend.index("function renderSceneReview"):frontend.index("function renderProductionViewer")]
+        self.assertLess(
+            review_js.index("mc-scene-direction"),
+            review_js.index('data-scene-action="generate-prompt"'),
+        )
         self.assertLess(
             review_js.index('data-scene-action="generate-prompt"'),
             review_js.index('data-scene-action="approve-prompt"'),
         )
-        self.assertLess(
-            review_js.index('data-scene-action="approve-prompt"'),
-            review_js.index("mc-scene-direction"),
-        )
         self.assertIn("Aprovar direção", review_js)
-        self.assertIn("Gerar rascunho", frontend)
+        self.assertIn("mc-scene-dropzone", review_js)
+        self.assertIn("Confirmar e gerar", review_js)
+        self.assertIn("Gerar outra", review_js)
+        self.assertIn("canIterateMockup", review_js)
+        self.assertIn("Direção visual", review_js)
         self.assertIn("fidelity', 'draft'", frontend)
         self.assertNotIn("Confirmar consumo de saldo", frontend)
         self.assertIn("mc-scene-thumb", frontend)
@@ -3345,6 +3589,61 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertEqual(quoted["count"], 1)
         self.assertEqual(quoted["pieces"][0]["asset_id"], 90)
         reset_rate_cache()
+
+    def test_modelagem_alta_so_cenas_aprovadas_e_video_mockado(self):
+        repository = Mock()
+        approved = {
+            "id": 90,
+            "asset_type": "image",
+            "status": "approved",
+            "metadata": {"fidelity": "draft"},
+        }
+        pending = {
+            "id": 91,
+            "asset_type": "image",
+            "status": "draft",
+            "metadata": {"fidelity": "draft"},
+        }
+        high = {
+            "id": 92,
+            "asset_type": "image",
+            "status": "approved",
+            "metadata": {"fidelity": "publish"},
+        }
+        repository.get_campaign.return_value = {
+            "id": 40,
+            "name": "Outono",
+            "spent_usd": 0,
+            "client": {"name": "Marca"},
+            "creative_brief": {"flow_kind": "model"},
+            "productions": [{
+                "id": 80,
+                "format_template_id": 7,
+                "scenes": [{"id": 81, "assets": [approved, pending]}],
+            }],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        quoted = service.quote_campaign_publish(40)
+        self.assertEqual(quoted["count"], 1)
+        self.assertEqual(quoted["pieces"][0]["asset_id"], 90)
+        self.assertEqual(service.quote_campaign_publish(40, [91])["count"], 0)
+        with self.assertRaises(ValueError) as error:
+            service.publish_campaign(40, {"asset_ids": [91]})
+        self.assertIn("aprovadas", str(error.exception))
+        with self.assertRaises(ValueError) as error:
+            service.prepare_campaign_video(40)
+        self.assertIn("alta resolução", str(error.exception))
+        repository.get_campaign.return_value["productions"][0]["scenes"][0]["assets"] = [
+            approved, high,
+        ]
+        video = service.prepare_campaign_video(40)
+        self.assertEqual(video["status"], "mocked")
+        self.assertFalse(video["ready"])
+        self.assertIn("não está pronto", video["message"])
 
 
 if __name__ == "__main__":

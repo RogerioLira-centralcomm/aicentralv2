@@ -150,6 +150,7 @@
             prevFocus: document.activeElement,
         };
         openStack.push(entry);
+        document.body.classList.add('cx-drawer-open');
 
         // Split mode: apenas o primeiro drawer aplica; aninhados herdam.
         if (entry.split && openStack.filter(function (e) { return e.split; }).length === 1) {
@@ -211,7 +212,10 @@
             if (entry.split && !openStack.some(function (e) { return e.split; })) {
                 document.body.classList.remove('cx-drawer-split-active');
             }
-            if (!openStack.length) unbindGlobalKey();
+            if (!openStack.length) {
+                document.body.classList.remove('cx-drawer-open');
+                unbindGlobalKey();
+            }
             if (entry.prevFocus && typeof entry.prevFocus.focus === 'function') {
                 try { entry.prevFocus.focus(); } catch (_) { /* ignore */ }
             }

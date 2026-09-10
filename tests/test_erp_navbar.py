@@ -123,6 +123,35 @@ class ErpNavbarTestCase(unittest.TestCase):
         html = self._render_base()
         self.assertNotIn("Buscar PI por código ou título", html)
 
+    def test_horizontal_nav_aparece_em_768_sem_overflow_auto(self):
+        css = self.base_template
+        start_768 = css.find("@media (min-width: 768px) {")
+        self.assertGreater(start_768, -1)
+        block_768 = css[start_768:css.find("}", css.find(".erp-page-context", start_768)) + 1]
+        self.assertIn(".erp-horizontal-nav { display: flex; }", block_768)
+        self.assertIn(".erp-menu-toggle { display: none; }", block_768)
+        self.assertIn(".erp-page-context { display: none; }", block_768)
+
+        nav_start = css.find(".erp-horizontal-nav {")
+        self.assertGreater(nav_start, -1)
+        nav_block = css[nav_start:css.find("}", nav_start) + 1]
+        declarations = "\n".join(
+            line for line in nav_block.splitlines() if "/*" not in line
+        )
+        self.assertIn("overflow: visible", declarations)
+        self.assertNotIn("overflow-x: auto", declarations)
+        self.assertNotRegex(css, r"\.erp-horizontal-nav\s*\{[^}/]*overflow-x:\s*auto")
+
+        menu_start = css.find(".erp-nav-menu {")
+        menu_block = css[menu_start:css.find("}", menu_start)]
+        self.assertIn("position: fixed", menu_block)
+        self.assertIn("placeFixedMenu", css)
+        self.assertIn("anyNavMenuOpen", css)
+        self.assertIn("setTopNavGroupOpen(group, !open)", css)
+        self.assertNotIn("ev.detail > 0", css)
+        self.assertNotIn(".erp-icon-button", css)
+        self.assertNotIn(".erp-nav-group::after", css)
+
 
 if __name__ == "__main__":
     unittest.main()

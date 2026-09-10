@@ -31,6 +31,7 @@ from .creative_format_compose import (
     crop_safe_area_collage,
     wipe_safe_areas,
 )
+from .creative_html_compose import compose_studio_result
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
@@ -54,12 +55,24 @@ from .creative_image_fidelity import (
     quote_image_publish,
     resolve_image_tier,
 )
+from .creative_compose_library import (
+    LIBRARY_FAMILIES,
+    apply_script_params,
+    catalog_variations,
+    normalize_compose_choice,
+    persisted_variation_id,
+    propose_variation_adjust,
+    resolve_variation,
+    schema_for_family,
+)
 from .creative_construct_params import (
     ENGINE_CONSTRUCT,
     describe_unfold_paths,
     model_unit_usd,
+    normalize_context_design,
     quote_unfold_path,
     resolve_construct_path,
+    scene_copy_on_frame,
     scene_key_for_slug,
 )
 from .creative_modeling_prompts import (
@@ -734,6 +747,41 @@ class CreativeModelingService:
             format_data["element_budget"] = geometry.get("budget")
             format_data["direction"] = format_direction(format_data)
         return _serialize(formats)
+
+    def list_compose_library(self, family=None, client_id=None):
+        family = str(family or "").strip() or None
+        if family and family not in LIBRARY_FAMILIES:
+            family = None
+        systems = []
+        templates = []
+        variations = []
+        lister = getattr(self.repository, "list_compose_variations", None)
+        if callable(lister):
+            try:
+                systems = self.repository.list_brand_visual_systems(client_id)
+                templates = self.repository.list_compose_templates(family)
+                variations = lister(family=family, client_id=client_id)
+            except Exception:
+                systems, templates, variations = [], [], []
+        if not isinstance(systems, list):
+            systems = []
+        if not isinstance(templates, list):
+            templates = []
+        if not isinstance(variations, list):
+            variations = []
+        seen = {
+            str(item.get("id"))
+            for item in variations
+            if isinstance(item, dict) and item.get("id") is not None
+        }
+        for seed in catalog_variations(family):
+            if str(seed["id"]) not in seen:
+                variations.append(seed)
+        return _serialize({
+            "visual_systems": systems,
+            "templates": templates,
+            "variations": variations,
+        })
 
     def list_viewer_profiles(self):
         return _serialize([
@@ -1417,6 +1465,16 @@ class CreativeModelingService:
                 ),
                 "campaign_pack": _campaign_pack(payload.get("campaign_pack")),
                 "construct_path": _plan_construct_path(payload),
+                "context_design": normalize_context_design(
+                    payload.get("context_design"),
+                    productions[0]["scene_count"],
+                ),
+                "compose_library": self._resolve_compose_library(
+                    payload,
+                    self.repository.get_format(
+                        productions[0]["format_template_id"]
+                    ),
+                ),
                 "scenes": [
                     {
                         "position": index,
@@ -1429,6 +1487,17 @@ class CreativeModelingService:
             },
             "productions": productions,
         }
+        compose = data["creative_brief"].get("compose_library")
+        if (
+            compose
+            and compose.get("kind") == "script"
+            and not payload.get("context_design")
+        ):
+            data["creative_brief"]["context_design"] = apply_script_params(
+                data["creative_brief"]["context_design"],
+                compose.get("params"),
+                productions[0]["scene_count"],
+            )
         created = self.repository.create_campaign_with_productions(data)
         return _serialize(
             {
@@ -1458,6 +1527,10 @@ class CreativeModelingService:
                 "visual_bible": payload.get("visual_bible"),
                 "campaign_pack": pack,
                 "construct_path": _plan_construct_path(payload),
+                "context_design": normalize_context_design(
+                    payload.get("context_design"),
+                    len(storyboard) or 1,
+                ),
                 "scenes": storyboard,
             },
             "storyboard": storyboard,
@@ -1495,6 +1568,54 @@ class CreativeModelingService:
             8: "Alternate close: resolve the same ad. Show a CTA only if the format has one.",
         }
         return roles.get(int(position or 1), roles[1])
+
+    @staticmethod
+    def _context_design_prompt_lines(design, position, scene_count):
+        design = normalize_context_design(design, scene_count)
+        people = "one person" if design["cast_count"] == 1 else "the same two people"
+        lines = [
+            "CONTEXT ENGINEER LOCKS — photographic continuity of ONE ad, not variations.",
+            "Do not paint logos, wordmarks, headlines, CTAs or legal. Those layers are composed later.",
+        ]
+        if design["cast_lock"]:
+            lines.append(
+                f"Cast lock: keep {people} recognizable across all {scene_count} beats."
+            )
+        if design["product_lock"]:
+            lines.append(
+                "Product lock: the same hero product in every beat. Do not swap SKU or pack."
+            )
+        if design["scenography"] == "line":
+            lines.append(
+                "Scenography lock: same visual line and set language. Change pose and crop, not the world."
+            )
+        else:
+            lines.append(
+                "Scenography: this beat may change set as the creative direction asks, "
+                "but cast and product stay the same."
+            )
+        beat = next(
+            (
+                item for item in design["scenes"]
+                if int(item.get("position") or 0) == int(position or 0)
+            ),
+            {},
+        )
+        if beat.get("job"):
+            lines.append(f"This beat job: {beat['job']}.")
+        if beat.get("set_note"):
+            lines.append(f"Set note for this beat: {beat['set_note']}.")
+        if beat.get("action_note"):
+            lines.append(f"Action note for this beat: {beat['action_note']}.")
+        if beat.get("copy_on_frame"):
+            lines.append(
+                "Copy will be composed on this frame later. Leave the lower third and logo slot empty."
+            )
+        else:
+            lines.append(
+                "No composed copy on this frame. Full-bleed photographic still only."
+            )
+        return lines
 
     @staticmethod
     def build_scene_prompt(context):
@@ -1567,6 +1688,13 @@ class CreativeModelingService:
                 "Shared visual bible for every scene: "
                 f"{creative_brief['visual_bible']}."
             )
+        lines.extend(
+            CreativeModelingService._context_design_prompt_lines(
+                creative_brief.get("context_design"),
+                context.get("position") or 1,
+                total,
+            )
+        )
         pack = _campaign_pack(creative_brief.get("campaign_pack"))
         extracted = pack.get("extracted") or {}
         if _pack_has_signal(pack):
@@ -2031,6 +2159,7 @@ class CreativeModelingService:
                     "safe_area_clear": layers.get("safe_area_clear"),
                     "needs_retry": layers.get("needs_retry"),
                     "font": composed.get("font"),
+                    "renderer": composed.get("renderer"),
                     "requested_aspect_ratio": response_meta.get(
                         "requested_aspect_ratio"
                     ),
@@ -2187,6 +2316,7 @@ class CreativeModelingService:
                 geometry,
                 render_mode,
                 engine=path.get("engine"),
+                html_compose=_flow_kind(context) != "unfold",
             )
             result = self.repository.add_generated_asset(
                 job_id,
@@ -2241,6 +2371,11 @@ class CreativeModelingService:
         result = self.repository.review_scene_asset(
             _integer(scene_id, "Cena"),
             _integer(payload.get("asset_id"), "Asset"),
+            status,
+        )
+        self._record_compose_feedback(
+            _integer(scene_id, "Cena"),
+            payload,
             status,
         )
         return _serialize(result)
@@ -2342,6 +2477,16 @@ class CreativeModelingService:
         data = annotate_cost(campaign, campaign.get("spent_usd"))
         data["flow_kind"] = _flow_kind(data)
         return _serialize(data)
+
+    def _campaign_kv_source(self, campaign):
+        brief = campaign.get("creative_brief") if isinstance(campaign, dict) else {}
+        if not isinstance(brief, dict):
+            brief = {}
+        url = ((brief.get("source") or {}).get("kv_asset_url"))
+        data = self._read_logo_path(
+            url, getattr(self.storage, "read_public_bytes", None)
+        )
+        return url, data
 
     def _kv_data_url(self, public_path):
         if not public_path:
@@ -2612,7 +2757,21 @@ class CreativeModelingService:
             **(payload if isinstance(payload, dict) else {}),
         })
         pieces = []
-        masters = {}
+        kv_url, kv_bytes = self._campaign_kv_source(campaign)
+        kv_master = None
+        if path.get("engine") == ENGINE_CONSTRUCT:
+            if not kv_bytes:
+                raise ValueError(
+                    "Não consegui ler o KV para montar as peças. Envie o arquivo de novo."
+                )
+            kv_master = {
+                "scene_id": None,
+                "asset": {
+                    "id": None,
+                    "asset_url": kv_url,
+                    "metadata": {"source_raster": kv_url},
+                },
+            }
         for production in campaign.get("productions") or []:
             slug = production.get("format_slug")
             key = (
@@ -2621,14 +2780,10 @@ class CreativeModelingService:
                 else None
             )
             for scene in production.get("scenes") or []:
-                if (
-                    key
-                    and key in masters
-                    and path.get("engine") == ENGINE_CONSTRUCT
-                ):
+                if kv_master:
                     generated = self._derive_format_from_master(
                         scene["id"],
-                        masters[key],
+                        kv_master,
                         created_by=created_by,
                         path=path,
                     )
@@ -2641,11 +2796,6 @@ class CreativeModelingService:
                         created_by=created_by,
                         fidelity=path["fidelity"],
                     )
-                    if key:
-                        masters[key] = {
-                            "scene_id": scene["id"],
-                            "asset": generated.get("asset") or {},
-                        }
                 pieces.append({
                     "production_id": production.get("id"),
                     "scene_id": scene["id"],
@@ -3416,6 +3566,9 @@ class CreativeModelingService:
             "omit_cta": omit_cta,
             "require_logo": require_logo,
             "brand_color": context.get("primary_color") or "#1E4D4F",
+            "compose_params": (
+                (context.get("creative_brief") or {}).get("compose_library") or {}
+            ).get("params") or {},
         }
 
     @staticmethod
@@ -3605,6 +3758,7 @@ class CreativeModelingService:
                 geometry,
                 render_mode,
                 engine=engine,
+                html_compose=_flow_kind(context) != "unfold",
             )
         else:
             composed = {
@@ -3639,6 +3793,72 @@ class CreativeModelingService:
             return DRAFT
         return PUBLISH
 
+    def _resolve_compose_library(self, payload, format_data):
+        payload = payload if isinstance(payload, dict) else {}
+        if payload.get("flow_kind") == "unfold":
+            return None
+        geometry = resolve_format_geometry(
+            format_data if isinstance(format_data, dict) else {}
+        )
+        family = geometry.get("family")
+        if family not in LIBRARY_FAMILIES:
+            return None
+        variation = resolve_variation(
+            payload.get("variation_id"),
+            family,
+            self.repository,
+        )
+        return normalize_compose_choice(variation, family)
+
+    def _record_compose_feedback(self, scene_id, payload, status):
+        payload = payload if isinstance(payload, dict) else {}
+        getter = getattr(self.repository, "get_scene_context", None)
+        if not callable(getter):
+            return None
+        try:
+            context = getter(scene_id)
+        except Exception:
+            return None
+        if not isinstance(context, dict) or _flow_kind(context) == "unfold":
+            return None
+        brief = context.get("creative_brief") or {}
+        library = brief.get("compose_library") if isinstance(brief, dict) else {}
+        variation_id = persisted_variation_id(
+            (library or {}).get("variation_id") or payload.get("variation_id")
+        )
+        recorder = getattr(self.repository, "record_compose_feedback", None)
+        if not variation_id or not callable(recorder):
+            return None
+        try:
+            updated = recorder(
+                variation_id,
+                context.get("campaign_id"),
+                payload.get("asset_id"),
+                status,
+            )
+        except Exception:
+            return None
+        if status != "rejected" or not isinstance(updated, dict):
+            return updated
+        creator = getattr(self.repository, "create_compose_variation", None)
+        template_id = (library or {}).get("template_id") or updated.get("template_id")
+        if not callable(creator) or not template_id:
+            return updated
+        family = (library or {}).get("family")
+        try:
+            creator(
+                template_id,
+                "Ajuste automático",
+                propose_variation_adjust(
+                    schema_for_family(family) or (library or {}).get("params"),
+                    (library or {}).get("params") or updated.get("params"),
+                ),
+                "experimental",
+            )
+        except Exception:
+            return updated
+        return updated
+
     def _compose_native_asset(
         self,
         source_url,
@@ -3648,6 +3868,7 @@ class CreativeModelingService:
         render_mode,
         engine=None,
         source_bytes=None,
+        html_compose=False,
     ):
         copy = self._compose_copy(context)
         empty = {
@@ -3658,22 +3879,36 @@ class CreativeModelingService:
             "require_logo": copy.get("require_logo"),
             "font": None,
         }
+        design = (context.get("creative_brief") or {}).get("context_design")
+        copy_on_frame = None
+        if design and geometry.get("family") == "sequence_16x9":
+            copy_on_frame = scene_copy_on_frame(
+                design,
+                context.get("position"),
+                context.get("scene_count"),
+            )
         if not should_compose(
             geometry.get("family"),
             render_mode,
             context.get("position") or 1,
             context.get("scene_count") or 1,
             engine=engine,
+            copy_on_frame=copy_on_frame,
         ):
             return empty
         try:
             raw = source_bytes if source_bytes is not None else base64.b64decode(encoded)
-            result = compose_native_result(
-                raw,
-                geometry,
-                copy,
-                self.resolve_brand_logo_bytes(context),
-            )
+            logo = self.resolve_brand_logo_bytes(context)
+            if html_compose:
+                result = compose_studio_result(
+                    raw,
+                    geometry,
+                    copy,
+                    logo,
+                    flow_kind=_flow_kind(context),
+                )
+            else:
+                result = compose_native_result(raw, geometry, copy, logo)
         except Exception:
             return empty
         composed_url = self.storage.save_generated_base64(
@@ -3687,6 +3922,7 @@ class CreativeModelingService:
             "logo_applied": bool(result.get("logo_applied")),
             "require_logo": copy.get("require_logo"),
             "font": result.get("font"),
+            "renderer": result.get("renderer") or "pillow",
         }
 
     def _derive_format_from_master(self, scene_id, master, created_by=None, path=None):
@@ -3773,6 +4009,7 @@ class CreativeModelingService:
                     "safe_area_clear": True,
                     "font": composed.get("font"),
                     "derived_from_master": True,
+                    "derived_from_kv": master.get("scene_id") is None,
                 },
                 scene_id=scene_id,
             )

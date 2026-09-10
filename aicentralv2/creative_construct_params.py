@@ -221,8 +221,8 @@ def quote_unfold_path(payload=None, slugs=None):
         scenes = unique_scenes_for_slugs(slugs, path["scene_pack"])
         pieces = len(slugs)
         if path["engine"] == ENGINE_CONSTRUCT:
-            calls = max(len(scenes), 1 if pieces else 0)
-            shared = max(0, pieces - calls)
+            calls = 0
+            shared = pieces
         else:
             calls = pieces
             shared = 0
@@ -270,7 +270,7 @@ def describe_unfold_paths():
             {
                 "id": ENGINE_CONSTRUCT,
                 "label": "C · construção",
-                "summary": "IA só adapta o talent. Copy e logo entram no compositor.",
+                "summary": "Recorte do KV. Copy e logo entram no compositor.",
             },
         ],
         "scene_packs": [
@@ -394,3 +394,65 @@ def locks_from_kv_items(items, locks=None):
         "has_logo": items["logo"]["status"] != "absent" or locks.get("has_logo") is True,
         "items": items,
     }
+
+
+def _truthy(value, default=True):
+    if value in (None, ""):
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def normalize_context_design(payload=None, scene_count=4):
+    data = payload if isinstance(payload, dict) else {}
+    count = resolve_scene_count(scene_count, default=4) or 4
+    try:
+        cast_count = int(data.get("cast_count") or 1)
+    except (TypeError, ValueError):
+        cast_count = 1
+    if cast_count not in {1, 2}:
+        cast_count = 1
+    scenography = str(data.get("scenography") or "line").strip().lower()
+    if scenography not in {"line", "change"}:
+        scenography = "line"
+    raw_scenes = data.get("scenes") if isinstance(data.get("scenes"), list) else []
+    by_pos = {}
+    for item in raw_scenes:
+        if not isinstance(item, dict):
+            continue
+        try:
+            position = int(item.get("position") or 0)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= position <= count:
+            by_pos[position] = item
+    scenes = []
+    for position in range(1, count + 1):
+        raw = by_pos.get(position) or {}
+        default_copy = position >= count
+        scenes.append({
+            "position": position,
+            "job": str(raw.get("job") or "").strip()[:400],
+            "set_note": str(raw.get("set_note") or "").strip()[:1000],
+            "action_note": str(raw.get("action_note") or "").strip()[:1000],
+            "copy_on_frame": _truthy(raw.get("copy_on_frame"), default_copy),
+        })
+    return {
+        "cast_count": cast_count,
+        "cast_lock": _truthy(data.get("cast_lock"), True),
+        "product_lock": _truthy(data.get("product_lock"), True),
+        "scenography": scenography,
+        "scenes": scenes,
+    }
+
+
+def scene_copy_on_frame(design, position, scene_count=None):
+    design = design if isinstance(design, dict) else {}
+    scenes = design.get("scenes") or []
+    wanted = int(position or 0)
+    for item in scenes:
+        if int(item.get("position") or 0) == wanted:
+            return bool(item.get("copy_on_frame"))
+    total = int(scene_count or len(scenes) or 1)
+    return wanted >= total and wanted > 0

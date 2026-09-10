@@ -68,13 +68,13 @@ class CreativeConstructPathTest(unittest.TestCase):
             slugs,
         )
         self.assertEqual(construct["engine"], ENGINE_CONSTRUCT)
-        self.assertEqual(construct["photo_calls"], 2)
-        self.assertEqual(construct["shared_pieces"], 1)
+        self.assertEqual(construct["photo_calls"], 0)
+        self.assertEqual(construct["shared_pieces"], 3)
         self.assertEqual(construct["pieces"], 3)
-        self.assertGreater(construct["total_brl"], 0)
+        self.assertEqual(construct["total_usd"], 0)
         self.assertEqual(paint["engine"], ENGINE_PAINT)
         self.assertEqual(paint["photo_calls"], 3)
-        self.assertLess(paint["total_usd"], construct["total_usd"])
+        self.assertGreater(paint["total_usd"], construct["total_usd"])
 
     def test_caminho_c_nao_pinta_copy_e_compõe_social(self):
         self.assertFalse(paints_full_copy("square_1x1", "unfold", "construct"))

@@ -17,6 +17,7 @@
     unfoldQuote: '/parametros/api/unfoldings/quote',
     unfoldPaths: '/parametros/api/unfoldings/paths',
     imageTiers: '/parametros/api/image-tiers',
+    composeLibrary: '/parametros/api/compose-library',
   };
   const MOCKUPS = {
     portal: { label: 'Portal', icon: 'fa-desktop' },
@@ -73,6 +74,8 @@
     unfoldPaths: null,
     unfoldQuote: null,
     unfoldItems: {},
+    composeLibrary: { visual_systems: [], templates: [], variations: [] },
+    selectedVariationId: null,
   };
 
   const KV_ITEM_ORDER = [
@@ -194,7 +197,11 @@
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.success === false) {
-      const error = new Error(payload.error || `Erro HTTP ${response.status}`);
+      let message = payload.error || `Erro HTTP ${response.status}`;
+      if (response.status === 504) {
+        message = 'O servidor cortou o pedido por tempo. No Montar em camadas as peças saem do KV, sem foto nova.';
+      }
+      const error = new Error(message);
       error.status = response.status;
       throw error;
     }
@@ -271,6 +278,7 @@
     fillPrepareModels();
     quoteUnfoldPath();
     quotePreparePath();
+    loadComposeLibrary();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -449,7 +457,8 @@
       format.media_type === 'image' && (!category || format.category === category)
     ));
     if (!formats.some((format) => String(format.id) === String(state.generatorFormatId))) {
-      state.generatorFormatId = formats[0]?.id || null;
+      const standard = formats.find((format) => format.slug === 'netflix-anuncio-simulado');
+      state.generatorFormatId = (standard || formats[0])?.id || null;
     }
     const groups = groupedGeneratorFormats(formats);
     root.innerHTML = groups.length
@@ -472,6 +481,8 @@
       : '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
     renderGeneratorFormatPreview();
     renderGeneratorSummary();
+    renderContextDesign();
+    renderComposeVariations();
     updateGeneratorAvailability();
     quotePreparePath();
   }
@@ -580,7 +591,102 @@
     `).join('')}</ul>`;
   }
 
+  function isSequenceFormat(format) {
+    return format?.iab_family === 'sequence_16x9'
+      || format?.slug === 'netflix-anuncio-simulado'
+      || format?.slug === 'netflix-logo-bumper';
+  }
+
+  function isLibraryFormat(format) {
+    return isSequenceFormat(format) || format?.iab_family === 'square_1x1';
+  }
+
+  function variationsForFormat(format) {
+    const family = format?.iab_family;
+    return (state.composeLibrary?.variations || []).filter((item) => (
+      item.family === family && item.status !== 'archived'
+    ));
+  }
+
+  async function loadComposeLibrary() {
+    try {
+      state.composeLibrary = await api(API.composeLibrary) || {
+        visual_systems: [], templates: [], variations: [],
+      };
+    } catch (error) {
+      state.composeLibrary = { visual_systems: [], templates: [], variations: [] };
+    }
+    renderComposeVariations();
+    renderLibraryVariations();
+  }
+
+  function variationStatusLabel(status) {
+    if (status === 'approved') return 'Aprovada';
+    if (status === 'archived') return 'Arquivada';
+    return 'Experimental';
+  }
+
+  function renderComposeVariations() {
+    const root = $('#mcComposeVariations');
+    if (!root) return;
+    const format = generatorSelectedFormat();
+    const items = variationsForFormat(format);
+    if (!isLibraryFormat(format) || !items.length) {
+      root.classList.add('hidden');
+      root.innerHTML = '';
+      if (!items.some((item) => String(item.id) === String(state.selectedVariationId))) {
+        state.selectedVariationId = null;
+      }
+      return;
+    }
+    if (!items.some((item) => String(item.id) === String(state.selectedVariationId))) {
+      const preferred = items.find((item) => item.status === 'approved') || items[0];
+      state.selectedVariationId = preferred?.id || null;
+    }
+    root.classList.remove('hidden');
+    root.innerHTML = `
+      <header>
+        <strong>Variação da biblioteca</strong>
+        <small>A IA só ajusta dentro do que o template já permite</small>
+      </header>
+      <div class="mc-compose-variation-grid">
+        ${items.map((item) => `
+          <button class="mc-compose-card ${String(item.id) === String(state.selectedVariationId) ? 'is-active' : ''}"
+                  type="button" data-compose-variation="${escapeHtml(String(item.id))}">
+            <span class="mc-compose-card-status is-${escapeHtml(item.status || 'experimental')}">${escapeHtml(variationStatusLabel(item.status))}</span>
+            <strong>${escapeHtml(item.name || 'Variação')}</strong>
+            <small>${escapeHtml(item.kind === 'script' ? 'Roteiro' : 'Layout')}</small>
+          </button>
+        `).join('')}
+      </div>`;
+  }
+
+  function renderLibraryVariations() {
+    const root = $('#mcLibraryVariations');
+    if (!root) return;
+    const items = (state.composeLibrary?.variations || []).filter((item) => item.status !== 'archived');
+    if (!items.length) {
+      root.innerHTML = '';
+      return;
+    }
+    root.innerHTML = `
+      <header>
+        <strong>Variações da marca</strong>
+        <small>Aprovação no Produzir promove a carta. Sem HTML na mesa.</small>
+      </header>
+      <div class="mc-compose-variation-grid">
+        ${items.map((item) => `
+          <article class="mc-compose-card">
+            <span class="mc-compose-card-status is-${escapeHtml(item.status || 'experimental')}">${escapeHtml(variationStatusLabel(item.status))}</span>
+            <strong>${escapeHtml(item.name || 'Variação')}</strong>
+            <small>${escapeHtml(item.family)} · ${item.approve_count || 0} aprovações</small>
+          </article>
+        `).join('')}
+      </div>`;
+  }
+
   function activeRenderMode() {
+    if (isSequenceFormat(activeProductionFormat() || generatorSelectedFormat())) return 'native';
     if (state.renderMode === 'native' || state.renderMode === 'mockup') return state.renderMode;
     return activeProductionFormat()?.default_render_mode || 'mockup';
   }
@@ -648,6 +754,92 @@
       ...beat,
       position: index + 1,
     }));
+  }
+
+  function collectContextDesign(sceneCount) {
+    const count = Number(sceneCount) || 4;
+    const scenes = [];
+    for (let position = 1; position <= count; position += 1) {
+      scenes.push({
+        position,
+        job: $(`[data-context-job="${position}"]`)?.value || '',
+        set_note: $(`[data-context-set="${position}"]`)?.value || '',
+        action_note: $(`[data-context-action="${position}"]`)?.value || '',
+        copy_on_frame: Boolean($(`[data-context-copy="${position}"]`)?.checked),
+      });
+    }
+    return {
+      cast_count: Number($('#mcContextCast')?.value || 1) === 2 ? 2 : 1,
+      cast_lock: $('#mcContextCastLock')?.checked !== false,
+      product_lock: $('#mcContextProductLock')?.checked !== false,
+      scenography: $('#mcContextScenography')?.value === 'change' ? 'change' : 'line',
+      scenes,
+    };
+  }
+
+  function campaignContextDesign() {
+    return (state.campaign?.creative_brief || {}).context_design || {};
+  }
+
+  function renderContextDesign() {
+    const root = $('#mcContextDesign');
+    if (!root) return;
+    const format = generatorSelectedFormat();
+    const show = isSequenceFormat(format);
+    root.classList.toggle('hidden', !show);
+    if (!show) {
+      root.innerHTML = '';
+      return;
+    }
+    const sceneCount = sceneCountForFormat(format);
+    const beats = prepareBeats(format, sceneCount);
+    const previous = collectContextDesign(sceneCount);
+    root.innerHTML = `
+      <header>
+        <div><strong>Engenheiro de contexto</strong><small>Trava elenco, produto e set nas ${sceneCount} batidas.</small></div>
+      </header>
+      <div class="mc-context-locks">
+        <label class="cx-field">
+          <span class="cx-label">Pessoas</span>
+          <select class="cx-select" id="mcContextCast">
+            <option value="1" ${previous.cast_count !== 2 ? 'selected' : ''}>1 pessoa</option>
+            <option value="2" ${previous.cast_count === 2 ? 'selected' : ''}>2 pessoas</option>
+          </select>
+        </label>
+        <label class="mc-check">
+          <input type="checkbox" id="mcContextCastLock" ${previous.cast_lock ? 'checked' : ''}>
+          <span>As mesmas pessoas em todas as cenas</span>
+        </label>
+        <label class="mc-check">
+          <input type="checkbox" id="mcContextProductLock" ${previous.product_lock ? 'checked' : ''}>
+          <span>O mesmo produto em todas as cenas</span>
+        </label>
+        <label class="cx-field">
+          <span class="cx-label">Cenografia</span>
+          <select class="cx-select" id="mcContextScenography">
+            <option value="line" ${previous.scenography !== 'change' ? 'selected' : ''}>Mesma linha</option>
+            <option value="change" ${previous.scenography === 'change' ? 'selected' : ''}>Muda o set a cada cena</option>
+          </select>
+        </label>
+      </div>
+      <div class="mc-context-beats">
+        ${beats.map((beat, index) => {
+          const position = beat.position || index + 1;
+          const saved = previous.scenes.find((item) => Number(item.position) === position) || {};
+          const copyOn = saved.copy_on_frame != null ? saved.copy_on_frame : position >= sceneCount;
+          return `
+            <article class="mc-context-beat">
+              <span><i>${position}</i><strong>${escapeHtml(beat.label || `Cena ${position}`)}</strong></span>
+              <input class="cx-input" data-context-job="${position}" maxlength="400" value="${escapeHtml(saved.job || beat.job || '')}" placeholder="Trabalho desta batida">
+              <textarea class="cx-textarea" data-context-set="${position}" rows="2" maxlength="1000" placeholder="Set / cenografia desta cena">${escapeHtml(saved.set_note || '')}</textarea>
+              <textarea class="cx-textarea" data-context-action="${position}" rows="2" maxlength="1000" placeholder="Ação / encenação">${escapeHtml(saved.action_note || '')}</textarea>
+              <label class="mc-check">
+                <input type="checkbox" data-context-copy="${position}" ${copyOn ? 'checked' : ''}>
+                <span>Colar texto e logo neste quadro</span>
+              </label>
+            </article>`;
+        }).join('')}
+      </div>`;
   }
 
   function renderStoryboardEditor() {
@@ -780,6 +972,11 @@
           : [],
       }];
       data.visual_bible = state.enhancedBrief?.visual_bible || '';
+      if (isSequenceFormat(format)) {
+        data.context_design = collectContextDesign(data.scene_count);
+        data.render_mode = 'native';
+      }
+      if (state.selectedVariationId) data.variation_id = state.selectedVariationId;
       data.campaign_pack = campaignPackPayload();
       data.first_step = {
         format_template_id: Number(format.id),
@@ -802,6 +999,7 @@
         state.enhancedBrief = null;
         resetCampaignPack();
         renderStoryboardEditor();
+        renderContextDesign();
         renderClientPreview();
         renderGeneratorSummary();
         toast('Produção iniciada.', 'success');
@@ -1042,6 +1240,23 @@
     return state.campaign?.client?.brand_profile?.creative_line?.copy_system || null;
   }
 
+  function renderContextSpine(beats = []) {
+    const design = campaignContextDesign();
+    if (!design.scenes && !design.cast_count) return '';
+    const people = Number(design.cast_count) === 2 ? '2 pessoas' : '1 pessoa';
+    const set = design.scenography === 'change' ? 'Set muda a cada cena' : 'Mesma linha de set';
+    const scenes = design.scenes || [];
+    return `
+      <div class="mc-context-spine">
+        <span>Engenheiro de contexto</span>
+        <p>${escapeHtml(people)}${design.cast_lock ? ' travadas' : ''} · ${design.product_lock !== false ? 'mesmo produto' : 'produto livre'} · ${escapeHtml(set)}</p>
+        ${scenes.length ? `<ol>${scenes.map((item, index) => {
+          const beat = beats[index] || {};
+          return `<li><strong>${escapeHtml(beat.label || `Cena ${item.position}`)}</strong> ${item.copy_on_frame ? 'com copy' : 'só foto'}${item.set_note ? ` · ${escapeHtml(item.set_note)}` : ''}${item.action_note ? ` · ${escapeHtml(item.action_note)}` : ''}</li>`;
+        }).join('')}</ol>` : ''}
+      </div>`;
+  }
+
   function renderContinuitySpine() {
     const root = $('#mcContinuitySpine');
     if (!root) return;
@@ -1072,6 +1287,7 @@
         ${renderFormatSlotMap(format)}
         ${renderFormatElementChips(format)}
         ${campaignBible() ? `<blockquote>${escapeHtml(campaignBible())}</blockquote>` : '<blockquote>Bíblia visual ainda não registrada.</blockquote>'}
+        ${renderContextSpine(beats)}
         ${beats.length ? `<ol class="mc-beat-plan">${beats.map((beat) => `<li><strong>${escapeHtml(beat.label)}</strong> ${escapeHtml(beat.job)}</li>`).join('')}</ol>` : ''}
         <dl>
           ${direction.elements?.length
@@ -1508,6 +1724,57 @@
     return state.formats.find((format) => String(format.id) === String(formatId)) || {};
   }
 
+  function liveComposeCopy() {
+    const campaign = state.campaign || {};
+    const brief = campaign.creative_brief || {};
+    const locks = brief.locks || {};
+    const items = locks.items || {};
+    const client = campaign.client || {};
+    const omitCta = (items.cta || {}).status === 'absent';
+    return {
+      headline: locks.headline || campaign.campaign_text || '',
+      cta: omitCta ? '' : (locks.cta || campaign.cta_text || ''),
+      legal: (items.legal || {}).text || '',
+      brandColor: brandPrimaryColor(client) || '#1E4D4F',
+      logoUrl: client.logo_upload_path || client.logo_url || '',
+    };
+  }
+
+  function assetCopyOnFrame(asset, format) {
+    const design = campaignContextDesign();
+    const position = Number(asset?.metadata?.scene_position || asset?.scene_position || 0);
+    const saved = (design.scenes || []).find((item) => Number(item.position) === position);
+    if (saved && saved.copy_on_frame != null) return Boolean(saved.copy_on_frame);
+    const total = productionScenes().length;
+    return isSequenceFormat(format) && position > 0 && position >= total;
+  }
+
+  function isLiveSequenceCompose(asset, format) {
+    const meta = asset?.metadata || {};
+    return campaignConstruct()
+      && meta.composed
+      && isSequenceFormat(format)
+      && assetCopyOnFrame(asset, format)
+      && Boolean(meta.source_raster || assetUrl(asset));
+  }
+
+  function liveStudioFrame(asset, format, index, activeIndex) {
+    const active = index === activeIndex ? 'is-active' : '';
+    if (!isLiveSequenceCompose(asset, format)) {
+      return `<img class="${active}" data-production-carousel-image="${index}" src="${escapeHtml(assetUrl(asset))}" alt="Cena ${index + 1} aplicada ao ambiente">`;
+    }
+    const copy = liveComposeCopy();
+    const still = (asset.metadata || {}).source_raster || assetUrl(asset);
+    return `
+      <article class="mc-html-ad mc-html-ad-sequence ${active}" data-production-carousel-image="${index}" style="--mc-ad-brand:${escapeHtml(copy.brandColor)}">
+        <div class="mc-html-ad-visual"><img src="${escapeHtml(still)}" alt=""></div>
+        ${copy.logoUrl ? `<img class="mc-html-ad-logo" src="${escapeHtml(copy.logoUrl)}" alt="">` : ''}
+        <p class="mc-html-ad-headline">${escapeHtml(copy.headline)}</p>
+        ${copy.legal ? `<small class="mc-html-ad-legal">${escapeHtml(copy.legal)}</small>` : ''}
+        ${copy.cta ? `<span class="mc-html-ad-cta">${escapeHtml(copy.cta)}</span>` : ''}
+      </article>`;
+  }
+
   function renderProductionStage() {
     const root = $('#mcProductionStage');
     $$('[data-preview-device]').forEach((button) => {
@@ -1538,7 +1805,13 @@
       return;
     }
     const format = activeProductionFormat();
+    const pauseSequence = isSequenceFormat(format);
     const canonicalPlacement = clonePlacement(format);
+    if (pauseSequence) {
+      canonicalPlacement.context = 'tv';
+      canonicalPlacement.viewport = { width: 1920, height: 1080 };
+      canonicalPlacement.slot = { x: 3, y: 6, width: 94, height: 82 };
+    }
     const productionDeviceSwitch = $('.mc-production-preview-controls .mc-viewer-device-switch');
     productionDeviceSwitch?.classList.toggle(
       'hidden',
@@ -1556,19 +1829,21 @@
       carouselAssets.findIndex((asset) => String(asset.id) === String(approved.id)),
     );
     root.innerHTML = `
-      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}"
+      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}${pauseSequence ? ' is-pause' : ''}"
            data-viewer="${escapeHtml(profile?.slug || 'automatico')}"
-           data-layout="${escapeHtml(profile?.shell_spec?.layout || 'standard')}"
+           data-layout="${escapeHtml(pauseSequence ? 'pause' : (profile?.shell_spec?.layout || 'standard'))}"
            style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}">
         <div class="mc-production-context">
-          ${placement.context === 'tv'
-            ? `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><section class="mc-production-hero"><small>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</small><strong>${escapeHtml(hero.title || 'Entretenimento em destaque')}</strong></section>${viewerCatalogHtml(profile)}`
-            : profile?.slug === 'g1'
-              ? g1PortalShellHtml(profile)
-              : `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><div class="mc-production-content"><b></b><b></b><b></b><b></b></div>`}
+          ${pauseSequence
+            ? netflixPauseShellHtml(profile)
+            : placement.context === 'tv'
+              ? `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><section class="mc-production-hero"><small>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</small><strong>${escapeHtml(hero.title || 'Entretenimento em destaque')}</strong></section>${viewerCatalogHtml(profile)}`
+              : profile?.slug === 'g1'
+                ? g1PortalShellHtml(profile)
+                : `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><div class="mc-production-content"><b></b><b></b><b></b><b></b></div>`}
         </div>
         <div class="mc-production-creative ${carouselAssets.length > 1 ? 'has-carousel' : ''}" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
-          ${carouselAssets.map((asset, index) => `<img class="${index === activeCarouselIndex ? 'is-active' : ''}" data-production-carousel-image="${index}" src="${escapeHtml(assetUrl(asset))}" alt="Cena ${index + 1} aplicada ao ambiente">`).join('')}
+          ${carouselAssets.map((asset, index) => liveStudioFrame(asset, format, index, activeCarouselIndex)).join('')}
           ${carouselAssets.length > 1 ? `<div class="mc-production-carousel-dots">${carouselAssets.map((asset, index) => `<button type="button" data-production-carousel-go="${index}" aria-label="Ver cena ${index + 1}" ${index === activeCarouselIndex ? 'aria-current="true"' : ''}></button>`).join('')}</div>` : ''}
         </div>
         <small>${escapeHtml(profile?.disclaimer || 'Simulação de ambiente')}</small>
@@ -1997,6 +2272,7 @@
         <em>${suggestedSceneCount(format) > 1 ? 'Carrossel' : 'Estático'}</em>
       </button>`;
     }).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
+    renderLibraryVariations();
   }
 
   function clonePlacement(format) {
@@ -2056,6 +2332,20 @@
     return profile?.logo_asset_ref
       ? `<img src="${escapeHtml(profile.logo_asset_ref)}" alt="">`
       : `<strong>${escapeHtml(profile?.name || 'Mídia')}</strong>`;
+  }
+
+  function netflixPauseShellHtml(profile) {
+    return `
+      <div class="mc-pause-shell">
+        <header class="mc-pause-top">${viewerLogo(profile)}<span>Pausado</span></header>
+        <footer class="mc-pause-controls">
+          <i class="fa-solid fa-play"></i>
+          <i class="fa-solid fa-volume-high"></i>
+          <b></b>
+          <i class="fa-solid fa-closed-captioning"></i>
+          <i class="fa-solid fa-expand"></i>
+        </footer>
+      </div>`;
   }
 
   function viewerCatalogHtml(profile) {
@@ -3120,6 +3410,10 @@
     return $('#mcUnfoldPathBar input[name="unfold_engine"]:checked')?.value || 'paint';
   }
 
+  function unfoldSceneList(campaign) {
+    return (campaign?.productions || []).flatMap((production) => production.scenes || []);
+  }
+
   function unfoldPack() {
     return Number($('#mcUnfoldPathBar input[name="unfold_pack"]:checked')?.value || 6);
   }
@@ -3277,10 +3571,15 @@
       const detail = $('#mcUnfoldQuoteDetail');
       if (detail) {
         const shared = Number(quoted.shared_pieces || 0);
-        const how = quoted.engine === 'construct' ? 'Montar em camadas' : 'Pintar a peça';
-        detail.textContent = shared
-          ? `${how}. ${quoted.photo_calls} fotos para ${quoted.pieces} peças, ${shared} no mesmo recorte.`
-          : `${how}. ${quoted.photo_calls} fotos para ${quoted.pieces} peças.`;
+        const photos = Number(quoted.photo_calls || 0);
+        if (quoted.engine === 'construct' && photos === 0) {
+          detail.textContent = `Montar no KV. ${quoted.pieces} ${quoted.pieces === 1 ? 'peça' : 'peças'} sem foto nova.`;
+        } else {
+          const how = quoted.engine === 'construct' ? 'Montar em camadas' : 'Pintar a peça';
+          detail.textContent = shared
+            ? `${how}. ${photos} fotos para ${quoted.pieces} peças, ${shared} no mesmo recorte.`
+            : `${how}. ${photos} fotos para ${quoted.pieces} peças.`;
+        }
       }
     } catch (_) {
       fallback();
@@ -3419,26 +3718,47 @@
       if (!data.get('source_asset_id')) data.delete('source_asset_id');
       if (!data.get('kv') || !data.get('kv').size) data.delete('kv');
       data.set('format_ids', JSON.stringify(formatIds));
-      data.set('generate', 'true');
-      data.set('engine', unfoldEngine());
+      const engine = unfoldEngine();
+      data.set('generate', engine === 'construct' ? 'true' : 'false');
+      data.set('engine', engine);
       data.set('scene_pack', String(unfoldPack()));
       data.set('image_model', $('#mcUnfoldModel')?.value || '');
-      data.set('fidelity', unfoldEngine() === 'construct' ? 'publish' : 'draft');
+      data.set('fidelity', engine === 'construct' ? 'publish' : 'draft');
       data.set('items', JSON.stringify(collectUnfoldItems()));
       data.set('locks', JSON.stringify({
         headline: $('#mcUnfoldHeadlineHidden')?.value || '',
         cta: $('#mcUnfoldCtaHidden')?.value || '',
         items: collectUnfoldItems(),
       }));
-      status.textContent = unfoldEngine() === 'construct'
-        ? 'Montando as peças em camadas…'
-        : 'Pintando as peças…';
+      status.textContent = engine === 'construct'
+        ? 'Colando texto e logo no KV…'
+        : 'Preparando as peças…';
       try {
         const created = await api(API.unfoldings, { method: 'POST', body: data });
         const campaign = created.campaign || created;
-        state.unfoldCampaign = campaign?.id
-          ? await api(`${API.campaigns}/${campaign.id}`)
-          : campaign;
+        const campaignId = campaign?.id;
+        if (!campaignId) throw new Error('A campanha não voltou.');
+        state.unfoldCampaign = await api(`${API.campaigns}/${campaignId}`);
+        renderUnfoldPieces(state.unfoldCampaign);
+        if (engine === 'paint') {
+          const scenes = unfoldSceneList(state.unfoldCampaign);
+          for (let index = 0; index < scenes.length; index += 1) {
+            status.textContent = `Pintando ${index + 1} de ${scenes.length}…`;
+            await api(`/parametros/api/scenes/${scenes[index].id}/prompt/generate`, {
+              method: 'POST',
+              body: JSON.stringify({}),
+            });
+            const body = new FormData();
+            body.append('render_mode', 'native');
+            body.append('fidelity', 'draft');
+            await apiFirst([
+              { url: `/parametros/api/scenes/${scenes[index].id}/image/generate`, options: { method: 'POST', body } },
+              { url: `/parametros/api/scenes/${scenes[index].id}/generate`, options: { method: 'POST', body } },
+            ]);
+            state.unfoldCampaign = await api(`${API.campaigns}/${campaignId}`);
+            renderUnfoldPieces(state.unfoldCampaign);
+          }
+        }
         try {
           state.campaigns = await api(API.campaigns);
           renderCampaignOptions();
@@ -3847,6 +4167,12 @@
     const sceneActionButton = event.target.closest('[data-scene-action]');
     if (sceneActionButton) {
       await sceneAction(sceneActionButton.dataset.sceneAction, sceneActionButton);
+      return;
+    }
+    const composeVariation = event.target.closest('[data-compose-variation]');
+    if (composeVariation) {
+      state.selectedVariationId = composeVariation.dataset.composeVariation;
+      renderComposeVariations();
       return;
     }
     const generatorFormat = event.target.closest('[data-generator-format]');
@@ -4410,6 +4736,7 @@
           state.enhancedBrief = null;
           renderStoryboardEditor();
         }
+        renderContextDesign();
       }
       renderGeneratorFormatPreview();
       renderGeneratorSummary();

@@ -2400,6 +2400,10 @@ class CreativeGenerationContractTest(unittest.TestCase):
         )
         self.assertFalse(should_compose("sequence_16x9", "native", 1, 4))
         self.assertTrue(should_compose("sequence_16x9", "native", 4, 4))
+        self.assertFalse(should_compose("sequence_16x9", "native", 1, 4, "construct"))
+        self.assertTrue(should_compose("sequence_16x9", "native", 4, 4, "construct"))
+        self.assertTrue(should_compose("sequence_16x9", "native", 2, 4, copy_on_frame=True))
+        self.assertFalse(should_compose("sequence_16x9", "native", 4, 4, copy_on_frame=False))
         self.assertTrue(canvas_mismatch((728, 90), "21:9"))
         self.assertFalse(canvas_mismatch((1920, 1080), "16:9"))
         leader_slots = compose_layout("wide_banner", (728, 90))
@@ -2852,8 +2856,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=40", page)
-        self.assertIn("modelagem_criativos.js') }}?v=40", page)
+        self.assertIn("modelagem_criativos.css') }}?v=44", page)
+        self.assertIn("modelagem_criativos.js') }}?v=44", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2868,6 +2872,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcCampaignPackDrop"', generator)
         self.assertIn('id="mcCampaignPackUrl"', generator)
         self.assertIn('id="mcStoryboardEditor"', generator)
+        self.assertIn('id="mcContextDesign"', generator)
+        self.assertIn('id="mcComposeVariations"', generator)
         self.assertIn("Iniciar produção", generator)
         self.assertIn('id="mcPreparePathBar"', generator)
         self.assertIn('name="prepare_engine" value="construct" checked', generator)
@@ -2924,6 +2930,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mcFormatStage", library)
         self.assertIn("mcAdSlot", library)
         self.assertIn("mcLibraryDetail", library)
+        self.assertIn('id="mcLibraryVariations"', library)
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
         self.assertIn("mc-brand-studio", clients)
         self.assertIn('data-brand-col="add"', clients)
@@ -3335,6 +3342,20 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("function renderUnfoldSources", frontend)
         self.assertNotIn("mcUnfoldSourceCampaign", frontend)
         self.assertIn("function createUnfolding", frontend)
+        self.assertIn("function liveStudioFrame", frontend)
+        self.assertIn("function renderContextDesign", frontend)
+        self.assertIn("function renderComposeVariations", frontend)
+        self.assertIn("function loadComposeLibrary", frontend)
+        self.assertIn("variation_id", frontend)
+        self.assertIn("compose-library", frontend)
+        self.assertIn("function netflixPauseShellHtml", frontend)
+        self.assertIn("mc-html-ad-sequence", frontend)
+        self.assertIn("netflix-anuncio-simulado", frontend)
+        self.assertIn("is-pause", frontend)
+        self.assertIn("context_design", frontend)
+        self.assertIn("function unfoldSceneList", frontend)
+        self.assertIn("Colando texto e logo no KV", frontend)
+        self.assertIn("Montar no KV", frontend)
         self.assertIn("function unfoldVariation", frontend)
         self.assertIn("function retryUnfoldScene", frontend)
         self.assertIn("Foto ${escapeHtml(formatSceneLabel(format))}", frontend)
@@ -3536,6 +3557,7 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             "facebook-feed", "linkedin-share",
         })
         self.assertEqual(default_render_mode("square_1x1"), "native")
+        self.assertEqual(default_render_mode("sequence_16x9"), "native")
         self.assertFalse(should_compose("square_1x1", "native"))
         self.assertFalse(should_compose("story_9x16", "native"))
         prompt = apply_render_mode_to_prompt(
@@ -4062,7 +4084,7 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertTrue(metadata["require_logo"])
         self.assertTrue(metadata["composed"])
 
-    def test_desdobrar_c_reusa_a_cena_mestre(self):
+    def test_desdobrar_c_monta_no_kv_sem_foto(self):
         repository = Mock()
         repository.get_campaign.return_value = {
             "id": 40,
@@ -4072,6 +4094,7 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             "creative_brief": {
                 "flow_kind": "unfold",
                 "construct_path": {"engine": "construct", "scene_pack": 6},
+                "source": {"kv_asset_url": "/kv.png"},
             },
             "productions": [
                 {
@@ -4093,28 +4116,52 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             generator=FakeGenerator(),
             storage=FakeStorage(),
         )
-        service.generate_scene = Mock(return_value={
-            "job_id": 11,
-            "asset": {
-                "id": 90,
-                "asset_url": "/master.png",
-                "metadata": {"source_raster": "/still.png"},
-            },
-            "prompt": "master",
-        })
+        service._campaign_kv_source = Mock(return_value=("/kv.png", b"\x89PNG"))
+        service.generate_scene = Mock(side_effect=AssertionError("C no KV nao pede foto"))
         service._derive_format_from_master = Mock(return_value={
             "job_id": 12,
             "asset": {
                 "id": 91,
                 "asset_url": "/derived.png",
-                "metadata": {"source_scene_id": 81, "source_asset_id": 90},
+                "metadata": {"derived_from_kv": True},
             },
             "prompt": "compose from master scene",
         })
         result = service.generate_unfolding(40)
-        self.assertEqual(service.generate_scene.call_count, 1)
-        service._derive_format_from_master.assert_called_once()
-        self.assertEqual(result["pieces"][1]["asset"]["metadata"]["source_scene_id"], 81)
+        service.generate_scene.assert_not_called()
+        self.assertEqual(service._derive_format_from_master.call_count, 2)
+        self.assertTrue(result["pieces"][0]["asset"]["metadata"]["derived_from_kv"])
+
+    def test_desdobrar_c_sem_kv_nao_dispara_foto(self):
+        repository = Mock()
+        repository.get_campaign.return_value = {
+            "id": 40,
+            "name": "Outono",
+            "spent_usd": 0,
+            "flow_kind": "unfold",
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "construct_path": {"engine": "construct", "scene_pack": 6},
+            },
+            "productions": [
+                {
+                    "id": 80,
+                    "format_template_id": 7,
+                    "format_slug": "instagram-feed",
+                    "scenes": [{"id": 81, "prompt_status": "approved"}],
+                },
+            ],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service._campaign_kv_source = Mock(return_value=(None, None))
+        service.generate_scene = Mock()
+        with self.assertRaisesRegex(ValueError, "ler o KV"):
+            service.generate_unfolding(40)
+        service.generate_scene.assert_not_called()
 
     def test_gate_sujo_tenta_uma_vez_e_nao_compoe(self):
         repository = Mock()

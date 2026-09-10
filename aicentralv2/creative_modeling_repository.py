@@ -2528,3 +2528,153 @@ class CreativeModelingRepository:
                     "Mídia não encontrada ou apresentação revogada."
                 )
             return dict(row)
+
+    def _compose_variation_row(self, row):
+        if not row:
+            return None
+        data = dict(row)
+        data["params"] = data.get("params") or {}
+        data["adjust_schema"] = data.get("adjust_schema") or {}
+        return data
+
+    def get_compose_variation(self, variation_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT v.id, v.template_id, v.name, v.params, v.status,
+                       v.approve_count, v.reject_count, v.preview_asset_url,
+                       t.slug AS template_slug, t.kind, t.family, t.html_key,
+                       t.adjust_schema
+                  FROM cx_compose_variations v
+                  JOIN cx_compose_templates t ON t.id = v.template_id
+                 WHERE v.id = %s
+                """,
+                (variation_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Variação da biblioteca não encontrada.")
+            return self._compose_variation_row(row)
+
+    def list_brand_visual_systems(self, client_id=None):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, client_id, name, tokens, status
+                  FROM cx_brand_visual_systems
+                 WHERE status <> 'archived'
+                   AND (%s IS NULL OR client_id IS NULL OR client_id = %s)
+                 ORDER BY
+                    CASE WHEN client_id = %s THEN 0 ELSE 1 END,
+                    id DESC
+                """,
+                (client_id, client_id, client_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def list_compose_templates(self, family=None):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, visual_system_id, format_template_id, slug, name,
+                       kind, family, html_key, adjust_schema
+                  FROM cx_compose_templates
+                 WHERE %s IS NULL OR family = %s
+                 ORDER BY family, id
+                """,
+                (family, family),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def list_compose_variations(self, family=None, client_id=None):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT v.id, v.template_id, v.name, v.params, v.status,
+                       v.approve_count, v.reject_count, v.preview_asset_url,
+                       t.slug AS template_slug, t.kind, t.family, t.html_key,
+                       t.adjust_schema
+                  FROM cx_compose_variations v
+                  JOIN cx_compose_templates t ON t.id = v.template_id
+                 WHERE (%s IS NULL OR t.family = %s)
+                   AND v.status <> 'archived'
+                 ORDER BY
+                    CASE v.status WHEN 'approved' THEN 0 ELSE 1 END,
+                    v.approve_count DESC,
+                    v.id DESC
+                """,
+                (family, family),
+            )
+            return [self._compose_variation_row(row) for row in cursor.fetchall()]
+
+    def suggest_compose_variation(self, family, client_id=None):
+        rows = self.list_compose_variations(family=family, client_id=client_id)
+        return rows[0] if rows else None
+
+    def record_compose_feedback(self, variation_id, campaign_id, asset_id, verdict):
+        from .creative_compose_library import next_variation_status
+
+        if verdict not in {"approved", "rejected"}:
+            raise ValueError("Veredito da variação deve ser approved ou rejected.")
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT id, approve_count, reject_count, status
+                  FROM cx_compose_variations
+                 WHERE id = %s
+                 FOR UPDATE
+                """,
+                (variation_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise CreativeNotFoundError("Variação da biblioteca não encontrada.")
+            approved = int(row["approve_count"] or 0) + (
+                1 if verdict == "approved" else 0
+            )
+            rejected = int(row["reject_count"] or 0) + (
+                1 if verdict == "rejected" else 0
+            )
+            status = next_variation_status(approved, rejected, row["status"])
+            cursor.execute(
+                """
+                INSERT INTO cx_compose_feedback (
+                    variation_id, campaign_id, asset_id, verdict
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (variation_id, campaign_id, asset_id, verdict),
+            )
+            cursor.execute(
+                """
+                UPDATE cx_compose_variations
+                   SET approve_count = %s,
+                       reject_count = %s,
+                       status = %s,
+                       updated_at = NOW()
+                 WHERE id = %s
+                RETURNING id, template_id, name, params, status,
+                          approve_count, reject_count, preview_asset_url
+                """,
+                (approved, rejected, status, variation_id),
+            )
+            updated = dict(cursor.fetchone())
+            updated["params"] = updated.get("params") or {}
+            return updated
+
+    def create_compose_variation(self, template_id, name, params, status="experimental"):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_compose_variations (
+                    template_id, name, params, status
+                )
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, template_id, name, params, status,
+                          approve_count, reject_count, preview_asset_url
+                """,
+                (template_id, name, Json(params or {}), status),
+            )
+            row = dict(cursor.fetchone())
+            row["params"] = row.get("params") or {}
+            return row

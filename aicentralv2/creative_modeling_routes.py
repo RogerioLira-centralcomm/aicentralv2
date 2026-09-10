@@ -71,6 +71,18 @@ def api_formats():
 
 
 @admin_required_api
+def api_compose_library():
+    return _execute(
+        lambda: _ok(
+            _service().list_compose_library(
+                request.args.get("family"),
+                request.args.get("client_id", type=int),
+            )
+        )
+    )
+
+
+@admin_required_api
 def api_viewer_profiles():
     return _execute(lambda: _ok(_service().list_viewer_profiles()))
 
@@ -727,6 +739,11 @@ def register_creative_modeling_routes(blueprint):
     )
     blueprint.add_url_rule(
         "/api/formats", endpoint="creative_formats", view_func=api_formats
+    )
+    blueprint.add_url_rule(
+        "/api/compose-library",
+        endpoint="creative_compose_library",
+        view_func=api_compose_library,
     )
     blueprint.add_url_rule(
         "/api/viewer-profiles",

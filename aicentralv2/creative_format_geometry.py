@@ -279,20 +279,25 @@ def resolve_format_geometry(context, behavior_spec=None):
 def default_render_mode(family):
     if family in {
         "rectangle", "wide_banner", "half_page", "slate_16x9",
+        "sequence_16x9",
     } | SOCIAL_PAINT_FAMILIES:
         return "native"
     return "mockup"
 
 
-def should_compose(family, render_mode, position=1, scene_count=1, engine=None):
+def should_compose(
+    family, render_mode, position=1, scene_count=1, engine=None, copy_on_frame=None,
+):
     if render_mode != "native":
         return False
+    if copy_on_frame is not None:
+        return bool(copy_on_frame)
+    if family == "sequence_16x9":
+        return int(position or 1) >= int(scene_count or 1)
     if str(engine or "") == "construct":
         return True
     if family in {"rectangle", "wide_banner", "half_page", "slate_16x9"}:
         return True
-    if family == "sequence_16x9":
-        return int(position or 1) >= int(scene_count or 1)
     return False
 
 

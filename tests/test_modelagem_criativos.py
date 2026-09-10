@@ -2933,7 +2933,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-hub-steps", page)
         self.assertIn("Passo a passo do modelo HTML", page)
         self.assertIn("Desdobrar fica para depois", page)
-        self.assertIn("modelagem_criativos.css') }}?v=50", page)
+        self.assertIn("modelagem_criativos.css') }}?v=51", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -2991,6 +2991,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("runProductionAction(action, button)", production_js)
         self.assertIn("if (!slotNode || !stageNode) return;", production_js)
         self.assertIn("const bind = (selector, event, handler) => {", production_js)
+        self.assertIn("root && typeof root.querySelector === 'function'", production_js)
         self.assertIn("title: 'Remover variação'", production_js)
         public_page = (
             root
@@ -3076,6 +3077,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcPublishDialog"', desk)
         self.assertIn('id="mcPublishBatch"', desk)
         self.assertIn("setupBrandDropzone(", production_js)
+        dropzone = production_js.split("function setupBrandDropzone")[1].split(
+            "async function analyzeBrand"
+        )[0]
+        self.assertIn("if (!root) return;", dropzone)
+        self.assertLess(
+            dropzone.index("if (!root) return;"),
+            dropzone.index("$(inputSelector, root)"),
+        )
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
         self.assertIn("creative-line/analyze", production_js)
@@ -3462,12 +3471,21 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("/api/agents/extractor", extract_js)
         self.assertIn("mcExtractOverlay", extract_js)
         self.assertIn("mcExtractOpenPrepare", extract_js)
+        self.assertIn("mcExtractFamily", extract_js)
+        self.assertIn("DOMContentLoaded", extract_js)
         extract_html = (
             root / "aicentralv2" / "templates" / "parametros" / "_mc_extrair.html"
         ).read_text(encoding="utf-8")
         self.assertIn("mc-extract-steps", extract_html)
         self.assertIn("2. Ler regiões", extract_html)
         self.assertIn("3. Abrir no Preparar", extract_html)
+        self.assertIn('id="mcExtractFamily"', extract_html)
+        self.assertIn('class="mc-extract-file"', extract_html)
+        desk = (
+            root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("modelagem_criativos.js') }}?v=51", desk)
+        self.assertIn("mc_page_js) }}?v=4", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

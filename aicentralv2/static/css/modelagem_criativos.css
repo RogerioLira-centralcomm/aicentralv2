@@ -5314,12 +5314,28 @@
 }
 
 .mc-extract-drop {
+  position: relative;
   display: grid;
   gap: 0.25rem;
+  min-height: 8.5rem;
   padding: 1.25rem;
   border: 1px dashed var(--cx-border, #dbe1ea);
   border-radius: 0.7rem;
   background: #fff;
+  cursor: pointer;
+}
+
+.mc-extract-drop.is-dragging {
+  border-color: #1e4d4f;
+  background: #eef4f3;
+}
+
+.mc-extract-file {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
 }
 

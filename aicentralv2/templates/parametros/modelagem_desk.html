@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=50">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=51">
 {% endblock %}
 
 {% block content %}
@@ -27,9 +27,9 @@
 
 {% block scripts %}
 {% if mc_studio_js %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=50" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=51" defer></script>
 {% endif %}
 {% if mc_page_js %}
-<script src="{{ url_for('static', filename=mc_page_js) }}?v=3" defer></script>
+<script src="{{ url_for('static', filename=mc_page_js) }}?v=4" defer></script>
 {% endif %}
 {% endblock %}

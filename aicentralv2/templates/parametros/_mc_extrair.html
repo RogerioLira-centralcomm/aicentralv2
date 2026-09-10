@@ -7,9 +7,22 @@
     </ol>
     <h2 id="mcExtractTitle">Recorte o criativo de referência</h2>
     <p>A marca entra como foto. Headline e preço ficam de fora — isso é da campanha, não do template.</p>
-    <label class="mc-extract-drop" id="mcExtractDrop">
-      <input id="mcExtractFile" type="file" accept="image/png,image/jpeg,image/webp" class="mc-visually-hidden">
-      <strong>Solte o criativo aqui</strong>
+    <label class="cx-field">
+      <span class="cx-label">Família do retângulo</span>
+      <select class="cx-select" id="mcExtractFamily">
+        <option value="square_1x1">Feed 1:1</option>
+        <option value="story_9x16">Story 9:16</option>
+        <option value="landscape_social">Paisagem social</option>
+        <option value="rectangle">Retângulo</option>
+        <option value="wide_banner">Faixa</option>
+        <option value="half_page">Half page</option>
+        <option value="sequence_16x9">Sequência 16:9</option>
+        <option value="slate_16x9">Slate 16:9</option>
+      </select>
+    </label>
+    <label class="mc-extract-drop" id="mcExtractDrop" for="mcExtractFile">
+      <input id="mcExtractFile" class="mc-extract-file" type="file" accept="image/png,image/jpeg,image/webp">
+      <strong>Solte o criativo aqui ou clique para escolher</strong>
       <span>PNG, JPG ou WEBP. Um arquivo por vez.</span>
     </label>
     <figure class="mc-extract-frame hidden" id="mcExtractFrame">

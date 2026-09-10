@@ -100,8 +100,14 @@
     mobile: 'mobile',
   };
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const $ = (selector, root = document) => (
+    root && typeof root.querySelector === 'function' ? root.querySelector(selector) : null
+  );
+  const $$ = (selector, root = document) => (
+    root && typeof root.querySelectorAll === 'function'
+      ? Array.from(root.querySelectorAll(selector))
+      : []
+  );
   const bind = (selector, event, handler) => {
     const node = typeof selector === 'string' ? $(selector) : selector;
     if (!node) return;
@@ -171,6 +177,7 @@
   };
   const setPageError = (message = '') => {
     const alert = $('#mcPageAlert');
+    if (!alert) return;
     alert.textContent = message;
     alert.classList.toggle('hidden', !message);
   };
@@ -405,10 +412,11 @@
   }
 
   function renderClientPreview() {
-    const client = state.campaignClients.find(
-      (item) => item.selection_key === $('#mcCampaignClient').value,
-    );
     const root = $('#mcClientPreview');
+    if (!root) return;
+    const client = state.campaignClients.find(
+      (item) => item.selection_key === $('#mcCampaignClient')?.value,
+    );
     if (!client) {
       root.innerHTML = '<div class="cx-empty-state"><p>Escolha um cliente para conferir sua identidade.</p></div>';
       return;
@@ -3127,8 +3135,9 @@
 
   function setupBrandDropzone(rootSelector, inputSelector, onFiles) {
     const root = $(rootSelector);
+    if (!root) return;
     const input = $(inputSelector, root);
-    if (!root || !input) return;
+    if (!input) return;
     root.addEventListener('click', (event) => {
       if (event.target === input) return;
       if (event.target.closest('[data-dropped-logo], [data-dropped-remove]')) return;
@@ -3154,6 +3163,7 @@
   async function analyzeBrand(event) {
     const button = event.currentTarget;
     const form = $('#mcClientForm');
+    if (!form) return;
     const websiteUrl = form.elements.website_url.value.trim();
     if (!websiteUrl && !state.brandFiles.length) {
       toast('Informe o site ou envie uma imagem de referência.', 'warning');
@@ -4670,6 +4680,7 @@
 
   // ====== EVENTS ======
   document.addEventListener('DOMContentLoaded', () => {
+    try {
     bind('#mcApp', 'click', handleClick);
     setupPlacementInteraction();
     bind('#mcLibraryDetail', 'input', (event) => {
@@ -4737,10 +4748,11 @@
         const file = Array.from(files || [])[0];
         if (!file) return;
         const input = $('#mcLogoDropzone input[name="logo"]');
+        const root = $('#mcLogoDropped');
+        if (!input || !root) return;
         const transfer = new DataTransfer();
         transfer.items.add(file);
         input.files = transfer.files;
-        const root = $('#mcLogoDropped');
         root.hidden = false;
         root.innerHTML = `<article><img src="${URL.createObjectURL(file)}" alt=""><span><strong>${escapeHtml(file.name)}</strong><small>Pronto para salvar</small></span></article>`;
       },
@@ -5111,6 +5123,10 @@
     const currentPage = $('#mcApp')?.dataset.mcPage;
     if (!currentPage || currentPage === 'hub') {
       activateTab(['preparar', 'produzir', 'desdobrar', 'formatos', 'marcas', 'historico'].includes(requestedTab) ? requestedTab : 'preparar', false);
+    }
+    } catch (error) {
+      console.error(error);
+      setPageError('A mesa não ligou por completo. Recarregue a página.');
     }
     loadBaseData();
   });

@@ -54,6 +54,7 @@
     primaryBrandFileIndex: -1,
     creativeLineFiles: [],
     creativeLineClientId: null,
+    selectedBrandId: null,
     refineIntent: 'copy',
     renderMode: null,
     enhancedBrief: null,
@@ -647,7 +648,10 @@
     $('#mcVariationEmpty').classList.toggle('hidden', hasCampaign);
     $('#mcVariationWorkspace').classList.toggle('hidden', !hasCampaign);
     syncPublishTriggers();
-    if (!hasCampaign) return;
+    if (!hasCampaign) {
+      syncShareTriggers();
+      return;
+    }
     const c = state.campaign;
     $('#mcCampaignBrief').innerHTML = `
       <strong>${escapeHtml(c.client.name)}</strong>
@@ -656,6 +660,7 @@
       <em class="mc-campaign-cost" title="Soma de todas as IAs desta modelagem">${campaignCost(c)}</em>`;
     renderProduction();
     renderAssetPlan();
+    syncShareTriggers();
   }
 
   function productionScenes() {
@@ -1436,8 +1441,52 @@
     renderPublicLinks();
   }
 
+  function publicLinkHref(link) {
+    try {
+      return new URL(link?.public_url || '', location.origin).href;
+    } catch (_) {
+      return String(link?.public_url || '');
+    }
+  }
+
+  function activePublicLink() {
+    return (state.publicLinks || []).find((link) => link.is_active) || null;
+  }
+
+  function openPublicLink(url) {
+    const href = publicLinkHref({ public_url: url });
+    if (href) window.open(href, '_blank', 'noopener');
+    return href;
+  }
+
+  function syncShareTriggers() {
+    const create = $('#mcCreatePublicLink');
+    const open = $('#mcOpenPresentation');
+    const canShare = Boolean(state.campaign && shareableCampaignAssets().length);
+    const active = activePublicLink();
+    if (create) {
+      create.disabled = !canShare;
+      create.innerHTML = active
+        ? '<i class="fa-solid fa-link" aria-hidden="true"></i> Novo link'
+        : '<i class="fa-solid fa-link" aria-hidden="true"></i> Criar link';
+    }
+    $$('.mc-open-share').forEach((button) => {
+      button.disabled = !canShare;
+    });
+    if (open) {
+      if (active) {
+        open.hidden = false;
+        open.href = publicLinkHref(active);
+      } else {
+        open.hidden = true;
+        open.removeAttribute('href');
+      }
+    }
+  }
+
   function renderPublicLinks() {
     const root = $('#mcPublicLinks');
+    if (!root) return;
     root.innerHTML = state.publicLinks.length ? `
       <h3>Links publicados</h3>
       ${state.publicLinks.map((link) => `
@@ -1445,9 +1494,10 @@
           <span><strong>${escapeHtml(link.title)}</strong><small>${link.asset_count} criativos · ${link.is_active ? 'Ativo' : 'Revogado'}</small></span>
           <code>${escapeHtml(link.public_url)}</code>
           <div class="mc-inspector-actions">
-            ${link.is_active ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="copy-public-link" data-public-url="${escapeHtml(link.public_url)}">Copiar</button><button class="cx-btn cx-btn-danger cx-btn-sm" type="button" data-action="revoke-public-link" data-link-id="${link.id}">Revogar</button>` : ''}
+            ${link.is_active ? `<a class="cx-btn cx-btn-primary cx-btn-sm" href="${escapeHtml(publicLinkHref(link))}" target="_blank" rel="noopener">Abrir</a><button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="copy-public-link" data-public-url="${escapeHtml(link.public_url)}">Copiar</button><button class="cx-btn cx-btn-danger cx-btn-sm" type="button" data-action="revoke-public-link" data-link-id="${link.id}">Revogar</button>` : ''}
           </div>
         </div>`).join('')}` : '';
+    syncShareTriggers();
   }
 
   function shareableCampaignAssets() {
@@ -2009,18 +2059,92 @@
   }
 
   // ====== CLIENTES ======
+  function selectedBrand() {
+    return state.clients.find((client) => Number(client.id) === Number(state.selectedBrandId)) || null;
+  }
+
+  function resetBrandDraft() {
+    state.brandAnalysis = null;
+    state.brandAssetCandidates = [];
+    state.selectedBrandAssets = new Set();
+    state.primaryBrandAssetUrl = null;
+    state.primaryBrandFileIndex = -1;
+    state.brandFiles = [];
+    renderBrandCandidates();
+    renderDroppedBrandFiles();
+    const summary = $('#mcBrandAnalysisSummary');
+    if (summary) {
+      summary.classList.add('hidden');
+      summary.innerHTML = '';
+    }
+    renderBrandPalette([]);
+    const status = $('#mcClientFormStatus');
+    if (status) status.textContent = '';
+  }
+
+  function fillBrandForm(client) {
+    const form = $('#mcClientForm');
+    if (!form) return;
+    form.reset();
+    const save = $('#mcClientSave');
+    if (save) save.textContent = client ? 'Atualizar perfil' : 'Salvar perfil';
+    if (!client) return;
+    const profile = client.brand_profile || {};
+    [
+      ['name', client.name],
+      ['sector', client.sector],
+      ['website_url', client.website_url],
+      ['logo_url', client.logo_url],
+      ['primary_color', client.primary_color],
+      ['secondary_color', client.secondary_color],
+      ['tone_of_voice', client.tone_of_voice],
+      ['brand_summary', profile.brand_summary],
+      ['target_audience', profile.target_audience],
+      ['creative_guidelines', profile.creative_guidelines],
+      ['ad_segments_text', (profile.ad_segments || []).join('\n')],
+      ['campaign_opportunities_text', (profile.campaign_opportunities || []).join('\n')],
+      ['products_services_text', (profile.products_services || []).join('\n')],
+      ['differentiators_text', (profile.differentiators || []).join('\n')],
+      ['proof_points_text', (profile.proof_points || []).join('\n')],
+      ['visual_motifs_text', (profile.visual_motifs || []).join('\n')],
+      ['mandatory_elements_text', (profile.mandatory_elements || []).join('\n')],
+      ['forbidden_elements_text', (profile.forbidden_elements || []).join('\n')],
+    ].forEach(([name, value]) => setFormValue(form, name, value));
+    if (form.elements.show_price) {
+      form.elements.show_price.checked = client.price_policy === 'show_price';
+    }
+    renderBrandPalette(profile.color_palette);
+  }
+
+  function selectBrand(id, { keepDraft = false } = {}) {
+    state.selectedBrandId = id ? Number(id) : null;
+    state.creativeLineClientId = state.selectedBrandId;
+    if (!keepDraft) resetBrandDraft();
+    fillBrandForm(selectedBrand());
+    renderClients();
+    renderCreativeLineWorkspace();
+  }
+
   function renderClients() {
     const root = $('#mcClientTableBody');
     if (!root) return;
     root.innerHTML = state.clients.map((client) => {
       const logo = client.logo_upload_path || client.logo_url;
-      return `<tr>
-        <td><strong>${escapeHtml(client.name)}</strong><br><span class="mc-section-note">${escapeHtml(client.sector || 'Sem setor')}</span>${client.analysis_metadata?.model ? '<br><span class="cx-badge cx-badge-info">Perfil analisado</span>' : ''}</td>
-        <td><span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.primary_color || '#ffffff')}"></span> <span class="mc-swatch" style="display:inline-block;background:${escapeHtml(client.secondary_color || '#ffffff')}"></span></td>
-        <td>${logo ? `<img src="${escapeHtml(logo)}" alt="" style="width:40px;height:32px;object-fit:contain">` : '<span class="cx-badge cx-badge-muted">Sem logo</span>'}</td>
-        <td><div class="mc-inspector-actions"><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-creative-line" data-client-id="${client.id}" type="button">Linha criativa</button><button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button><button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button></div></td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="4">Cadastre o primeiro perfil de marca.</td></tr>';
+      const active = Number(client.id) === Number(state.selectedBrandId);
+      return `<div class="mc-brand-row ${active ? 'is-active' : ''}">
+        <button class="mc-brand-row-main" type="button" data-select-brand="${client.id}">
+          ${logo ? `<img src="${escapeHtml(logo)}" alt="">` : '<span class="mc-brand-row-mark"></span>'}
+          <span>
+            <strong>${escapeHtml(client.name)}</strong>
+            <small>${escapeHtml(client.sector || 'Sem setor')}${client.analysis_metadata?.model ? ' · analisada' : ''}</small>
+          </span>
+        </button>
+        <div class="mc-inspector-actions">
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button>
+          <button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button>
+        </div>
+      </div>`;
+    }).join('') || '<p class="mc-section-note">Cadastre o primeiro perfil de marca.</p>';
     renderCreativeLineClientOptions();
   }
 
@@ -2358,12 +2482,13 @@
     });
   }
 
-  async function createClient(event) {
+  async function saveClient(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const button = $('button[type="submit"]', form);
-    await withLock('create-client', button, async () => {
+    await withLock('save-client', button, async () => {
       const formData = new FormData(form);
+      const current = selectedBrand();
       const data = {
         name: formData.get('name'),
         sector: formData.get('sector'),
@@ -2383,7 +2508,7 @@
         visual_motifs: lines(formData.get('visual_motifs_text')),
         mandatory_elements: lines(formData.get('mandatory_elements_text')),
         forbidden_elements: lines(formData.get('forbidden_elements_text')),
-        color_palette: state.brandAnalysis?.color_palette || [],
+        color_palette: state.brandAnalysis?.color_palette || current?.brand_profile?.color_palette || [],
         brand_assets: selectedBrandCandidates().map((asset) => ({
           source_url: brandAssetKey(asset),
           page_url: asset.page_url,
@@ -2396,11 +2521,14 @@
           is_primary: state.primaryBrandFileIndex < 0
             && state.primaryBrandAssetUrl === brandAssetKey(asset),
         })),
-        analysis_metadata: state.brandAnalysis?.analysis_metadata || {},
+        analysis_metadata: state.brandAnalysis?.analysis_metadata || current?.analysis_metadata || {},
         show_price: formData.has('show_price'),
       };
       try {
-        const created = await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
+        const saved = current
+          ? await api(`${API.clients}/${current.id}`, { method: 'PUT', body: JSON.stringify(data) })
+          : await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
+        const clientId = saved.id || current.id;
         if (state.brandFiles.length) {
           const assetBody = new FormData();
           const ordered = state.primaryBrandFileIndex >= 0
@@ -2411,34 +2539,20 @@
             : state.brandFiles;
           ordered.forEach((file) => assetBody.append('images', file));
           assetBody.append('primary_logo', String(state.primaryBrandFileIndex >= 0));
-          await api(`${API.clients}/${created.id}/brand-assets`, {
+          await api(`${API.clients}/${clientId}/brand-assets`, {
             method: 'POST',
             body: assetBody,
           });
         }
         state.clients = await api(API.clients);
         state.campaignClients = await api(API.campaignClients);
-        renderClients();
         renderClientOptions();
         const campaignClient = $('#mcCampaignClient');
-        campaignClient.value = `profile:${created.id}`;
+        if (campaignClient) campaignClient.value = `profile:${clientId}`;
         renderClientPreview();
         renderGeneratorSummary();
-        form.reset();
-        state.brandAnalysis = null;
-        state.brandAssetCandidates = [];
-        state.selectedBrandAssets = new Set();
-        state.primaryBrandAssetUrl = null;
-        state.primaryBrandFileIndex = -1;
-        state.brandFiles = [];
-        renderBrandCandidates();
-        renderDroppedBrandFiles();
-        $('#mcBrandAnalysisSummary').classList.add('hidden');
-        $('#mcBrandAnalysisSummary').innerHTML = '';
-        renderBrandPalette([]);
-        $('#mcClientFormStatus').textContent = '';
-        toast('Perfil de marca salvo.', 'success');
-        activateTab('preparar');
+        selectBrand(clientId);
+        toast(current ? 'Perfil de marca atualizado.' : 'Perfil de marca salvo.', 'success');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
         toast(error.message, 'error');
@@ -3534,9 +3648,7 @@
     } else if (action === 'close-publish') {
       $('#mcPublishDialog')?.close();
     } else if (action === 'open-creative-line') {
-      state.creativeLineClientId = Number(button.dataset.clientId);
-      $('#mcCreativeLineClient').value = String(state.creativeLineClientId);
-      renderCreativeLineWorkspace();
+      selectBrand(button.dataset.clientId);
       $('#mcCreativeLine').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (action === 'open-logo') {
       $('#mcLogoForm [name="client_id"]').value = button.dataset.clientId;
@@ -3549,7 +3661,12 @@
           try {
             await api(`${API.clients}/${button.dataset.clientId}`, { method: 'DELETE' });
             state.clients = await api(API.clients);
-            renderClients(); renderClientOptions();
+            if (Number(state.selectedBrandId) === Number(button.dataset.clientId)) {
+              selectBrand(null);
+            } else {
+              renderClients();
+            }
+            renderClientOptions();
             toast('Perfil removido.', 'success');
           } catch (error) { toast(error.message, 'error'); }
         },
@@ -3606,7 +3723,13 @@
       if (!Number.isInteger(index) || !state.enhancedBrief?.scenes?.[index]) return;
       state.enhancedBrief.scenes[index].description = event.target.value;
     });
-    $('#mcClientForm').addEventListener('submit', createClient);
+    $('#mcClientForm').addEventListener('submit', saveClient);
+    $('#mcNewBrand')?.addEventListener('click', () => selectBrand(null));
+    $('#mcClientTableBody')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-select-brand]');
+      if (!button) return;
+      selectBrand(button.dataset.selectBrand);
+    });
     $('#mcAnalyzeBrand').addEventListener('click', analyzeBrand);
     setupBrandDropzone(
       '#mcBrandDropzone',
@@ -3634,10 +3757,9 @@
       addCreativeLineFiles,
     );
     $('#mcCreativeLineClient').addEventListener('change', (event) => {
-      state.creativeLineClientId = Number(event.target.value) || null;
       state.creativeLineFiles = [];
       renderCreativeLineUploads();
-      renderCreativeLineWorkspace();
+      selectBrand(event.target.value || null);
     });
     $('#mcCreativeLineUploads').addEventListener('click', (event) => {
       const remove = event.target.closest('[data-creative-remove]');
@@ -3773,7 +3895,7 @@
       state.selectedViewerProfileId = Number(event.target.value) || null;
       renderProductionStage();
     });
-    $('#mcCreatePublicLink').addEventListener('click', () => {
+    const openShareDialog = () => {
       if (!shareableCampaignAssets().length) {
         toast('Aprove ao menos uma imagem antes de publicar.', 'warning');
         return;
@@ -3781,7 +3903,9 @@
       $('#mcShareForm [name="title"]').value = state.campaign?.name || '';
       renderShareEnvironments();
       $('#mcShareDialog').showModal();
-    });
+    };
+    $('#mcCreatePublicLink')?.addEventListener('click', openShareDialog);
+    $$('.mc-open-share').forEach((button) => button.addEventListener('click', openShareDialog));
     $('#mcGenerateAllPrompts')?.addEventListener('click', (event) => {
       const button = event.currentTarget;
       const run = () => withLock('all-prompts', button, async () => {
@@ -3921,8 +4045,9 @@
           form.reset();
           state.publicLinks = await api(`${API.campaigns}/${state.campaign.id}/public-collections`);
           renderPublicLinks();
-          await navigator.clipboard.writeText(new URL(created.public_url, location.origin).href).catch(() => {});
-          toast('Link público criado e copiado.', 'success');
+          const href = openPublicLink(created.public_url);
+          await navigator.clipboard.writeText(href).catch(() => {});
+          toast('Link público criado e aberto.', 'success');
         } catch (error) { toast(error.message, 'error'); }
       });
     });

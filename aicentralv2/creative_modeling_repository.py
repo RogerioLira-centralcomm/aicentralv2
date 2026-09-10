@@ -478,6 +478,42 @@ class CreativeModelingRepository:
                 )
             return dict(asset)
 
+    def update_client(self, client_id, data):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_clients
+                   SET name = %s,
+                       sector = %s,
+                       tone_of_voice = %s,
+                       logo_url = %s,
+                       primary_color = %s,
+                       secondary_color = %s,
+                       website_url = %s,
+                       brand_profile = %s,
+                       analysis_metadata = %s,
+                       price_policy = %s
+                 WHERE id = %s
+                RETURNING id
+                """,
+                (
+                    data["name"],
+                    data.get("sector"),
+                    data.get("tone_of_voice"),
+                    data.get("logo_url"),
+                    data.get("primary_color"),
+                    data.get("secondary_color"),
+                    data.get("website_url"),
+                    Json(data.get("brand_profile") or {}),
+                    Json(data.get("analysis_metadata") or {}),
+                    data["price_policy"],
+                    client_id,
+                ),
+            )
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Cliente não encontrado.")
+            return client_id
+
     def update_client_brand_profile(self, client_id, brand_profile):
         with self._write() as cursor:
             cursor.execute(

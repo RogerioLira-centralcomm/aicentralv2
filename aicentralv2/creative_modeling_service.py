@@ -697,7 +697,7 @@ class CreativeModelingService:
             client["brand_assets"] = self.repository.list_client_brand_assets(client_id)
         return _serialize(client)
 
-    def create_client(self, payload):
+    def _client_write_data(self, payload, include_crm=True):
         payload = payload if isinstance(payload, dict) else {}
         logo_url = _text(payload.get("logo_url"), "URL do logo", max_length=2000)
         if logo_url and not logo_url.lower().startswith(("http://", "https://")):
@@ -747,6 +747,9 @@ class CreativeModelingService:
             ),
             "color_palette": _brand_palette(payload.get("color_palette")),
         }
+        incoming_line = payload.get("creative_line")
+        if isinstance(incoming_line, dict) and incoming_line:
+            brand_profile["creative_line"] = incoming_line
         analysis_metadata = payload.get("analysis_metadata") or {}
         if not isinstance(analysis_metadata, dict):
             raise ValueError("Metadados da análise inválidos.")
@@ -787,13 +790,39 @@ class CreativeModelingService:
             ),
             "brand_profile": brand_profile,
             "analysis_metadata": analysis_metadata,
-            "crm_client_id": (
+        }
+        if include_crm:
+            data["crm_client_id"] = (
                 HOUSE_CRM_CLIENT_ID
                 if payload.get("crm_client_id") in (None, "")
                 else _integer(payload.get("crm_client_id"), "Cliente CentralComm")
-            ),
-        }
+            )
+        return data
+
+    def create_client(self, payload):
+        data = self._client_write_data(payload)
         client_id = self.repository.create_client(data)
+        saved_assets = self._import_candidate_brand_assets(client_id, payload)
+        return {"id": client_id, "brand_assets": saved_assets}
+
+    def update_client(self, client_id, payload):
+        client_id = _integer(client_id, "Cliente")
+        current = self.repository.get_client(client_id)
+        payload = payload if isinstance(payload, dict) else {}
+        current_profile = current.get("brand_profile") if isinstance(current.get("brand_profile"), dict) else {}
+        merged = dict(payload)
+        if not merged.get("creative_line") and current_profile.get("creative_line"):
+            merged["creative_line"] = current_profile.get("creative_line")
+        if not merged.get("analysis_metadata") and current.get("analysis_metadata"):
+            merged["analysis_metadata"] = current.get("analysis_metadata")
+        if not merged.get("color_palette") and current_profile.get("color_palette"):
+            merged["color_palette"] = current_profile.get("color_palette")
+        data = self._client_write_data(merged, include_crm=False)
+        self.repository.update_client(client_id, data)
+        self._import_candidate_brand_assets(client_id, merged)
+        return self.get_client(client_id)
+
+    def _import_candidate_brand_assets(self, client_id, payload):
         saved_assets = []
         for candidate in (payload.get("brand_assets") or [])[:9]:
             if not isinstance(candidate, dict):
@@ -854,7 +883,7 @@ class CreativeModelingService:
             if asset_data["is_primary"] and asset_data.get("asset_path"):
                 self.repository.set_client_logo(client_id, asset_data["asset_path"])
             saved_assets.append(asset_data)
-        return {"id": client_id, "brand_assets": saved_assets}
+        return saved_assets
 
     def analyze_brand(self, website_url=None, image=None):
         return _serialize(self.brand_analyzer.analyze(website_url, image))

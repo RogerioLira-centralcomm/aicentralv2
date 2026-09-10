@@ -177,6 +177,9 @@ def api_read_campaign_pack():
 
 @admin_required_api
 def api_delete_client(cid):
+    if request.method == "PUT":
+        return _execute(lambda: _ok(_service().update_client(cid, _json())))
+
     def execute():
         service = _service()
         client = service.delete_client(cid)
@@ -778,7 +781,7 @@ def register_creative_modeling_routes(blueprint):
         "/api/clients/<int:cid>",
         endpoint="creative_delete_client",
         view_func=api_delete_client,
-        methods=["DELETE"],
+        methods=["PUT", "DELETE"],
     )
     blueprint.add_url_rule(
         "/api/clients/<int:cid>/logo",

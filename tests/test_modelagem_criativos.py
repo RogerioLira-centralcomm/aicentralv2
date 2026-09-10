@@ -113,6 +113,13 @@ class FakeRepository:
         self.clients.append(data)
         return 10
 
+    def update_client(self, client_id, data):
+        if self.clients:
+            self.clients[0].update(data)
+        else:
+            self.clients.append(data)
+        return client_id
+
     def get_format(self, format_id):
         if format_id != 7:
             raise LookupError("Formato não encontrado")
@@ -1286,6 +1293,20 @@ class CreativeServiceTest(unittest.TestCase):
         )
         self.assertEqual(
             saved["brand_profile"]["color_palette"][0]["hex"], "#7A1632"
+        )
+        self.service.update_client(
+            10,
+            {
+                "name": "Cliente editado",
+                "primary_color": "#123ABC",
+                "secondary_color": "#FEDCBA",
+                "brand_summary": "Marca atualizada.",
+            },
+        )
+        self.assertEqual(self.repo.clients[0]["name"], "Cliente editado")
+        self.assertEqual(
+            self.repo.clients[0]["brand_profile"]["brand_summary"],
+            "Marca atualizada.",
         )
 
     def test_banner_estatico_tem_uma_cena_e_demais_formatos_quatro(self):
@@ -2506,6 +2527,23 @@ class CreativeRoutesTest(unittest.TestCase):
         service.publish_campaign.assert_called()
         service.prepare_campaign_video.assert_called_once_with(40)
 
+    def test_api_atualiza_cliente(self):
+        service = Mock()
+        service.update_client.return_value = {"id": 10, "name": "Cliente editado"}
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.put(
+                "/parametros/api/clients/10",
+                json={"name": "Cliente editado", "primary_color": "#123ABC"},
+            )
+        self.assertEqual(response.status_code, 200)
+        service.update_client.assert_called_once()
+
     def test_api_analisa_site_e_imagem(self):
         service = Mock()
         service.analyze_brand.return_value = {
@@ -2584,8 +2622,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=32", page)
-        self.assertIn("modelagem_criativos.js') }}?v=32", page)
+        self.assertIn("modelagem_criativos.css') }}?v=33", page)
+        self.assertIn("modelagem_criativos.js') }}?v=33", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2652,6 +2690,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mcAdSlot", library)
         self.assertIn("mcLibraryDetail", library)
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
+        self.assertIn("mc-brand-studio", clients)
+        self.assertIn('data-brand-col="add"', clients)
+        self.assertIn('data-brand-col="edit"', clients)
+        self.assertIn('data-brand-col="audit"', clients)
+        self.assertIn('id="mcClientForm"', clients)
+        self.assertIn('id="mcNewBrand"', clients)
         self.assertIn('id="mcAnalyzeBrand"', clients)
         self.assertIn('name="target_audience"', clients)
         self.assertIn('id="mcBrandDropzone"', clients)
@@ -2687,6 +2731,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn('id="mcUnfoldPublishBatch"', unfold)
         production_html = (template_dir / "_mc_variacoes.html").read_text(encoding="utf-8")
         self.assertIn('id="mcOpenPublishBatch"', production_html)
+        self.assertIn('id="mcCreatePublicLink"', production_html)
+        self.assertIn('id="mcOpenPresentation"', production_html)
+        self.assertIn('id="mcShareDialog"', production_html)
+        self.assertIn("Abrir apresentação", production_html)
+        self.assertIn("Criar e abrir", production_html)
         self.assertIn('id="mcPublishDialog"', page)
         self.assertIn('id="mcPublishBatch"', page)
         self.assertIn("setupBrandDropzone(", production_js)
@@ -3032,6 +3081,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Gerar publicáveis", frontend)
         self.assertIn("Os rascunhos saem em low/1K", frontend)
         self.assertIn("produce.hidden = true", frontend)
+        self.assertIn("function syncShareTriggers", frontend)
+        self.assertIn("function openPublicLink", frontend)
+        self.assertIn("window.open(href, '_blank', 'noopener')", frontend)
+        self.assertIn('target="_blank"', frontend)
+        self.assertIn("function selectBrand", frontend)
+        self.assertIn("function saveClient", frontend)
+        self.assertIn("Atualizar perfil", frontend)
+        self.assertIn("`${API.clients}/${current.id}`", frontend)
         self.assertIn("Gerar alta resolução", frontend)
         self.assertIn("video/prepare", frontend)
         self.assertIn("collectDraftPieces(productions, true)", frontend)

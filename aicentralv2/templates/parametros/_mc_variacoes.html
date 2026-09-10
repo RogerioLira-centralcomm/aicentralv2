@@ -8,6 +8,14 @@
   <button class="cx-btn cx-btn-secondary mc-publish-trigger" id="mcOpenPublishBatch" type="button" hidden>
     Publicáveis em lote
   </button>
+  <div class="mc-share-triggers">
+    <a class="cx-btn cx-btn-primary" id="mcOpenPresentation" hidden target="_blank" rel="noopener">
+      <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir apresentação
+    </a>
+    <button class="cx-btn cx-btn-secondary" id="mcCreatePublicLink" type="button" disabled>
+      <i class="fa-solid fa-link" aria-hidden="true"></i> Criar link
+    </button>
+  </div>
 </div>
 
 <div id="mcVariationEmpty" class="cx-empty-state">
@@ -71,8 +79,8 @@
         <a class="cx-btn cx-btn-secondary" id="mcDownloadAssets" href="#">
           <i class="fa-solid fa-file-zipper" aria-hidden="true"></i> Baixar imagens
         </a>
-        <button class="cx-btn cx-btn-primary" id="mcCreatePublicLink" type="button">
-          <i class="fa-solid fa-link" aria-hidden="true"></i> Criar link público
+        <button class="cx-btn cx-btn-secondary mc-open-share" type="button">
+          <i class="fa-solid fa-link" aria-hidden="true"></i> Novo link
         </button>
       </div>
     </div>
@@ -97,14 +105,14 @@
       <span class="cx-label">Descrição</span>
       <textarea class="cx-textarea" name="description" maxlength="4000" placeholder="Contexto para quem receber o link"></textarea>
     </label>
-    <fieldset class="mc-share-environments">
-      <legend>Ambiente por criativo</legend>
+    <details class="mc-share-environments">
+      <summary>Ambiente por criativo</summary>
       <p class="cx-help">Use o padrão do formato ou defina onde cada peça será apresentada.</p>
       <div id="mcShareEnvironmentList"></div>
-    </fieldset>
-    <p class="cx-help">O link é somente leitura, não expira automaticamente e pode ser revogado.</p>
+    </details>
+    <p class="cx-help">O link abre em outra aba, é somente leitura e pode ser revogado.</p>
     <footer class="cx-modal-footer">
-      <button class="cx-btn cx-btn-primary" type="submit">Criar link</button>
+      <button class="cx-btn cx-btn-primary" type="submit">Criar e abrir</button>
     </footer>
   </form>
 </dialog>

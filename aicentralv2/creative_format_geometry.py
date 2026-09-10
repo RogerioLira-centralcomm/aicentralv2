@@ -309,52 +309,57 @@ def canvas_mismatch(target_size, provider_aspect_ratio):
     return abs(math.log(actual / (pw / ph))) > 0.12
 
 
+def get_safe_areas(family, size):
+    """Alias estável de compose_layout: um só mapa para geração e compose."""
+    return compose_layout(family, size)
+
+
 def compose_layout(family, size):
     width, height = size
     if family == "wide_banner":
-        return {
+        layout = {
             "visual": (0, 0, int(width * 0.28), height),
             "headline": (int(width * 0.30), int(height * 0.18), int(width * 0.46), int(height * 0.64)),
             "cta": (int(width * 0.80), int(height * 0.22), int(width * 0.18), int(height * 0.56)),
             "logo": (int(width * 0.02), int(height * 0.18), int(height * 0.64), int(height * 0.64)),
         }
-    if family == "rectangle":
-        return {
+    elif family == "rectangle":
+        layout = {
             "visual": (0, 0, width, int(height * 0.58)),
             "headline": (12, int(height * 0.60), width - 24, int(height * 0.22)),
             "cta": (width - 118, height - 40, 106, 28),
             "logo": (10, 10, 36, 36),
         }
-    if family == "half_page":
-        return {
+    elif family == "half_page":
+        layout = {
             "visual": (0, 0, width, int(height * 0.48)),
             "headline": (16, int(height * 0.52), width - 32, int(height * 0.22)),
             "cta": (16, height - 56, width - 32, 40),
             "logo": (16, 16, 40, 40),
         }
-    if family == "story_9x16":
-        return {
+    elif family == "story_9x16":
+        layout = {
             "visual": (0, int(height * 0.10), width, int(height * 0.58)),
             "headline": (int(width * 0.08), int(height * 0.70), int(width * 0.84), int(height * 0.12)),
             "cta": (int(width * 0.14), int(height * 0.86), int(width * 0.72), int(height * 0.06)),
             "logo": (int(width * 0.08), int(height * 0.04), 72, 72),
         }
-    if family == "square_1x1":
-        return {
+    elif family == "square_1x1":
+        layout = {
             "visual": (0, 0, width, int(height * 0.62)),
             "headline": (int(width * 0.07), int(height * 0.64), int(width * 0.86), int(height * 0.16)),
             "cta": (int(width * 0.22), int(height * 0.84), int(width * 0.56), int(height * 0.10)),
             "logo": (int(width * 0.05), int(height * 0.05), 64, 64),
         }
-    if family == "landscape_social":
-        return {
+    elif family == "landscape_social":
+        layout = {
             "visual": (0, 0, int(width * 0.52), height),
             "headline": (int(width * 0.56), int(height * 0.22), int(width * 0.38), int(height * 0.28)),
             "cta": (int(width * 0.56), int(height * 0.68), int(width * 0.28), int(height * 0.16)),
             "logo": (int(width * 0.56), int(height * 0.08), 64, 64),
         }
-    if family in {"slate_16x9", "sequence_16x9"}:
-        return {
+    elif family in {"slate_16x9", "sequence_16x9"}:
+        layout = {
             "visual": (0, 0, width, height),
             "headline": (
                 int(width * 0.06),
@@ -370,26 +375,41 @@ def compose_layout(family, size):
             ),
             "logo": (int(width * 0.06), int(height * 0.08), 72, 72),
         }
-    if family == "portal_unit" and height > width * 1.15:
-        return {
+    elif family == "portal_unit" and height > width * 1.15:
+        layout = {
             "visual": (0, 0, width, int(height * 0.52)),
             "headline": (16, int(height * 0.56), width - 32, int(height * 0.20)),
             "cta": (16, height - 56, width - 32, 40),
             "logo": (16, 16, 40, 40),
         }
-    if family == "portal_unit" and width > height * 1.15:
-        return {
+    elif family == "portal_unit" and width > height * 1.15:
+        layout = {
             "visual": (0, 0, int(width * 0.42), height),
             "headline": (int(width * 0.46), int(height * 0.22), int(width * 0.32), int(height * 0.56)),
             "cta": (int(width * 0.80), int(height * 0.28), int(width * 0.16), int(height * 0.44)),
             "logo": (int(width * 0.02), int(height * 0.16), int(height * 0.60), int(height * 0.60)),
         }
-    return {
-        "visual": (0, 0, width, height),
-        "headline": (int(width * 0.08), int(height * 0.72), int(width * 0.54), int(height * 0.12)),
-        "cta": (int(width * 0.70), int(height * 0.78), int(width * 0.22), int(height * 0.10)),
-        "logo": (int(width * 0.08), int(height * 0.08), 72, 72),
-    }
+    else:
+        layout = {
+            "visual": (0, 0, width, height),
+            "headline": (int(width * 0.08), int(height * 0.72), int(width * 0.54), int(height * 0.12)),
+            "cta": (int(width * 0.70), int(height * 0.78), int(width * 0.22), int(height * 0.10)),
+            "logo": (int(width * 0.08), int(height * 0.08), 72, 72),
+        }
+    layout["legal"] = _legal_box(layout, size)
+    return layout
+
+
+def _legal_box(layout, size):
+    width, height = size
+    hx, hy, hw, hh = layout["headline"]
+    _cx, cy, _cw, _ch = layout["cta"]
+    gap = cy - (hy + hh)
+    if gap >= 10:
+        band = min(16, max(8, gap - 4))
+        return (hx, hy + hh + max(1, (gap - band) // 2), hw, band)
+    band = max(8, min(14, max(1, hh // 4)))
+    return (hx, max(0, hy + hh - band), max(24, hw - 8), min(band, height))
 
 
 def hygiene_instruction(intent, family=None):
@@ -452,7 +472,10 @@ SLOT_LABELS = {
     "headline": "Título",
     "cta": "CTA",
     "logo": "Logo",
+    "legal": "Legal",
 }
+
+OVERLAY_SLOTS = ("headline", "cta", "legal", "logo")
 
 ORIENTATION_LABELS = {
     "horizontal": "Horizontal",

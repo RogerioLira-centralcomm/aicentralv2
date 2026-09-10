@@ -26,7 +26,11 @@ from .creative_modeling_repository import (
     CreativeModelingRepository,
     CreativeNotFoundError,
 )
-from .creative_format_compose import compose_native_piece
+from .creative_format_compose import (
+    compose_native_result,
+    crop_safe_area_collage,
+    wipe_safe_areas,
+)
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
@@ -56,6 +60,7 @@ from .creative_construct_params import (
     model_unit_usd,
     quote_unfold_path,
     resolve_construct_path,
+    scene_key_for_slug,
 )
 from .creative_modeling_prompts import (
     ANTI_AI_LOOK,
@@ -671,7 +676,7 @@ class CreativeModelingService:
         self.storage = storage or CreativeAssetStorage()
         self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
 
-    def _append_brand_references(self, client_id, data_urls, job_id=None):
+    def _append_brand_references(self, client_id, data_urls, job_id=None, engine=None):
         if (
             not client_id
             or len(data_urls) >= 2
@@ -681,7 +686,11 @@ class CreativeModelingService:
         used = []
         assets = list(self.repository.list_client_brand_assets(client_id) or [])
         has_campaign_refs = bool(data_urls)
-        logos = [asset for asset in assets if asset.get("role") == "logo"]
+        skip_logo = str(engine or "") == ENGINE_CONSTRUCT
+        logos = [
+            asset for asset in assets
+            if asset.get("role") == "logo" and not skip_logo
+        ]
         others = [asset for asset in assets if asset.get("role") != "logo"]
         assets = logos + ([] if has_campaign_refs else others)
         for asset in assets:
@@ -1662,6 +1671,7 @@ class CreativeModelingService:
                 "beat": beat,
             },
             "flow_kind": flow_kind,
+            "engine": path.get("engine"),
             "locks": locks,
             "kv_notes": ((context.get("creative_brief") or {}).get("kv_notes") or {}),
             "campaign_pack": _campaign_pack(
@@ -1745,7 +1755,11 @@ class CreativeModelingService:
                 locks=locks,
                 engine=path.get("engine"),
             )
-            if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt:
+            if (
+                flow_kind == "unfold"
+                and path.get("engine") != ENGINE_CONSTRUCT
+                and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt
+            ):
                 prompt = f"{prompt}\n\n{unfold_image_lock(locks)}"
             scene = self.repository.update_scene_prompt(
                 scene_id,
@@ -1831,7 +1845,11 @@ class CreativeModelingService:
             locks=locks,
             engine=path.get("engine"),
         )
-        if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt:
+        if (
+            flow_kind == "unfold"
+            and path.get("engine") != ENGINE_CONSTRUCT
+            and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt
+        ):
             prompt = f"{prompt}\n\n{unfold_image_lock(locks)}"
         variant_level = "source"
         if tier["name"] == PUBLISH:
@@ -1908,33 +1926,25 @@ class CreativeModelingService:
                     pack_data = self._kv_data_url(pack_url)
                     if pack_data and pack_data not in data_urls:
                         data_urls.append(pack_data)
-            previous_asset_url = context.get("previous_approved_asset_url")
-            if previous_asset_url and len(data_urls) < 2:
-                data_urls.append(
-                    self.storage.generated_as_data_url(previous_asset_url)
-                )
+            self._attach_previous_reference(
+                context, data_urls, path.get("engine"), geometry["family"]
+            )
             self._append_brand_references(
-                context.get("client_id"), data_urls, job_id
+                context.get("client_id"),
+                data_urls,
+                job_id,
+                engine=path.get("engine"),
             )
             self.repository.mark_job_generating(job_id)
-            generated = self.generator.generate_image(
+            generated, composed, layers = self._render_scene_image(
                 prompt,
                 data_urls,
-                aspect_ratio=context.get("aspect_ratio") or "16:9",
-                quality=tier["quality"],
-                resolution=tier["resolution"],
-                model=image_model,
-            )
-            source_url = self.storage.save_generated_base64(
-                generated["b64_json"], generated.get("output_format", "png")
-            )
-            composed = self._compose_native_asset(
-                source_url,
-                generated["b64_json"],
                 context,
                 geometry,
                 render_mode,
-                engine=path.get("engine"),
+                path,
+                image_model,
+                tier,
             )
             asset_url = composed["asset_url"]
             response_meta = generated.get("response_metadata") or {}
@@ -1945,7 +1955,7 @@ class CreativeModelingService:
                 "checks": {},
                 "defects": [],
             }
-            review_cost = 0
+            review_cost = float(layers.get("gate_cost") or 0)
             try:
                 review = self.generator.review_image(
                     {
@@ -1975,7 +1985,7 @@ class CreativeModelingService:
                         or context.get("aspect_ratio"),
                     ),
                 )
-                review_cost = float(review.get("actual_cost_usd") or 0)
+                review_cost += float(review.get("actual_cost_usd") or 0)
             except Exception as review_error:
                 quality_review["warnings"] = [
                     "A revisão automática não pôde ser concluída; revise a imagem manualmente."
@@ -1988,6 +1998,9 @@ class CreativeModelingService:
                 ):
                     quality_review["defects"] = ["wrong_canvas"]
                     quality_review["checks"]["safe_area"] = False
+            fidelity = self._publishable_fidelity(
+                tier["name"], composed, layers, path.get("engine")
+            )
             asset = self.repository.add_generated_asset(
                 job_id,
                 None,
@@ -2007,11 +2020,17 @@ class CreativeModelingService:
                     "engine": path.get("engine"),
                     "image_model": generated.get("model") or image_model,
                     "variant_level": variant_level,
-                    "fidelity": tier["name"],
+                    "fidelity": fidelity,
                     "quality": tier["quality"],
                     "resolution": tier["resolution"],
                     "parent_asset_id": source_asset["id"] if source_asset else None,
                     "locks": locks,
+                    "composed": composed.get("composed"),
+                    "logo_applied": composed.get("logo_applied"),
+                    "require_logo": composed.get("require_logo"),
+                    "safe_area_clear": layers.get("safe_area_clear"),
+                    "needs_retry": layers.get("needs_retry"),
+                    "font": composed.get("font"),
                     "requested_aspect_ratio": response_meta.get(
                         "requested_aspect_ratio"
                     ),
@@ -2022,11 +2041,14 @@ class CreativeModelingService:
                 scene_id=scene_id,
             )
             actual = generated.get("actual_cost_usd")
+            extra_cost = float(layers.get("image_cost") or 0)
             self.repository.complete_generation_job(
                 job_id,
-                estimate if actual is None else float(actual) + review_cost,
+                estimate if actual is None else float(actual) + extra_cost + review_cost,
                 {
                     "usage": generated.get("usage") or {},
+                    "needs_retry": layers.get("needs_retry"),
+                    "safe_area_clear": layers.get("safe_area_clear"),
                     **(generated.get("response_metadata") or {}),
                 },
             )
@@ -2075,6 +2097,7 @@ class CreativeModelingService:
         job_prompt = (asset.get("job_prompt") or context.get("prompt") or "").strip()
         if not job_prompt:
             raise ValueError("Não há prompt do job para ajustar esta imagem.")
+        path = _brief_path(context)
         prompt = apply_render_mode_to_prompt(
             (
                 f"{job_prompt}\n\nRefinement instruction: {instruction}\n"
@@ -2088,10 +2111,11 @@ class CreativeModelingService:
             self._compose_copy(context),
             flow_kind=flow_kind,
             locks=locks,
+            engine=path.get("engine"),
         )
         if intent:
             prompt += f"\nRefinement intent: {intent}."
-        if variant_level:
+        if variant_level and path.get("engine") != ENGINE_CONSTRUCT:
             prompt = f"{prompt}\n\n{unfold_image_lock(locks)}"
         tier = resolve_image_tier(DRAFT)
         estimate = self._estimate("image", tier["name"])
@@ -2140,7 +2164,10 @@ class CreativeModelingService:
                     )
                 )
             self._append_brand_references(
-                context.get("client_id"), data_urls, job_id
+                context.get("client_id"),
+                data_urls,
+                job_id,
+                engine=path.get("engine"),
             )
             self.repository.mark_job_generating(job_id)
             generated = self.generator.generate_image(
@@ -2159,6 +2186,7 @@ class CreativeModelingService:
                 context,
                 geometry,
                 render_mode,
+                engine=path.get("engine"),
             )
             result = self.repository.add_generated_asset(
                 job_id,
@@ -2584,20 +2612,45 @@ class CreativeModelingService:
             **(payload if isinstance(payload, dict) else {}),
         })
         pieces = []
+        masters = {}
         for production in campaign.get("productions") or []:
+            slug = production.get("format_slug")
+            key = (
+                scene_key_for_slug(slug, path.get("scene_pack"))
+                if path.get("engine") == ENGINE_CONSTRUCT
+                else None
+            )
             for scene in production.get("scenes") or []:
-                if scene.get("prompt_status") != "approved":
-                    self.generate_scene_prompt(scene["id"], created_by=created_by)
-                generated = self.generate_scene(
-                    scene["id"],
-                    [],
-                    created_by=created_by,
-                    fidelity=path["fidelity"],
-                )
+                if (
+                    key
+                    and key in masters
+                    and path.get("engine") == ENGINE_CONSTRUCT
+                ):
+                    generated = self._derive_format_from_master(
+                        scene["id"],
+                        masters[key],
+                        created_by=created_by,
+                        path=path,
+                    )
+                else:
+                    if scene.get("prompt_status") != "approved":
+                        self.generate_scene_prompt(scene["id"], created_by=created_by)
+                    generated = self.generate_scene(
+                        scene["id"],
+                        [],
+                        created_by=created_by,
+                        fidelity=path["fidelity"],
+                    )
+                    if key:
+                        masters[key] = {
+                            "scene_id": scene["id"],
+                            "asset": generated.get("asset") or {},
+                        }
                 pieces.append({
                     "production_id": production.get("id"),
                     "scene_id": scene["id"],
                     "format_template_id": production.get("format_template_id"),
+                    "scene_key": key,
                     **generated,
                 })
         detail = self.campaign_detail(campaign_id)
@@ -3354,10 +3407,14 @@ class CreativeModelingService:
         locks = _brief_locks(context)
         items = locks.get("items") or {}
         omit_cta = (items.get("cta") or {}).get("status") == "absent"
+        logo_status = (items.get("logo") or {}).get("status")
+        require_logo = logo_status == "seen"
         return {
             "headline": locks["headline"] or context.get("campaign_name") or "",
             "cta": "" if omit_cta else (locks["cta"] or context.get("cta_text") or ""),
+            "legal": (items.get("legal") or {}).get("text") or "",
             "omit_cta": omit_cta,
+            "require_logo": require_logo,
             "brand_color": context.get("primary_color") or "#1E4D4F",
         }
 
@@ -3382,24 +3439,225 @@ class CreativeModelingService:
         return text
 
     def _logo_bytes(self, context):
-        path = context.get("logo_upload_path")
-        reader = getattr(self.storage, "absolute_reference_path", None)
-        if not path or not callable(reader):
+        return self.resolve_brand_logo_bytes(context)
+
+    def resolve_brand_logo_bytes(self, context):
+        context = context if isinstance(context, dict) else {}
+        reader = getattr(self.storage, "read_public_bytes", None)
+        for key in ("logo_upload_path", "logo_url"):
+            path = context.get(key)
+            data = self._read_logo_path(path, reader)
+            if data:
+                return data
+        client_id = context.get("client_id")
+        if not client_id or not hasattr(self.repository, "list_client_brand_assets"):
             return None
+        for asset in self.repository.list_client_brand_assets(client_id) or []:
+            if asset.get("role") != "logo":
+                continue
+            data = self._read_logo_path(asset.get("asset_path"), reader)
+            if data:
+                return data
+        return None
+
+    def _read_logo_path(self, path, reader):
+        if not path:
+            return None
+        if callable(reader):
+            try:
+                data = reader(path)
+            except Exception:
+                data = None
+            if data:
+                return data
+        absolute_reader = getattr(self.storage, "absolute_public_path", None)
+        if callable(absolute_reader):
+            try:
+                absolute = absolute_reader(path)
+                if absolute is not None:
+                    return absolute.read_bytes()
+            except Exception:
+                pass
+        legacy = getattr(self.storage, "absolute_reference_path", None)
+        if callable(legacy):
+            try:
+                absolute = legacy(path)
+                if absolute is not None:
+                    return absolute.read_bytes()
+            except Exception:
+                return None
+        return None
+
+    def _attach_previous_reference(self, context, data_urls, engine, family):
+        previous = context.get("previous_approved_asset_url")
+        position = int(context.get("position") or 1)
+        required = position > 1 and (
+            str(engine or "") == ENGINE_CONSTRUCT or family == "sequence_16x9"
+        )
+        if required and not previous:
+            raise ValueError("A cena anterior aprovada é obrigatória neste caminho.")
+        if not previous:
+            return data_urls
+        prev_data = self.storage.generated_as_data_url(previous)
+        if prev_data in data_urls:
+            return data_urls
+        if required:
+            if len(data_urls) < 2:
+                data_urls.append(prev_data)
+            else:
+                data_urls[-1] = prev_data
+            return data_urls
+        if len(data_urls) < 2:
+            data_urls.append(prev_data)
+        return data_urls
+
+    def _reinforce_empty_boxes(self, prompt, geometry, copy, locks):
+        from .creative_modeling_prompts import construct_empty_boxes
+
+        block = construct_empty_boxes(geometry, copy, locks)
+        return f"{prompt}\n\nREINFORCED EMPTY BOXES\n{block}".strip()
+
+    def _gate_safe_areas(self, raw_bytes, geometry):
+        collage = crop_safe_area_collage(raw_bytes, geometry)
+        data_url = "data:image/png;base64," + base64.b64encode(collage).decode("ascii")
         try:
-            absolute = reader(path)
-        except Exception:
-            return None
-        if absolute is None:
-            return None
-        try:
-            return absolute.read_bytes()
-        except Exception:
-            return None
+            review = self.generator.review_image(
+                {
+                    "task": "safe_area_gate",
+                    "question": "Há texto, wordmark ou lockup visível nestas caixas?",
+                    "target_size": geometry.get("target_size"),
+                    "iab_family": geometry.get("family"),
+                },
+                data_url,
+            )
+        except Exception as exc:
+            return {
+                "safe_area_clear": False,
+                "text_or_lockup_visible": False,
+                "review_error": str(exc)[:240],
+                "cost": 0,
+            }
+        result = review.get("result") or {}
+        visible = result.get("text_or_lockup_visible")
+        if visible is None:
+            visible = result.get("approved_recommendation") is False
+        clear = result.get("safe_area_clear")
+        if clear is None:
+            clear = not bool(visible)
+        return {
+            "safe_area_clear": bool(clear) and not bool(visible),
+            "text_or_lockup_visible": bool(visible),
+            "notes": result.get("notes") or [],
+            "cost": float(review.get("actual_cost_usd") or 0),
+        }
+
+    def _render_scene_image(
+        self, prompt, data_urls, context, geometry, render_mode, path, image_model, tier
+    ):
+        engine = path.get("engine")
+        attempts = 2 if engine == ENGINE_CONSTRUCT else 1
+        generated = None
+        extra_cost = 0
+        gate = {"safe_area_clear": None, "needs_retry": False, "gate_cost": 0}
+        current_prompt = prompt
+        for attempt in range(attempts):
+            generated = self.generator.generate_image(
+                current_prompt,
+                data_urls,
+                aspect_ratio=context.get("aspect_ratio") or "16:9",
+                quality=tier["quality"],
+                resolution=tier["resolution"],
+                model=image_model,
+            )
+            if attempt:
+                extra_cost += float(generated.get("actual_cost_usd") or 0)
+            if engine != ENGINE_CONSTRUCT:
+                break
+            raw = base64.b64decode(generated["b64_json"])
+            gate = self._gate_safe_areas(raw, geometry)
+            gate["gate_cost"] = float(gate.get("cost") or 0)
+            if gate.get("safe_area_clear") or attempt == attempts - 1:
+                break
+            current_prompt = self._reinforce_empty_boxes(
+                prompt, geometry, self._compose_copy(context), _brief_locks(context)
+            )
+        source_url = self.storage.save_generated_base64(
+            generated["b64_json"], generated.get("output_format", "png")
+        )
+        raw = base64.b64decode(generated["b64_json"])
+        allow_compose = engine != ENGINE_CONSTRUCT or gate.get("safe_area_clear") is not False
+        if engine == ENGINE_CONSTRUCT:
+            if gate.get("text_or_lockup_visible") and not gate.get("safe_area_clear"):
+                allow_compose = False
+            else:
+                generated = dict(generated)
+                generated["b64_json"] = base64.b64encode(
+                    wipe_safe_areas(
+                        raw, geometry, context.get("primary_color") or "#1E4D4F"
+                    )
+                ).decode("ascii")
+                allow_compose = True
+        if allow_compose:
+            composed = self._compose_native_asset(
+                source_url,
+                generated["b64_json"],
+                context,
+                geometry,
+                render_mode,
+                engine=engine,
+            )
+        else:
+            composed = {
+                "asset_url": source_url,
+                "source_raster": source_url,
+                "composed": False,
+                "logo_applied": False,
+                "require_logo": self._compose_copy(context).get("require_logo"),
+            }
+        layers = {
+            "safe_area_clear": gate.get("safe_area_clear"),
+            "needs_retry": bool(
+                engine == ENGINE_CONSTRUCT and not gate.get("safe_area_clear")
+            ),
+            "gate_cost": float(gate.get("gate_cost") or gate.get("cost") or 0),
+            "image_cost": extra_cost,
+        }
+        return generated, composed, layers
+
+    @staticmethod
+    def _publishable_fidelity(requested, composed, layers, engine):
+        if requested != PUBLISH:
+            return requested
+        if engine != ENGINE_CONSTRUCT:
+            return requested
+        require_logo = bool(composed.get("require_logo"))
+        if require_logo and not composed.get("logo_applied"):
+            return DRAFT
+        if not composed.get("composed"):
+            return DRAFT
+        if layers.get("safe_area_clear") is not True:
+            return DRAFT
+        return PUBLISH
 
     def _compose_native_asset(
-        self, source_url, encoded, context, geometry, render_mode, engine=None
+        self,
+        source_url,
+        encoded,
+        context,
+        geometry,
+        render_mode,
+        engine=None,
+        source_bytes=None,
     ):
+        copy = self._compose_copy(context)
+        empty = {
+            "asset_url": source_url,
+            "source_raster": None,
+            "composed": False,
+            "logo_applied": False,
+            "require_logo": copy.get("require_logo"),
+            "font": None,
+        }
         if not should_compose(
             geometry.get("family"),
             render_mode,
@@ -3407,22 +3665,134 @@ class CreativeModelingService:
             context.get("scene_count") or 1,
             engine=engine,
         ):
-            return {"asset_url": source_url, "source_raster": None}
+            return empty
         try:
-            raw = base64.b64decode(encoded)
-            composed = compose_native_piece(
+            raw = source_bytes if source_bytes is not None else base64.b64decode(encoded)
+            result = compose_native_result(
                 raw,
                 geometry,
-                self._compose_copy(context),
-                self._logo_bytes(context),
+                copy,
+                self.resolve_brand_logo_bytes(context),
             )
         except Exception:
-            return {"asset_url": source_url, "source_raster": None}
+            return empty
         composed_url = self.storage.save_generated_base64(
-            base64.b64encode(composed).decode("ascii"),
+            base64.b64encode(result["png"]).decode("ascii"),
             "png",
         )
-        return {"asset_url": composed_url, "source_raster": source_url}
+        return {
+            "asset_url": composed_url,
+            "source_raster": source_url,
+            "composed": True,
+            "logo_applied": bool(result.get("logo_applied")),
+            "require_logo": copy.get("require_logo"),
+            "font": result.get("font"),
+        }
+
+    def _derive_format_from_master(self, scene_id, master, created_by=None, path=None):
+        scene_id = _integer(scene_id, "Cena")
+        context = self.repository.get_scene_context(scene_id)
+        geometry = resolve_format_geometry(context)
+        render_mode = self._resolve_render_mode("native", geometry["family"])
+        path = path or _brief_path(context)
+        master_asset = master.get("asset") or {}
+        meta = master_asset.get("metadata") or {}
+        source_url = meta.get("source_raster") or master_asset.get("asset_url")
+        raw = self._read_logo_path(
+            source_url, getattr(self.storage, "read_public_bytes", None)
+        )
+        if not raw:
+            raise ValueError("A cena mestre não tem still para desdobrar.")
+        estimate = Decimal("0")
+        job_id = self.repository.create_generation_job(
+            context["campaign_id"],
+            None,
+            context["format_template_id"],
+            "image",
+            "openrouter",
+            path.get("image_model") or DEFAULT_IMAGE_MODEL,
+            estimate,
+            prompt="compose from master scene",
+            request_payload={
+                "production_id": context["production_id"],
+                "scene_id": scene_id,
+                "source_scene_id": master.get("scene_id"),
+                "source_asset_id": master_asset.get("id"),
+                "engine": path.get("engine"),
+                "fidelity": path.get("fidelity"),
+            },
+            created_by=created_by,
+            scene_id=scene_id,
+            reserve_scene=True,
+            allow_existing_scene=True,
+        )
+        try:
+            self.repository.mark_job_generating(job_id)
+            wiped = wipe_safe_areas(
+                raw, geometry, context.get("primary_color") or "#1E4D4F"
+            )
+            source_saved = self.storage.save_generated_base64(
+                base64.b64encode(wiped).decode("ascii"),
+                "png",
+            )
+            composed = self._compose_native_asset(
+                source_saved,
+                base64.b64encode(wiped).decode("ascii"),
+                context,
+                geometry,
+                render_mode,
+                engine=path.get("engine"),
+                source_bytes=wiped,
+            )
+            layers = {"safe_area_clear": True, "needs_retry": False}
+            fidelity = self._publishable_fidelity(
+                path.get("fidelity") or PUBLISH,
+                composed,
+                layers,
+                path.get("engine"),
+            )
+            asset = self.repository.add_generated_asset(
+                job_id,
+                None,
+                "image",
+                composed["asset_url"],
+                {
+                    "production_id": context["production_id"],
+                    "scene_position": context.get("position"),
+                    "render_mode": render_mode,
+                    "iab_family": geometry["family"],
+                    "target_size": geometry.get("target_size"),
+                    "source_raster": composed.get("source_raster"),
+                    "source_scene_id": master.get("scene_id"),
+                    "source_asset_id": master_asset.get("id"),
+                    "engine": path.get("engine"),
+                    "fidelity": fidelity,
+                    "composed": composed.get("composed"),
+                    "logo_applied": composed.get("logo_applied"),
+                    "require_logo": composed.get("require_logo"),
+                    "safe_area_clear": True,
+                    "font": composed.get("font"),
+                    "derived_from_master": True,
+                },
+                scene_id=scene_id,
+            )
+            self.repository.complete_generation_job(
+                job_id,
+                estimate,
+                {
+                    "source_scene_id": master.get("scene_id"),
+                    "source_asset_id": master_asset.get("id"),
+                    "safe_area_clear": True,
+                },
+            )
+            return _serialize({
+                "job_id": job_id,
+                "asset": asset,
+                "prompt": "compose from master scene",
+            })
+        except Exception as exc:
+            self.repository.fail_generation_job(job_id, exc)
+            raise
 
     @staticmethod
     def build_format_mockup_prompt(

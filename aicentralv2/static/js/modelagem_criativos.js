@@ -113,6 +113,39 @@
   };
   const campaignCost = (campaign) => brl(spendValue(campaign));
   const assetFidelity = (asset) => asset?.metadata?.fidelity || asset?.fidelity || (asset?.id ? 'draft' : '');
+  const campaignConstruct = (campaign) => {
+    const brief = (campaign || state.campaign || {}).creative_brief || {};
+    return (brief.construct_path?.engine || brief.engine) === 'construct';
+  };
+  const previousSceneApproved = (scenes, index) => {
+    if (index <= 0) return true;
+    return sceneAssets(scenes[index - 1] || {}).some((asset) => (
+      asset.asset_type !== 'video' && asset.status === 'approved'
+    ));
+  };
+  const publishHold = (asset) => {
+    if (!asset?.id || assetFidelity(asset) === 'publish') return '';
+    const meta = asset.metadata || {};
+    if (meta.require_logo && !meta.logo_applied) {
+      return 'Falta o PNG da marca no perfil. Sem ele a peça não fecha publicável.';
+    }
+    if (meta.needs_retry || meta.safe_area_clear === false) {
+      return 'A foto ainda tinha texto na caixa. Gere de novo.';
+    }
+    if (meta.composed === false) {
+      return 'A montagem não colou. Gere de novo.';
+    }
+    return '';
+  };
+  const layerCaption = (asset) => {
+    const meta = asset?.metadata || {};
+    if (meta.derived_from_master || meta.source_scene_id) {
+      return 'Mesma foto de outro retângulo deste lote.';
+    }
+    if (meta.engine === 'construct') return 'Foto gerada; texto e logo entram na montagem.';
+    if (meta.engine === 'paint') return 'A IA pintou a peça inteira.';
+    return '';
+  };
   const publishUnitBrl = () => {
     const tier = (state.imageTiers || []).find((item) => item.name === 'publish');
     const value = Number(tier?.estimated_brl ?? tier?.spent_brl ?? 0);
@@ -1134,7 +1167,9 @@
       box.querySelector('strong').textContent = brl(quoted.total_brl);
       const detail = $('#mcPrepareQuoteDetail');
       if (detail) {
-        const verb = engine === 'construct' ? 'montadas' : 'pintadas';
+        const verb = engine === 'construct'
+          ? 'montadas. Logo e texto entram depois da foto'
+          : 'pintadas';
         detail.textContent = `${sceneCount} ${sceneCount === 1 ? 'batida' : 'batidas'} ${verb}`;
       }
     } catch (error) {
@@ -1345,6 +1380,12 @@
       && Boolean(hero)
       && hero.status !== 'approved'
       && !hasEdit;
+    const waitsPrevious = campaignConstruct() && !previousSceneApproved(scenes, index);
+    const hold = publishHold(hero);
+    const caption = layerCaption(hero);
+    const canRetryLayer = Boolean(hero) && hero.status !== 'approved' && (
+      Boolean(hold) || hero.metadata?.needs_retry
+    );
     root.innerHTML = `
       <header class="mc-scene-review-head">
         <div>
@@ -1381,11 +1422,18 @@
             ? `<img src="${escapeHtml(assetUrl(hero))}" alt="Imagem gerada da cena ${index + 1}">`
             : sceneReferenceEmptyState(index)}
         </figure>
+        ${caption || hold ? `<p class="mc-layer-note">${escapeHtml(hold || caption)}</p>` : ''}
         <div class="mc-scene-frame-actions">
           ${hero ? `
             ${statusBadge(hero.status || 'review')}
             <span class="mc-fidelity-chip ${assetFidelity(hero) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(hero) === 'publish' ? 'Publicável' : 'Rascunho'}</span>
-            ${canIterateMockup ? '<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-image">Gerar outra</button>' : ''}
+            ${canRetryLayer ? '<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-image">Gerar de novo</button>' : ''}
+            ${canIterateMockup && !canRetryLayer ? '<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-image">Gerar outra</button>' : ''}
+          ` : waitsPrevious ? `
+            <p class="mc-layer-note">Aprove a batida anterior primeiro. Esta cena herda a foto aprovada.</p>
+            <button class="cx-btn cx-btn-primary" type="button" data-scene-action="confirm-generate" disabled>
+              Confirmar e gerar
+            </button>
           ` : `
             <button class="cx-btn cx-btn-primary" type="button" data-scene-action="confirm-generate">
               Confirmar e gerar
@@ -3020,12 +3068,16 @@
     if (!state.unfoldFormatIds.size && formats.length) {
       formats.forEach((format) => state.unfoldFormatIds.add(String(format.id)));
     }
+    const share = unfoldEngine() === 'construct';
     root.innerHTML = formats.map((format) => `
       <button type="button" class="mc-unfold-format ${state.unfoldFormatIds.has(String(format.id)) ? 'is-active' : ''}"
               data-unfold-format="${format.id}">
         <span class="mc-unfold-thumb" style="${unfoldThumbStyle(format)}"></span>
         <strong>${escapeHtml(formatShortName(format))}</strong>
         <small>${escapeHtml(format.target_size || format.default_size || '')}</small>
+        ${share && formatSceneLabel(format)
+          ? `<small class="mc-unfold-share">Foto ${escapeHtml(formatSceneLabel(format))}</small>`
+          : ''}
       </button>`).join('') || '<p class="mc-section-note">Nenhum retângulo estático neste catálogo.</p>';
   }
 
@@ -3072,9 +3124,18 @@
     return Number($('#mcUnfoldPathBar input[name="unfold_pack"]:checked')?.value || 6);
   }
 
-  function formatSceneLabel(format) {
+  function unfoldSceneKey(format) {
+    const pack = unfoldPack();
     const map = state.unfoldPaths?.format_scenes || {};
-    const key = map[format.slug] || format.iab_family || format.category || '';
+    let key = map[format.slug];
+    if (key === 'mobile' && pack < 8) key = 'wide';
+    if (key === 'rectangle' && pack < 6) key = 'half_page';
+    if (key === 'wide' && pack < 6) key = 'landscape';
+    return key || format.iab_family || format.category || '';
+  }
+
+  function formatSceneLabel(format) {
+    const key = unfoldSceneKey(format);
     return SCENE_LABELS[key] || key;
   }
 
@@ -3137,6 +3198,9 @@
           ${multiline
             ? `<textarea class="cx-input" id="mcUnfoldItem-${id}" rows="2">${escapeHtml(text)}</textarea>`
             : `<input class="cx-input" id="mcUnfoldItem-${id}" value="${escapeHtml(text)}">`}
+          ${id === 'logo' && unfoldEngine() === 'construct' && status === 'seen'
+            ? '<p class="mc-layer-note">O PNG oficial entra na montagem, não na foto.</p>'
+            : ''}
         </div>`;
     }).join('');
   }
@@ -3318,8 +3382,13 @@
             <strong>${escapeHtml(format?.name_pt || 'Formato')}</strong>
             <small>${escapeHtml(format?.target_size || '')} ${brl(asset.spent_brl || campaign?.spent_brl)}</small>
             ${asset.id ? `<span class="mc-fidelity-chip ${assetFidelity(asset) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(asset) === 'publish' ? 'Publicável' : 'Rascunho'}</span>` : ''}
-            <small>${(asset.metadata || {}).engine === 'construct' ? 'Montada' : 'Pintada'}</small>
+            ${publishHold(asset) || layerCaption(asset)
+              ? `<p class="mc-layer-note">${escapeHtml(publishHold(asset) || layerCaption(asset))}</p>`
+              : ''}
             <div class="mc-unfold-piece-actions">
+              ${asset.id && (asset.metadata || {}).needs_retry
+                ? `<button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-retry="1" data-scene-id="${scene.id}">Gerar de novo</button>`
+                : ''}
               <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_simple" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Outra cor</button>
               <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_max" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Outro recorte</button>
             </div>
@@ -3403,6 +3472,25 @@
         renderUnfoldPieces(state.unfoldCampaign);
       }
       toast(level === 'ab_max' ? 'Outro recorte gerado.' : 'Outra cor gerada.', 'success');
+    });
+  }
+
+  async function retryUnfoldScene(button) {
+    const sceneId = button.dataset.sceneId;
+    if (!sceneId) return;
+    await withLock(`unfold-retry-${sceneId}`, button, async () => {
+      const body = new FormData();
+      body.append('render_mode', 'native');
+      body.append('fidelity', 'publish');
+      await apiFirst([
+        { url: `/parametros/api/scenes/${sceneId}/image/generate`, options: { method: 'POST', body } },
+        { url: `/parametros/api/scenes/${sceneId}/generate`, options: { method: 'POST', body } },
+      ]);
+      if (state.unfoldCampaign?.id) {
+        state.unfoldCampaign = await api(`${API.campaigns}/${state.unfoldCampaign.id}`);
+        renderUnfoldPieces(state.unfoldCampaign);
+      }
+      toast('Nova foto gerada para esta peça.', 'success');
     });
   }
 
@@ -3600,6 +3688,10 @@
           }));
           toast(action === 'approve-prompt' ? 'Direção aprovada.' : 'Direção salva.', 'success');
         } else if (action === 'confirm-generate' || action === 'generate-image') {
+          if (action === 'confirm-generate' && campaignConstruct() && !previousSceneApproved(productionScenes(), productionScenes().findIndex((item) => String(item.id) === String(scene.id)))) {
+            toast('Aprove a batida anterior primeiro.', 'warning');
+            return;
+          }
           if (action === 'confirm-generate' && scene.prompt_status !== 'approved') {
             let nextPrompt = $('#mcPromptEditor')?.value || scene.prompt || '';
             if (!String(nextPrompt).trim()) {
@@ -3622,12 +3714,13 @@
           const body = new FormData();
           files.forEach((file) => body.append('references', file));
           body.append('render_mode', activeRenderMode());
-          body.append('fidelity', 'draft');
-          await withLock(`scene-image-${scene.id}`, button, () => apiFirst([
+          body.append('fidelity', campaignConstruct() ? 'publish' : 'draft');
+          const generated = await withLock(`scene-image-${scene.id}`, button, () => apiFirst([
             { url: `${base}/image/generate`, options: { method: 'POST', body } },
             { url: `${base}/generate`, options: { method: 'POST', body } },
           ]));
-          toast('Imagem gerada para revisão.', 'success');
+          const hold = publishHold(generated?.asset);
+          toast(hold || 'Imagem gerada para revisão.', hold ? 'warning' : 'success');
         } else if (action === 'approve-asset') {
           const review = { method: 'PUT', body: JSON.stringify({
             asset_id: Number(button.dataset.assetId), status: 'approved',
@@ -4405,6 +4498,11 @@
         } else if (select) {
           select.value = 'openai/gpt-image-2';
         }
+        renderUnfoldItems(state.unfoldItems);
+        renderUnfoldFormats();
+      }
+      if (event.target.name === 'unfold_pack') {
+        renderUnfoldFormats();
       }
       syncUnfoldReview();
       quoteUnfoldPath();
@@ -4414,6 +4512,11 @@
       createUnfolding(event.currentTarget).catch((error) => toast(error.message, 'error'));
     });
     $('#mcUnfoldPieces')?.addEventListener('click', (event) => {
+      const retry = event.target.closest('[data-unfold-retry]');
+      if (retry) {
+        retryUnfoldScene(retry).catch((error) => toast(error.message, 'error'));
+        return;
+      }
       const button = event.target.closest('[data-unfold-ab]');
       if (!button) return;
       unfoldVariation(button).catch((error) => toast(error.message, 'error'));

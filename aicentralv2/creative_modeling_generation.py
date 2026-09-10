@@ -222,7 +222,15 @@ TEXT_TEMPERATURES = {
     "ab_simple_prompt": 0.30,
     "ab_max_prompt": 0.45,
     "review_locks": 0.10,
+    "safe_area_gate": 0.05,
 }
+
+SAFE_AREA_GATE_SYSTEM = """Você inspeciona recortes das safe areas de um still
+publicitário. Responda só se há texto, wordmark ou lockup visível nessas caixas.
+Não presuma falhas fora dos recortes. Retorne somente JSON puro:
+{"text_or_lockup_visible":false,"safe_area_clear":true,"notes":[]}.
+text_or_lockup_visible é true se houver caractere, slogan ou marca gráfica.
+safe_area_clear é o inverso. notes são frases curtas em português."""
 
 
 class CreativeGenerationClient:
@@ -231,11 +239,18 @@ class CreativeGenerationClient:
         self.http = http or requests
 
     def generate_prompt(self, context):
-        from .creative_modeling_prompts import UNFOLD_PROMPT_SYSTEM
+        from .creative_modeling_prompts import (
+            CONSTRUCT_UNFOLD_PROMPT_SYSTEM,
+            UNFOLD_PROMPT_SYSTEM,
+        )
 
         context = context if isinstance(context, dict) else {}
         if context.get("flow_kind") == "unfold":
-            system = UNFOLD_PROMPT_SYSTEM
+            system = (
+                CONSTRUCT_UNFOLD_PROMPT_SYSTEM
+                if str(context.get("engine") or "") == "construct"
+                else UNFOLD_PROMPT_SYSTEM
+            )
             temperature = text_temperature("unfold_prompt", TEXT_TEMPERATURES["unfold_prompt"])
         elif context.get("flow_kind") != "unfold":
             system = SCENE_BEAT_SYSTEM
@@ -372,9 +387,16 @@ class CreativeGenerationClient:
         }
 
     def review_image(self, context, image_data_url):
+        gate = isinstance(context, dict) and context.get("task") == "safe_area_gate"
+        system = SAFE_AREA_GATE_SYSTEM if gate else IMAGE_REVIEW_SYSTEM
+        temp_key = (
+            "safe_area_gate" if gate else
+            "review_locks" if isinstance(context, dict) and context.get("locks") else
+            "review"
+        )
         response = self.text_callable(
             [
-                {"role": "system", "content": IMAGE_REVIEW_SYSTEM},
+                {"role": "system", "content": system},
                 {
                     "role": "user",
                     "content": [
@@ -390,10 +412,7 @@ class CreativeGenerationClient:
             ],
             model=DEFAULT_TEXT_MODEL,
             max_tokens=900,
-            temperature=text_temperature(
-                "review_locks" if isinstance(context, dict) and context.get("locks") else "review",
-                TEXT_TEMPERATURES["review_locks"] if isinstance(context, dict) and context.get("locks") else TEXT_TEMPERATURES["review"],
-            ),
+            temperature=text_temperature(temp_key, TEXT_TEMPERATURES[temp_key]),
         )
         result = _json_content(response["message"].get("content"))
         return {

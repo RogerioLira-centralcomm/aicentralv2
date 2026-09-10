@@ -24,6 +24,32 @@ story_9x16 or landscape_social, paint the complete locked advertisement
 including verbatim headline, CTA and logo.
 """ + ANTI_AI_LOOK
 
+CONSTRUCT_RENDER_RULES = """NATIVE ADVERTISING STILL
+Render a photographic still of the campaign subject only.
+Do not draw a portal, television, smartphone, tablet, browser chrome,
+player chrome, icon bars, leader lines or typeset headline/CTA/logo.
+Leave the listed pixel boxes empty. Copy, legal and the brand mark are
+composed later as deterministic overlays. Do not invent extra chrome.
+""" + ANTI_AI_LOOK
+
+CONSTRUCT_UNFOLD_PROMPT_SYSTEM = """Você é diretor de arte adaptando um KV aprovado
+para OUTRO formato no caminho C. A IA pinta só o still fotográfico.
+Copy, CTA e logo NÃO entram neste prompt. Retorne JSON puro:
+{"prompt_en":"...","rationale_pt":"...","checks":["..."]}.
+
+O prompt_en deve ser inglês técnico de produção, nesta ordem:
+
+KEEP
+Preserve brand photography, talent and the KV as visual truth.
+ADAPT
+Change only geometry: crop, hierarchy, density and scale for the target size.
+FORBID
+No typeset headline, CTA, wordmark or lockup. No new claims, invented
+English slogans, portal/player chrome or a second advertising frame.
+
+Não cite headline, CTA nem o nome da marca como texto a pintar.
+Inclua gpt_image_instruction da creative_line quando existir."""
+
 
 UNFOLD_LOCK_SYSTEM = """Você extrai os itens literais de um KV e das notas da campanha.
 Não invente oferta, benefício, preço, CTA ou slogan. Se as notas trouxerem texto,
@@ -278,6 +304,42 @@ def paints_full_copy(family, flow_kind=None, engine=None):
     )
 
 
+def _box_label(box):
+    if not box or len(box) != 4:
+        return ""
+    x, y, width, height = box
+    return f"{int(x)},{int(y)} {int(width)}x{int(height)}px"
+
+
+def construct_empty_boxes(geometry, copy=None, locks=None):
+    from .creative_format_geometry import OVERLAY_SLOTS, get_safe_areas
+
+    geometry = geometry if isinstance(geometry, dict) else {}
+    copy = copy if isinstance(copy, dict) else {}
+    locks = normalize_locks(locks or copy)
+    size = geometry.get("size")
+    family = geometry.get("family")
+    lines = []
+    if size and family:
+        areas = get_safe_areas(family, size)
+        lines.append("EMPTY BOXES — leave these pixel rectangles empty:")
+        for key in OVERLAY_SLOTS:
+            label = _box_label(areas.get(key))
+            if label:
+                lines.append(f"- {key}: {label}")
+    logo_item = (locks.get("items") or {}).get("logo") or {}
+    if logo_item.get("status") == "seen" or locks.get("has_logo"):
+        logo_box = ""
+        if size and family:
+            logo_box = _box_label(get_safe_areas(family, size).get("logo"))
+        lines.append(
+            "NO BRAND MARK. Leave the logo slot empty"
+            + (f" ({logo_box})" if logo_box else "")
+            + ". Do not paint a wordmark or lockup."
+        )
+    return "\n".join(lines)
+
+
 def native_scene_prompt_suffix(
     geometry, copy=None, flow_kind=None, locks=None, engine=None
 ):
@@ -300,6 +362,18 @@ def native_scene_prompt_suffix(
             unfold_image_lock(locks or copy),
         ]
         return "\n".join(lines)
+    if str(engine or "") == "construct":
+        lines = [
+            CONSTRUCT_RENDER_RULES,
+            f"Target canvas: {target}.",
+            f"IAB family: {family}.",
+            construct_empty_boxes(geometry, copy, locks or copy),
+        ]
+        if budget.get("summary"):
+            lines.append(f"Element budget: {budget['summary']}.")
+        lines.append(BRIEF_LOCK_RULES)
+        lines.append(ANTI_AI_LOOK)
+        return "\n".join(line for line in lines if line)
     lines = [
         NATIVE_RENDER_RULES,
         f"Target canvas: {target}.",
@@ -330,7 +404,11 @@ def apply_render_mode_to_prompt(
         ) else "NATIVE ADVERTISING STILL"
         if marker not in text:
             text = f"{text}\n\n{suffix}".strip()
-    if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in text:
+    if (
+        flow_kind == "unfold"
+        and str(engine or "") != "construct"
+        and "LOCK BLOCK FOR GPT IMAGE 2" not in text
+    ):
         text = f"{text}\n\n{unfold_image_lock(locks)}".strip()
     return text
 

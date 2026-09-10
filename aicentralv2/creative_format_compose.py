@@ -4,8 +4,18 @@ from __future__ import annotations
 
 import struct
 import zlib
+from pathlib import Path
 
-from .creative_format_geometry import compose_layout
+from .creative_format_geometry import OVERLAY_SLOTS, get_safe_areas
+
+APP_FONT = Path(__file__).resolve().parent / "static" / "fonts" / "OpenSans-Regular.ttf"
+FONT_CANDIDATES = (
+    APP_FONT,
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+    Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+)
+BITMAP_FALLBACK = "bitmap_5x7"
 
 
 _FONT_5X7 = {
@@ -62,7 +72,49 @@ def png_size(data):
     return width, height
 
 
+def resolve_compose_font():
+    for path in FONT_CANDIDATES:
+        if path.is_file():
+            return str(path), path.name
+    return None, BITMAP_FALLBACK
+
+
+def wipe_safe_areas(source_bytes, geometry, brand_color="#1E4D4F"):
+    """Limpa headline/CTA/legal/logo no still. OpenRouter /images não expõe máscara."""
+    geometry = geometry if isinstance(geometry, dict) else {}
+    size = geometry.get("size")
+    family = geometry.get("family")
+    if not size or not family:
+        return source_bytes
+    brand = _hex_rgb(brand_color)
+    canvas = _still_canvas(source_bytes, size, family, brand)
+    _wipe_overlay_slots(canvas, get_safe_areas(family, size), brand)
+    return canvas.to_png()
+
+
+def crop_safe_area_collage(source_bytes, geometry):
+    geometry = geometry if isinstance(geometry, dict) else {}
+    size = geometry.get("size")
+    family = geometry.get("family")
+    if not size or not family:
+        return source_bytes
+    brand = _hex_rgb("#1E4D4F")
+    canvas = _still_canvas(source_bytes, size, family, brand)
+    layout = get_safe_areas(family, size)
+    tiles = []
+    for key in OVERLAY_SLOTS:
+        box = layout.get(key)
+        if not box:
+            continue
+        tiles.append(_crop_box(canvas, box))
+    return _stack_tiles(tiles)
+
+
 def compose_native_piece(source_bytes, geometry, copy=None, logo_bytes=None):
+    return compose_native_result(source_bytes, geometry, copy, logo_bytes)["png"]
+
+
+def compose_native_result(source_bytes, geometry, copy=None, logo_bytes=None):
     geometry = geometry if isinstance(geometry, dict) else {}
     size = geometry.get("size")
     family = geometry.get("family")
@@ -72,29 +124,44 @@ def compose_native_piece(source_bytes, geometry, copy=None, logo_bytes=None):
     copy = copy if isinstance(copy, dict) else {}
     brand = _hex_rgb(copy.get("brand_color") or "#1E4D4F")
     ink = (255, 255, 255)
-    canvas = _Canvas(width, height, _mix(brand, (18, 36, 38), 0.35))
-    layout = compose_layout(family, size)
-    visual = layout["visual"]
-    still = _cover_pixels(source_bytes, visual[2], visual[3], brand)
-    canvas.paste(visual[0], visual[1], still)
+    layout = get_safe_areas(family, size)
+    canvas = _still_canvas(source_bytes, size, family, brand)
+    _wipe_overlay_slots(canvas, layout, brand)
+    font_path, font_name = resolve_compose_font()
+    logo_applied = False
     if logo_bytes:
         logo = _contain_pixels(logo_bytes, layout["logo"][2], layout["logo"][3])
         if logo is not None:
             canvas.paste(layout["logo"][0], layout["logo"][1], logo)
+            logo_applied = True
     if family != "slate_16x9":
         canvas.fill_rect(*layout["headline"], _mix(brand, (0, 0, 0), 0.28))
-    canvas.draw_text(
+    _draw_fitted_text(
+        canvas,
         layout["headline"],
         copy.get("headline") or "",
         ink if family != "slate_16x9" else brand,
+        font_path,
     )
     cta = str(copy.get("cta") or "").strip()
     if not cta and not copy.get("omit_cta"):
         cta = "SAIBA MAIS"
     if cta:
         canvas.fill_rect(*layout["cta"], brand)
-        canvas.draw_text(layout["cta"], cta, ink)
-    return canvas.to_png()
+        _draw_fitted_text(canvas, layout["cta"], cta, ink, font_path)
+    legal = str(copy.get("legal") or "").strip()
+    if legal and layout.get("legal"):
+        _draw_fitted_text(
+            canvas, layout["legal"], legal, _mix(ink, brand, 0.25), font_path
+        )
+    return {
+        "png": canvas.to_png(),
+        "logo_applied": logo_applied,
+        "composed": True,
+        "font": font_name,
+        "require_logo": bool(copy.get("require_logo")),
+        "size": (width, height),
+    }
 
 
 class _Canvas:
@@ -152,6 +219,156 @@ class _Canvas:
 
     def to_png(self):
         return _encode_png(self.width, self.height, self.pixels)
+
+
+def _still_canvas(source_bytes, size, family, brand):
+    width, height = size
+    canvas = _Canvas(width, height, _mix(brand, (18, 36, 38), 0.35))
+    layout = get_safe_areas(family, size)
+    visual = layout["visual"]
+    still = _cover_pixels(source_bytes, visual[2], visual[3], brand)
+    canvas.paste(visual[0], visual[1], still)
+    return canvas
+
+
+def _wipe_overlay_slots(canvas, layout, brand):
+    for key in OVERLAY_SLOTS:
+        box = layout.get(key)
+        if not box:
+            continue
+        fill = _neighborhood_fill(canvas, box, brand)
+        canvas.fill_rect(*box, fill)
+
+
+def _neighborhood_fill(canvas, box, brand):
+    x, y, width, height = box
+    samples = []
+    for px, py in (
+        (x - 2, y + height // 2),
+        (x + width + 1, y + height // 2),
+        (x + width // 2, y - 2),
+        (x + width // 2, y + height + 1),
+    ):
+        if 0 <= px < canvas.width and 0 <= py < canvas.height:
+            offset = (py * canvas.width + px) * 3
+            samples.append(bytes(canvas.pixels[offset:offset + 3]))
+    if not samples:
+        return brand
+    channels = [0, 0, 0]
+    for sample in samples:
+        channels[0] += sample[0]
+        channels[1] += sample[1]
+        channels[2] += sample[2]
+    count = len(samples)
+    return bytes(value // count for value in channels)
+
+
+def _crop_box(canvas, box):
+    x, y, width, height = box
+    width = max(1, min(width, canvas.width))
+    height = max(1, min(height, canvas.height))
+    pixels = bytearray(width * height * 3)
+    for row in range(height):
+        src_y = min(canvas.height - 1, max(0, y + row))
+        src_x = min(canvas.width - 1, max(0, x))
+        count = min(width, canvas.width - src_x)
+        src = (src_y * canvas.width + src_x) * 3
+        dest = row * width * 3
+        pixels[dest:dest + count * 3] = canvas.pixels[src:src + count * 3]
+    return width, height, pixels
+
+
+def _stack_tiles(tiles):
+    tiles = [tile for tile in tiles if tile]
+    if not tiles:
+        return _encode_png(1, 1, bytearray(b"\x00\x00\x00"))
+    width = max(tile[0] for tile in tiles)
+    height = sum(tile[1] for tile in tiles) + 4 * max(0, len(tiles) - 1)
+    canvas = _Canvas(width, height, b"\x10\x10\x10")
+    top = 0
+    for tile_w, tile_h, pixels in tiles:
+        canvas.paste(0, top, (tile_w, tile_h, pixels))
+        top += tile_h + 4
+    return canvas.to_png()
+
+
+def _draw_fitted_text(canvas, box, text, color, font_path):
+    if font_path:
+        glyph = _ttf_glyph_rows(box, text, color, font_path)
+        if glyph is not None:
+            canvas.paste(box[0], box[1], glyph)
+            return
+    canvas.draw_text(box, text, color)
+
+
+def _ttf_glyph_rows(box, text, color, font_path):
+    text = str(text or "").strip()
+    _x, _y, width, height = box
+    if not text or width < 8 or height < 8:
+        return None
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return None
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    size = max(8, min(height, 64))
+    rgb = tuple(color) if len(color) == 3 else (255, 255, 255)
+    lines = []
+    font = None
+    while size >= 8:
+        try:
+            font = ImageFont.truetype(font_path, size)
+        except OSError:
+            return None
+        lines = _wrap_ttf(text, font, width - 4, draw)
+        box_w, box_h = _measure_ttf(lines, font, draw)
+        if box_w <= width - 2 and box_h <= height - 2:
+            break
+        size -= 1
+    if font is None or not lines:
+        return None
+    box_w, box_h = _measure_ttf(lines, font, draw)
+    origin_x = max(0, (width - box_w) // 2)
+    origin_y = max(0, (height - box_h) // 2)
+    line_h = max(1, box_h // len(lines))
+    for index, line in enumerate(lines):
+        draw.text((origin_x, origin_y + index * line_h), line, font=font, fill=rgb + (255,))
+    pixels = bytearray(width * height * 3)
+    raw = image.tobytes()
+    for index in range(width * height):
+        alpha = raw[index * 4 + 3]
+        if alpha < 16:
+            continue
+        dest = index * 3
+        pixels[dest:dest + 3] = raw[index * 4:index * 4 + 3]
+    return width, height, pixels
+
+
+def _wrap_ttf(text, font, max_width, draw):
+    words = str(text).split()
+    if not words:
+        return []
+    lines = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if draw.textlength(candidate, font=font) <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    while lines and draw.textlength(lines[-1], font=font) > max_width and len(lines[-1]) > 1:
+        lines[-1] = lines[-1][:-1]
+    return [line for line in lines if line]
+
+
+def _measure_ttf(lines, font, draw):
+    widths = [draw.textlength(line, font=font) for line in lines] or [0]
+    ascent, descent = font.getmetrics()
+    line_h = ascent + descent
+    return int(max(widths)), int(line_h * len(lines))
 
 
 def _cover_pixels(source_bytes, width, height, fallback):

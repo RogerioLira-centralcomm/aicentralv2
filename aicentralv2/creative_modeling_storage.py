@@ -217,6 +217,28 @@ class CreativeAssetStorage:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:{mime};base64,{encoded}"
 
+    def absolute_public_path(self, public_path):
+        mapping = {
+            PUBLIC_PREFIX: "client_logos",
+            REFERENCE_PREFIX: "creative_references",
+            GENERATED_PREFIX: "creative_generated",
+        }
+        value = str(public_path or "")
+        for prefix, folder in mapping.items():
+            if value.startswith(prefix):
+                path = _root(folder) / Path(value).name
+                return path if path.is_file() else None
+        return None
+
+    def read_public_bytes(self, public_path):
+        path = self.absolute_public_path(public_path)
+        if path is None:
+            return None
+        try:
+            return path.read_bytes()
+        except OSError:
+            return None
+
     def delete(self, public_path):
         prefixes = {
             REFERENCE_PREFIX: "creative_references",

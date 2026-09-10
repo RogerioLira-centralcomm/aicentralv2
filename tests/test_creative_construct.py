@@ -12,7 +12,11 @@ from aicentralv2.creative_construct_params import (
     scene_key_for_slug,
     unique_scenes_for_slugs,
 )
-from aicentralv2.creative_format_geometry import should_compose
+from aicentralv2.creative_format_geometry import (
+    compose_layout,
+    get_safe_areas,
+    should_compose,
+)
 from aicentralv2.creative_modeling_prompts import (
     apply_render_mode_to_prompt,
     normalize_locks,
@@ -83,11 +87,30 @@ class CreativeConstructPathTest(unittest.TestCase):
             {"family": "square_1x1", "size": (1080, 1080)},
             {"headline": "Oferta", "cta": "Ver"},
             flow_kind="unfold",
-            locks={"headline": "Oferta", "cta": "Ver"},
+            locks={
+                "headline": "Oferta",
+                "cta": "Ver",
+                "has_logo": True,
+                "items": {"logo": {"text": "", "status": "seen"}},
+            },
             engine="construct",
         )
         self.assertIn("NATIVE ADVERTISING STILL", prompt)
         self.assertNotIn("COMPLETE SOCIAL ADVERTISEMENT", prompt)
+        self.assertNotIn("LOCK BLOCK FOR GPT IMAGE 2", prompt)
+        self.assertNotIn("Headline will be composed later: Oferta", prompt)
+        self.assertNotIn("Headline verbatim", prompt)
+        self.assertIn("EMPTY BOXES", prompt)
+        self.assertIn("NO BRAND MARK", prompt)
+        self.assertIn("logo:", prompt)
+
+    def test_safe_areas_sao_o_mesmo_mapa_do_compose(self):
+        size = (300, 600)
+        self.assertEqual(
+            get_safe_areas("half_page", size),
+            compose_layout("half_page", size),
+        )
+        self.assertIn("legal", get_safe_areas("half_page", size))
 
     def test_itens_do_kv_nao_inventam_cta(self):
         items = normalize_kv_items({

@@ -14,7 +14,12 @@ from jinja2 import Environment
 from werkzeug.datastructures import FileStorage
 
 from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
-from aicentralv2.creative_format_compose import compose_native_piece, png_size
+from aicentralv2.creative_format_compose import (
+    compose_native_piece,
+    compose_native_result,
+    png_size,
+    wipe_safe_areas,
+)
 from aicentralv2.creative_format_geometry import (
     SOCIAL_FORMAT_SLUGS,
     SOCIAL_PAINT_FAMILIES,
@@ -454,6 +459,7 @@ class FakeGenerator:
 class FakeStorage:
     def __init__(self):
         self.saved = []
+        self.files = {}
 
     def save_reference(self, file_storage):
         item = {
@@ -472,6 +478,12 @@ class FakeStorage:
 
     def generated_as_data_url(self, path):
         return "data:image/png;base64,aW1hZ2U="
+
+    def read_public_bytes(self, path):
+        return self.files.get(path)
+
+    def absolute_reference_path(self, path):
+        return None
 
     def delete(self, path):
         pass
@@ -818,6 +830,55 @@ class CreativeServiceTest(unittest.TestCase):
 
         self.assertEqual(len(urls), 2)
         self.assertEqual([item["id"] for item in used], [42])
+
+    def test_caminho_c_nao_envia_logo_nas_referencias(self):
+        self.repo.list_client_brand_assets = lambda _client_id: [
+            {
+                "id": 42,
+                "role": "logo",
+                "asset_path": "/static/uploads/creative_references/logo.png",
+                "mime_type": "image/png",
+            },
+        ]
+        urls = ["data:image/png;base64,pack"]
+        used = self.service._append_brand_references(
+            10, urls, job_id=4, engine="construct"
+        )
+        self.assertEqual(urls, ["data:image/png;base64,pack"])
+        self.assertEqual(used, [])
+
+    def test_resolve_logo_usa_asset_oficial_da_galeria(self):
+        logo = compose_native_piece(
+            b"not-a-png",
+            format_family_spec("iab-medium-rectangle", "300x250"),
+            {"headline": "X", "cta": "Y"},
+        )
+        self.service.storage.files[
+            "/static/uploads/creative_references/logo.png"
+        ] = logo
+        self.repo.list_client_brand_assets = lambda _client_id: [{
+            "id": 42,
+            "role": "logo",
+            "asset_path": "/static/uploads/creative_references/logo.png",
+            "mime_type": "image/png",
+        }]
+        found = self.service.resolve_brand_logo_bytes({"client_id": 10})
+        self.assertEqual(found, logo)
+        first = compose_native_result(
+            b"not-a-png",
+            format_family_spec("iab-half-page", "300x600"),
+            {"headline": "Oferta", "cta": "Ver", "require_logo": True},
+            found,
+        )
+        second = compose_native_result(
+            b"not-a-png",
+            format_family_spec("iab-half-page", "300x600"),
+            {"headline": "Oferta", "cta": "Ver", "require_logo": True},
+            found,
+        )
+        self.assertTrue(first["logo_applied"])
+        self.assertEqual(first["png"], second["png"])
+        self.assertNotEqual(first["font"], "bitmap_5x7")
 
     def test_aprendizado_da_linha_criativa_persiste_no_perfil(self):
         self.repo.list_client_brand_assets = lambda _client_id: [{
@@ -2362,6 +2423,18 @@ class CreativeGenerationContractTest(unittest.TestCase):
         )
         self.assertEqual(png_size(rectangle), (300, 250))
         self.assertEqual(png_size(pause), (1920, 300))
+        wiped = wipe_safe_areas(
+            rectangle, format_family_spec("iab-medium-rectangle", "300x250")
+        )
+        self.assertEqual(png_size(wiped), (300, 250))
+        result = compose_native_result(
+            b"not-a-png",
+            format_family_spec("iab-half-page", "300x600"),
+            {"headline": "Oferta", "cta": "Ver", "legal": "Consulte condições"},
+        )
+        self.assertTrue(result["composed"])
+        self.assertFalse(result["logo_applied"])
+        self.assertNotEqual(result["font"], "bitmap_5x7")
 
     def test_prompt_nativo_nao_usa_regras_de_mockup(self):
         prompt = apply_render_mode_to_prompt(
@@ -2779,8 +2852,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=39", page)
-        self.assertIn("modelagem_criativos.js') }}?v=39", page)
+        self.assertIn("modelagem_criativos.css') }}?v=40", page)
+        self.assertIn("modelagem_criativos.js') }}?v=40", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2883,6 +2956,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcUnfoldSpend"', unfold)
         self.assertIn('id="mcUnfoldPieces"', unfold)
         self.assertIn("Fechar as peças", unfold)
+        self.assertIn("Como a peça fecha", unfold)
+        self.assertIn("compartilham o still", unfold)
         self.assertNotIn("Gerar desdobramentos", unfold)
         self.assertNotIn('id="mcUnfoldSourceCampaign"', unfold)
         self.assertIn('type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset"', unfold)
@@ -3191,12 +3266,18 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn("function sceneCountForFormat", frontend)
         self.assertIn("function prepareEngine", frontend)
+        self.assertIn("const campaignConstruct =", frontend)
+        self.assertIn("const publishHold =", frontend)
+        self.assertIn("Aprove a batida anterior primeiro", frontend)
+        self.assertIn("Falta o PNG da marca", frontend)
         self.assertIn("mcPreparePathBar", frontend)
         self.assertIn("construct_path", frontend)
         gerador = (
             root / "aicentralv2" / "templates" / "parametros" / "_mc_gerador.html"
         ).read_text(encoding="utf-8")
         self.assertIn('name="prepare_engine" value="construct" checked', gerador)
+        self.assertIn("Como a peça fecha", gerador)
+        self.assertIn("Batidas", gerador)
         self.assertIn('name="prepare_pack" value="4" checked', gerador)
         self.assertIn("A bancada abre com as batidas que você marcar", gerador)
         self.assertIn("function renderProduction", frontend)
@@ -3255,6 +3336,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("mcUnfoldSourceCampaign", frontend)
         self.assertIn("function createUnfolding", frontend)
         self.assertIn("function unfoldVariation", frontend)
+        self.assertIn("function retryUnfoldScene", frontend)
+        self.assertIn("Foto ${escapeHtml(formatSceneLabel(format))}", frontend)
         self.assertIn("flow_kind: 'model'", frontend)
         self.assertIn("data-unfold-ab", frontend)
         self.assertIn("Outra cor", frontend)
@@ -3296,7 +3379,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Gerar outra", review_js)
         self.assertIn("canIterateMockup", review_js)
         self.assertIn("Direção visual", review_js)
-        self.assertIn("fidelity', 'draft'", frontend)
+        self.assertIn("campaignConstruct() ? 'publish' : 'draft'", frontend)
         self.assertNotIn("Confirmar consumo de saldo", frontend)
         self.assertIn("mc-scene-thumb", frontend)
         self.assertIn("copy_system", frontend)
@@ -3931,6 +4014,163 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertEqual(video["status"], "mocked")
         self.assertFalse(video["ready"])
         self.assertIn("não está pronto", video["message"])
+
+    def test_caminho_c_recusa_publicavel_sem_logo_colado(self):
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 81,
+            "position": 1,
+            "production_id": 80,
+            "campaign_id": 40,
+            "format_template_id": 7,
+            "format_slug": "iab-half-page",
+            "default_size": "300x600",
+            "prompt": "Approved construct prompt",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "1:2",
+            "client_id": 10,
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "construct_path": {"engine": "construct", "fidelity": "publish"},
+                "locks": {
+                    "headline": "Oferta",
+                    "cta": "Ver",
+                    "items": {"logo": {"text": "", "status": "seen"}},
+                },
+            },
+        }
+        repository.create_generation_job.return_value = 11
+        repository.add_generated_asset.return_value = {
+            "id": 90, "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = [{
+            "id": 42,
+            "role": "logo",
+            "asset_path": "/static/uploads/creative_references/logo.png",
+            "mime_type": "image/png",
+        }]
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene(81, [])
+        metadata = repository.add_generated_asset.call_args.args[4]
+        self.assertEqual(metadata["fidelity"], "draft")
+        self.assertFalse(metadata["logo_applied"])
+        self.assertTrue(metadata["require_logo"])
+        self.assertTrue(metadata["composed"])
+
+    def test_desdobrar_c_reusa_a_cena_mestre(self):
+        repository = Mock()
+        repository.get_campaign.return_value = {
+            "id": 40,
+            "name": "Outono",
+            "spent_usd": 0,
+            "flow_kind": "unfold",
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "construct_path": {"engine": "construct", "scene_pack": 6},
+            },
+            "productions": [
+                {
+                    "id": 80,
+                    "format_template_id": 7,
+                    "format_slug": "instagram-feed",
+                    "scenes": [{"id": 81, "prompt_status": "approved"}],
+                },
+                {
+                    "id": 81,
+                    "format_template_id": 8,
+                    "format_slug": "facebook-feed",
+                    "scenes": [{"id": 82, "prompt_status": "approved"}],
+                },
+            ],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene = Mock(return_value={
+            "job_id": 11,
+            "asset": {
+                "id": 90,
+                "asset_url": "/master.png",
+                "metadata": {"source_raster": "/still.png"},
+            },
+            "prompt": "master",
+        })
+        service._derive_format_from_master = Mock(return_value={
+            "job_id": 12,
+            "asset": {
+                "id": 91,
+                "asset_url": "/derived.png",
+                "metadata": {"source_scene_id": 81, "source_asset_id": 90},
+            },
+            "prompt": "compose from master scene",
+        })
+        result = service.generate_unfolding(40)
+        self.assertEqual(service.generate_scene.call_count, 1)
+        service._derive_format_from_master.assert_called_once()
+        self.assertEqual(result["pieces"][1]["asset"]["metadata"]["source_scene_id"], 81)
+
+    def test_gate_sujo_tenta_uma_vez_e_nao_compoe(self):
+        repository = Mock()
+        repository.get_scene_context.return_value = {
+            "id": 81,
+            "position": 1,
+            "production_id": 80,
+            "campaign_id": 40,
+            "format_template_id": 7,
+            "format_slug": "iab-half-page",
+            "default_size": "300x600",
+            "prompt": "Approved construct prompt",
+            "prompt_status": "approved",
+            "media_type": "image",
+            "aspect_ratio": "1:2",
+            "client_id": 10,
+            "creative_brief": {
+                "flow_kind": "unfold",
+                "construct_path": {"engine": "construct", "fidelity": "publish"},
+                "locks": {"headline": "Oferta", "cta": "Ver"},
+            },
+        }
+        repository.create_generation_job.return_value = 11
+        repository.add_generated_asset.return_value = {
+            "id": 90, "asset_url": "/generated.png",
+        }
+        repository.list_client_brand_assets.return_value = []
+        calls = {"image": 0}
+
+        class DirtyGate(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
+                calls["image"] += 1
+                return super().generate_image(prompt, references, aspect_ratio, **kwargs)
+
+            def review_image(self, context, image_data_url):
+                if isinstance(context, dict) and context.get("task") == "safe_area_gate":
+                    return {
+                        "result": {
+                            "text_or_lockup_visible": True,
+                            "safe_area_clear": False,
+                        },
+                        "actual_cost_usd": 0.001,
+                    }
+                return super().review_image(context, image_data_url)
+
+        service = CreativeModelingService(
+            repository=repository,
+            generator=DirtyGate(),
+            storage=FakeStorage(),
+        )
+        service.generate_scene(81, [])
+        self.assertEqual(calls["image"], 2)
+        metadata = repository.add_generated_asset.call_args.args[4]
+        self.assertFalse(metadata["composed"])
+        self.assertTrue(metadata["needs_retry"])
+        self.assertEqual(metadata["fidelity"], "draft")
 
 
 if __name__ == "__main__":

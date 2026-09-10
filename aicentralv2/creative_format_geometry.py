@@ -351,6 +351,23 @@ def compose_layout(family, size):
             "cta": (int(width * 0.56), int(height * 0.68), int(width * 0.28), int(height * 0.16)),
             "logo": (int(width * 0.56), int(height * 0.08), 64, 64),
         }
+    if family in {"slate_16x9", "sequence_16x9"}:
+        return {
+            "visual": (0, 0, width, height),
+            "headline": (
+                int(width * 0.06),
+                int(height * 0.68),
+                int(width * 0.48),
+                int(height * 0.16),
+            ),
+            "cta": (
+                int(width * 0.72),
+                int(height * 0.74),
+                int(width * 0.20),
+                int(height * 0.12),
+            ),
+            "logo": (int(width * 0.06), int(height * 0.08), 72, 72),
+        }
     if family == "portal_unit" and height > width * 1.15:
         return {
             "visual": (0, 0, width, int(height * 0.52)),

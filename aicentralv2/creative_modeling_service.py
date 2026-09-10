@@ -218,6 +218,91 @@ def _serialize(value):
     return value
 
 
+_WHITE_HEX = {"#FFFFFF", "#FFF", "#FFFFFFFF"}
+
+
+def hydrate_client_from_creative_line(client):
+    """Preenche perfil vazio com a auditoria criativa já aprendida."""
+    if not isinstance(client, dict):
+        return client
+    client = dict(client)
+    profile = client.get("brand_profile")
+    profile = dict(profile) if isinstance(profile, dict) else {}
+    line = profile.get("creative_line")
+    if not isinstance(line, dict) or not line:
+        client["brand_profile"] = profile
+        return client
+    palette = [
+        item
+        for item in (line.get("color_palette") or [])
+        if isinstance(item, dict) and item.get("hex")
+    ]
+    hexes = [item["hex"] for item in palette]
+    usable = [value for value in hexes if str(value).upper() not in _WHITE_HEX]
+    if not client.get("primary_color") and usable:
+        client["primary_color"] = usable[0]
+    if not client.get("secondary_color") and len(usable) > 1:
+        client["secondary_color"] = usable[1]
+    elif not client.get("secondary_color"):
+        client["secondary_color"] = next(
+            (value for value in hexes if value != client.get("primary_color")),
+            None,
+        )
+    if not profile.get("color_palette") and palette:
+        profile["color_palette"] = palette
+    if not profile.get("brand_summary") and line.get("signature_summary"):
+        profile["brand_summary"] = line["signature_summary"]
+    if not profile.get("creative_guidelines"):
+        bits = [str(item) for item in (line.get("composition_rules") or [])[:3]]
+        bits += [str(item) for item in (line.get("must_preserve") or [])[:3]]
+        if bits:
+            profile["creative_guidelines"] = " ".join(bits)
+    if not profile.get("forbidden_elements") and line.get("avoid"):
+        profile["forbidden_elements"] = [str(item) for item in line["avoid"][:8]]
+    if not profile.get("visual_motifs") and line.get("graphic_devices"):
+        profile["visual_motifs"] = [str(item) for item in line["graphic_devices"][:8]]
+    if not client.get("tone_of_voice"):
+        patterns = [str(item) for item in (line.get("copy_patterns") or []) if item]
+        if patterns:
+            client["tone_of_voice"] = " ".join(patterns[:2])[:4000]
+    client["brand_profile"] = profile
+    return client
+
+
+def apply_creative_line_to_context(context):
+    if not isinstance(context, dict):
+        return context
+    hydrated = hydrate_client_from_creative_line(
+        {
+            "sector": context.get("client_sector") or context.get("sector"),
+            "tone_of_voice": context.get("tone_of_voice"),
+            "primary_color": context.get("primary_color"),
+            "secondary_color": context.get("secondary_color"),
+            "brand_profile": context.get("brand_profile") or {},
+        }
+    )
+    context["client_sector"] = hydrated.get("sector") or context.get("client_sector")
+    context["tone_of_voice"] = hydrated.get("tone_of_voice")
+    context["primary_color"] = hydrated.get("primary_color")
+    context["secondary_color"] = hydrated.get("secondary_color")
+    context["brand_profile"] = hydrated.get("brand_profile") or {}
+    return context
+
+
+def client_identity_payload(context):
+    apply_creative_line_to_context(context)
+    return {
+        "name": context.get("client_name") or context.get("name"),
+        "sector": context.get("client_sector") or context.get("sector"),
+        "tone": context.get("tone_of_voice"),
+        "logo": context.get("logo_upload_path") or context.get("logo_url"),
+        "primary_color": context.get("primary_color"),
+        "secondary_color": context.get("secondary_color"),
+        "website_url": context.get("website_url"),
+        "profile": context.get("brand_profile") or {},
+    }
+
+
 def _campaign_client_ref(payload):
     payload = payload if isinstance(payload, dict) else {}
     source = payload.get("client_source", "creative")
@@ -671,7 +756,10 @@ class CreativeModelingService:
         return {"id": format_id}
 
     def list_clients(self):
-        clients = self.repository.list_clients()
+        clients = [
+            hydrate_client_from_creative_line(client)
+            for client in self.repository.list_clients()
+        ]
         if hasattr(self.repository, "list_client_brand_assets"):
             for client in clients:
                 client["brand_assets"] = self.repository.list_client_brand_assets(
@@ -680,7 +768,10 @@ class CreativeModelingService:
         return _serialize(clients)
 
     def list_campaign_clients(self):
-        clients = self.repository.list_campaign_clients()
+        clients = [
+            hydrate_client_from_creative_line(client)
+            for client in self.repository.list_campaign_clients()
+        ]
         if hasattr(self.repository, "list_client_brand_assets"):
             for client in clients:
                 profile_id = client.get("profile_id")
@@ -692,7 +783,9 @@ class CreativeModelingService:
 
     def get_client(self, client_id):
         client_id = _integer(client_id, "Cliente")
-        client = self.repository.get_client(client_id)
+        client = hydrate_client_from_creative_line(
+            self.repository.get_client(client_id)
+        )
         if hasattr(self.repository, "list_client_brand_assets"):
             client["brand_assets"] = self.repository.list_client_brand_assets(client_id)
         return _serialize(client)
@@ -956,7 +1049,12 @@ class CreativeModelingService:
         )
         profile = dict(client.get("brand_profile") or {})
         profile["creative_line"] = creative_line
-        self.repository.update_client_brand_profile(client_id, profile)
+        hydrated = hydrate_client_from_creative_line(
+            {**client, "brand_profile": profile}
+        )
+        self.repository.update_client_brand_profile(
+            client_id, hydrated["brand_profile"]
+        )
         return _serialize({
             "client_id": client_id,
             "creative_line": creative_line,
@@ -1470,6 +1568,7 @@ class CreativeModelingService:
         payload = payload if isinstance(payload, dict) else {}
         delta = _text(payload.get("delta"), "Ajuste da cena", max_length=2000)
         context = self.repository.get_scene_context(scene_id)
+        apply_creative_line_to_context(context)
         position = context["position"]
         flow_kind = _flow_kind(context)
         locks = _brief_locks(context)
@@ -1509,15 +1608,7 @@ class CreativeModelingService:
             "sequence_bible": (
                 (context.get("creative_brief") or {}).get("visual_bible")
             ),
-            "client_identity": {
-                "name": context["client_name"],
-                "sector": context.get("client_sector"),
-                "tone": context.get("tone_of_voice"),
-                "logo": context.get("logo_upload_path") or context.get("logo_url"),
-                "primary_color": context.get("primary_color"),
-                "secondary_color": context.get("secondary_color"),
-                "profile": context.get("brand_profile") or {},
-            },
+            "client_identity": client_identity_payload(context),
             "format": {
                 key: context.get(key)
                 for key in (
@@ -2602,6 +2693,7 @@ class CreativeModelingService:
 
     @staticmethod
     def build_prompt(context, step, total_steps):
+        apply_creative_line_to_context(context)
         scene = step.get("scene_description") or context.get("campaign_text") or ""
         client_name = context.get("client_name") or ""
         client_sector = context.get("client_sector") or ""
@@ -2811,16 +2903,7 @@ class CreativeModelingService:
                 "variation": context["label"],
                 "step": step["position"],
             },
-            "client_identity": {
-                "name": context["client_name"],
-                "sector": context.get("client_sector"),
-                "tone": context.get("tone_of_voice"),
-                "logo": context.get("logo_upload_path") or context.get("logo_url"),
-                "primary_color": context.get("primary_color"),
-                "secondary_color": context.get("secondary_color"),
-                "website_url": context.get("website_url"),
-                "profile": context.get("brand_profile") or {},
-            },
+            "client_identity": client_identity_payload(context),
             "partner_identity": {
                 "name": step.get("channel_name"),
                 "primary_color": step.get("partner_primary_color"),

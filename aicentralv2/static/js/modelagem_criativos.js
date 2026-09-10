@@ -265,6 +265,43 @@
   }
 
   // ====== GERADOR ======
+  function brandLine(client) {
+    return client?.brand_profile?.creative_line || {};
+  }
+
+  function brandPalette(client) {
+    const profile = client?.brand_profile || {};
+    const palette = Array.isArray(profile.color_palette) ? profile.color_palette : [];
+    const learned = Array.isArray(brandLine(client).color_palette)
+      ? brandLine(client).color_palette
+      : [];
+    return palette.length ? palette : learned;
+  }
+
+  function brandTone(client) {
+    const learned = (brandLine(client).copy_patterns || []).filter(Boolean).slice(0, 2).join(' ');
+    return client?.tone_of_voice || learned || '';
+  }
+
+  function brandSummary(client) {
+    return client?.brand_profile?.brand_summary || brandLine(client).signature_summary || '';
+  }
+
+  function brandPrimaryColor(client) {
+    if (client?.primary_color) return client.primary_color;
+    const usable = brandPalette(client).find((color) => color?.hex && String(color.hex).toUpperCase() !== '#FFFFFF');
+    return usable?.hex || brandPalette(client)[0]?.hex || '';
+  }
+
+  function brandSecondaryColor(client) {
+    if (client?.secondary_color) return client.secondary_color;
+    const primary = brandPrimaryColor(client);
+    const match = brandPalette(client).find((color) => (
+      color?.hex && color.hex !== primary && String(color.hex).toUpperCase() !== '#FFFFFF'
+    ));
+    return match?.hex || '';
+  }
+
   function renderClientPreview() {
     const client = state.campaignClients.find(
       (item) => item.selection_key === $('#mcCampaignClient').value,
@@ -275,6 +312,10 @@
       return;
     }
     const logo = client.logo_upload_path || client.logo_url;
+    const primary = brandPrimaryColor(client);
+    const secondary = brandSecondaryColor(client);
+    const summary = brandSummary(client);
+    const tone = brandTone(client);
     root.innerHTML = `
       <div class="mc-identity">
         <div class="mc-identity-brand">
@@ -282,16 +323,56 @@
           <div><strong>${escapeHtml(client.name)}</strong><p class="mc-section-note">${escapeHtml(client.sector || 'Setor não informado')}</p></div>
         </div>
         <div class="mc-swatches" aria-label="Cores da marca">
-          ${client.primary_color ? `<span class="mc-swatch" style="background:${escapeHtml(client.primary_color)}" title="${escapeHtml(client.primary_color)}"></span>` : ''}
-          ${client.secondary_color ? `<span class="mc-swatch" style="background:${escapeHtml(client.secondary_color)}" title="${escapeHtml(client.secondary_color)}"></span>` : ''}
+          ${primary ? `<span class="mc-swatch" style="background:${escapeHtml(primary)}" title="${escapeHtml(primary)}"></span>` : ''}
+          ${secondary ? `<span class="mc-swatch" style="background:${escapeHtml(secondary)}" title="${escapeHtml(secondary)}"></span>` : ''}
         </div>
-        <div><strong>Tom de voz</strong><p>${escapeHtml(client.tone_of_voice || 'Não informado')}</p></div>
+        <div><strong>Tom de voz</strong><p>${escapeHtml(tone || 'Não informado')}</p></div>
+        ${summary ? `<div><strong>Assinatura visual</strong><p>${escapeHtml(summary)}</p></div>` : ''}
         ${client.brand_profile?.target_audience ? `<div><strong>Público prioritário</strong><p>${escapeHtml(client.brand_profile.target_audience)}</p></div>` : ''}
       </div>`;
   }
 
   function generatorSelectedFormat() {
     return state.formats.find((item) => String(item.id) === String(state.generatorFormatId));
+  }
+
+  function formatGroupLabel(format) {
+    if (format.channel_name) return format.channel_name;
+    if (format.category === 'social') return 'Redes sociais';
+    if (format.category === 'streaming') return 'Streaming';
+    return 'Programática';
+  }
+
+  function formatDisplayName(format) {
+    const group = formatGroupLabel(format);
+    const name = String(format.name_pt || '');
+    const prefix = `${group} — `;
+    return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+  }
+
+  function formatOrientationKey(format) {
+    const key = formatDirection(format).orientation;
+    if (key) return key;
+    const size = parseDefaultSize(format?.default_size || format?.target_size);
+    if (!size) return 'square';
+    const ratio = size.w / Math.max(size.h, 1);
+    if (ratio >= 1.15) return 'horizontal';
+    if (ratio <= 0.87) return 'vertical';
+    return 'square';
+  }
+
+  function groupedGeneratorFormats(formats) {
+    const order = { programatica: 0, streaming: 1, social: 2 };
+    const groups = new Map();
+    formats.forEach((format) => {
+      const label = formatGroupLabel(format);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(format);
+    });
+    return Array.from(groups.entries()).sort((left, right) => {
+      const rank = (item) => order[item[1][0]?.category] ?? 9;
+      return rank(left) - rank(right) || left[0].localeCompare(right[0], 'pt');
+    });
   }
 
   function renderGeneratorFormats() {
@@ -304,13 +385,25 @@
     if (!formats.some((format) => String(format.id) === String(state.generatorFormatId))) {
       state.generatorFormatId = formats[0]?.id || null;
     }
-    root.innerHTML = formats.map((format) => `
-      <button class="mc-generator-format ${String(format.id) === String(state.generatorFormatId) ? 'is-active' : ''}"
-              type="button" data-generator-format="${format.id}">
-        <span class="mc-generator-format-icon"><i class="fa-solid ${formatExperienceIcon(format)}"></i></span>
-        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(formatExperienceLabel(format))}</small></span>
-        ${engineBadge(format)}
-      </button>`).join('') || '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
+    const groups = groupedGeneratorFormats(formats);
+    root.innerHTML = groups.length
+      ? groups.map(([label, items]) => `
+        <section class="mc-format-group">
+          <h3>${escapeHtml(label)}</h3>
+          ${items.map((format) => {
+            const orientation = formatOrientationKey(format);
+            return `<button class="mc-generator-format ${String(format.id) === String(state.generatorFormatId) ? 'is-active' : ''}"
+                    type="button" data-generator-format="${format.id}">
+              <span class="mc-orient is-${orientation}" aria-hidden="true"></span>
+              <span>
+                <strong>${escapeHtml(formatDisplayName(format))}</strong>
+                <small>${escapeHtml(formatSizeLabel(format))}</small>
+              </span>
+              <em>${escapeHtml(formatOrientationLabel(format) || '')}</em>
+            </button>`;
+          }).join('')}
+        </section>`).join('')
+      : '<div class="mc-generator-no-format">Nenhum formato nesta categoria.</div>';
     renderGeneratorFormatPreview();
     renderGeneratorSummary();
     updateGeneratorAvailability();
@@ -345,29 +438,18 @@
       $('#mcGeneratorScenePlan').innerHTML = '';
       return;
     }
-    const placement = clonePlacement(format);
-    const context = placement.context || 'portal';
     const sceneCount = sceneCountForFormat(format);
-    const size = parseDefaultSize(format.default_size || format.target_size);
-    const slotStyle = size
-      ? `left:50%;top:50%;width:min(72%, ${(size.w / Math.max(size.h, 1)) * 28}%);height:auto;aspect-ratio:${size.w}/${size.h};transform:translate(-50%,-50%)`
-      : `left:${placement.slot.x}%;top:${placement.slot.y}%;width:${placement.slot.width}%;height:${placement.slot.height}%`;
+    const direction = formatDirection(format);
     root.innerHTML = `
-      <div class="mc-generator-preview-screen is-${escapeHtml(context)}">
-        <span class="mc-generator-preview-chrome">Prévia do formato</span>
-        <span class="mc-generator-preview-slot" style="${slotStyle}">
-          <i class="fa-solid ${format.media_type === 'video' ? 'fa-play' : 'fa-bullseye'}"></i>
-        </span>
-      </div>
       <div class="mc-generator-preview-copy">
-        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${formatDirection(format).animated ? 'Anúncio em sequência' : 'Peça única'}</small></span>
+        <span><strong>${escapeHtml(formatDisplayName(format))}</strong><small>${direction.animated ? 'Anúncio em sequência' : 'Peça única'}</small></span>
         <span class="mc-format-size-stack">
           <span class="cx-badge cx-badge-muted">${escapeHtml(formatSizeLabel(format))}</span>
           ${formatOrientationLabel(format) ? `<span class="cx-badge">${escapeHtml(formatOrientationLabel(format))}</span>` : ''}
-          ${format.iab_family ? `<span class="cx-badge">${escapeHtml(format.iab_family)}</span>` : ''}
         </span>
       </div>
       ${renderFormatSlotMap(format)}
+      ${direction.layout?.summary ? `<p class="mc-format-layout-note">${escapeHtml(direction.layout.summary)}</p>` : ''}
       ${renderFormatElementChips(format)}`;
     const beats = formatDirection(format).beats || [];
     const orientation = formatOrientationLabel(format);
@@ -414,7 +496,9 @@
     const direction = formatDirection(format);
     const slots = (beat?.slots?.length ? beat.slots : direction.layout?.slots) || [];
     if (!slots.length || !direction.width || !direction.height) return '';
-    return `<div class="mc-slot-map is-${escapeHtml(direction.orientation || 'square')}" style="aspect-ratio:${direction.width}/${direction.height}" aria-label="Onde sentam os elementos">
+    const orientation = direction.orientation || formatOrientationKey(format);
+    const strip = direction.width / direction.height >= 4;
+    return `<div class="mc-slot-map is-${escapeHtml(orientation)}${strip ? ' is-strip' : ''}" style="aspect-ratio:${direction.width}/${direction.height}" aria-label="Onde sentam os elementos neste retângulo">
       ${slots.map((slot) => `
         <i class="is-${escapeHtml(slot.key)}" style="left:${slot.x}%;top:${slot.y}%;width:${slot.width}%;height:${slot.height}%">${escapeHtml(slot.label)}</i>
       `).join('')}
@@ -2090,30 +2174,33 @@
     if (save) save.textContent = client ? 'Atualizar perfil' : 'Salvar perfil';
     if (!client) return;
     const profile = client.brand_profile || {};
+    const line = brandLine(client);
+    const guidelines = profile.creative_guidelines
+      || [...(line.composition_rules || []), ...(line.must_preserve || [])].slice(0, 4).join(' ');
     [
       ['name', client.name],
       ['sector', client.sector],
       ['website_url', client.website_url],
       ['logo_url', client.logo_url],
-      ['primary_color', client.primary_color],
-      ['secondary_color', client.secondary_color],
-      ['tone_of_voice', client.tone_of_voice],
-      ['brand_summary', profile.brand_summary],
+      ['primary_color', brandPrimaryColor(client)],
+      ['secondary_color', brandSecondaryColor(client)],
+      ['tone_of_voice', brandTone(client)],
+      ['brand_summary', brandSummary(client)],
       ['target_audience', profile.target_audience],
-      ['creative_guidelines', profile.creative_guidelines],
+      ['creative_guidelines', guidelines],
       ['ad_segments_text', (profile.ad_segments || []).join('\n')],
       ['campaign_opportunities_text', (profile.campaign_opportunities || []).join('\n')],
       ['products_services_text', (profile.products_services || []).join('\n')],
       ['differentiators_text', (profile.differentiators || []).join('\n')],
       ['proof_points_text', (profile.proof_points || []).join('\n')],
-      ['visual_motifs_text', (profile.visual_motifs || []).join('\n')],
+      ['visual_motifs_text', (profile.visual_motifs || line.graphic_devices || []).join('\n')],
       ['mandatory_elements_text', (profile.mandatory_elements || []).join('\n')],
-      ['forbidden_elements_text', (profile.forbidden_elements || []).join('\n')],
+      ['forbidden_elements_text', (profile.forbidden_elements || line.avoid || []).join('\n')],
     ].forEach(([name, value]) => setFormValue(form, name, value));
     if (form.elements.show_price) {
       form.elements.show_price.checked = client.price_policy === 'show_price';
     }
-    renderBrandPalette(profile.color_palette);
+    renderBrandPalette(brandPalette(client));
   }
 
   function selectBrand(id, { keepDraft = false } = {}) {
@@ -2136,7 +2223,7 @@
           ${logo ? `<img src="${escapeHtml(logo)}" alt="">` : '<span class="mc-brand-row-mark"></span>'}
           <span>
             <strong>${escapeHtml(client.name)}</strong>
-            <small>${escapeHtml(client.sector || 'Sem setor')}${client.analysis_metadata?.model ? ' · analisada' : ''}</small>
+            <small>${escapeHtml(client.sector || 'Sem setor')}${client.analysis_metadata?.model ? ' · analisada' : ''}${brandLine(client).signature_summary ? ' · linha criativa' : ''}</small>
           </span>
         </button>
         <div class="mc-inspector-actions">

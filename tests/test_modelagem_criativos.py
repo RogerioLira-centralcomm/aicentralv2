@@ -19,6 +19,7 @@ from aicentralv2.creative_format_geometry import (
     SOCIAL_FORMAT_SLUGS,
     SOCIAL_PAINT_FAMILIES,
     canvas_mismatch,
+    compose_layout,
     default_render_mode,
     format_direction,
     format_family_spec,
@@ -49,6 +50,8 @@ from aicentralv2.creative_image_fidelity import (
 from aicentralv2.creative_modeling_service import (
     CreativeModelingService,
     _quality_review_data,
+    client_identity_payload,
+    hydrate_client_from_creative_line,
 )
 
 
@@ -835,6 +838,63 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["creative_line"]["source_count"], 1)
         self.assertEqual(updated["client_id"], 10)
         self.assertIn("creative_line", updated["profile"])
+        self.assertEqual(
+            updated["profile"]["brand_summary"],
+            "Produto central com muito respiro.",
+        )
+
+    def test_auditoria_pronta_hidrata_marca_e_payload_da_geracao(self):
+        client = hydrate_client_from_creative_line({
+            "name": "TIM CELULAR S.A.",
+            "sector": None,
+            "tone_of_voice": None,
+            "primary_color": None,
+            "secondary_color": None,
+            "brand_profile": {
+                "creative_line": {
+                    "signature_summary": "Banners azuis com oferta à esquerda.",
+                    "copy_patterns": [
+                        "Copy curta com número dominante.",
+                        "CTAs duplos na base esquerda.",
+                    ],
+                    "composition_rules": ["Informação à esquerda e hero à direita."],
+                    "must_preserve": ["Azul profundo e números grandes."],
+                    "avoid": ["Paletas quentes."],
+                    "graphic_devices": ["Gradientes azuis."],
+                    "color_palette": [
+                        {"hex": "#082C9C", "name": "azul TIM"},
+                        {"hex": "#FFFFFF", "name": "branco"},
+                        {"hex": "#ED1C3A", "name": "vermelho TIM"},
+                    ],
+                }
+            },
+        })
+        self.assertEqual(client["primary_color"], "#082C9C")
+        self.assertEqual(client["secondary_color"], "#ED1C3A")
+        self.assertIn("Copy curta", client["tone_of_voice"])
+        self.assertEqual(
+            client["brand_profile"]["brand_summary"],
+            "Banners azuis com oferta à esquerda.",
+        )
+        self.assertEqual(client["brand_profile"]["color_palette"][0]["hex"], "#082C9C")
+
+        identity = client_identity_payload({
+            "client_name": "TIM CELULAR S.A.",
+            "client_sector": None,
+            "tone_of_voice": None,
+            "logo_upload_path": "/static/uploads/client_logos/tim.webp",
+            "logo_url": None,
+            "primary_color": None,
+            "secondary_color": None,
+            "brand_profile": client["brand_profile"],
+        })
+        self.assertEqual(identity["logo"], "/static/uploads/client_logos/tim.webp")
+        self.assertEqual(identity["primary_color"], "#082C9C")
+        self.assertEqual(identity["tone"], client["tone_of_voice"])
+        self.assertEqual(
+            identity["profile"]["brand_summary"],
+            "Banners azuis com oferta à esquerda.",
+        )
 
     def test_prompt_injeta_dna_criativo_aprendido_para_gpt_image_2(self):
         context = self.repo.get_step_context(8)
@@ -2191,6 +2251,13 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertTrue(should_compose("sequence_16x9", "native", 4, 4))
         self.assertTrue(canvas_mismatch((728, 90), "21:9"))
         self.assertFalse(canvas_mismatch((1920, 1080), "16:9"))
+        leader_slots = compose_layout("wide_banner", (728, 90))
+        half_slots = compose_layout("half_page", (300, 600))
+        slate_slots = compose_layout("slate_16x9", (1920, 1080))
+        self.assertLess(leader_slots["headline"][0], leader_slots["cta"][0])
+        self.assertLess(half_slots["headline"][1], half_slots["cta"][1])
+        self.assertGreater(slate_slots["headline"][2], slate_slots["cta"][2])
+        self.assertNotEqual(leader_slots["cta"][1:], half_slots["cta"][1:])
 
     def test_compose_devolve_png_no_retangulo_alvo(self):
         rectangle = compose_native_piece(
@@ -2622,14 +2689,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=33", page)
-        self.assertIn("modelagem_criativos.js') }}?v=33", page)
+        self.assertIn("modelagem_criativos.css') }}?v=35", page)
+        self.assertIn("modelagem_criativos.js') }}?v=35", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
         self.assertIn('id="mcGeneratorFormatList"', generator)
+        self.assertIn('value="social"', generator)
         self.assertIn('form="mcCampaignForm"', generator)
         self.assertIn('name="client_ref"', generator)
         self.assertIn('id="mcEnhanceBrief"', generator)
@@ -3038,7 +3106,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Colocar logo", frontend)
         self.assertIn("function formatDirection", frontend)
         self.assertIn("function renderFormatSlotMap", frontend)
+        self.assertIn("function groupedGeneratorFormats", frontend)
+        self.assertIn("function formatOrientationKey", frontend)
+        self.assertIn("mc-format-group", frontend)
+        self.assertIn("mc-orient is-${orientation}", frontend)
+        self.assertIn("aspect-ratio:${direction.width}/${direction.height}", frontend)
         self.assertIn("mc-slot-map", frontend)
+        generator_js = frontend.split("function renderGeneratorFormats")[1].split("function updateGeneratorAvailability")[0]
+        self.assertNotIn("GPT Image 2", generator_js)
+        self.assertNotIn("formatExperienceIcon", generator_js)
+        self.assertNotIn("mc-generator-format-icon", generator_js)
         self.assertIn("mc-scene-px", frontend)
         self.assertIn("Direção visual", frontend)
         self.assertIn("mc-refine-bar", frontend)
@@ -3087,6 +3164,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('target="_blank"', frontend)
         self.assertIn("function selectBrand", frontend)
         self.assertIn("function saveClient", frontend)
+        self.assertIn("function brandLine", frontend)
+        self.assertIn("function brandPalette", frontend)
+        self.assertIn("function brandTone", frontend)
+        self.assertIn("function brandSummary", frontend)
+        self.assertIn("brandLine(client).signature_summary", frontend)
         self.assertIn("Atualizar perfil", frontend)
         self.assertIn("`${API.clients}/${current.id}`", frontend)
         self.assertIn("Gerar alta resolução", frontend)

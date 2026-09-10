@@ -135,7 +135,32 @@ def clamp_params(schema, params=None):
                 clamped[key] = rule[0]
         else:
             clamped[key] = raw
+    regions = sanitize_compose_regions(incoming.get("regions"))
+    if regions:
+        clamped["regions"] = regions
     return clamped
+
+
+def sanitize_compose_regions(raw):
+    """Mantém o mapa extraído (x/y/w/h em %) fora do schema numérico."""
+    slots = []
+    for item in raw or []:
+        if not isinstance(item, dict):
+            continue
+        tipo = str(item.get("tipo") or "").strip().lower()
+        if not tipo:
+            continue
+        try:
+            x = max(0.0, min(100.0, float(item.get("x") or 0)))
+            y = max(0.0, min(100.0, float(item.get("y") or 0)))
+            w = max(0.0, min(100.0, float(item.get("w") or 0)))
+            h = max(0.0, min(100.0, float(item.get("h") or 0)))
+        except (TypeError, ValueError):
+            continue
+        if w <= 0 or h <= 0:
+            continue
+        slots.append({"tipo": tipo, "x": x, "y": y, "w": w, "h": h})
+    return slots
 
 
 def next_variation_status(approve_count, reject_count, current="experimental"):

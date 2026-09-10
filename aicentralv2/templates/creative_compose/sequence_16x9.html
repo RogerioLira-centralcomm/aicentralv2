@@ -95,6 +95,9 @@
   </style>
 </head>
 <body>
+  {% set family = 'sequence_16x9' %}
+  {% include 'mapped_slots.html' %}
+  {% if not regions %}
   <article class="ad" data-family="sequence_16x9">
     <div class="visual">{% if still_url %}<img src="{{ still_url }}" alt="">{% endif %}</div>
     {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt="">{% endif %}
@@ -102,5 +105,6 @@
     {% if legal %}<p class="legal">{{ legal }}</p>{% endif %}
     {% if cta %}<p class="cta">{{ cta }}</p>{% endif %}
   </article>
+  {% endif %}
 </body>
 </html>

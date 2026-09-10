@@ -2640,6 +2640,63 @@ class CreativeModelingService:
             "preview_url": preview_url,
         }
 
+    EXAMPLE_KV_PROMPT = (
+        "Finished photoreal 16:9 advertising key visual for a Brazilian home-broadband "
+        "campaign. Distinct empty-separated zones, no overlapping type on faces. "
+        "Top-left teal wordmark NEXO. Left column: Portuguese headline "
+        "'A casa inteira no mesmo plano', offer '500 Mega + 3 linhas', solid CTA "
+        "button 'Assine agora'. Bottom legal line "
+        "'Consulte regulamentação. Oferta válida por tempo limitado.' "
+        "Right half: lifestyle photo of a Brazilian family on a sofa, product-free "
+        "hands. Brand teal #1E4D4F and lime #9CCF31. Print-ready agency master. "
+        "No English slogans, no extra logos, no watermarks."
+    )
+    EXAMPLE_KV_COPY = {
+        "name": "A casa inteira no mesmo plano",
+        "headline": "A casa inteira no mesmo plano",
+        "cta": "Assine agora",
+        "subhead": "500 Mega + 3 linhas",
+        "other_lines": [
+            "Consulte regulamentação. Oferta válida por tempo limitado.",
+        ],
+        "has_logo": True,
+        "items": {
+            "logo": {"text": "NEXO", "status": "seen"},
+            "product_lockup": {"text": "", "status": "absent"},
+            "talent": {"text": "Família no sofá", "status": "seen"},
+            "headline": {
+                "text": "A casa inteira no mesmo plano",
+                "status": "seen",
+            },
+            "offer": {"text": "500 Mega + 3 linhas", "status": "seen"},
+            "benefits": {"text": "", "status": "absent"},
+            "cta": {"text": "Assine agora", "status": "seen"},
+            "legal": {
+                "text": "Consulte regulamentação. Oferta válida por tempo limitado.",
+                "status": "seen",
+            },
+            "background": {"text": "", "status": "absent"},
+        },
+    }
+
+    def create_example_kv(self):
+        generate = getattr(self.generator, "generate_image", None)
+        if not callable(generate):
+            raise ValueError("Gerador de imagem indisponível.")
+        result = generate(
+            self.EXAMPLE_KV_PROMPT,
+            [],
+            "16:9",
+            model="openai/gpt-image-2",
+        )
+        encoded = (result or {}).get("b64_json")
+        if not encoded:
+            raise ValueError("O GPT Image 2 não devolveu o KV.")
+        payload = dict(self.EXAMPLE_KV_COPY)
+        payload["data_url"] = f"data:image/png;base64,{encoded}"
+        payload["model"] = result.get("model") or "openai/gpt-image-2"
+        return _serialize(payload)
+
     def read_kv(self, payload, files=None):
         payload = payload if isinstance(payload, dict) else {}
         files = list(files or [])

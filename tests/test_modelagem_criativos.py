@@ -1391,6 +1391,26 @@ class CreativeServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RRGGBB"):
             self.service.create_client({"name": "Inválido", "primary_color": "azul"})
 
+    def test_exemplo_kv_chama_gpt_image_2(self):
+        captured = {}
+
+        class CaptureGenerator(FakeGenerator):
+            def generate_image(self, prompt, references, aspect_ratio, **kwargs):
+                captured["model"] = kwargs.get("model")
+                captured["aspect"] = aspect_ratio
+                return super().generate_image(prompt, references, aspect_ratio, **kwargs)
+
+        service = CreativeModelingService(
+            repository=self.repo,
+            generator=CaptureGenerator(),
+            storage=FakeStorage(),
+        )
+        result = service.create_example_kv()
+        self.assertEqual(captured["model"], "openai/gpt-image-2")
+        self.assertEqual(captured["aspect"], "16:9")
+        self.assertEqual(result["model"], "openai/gpt-image-2")
+        self.assertTrue(result["data_url"].startswith("data:image/png;base64,"))
+
     def test_campanha_lista_so_clientes_com_marca(self):
         self.repo.list_campaign_clients = lambda: [
             {
@@ -2726,6 +2746,27 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(payload["cta"], "Conheça a coleção")
         self.assertEqual(payload["name"], "Coleção Outono")
 
+    def test_api_example_kv_usa_gpt_image_2(self):
+        service = CreativeModelingService(
+            repository=FakeRepository(),
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post("/parametros/api/unfoldings/example-kv")
+        payload = response.get_json()["data"]
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(payload["model"], "openai/gpt-image-2")
+        self.assertTrue(payload["data_url"].startswith("data:image/png;base64,"))
+        self.assertEqual(payload["headline"], "A casa inteira no mesmo plano")
+        self.assertEqual(payload["cta"], "Assine agora")
+
     def test_api_le_pack_da_campanha(self):
         service = CreativeModelingService(
             repository=FakeRepository(),
@@ -3004,6 +3045,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Fechar as peças", unfold)
         self.assertIn("Como a peça fecha", unfold)
         self.assertIn("compartilham o still", unfold)
+        self.assertIn('id="mcUnfoldUseExample"', unfold)
+        self.assertIn("Gerar exemplo com GPT Image 2", unfold)
         self.assertNotIn("Gerar desdobramentos", unfold)
         self.assertNotIn('id="mcUnfoldSourceCampaign"', unfold)
         self.assertIn('type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset"', unfold)
@@ -3376,6 +3419,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-campaign-cost", frontend)
         self.assertIn("unfoldings: '/parametros/api/unfoldings'", frontend)
         self.assertIn("readKv: '/parametros/api/unfoldings/read-kv'", frontend)
+        self.assertIn("exampleKv: '/parametros/api/unfoldings/example-kv'", frontend)
+        self.assertIn("function useUnfoldExample", frontend)
+        self.assertIn("openai/gpt-image-2", frontend)
         self.assertIn("readPack: '/parametros/api/campaigns/read-pack'", frontend)
         self.assertIn("function setupSceneReferenceDrop", frontend)
         self.assertIn("function acceptSceneReferences", frontend)

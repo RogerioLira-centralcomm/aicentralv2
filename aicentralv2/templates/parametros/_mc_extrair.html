@@ -1,5 +1,10 @@
 <section class="mc-extract-bench" aria-labelledby="mcExtractTitle">
   <div class="mc-extract-stage">
+    <ol class="mc-extract-steps" aria-label="Passos do modelo HTML">
+      <li class="is-current" data-extract-step="1"><span>1</span>Solte o criativo</li>
+      <li data-extract-step="2"><span>2</span>Leia o mapa</li>
+      <li data-extract-step="3"><span>3</span>Abra no Preparar</li>
+    </ol>
     <h2 id="mcExtractTitle">Recorte o criativo de referência</h2>
     <p>A marca entra como foto. Headline e preço ficam de fora — isso é da campanha, não do template.</p>
     <label class="mc-extract-drop" id="mcExtractDrop">
@@ -9,13 +14,14 @@
     </label>
     <figure class="mc-extract-frame hidden" id="mcExtractFrame">
       <img id="mcExtractPreview" alt="Referência para extrair o template">
+      <div class="mc-extract-overlay" id="mcExtractOverlay" hidden></div>
     </figure>
   </div>
   <aside class="mc-extract-map" aria-live="polite">
     <h3>Mapa do template</h3>
-    <p id="mcExtractStatus">Ainda sem referência. O mapa aparece depois da leitura.</p>
+    <p id="mcExtractStatus">Passo 1: solte a referência. O mapa só existe depois da leitura.</p>
     <ol class="mc-extract-regions" id="mcExtractRegions"></ol>
-    <button class="cx-btn cx-btn-primary" id="mcExtractRun" type="button" disabled>Ler regiões</button>
-    <a class="cx-btn cx-btn-secondary hidden" id="mcExtractOpenPrepare" href="{{ url_for('parametros.modelagem_preparar') }}">Usar no Preparar</a>
+    <button class="cx-btn cx-btn-primary" id="mcExtractRun" type="button" disabled>2. Ler regiões</button>
+    <a class="cx-btn cx-btn-secondary hidden" id="mcExtractOpenPrepare" href="{{ url_for('parametros.modelagem_preparar') }}">3. Abrir no Preparar</a>
   </aside>
 </section>

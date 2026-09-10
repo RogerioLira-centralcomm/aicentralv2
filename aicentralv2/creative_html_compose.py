@@ -9,7 +9,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .creative_compose_library import clamp_params, schema_for_family
+from .creative_compose_library import clamp_params, sanitize_compose_regions, schema_for_family
 from .creative_format_compose import APP_FONT, compose_native_result
 
 HTML_COMPOSE_FAMILIES = frozenset({"sequence_16x9", "square_1x1"})
@@ -30,12 +30,45 @@ _playwright = None
 _browser = None
 
 
+PHOTO_REGION_TYPES = frozenset({"foto_pessoa", "foto_produto", "visual", "foto"})
+TEXT_REGION_TYPES = {
+    "headline": "headline",
+    "cta": "cta",
+    "preco": "price",
+    "beneficios": "legal",
+    "legal": "legal",
+}
+
+
 def html_compose_enabled():
-    return str(os.environ.get(HTML_COMPOSE_FLAG) or "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
+    raw = os.environ.get(HTML_COMPOSE_FLAG)
+    if raw is None or str(raw).strip() == "":
+        return True
+    return str(raw).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def region_slots(params=None):
+    """Converte o mapa extraído em slots absolutos para o template HTML."""
+    slots = []
+    for item in sanitize_compose_regions((params or {}).get("regions")):
+        tipo = item["tipo"]
+        if tipo in PHOTO_REGION_TYPES:
+            role = "photo"
+        elif tipo == "logo":
+            role = "logo"
+        elif tipo == "fundo":
+            role = "background"
+        else:
+            role = TEXT_REGION_TYPES.get(tipo, "other")
+        slots.append({
+            **item,
+            "role": role,
+            "style": (
+                f"left:{item['x']}%;top:{item['y']}%;"
+                f"width:{item['w']}%;height:{item['h']}%;"
+            ),
+        })
+    return slots
 
 
 def can_html_compose(family, flow_kind=None):
@@ -67,6 +100,7 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
     cta = "" if copy.get("omit_cta") else str(copy.get("cta") or "").strip()
     template = HTML_COMPOSE_TEMPLATES.get(family) or "sequence_16x9.html"
     params = clamp_params(schema_for_family(family), copy.get("compose_params"))
+    mapped = region_slots(params)
     return _env.get_template(template).render(
         width=width,
         height=height,
@@ -77,9 +111,11 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
         headline=str(copy.get("headline") or ""),
         cta=cta,
         legal=str(copy.get("legal") or "").strip(),
+        price=str(copy.get("price") or copy.get("price_value") or "").strip(),
         photo_side=params.get("photo_side") or "right",
         headline_font_size=params.get("headline_font_size") or 26,
         cta_gap=params.get("cta_gap") or 12,
+        regions=mapped,
     )
 
 

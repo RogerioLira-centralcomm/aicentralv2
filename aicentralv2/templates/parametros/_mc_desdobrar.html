@@ -2,7 +2,7 @@
   <div class="cx-section-header mc-unfold-head">
     <div>
       <h2>Desdobrar o KV</h2>
-      <p>A peça-mãe entra à esquerda. Os retângulos de mídia saem à direita.</p>
+      <p>Entra o master da agência. Saem os retângulos de mídia com a mesma oferta.</p>
     </div>
     <button class="cx-btn cx-btn-secondary mc-publish-trigger" id="mcUnfoldOpenPublish" type="button" hidden>
       Publicáveis em lote
@@ -24,30 +24,55 @@
       <input type="hidden" name="headline" id="mcUnfoldHeadlineHidden" value="">
       <input type="hidden" name="cta_text" id="mcUnfoldCtaHidden" value="">
 
-      <label class="cx-field">
-        <span class="cx-label">Marca</span>
-        <select class="cx-select" id="mcUnfoldClient" name="client_ref" required>
-          <option value="">Qual marca assina estas peças</option>
-        </select>
-      </label>
+      <fieldset class="mc-unfold-step">
+        <legend>Marca</legend>
+        <label class="cx-field">
+          <span class="cx-label">Quem assina o lote</span>
+          <select class="cx-select" id="mcUnfoldClient" name="client_ref" required>
+            <option value="">Selecione a marca</option>
+          </select>
+        </label>
+      </fieldset>
 
-      <div class="mc-unfold-dropzone" id="mcUnfoldDropzone" role="button" tabindex="0">
-        <input class="mc-visually-hidden" id="mcUnfoldFile" name="kv" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1">
-        <div class="mc-unfold-drop-preview" id="mcUnfoldKvPreview" hidden>
-          <img alt="KV selecionado">
+      <fieldset class="mc-unfold-step">
+        <legend>KV da agência ou do cliente</legend>
+        <p class="cx-help">Um master 16:9 com zonas claras: logo, foto, headline, oferta, CTA e legal. Sem texto solto no meio da foto.</p>
+        <div class="mc-unfold-kv-row">
+          <div class="mc-unfold-dropzone" id="mcUnfoldDropzone" role="button" tabindex="0">
+            <input class="mc-visually-hidden" id="mcUnfoldFile" name="kv" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1">
+            <div class="mc-unfold-drop-preview" id="mcUnfoldKvPreview" hidden>
+              <img alt="KV selecionado">
+            </div>
+            <div class="mc-unfold-drop-hint" id="mcUnfoldDropHint">
+              <strong>Solte o KV</strong>
+              <small>PNG, JPG ou WEBP. Ou clique para abrir o arquivo.</small>
+            </div>
+          </div>
+          <aside class="mc-unfold-example" aria-label="Exemplo de KV ideal">
+            <div class="mc-unfold-example-map" aria-hidden="true">
+              <span>Logo</span>
+              <span>Headline</span>
+              <span>Oferta</span>
+              <span>CTA</span>
+              <span>Foto</span>
+              <span>Legal</span>
+            </div>
+            <strong>KV ideal</strong>
+            <p>Assim a agência deve enviar: cada bloco numa zona, para recortar nos retângulos.</p>
+            <button class="cx-btn cx-btn-primary" id="mcUnfoldUseExample" type="button">
+              Gerar exemplo com GPT Image 2
+            </button>
+            <p class="mc-section-note" id="mcUnfoldExampleStatus" aria-live="polite"></p>
+          </aside>
         </div>
-        <div class="mc-unfold-drop-hint" id="mcUnfoldDropHint">
-          <strong>Solte o KV</strong>
-          <small>PNG, JPG ou WEBP. Ou clique para abrir o arquivo.</small>
+        <p class="mc-unfold-library-toggle">
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcUnfoldUseGenerated" type="button">Pegar uma peça já gerada</button>
+        </p>
+        <div class="mc-unfold-library" id="mcUnfoldLibrary" hidden>
+          <p>Clique numa peça para ler o texto e travar a copy.</p>
+          <div class="mc-unfold-library-grid" id="mcUnfoldLibraryGrid"></div>
         </div>
-      </div>
-      <p class="mc-unfold-library-toggle">
-        <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcUnfoldUseGenerated" type="button">Pegar uma peça já gerada</button>
-      </p>
-      <div class="mc-unfold-library" id="mcUnfoldLibrary" hidden>
-        <p>Clique numa peça para ler o texto e travar a copy.</p>
-        <div class="mc-unfold-library-grid" id="mcUnfoldLibraryGrid"></div>
-      </div>
+      </fieldset>
 
       <div class="mc-unfold-review" id="mcUnfoldKvReview" hidden>
         <h3>O que entrou no KV</h3>

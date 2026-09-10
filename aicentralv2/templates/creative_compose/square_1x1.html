@@ -84,6 +84,9 @@
   </style>
 </head>
 <body>
+  {% set family = 'square_1x1' %}
+  {% include 'mapped_slots.html' %}
+  {% if not regions %}
   <article class="ad" data-family="square_1x1" data-photo-side="{{ photo_side }}">
     <div class="visual">{% if still_url %}<img src="{{ still_url }}" alt="">{% endif %}</div>
     <div class="copy">
@@ -93,5 +96,6 @@
       {% if cta %}<p class="cta">{{ cta }}</p>{% endif %}
     </div>
   </article>
+  {% endif %}
 </body>
 </html>

@@ -1,0 +1,50 @@
+{% if regions %}
+<style>
+  .ad.is-mapped { position: relative; }
+  .ad.is-mapped .slot {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .ad.is-mapped .slot-photo img,
+  .ad.is-mapped .slot-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .ad.is-mapped .slot-logo img { object-fit: contain; }
+  .ad.is-mapped .slot-headline,
+  .ad.is-mapped .slot-cta,
+  .ad.is-mapped .slot-price,
+  .ad.is-mapped .slot-legal,
+  .ad.is-mapped .slot-other {
+    display: flex;
+    align-items: flex-end;
+    color: #fff;
+    font-weight: 700;
+    line-height: 1.15;
+    padding: 2%;
+  }
+  .ad.is-mapped .slot-cta {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: color-mix(in srgb, {{ brand_color }} 72%, #000 28%);
+  }
+</style>
+<article class="ad is-mapped" data-family="{{ family }}" data-mapped="1">
+  {% for slot in regions %}
+  <div class="slot slot-{{ slot.role }} slot-{{ slot.tipo }}" style="{{ slot.style }}" data-tipo="{{ slot.tipo }}">
+    {% if slot.role == 'photo' and still_url %}<img src="{{ still_url }}" alt="">{% endif %}
+    {% if slot.role == 'logo' and logo_url %}<img src="{{ logo_url }}" alt="">{% endif %}
+    {% if slot.role == 'headline' %}{{ headline }}{% endif %}
+    {% if slot.role == 'cta' %}{{ cta }}{% endif %}
+    {% if slot.role == 'price' %}{{ price }}{% endif %}
+    {% if slot.role == 'legal' %}{{ legal }}{% endif %}
+  </div>
+  {% endfor %}
+</article>
+{% endif %}

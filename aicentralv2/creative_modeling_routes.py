@@ -595,6 +595,11 @@ def api_unfoldings():
 
 
 @admin_required_api
+def api_example_kv():
+    return _execute(lambda: _ok(_service().create_example_kv(), 201))
+
+
+@admin_required_api
 def api_read_kv():
     def execute():
         payload = request.get_json(silent=True)
@@ -1119,6 +1124,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_unfoldings",
         view_func=api_unfoldings,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings/example-kv",
+        endpoint="creative_example_kv",
+        view_func=api_example_kv,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/unfoldings/read-kv",

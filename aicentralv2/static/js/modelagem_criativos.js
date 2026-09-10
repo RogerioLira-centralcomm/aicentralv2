@@ -14,6 +14,7 @@
     viewerProfiles: '/parametros/api/viewer-profiles',
     unfoldings: '/parametros/api/unfoldings',
     readKv: '/parametros/api/unfoldings/read-kv',
+    exampleKv: '/parametros/api/unfoldings/example-kv',
     unfoldQuote: '/parametros/api/unfoldings/quote',
     unfoldPaths: '/parametros/api/unfoldings/paths',
     imageTiers: '/parametros/api/image-tiers',
@@ -3664,6 +3665,30 @@
     }
   }
 
+  function dataUrlToFile(dataUrl, name) {
+    const [header, encoded] = String(dataUrl || '').split(',');
+    const mime = /data:(.*?);/.exec(header)?.[1] || 'image/png';
+    const bytes = Uint8Array.from(atob(encoded || ''), (char) => char.charCodeAt(0));
+    return new File([bytes], name, { type: mime });
+  }
+
+  async function useUnfoldExample(button) {
+    const status = $('#mcUnfoldExampleStatus');
+    await withLock('unfold-example', button, async () => {
+      if (status) status.textContent = 'Gerando o KV ideal no GPT Image 2…';
+      try {
+        const data = await api(API.exampleKv, { method: 'POST', body: '{}' });
+        if (!data?.data_url) throw new Error('O exemplo não veio.');
+        acceptUnfoldKv([dataUrlToFile(data.data_url, 'kv-exemplo.png')]);
+        if (data.headline || data.cta) applyKvReview(data);
+        if (status) status.textContent = 'Exemplo no drop. Confira as zonas e feche as peças.';
+      } catch (error) {
+        if (status) status.textContent = error.message;
+        toast(error.message, 'error');
+      }
+    });
+  }
+
   function acceptUnfoldKv(files) {
     const file = Array.from(files || []).find((item) => /^image\/(png|jpeg|webp)$/.test(item.type));
     if (!file) {
@@ -4833,6 +4858,9 @@
     setupBrandDropzone('#mcUnfoldDropzone', '#mcUnfoldFile', acceptUnfoldKv);
     $('#mcUnfoldDropzone')?.addEventListener('paste', (event) => {
       acceptUnfoldKv(event.clipboardData?.files);
+    });
+    $('#mcUnfoldUseExample')?.addEventListener('click', (event) => {
+      useUnfoldExample(event.currentTarget).catch((error) => toast(error.message, 'error'));
     });
     $('#mcUnfoldUseGenerated')?.addEventListener('click', () => {
       const library = $('#mcUnfoldLibrary');

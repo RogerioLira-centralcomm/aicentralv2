@@ -3,11 +3,27 @@
   const drop = document.getElementById('mcExtractDrop');
   const frame = document.getElementById('mcExtractFrame');
   const preview = document.getElementById('mcExtractPreview');
+  const overlay = document.getElementById('mcExtractOverlay');
   const run = document.getElementById('mcExtractRun');
   const status = document.getElementById('mcExtractStatus');
   const list = document.getElementById('mcExtractRegions');
   const openPrepare = document.getElementById('mcExtractOpenPrepare');
   let imageUrl = '';
+
+  function setStep(step) {
+    document.querySelectorAll('[data-extract-step]').forEach((node) => {
+      node.classList.toggle('is-current', Number(node.getAttribute('data-extract-step')) === step);
+      node.classList.toggle('is-done', Number(node.getAttribute('data-extract-step')) < step);
+    });
+  }
+
+  function drawRegions(regions) {
+    if (!overlay) return;
+    overlay.innerHTML = (regions || []).map((item) => (
+      `<i class="mc-extract-box" style="left:${item.x}%;top:${item.y}%;width:${item.w}%;height:${item.h}%;" title="${item.tipo}"></i>`
+    )).join('');
+    overlay.hidden = !regions?.length;
+  }
 
   function readFile(file) {
     if (!file || !file.type.startsWith('image/')) return;
@@ -18,7 +34,9 @@
       frame.classList.remove('hidden');
       run.disabled = false;
       openPrepare?.classList.add('hidden');
-      status.textContent = 'Referência pronta. Leia as regiões para gravar o rascunho.';
+      drawRegions([]);
+      setStep(2);
+      status.textContent = 'Passo 2: leia as regiões para gravar o rascunho HTML.';
     };
     reader.readAsDataURL(file);
   }
@@ -50,11 +68,13 @@
       list.innerHTML = regions.map((item) => (
         `<li>${item.tipo} · ${Math.round(item.w)}×${Math.round(item.h)}%</li>`
       )).join('') || '<li>Nenhuma região veio no mapa.</li>';
+      drawRegions(regions);
       const saved = payload.data?.saved_variation;
       if (saved?.id && openPrepare) {
         openPrepare.href = `/parametros/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
         openPrepare.classList.remove('hidden');
-        status.textContent = `Rascunho ${saved.id} na biblioteca. Abra no Preparar para usar.`;
+        setStep(3);
+        status.textContent = `Rascunho ${saved.id} na biblioteca. Passo 3: abra no Preparar para montar a campanha em cima deste HTML.`;
       } else {
         openPrepare?.classList.add('hidden');
         status.textContent = 'Mapa lido, mas o rascunho não gravou na biblioteca.';

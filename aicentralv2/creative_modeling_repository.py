@@ -255,8 +255,7 @@ class CreativeModelingRepository:
                 SELECT cx.id AS profile_id, crm.id_cliente AS crm_client_id,
                        'crm:' || crm.id_cliente::text AS selection_key,
                        'crm' AS source,
-                       CASE WHEN cx.id IS NULL THEN 'minimal' ELSE 'ready' END
-                           AS profile_status,
+                       'ready' AS profile_status,
                        COALESCE(
                            crm.nome_fantasia, crm.razao_social,
                            'Cliente #' || crm.id_cliente::text
@@ -270,7 +269,7 @@ class CreativeModelingRepository:
                            AS analysis_metadata,
                        COALESCE(cx.price_policy, 'hide_price') AS price_policy
                   FROM tbl_cliente crm
-                  LEFT JOIN LATERAL (
+                  JOIN LATERAL (
                       SELECT id, sector, tone_of_voice, logo_url,
                              logo_upload_path, primary_color, secondary_color,
                              website_url, brand_profile, analysis_metadata,

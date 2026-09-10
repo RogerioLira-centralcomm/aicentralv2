@@ -158,9 +158,9 @@ class FakeRepository:
         return [{
             "selection_key": "crm:42",
             "source": "crm",
-            "profile_status": "minimal",
+            "profile_status": "ready",
             "crm_client_id": 42,
-            "profile_id": None,
+            "profile_id": 10,
             "name": "Cliente CRM",
         }]
 
@@ -1390,6 +1390,30 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(self.repo.clients[0]["crm_client_id"], 174)
         with self.assertRaisesRegex(ValueError, "RRGGBB"):
             self.service.create_client({"name": "Inválido", "primary_color": "azul"})
+
+    def test_campanha_lista_so_clientes_com_marca(self):
+        self.repo.list_campaign_clients = lambda: [
+            {
+                "selection_key": "crm:1",
+                "source": "crm",
+                "profile_status": "minimal",
+                "crm_client_id": 1,
+                "profile_id": None,
+                "name": "Sem marca",
+                "brand_profile": {},
+            },
+            {
+                "selection_key": "crm:2",
+                "source": "crm",
+                "profile_status": "ready",
+                "crm_client_id": 2,
+                "profile_id": 10,
+                "name": "Com marca",
+                "brand_profile": {},
+            },
+        ]
+        rows = self.service.list_campaign_clients()
+        self.assertEqual([item["name"] for item in rows], ["Com marca"])
 
     def test_cliente_salva_base_enriquecida(self):
         self.service.create_client(
@@ -2859,16 +2883,20 @@ class CreativeFilesContractTest(unittest.TestCase):
             self.assertNotIn("btn btn-", source)
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
-        self.assertIn("mc-hub-strip", page)
-        self.assertIn("modelagem_criativos.css') }}?v=45", page)
+        self.assertIn("mc-hub-steps", page)
+        self.assertIn("modelagem_criativos.css') }}?v=46", page)
+        self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
-        self.assertIn('data-tab="{{ key }}"', shell)
+        self.assertIn("mc-header", shell)
+        self.assertNotIn("cx-tabs", shell)
+        self.assertNotIn("mc-desk-rail", shell)
+        self.assertNotIn("mc-masthead", shell)
         for tab in (
             "preparar", "produzir", "desdobrar", "biblioteca",
             "marcas", "historico", "extrair", "revisao",
         ):
-            self.assertIn(f"'{tab}'", shell)
+            self.assertIn(tab, page)
         self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)
@@ -2911,6 +2939,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("Confirmar consumo de saldo", production_js)
         self.assertNotIn("Saldo atual:", production_js)
         self.assertIn("runProductionAction(action, button)", production_js)
+        self.assertIn("if (!slotNode || !stageNode) return;", production_js)
+        self.assertIn("const bind = (selector, event, handler) => {", production_js)
         self.assertIn("title: 'Remover variação'", production_js)
         public_page = (
             root
@@ -3275,12 +3305,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("production?.scenes?.[0]?.id", create_flow)
         self.assertNotIn("/parametros/api/variations/", create_flow)
         self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
+        self.assertIn("function brandedCampaignClients", frontend)
         self.assertIn("CentralComm · marca", frontend)
+        self.assertNotIn("perfil será criado", frontend)
         repository = (
             root / "aicentralv2" / "creative_modeling_repository.py"
         ).read_text(encoding="utf-8")
         self.assertIn("HOUSE_CRM_CLIENT_ID = 174", repository)
         self.assertIn("'profile:' || cx.id::text", repository)
+        self.assertIn("JOIN LATERAL", repository)
+        self.assertNotIn("LEFT JOIN LATERAL", repository)
         self.assertNotIn(
             "WHERE cx.crm_client_id IS NULL",
             repository,

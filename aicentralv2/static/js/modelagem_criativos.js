@@ -101,6 +101,11 @@
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const bind = (selector, event, handler) => {
+    const node = typeof selector === 'string' ? $(selector) : selector;
+    if (!node) return;
+    node.addEventListener(event, handler);
+  };
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
   }[char]));
@@ -294,19 +299,29 @@
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
-    if ($('#mcTabs [data-tab="historico"]')?.classList.contains('cx-tab-active')) {
-      loadHistory();
+    const page = $('#mcApp')?.dataset.mcPage;
+    if (page === 'historico') loadHistory();
+    const campaignId = new URLSearchParams(location.search).get('campaign');
+    if (campaignId && (page === 'produzir' || page === 'preparar' || page === 'historico')) {
+      selectCampaign(campaignId).catch((error) => toast(error.message, 'error'));
     }
+  }
+
+  function brandedCampaignClients() {
+    return (state.campaignClients || []).filter((client) => (
+      client.profile_id && client.profile_status !== 'minimal'
+    ));
   }
 
   function renderClientOptions() {
     const select = $('#mcCampaignClient');
     if (!select) return;
     const current = select.value;
-    select.innerHTML = '<option value="">Selecione um cliente</option>' + state.campaignClients
+    const branded = brandedCampaignClients();
+    select.innerHTML = '<option value="">Selecione um cliente</option>' + branded
       .map((client) => {
         const suffix = client.source === 'crm'
-          ? (client.profile_status === 'ready' ? 'CRM · marca pronta' : 'CRM · perfil será criado')
+          ? 'CRM · marca pronta'
           : (client.house || Number(client.crm_client_id) === 174
             ? 'CentralComm · marca'
             : 'Perfil de marca');
@@ -503,8 +518,8 @@
     const button = $('#mcCampaignFormSubmit');
     const status = $('#mcCampaignFormStatus');
     if (!button || !status) return;
-    const issue = !state.campaignClients.length
-      ? 'Nenhum cliente disponível para iniciar a campanha.'
+    const issue = !brandedCampaignClients().length
+      ? 'Nenhum cliente com marca. Monte o perfil em Marcas.'
       : !generatorSelectedFormat()
         ? 'Nenhum formato disponível para o primeiro step.'
         : '';
@@ -621,6 +636,8 @@
   }
 
   async function loadComposeLibrary() {
+    const requested = new URLSearchParams(location.search).get('variation');
+    if (requested) state.selectedVariationId = requested;
     try {
       state.composeLibrary = await api(API.composeLibrary) || {
         visual_systems: [], templates: [], variations: [],
@@ -3865,6 +3882,7 @@
   function setupPlacementInteraction() {
     const slotNode = $('#mcAdSlot');
     const stageNode = $('#mcDeviceFrame');
+    if (!slotNode || !stageNode) return;
     let gesture = null;
     let suppressDemoClick = false;
     slotNode.addEventListener('pointerdown', (event) => {
@@ -4529,9 +4547,9 @@
 
   // ====== EVENTS ======
   document.addEventListener('DOMContentLoaded', () => {
-    $('#mcApp').addEventListener('click', handleClick);
+    bind('#mcApp', 'click', handleClick);
     setupPlacementInteraction();
-    $('#mcLibraryDetail').addEventListener('input', (event) => {
+    bind('#mcLibraryDetail', 'input', (event) => {
       const form = event.target.closest('#mcFormatModelForm');
       if (event.target.matches('[name="default_viewer_profile_id"]')) {
         state.selectedViewerProfileId = Number(event.target.value) || null;
@@ -4542,13 +4560,13 @@
         || event.target.matches('[name="context"], [name="fit"], [name="behavior_type"], [name="behavior_trigger"], [name="default_viewer_profile_id"]')
       )) updatePlacementFromForm(form);
     });
-    $('#mcResetPlacement').addEventListener('click', () => {
+    bind('#mcResetPlacement', 'click', () => {
       if (!state.originalPlacement || !selectedLibraryFormat()) return;
       state.placementDraft = JSON.parse(JSON.stringify(state.originalPlacement));
       renderFormatStage(selectedLibraryFormat(), true);
     });
-    $('#mcCampaignForm').addEventListener('submit', createCampaign);
-    $('#mcEnhanceBrief').addEventListener('click', (event) => enhanceCampaignBrief(event.currentTarget));
+    bind('#mcCampaignForm', 'submit', createCampaign);
+    bind('#mcEnhanceBrief', 'click', (event) => enhanceCampaignBrief(event.currentTarget));
     setupBrandDropzone('#mcCampaignPackDrop', '#mcCampaignPackFile', acceptCampaignPackFiles);
     $('#mcCampaignPackUrl')?.addEventListener('change', () => {
       readCampaignPack().catch((error) => toast(error.message, 'warning'));
@@ -4571,19 +4589,19 @@
       }
     });
     setupSceneReferenceDrop();
-    $('#mcStoryboardEditor').addEventListener('input', (event) => {
+    bind('#mcStoryboardEditor', 'input', (event) => {
       const index = Number(event.target.dataset.storyboardScene);
       if (!Number.isInteger(index) || !state.enhancedBrief?.scenes?.[index]) return;
       state.enhancedBrief.scenes[index].description = event.target.value;
     });
-    $('#mcClientForm').addEventListener('submit', saveClient);
+    bind('#mcClientForm', 'submit', saveClient);
     $('#mcNewBrand')?.addEventListener('click', () => selectBrand(null));
     $('#mcClientTableBody')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-select-brand]');
       if (!button) return;
       selectBrand(button.dataset.selectBrand);
     });
-    $('#mcAnalyzeBrand').addEventListener('click', analyzeBrand);
+    bind('#mcAnalyzeBrand', 'click', analyzeBrand);
     setupBrandDropzone(
       '#mcBrandDropzone',
       'input[name="brand_images"]',
@@ -4609,19 +4627,19 @@
       'input[name="creative_line_images"]',
       addCreativeLineFiles,
     );
-    $('#mcCreativeLineClient').addEventListener('change', (event) => {
+    bind('#mcCreativeLineClient', 'change', (event) => {
       state.creativeLineFiles = [];
       renderCreativeLineUploads();
       selectBrand(event.target.value || null);
     });
-    $('#mcCreativeLineUploads').addEventListener('click', (event) => {
+    bind('#mcCreativeLineUploads', 'click', (event) => {
       const remove = event.target.closest('[data-creative-remove]');
       if (!remove) return;
       state.creativeLineFiles.splice(Number(remove.dataset.creativeRemove), 1);
       renderCreativeLineUploads();
       renderCreativeLineWorkspace();
     });
-    $('#mcCreativeLineLibrary').addEventListener('click', (event) => {
+    bind('#mcCreativeLineLibrary', 'click', (event) => {
       const remove = event.target.closest('[data-creative-delete]');
       const client = creativeLineClient();
       if (!remove || !client) return;
@@ -4646,11 +4664,11 @@
         },
       });
     });
-    $('#mcAnalyzeCreativeLine').addEventListener(
+    bind('#mcAnalyzeCreativeLine', 
       'click',
       (event) => learnCreativeLine(event.currentTarget),
     );
-    $('#mcBrandPalette').addEventListener('click', (event) => {
+    bind('#mcBrandPalette', 'click', (event) => {
       const colorButton = event.target.closest('[data-palette-color]');
       if (!colorButton) return;
       const form = $('#mcClientForm');
@@ -4660,7 +4678,7 @@
       form.elements.primary_color.value = next;
       toast(`${next} definida como cor principal.`, 'success');
     });
-    $('#mcBrandCurator').addEventListener('click', (event) => {
+    bind('#mcBrandCurator', 'click', (event) => {
       const filter = event.target.closest('[data-brand-filter]');
       if (filter) {
         state.brandAssetFilter = filter.dataset.brandFilter;
@@ -4701,7 +4719,7 @@
         renderDroppedBrandFiles();
       }
     });
-    $('#mcBrandDropped').addEventListener('click', (event) => {
+    bind('#mcBrandDropped', 'click', (event) => {
       const logo = event.target.closest('[data-dropped-logo]');
       const remove = event.target.closest('[data-dropped-remove]');
       if (logo) {
@@ -4731,12 +4749,12 @@
         }
       }
     });
-    $('#mcCampaignClient').addEventListener('change', () => {
+    bind('#mcCampaignClient', 'change', () => {
       renderClientPreview();
       renderGeneratorSummary();
     });
-    $('#mcCampaignForm').addEventListener('input', renderGeneratorSummary);
-    $('#mcGeneratorFormatCategory').addEventListener('change', renderGeneratorFormats);
+    bind('#mcCampaignForm', 'input', renderGeneratorSummary);
+    bind('#mcGeneratorFormatCategory', 'change', renderGeneratorFormats);
     $('#mcPreparePathBar')?.addEventListener('change', (event) => {
       if (event.target.name === 'prepare_engine') {
         const select = $('#mcPrepareModel');
@@ -4758,14 +4776,14 @@
       quotePreparePath();
     });
     $('#mcPrepareModel')?.addEventListener('change', quotePreparePath);
-    $('#mcCampaignSelect').addEventListener('change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
+    bind('#mcCampaignSelect', 'change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
     $('#mcOpenPublishBatch')?.addEventListener('click', () => {
       openPublishModal([state.production].filter(Boolean), state.campaign?.id);
     });
     $('#mcUnfoldOpenPublish')?.addEventListener('click', () => {
       openPublishModal(state.unfoldCampaign?.productions || [], state.unfoldCampaign?.id);
     });
-    $('#mcProductionViewer').addEventListener('change', (event) => {
+    bind('#mcProductionViewer', 'change', (event) => {
       state.selectedViewerProfileId = Number(event.target.value) || null;
       renderProductionStage();
     });
@@ -4801,8 +4819,8 @@
     });
     $('#mcFormatSearch')?.addEventListener('input', renderFormatBrowser);
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
-    $('#mcLibrarySearch').addEventListener('input', renderLibrary);
-    $('#mcLibraryCategory').addEventListener('change', renderLibrary);
+    bind('#mcLibrarySearch', 'input', renderLibrary);
+    bind('#mcLibraryCategory', 'change', renderLibrary);
     $('#mcUnfoldFormatList')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-unfold-format]');
       if (!button) return;
@@ -4878,8 +4896,8 @@
       if (!button) return;
       publishSelectedBatch(button).catch((error) => toast(error.message, 'error'));
     });
-    $('#mcRefreshHistory').addEventListener('click', loadHistory);
-    $('#mcHistoryCampaign').addEventListener('change', loadHistory);
+    bind('#mcRefreshHistory', 'click', loadHistory);
+    bind('#mcHistoryCampaign', 'change', loadHistory);
     $('#mcHistoryFinish')?.addEventListener('click', (event) => {
       const publish = event.target.closest('[data-history-publish]');
       if (publish) {
@@ -4899,7 +4917,7 @@
       select.value = next;
       loadHistory();
     });
-    $('#mcLogoForm').addEventListener('submit', async (event) => {
+    bind('#mcLogoForm', 'submit', async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const id = form.elements.client_id.value;
@@ -4921,7 +4939,7 @@
         toast('Logo atualizado.', 'success');
       } catch (error) { toast(error.message, 'error'); }
     });
-    $('#mcShareForm').addEventListener('submit', async (event) => {
+    bind('#mcShareForm', 'submit', async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const button = $('button[type="submit"]', form);

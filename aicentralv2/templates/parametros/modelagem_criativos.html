@@ -4,56 +4,31 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=45">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mc-desk.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=46">
 {% endblock %}
 
 {% block content %}
 {% set mc_page = 'hub' %}
-{% set mc_title = 'A peça na mesa' %}
-{% set mc_lead = 'Cada mesa decide uma coisa. Ninguém pinta logo na foto.' %}
+{% set mc_lead = 'Comece em Preparar. Extrair grava um rascunho na biblioteca; Revisar confere a peça do Produzir.' %}
 <main class="mc-shell" id="mcApp" data-mc-page="hub">
   {% include "parametros/_mc_shell.html" %}
-  <section class="mc-hub" aria-labelledby="mcHubTitle">
-    <h2 id="mcHubTitle">Uma peça anda nesta ordem</h2>
-    <p class="mc-hub-lead">Marca e template primeiro. Copy e foto só na montagem. Aprovar é o último clique.</p>
-    <ol class="mc-hub-strip">
-      <li>
-        <a href="{{ url_for('parametros.modelagem_marcas') }}">
-          <strong>Marcas</strong>
-          <span>Paleta, fonte e tom. Sem oferta.</span>
-        </a>
-      </li>
-      <li>
-        <a href="{{ url_for('parametros.modelagem_extrair') }}">
-          <strong>Extrair</strong>
-          <span>Um criativo vira o mapa do template.</span>
-        </a>
-      </li>
-      <li>
-        <a href="{{ url_for('parametros.modelagem_preparar') }}">
-          <strong>Roteiro</strong>
-          <span>Quantas cenas e qual carta da biblioteca.</span>
-        </a>
-      </li>
-      <li>
-        <a href="{{ url_for('parametros.modelagem_produzir') }}">
-          <strong>Montar</strong>
-          <span>Foto limpa. Texto e logo no HTML.</span>
-        </a>
-      </li>
-      <li>
-        <a href="{{ url_for('parametros.modelagem_revisao') }}">
-          <strong>Revisar</strong>
-          <span>Passou ou volta. Sem reescrever a peça.</span>
-        </a>
-      </li>
-    </ol>
-    <p class="mc-hub-aside">
-      <a href="{{ url_for('parametros.modelagem_biblioteca') }}">Biblioteca de cartas</a>
-      <a href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar um KV</a>
-      <a href="{{ url_for('parametros.modelagem_historico') }}">Histórico de custo</a>
-    </p>
+  <section class="cx-section" aria-labelledby="mcHubTitle">
+    <div class="cx-section-header">
+      <div>
+        <h2 id="mcHubTitle">Fluxo da peça</h2>
+        <p>Uma campanha anda nesta ordem. As outras telas são apoio.</p>
+      </div>
+    </div>
+    <div class="cx-section-body mc-hub-steps">
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_marcas') }}">1. Marcas</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_extrair') }}">2. Extrair template</a>
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_preparar') }}">3. Preparar</a>
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_produzir') }}">4. Produzir</a>
+      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">5. Revisar</a>
+      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar KV</a>
+      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
+      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a>
+    </div>
   </section>
 </main>
 {% endblock %}

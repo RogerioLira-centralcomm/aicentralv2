@@ -133,6 +133,36 @@ class CreativeAgentsContractTest(unittest.TestCase):
         })
         self.assertEqual(result["brand_id"], "tim")
 
+    def test_extrator_grava_rascunho_na_biblioteca(self):
+        repo = Mock()
+        repo.list_compose_templates.return_value = [
+            {"id": 9, "slug": "square-feed-v1"},
+        ]
+        repo.create_compose_variation.return_value = {
+            "id": 77,
+            "template_id": 9,
+            "name": "Rascunho extraído",
+            "params": {},
+            "status": "experimental",
+        }
+        service = CreativeModelingService(
+            repository=repo,
+            generator=Mock(),
+            storage=FakeStorage(),
+        )
+        result = service.run_creative_agent("extractor", {
+            "image_url": "data:image/png;base64,xx",
+            "family": "square_1x1",
+            "text_callable": _llm(
+                '{"family":"square_1x1","regions":'
+                '[{"tipo":"logo","x":4,"y":6,"w":12,"h":10}],'
+                '"tokens":{},"params":{}}'
+            ),
+        })
+        self.assertEqual(result["saved_variation"]["id"], 77)
+        self.assertEqual(result["family"], "square_1x1")
+        repo.create_compose_variation.assert_called_once()
+
     def test_desdobrar_nao_e_agente(self):
         with self.assertRaises(ValueError):
             run_agent("unfold", {})

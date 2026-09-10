@@ -6,6 +6,7 @@
   const run = document.getElementById('mcExtractRun');
   const status = document.getElementById('mcExtractStatus');
   const list = document.getElementById('mcExtractRegions');
+  const openPrepare = document.getElementById('mcExtractOpenPrepare');
   let imageUrl = '';
 
   function readFile(file) {
@@ -16,6 +17,7 @@
       preview.src = imageUrl;
       frame.classList.remove('hidden');
       run.disabled = false;
+      openPrepare?.classList.add('hidden');
       status.textContent = 'Referência pronta. Leia as regiões para gravar o rascunho.';
     };
     reader.readAsDataURL(file);
@@ -48,7 +50,15 @@
       list.innerHTML = regions.map((item) => (
         `<li>${item.tipo} · ${Math.round(item.w)}×${Math.round(item.h)}%</li>`
       )).join('') || '<li>Nenhuma região veio no mapa.</li>';
-      status.textContent = 'Rascunho do template. Confira antes de usar no roteiro.';
+      const saved = payload.data?.saved_variation;
+      if (saved?.id && openPrepare) {
+        openPrepare.href = `/parametros/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
+        openPrepare.classList.remove('hidden');
+        status.textContent = `Rascunho ${saved.id} na biblioteca. Abra no Preparar para usar.`;
+      } else {
+        openPrepare?.classList.add('hidden');
+        status.textContent = 'Mapa lido, mas o rascunho não gravou na biblioteca.';
+      }
     } catch (error) {
       status.textContent = error.message;
     } finally {

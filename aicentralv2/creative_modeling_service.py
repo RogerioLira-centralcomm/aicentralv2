@@ -783,6 +783,36 @@ class CreativeModelingService:
             "variations": variations,
         })
 
+    def persist_extract_draft(self, contract):
+        lister = getattr(self.repository, "list_compose_templates", None)
+        saver = getattr(self.repository, "create_compose_variation", None)
+        if not callable(lister) or not callable(saver):
+            return None
+        family = str(getattr(contract, "family", "") or "square_1x1")
+        templates = lister(family) or lister() or []
+        if not templates:
+            return None
+        template = templates[0]
+        params = dict(getattr(contract, "params", None) or {})
+        regions = getattr(contract, "regions", None) or []
+        if regions:
+            params["regions"] = [
+                item.model_dump() if hasattr(item, "model_dump") else item
+                for item in regions
+            ]
+        variation = saver(
+            template["id"],
+            "Rascunho extraído",
+            params,
+            "experimental",
+        )
+        if not isinstance(variation, dict):
+            return None
+        variation = dict(variation)
+        variation["family"] = family
+        variation["template_slug"] = template.get("slug")
+        return variation
+
     def run_creative_agent(self, name, payload):
         from .creative_agents.orchestrator import run_agent
 
@@ -796,7 +826,13 @@ class CreativeModelingService:
             text_callable=callable_llm,
             repository=self.repository,
         )
-        return _serialize(result.model_dump())
+        data = _serialize(result.model_dump())
+        if str(name) == "extractor":
+            try:
+                data["saved_variation"] = self.persist_extract_draft(result)
+            except Exception:
+                data["saved_variation"] = None
+        return data
 
     def list_viewer_profiles(self):
         return _serialize([
@@ -872,6 +908,7 @@ class CreativeModelingService:
         clients = [
             hydrate_client_from_creative_line(client)
             for client in self.repository.list_campaign_clients()
+            if client.get("profile_id") and client.get("profile_status") != "minimal"
         ]
         if hasattr(self.repository, "list_client_brand_assets"):
             for client in clients:

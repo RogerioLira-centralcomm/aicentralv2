@@ -27,9 +27,12 @@
     <th class="text-center">Período</th>
     <th class="text-center">Campanhas</th>
     <th class="text-right">Valor líquido</th>
+    {% if origem_lista == 'faturamento' %}
+    <th>Resultado financeiro</th>
+    {% endif %}
     <th><span class="sr-only">Ações</span></th>
-    {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
-    <th class="text-center">Nota fiscal</th>
+    {% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'faturamento'] %}
+    <th class="text-center">NF e pagamento</th>
     {% endif %}
   </tr>
   {% endif %}

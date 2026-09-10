@@ -81,6 +81,9 @@ class FakeOperacao:
             "agencia_nome": "Agência Norte",
             "contato_agencia_nome": "Maria Souza",
             "contato_agencia_email": "maria@agencia.com",
+            "contato_cliente_nome": "Ana Cliente",
+            "contato_cliente_email": "ana@cliente.com",
+            "id_cont_cliente_financ": 8,
         }
         self.campanhas = [
             {
@@ -186,6 +189,8 @@ class FechamentoServiceTest(unittest.TestCase):
         preview = service.preview(10)
         self.assertEqual(preview["contato_agencia"]["email"], "maria@agencia.com")
         self.assertEqual(preview["contato_agencia"]["nome"], "Maria Souza")
+        self.assertEqual(preview["contato_cliente"]["email"], "ana@cliente.com")
+        self.assertEqual(preview["contato_cliente"]["nome"], "Ana Cliente")
 
     def test_validar_handoff_levanta_pendencias(self):
         service = PiFechamentoService(
@@ -217,6 +222,9 @@ class FechamentoUiContractTest(unittest.TestCase):
         self.assertTrue((self.templates / "cadu_pi_fechamento.html").exists())
         self.assertTrue((self.templates / "cadu_pi_financeiro.html").exists())
         self.assertTrue((self.templates / "emails/internos/pi_operacao/handoff_financeiro.html").exists())
+        self.assertTrue((self.templates / "emails/externos/pi_operacao/financeiro_cliente.html").exists())
+        self.assertTrue((self.templates / "emails/externos/pi_operacao/nota_fiscal_cliente.html").exists())
+        self.assertTrue((self.templates / "emails/externos/pi_operacao/documentos_assinados.html").exists())
         self.assertIn('Blueprint("pi_financeiro"', self.routes)
         self.assertIn("/cadu_pi/<int:id_pi>/fechamento", self.routes)
         self.assertIn("/cadu_pi/<int:id_pi>/financeiro", self.routes)
@@ -227,6 +235,12 @@ class FechamentoUiContractTest(unittest.TestCase):
         self.assertIn("Documentos da agência", main)
         self.assertIn("Enviar para assinatura", main)
         self.assertIn("enviar-assinatura", self.routes)
+        self.assertIn("Nota fiscal e status de pagamento", main)
+        self.assertIn("E-mails e arquivos para o cliente", main)
+        self.assertIn("Status de pagamento", main)
+        self.assertIn("pi-comms-cliente", main)
+        self.assertIn("comunicacoes/<tipo>/enviar", self.routes)
+        self.assertIn("notas/<int:id_nota>/pagamento", self.routes)
         self.assertNotIn("Gerar PDFs", main)
 
 

@@ -138,6 +138,116 @@
     });
   }
 
+  var nfDesk = document.getElementById('pi-nf-pagamento');
+  if (nfDesk) {
+    var statusPagoId = String(nfDesk.getAttribute('data-status-pago-id') || '');
+    nfDesk.addEventListener('change', function (event) {
+      var select = event.target.closest('select[name="status"]');
+      if (!select) return;
+      var formNf = select.closest('[data-nf-pay]');
+      if (!formNf) return;
+      var wrap = formNf.querySelector('[data-nf-realizado-wrap]');
+      if (wrap) wrap.hidden = String(select.value) !== statusPagoId;
+    });
+    nfDesk.addEventListener('submit', function (event) {
+      var formNf = event.target.closest('[data-nf-pay]');
+      if (!formNf) return;
+      event.preventDefault();
+      var card = formNf.closest('[data-nf-id]');
+      if (!card) return;
+      var nfId = card.getAttribute('data-nf-id');
+      var status = formNf.status.value;
+      if (!status) {
+        toast('Selecione o status de pagamento.', 'error');
+        return;
+      }
+      var btn = formNf.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      fetch('/api/cadu_pi/' + piId + '/financeiro/notas/' + encodeURIComponent(nfId) + '/pagamento', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          status: parseInt(status, 10),
+          data_pagamento_previsto: formNf.data_pagamento_previsto.value || null,
+          data_pagamento_realizado: formNf.data_pagamento_realizado.value || null
+        })
+      })
+        .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.data || !result.data.success) {
+            throw new Error((result.data && result.data.message) || 'Não foi possível salvar o status.');
+          }
+          var nota = (result.data.data && result.data.data.nota) || {};
+          var badge = card.querySelector('[data-nf-status-label]');
+          if (badge) badge.textContent = nota.status_descricao || (formNf.status.options[formNf.status.selectedIndex] || {}).text || 'Atualizado';
+          var previsto = card.querySelector('[data-nf-previsto-label]');
+          var realizado = card.querySelector('[data-nf-realizado-label]');
+          if (previsto) previsto.textContent = nota.data_pagamento_previsto_br || '—';
+          if (realizado) realizado.textContent = nota.data_pagamento_realizado_br || '—';
+          toast('Status de pagamento atualizado.', 'success');
+        })
+        .catch(function (error) {
+          toast(error.message || 'Não foi possível salvar o status.', 'error');
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
+
+  var cliDesk = document.getElementById('pi-comms-cliente');
+  if (cliDesk) {
+    cliDesk.addEventListener('click', function (event) {
+      var send = event.target.closest('[data-cli-send]');
+      var sign = event.target.closest('[data-cli-sign]');
+      if (!send && !sign) return;
+      var card = event.target.closest('[data-cli-tipo]');
+      if (!card) return;
+      var btn = send || sign;
+      if (btn.disabled) return;
+      var tipo = card.getAttribute('data-cli-tipo');
+      var campo = card.querySelector('textarea');
+      var mensagem = campo ? campo.value.trim() : '';
+      btn.disabled = true;
+      var original = btn.textContent;
+      btn.textContent = 'Enviando...';
+      fetch('/api/cadu_pi/' + piId + '/financeiro/comunicacoes/' + encodeURIComponent(tipo) + '/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          mensagem: mensagem,
+          pedir_assinatura: Boolean(sign)
+        })
+      })
+        .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.data || !result.data.success) {
+            throw new Error((result.data && result.data.message) || 'Não foi possível enviar.');
+          }
+          var dest = (result.data.data && result.data.data.destinatario) || {};
+          toast((sign ? 'Pedido de assinatura enviado' : 'E-mail enviado') + (dest.email ? ' · ' + dest.email : '') + '.', 'success');
+          var status = card.querySelector('.pi-doc-card__status');
+          if (!status) {
+            status = document.createElement('span');
+            status.className = 'pi-doc-card__status';
+            btn.parentNode.appendChild(status);
+          }
+          status.textContent = 'Enviado para ' + (dest.nome || dest.email || 'o cliente');
+          var hint = card.querySelector('.pi-doc-card__hint');
+          if (hint) hint.remove();
+        })
+        .catch(function (error) {
+          toast(error.message || 'Não foi possível enviar o e-mail.', 'error');
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = original;
+        });
+    });
+  }
+
   var dreRoot = document.querySelector('[data-fechamento-dre]');
   var form = document.getElementById('form_provisionamentos');
   if (!dreRoot || !form) return;

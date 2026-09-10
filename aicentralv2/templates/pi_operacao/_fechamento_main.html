@@ -2,6 +2,9 @@
 {% set pendencias = preview.get('pendencias') or [] %}
 {% set campanhas = preview.get('campanhas') or [] %}
 {% set percentuais = preview.get('percentuais') or {} %}
+{% set notas_fiscais = notas_fiscais or preview.get('notas_fiscais') or [] %}
+{% set comunicacoes_cliente = comunicacoes_cliente or [] %}
+{% set statuses_nf = statuses_nf or [] %}
 {% set editavel = true %}
 
 <section id="pi-mobile-summary" class="pi-op-panel" aria-label="Resumo do resultado"
@@ -33,6 +36,69 @@
     </article>
   </div>
 </section>
+
+{% if modo == 'financeiro' %}
+<section class="pi-op-panel" id="pi-nf-pagamento" aria-label="Nota fiscal e status de pagamento"
+         data-status-pago-id="{{ id_status_pagamento_realizado or '' }}">
+  <header class="pi-op-panel__head">
+    <h2>Nota fiscal e status de pagamento</h2>
+    <p>Emissão, vencimento e baixa. Atualize o status quando o cliente pagar e baixe o PDF da NF.</p>
+  </header>
+  {% if notas_fiscais %}
+  <div class="pi-nf-desk">
+    {% for nota in notas_fiscais %}
+    <article class="pi-nf-card" data-nf-id="{{ nota.id }}" data-nf-status="{{ nota.status or '' }}">
+      <header class="pi-nf-card__head">
+        <div>
+          <h3>NF {{ nota.numero_nota or nota.id }}</h3>
+          <p>Emitida em {{ nota.data_emissao_br or '—' }}{% if nota.mes_ref_comp %} · ref. {{ nota.mes_ref_comp }}{% endif %}</p>
+        </div>
+        <strong class="pi-nf-badge" data-nf-status-label>{{ nota.status_descricao or 'Sem status' }}</strong>
+      </header>
+      <dl class="pi-nf-facts">
+        <div><dt>Valor</dt><dd>{{ nota.valor|format_brl if nota.valor else '—' }}</dd></div>
+        <div><dt>Líquido</dt><dd>{{ nota.valor_liquido|format_brl if nota.valor_liquido else '—' }}</dd></div>
+        <div><dt>Pgto previsto</dt><dd data-nf-previsto-label>{{ nota.data_pagamento_previsto_br or '—' }}</dd></div>
+        <div><dt>Pgto realizado</dt><dd data-nf-realizado-label>{{ nota.data_pagamento_realizado_br or '—' }}</dd></div>
+      </dl>
+      <form class="pi-nf-pay" data-nf-pay>
+        <label>
+          <span>Status de pagamento</span>
+          <select name="status" required>
+            <option value="">Selecione</option>
+            {% for st in statuses_nf %}
+            <option value="{{ st.id }}" {% if nota.status == st.id %}selected{% endif %}>{{ st.descricao }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Pagamento previsto</span>
+          <input type="date" name="data_pagamento_previsto" value="{{ nota.data_pagamento_previsto or '' }}">
+        </label>
+        <label data-nf-realizado-wrap {% if nota.status != id_status_pagamento_realizado %}hidden{% endif %}>
+          <span>Pagamento realizado</span>
+          <input type="date" name="data_pagamento_realizado" value="{{ nota.data_pagamento_realizado or '' }}">
+        </label>
+        <div class="pi-nf-pay__actions">
+          {% if nota.tem_pdf %}
+          <a href="{{ url_for('api_download_nota_fiscal_pdf', id_nota=nota.id) }}"
+             class="pi-op-btn pi-op-btn--secondary" target="_blank" rel="noopener">
+            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Baixar NF
+          </a>
+          {% else %}
+          <span class="pi-doc-card__hint">PDF da NF ainda não anexado.</span>
+          {% endif %}
+          <button type="submit" class="pi-op-btn pi-op-btn--primary">Salvar status</button>
+        </div>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="pi-nf-empty">Nenhuma nota fiscal vinculada a este PI. Depois da emissão, número, PDF e status de pagamento aparecem aqui.</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <section class="pi-op-panel" aria-label="DRE comercial" data-fechamento-dre
          data-gasto="{{ preview.gasto_midia_realizado or 0 }}"
@@ -132,11 +198,10 @@
             placeholder="Contexto de veiculação, desvios e pendências que o financeiro precisa saber.">{{ preview.observacoes_operacao or pi.obs_operacao or '' }}</textarea>
 </section>
 
-{% if modo == 'fechamento' %}
 <section class="pi-op-panel" aria-label="Campanhas do snapshot">
   <header class="pi-op-panel__head">
-    <h2>Campanhas</h2>
-    <p>Base do cálculo — gasto e entrega somados abaixo.</p>
+    <h2>Resultado por campanha</h2>
+    <p>Gasto de mídia e entrega de cada linha — base do cálculo acima.</p>
   </header>
   {% if campanhas %}
   <div class="cx-table-scroll">
@@ -165,13 +230,84 @@
   <p>Nenhuma campanha no snapshot.</p>
   {% endif %}
 </section>
+
+{% if modo == 'financeiro' %}
+<section class="pi-op-panel" aria-label="Comunicações ao cliente" id="pi-comms-cliente">
+  <header class="pi-op-panel__head">
+    <h2>E-mails e arquivos para o cliente</h2>
+    <p>Financeiro, nota fiscal e documentos para assinatura eletrônica. Baixe os PDFs ou envie com anexo.</p>
+  </header>
+  {% set dest_cli = preview.contato_cliente or {} %}
+  <div class="pi-doc-dest{% if not dest_cli.email %} is-missing{% endif %}">
+    {% if dest_cli.email %}
+    <strong>Aos cuidados de {{ dest_cli.nome or pi.cliente_nome or 'contato do cliente' }}</strong>
+    <span>{{ dest_cli.email }}</span>
+    {% if pi.cliente_nome %}<span>{{ pi.cliente_nome }}</span>{% endif %}
+    {% else %}
+    <strong>Sem contato do cliente</strong>
+    <span>Cadastre o contato financeiro do cliente no PI para enviar estes e-mails.</span>
+    {% endif %}
+  </div>
+  {% if comunicacoes_cliente %}
+  <div class="pi-doc-desk">
+    {% for comm in comunicacoes_cliente %}
+    <article class="pi-doc-card" data-cli-tipo="{{ comm.tipo }}">
+      <header>
+        <h3>{{ comm.label }}</h3>
+        <p>{{ comm.proposito }}</p>
+      </header>
+      <label class="sr-only" for="cli_msg_{{ comm.tipo }}">Mensagem de {{ comm.label }}</label>
+      <textarea id="cli_msg_{{ comm.tipo }}" name="mensagem">{{ comm.mensagem }}</textarea>
+      <div class="pi-doc-card__files">
+        {% for arq in comm.arquivos %}
+          {% if arq.disponivel and arq.url %}
+          <a href="{{ arq.url }}" class="pi-op-btn pi-op-btn--secondary" target="_blank" rel="noopener">
+            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>{{ arq.label }}
+          </a>
+          {% else %}
+          <span class="pi-doc-card__hint">{{ arq.label }} indisponível</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="pi-doc-card__actions">
+        <button type="button" class="pi-op-btn pi-op-btn--primary" data-cli-send
+                {% if not comm.pode_enviar %}disabled{% endif %}>
+          Enviar e-mail
+        </button>
+        {% if comm.tipo == 'documentos_assinados' %}
+        <button type="button" class="pi-op-btn pi-op-btn--secondary" data-cli-sign
+                {% if not comm.pode_enviar %}disabled{% endif %}>
+          Pedir assinatura eletrônica
+        </button>
+        {% endif %}
+        {% if comm.enviado_em %}
+        <span class="pi-doc-card__status">Enviado para {{ comm.enviado_para or dest_cli.nome or 'o cliente' }}</span>
+        {% elif not comm.pode_enviar and dest_cli.email %}
+        <span class="pi-doc-card__hint">Gere o anexo antes de enviar.</span>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>Nenhuma comunicação ao cliente disponível.</p>
+  {% endif %}
+</section>
 {% endif %}
 
 <section class="pi-op-panel" aria-label="Documentos da agência" id="pi-docs-agencia">
+  {% if modo == 'financeiro' %}
+  <details class="pi-fechamento-fold">
+    <summary class="pi-op-panel__head">
+      <h2>Documentos da agência</h2>
+      <p>Cartas de comprovação e bonificação — recolher para focar no cliente.</p>
+    </summary>
+  {% else %}
   <header class="pi-op-panel__head">
     <h2>Documentos da agência</h2>
     <p>Cartas já endereçadas ao contato do PI. A mensagem e o PDF levam o contratado e o entregue.</p>
   </header>
+  {% endif %}
   {% set dest = preview.contato_agencia or {} %}
   <div class="pi-doc-dest{% if not dest.email %} is-missing{% endif %}">
     {% if dest.email %}
@@ -213,6 +349,9 @@
   </div>
   {% else %}
   <p>Nenhuma carta aplicável a este PI.</p>
+  {% endif %}
+  {% if modo == 'financeiro' %}
+  </details>
   {% endif %}
 </section>
 

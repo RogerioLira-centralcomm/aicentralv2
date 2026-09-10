@@ -99,7 +99,7 @@
     else if (ano) params.set('ano_ref_comp', ano);
     if (busca) params.set('busca', busca);
     if (origemEfetiva()) params.set('origem', origemEfetiva());
-    if (origemEfetiva() === 'nf_emitida') {
+    if (origemEfetiva() === 'nf_emitida' || origemEfetiva() === 'faturamento') {
       const nfStatus = new URLSearchParams(window.location.search).get('nf_status');
       if (nfStatus) params.set('nf_status', nfStatus);
     }
@@ -134,7 +134,10 @@
     const params = new URLSearchParams(window.location.search);
     if (status) params.set('nf_status', status);
     else params.delete('nf_status');
-    params.set('origem', 'nf_emitida');
+    params.set('origem', origemEfetiva() || 'nf_emitida');
+    if (origemEfetiva() === 'faturamento' && !params.get('id_sub_status_pi')) {
+      params.set('id_sub_status_pi', '4');
+    }
     window.location.href = '/cadu_pi?' + params.toString();
   };
 
@@ -230,14 +233,14 @@
         changed = true;
       }
     });
-    if (year && !params.has('ano_ref_comp') && !params.has('mes_ref_comp')) {
+    if (year && origemRestore !== 'faturamento' && !params.has('ano_ref_comp') && !params.has('mes_ref_comp')) {
       const yearSelect = document.getElementById('filtro_ano_ref');
       if (yearSelect && Array.prototype.some.call(yearSelect.options, function (option) { return option.value === year; })) {
         restored.set('ano_ref_comp', year);
         changed = true;
       }
     }
-    if (month && !params.has('mes_ref_comp') && !restored.has('ano_ref_comp')) {
+    if (month && origemRestore !== 'faturamento' && !params.has('mes_ref_comp') && !restored.has('ano_ref_comp')) {
       const monthSelect = document.getElementById('filtro_mes_ref');
       const matching = monthSelect && Array.prototype.find.call(monthSelect.options, function (option) {
         return option.value === month || parseInt(option.value, 10) === parseInt(month, 10);

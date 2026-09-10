@@ -455,6 +455,14 @@ class PiFechamentoService:
                 pi["saude_label"] = SAUDE_LABELS.get(saude, "Sem dados")
                 pi["status_financeiro"] = status
                 pi["status_financeiro_label"] = label_status_financeiro(status)
+                pi["resultado_persistido"] = bool(snap)
+                if snap.get("margem_cc") is not None:
+                    pi["val_margem_cc"] = snap.get("margem_cc")
+                    pi["margem_cc"] = snap.get("margem_cc")
+                if snap.get("valor_liquido") is not None:
+                    pi["valor_liquido"] = snap.get("valor_liquido")
+                if snap.get("valor_bruto") is not None:
+                    pi["valor_bruto"] = snap.get("valor_bruto")
             except Exception:
                 logger.exception("Não anexou resultado financeiro ao PI %s", pi.get("id_pi"))
         return pis
@@ -543,7 +551,18 @@ class PiFechamentoService:
             "desvio_aceitavel_pct": desvio,
             "lucrativo": zona in (1, 2) if zona else None,
             "observacoes_operacao": (pi.get("observacoes_operacao") or pi.get("obs_operacao") or "").strip(),
-            "contato_agencia": self._contato_agencia(pi),
+            "contato_agencia": self._contato_por_papel(
+                pi,
+                nome_keys=("contato_agencia_nome",),
+                email_keys=("contato_agencia_email",),
+                id_keys=("id_cont_agen_financ", "id_cont_agen_midia"),
+            ),
+            "contato_cliente": self._contato_por_papel(
+                pi,
+                nome_keys=("contato_cliente_nome", "contato_fin_cliente_nome"),
+                email_keys=("contato_cliente_email", "contato_fin_cliente_email"),
+                id_keys=("id_cont_cliente_financ", "id_cont_cliente_midia"),
+            ),
             "drive": {
                 "principal": pi.get("googled_pi_princ"),
                 "financeiro": pi.get("googled_pi_financ"),
@@ -554,11 +573,31 @@ class PiFechamentoService:
         }
 
     def _contato_agencia(self, pi):
+        return self._contato_por_papel(
+            pi,
+            nome_keys=("contato_agencia_nome",),
+            email_keys=("contato_agencia_email",),
+            id_keys=("id_cont_agen_financ", "id_cont_agen_midia"),
+        )
+
+    def _contato_por_papel(self, pi, nome_keys, email_keys, id_keys):
         if not pi:
             return {}
-        nome = str(pi.get("contato_agencia_nome") or "").strip()
-        email = str(pi.get("contato_agencia_email") or "").strip()
-        contato_id = pi.get("id_cont_agen_financ") or pi.get("id_cont_agen_midia")
+        nome = ""
+        for key in nome_keys:
+            nome = str(pi.get(key) or "").strip()
+            if nome:
+                break
+        email = ""
+        for key in email_keys:
+            email = str(pi.get(key) or "").strip()
+            if email:
+                break
+        contato_id = None
+        for key in id_keys:
+            if pi.get(key):
+                contato_id = pi.get(key)
+                break
         if nome or email:
             return {
                 "id": contato_id,
@@ -573,7 +612,7 @@ class PiFechamentoService:
         try:
             row = obter(contato_id)
         except Exception:
-            logger.exception("Falha ao resolver contato da agência do PI %s", pi.get("id_pi"))
+            logger.exception("Falha ao resolver contato do PI %s", pi.get("id_pi"))
             return {}
         if not isinstance(row, dict):
             return {}
@@ -669,6 +708,7 @@ class PiFechamentoService:
                 "fonte_dre": snapshot.get("fonte_dre"),
                 "documentos": snapshot.get("cartas") or {},
                 "contato_agencia": snapshot.get("contato_agencia") or {},
+                "contato_cliente": snapshot.get("contato_cliente") or {},
             },
             "fechado_por": autor_id,
         }

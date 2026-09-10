@@ -5,13 +5,55 @@ import logging
 from flask import Blueprint, flash, jsonify, make_response, redirect, render_template, request, session, url_for
 
 from .auth import login_required, login_required_api
-from .pi_documento_service import DocumentoIndisponivelError, PiDocumentoService
+from .pi_documento_service import (
+    DocumentoIndisponivelError,
+    PiDocumentoService,
+    STATUS_NF_PARA_FINANCEIRO,
+    status_financeiro_por_notas,
+)
 from .pi_fechamento_service import HandoffBloqueadoError, PiFechamentoService
 from .pi_operacao_repository import PiNaoEncontradoError
 
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("pi_financeiro", __name__)
+
+
+def _iso_date(value):
+    if not value:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    text = str(value).strip()
+    return text[:10] if text else ""
+
+
+def _br_date(iso):
+    if not iso or len(str(iso)) < 10:
+        return "—"
+    year, month, day = str(iso)[:10].split("-")
+    return f"{day}/{month}/{year}"
+
+
+def serializar_nota_fiscal(nota):
+    row = dict(nota or {})
+    for campo in (
+        "data_emissao",
+        "data_pagamento_previsto",
+        "data_pagamento_realizado",
+        "created_at",
+        "updated_at",
+    ):
+        iso = _iso_date(row.get(campo))
+        row[campo] = iso
+        row[f"{campo}_br"] = _br_date(iso) if iso else "—"
+    row["tem_pdf"] = bool(row.get("nf_arquivo_path"))
+    if row.get("status") is not None:
+        try:
+            row["status"] = int(row["status"])
+        except (TypeError, ValueError):
+            pass
+    return row
 
 
 def _service():
@@ -66,11 +108,28 @@ def workspace(id_pi):
         return redirect(url_for("cadu_pi_lista", id_sub_status_pi=4, origem="operacao"))
     resultado = _service().resultado(id_pi)
     documentos = PiDocumentoService().listar(resultado)
+    try:
+        notas = [serializar_nota_fiscal(item) for item in (db.obter_notas_fiscais_por_pi(id_pi) or [])]
+        statuses_nf = list(db.obter_nota_fiscal_status() or [])
+    except Exception:
+        logger.exception("Erro ao carregar notas fiscais do PI %s", id_pi)
+        notas = []
+        statuses_nf = []
+    resultado["notas_fiscais"] = notas
+    comunicacoes_cliente = PiDocumentoService().listar_cliente(resultado, notas)
+    id_status_pago = next(
+        (item.get("id") for item in statuses_nf if str(item.get("descricao") or "") == "Pagamento Realizado"),
+        None,
+    )
     return render_template(
         "cadu_pi_financeiro.html",
         pi=pi,
         preview=resultado,
         documentos=documentos,
+        comunicacoes_cliente=comunicacoes_cliente,
+        notas_fiscais=notas,
+        statuses_nf=statuses_nf,
+        id_status_pagamento_realizado=id_status_pago,
         modo="financeiro",
         somente_leitura=False,
         operacao_modo="pi",
@@ -166,3 +225,81 @@ def api_enviar_assinatura(id_pi, tipo):
     except Exception:
         logger.exception("Erro ao enviar documento %s do PI %s", tipo, id_pi)
         return _erro_json("Não foi possível enviar o documento para assinatura.", 500)
+
+
+@bp.put("/api/cadu_pi/<int:id_pi>/financeiro/notas/<int:id_nota>/pagamento")
+@login_required_api
+def api_atualizar_pagamento(id_pi, id_nota):
+    from . import db
+
+    body = request.get_json(silent=True) or {}
+    nota = db.obter_nota_fiscal_por_id(id_nota)
+    if not nota or int(nota.get("id_pi") or 0) != int(id_pi):
+        return _erro_json("Nota fiscal não encontrada neste PI.", 404)
+    try:
+        status = int(body.get("status"))
+    except (TypeError, ValueError):
+        return _erro_json("Status de pagamento inválido.", 400)
+
+    statuses = {item.get("id"): item for item in (db.obter_nota_fiscal_status() or [])}
+    status_row = statuses.get(status)
+    if not status_row:
+        return _erro_json("Status de pagamento inválido.", 400)
+
+    descricao = str(status_row.get("descricao") or "")
+    data_previsto = body.get("data_pagamento_previsto") or None
+    data_realizado = body.get("data_pagamento_realizado") or None
+    if descricao == "Pagamento Realizado" and not (data_realizado and str(data_realizado).strip()):
+        return _erro_json("Informe a data do pagamento realizado.", 400)
+
+    db.atualizar_nota_fiscal(
+        id_nota,
+        {
+            "status": status,
+            "data_pagamento_previsto": data_previsto,
+            "data_pagamento_realizado": data_realizado,
+        },
+    )
+    notas = [serializar_nota_fiscal(item) for item in (db.obter_notas_fiscais_por_pi(id_pi) or [])]
+    codigo = status_financeiro_por_notas(notas) or STATUS_NF_PARA_FINANCEIRO.get(descricao.lower())
+    if codigo:
+        try:
+            _service().repository.upsert_status(id_pi, codigo, session.get("user_id"))
+        except Exception:
+            logger.exception("Não atualizou o status financeiro do PI %s após o pagamento.", id_pi)
+    atualizada = next((item for item in notas if item.get("id") == id_nota), serializar_nota_fiscal({
+        **nota,
+        "status": status,
+        "status_descricao": descricao,
+        "data_pagamento_previsto": data_previsto,
+        "data_pagamento_realizado": data_realizado,
+    }))
+    return jsonify({
+        "success": True,
+        "data": {
+            "nota": atualizada,
+            "status_financeiro": codigo,
+        },
+    })
+
+
+@bp.post("/api/cadu_pi/<int:id_pi>/financeiro/comunicacoes/<tipo>/enviar")
+@login_required_api
+def api_enviar_comunicacao_cliente(id_pi, tipo):
+    body = request.get_json(silent=True) or {}
+    try:
+        data = PiDocumentoService().enviar_ao_cliente(
+            id_pi,
+            tipo,
+            mensagem=body.get("mensagem"),
+            autor_id=session.get("user_id"),
+            pedir_assinatura=bool(body.get("pedir_assinatura")),
+        )
+        return jsonify({"success": True, "data": data})
+    except DocumentoIndisponivelError as exc:
+        return _erro_json(exc, 400)
+    except PiNaoEncontradoError:
+        return _erro_json("PI não encontrado", 404)
+    except Exception:
+        logger.exception("Erro ao enviar comunicação %s do PI %s ao cliente", tipo, id_pi)
+        return _erro_json("Não foi possível enviar o e-mail ao cliente.", 500)

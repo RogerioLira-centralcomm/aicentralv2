@@ -1,0 +1,607 @@
+{% set _camp_cliente = namespace(nome='') %}
+{% for cli in clientes|default([]) %}
+  {% if pi and pi.id_cliente|string == cli.id_cliente|string %}
+    {% set _camp_cliente.nome = cli.nome_fantasia or cli.razao_social %}
+  {% endif %}
+{% endfor %}
+{% set campanha_cliente_nome = _camp_cliente.nome %}
+{% set campanha_pi_codigo = (pi.codigo_pi_cc or pi.id_pi) if pi else '' %}
+
+<script>
+(function (w) {
+  function bindPiDialog(dialog) {
+    if (!dialog || dialog.dataset.piBound === '1') return;
+    dialog.dataset.piBound = '1';
+    dialog.addEventListener('click', function (e) {
+      var box = dialog.getBoundingClientRect();
+      if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) {
+        dialog.close();
+      }
+    });
+    dialog.querySelectorAll('[data-camp-modal-close]').forEach(function (btn) {
+      btn.addEventListener('click', function () { dialog.close(); });
+    });
+  }
+  w.piOpenDialog = function (dialog) {
+    if (!dialog || typeof dialog.showModal !== 'function') return false;
+    bindPiDialog(dialog);
+    if (!dialog.open) dialog.showModal();
+    return true;
+  };
+  w.piCloseDialog = function (dialog) {
+    if (dialog && dialog.open) dialog.close();
+  };
+})(window);
+</script>
+
+{% if pi_campanhas_editaveis %}
+<dialog id="modal_campanha_pi" class="cx-modal pi-campaign-modal" aria-labelledby="modal_campanha_pi_title">
+  <header class="cx-modal-header">
+    <div>
+      <h2 id="modal_campanha_pi_title">Editar campanha</h2>
+      {% if campanha_cliente_nome %}<p class="pi-campaign-modal__origin">{{ campanha_cliente_nome }}</p>{% endif %}
+    </div>
+    <div class="pi-campaign-modal__ticket">
+      {% if campanha_pi_codigo %}<span>{{ campanha_pi_codigo }}</span>{% endif %}
+      <button type="button" class="cx-btn cx-btn-ghost" data-camp-modal-close>Fechar</button>
+    </div>
+  </header>
+  <div class="cx-modal-body">
+    <div id="campanha_editor_content" class="pi-campaign-editor">
+      <form id="formNovaCampanha" class="pi-campaign-editor-form" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+        <input type="hidden" id="camp_form_mode" value="create">
+        <input type="hidden" id="camp_edit_id" value="">
+        <input type="hidden" name="id_pi" value="{{ pi.id_pi }}">
+        <input type="hidden" name="return_to_pi" value="1">
+        <input type="hidden" name="id_cliente" value="{{ pi.id_cliente }}">
+
+        <div class="pi-campaign-editor-fields">
+          <h3 class="pi-campaign-editor-section">Identificação</h3>
+          <div class="col-span-2">
+            <label for="camp_nome_campanha">Nome da campanha <span class="pi-campaign-req">*</span></label>
+            <input id="camp_nome_campanha" type="text" name="nome_campanha" required placeholder="Nome da campanha">
+          </div>
+          <h3 class="pi-campaign-editor-section">Entrega e investimento</h3>
+          <div>
+            <label for="camp_obj_contratados">Obj. contratado <span class="pi-campaign-req">*</span></label>
+            <input id="camp_obj_contratados" type="text" name="obj_contratados" required data-mask="numero" placeholder="0" inputmode="numeric">
+          </div>
+          <div>
+            <label for="nova_camp_valor_plat">Valor plataforma <span class="pi-campaign-req">*</span></label>
+            <input type="text" id="nova_camp_valor_plat" name="valor_plataforma" required data-mask="real" placeholder="R$ 0,00" inputmode="decimal">
+          </div>
+          <div>
+            <label for="nova_camp_dist_pct">Distribuição no PI</label>
+            <input type="text" id="nova_camp_dist_pct" readonly tabindex="-1" value="0,00%">
+          </div>
+          <div>
+            <label for="camp_id_status">Status</label>
+            <select id="camp_id_status" name="id_status">
+              {% for st in statuses|default([]) %}
+                <option value="{{ st.id }}" {% if st.descricao|lower == 'aguardando' %}selected{% endif %}>{{ st.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <h3 class="pi-campaign-editor-section">Período e operação</h3>
+          <div>
+            <label for="nova_camp_dt_inicio">Data início</label>
+            <div class="pi-campaign-date">
+              <input type="date" id="nova_camp_dt_inicio" name="periodo_inicio" {% if pi.periodo_inicio %}value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}"{% endif %}>
+              <button type="button" class="pi-campaign-date__pick" onclick="document.getElementById('nova_camp_dt_inicio').showPicker()" aria-label="Abrir calendário">
+                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="nova_camp_dt_fim">Data fim</label>
+            <div class="pi-campaign-date">
+              <input type="date" id="nova_camp_dt_fim" name="periodo_fim" {% if pi.periodo_fim %}value="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}"{% endif %}>
+              <button type="button" class="pi-campaign-date__pick" onclick="document.getElementById('nova_camp_dt_fim').showPicker()" aria-label="Abrir calendário">
+                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="camp_id_plataforma">Plataforma <span class="pi-campaign-req">*</span></label>
+            <select id="camp_id_plataforma" name="id_plataforma" required>
+              <option value="">Selecione...</option>
+              {% for plt in plataformas|default([]) %}
+                <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="camp_id_objetivos">Objetivos</label>
+            <select id="camp_id_objetivos" name="id_objetivos_campanha">
+              <option value="">Selecione...</option>
+              {% for obj in objetivos|default([]) %}
+                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="camp_id_responsavel">Responsável <span class="pi-campaign-req">*</span></label>
+            <select id="camp_id_responsavel" name="id_responsavel_operacao" required>
+              <option value="">Selecione...</option>
+              {% for v in vendedores|default([]) %}
+                <option value="{{ v.id_contato_cliente }}" {% if pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label for="camp_link_dash">Link do dashboard</label>
+            <input id="camp_link_dash" type="url" name="link_dash" placeholder="https://">
+          </div>
+
+          <input type="hidden" name="id_centralx" id="nova_camp_id_centralx" value="">
+          <input type="hidden" name="totalizador_atingido" id="nova_camp_totalizador_atingido" value="">
+          <input type="hidden" name="totalizador_gasto" id="nova_camp_totalizador_gasto" value="">
+          <input type="hidden" name="perc_margem_cc" id="nova_camp_h_perc_margem_cc" value="">
+          <input type="hidden" name="perc_tech_fee" id="nova_camp_h_perc_tech_fee" value="">
+          <input type="hidden" name="perc_com_vendas" id="nova_camp_h_perc_com_vendas" value="">
+          <input type="hidden" name="perc_pl_incentivos" id="nova_camp_h_perc_pl_incentivos" value="">
+          <input type="hidden" name="perc_impostos" id="nova_camp_h_perc_impostos" value="">
+          <input type="hidden" name="val_margem_cc" id="nova_camp_h_val_margem_cc" value="">
+          <input type="hidden" name="val_tech_fee" id="nova_camp_h_val_tech_fee" value="">
+          <input type="hidden" name="val_com_vendas" id="nova_camp_h_val_com_vendas" value="">
+          <input type="hidden" name="val_pl_incentivos" id="nova_camp_h_val_pl_incentivos" value="">
+          <input type="hidden" name="val_impostos" id="nova_camp_h_val_impostos" value="">
+          <input type="hidden" name="under" id="nova_camp_under" value="">
+        </div>
+      </form>
+    </div>
+  </div>
+  <footer class="cx-modal-footer">
+    <button type="button" class="cx-btn cx-btn-ghost" data-camp-modal-close>Cancelar</button>
+    <button type="submit" form="formNovaCampanha" id="btnSalvarCampanha" class="cx-btn cx-btn-primary">Salvar alterações</button>
+  </footer>
+</dialog>
+<script>
+(function() {
+  var dialog = document.getElementById('modal_campanha_pi');
+  var content = document.getElementById('campanha_editor_content');
+  var form = document.getElementById('formNovaCampanha');
+  var titleEl = document.getElementById('modal_campanha_pi_title');
+  var saveBtn = document.getElementById('btnSalvarCampanha');
+  if (!dialog || !content || !form) return;
+
+  var urlNova = {{ url_for('campanha_pi_nova')|tojson }};
+  var urlEditarTpl = {{ url_for('campanha_pi_editar', id_camp=0)|tojson }};
+  var urlExcluirTpl = {{ url_for('campanha_pi_excluir', id_camp=0)|tojson }};
+  var defaultDtInicio = {% if pi.periodo_inicio %}{{ pi.periodo_inicio.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
+  var defaultDtFim = {% if pi.periodo_fim %}{{ pi.periodo_fim.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
+
+  function aplicarMascaraNumero(input) {
+    input.addEventListener('input', function() {
+      var pos = this.selectionStart;
+      var antes = this.value.length;
+      var digits = this.value.replace(/[^\d]/g, '');
+      this.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      var diff = this.value.length - antes;
+      this.setSelectionRange(pos + diff, pos + diff);
+    });
+  }
+  function aplicarMascaraReal(input) {
+    input.addEventListener('input', function() {
+      var v = this.value.replace(/[^\d]/g, '');
+      if (!v) { this.value = ''; return; }
+      v = v.padStart(3, '0');
+      var inteiro = v.slice(0, -2).replace(/^0+/, '') || '0';
+      var decimal = v.slice(-2);
+      var formatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      this.value = 'R$ ' + formatado + ',' + decimal;
+    });
+    input.addEventListener('focus', function() {
+      if (!this.value) this.value = 'R$ 0,00';
+    });
+  }
+  content.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
+  content.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+
+  function parseReal(s) {
+    if (!s) return 0;
+    return parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+  }
+  var rawMax = '{{ pi.valor_plataformas or pi.vr_platafor_max_pi|default("0") }}';
+  var vrPlatMax = parseReal(rawMax);
+  window._setVrPlatMaxCamp = function(val) {
+    vrPlatMax = parseReal(val);
+    calcDistPct();
+  };
+  var inp = document.getElementById('nova_camp_valor_plat');
+  var out = document.getElementById('nova_camp_dist_pct');
+
+  function calcDistPct() {
+    if (!inp || !out) return;
+    var v = parseReal(inp.value);
+    var pct = vrPlatMax > 0 ? (v / vrPlatMax) * 100 : 0;
+    out.value = pct.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '%';
+  }
+  if (inp && out) {
+    inp.addEventListener('input', function() { setTimeout(calcDistPct, 0); });
+    inp.addEventListener('change', function() { setTimeout(calcDistPct, 0); });
+  }
+
+  function formatRealNum(num) {
+    return 'R$ ' + Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function rawParaFormatado(valor, tipo) {
+    if (valor == null || valor === '') return '';
+    if (tipo === 'real') {
+      var n = Number(valor);
+      return isNaN(n) ? '' : formatRealNum(n);
+    }
+    var digits = String(valor).replace(/[^\d]/g, '');
+    if (!digits) return String(valor);
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function setFormField(name, value) {
+    var el = form.querySelector('[name="' + name + '"]');
+    if (el) el.value = value != null ? value : '';
+  }
+
+  function openCampaignModal(title, saveLabel) {
+    if (titleEl) titleEl.textContent = title;
+    if (saveBtn) saveBtn.textContent = saveLabel;
+    window.piCloseDialog(document.getElementById('modal_campanha_view_pi'));
+    if (!window.piOpenDialog(dialog)) {
+      if (typeof showToast === 'function') showToast('Não foi possível abrir o editor da campanha.', 'error');
+      return;
+    }
+    var first = form.querySelector('input[name="nome_campanha"]');
+    if (first) first.focus();
+  }
+
+  function resetModalForm() {
+    document.getElementById('camp_form_mode').value = 'create';
+    document.getElementById('camp_edit_id').value = '';
+    form.action = urlNova;
+    form.reset();
+    setFormField('id_pi', {{ pi.id_pi|tojson }});
+    setFormField('return_to_pi', '1');
+    setFormField('id_cliente', {{ pi.id_cliente|tojson }});
+    ['nova_camp_id_centralx', 'nova_camp_totalizador_atingido', 'nova_camp_totalizador_gasto',
+     'nova_camp_h_perc_margem_cc', 'nova_camp_h_perc_tech_fee', 'nova_camp_h_perc_com_vendas',
+     'nova_camp_h_perc_pl_incentivos', 'nova_camp_h_perc_impostos', 'nova_camp_h_val_margem_cc',
+     'nova_camp_h_val_tech_fee', 'nova_camp_h_val_com_vendas', 'nova_camp_h_val_pl_incentivos',
+     'nova_camp_h_val_impostos', 'nova_camp_under'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    var dtIni = document.getElementById('nova_camp_dt_inicio');
+    var dtFim = document.getElementById('nova_camp_dt_fim');
+    if (dtIni) dtIni.value = defaultDtInicio;
+    if (dtFim) dtFim.value = defaultDtFim;
+    calcDistPct();
+  }
+
+  window.abrirModalNovaCampanha = function() {
+    resetModalForm();
+    openCampaignModal('Adicionar campanha', 'Criar campanha');
+  };
+
+  window.abrirModalEditarCampanha = function(c) {
+    if (!c || !c.id_campanha) return;
+    document.getElementById('camp_form_mode').value = 'edit';
+    document.getElementById('camp_edit_id').value = c.id_campanha;
+    form.action = urlEditarTpl.replace('/0/', '/' + c.id_campanha + '/');
+    setFormField('id_pi', c.id_pi || {{ pi.id_pi|tojson }});
+    setFormField('return_to_pi', '1');
+    setFormField('id_cliente', c.id_cliente || {{ pi.id_cliente|tojson }});
+    setFormField('nome_campanha', c.nome_campanha || '');
+    setFormField('obj_contratados', rawParaFormatado(c.obj_contratados, 'numero'));
+    setFormField('valor_plataforma', rawParaFormatado(c.valor_plataforma, 'real'));
+    setFormField('id_status', c.id_status || '');
+    setFormField('id_plataforma', c.id_plataforma || '');
+    setFormField('id_objetivos_campanha', c.id_objetivos_campanha || '');
+    setFormField('id_responsavel_operacao', c.id_responsavel_operacao || {{ (pi.id_resp_comercial or '')|tojson }});
+    setFormField('link_dash', c.link_dash || '');
+    var dtIni = document.getElementById('nova_camp_dt_inicio');
+    var dtFim = document.getElementById('nova_camp_dt_fim');
+    if (dtIni) dtIni.value = c.periodo_inicio_iso || '';
+    if (dtFim) dtFim.value = c.periodo_fim_iso || '';
+    var hIdCentralx = document.getElementById('nova_camp_id_centralx');
+    if (hIdCentralx) hIdCentralx.value = c.id_centralx || '';
+    var hAting = document.getElementById('nova_camp_totalizador_atingido');
+    if (hAting) hAting.value = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '';
+    var hGasto = document.getElementById('nova_camp_totalizador_gasto');
+    if (hGasto) hGasto.value = c.totalizador_gasto != null ? rawParaFormatado(c.totalizador_gasto, 'real') : '';
+    var hUnder = document.getElementById('nova_camp_under');
+    if (hUnder) hUnder.value = c.under ? 'on' : '';
+    [
+      ['nova_camp_h_perc_margem_cc', 'perc_margem_cc'],
+      ['nova_camp_h_perc_tech_fee', 'perc_tech_fee'],
+      ['nova_camp_h_perc_com_vendas', 'perc_com_vendas'],
+      ['nova_camp_h_perc_pl_incentivos', 'perc_pl_incentivos'],
+      ['nova_camp_h_perc_impostos', 'perc_impostos'],
+      ['nova_camp_h_val_margem_cc', 'val_margem_cc'],
+      ['nova_camp_h_val_tech_fee', 'val_tech_fee'],
+      ['nova_camp_h_val_com_vendas', 'val_com_vendas'],
+      ['nova_camp_h_val_pl_incentivos', 'val_pl_incentivos'],
+      ['nova_camp_h_val_impostos', 'val_impostos'],
+    ].forEach(function(pair) {
+      var el = document.getElementById(pair[0]);
+      if (el) el.value = c[pair[1]] != null ? String(c[pair[1]]) : '';
+    });
+    calcDistPct();
+    openCampaignModal('Editar campanha', 'Salvar alterações');
+  };
+
+  function onCampanhaPiAjaxSuccess(data) {
+    if (data.pi_financeiro && typeof window.atualizarFinanceiroPiTela === 'function') {
+      window.atualizarFinanceiroPiTela(data.pi_financeiro);
+    }
+    if (typeof window.recarregarCampanhasPi === 'function') window.recarregarCampanhasPi();
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  window.excluirCampanhaPi = function(c) {
+    if (!c || !c.id_campanha) return;
+    function executarExclusao() {
+      fetch(urlExcluirTpl.replace('/0/', '/' + c.id_campanha + '/'), {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          if (typeof showToast === 'function') showToast(data.message || 'Campanha excluída!', 'success');
+          onCampanhaPiAjaxSuccess(data);
+        } else if (typeof showToast === 'function') showToast(data.error || 'Erro ao excluir.', 'error');
+      }).catch(function() {
+        if (typeof showToast === 'function') showToast('Erro ao excluir campanha.', 'error');
+      });
+    }
+    if (typeof showConfirm === 'function') {
+      showConfirm({
+        title: 'Excluir campanha',
+        message: 'Excluir a campanha <strong>' + escHtml(c.nome_campanha || '') + '</strong>? Esta ação não pode ser desfeita.',
+        theme: 'danger',
+        confirmText: 'Excluir campanha',
+        onConfirm: executarExclusao
+      });
+      return;
+    }
+    if (window.piOperacao && typeof window.piOperacao.confirmar === 'function') {
+      window.piOperacao.confirmar({
+        title: 'Excluir campanha',
+        message: 'Excluir a campanha "' + (c.nome_campanha || '') + '"? Esta ação não pode ser desfeita.',
+        confirmText: 'Excluir campanha',
+        danger: true
+      }).then(function(confirmado) {
+        if (confirmado) executarExclusao();
+      });
+      return;
+    }
+    if (typeof showToast === 'function') {
+      showToast('A confirmação não pôde ser aberta. Recarregue a página e tente novamente.', 'error');
+    }
+  };
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnSalvarCampanha');
+    var btnLabel = btn ? btn.textContent : 'Salvar alterações';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Salvando...';
+    }
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
+        window.piCloseDialog(dialog);
+        onCampanhaPiAjaxSuccess(data);
+      } else if (typeof showToast === 'function') {
+        showToast(data.error || 'Erro ao salvar campanha.', 'error');
+      }
+    })
+    .catch(function() {
+      if (typeof showToast === 'function') showToast('Erro ao salvar campanha.', 'error');
+    })
+    .finally(function() {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btnLabel;
+      }
+    });
+  });
+
+  function formatReal(num) {
+    return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function maskPctNova(input) {
+    var v = input.value.replace(/\D/g, '').slice(0, 4);
+    if (!v) { input.value = ''; return; }
+    if (v.length <= 2) { input.value = v; return; }
+    input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
+  }
+  var pares = [
+    ['nova_camp_perc_margem_cc', 'nova_camp_val_margem_cc'],
+    ['nova_camp_perc_tech_fee', 'nova_camp_val_tech_fee'],
+    ['nova_camp_perc_com_vendas', 'nova_camp_val_com_vendas'],
+    ['nova_camp_perc_pl_incentivos', 'nova_camp_val_pl_incentivos'],
+    ['nova_camp_perc_impostos', 'nova_camp_val_impostos'],
+  ];
+  function recalcPercValNovaCamp() {
+    var base = inp ? parseReal(inp.value) : 0;
+    pares.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      var vEl = document.getElementById(par[1]);
+      if (!pEl || !vEl) return;
+      var pct = parseReal(pEl.value);
+      var v = (base > 0 && pct > 0) ? base * pct / 100 : 0;
+      vEl.value = v > 0 ? formatReal(v) : '';
+    });
+  }
+  pares.forEach(function(par) {
+    var pEl = document.getElementById(par[0]);
+    if (pEl) {
+      pEl.addEventListener('input', function() { maskPctNova(this); recalcPercValNovaCamp(); });
+    }
+  });
+  if (inp) {
+    inp.addEventListener('input', function() { setTimeout(recalcPercValNovaCamp, 0); });
+    inp.addEventListener('change', function() { setTimeout(recalcPercValNovaCamp, 0); });
+  }
+})();
+</script>
+{% endif %}
+
+<dialog id="modal_campanha_view_pi" class="cx-modal pi-campaign-modal" aria-labelledby="modal_campanha_view_title">
+  <header class="cx-modal-header">
+    <div>
+      <h2 id="modal_campanha_view_title">Campanha</h2>
+      {% if campanha_cliente_nome %}<p class="pi-campaign-modal__origin">{{ campanha_cliente_nome }}</p>{% endif %}
+    </div>
+    <div class="pi-campaign-modal__ticket">
+      {% if campanha_pi_codigo %}<span>{{ campanha_pi_codigo }}</span>{% endif %}
+      <button type="button" class="cx-btn cx-btn-ghost" data-camp-modal-close>Fechar</button>
+    </div>
+  </header>
+  <div class="cx-modal-body">
+    <div id="campanha_view_content" class="pi-campaign-view">
+      <div class="pi-campaign-view-grid">
+        <div class="col-span-2">
+          <label>Nome da campanha</label>
+          <span id="view_nome_campanha">—</span>
+        </div>
+        <div>
+          <label>Obj. contratado</label>
+          <span id="view_obj_contratados">—</span>
+        </div>
+        <div>
+          <label>Valor plataforma</label>
+          <span id="view_valor_plataforma">—</span>
+        </div>
+        <div>
+          <label>Status</label>
+          <span id="view_status">—</span>
+        </div>
+        <div>
+          <label>Data início</label>
+          <span id="view_periodo_inicio">—</span>
+        </div>
+        <div>
+          <label>Data fim</label>
+          <span id="view_periodo_fim">—</span>
+        </div>
+        <div>
+          <label>Plataforma</label>
+          <span id="view_plataforma">—</span>
+        </div>
+        <div>
+          <label>Objetivos</label>
+          <span id="view_objetivos">—</span>
+        </div>
+        <div>
+          <label id="view_preco_metrica_label">Preço (R$)</label>
+          <span id="view_preco_metrica">—</span>
+        </div>
+        <div>
+          <label>Under</label>
+          <span id="view_under">—</span>
+        </div>
+        <div>
+          <label>Atingido</label>
+          <span id="view_totalizador_atingido">—</span>
+        </div>
+        <div>
+          <label>Gasto</label>
+          <span id="view_totalizador_gasto">—</span>
+        </div>
+        <div>
+          <label>Link do dashboard</label>
+          <span id="view_link_dash">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="cx-modal-footer">
+    <button type="button" class="cx-btn cx-btn-ghost" data-camp-modal-close>Fechar</button>
+    {% if pi_campanhas_editaveis %}
+    <button type="button" id="btnViewEditarCampanha" class="cx-btn cx-btn-primary">Editar campanha</button>
+    {% endif %}
+  </footer>
+</dialog>
+<script>
+(function () {
+  var viewDialog = document.getElementById('modal_campanha_view_pi');
+  var viewTitle = document.getElementById('modal_campanha_view_title');
+  var viewEditBtn = document.getElementById('btnViewEditarCampanha');
+  var currentViewCampaign = null;
+
+  function siglaMetricaPrecoPi(nomeObjetivo, modalidade) {
+    if (modalidade === 'cpm') return 'CPM';
+    var n = (nomeObjetivo || '').toUpperCase();
+    var keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+    for (var i = 0; i < keys.length; i++) {
+      if (n.indexOf(keys[i]) !== -1) return keys[i];
+    }
+    return '—';
+  }
+
+  window.abrirViewCampanha = function (c) {
+    if (!c || !viewDialog) return;
+    currentViewCampaign = c;
+    var fmtBrl = function (v) {
+      return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+    };
+    if (viewTitle) viewTitle.textContent = c.nome_campanha || 'Campanha';
+    document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
+    document.getElementById('view_obj_contratados').textContent = c.obj_contratados || '—';
+    document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
+    document.getElementById('view_status').textContent = c.status_nome || '—';
+    document.getElementById('view_periodo_inicio').textContent = c.periodo_inicio || '—';
+    document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
+    document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';
+    document.getElementById('view_objetivos').textContent = c.objetivo_nome || '—';
+    var precoEl = document.getElementById('view_preco_metrica');
+    var precoLbl = document.getElementById('view_preco_metrica_label');
+    if (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))) {
+      var sigla = siglaMetricaPrecoPi(c.objetivo_nome, c.preco_metrica_modalidade);
+      precoLbl.textContent = sigla !== '—' ? sigla + ' (R$)' : 'Preço (R$)';
+      precoEl.textContent = fmtBrl(c.preco_metrica_brl);
+    } else {
+      precoLbl.textContent = 'Preço (R$)';
+      precoEl.textContent = '—';
+    }
+    document.getElementById('view_under').textContent = c.under ? 'Sim' : 'Não';
+    document.getElementById('view_totalizador_atingido').textContent = c.totalizador_atingido || '—';
+    document.getElementById('view_totalizador_gasto').textContent = c.totalizador_gasto != null ? fmtBrl(c.totalizador_gasto) : '—';
+    var linkEl = document.getElementById('view_link_dash');
+    if (c.link_dash) {
+      var href = String(c.link_dash);
+      linkEl.innerHTML = '';
+      var a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = href;
+      linkEl.appendChild(a);
+    } else {
+      linkEl.textContent = '—';
+    }
+    window.piCloseDialog(document.getElementById('modal_campanha_pi'));
+    window.piOpenDialog(viewDialog);
+  };
+
+  if (viewEditBtn) {
+    viewEditBtn.addEventListener('click', function () {
+      if (!currentViewCampaign || typeof window.abrirModalEditarCampanha !== 'function') return;
+      window.piCloseDialog(viewDialog);
+      window.abrirModalEditarCampanha(currentViewCampaign);
+    });
+  }
+})();
+</script>

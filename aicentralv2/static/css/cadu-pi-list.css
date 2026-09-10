@@ -1401,6 +1401,15 @@
   gap: 0.2rem;
   text-align: left;
 }
+.pi-finance-result {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+}
+.pi-finance-result .pi-cell-meta {
+  color: #64748b;
+  font-size: 12px;
+}
 
 .pi-nf-state {
   color: #64748b;

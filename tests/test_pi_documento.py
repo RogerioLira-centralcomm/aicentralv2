@@ -7,7 +7,9 @@ from aicentralv2.pi_documento_service import (
     REPORTLAB_AVAILABLE,
     DocumentoIndisponivelError,
     PiDocumentoService,
+    mensagem_cliente,
     mensagem_padrao,
+    status_financeiro_por_notas,
 )
 
 
@@ -45,6 +47,11 @@ def _snapshot(**overrides):
             "nome": "Maria Souza",
             "email": "maria@agencia.com",
         },
+        "contato_cliente": {
+            "id": 8,
+            "nome": "Ana Cliente",
+            "email": "ana@cliente.com",
+        },
         "cartas": {},
         "campanhas": [
             {
@@ -72,6 +79,7 @@ class FakeFechamento:
         self.brevo.enviar_email.return_value = {"success": True, "messageId": "msg-1"}
         self.repository = MagicMock()
         self.operacao = MagicMock()
+        self.renderer = MagicMock(return_value="<html>ok</html>")
         self.registrados = []
 
     def resultado(self, id_pi):
@@ -173,6 +181,69 @@ class PiDocumentoServiceTest(unittest.TestCase):
         service = self._service(_snapshot(contato_agencia={}))
         with self.assertRaises(DocumentoIndisponivelError):
             service.enviar_para_assinatura(10, "comprovacao")
+
+    def test_listar_cliente_endereca_e_exige_anexo_da_nf(self):
+        docs = self._service().listar_cliente(
+            _snapshot(),
+            notas=[{"id": 3, "numero_nota": "8821", "tem_pdf": False}],
+        )
+        tipos = [item["tipo"] for item in docs]
+        self.assertEqual(tipos, ["financeiro", "nota_fiscal", "documentos_assinados"])
+        financeiro = docs[0]
+        self.assertEqual(financeiro["destinatario"]["email"], "ana@cliente.com")
+        self.assertIn("Ana", financeiro["mensagem"])
+        self.assertTrue(financeiro["pode_enviar"])
+        self.assertTrue(financeiro["pode_baixar"])
+        nf = docs[1]
+        self.assertFalse(nf["pode_enviar"])
+        self.assertFalse(nf["pode_baixar"])
+
+    def test_mensagem_cliente_cita_valores_e_nf(self):
+        texto = mensagem_cliente("financeiro", _snapshot())
+        self.assertIn("Ana", texto)
+        self.assertIn("R$", texto)
+        texto_nf = mensagem_cliente(
+            "nota_fiscal",
+            _snapshot(),
+            notas=[{"numero_nota": "8821"}],
+        )
+        self.assertIn("8821", texto_nf)
+
+    def test_status_financeiro_por_notas(self):
+        self.assertEqual(
+            status_financeiro_por_notas([{"status_descricao": "Pagamento Realizado"}]),
+            "encerrado",
+        )
+        self.assertEqual(
+            status_financeiro_por_notas(
+                [
+                    {"status_descricao": "Pagamento Realizado"},
+                    {"status_descricao": "Aguardando Pagamento"},
+                ]
+            ),
+            "aguardando_pagamento",
+        )
+
+    def test_enviar_ao_cliente_financeiro_anexa_pdf(self):
+        fechamento = FakeFechamento(_snapshot())
+        service = PiDocumentoService(fechamento=fechamento)
+        if REPORTLAB_AVAILABLE:
+            result = service.enviar_ao_cliente(10, "financeiro", autor_id=99)
+            self.assertTrue(result["enviado"])
+            self.assertEqual(result["destinatario"]["email"], "ana@cliente.com")
+            kwargs = fechamento.brevo.enviar_email.call_args.kwargs
+            self.assertEqual(kwargs["to_email"], "ana@cliente.com")
+            self.assertTrue(kwargs["attachments"])
+            self.assertIn("financeiro", kwargs["subject"].lower())
+            self.assertEqual(fechamento.registrados[0][0], "cliente_financeiro")
+        else:
+            with self.assertRaises(DocumentoIndisponivelError):
+                service.enviar_ao_cliente(10, "financeiro", autor_id=99)
+
+    def test_enviar_ao_cliente_exige_contato(self):
+        service = self._service(_snapshot(contato_cliente={}))
+        with self.assertRaises(DocumentoIndisponivelError):
+            service.enviar_ao_cliente(10, "financeiro")
 
 
 if __name__ == "__main__":

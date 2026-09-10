@@ -1579,6 +1579,7 @@ def init_routes(app):
                     'id_plataforma': er.get('id_plataforma'),
                     'id_status': er.get('id_status'),
                     'id_objetivos_campanha': er.get('id_objetivos_campanha'),
+                    'id_responsavel_operacao': er.get('id_responsavel_operacao'),
                     'id_centralx': er.get('id_centralx'),
                     'mes_ref_comp': er.get('mes_ref_comp'),
                     'preco_metrica_brl': er.get('preco_metrica_brl'),
@@ -9853,9 +9854,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     filtros['id_status_pi'] = status_nf_emitida['id']
 
             if origem_lista == 'faturamento':
-                status_faturamento = db.obter_status_pi_por_descricao('Faturamento')
-                if status_faturamento:
-                    filtros['id_status_pi'] = status_faturamento['id']
+                filtros['visao_financeira'] = True
                 if not filtros.get('id_sub_status_pi'):
                     filtros['id_sub_status_pi'] = 4
 
@@ -9871,9 +9870,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pis = db.obter_cadu_pi_lista(filtros)
 
             nf_status_filtro = request.args.get('nf_status', '')
-            if origem_lista == 'nf_emitida' and nf_status_filtro:
-                nf_status_filtro_int = int(nf_status_filtro)
-                pis = [pi for pi in (pis or []) if pi.get('nf_status') == nf_status_filtro_int]
+            if origem_lista in ('nf_emitida', 'faturamento') and nf_status_filtro:
+                if nf_status_filtro == 'sem_nf':
+                    pis = [pi for pi in (pis or []) if not pi.get('nf_id')]
+                else:
+                    nf_status_filtro_int = int(nf_status_filtro)
+                    pis = [pi for pi in (pis or []) if pi.get('nf_status') == nf_status_filtro_int]
 
             def _agrupar_pis_por_agencia(rows):
                 """Agrupa PIs por agência para visão comparável ao relatório de incentivos."""
@@ -9974,7 +9976,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             agencias_grupo = _agrupar_pis_por_agencia(pis) if visao_por_agencia else []
             grupos_status_nf = (
                 group_pis_by_invoice_status(pis)
-                if origem_lista == 'nf_emitida' and not visao_por_agencia
+                if origem_lista in ('nf_emitida', 'faturamento') and not visao_por_agencia
                 else []
             )
 
@@ -9983,7 +9985,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             )
 
             # Custo de mídia agregado das campanhas (andamento e fila financeira)
-            if filtros.get('id_sub_status_pi') in (3, 4) and pis:
+            if (filtros.get('id_sub_status_pi') in (3, 4) or origem_lista == 'faturamento') and pis:
                 ids = [p['id_pi'] for p in pis if p.get('id_pi')]
                 agg_map = db.obter_progresso_campanhas_por_pis(ids)
                 for pi in pis:
@@ -10004,7 +10006,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pi['camp_midia_prev_total'] = previsto_total
                     pi['camp_pct_midia'] = int(pct_midia)
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
-                if filtros.get('id_sub_status_pi') == 4:
+                if filtros.get('id_sub_status_pi') == 4 or origem_lista == 'faturamento':
                     try:
                         from aicentralv2.pi_fechamento_service import PiFechamentoService
                         PiFechamentoService().anexar_lista(pis)
@@ -10013,8 +10015,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             status_pi = db.obter_status_pi()
             if origem_lista == 'faturamento':
-                meses_ref = db.obter_meses_ref_pi(id_sub_status_pi=4)
-                anos_ref = db.obter_anos_ref_pi(id_sub_status_pi=4)
+                meses_ref = db.obter_meses_ref_pi(visao_financeira=True)
+                anos_ref = db.obter_anos_ref_pi(visao_financeira=True)
             elif origem_lista == 'nf_emitida':
                 meses_ref = db.obter_meses_ref_pi(id_status_pi=filtros.get('id_status_pi'))
                 anos_ref = db.obter_anos_ref_pi(id_status_pi=filtros.get('id_status_pi'))

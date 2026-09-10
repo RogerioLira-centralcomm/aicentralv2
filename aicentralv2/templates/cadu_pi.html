@@ -8,7 +8,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=13">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=14">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -20,7 +20,7 @@
 
 {% block content %}
 {% import 'cadu_pi/_pi_row.html' as pi_row with context %}
-<div class="pi-page{% if origem_lista != 'nf_emitida' %} pi-operation camp-list-page{% endif %}{% if origem_lista == 'nf_emitida' %} pi-page--fiscal{% endif %}" data-pi-list>
+<div class="pi-page{% if origem_lista not in ['nf_emitida', 'faturamento'] %} pi-operation camp-list-page{% endif %}{% if origem_lista in ['nf_emitida', 'faturamento'] %} pi-page--fiscal{% endif %}" data-pi-list>
   {% include 'cadu_pi/_header_filters.html' %}
 
   <main class="pi-list-surface{% if origem_lista != 'nf_emitida' %} camp-list-content{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-surface--grid{% endif %}">
@@ -40,7 +40,7 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-table--hierarchy{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista in ['nf_emitida', 'faturamento'] %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-table--hierarchy{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
         {% if origem_lista == 'nf_emitida' %}
         <colgroup class="pi-fiscal-columns">
           <col class="pi-col-reference">
@@ -75,15 +75,15 @@
         {% endif %}
         {% include 'cadu_pi/_table.html' %}
         <tbody class="text-[11px]">
-          {% set grupos_render = grupos_status_nf if origem_lista == 'nf_emitida' and grupos_status_nf else [{'key': '', 'pis': pis}] %}
+          {% set grupos_render = grupos_status_nf if origem_lista in ['nf_emitida', 'faturamento'] and grupos_status_nf else [{'key': '', 'pis': pis}] %}
           {% for grupo in grupos_render %}
-          {% if origem_lista == 'nf_emitida' %}
+          {% if origem_lista in ['nf_emitida', 'faturamento'] %}
           <tr class="pi-nf-group-row" data-nf-group-header="{{ grupo.key }}">
-            <th colspan="9" scope="rowgroup">
+            <th colspan="{% if origem_lista == 'faturamento' %}10{% else %}9{% endif %}" scope="rowgroup">
               <button type="button" class="pi-nf-group-toggle" data-nf-group-toggle="{{ grupo.key }}" aria-expanded="true">
                 <span class="pi-nf-group-title">
                   <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-                  <strong>{{ grupo.label }}</strong>
+                  <strong>{% if origem_lista == 'faturamento' and grupo.key == 'sem-status' %}Sem NF{% else %}{{ grupo.label }}{% endif %}</strong>
                 </span>
                 <span class="pi-nf-group-metrics">
                   <span>{{ grupo.count }} PI{% if grupo.count != 1 %}s{% endif %}</span>
@@ -94,7 +94,7 @@
           </tr>
           {% endif %}
           {% for pi in grupo.pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string in ['1', '2', '3'] %} row-pi{% endif %}{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if sub_status_atual|string in ['1', '2', '3'] %} data-pi-id="{{ pi.id_pi }}" data-campaign-count="{{ pi.get('total_campanhas', 0) }}"{% if pi.get('campanha_ids') %} data-campanha-ids='{{ pi.campanha_ids|tojson }}'{% endif %}{% endif %}{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string in ['1', '2', '3'] %} row-pi{% endif %}{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if sub_status_atual|string in ['1', '2', '3'] %} data-pi-id="{{ pi.id_pi }}" data-campaign-count="{{ pi.get('total_campanhas', 0) }}"{% if pi.get('campanha_ids') %} data-campanha-ids='{{ pi.campanha_ids|tojson }}'{% endif %}{% endif %}{% if origem_lista in ['nf_emitida', 'faturamento'] %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
           {% if sub_status_atual|string in ['1', '2', '3'] %}
             {% include 'cadu_pi/_pi_card.html' %}
           {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
@@ -192,6 +192,21 @@
               <span class="cx-cell-empty empty-pending" title="Valor líquido não preenchido"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Pendente</span>
               {% endif %}
             </td>
+            {% if origem_lista == 'faturamento' %}
+            <td class="px-2 align-top" data-label="Resultado financeiro">
+              <div class="pi-finance-result">
+                <span class="pi-op-badge">Zona {{ pi.get('zona_lucratividade') or '—' }}</span>
+                {% if pi.get('status_financeiro_label') %}
+                <span class="pi-cell-meta">{{ pi.status_financeiro_label }}</span>
+                {% endif %}
+                {% if pi.get('resultado_persistido') and (pi.get('val_margem_cc') or pi.get('margem_cc')) %}
+                <span class="pi-cell-meta">Margem {{ (pi.val_margem_cc or pi.margem_cc)|format_brl }}</span>
+                {% else %}
+                <span class="cx-cell-empty empty-pending"><i class="fa-regular fa-circle-dashed text-[10px]"></i> Resultado a preencher</span>
+                {% endif %}
+              </div>
+            </td>
+            {% endif %}
             {% if sub_status_atual|string == '3' %}
             <td class="text-right px-2 align-top">
               {% if pi.get('valor_bruto') %}
@@ -267,7 +282,7 @@
                 {% endif %}
               {% endif %}
               {% if pi.get('nf_id') %}
-                {% if origem_lista == 'nf_emitida' %}
+                {% if origem_lista in ['nf_emitida', 'faturamento'] %}
               <div class="pi-nf-cell">
                 <span class="pi-nf-state">{{ pi.nf_status_descricao or 'Sem status' }}</span>
                 {% if pi.get('nf_numero_nota') %}
@@ -1066,7 +1081,7 @@
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=8"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

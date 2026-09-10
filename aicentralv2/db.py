@@ -12113,7 +12113,22 @@ def obter_tipos_pi():
 _MES_REF_SQL_VALIDO = "mes_ref_comp ~ '^[0-9]{1,2}/[0-9]{2,4}$'"
 
 
-def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
+_SQL_VISAO_FINANCEIRA = '''
+(
+    {alias}id_sub_status_pi = 4
+    OR {alias}id_sub_status_pi IN (
+        SELECT key FROM cadu_pi_sub_status
+        WHERE display IN ('Em faturamento', 'Finalizado')
+    )
+    OR {alias}id_status_pi IN (
+        SELECT id FROM cadu_pi_aux_status
+        WHERE descricao IN ('Faturamento', 'NF Emitida')
+    )
+)
+'''
+
+
+def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None, visao_financeira=False):
     """Retorna valores distintos de mes_ref_comp, filtrados por sub_status e/ou status."""
     conn = get_db()
     try:
@@ -12127,12 +12142,15 @@ def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
                   AND {_MES_REF_SQL_VALIDO}
             '''
             params = []
-            if id_sub_status_pi:
-                query += ' AND id_sub_status_pi = %s'
-                params.append(id_sub_status_pi)
-            if id_status_pi:
-                query += ' AND id_status_pi = %s'
-                params.append(id_status_pi)
+            if visao_financeira:
+                query += ' AND ' + _SQL_VISAO_FINANCEIRA.format(alias='')
+            else:
+                if id_sub_status_pi:
+                    query += ' AND id_sub_status_pi = %s'
+                    params.append(id_sub_status_pi)
+                if id_status_pi:
+                    query += ' AND id_status_pi = %s'
+                    params.append(id_status_pi)
             query += ' GROUP BY mes_ref_comp ORDER BY ano DESC, mes DESC'
             cursor.execute(query, params)
             return [r['mes_ref_comp'] for r in cursor.fetchall()]
@@ -12142,7 +12160,7 @@ def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
         return []
 
 
-def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
+def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None, visao_financeira=False):
     """Retorna anos distintos (YY) de mes_ref_comp, filtrados por sub_status e/ou status."""
     conn = get_db()
     try:
@@ -12154,12 +12172,15 @@ def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
                   AND {_MES_REF_SQL_VALIDO}
             '''
             params = []
-            if id_sub_status_pi:
-                query += ' AND id_sub_status_pi = %s'
-                params.append(id_sub_status_pi)
-            if id_status_pi:
-                query += ' AND id_status_pi = %s'
-                params.append(id_status_pi)
+            if visao_financeira:
+                query += ' AND ' + _SQL_VISAO_FINANCEIRA.format(alias='')
+            else:
+                if id_sub_status_pi:
+                    query += ' AND id_sub_status_pi = %s'
+                    params.append(id_sub_status_pi)
+                if id_status_pi:
+                    query += ' AND id_status_pi = %s'
+                    params.append(id_status_pi)
             query += ' ORDER BY ano DESC'
             cursor.execute(query, params)
             return [r['ano'] for r in cursor.fetchall()]
@@ -12280,13 +12301,16 @@ def obter_cadu_pi_lista(filtros=None):
                     query += ' AND p.id_cliente = %s'
                     params.append(filtros['id_cliente'])
 
-                if filtros.get('id_status_pi'):
-                    query += ' AND p.id_status_pi = %s'
-                    params.append(filtros['id_status_pi'])
+                if filtros.get('visao_financeira'):
+                    query += ' AND ' + _SQL_VISAO_FINANCEIRA.format(alias='p.')
+                else:
+                    if filtros.get('id_status_pi'):
+                        query += ' AND p.id_status_pi = %s'
+                        params.append(filtros['id_status_pi'])
 
-                if filtros.get('id_sub_status_pi'):
-                    query += ' AND p.id_sub_status_pi = %s'
-                    params.append(filtros['id_sub_status_pi'])
+                    if filtros.get('id_sub_status_pi'):
+                        query += ' AND p.id_sub_status_pi = %s'
+                        params.append(filtros['id_sub_status_pi'])
 
                 if filtros.get('id_agencia'):
                     query += ' AND p.id_agencia = %s'

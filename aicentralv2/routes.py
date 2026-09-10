@@ -10003,8 +10003,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pi['camp_pct_midia'] = int(pct_midia)
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
                 if filtros.get('id_sub_status_pi') == 4:
-                    from aicentralv2.pi_fechamento_service import PiFechamentoService
-                    PiFechamentoService().anexar_lista(pis)
+                    try:
+                        from aicentralv2.pi_fechamento_service import PiFechamentoService
+                        PiFechamentoService().anexar_lista(pis)
+                    except Exception:
+                        app.logger.exception("Falha ao anexar resultado financeiro na lista de PIs")
 
             status_pi = db.obter_status_pi()
             if origem_lista == 'faturamento':
@@ -10043,7 +10046,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    status_pi=[],
                                    vendedores=[],
                                    statuses_nf=[],
+                                   meses_ref=[],
+                                   anos_ref=[],
                                    filtros={},
+                                   origem_lista=request.args.get('origem', ''),
                                    visao_comercial='',
                                    pi_footer_totais={
                                        'total_campanhas': 0,

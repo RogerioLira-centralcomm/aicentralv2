@@ -12080,17 +12080,21 @@ def obter_tipos_pi():
         raise e
 
 
+_MES_REF_SQL_VALIDO = "mes_ref_comp ~ '^[0-9]{1,2}/[0-9]{2,4}$'"
+
+
 def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
     """Retorna valores distintos de mes_ref_comp, filtrados por sub_status e/ou status."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            query = '''
+            query = f'''
                 SELECT mes_ref_comp,
                     CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) as ano,
                     CAST(SPLIT_PART(mes_ref_comp, '/', 1) AS INTEGER) as mes
                 FROM cadu_pi
                 WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
+                  AND {_MES_REF_SQL_VALIDO}
             '''
             params = []
             if id_sub_status_pi:
@@ -12104,7 +12108,8 @@ def obter_meses_ref_pi(id_sub_status_pi=None, id_status_pi=None):
             return [r['mes_ref_comp'] for r in cursor.fetchall()]
     except Exception as e:
         conn.rollback()
-        raise e
+        logger.exception("Falha ao listar competências de PI: %s", e)
+        return []
 
 
 def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
@@ -12112,10 +12117,11 @@ def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            query = '''
+            query = f'''
                 SELECT DISTINCT CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) AS ano
                 FROM cadu_pi
                 WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
+                  AND {_MES_REF_SQL_VALIDO}
             '''
             params = []
             if id_sub_status_pi:
@@ -12129,7 +12135,8 @@ def obter_anos_ref_pi(id_sub_status_pi=None, id_status_pi=None):
             return [r['ano'] for r in cursor.fetchall()]
     except Exception as e:
         conn.rollback()
-        raise e
+        logger.exception("Falha ao listar anos de competência de PI: %s", e)
+        return []
 
 
 def obter_agencias_ref_pi(id_sub_status_pi=None):

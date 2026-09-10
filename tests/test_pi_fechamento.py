@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from aicentralv2.pi_fechamento_service import (
     HandoffBloqueadoError,
     PiFechamentoService,
+    calcular_provisionamentos,
     classificar_zona,
     calcular_zonas,
 )
@@ -48,6 +49,12 @@ class FakeFechamentoRepo:
     def gravar_campanhas(self, rows):
         self.campanhas.extend(rows)
 
+    def atualizar_resultado(self, id_pi, versao, payload):
+        self.resultados.append({**payload, "id_pi": id_pi, "versao": versao, "atualizado": True})
+
+    def atualizar_pi_provisionamentos(self, id_pi, data):
+        self.pi_atualizado = {"id_pi": id_pi, **data}
+
     def finalizar_handoff(self, id_pi):
         self.finalizado = True
         return 2
@@ -71,6 +78,9 @@ class FakeOperacao:
             "desvio_aceitavel_pct": 5,
             "resp_comercial_email": "exec@example.com",
             "resp_comercial_nome": "Ana",
+            "agencia_nome": "Agência Norte",
+            "contato_agencia_nome": "Maria Souza",
+            "contato_agencia_email": "maria@agencia.com",
         }
         self.campanhas = [
             {
@@ -148,6 +158,34 @@ class FechamentoServiceTest(unittest.TestCase):
         self.assertEqual(repo.resultados[0]["id_pi"], 10)
         self.assertEqual(len(repo.campanhas), 1)
         self.assertEqual(repo.campanhas[0]["nome_campanha"], "Display")
+        self.assertEqual(repo.campanhas[0]["obj_contratado"], 1000.0)
+        self.assertEqual(repo.campanhas[0]["obj_atingido"], 900.0)
+
+    def test_anexar_lista_nao_quebra_com_zona_invalida(self):
+        repo = FakeFechamentoRepo()
+        repo.resultados_lote = {
+            10: {"zona_lucratividade": "abc", "saude_pi": "saudavel", "gasto_midia_realizado": 80, "gasto_midia_previsto": 100}
+        }
+        repo.status[10] = "aguardando_comprovacao"
+
+        def listar_resultados_lote(ids_pi):
+            return repo.resultados_lote
+
+        repo.listar_resultados_lote = listar_resultados_lote
+        service = PiFechamentoService(repository=repo, operacao=FakeOperacao())
+        pis = [{"id_pi": 10, "camp_midia_gasto_total": 80, "camp_midia_prev_total": 100}]
+        service.anexar_lista(pis)
+        self.assertEqual(pis[0]["status_financeiro"], "aguardando_comprovacao")
+        self.assertEqual(pis[0]["zona_label"], "—")
+
+    def test_preview_endereca_contato_da_agencia(self):
+        service = PiFechamentoService(
+            repository=FakeFechamentoRepo(),
+            operacao=FakeOperacao(),
+        )
+        preview = service.preview(10)
+        self.assertEqual(preview["contato_agencia"]["email"], "maria@agencia.com")
+        self.assertEqual(preview["contato_agencia"]["nome"], "Maria Souza")
 
     def test_validar_handoff_levanta_pendencias(self):
         service = PiFechamentoService(
@@ -186,7 +224,10 @@ class FechamentoUiContractTest(unittest.TestCase):
         self.assertIn("pi_financeiro_bp", self.init)
         main = (self.templates / "pi_operacao/_fechamento_main.html").read_text()
         self.assertIn("documento_pdf", main)
-        self.assertIn("Gerar PDFs", main)
+        self.assertIn("Documentos da agência", main)
+        self.assertIn("Enviar para assinatura", main)
+        self.assertIn("enviar-assinatura", self.routes)
+        self.assertNotIn("Gerar PDFs", main)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,13 @@
-"""PDFs de fechamento do PI — exclusivamente a partir do snapshot."""
+"""Cartas de fechamento do PI — comprovação, bonificação e passagem."""
 
 from __future__ import annotations
 
+import base64
+import logging
 import os
 import re
 import unicodedata
+from datetime import datetime, timezone
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -33,8 +36,26 @@ except ImportError:  # pragma: no cover
 from .pi_fechamento_service import PiFechamentoService, ZONA_LABELS
 
 
+logger = logging.getLogger(__name__)
+
 TIPOS = ("fechamento", "comprovacao", "bonificacao", "passagem")
 VARIANTES = ("cliente", "agencia", "interno")
+
+CATALOGO_AGENCIA = (
+    {
+        "tipo": "comprovacao",
+        "variante": "agencia",
+        "label": "Comprovação de veiculação",
+        "proposito": "Carta à agência com o contratado e o que cada campanha entregou.",
+    },
+    {
+        "tipo": "bonificacao",
+        "variante": "agencia",
+        "label": "Carta de bonificação",
+        "proposito": "Incentivo apurado para a agência neste PI.",
+        "requer_incentivo": True,
+    },
+)
 
 _COR_FUNDO = colors.HexColor("#172d32") if colors else None
 _COR_ACCENT = colors.HexColor("#72cd80") if colors else None
@@ -89,6 +110,59 @@ def _fmt_data(value):
     return text[:10] if text else "—"
 
 
+def _fmt_vol(value):
+    number = _num(value)
+    if abs(number - round(number)) < 1e-9:
+        return f"{int(round(number)):,}".replace(",", ".")
+    return f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _contato(snapshot):
+    dest = snapshot.get("contato_agencia") or {}
+    return {
+        "id": dest.get("id"),
+        "nome": _texto(dest.get("nome")),
+        "email": _texto(dest.get("email")),
+    }
+
+
+def _tratamento(snapshot):
+    dest = _contato(snapshot)
+    if dest["nome"]:
+        return f"Prezado(a) {dest['nome'].split()[0]}"
+    agencia = _texto(snapshot.get("agencia_nome"))
+    if agencia:
+        return f"Prezada equipe da {agencia}"
+    return "Prezados"
+
+
+def mensagem_padrao(tipo, snapshot):
+    dest = _contato(snapshot)
+    agencia = _texto(snapshot.get("agencia_nome")) or "a agência"
+    codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi")) or "este PI"
+    cliente = _texto(snapshot.get("cliente_nome")) or "o anunciante"
+    contr = _fmt_vol(snapshot.get("objetivo_contratado"))
+    ating = _fmt_vol(snapshot.get("objetivo_atingido"))
+    pct = _fmt_pct(snapshot.get("pct_objetivo"))
+    aos_cuidados = dest["nome"] or agencia
+    if tipo == "bonificacao":
+        return (
+            f"{_tratamento(snapshot)},\n\n"
+            f"Aos cuidados de {aos_cuidados}, segue a carta de bonificação do PI {codigo} "
+            f"({cliente}).\n\n"
+            f"O PL de incentivos apurado é {_fmt_brl(snapshot.get('pl_incentivos'))}.\n\n"
+            f"Atenciosamente,\nCentralComm"
+        )
+    return (
+        f"{_tratamento(snapshot)},\n\n"
+        f"Aos cuidados de {aos_cuidados}, encaminhamos a comprovação de veiculação "
+        f"do PI {codigo}, anunciante {cliente}.\n\n"
+        f"As campanhas entregaram {ating} de {contr} contratados ({pct}). "
+        f"O detalhe por campanha está neste documento.\n\n"
+        f"Atenciosamente,\nCentralComm"
+    )
+
+
 def _slug(*partes):
     text = "-".join(_texto(item) for item in partes if _texto(item))
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
@@ -132,56 +206,37 @@ class PiDocumentoService:
         self.fechamento = fechamento or PiFechamentoService()
 
     def listar(self, snapshot):
+        cartas = snapshot.get("cartas") or {}
+        dest = _contato(snapshot)
         persistido = bool(snapshot.get("persistido"))
         documentos = []
-        if persistido:
-            documentos.extend(
-                [
-                    {
-                        "tipo": "fechamento",
-                        "variante": "cliente",
-                        "label": "Relatório de fechamento (cliente)",
-                    },
-                    {
-                        "tipo": "fechamento",
-                        "variante": "agencia",
-                        "label": "Relatório de fechamento (agência)",
-                        "disponivel": bool(_texto(snapshot.get("agencia_nome"))),
-                    },
-                    {
-                        "tipo": "comprovacao",
-                        "variante": "cliente",
-                        "label": "Comprovação de veiculação",
-                    },
-                ]
+        for item in CATALOGO_AGENCIA:
+            if item.get("requer_incentivo") and not _tem_incentivo(snapshot):
+                continue
+            salvo = cartas.get(item["tipo"]) or {}
+            documentos.append(
+                {
+                    **item,
+                    "mensagem": _texto(salvo.get("mensagem")) or mensagem_padrao(item["tipo"], snapshot),
+                    "destinatario": dest,
+                    "enviado_em": salvo.get("enviado_em"),
+                    "enviado_para": salvo.get("destinatario_nome") or dest.get("nome"),
+                    "pode_enviar": persistido and bool(dest.get("email")),
+                    "pode_gerar": True,
+                }
             )
-            if _tem_incentivo(snapshot):
-                documentos.append(
-                    {
-                        "tipo": "bonificacao",
-                        "variante": "agencia",
-                        "label": "Carta de bonificação",
-                    }
-                )
-        documentos.append(
-            {
-                "tipo": "passagem",
-                "variante": "interno",
-                "label": "Passagem para o financeiro",
-            }
-        )
         return documentos
 
-    def gerar(self, id_pi, tipo, variante="cliente", id_campanha=None):
+    def gerar(self, id_pi, tipo, variante="agencia", id_campanha=None, mensagem=None):
         tipo = str(tipo or "").strip()
-        variante = str(variante or "cliente").strip()
+        variante = str(variante or "agencia").strip()
         if tipo not in TIPOS:
             raise DocumentoIndisponivelError("Tipo de documento inválido.")
         if variante not in VARIANTES:
             raise DocumentoIndisponivelError("Variante de documento inválida.")
 
         snapshot = self.fechamento.resultado(id_pi)
-        if tipo != "passagem" and not snapshot.get("persistido"):
+        if tipo == "fechamento" and not snapshot.get("persistido"):
             raise DocumentoIndisponivelError(
                 "Gere o snapshot no handoff antes de emitir este documento."
             )
@@ -205,19 +260,110 @@ class PiDocumentoService:
             if not campanhas:
                 raise DocumentoIndisponivelError("Campanha não encontrada no snapshot.")
 
+        texto = _texto(mensagem) or mensagem_padrao(tipo, snapshot)
         buffer = BytesIO()
         if tipo == "fechamento":
             self._relatorio_fechamento(buffer, snapshot, variante)
         elif tipo == "comprovacao":
-            self._comprovacao(buffer, snapshot, campanhas)
+            self._comprovacao(buffer, snapshot, campanhas, texto)
         elif tipo == "bonificacao":
-            self._bonificacao(buffer, snapshot)
+            self._bonificacao(buffer, snapshot, texto)
         else:
             self._passagem(buffer, snapshot)
 
         codigo = _slug(snapshot.get("codigo_pi") or f"pi-{id_pi}")
         nome = f"{codigo}-{tipo}-{variante}.pdf"
         return buffer.getvalue(), nome
+
+    def enviar_para_assinatura(self, id_pi, tipo, mensagem=None, variante="agencia", autor_id=None):
+        tipo = str(tipo or "").strip()
+        if tipo not in {item["tipo"] for item in CATALOGO_AGENCIA}:
+            raise DocumentoIndisponivelError("Este documento não vai para assinatura da agência.")
+        snapshot = self.fechamento.resultado(id_pi)
+        if not snapshot.get("persistido"):
+            raise DocumentoIndisponivelError(
+                "Envie o PI ao financeiro antes de solicitar a assinatura."
+            )
+        dest = _contato(snapshot)
+        if not dest.get("email"):
+            raise DocumentoIndisponivelError(
+                "Cadastre o contato da agência no PI para enviar à assinatura."
+            )
+        texto = _texto(mensagem) or mensagem_padrao(tipo, snapshot)
+        pdf, filename = self.gerar(id_pi, tipo, variante=variante, mensagem=texto)
+        nome = dest.get("nome") or _texto(snapshot.get("agencia_nome")) or "Agência"
+        html = self._email_html(texto)
+        assunto = self._assunto(tipo, snapshot)
+        resultado = self.fechamento.brevo.enviar_email(
+            to_email=dest["email"],
+            to_name=nome,
+            subject=assunto,
+            html_content=html,
+            text_content=texto,
+            attachments=[{"name": filename, "content": base64.b64encode(pdf).decode()}],
+        )
+        if not (resultado.get("success") or resultado.get("messageId")):
+            raise DocumentoIndisponivelError(
+                resultado.get("user_message")
+                or resultado.get("error")
+                or "Não foi possível enviar o documento."
+            )
+        self._registrar_envio(
+            id_pi,
+            tipo,
+            assunto,
+            {"nome_completo": nome, "email": dest["email"]},
+            html,
+            autor_id,
+            resultado,
+        )
+        self.fechamento.registrar_documento(
+            id_pi,
+            tipo,
+            {
+                "mensagem": texto,
+                "enviado_em": datetime.now(timezone.utc).isoformat(),
+                "destinatario_nome": nome,
+                "destinatario_email": dest["email"],
+                "arquivo": filename,
+            },
+            autor_id=autor_id,
+        )
+        try:
+            self.fechamento.repository.upsert_status(id_pi, "aguardando_assinatura", autor_id)
+        except Exception:
+            logger.exception("Não atualizou o status financeiro do PI %s após o envio.", id_pi)
+        return {
+            "tipo": tipo,
+            "destinatario": {"nome": nome, "email": dest["email"]},
+            "enviado": True,
+        }
+
+    def _assunto(self, tipo, snapshot):
+        codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi")) or "PI"
+        if tipo == "bonificacao":
+            return f"Carta de bonificação · PI {codigo} · assinatura"
+        return f"Comprovação de veiculação · PI {codigo} · assinatura"
+
+    def _email_html(self, mensagem):
+        corpo = escape(mensagem or "").replace("\n", "<br/>")
+        return (
+            "<p>Segue o documento em anexo para assinatura.</p>"
+            f"<p>{corpo}</p>"
+        )
+
+    def _registrar_envio(self, id_pi, tipo, assunto, dest, html, autor_id, resultado):
+        repo = getattr(getattr(self.fechamento, "operacao", None), "repository", None)
+        criar = getattr(repo, "criar_email_log", None)
+        concluir = getattr(repo, "concluir_email_log", None)
+        if not callable(criar):
+            return
+        try:
+            log_id = criar(id_pi, f"documento_{tipo}", assunto, dest, html, autor_id)
+            if callable(concluir) and log_id:
+                concluir(log_id, resultado)
+        except Exception:
+            logger.exception("Não registrou o envio do documento %s do PI %s.", tipo, id_pi)
 
     def _styles(self):
         base = getSampleStyleSheet()
@@ -462,75 +608,89 @@ class PiDocumentoService:
             )
         self._build(buffer, story)
 
-    def _comprovacao(self, buffer, snapshot, campanhas):
-        styles = self._styles()
-        story = []
-        self._header(story, styles, "Comprovação de veiculação", snapshot, "Cliente / agência")
-        story.append(
-            Paragraph(
-                "Evidência de veiculação extraída exclusivamente do snapshot de fechamento.",
-                styles["body"],
-            )
-        )
-        story.append(Spacer(1, 4 * mm))
-        if not campanhas:
-            story.append(Paragraph("Nenhuma campanha no snapshot.", styles["muted"]))
-        else:
-            rows = []
-            for item in campanhas:
-                periodo = " — ".join(
-                    part
-                    for part in (_fmt_data(item.get("periodo_inicio")), _fmt_data(item.get("periodo_fim")))
-                    if part != "—"
-                ) or "—"
-                rows.append(
-                    [
-                        _texto(item.get("nome_campanha")) or "—",
-                        _texto(item.get("plataforma") or item.get("status_nome")) or "—",
-                        periodo,
-                        _fmt_brl(item.get("gasto_realizado")),
-                        _fmt_pct(item.get("pct_objetivo")),
-                    ]
-                )
-            story.append(
-                self._grid_table(
-                    ["Campanha", "Plataforma", "Período", "Gasto", "Entrega"],
-                    rows,
-                    styles,
-                    [46 * mm, 28 * mm, 38 * mm, 30 * mm, 28 * mm],
-                )
-            )
-        self._build(buffer, story)
+    def _destinatario_label(self, snapshot):
+        dest = _contato(snapshot)
+        if dest["nome"]:
+            return f"Aos cuidados de {dest['nome']}"
+        if _texto(snapshot.get("agencia_nome")):
+            return f"Aos cuidados de {_texto(snapshot.get('agencia_nome'))}"
+        return "Aos cuidados da agência"
 
-    def _bonificacao(self, buffer, snapshot):
-        styles = self._styles()
-        story = []
-        self._header(story, styles, "Carta de bonificação", snapshot, "Agência")
-        story.append(
-            Paragraph(
-                "Documento interno de referência para incentivo de agência, "
-                "gerado a partir do snapshot de fechamento. Validação jurídica/financeira "
-                "permanece necessária antes de uso contratual.",
-                styles["body"],
-            )
-        )
-        story.append(Spacer(1, 4 * mm))
+    def _bloco_carta(self, story, styles, snapshot, mensagem):
+        dest = _contato(snapshot)
         story.append(
             self._kv_table(
                 [
+                    ("Aos cuidados", dest["nome"] or _texto(snapshot.get("agencia_nome")) or "—"),
+                    ("E-mail", dest["email"] or "—"),
                     ("Agência", _texto(snapshot.get("agencia_nome")) or "—"),
-                    ("Cliente anunciante", _texto(snapshot.get("cliente_nome")) or "—"),
+                    ("Anunciante", _texto(snapshot.get("cliente_nome")) or "—"),
                     ("PI", _texto(snapshot.get("codigo_pi")) or "—"),
-                    ("Valor líquido do PI", _fmt_brl(snapshot.get("valor_liquido"))),
-                    ("PL de incentivos", _fmt_brl(snapshot.get("pl_incentivos"))),
-                    ("Bruto de referência", _fmt_brl(snapshot.get("valor_bruto"))),
                 ],
                 styles,
             )
         )
-        if snapshot.get("observacoes_operacao"):
-            story.append(Paragraph("Observações da operação", styles["heading"]))
-            story.append(Paragraph(escape(_texto(snapshot.get("observacoes_operacao"))), styles["body"]))
+        story.append(Spacer(1, 4 * mm))
+        for bloco in (mensagem or "").split("\n\n"):
+            html = escape(bloco).replace("\n", "<br/>")
+            if html.strip():
+                story.append(Paragraph(html, styles["body"]))
+                story.append(Spacer(1, 2 * mm))
+
+    def _comprovacao(self, buffer, snapshot, campanhas, mensagem):
+        styles = self._styles()
+        story = []
+        self._header(story, styles, "Comprovação de veiculação", snapshot, self._destinatario_label(snapshot))
+        self._bloco_carta(story, styles, snapshot, mensagem)
+        story.append(Paragraph("Contratado e entregue", styles["heading"]))
+        if not campanhas:
+            story.append(Paragraph("Nenhuma campanha neste PI.", styles["muted"]))
+        else:
+            rows = []
+            for item in campanhas:
+                rows.append(
+                    [
+                        _texto(item.get("nome_campanha")) or "—",
+                        _texto(item.get("plataforma") or item.get("status_nome")) or "—",
+                        _fmt_vol(item.get("obj_contratado")),
+                        _fmt_vol(item.get("obj_atingido")),
+                        _fmt_pct(item.get("pct_objetivo")),
+                    ]
+                )
+            rows.append(
+                [
+                    "Total do PI",
+                    "",
+                    _fmt_vol(snapshot.get("objetivo_contratado")),
+                    _fmt_vol(snapshot.get("objetivo_atingido")),
+                    _fmt_pct(snapshot.get("pct_objetivo")),
+                ]
+            )
+            story.append(
+                self._grid_table(
+                    ["Campanha", "Plataforma", "Contratado", "Entregue", "Entrega"],
+                    rows,
+                    styles,
+                    [50 * mm, 28 * mm, 30 * mm, 30 * mm, 22 * mm],
+                )
+            )
+        self._build(buffer, story)
+
+    def _bonificacao(self, buffer, snapshot, mensagem):
+        styles = self._styles()
+        story = []
+        self._header(story, styles, "Carta de bonificação", snapshot, self._destinatario_label(snapshot))
+        self._bloco_carta(story, styles, snapshot, mensagem)
+        story.append(Paragraph("Incentivo", styles["heading"]))
+        story.append(
+            self._kv_table(
+                [
+                    ("PL de incentivos", _fmt_brl(snapshot.get("pl_incentivos"))),
+                    ("Entrega das campanhas", _fmt_pct(snapshot.get("pct_objetivo"))),
+                ],
+                styles,
+            )
+        )
         self._build(buffer, story)
 
     def _passagem(self, buffer, snapshot):

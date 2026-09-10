@@ -158,10 +158,14 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("display: table-header-group;", self.css)
         self.assertIn("@media (min-width: 768px)", self.css)
         self.assertIn(".pi-page .pi-list-table--hierarchy > thead", self.css)
+        self.assertIn("display: table-header-group;", self.css)
+        self.assertNotIn("var(--pi-filter-height", self.css)
         for index, width in enumerate(("20%", "18%", "11%", "13%", "14%", "18%", "6%"), start=1):
             self.assertIn(f".pi-hierarchy-head th:nth-child({index}) {{ width: {width}; }}", self.css)
         self.assertIn(".pi-page .pi-list-table--hierarchy th,", self.css)
         self.assertNotIn("updateListStickyOffsets", self.js)
+        self.assertIn(".pi-page.pi-operation .camp-list-toolbar .camp-filter-control > i", self.css)
+        self.assertIn(".pi-page.pi-operation .camp-list-toolbar .camp-filter-control input", self.css)
 
     def test_commercial_views_use_camp_list_header_like_acompanhamento(self):
         header = (PARTIALS / "_header_filters.html").read_text()
@@ -356,6 +360,13 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertNotIn("function buscarClientesFiltro", self.template)
         self.assertIn("/api/cadu-pi/", self.js)
         self.assertIn("/api/cadu_pi/", self.js)
+
+    def test_faturamento_ref_queries_ignore_invalid_competencia(self):
+        from aicentralv2 import db as dbmod
+        self.assertIn("_MES_REF_SQL_VALIDO", dbmod.obter_meses_ref_pi.__globals__)
+        self.assertIn("^[0-9]{1,2}/[0-9]{2,4}$", dbmod._MES_REF_SQL_VALIDO)
+        self.assertIn("anexar_lista(pis)", ROUTES.read_text())
+        self.assertIn("Falha ao anexar resultado financeiro na lista de PIs", ROUTES.read_text())
 
     def test_new_partials_do_not_introduce_daisyui_components(self):
         forbidden = re.compile(

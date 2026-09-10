@@ -324,9 +324,9 @@ body.sidebar-open {
 .camp-filter-control:focus-within { border-color: #1e4d4f; box-shadow: 0 0 0 2px rgba(30,77,79,.1); }
 .camp-filter-control i { color: #789092; }
 .camp-filter-control input, .camp-filter-control select {
-  width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #263b3d;
+  flex: 1 1 auto; width: auto; min-width: 0; border: 0; outline: 0; background: transparent; color: #263b3d;
 }
-.camp-filter-control input { min-width: 260px; }
+.camp-filter-control > i { flex: 0 0 0.875rem; width: 0.875rem; line-height: 1; }
 .camp-list-total {
   display: inline-flex; min-height: 34px; align-items: center; gap: 4px; white-space: nowrap;
   border-left: 1px solid #dfe5e7; padding-left: 12px; color: #64748b;

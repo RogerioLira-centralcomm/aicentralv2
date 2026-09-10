@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Blueprint, flash, jsonify, make_response, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, make_response, redirect, render_template, request, session, url_for
 
 from .auth import login_required, login_required_api
 from .pi_documento_service import DocumentoIndisponivelError, PiDocumentoService
@@ -72,7 +72,7 @@ def workspace(id_pi):
         preview=resultado,
         documentos=documentos,
         modo="financeiro",
-        somente_leitura=True,
+        somente_leitura=False,
         operacao_modo="pi",
     )
 
@@ -96,8 +96,9 @@ def documento_pdf(id_pi, tipo):
         pdf, filename = PiDocumentoService().gerar(
             id_pi,
             tipo,
-            variante=request.args.get("variante") or "cliente",
+            variante=request.args.get("variante") or "agencia",
             id_campanha=request.args.get("id_campanha") or None,
+            mensagem=request.args.get("mensagem") or None,
         )
     except DocumentoIndisponivelError as exc:
         flash(str(exc), "error")
@@ -126,3 +127,42 @@ def api_resultado(id_pi):
     except Exception:
         logger.exception("Erro ao ler resultado de fechamento do PI %s", id_pi)
         return _erro_json("Erro ao ler resultado de fechamento.", 500)
+
+
+@bp.put("/api/cadu_pi/<int:id_pi>/provisionamentos")
+@login_required_api
+def api_salvar_provisionamentos(id_pi):
+    try:
+        snapshot = _service().salvar_provisionamentos(
+            id_pi,
+            session.get("user_id"),
+            request.get_json(silent=True) or {},
+        )
+        return jsonify({"success": True, "data": snapshot})
+    except PiNaoEncontradoError:
+        return _erro_json("PI não encontrado", 404)
+    except Exception:
+        logger.exception("Erro ao salvar provisionamentos do PI %s", id_pi)
+        return _erro_json("Não foi possível salvar os provisionamentos.", 500)
+
+
+@bp.post("/api/cadu_pi/<int:id_pi>/documentos/<tipo>/enviar-assinatura")
+@login_required_api
+def api_enviar_assinatura(id_pi, tipo):
+    body = request.get_json(silent=True) or {}
+    try:
+        data = PiDocumentoService().enviar_para_assinatura(
+            id_pi,
+            tipo,
+            mensagem=body.get("mensagem"),
+            variante=body.get("variante") or "agencia",
+            autor_id=session.get("user_id"),
+        )
+        return jsonify({"success": True, "data": data})
+    except DocumentoIndisponivelError as exc:
+        return _erro_json(exc, 400)
+    except PiNaoEncontradoError:
+        return _erro_json("PI não encontrado", 404)
+    except Exception:
+        logger.exception("Erro ao enviar documento %s do PI %s", tipo, id_pi)
+        return _erro_json("Não foi possível enviar o documento para assinatura.", 500)

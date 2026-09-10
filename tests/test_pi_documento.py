@@ -7,6 +7,7 @@ from aicentralv2.pi_documento_service import (
     REPORTLAB_AVAILABLE,
     DocumentoIndisponivelError,
     PiDocumentoService,
+    mensagem_padrao,
 )
 
 
@@ -37,6 +38,14 @@ def _snapshot(**overrides):
         "observacoes_operacao": "Fechamento ok",
         "drive": {"principal": "https://drive.example/pi"},
         "pendencias": [],
+        "objetivo_contratado": 1000,
+        "objetivo_atingido": 900,
+        "contato_agencia": {
+            "id": 7,
+            "nome": "Maria Souza",
+            "email": "maria@agencia.com",
+        },
+        "cartas": {},
         "campanhas": [
             {
                 "id_campanha": 30,
@@ -44,6 +53,8 @@ def _snapshot(**overrides):
                 "plataforma": "Meta",
                 "gasto_realizado": 80,
                 "pct_gasto": 80,
+                "obj_contratado": 1000,
+                "obj_atingido": 900,
                 "pct_objetivo": 90,
                 "periodo_inicio": "2026-09-01",
                 "periodo_fim": "2026-09-30",
@@ -57,9 +68,18 @@ def _snapshot(**overrides):
 class FakeFechamento:
     def __init__(self, snapshot):
         self._snapshot = snapshot
+        self.brevo = MagicMock()
+        self.brevo.enviar_email.return_value = {"success": True, "messageId": "msg-1"}
+        self.repository = MagicMock()
+        self.operacao = MagicMock()
+        self.registrados = []
 
     def resultado(self, id_pi):
         return dict(self._snapshot)
+
+    def registrar_documento(self, id_pi, tipo, dados, autor_id=None):
+        self.registrados.append((tipo, dados, autor_id))
+        return {tipo: dados}
 
 
 class PiDocumentoServiceTest(unittest.TestCase):
@@ -72,7 +92,7 @@ class PiDocumentoServiceTest(unittest.TestCase):
         for tipo, variante in (
             ("fechamento", "cliente"),
             ("fechamento", "agencia"),
-            ("comprovacao", "cliente"),
+            ("comprovacao", "agencia"),
             ("bonificacao", "agencia"),
             ("passagem", "interno"),
         ):
@@ -110,15 +130,49 @@ class PiDocumentoServiceTest(unittest.TestCase):
         self.assertTrue(pdf.startswith(b"%PDF"))
         self.assertIn("passagem", nome)
 
-    def test_listar_esconde_bonificacao_sem_incentivo_e_snapshot(self):
-        docs = self._service(_snapshot(persistido=False, pl_incentivos=0, agencia_nome="")).listar(
-            _snapshot(persistido=False, pl_incentivos=0, agencia_nome="")
-        )
-        self.assertEqual([item["tipo"] for item in docs], ["passagem"])
+    def test_listar_esconde_bonificacao_sem_incentivo(self):
+        docs = self._service().listar(_snapshot(pl_incentivos=0, agencia_nome=""))
+        self.assertEqual([item["tipo"] for item in docs], ["comprovacao"])
         docs_pos = self._service().listar(_snapshot())
         tipos = {item["tipo"] for item in docs_pos}
-        self.assertIn("fechamento", tipos)
-        self.assertIn("bonificacao", tipos)
+        self.assertEqual(tipos, {"comprovacao", "bonificacao"})
+
+    def test_listar_endereca_agencia_e_preenche_mensagem(self):
+        docs = self._service().listar(_snapshot())
+        comprovacao = next(item for item in docs if item["tipo"] == "comprovacao")
+        self.assertEqual(comprovacao["variante"], "agencia")
+        self.assertEqual(comprovacao["destinatario"]["email"], "maria@agencia.com")
+        self.assertIn("Maria", comprovacao["mensagem"])
+        self.assertIn("900", comprovacao["mensagem"])
+        self.assertIn("1.000", comprovacao["mensagem"])
+        self.assertTrue(comprovacao["pode_enviar"])
+
+    def test_mensagem_padrao_cita_contratado_e_entregue(self):
+        texto = mensagem_padrao("comprovacao", _snapshot())
+        self.assertIn("Aos cuidados de Maria Souza", texto)
+        self.assertIn("entregaram 900 de 1.000 contratados", texto)
+
+    def test_enviar_assinatura_anexa_pdf_ao_contato(self):
+        fechamento = FakeFechamento(_snapshot())
+        service = PiDocumentoService(fechamento=fechamento)
+        if REPORTLAB_AVAILABLE:
+            result = service.enviar_para_assinatura(10, "comprovacao", autor_id=99)
+            self.assertTrue(result["enviado"])
+            self.assertEqual(result["destinatario"]["email"], "maria@agencia.com")
+            kwargs = fechamento.brevo.enviar_email.call_args.kwargs
+            self.assertEqual(kwargs["to_email"], "maria@agencia.com")
+            self.assertTrue(kwargs["attachments"])
+            self.assertIn("assinatura", kwargs["subject"].lower())
+            self.assertEqual(fechamento.registrados[0][0], "comprovacao")
+            fechamento.repository.upsert_status.assert_called_once()
+        else:
+            with self.assertRaises(DocumentoIndisponivelError):
+                service.enviar_para_assinatura(10, "comprovacao", autor_id=99)
+
+    def test_enviar_assinatura_exige_contato(self):
+        service = self._service(_snapshot(contato_agencia={}))
+        with self.assertRaises(DocumentoIndisponivelError):
+            service.enviar_para_assinatura(10, "comprovacao")
 
 
 if __name__ == "__main__":

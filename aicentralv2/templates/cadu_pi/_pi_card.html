@@ -21,7 +21,7 @@
       </div>
       <strong class="pi-commercial-title" title="{{ pi_row.title_text(pi) }}">{{ pi_row.title_text(pi) }}</strong>
       <span class="pi-commercial-meta">
-        {% if pi.get('mes_ref_comp') %}{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }} · {% endif %}#{{ pi.id_pi }}
+        {% if pi.get('mes_ref_comp') and '/' in (pi.mes_ref_comp|string) %}{% set _ref = (pi.mes_ref_comp|string).split('/') %}{{ nomes_meses.get(_ref[0], _ref[0]) }}/{% if _ref|length > 1 %}{{ _ref[1] }}{% endif %} · {% elif pi.get('mes_ref_comp') %}{{ pi.mes_ref_comp }} · {% endif %}#{{ pi.id_pi }}
       </span>
     </div>
   </div>

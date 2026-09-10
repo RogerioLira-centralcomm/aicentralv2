@@ -44,18 +44,21 @@
             <tbody>
               {% for pi in ag.pis %}
               {% set pi_info = {
-                'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
-                'titulo': pi.titulo_pi or '',
-                'cliente': pi.cliente_nome or '',
-                'cnpj': pi.cliente_cnpj or '',
-                'mesRef': pi.mes_ref_comp or '',
-                'valorLiquido': pi.valor_liquido or ''
+                'codPi': (pi.codigo_pi_cc or pi.codigo_pi_ag or '')|string,
+                'titulo': (pi.titulo_pi or '')|string,
+                'cliente': (pi.cliente_nome or '')|string,
+                'cnpj': (pi.cliente_cnpj or '')|string,
+                'mesRef': (pi.mes_ref_comp or '')|string,
+                'valorLiquido': (pi.valor_liquido or '')|string
               } %}
               <tr>
                 <td>
                   <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}</a>
-                  {% if pi.get('mes_ref_comp') %}
-                  <span class="pi-cell-meta">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                  {% if pi.get('mes_ref_comp') and '/' in (pi.mes_ref_comp|string) %}
+                  {% set _ref = (pi.mes_ref_comp|string).split('/') %}
+                  <span class="pi-cell-meta">{{ nomes_meses.get(_ref[0], _ref[0]) }}/{% if _ref|length > 1 %}{{ _ref[1] }}{% endif %}</span>
+                  {% elif pi.get('mes_ref_comp') %}
+                  <span class="pi-cell-meta">{{ pi.mes_ref_comp }}</span>
                   {% endif %}
                 </td>
                 <td>{{ pi.get('resp_comercial_nome') or 'Não informado' }}</td>

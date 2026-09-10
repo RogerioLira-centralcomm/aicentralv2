@@ -1,12 +1,14 @@
 {% set preview = preview or {} %}
 {% set pendencias = preview.get('pendencias') or [] %}
 {% set campanhas = preview.get('campanhas') or [] %}
+{% set percentuais = preview.get('percentuais') or {} %}
+{% set editavel = true %}
 
 <section id="pi-mobile-summary" class="pi-op-panel" aria-label="Resumo do resultado"
          role="tabpanel" aria-labelledby="pi-mobile-tab-summary" data-mobile-panel="summary" tabindex="0">
   <header class="pi-op-panel__head">
     <h2>Resultado e reconciliação</h2>
-    <p>Gasto de mídia, entrega e DRE comercial{% if preview.get('persistido') %} — snapshot do handoff{% endif %}.</p>
+    <p>Totais das {{ preview.total_campanhas or campanhas|length }} campanhas{% if preview.get('persistido') %} · valores recalculados, não o cabeçalho congelado do PI{% endif %}.</p>
   </header>
   <div class="pi-fechamento-kpis">
     <article>
@@ -32,20 +34,75 @@
   </div>
 </section>
 
-<section class="pi-op-panel" aria-label="DRE comercial">
+<section class="pi-op-panel" aria-label="DRE comercial" data-fechamento-dre
+         data-gasto="{{ preview.gasto_midia_realizado or 0 }}"
+         data-obj-contratado="{{ preview.objetivo_contratado or 0 }}"
+         data-obj-atingido="{{ preview.objetivo_atingido or 0 }}"
+         data-cbase="{{ pi.custo_base_unitario or 0 }}"
+         data-cpm="{{ 'true' if pi.meta_baseada_em_cpm else 'false' }}">
   <header class="pi-op-panel__head">
-    <h2>Resultado comercial</h2>
+    <h2>Resultado comercial e provisionamentos</h2>
+    <p>Percentuais editáveis. Os valores em reais saem do gasto e da entrega somados das campanhas.</p>
   </header>
-  <dl class="pi-fechamento-dre">
-    <div><dt>Bruto</dt><dd>{{ preview.valor_bruto|format_brl if preview.get('valor_bruto') is not none else '—' }}</dd></div>
-    <div><dt>Líquido</dt><dd>{{ preview.valor_liquido|format_brl if preview.get('valor_liquido') is not none else '—' }}</dd></div>
-    <div><dt>Margem CC</dt><dd>{{ preview.margem_cc|format_brl if preview.get('margem_cc') is not none else '—' }}</dd></div>
-    <div><dt>Tech fee</dt><dd>{{ preview.tech_fee|format_brl if preview.get('tech_fee') is not none else '—' }}</dd></div>
-    <div><dt>Comissão vendas</dt><dd>{{ preview.com_vendas|format_brl if preview.get('com_vendas') is not none else '—' }}</dd></div>
-    <div><dt>PL incentivos</dt><dd>{{ preview.pl_incentivos|format_brl if preview.get('pl_incentivos') is not none else '—' }}</dd></div>
-    <div><dt>Impostos</dt><dd>{{ preview.impostos|format_brl if preview.get('impostos') is not none else '—' }}</dd></div>
-    <div><dt>Mídia realizada</dt><dd>{{ preview.gasto_midia_realizado|format_brl if preview.get('gasto_midia_realizado') is not none else '—' }}</dd></div>
-  </dl>
+
+  <form id="form_provisionamentos" class="pi-fechamento-form">
+    <fieldset class="pi-fechamento-percs">
+      <legend>Provisionamentos</legend>
+      <label>
+        <span>% Margem CC</span>
+        <input type="text" name="perc_margem_cc" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.margem_cc or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% Tech fee</span>
+        <input type="text" name="perc_tech_fee" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.tech_fee or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% Com. vendas</span>
+        <input type="text" name="perc_com_vendas" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.com_vendas or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% PL incentivos</span>
+        <input type="text" name="perc_pl_incentivos" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.pl_incentivos or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% Impostos</span>
+        <input type="text" name="perc_impostos" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.impostos or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% Comissão agência</span>
+        <input type="text" name="perc_comissao_agencia" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.comissao_agencia or 0)|replace('.', ',') }}">
+      </label>
+      <label>
+        <span>% Comissão parceiro</span>
+        <input type="text" name="perc_comissao_parceiro" inputmode="decimal"
+               value="{{ '%.2f'|format(percentuais.comissao_parceiro or 0)|replace('.', ',') }}">
+      </label>
+    </fieldset>
+
+    <dl class="pi-fechamento-dre">
+      <div><dt>Bruto</dt><dd data-dre="valor_bruto">{{ preview.valor_bruto|format_brl if preview.get('valor_bruto') is not none else '—' }}</dd></div>
+      <div><dt>Líquido</dt><dd data-dre="valor_liquido">{{ preview.valor_liquido|format_brl if preview.get('valor_liquido') is not none else '—' }}</dd></div>
+      <div><dt>Margem CC</dt><dd data-dre="margem_cc">{{ preview.margem_cc|format_brl if preview.get('margem_cc') is not none else '—' }}</dd></div>
+      <div><dt>Tech fee</dt><dd data-dre="tech_fee">{{ preview.tech_fee|format_brl if preview.get('tech_fee') is not none else '—' }}</dd></div>
+      <div><dt>Comissão vendas</dt><dd data-dre="com_vendas">{{ preview.com_vendas|format_brl if preview.get('com_vendas') is not none else '—' }}</dd></div>
+      <div><dt>PL incentivos</dt><dd data-dre="pl_incentivos">{{ preview.pl_incentivos|format_brl if preview.get('pl_incentivos') is not none else '—' }}</dd></div>
+      <div><dt>Impostos</dt><dd data-dre="impostos">{{ preview.impostos|format_brl if preview.get('impostos') is not none else '—' }}</dd></div>
+      <div><dt>Mídia realizada</dt><dd>{{ preview.gasto_midia_realizado|format_brl if preview.get('gasto_midia_realizado') is not none else '—' }}</dd></div>
+    </dl>
+
+    <div class="pi-fechamento-form__actions">
+      <button type="submit" class="pi-op-btn pi-op-btn--primary" id="btn_salvar_provisionamentos">
+        Salvar provisionamentos
+      </button>
+      <span class="pi-fechamento-form__hint">Recalcula bruto, líquido e provisões com o total das campanhas.</span>
+    </div>
+  </form>
 </section>
 
 {% if modo == 'fechamento' %}
@@ -70,19 +127,16 @@
   <header class="pi-op-panel__head">
     <h2>Observações para o financeiro</h2>
   </header>
-  {% if modo == 'fechamento' %}
   <label class="sr-only" for="obs_operacao_fechamento">Observações da operação</label>
   <textarea id="obs_operacao_fechamento" class="pi-fechamento-obs" rows="4"
             placeholder="Contexto de veiculação, desvios e pendências que o financeiro precisa saber.">{{ preview.observacoes_operacao or pi.obs_operacao or '' }}</textarea>
-  {% else %}
-  <p>{{ preview.observacoes_operacao or pi.obs_operacao or 'Sem observações registradas no fechamento.' }}</p>
-  {% endif %}
 </section>
 
+{% if modo == 'fechamento' %}
 <section class="pi-op-panel" aria-label="Campanhas do snapshot">
   <header class="pi-op-panel__head">
     <h2>Campanhas</h2>
-    <p>Evidência agregada — detalhe secundário.</p>
+    <p>Base do cálculo — gasto e entrega somados abaixo.</p>
   </header>
   {% if campanhas %}
   <div class="cx-table-scroll">
@@ -111,42 +165,54 @@
   <p>Nenhuma campanha no snapshot.</p>
   {% endif %}
 </section>
+{% endif %}
 
-<section class="pi-op-panel" aria-label="Documentos e NF">
+<section class="pi-op-panel" aria-label="Documentos da agência" id="pi-docs-agencia">
   <header class="pi-op-panel__head">
-    <h2>Comprovação, documentos e NF</h2>
+    <h2>Documentos da agência</h2>
+    <p>Cartas já endereçadas ao contato do PI. A mensagem e o PDF levam o contratado e o entregue.</p>
   </header>
-  <div class="pi-fechamento-docs">
-    {% if preview.drive and preview.drive.principal %}
-    <a href="{{ preview.drive.principal }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Pasta principal</a>
-    {% endif %}
-    {% if preview.drive and preview.drive.financeiro %}
-    <a href="{{ preview.drive.financeiro }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Pasta financeiro</a>
-    {% endif %}
-    {% if preview.drive and preview.drive.assinados %}
-    <a href="{{ preview.drive.assinados }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Arquivos assinados</a>
-    {% endif %}
-    {% if pi.nf_id %}
-    <span class="pi-document-state is-issued">NF vinculada</span>
+  {% set dest = preview.contato_agencia or {} %}
+  <div class="pi-doc-dest{% if not dest.email %} is-missing{% endif %}">
+    {% if dest.email %}
+    <strong>Aos cuidados de {{ dest.nome or preview.agencia_nome or 'contato da agência' }}</strong>
+    <span>{{ dest.email }}</span>
+    {% if preview.agencia_nome %}<span>{{ preview.agencia_nome }}</span>{% endif %}
     {% else %}
-    <span class="pi-document-state">Sem NF</span>
+    <strong>Sem contato da agência</strong>
+    <span>Cadastre o contato no PI para endereçar e enviar as cartas.</span>
     {% endif %}
   </div>
   {% if documentos %}
-  <div class="pi-fechamento-pdfs">
-    <h3>Gerar PDFs</h3>
-    <p>Documentos usam o snapshot congelado no handoff — não recalculam campanhas ao vivo.</p>
-    <div class="pi-fechamento-docs">
-      {% for doc in documentos %}
-      {% if doc.get('disponivel', true) %}
-      <a href="{{ url_for('pi_financeiro.documento_pdf', id_pi=pi.id_pi, tipo=doc.tipo, variante=doc.variante) }}"
-         class="pi-op-btn pi-op-btn--secondary" target="_blank" rel="noopener">
-        <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>{{ doc.label }}
-      </a>
-      {% endif %}
-      {% endfor %}
-    </div>
+  <div class="pi-doc-desk">
+    {% for doc in documentos %}
+    <article class="pi-doc-card" data-doc-tipo="{{ doc.tipo }}" data-doc-variante="{{ doc.variante }}">
+      <header>
+        <h3>{{ doc.label }}</h3>
+        <p>{{ doc.proposito }}</p>
+      </header>
+      <label class="sr-only" for="doc_msg_{{ doc.tipo }}">Mensagem da {{ doc.label }}</label>
+      <textarea id="doc_msg_{{ doc.tipo }}" name="mensagem">{{ doc.mensagem }}</textarea>
+      <div class="pi-doc-card__actions">
+        <a href="{{ url_for('pi_financeiro.documento_pdf', id_pi=pi.id_pi, tipo=doc.tipo, variante=doc.variante) }}"
+           class="pi-op-btn pi-op-btn--secondary" data-doc-preview target="_blank" rel="noopener">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Ver PDF
+        </a>
+        <button type="button" class="pi-op-btn pi-op-btn--primary" data-doc-send
+                {% if not doc.pode_enviar %}disabled{% endif %}>
+          Enviar para assinatura
+        </button>
+        {% if doc.enviado_em %}
+        <span class="pi-doc-card__status">Enviado para {{ doc.enviado_para or dest.nome or 'a agência' }}</span>
+        {% elif not preview.get('persistido') %}
+        <span class="pi-doc-card__hint">Disponível após enviar ao financeiro.</span>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
   </div>
+  {% else %}
+  <p>Nenhuma carta aplicável a este PI.</p>
   {% endif %}
 </section>
 

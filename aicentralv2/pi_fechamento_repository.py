@@ -213,6 +213,69 @@ class PiFechamentoRepository:
             )
             return cursor.fetchone()["id"]
 
+    def atualizar_resultado(self, id_pi, versao, payload):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cadu_pi_resultado_fechamento SET
+                    gasto_midia_realizado = %(gasto_midia_realizado)s,
+                    gasto_midia_previsto = %(gasto_midia_previsto)s,
+                    pct_gasto_midia = %(pct_gasto_midia)s,
+                    objetivo_contratado = %(objetivo_contratado)s,
+                    objetivo_atingido = %(objetivo_atingido)s,
+                    pct_objetivo = %(pct_objetivo)s,
+                    valor_bruto = %(valor_bruto)s,
+                    valor_liquido = %(valor_liquido)s,
+                    margem_cc = %(margem_cc)s,
+                    tech_fee = %(tech_fee)s,
+                    com_vendas = %(com_vendas)s,
+                    pl_incentivos = %(pl_incentivos)s,
+                    impostos = %(impostos)s,
+                    margem_liquida_calculada = %(margem_liquida_calculada)s,
+                    zona_lucratividade = %(zona_lucratividade)s,
+                    zonas_json = %(zonas_json)s,
+                    saude_pi = %(saude_pi)s,
+                    saude_json = %(saude_json)s,
+                    observacoes_operacao = %(observacoes_operacao)s,
+                    payload_json = %(payload_json)s
+                 WHERE id_pi = %(id_pi)s AND versao = %(versao)s
+                """,
+                {
+                    **payload,
+                    "id_pi": id_pi,
+                    "versao": versao,
+                    "zonas_json": Json(payload.get("zonas_json")),
+                    "saude_json": Json(payload.get("saude_json")),
+                    "payload_json": Json(payload.get("payload_json")),
+                },
+            )
+
+    def atualizar_pi_provisionamentos(self, id_pi, data):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cadu_pi SET
+                    vr_bruto_pi = %(valor_bruto)s,
+                    vr_liquido_pi = %(valor_liquido)s,
+                    val_margem_cc = %(val_margem_cc)s,
+                    val_tech_fee = %(val_tech_fee)s,
+                    val_com_vendas = %(val_com_vendas)s,
+                    val_pl_incentivos = %(val_pl_incentivos)s,
+                    val_impostos = %(val_impostos)s,
+                    perc_margem_cc = %(perc_margem_cc)s,
+                    perc_tech_fee = %(perc_tech_fee)s,
+                    perc_com_vendas = %(perc_com_vendas)s,
+                    perc_pl_incentivos = %(perc_pl_incentivos)s,
+                    perc_impostos = %(perc_impostos)s,
+                    perc_cms_agencia = %(perc_comissao_agencia)s,
+                    perc_cms_parc_reg = %(perc_comissao_parceiro)s,
+                    observacoes_operacao = COALESCE(%(observacoes_operacao)s, observacoes_operacao),
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                 WHERE id_pi = %(id_pi)s
+                """,
+                {**data, "id_pi": id_pi},
+            )
+
     def gravar_campanhas(self, rows):
         if not rows:
             return

@@ -8,7 +8,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=10">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -104,8 +104,11 @@
             <td class="py-2 px-2 align-top">
               <div class="flex flex-col gap-0.5">
                 <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link truncate block max-w-[68px]" title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}</a>
-                {% if pi.get('mes_ref_comp') %}
-                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                {% if pi.get('mes_ref_comp') and '/' in (pi.mes_ref_comp|string) %}
+                {% set _ref = (pi.mes_ref_comp|string).split('/') %}
+                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(_ref[0], _ref[0]) }}/{% if _ref|length > 1 %}{{ _ref[1] }}{% endif %}</span>
+                {% elif pi.get('mes_ref_comp') %}
+                <span class="text-[10px] text-gray-400">{{ pi.mes_ref_comp }}</span>
                 {% endif %}
               </div>
             </td>
@@ -220,12 +223,12 @@
             {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
             <td class="text-center px-2" onclick="event.stopPropagation()">
               {% set pi_info = {
-                'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
-                'titulo': pi.titulo_pi or '',
-                'cliente': pi.cliente_nome or '',
-                'cnpj': pi.cliente_cnpj or '',
-                'mesRef': pi.mes_ref_comp or '',
-                'valorLiquido': pi.valor_liquido or ''
+                'codPi': (pi.codigo_pi_cc or pi.codigo_pi_ag or '')|string,
+                'titulo': (pi.titulo_pi or '')|string,
+                'cliente': (pi.cliente_nome or '')|string,
+                'cnpj': (pi.cliente_cnpj or '')|string,
+                'mesRef': (pi.mes_ref_comp or '')|string,
+                'valorLiquido': (pi.valor_liquido or '')|string
               } %}
               <div class="inline-flex items-center gap-1 flex-wrap justify-center">
               <a href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}"

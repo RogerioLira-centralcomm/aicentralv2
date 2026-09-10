@@ -71,6 +71,15 @@ class PiOperacaoRepository:
                        p."Id_parc_reg" AS id_parceiro,
                        p.id_resp_comercial,
                        p.id_pi_tipo, p.vr_bruto_pi, p.vr_liquido_pi,
+                       p.vr_bruto_pi AS valor_bruto, p.vr_liquido_pi AS valor_liquido,
+                       p.perc_cms_agencia AS perc_comissao_agencia,
+                       p.perc_cms_parc_reg AS perc_comissao_parceiro,
+                       p.perc_margem_cc, p.perc_tech_fee, p.perc_com_vendas,
+                       p.perc_pl_incentivos, p.perc_impostos,
+                       p.val_margem_cc, p.val_tech_fee, p.val_com_vendas,
+                       p.val_pl_incentivos, p.val_impostos,
+                       p.custo_base_unitario, p.objetivo_contratado_pi,
+                       p.meta_baseada_em_cpm, p.observacoes_financeiro,
                        p.desvio_aceitavel_pct,
                        p.id_cont_cliente_midia, p.id_cont_cliente_financ,
                        p.id_cont_agen_midia, p.id_cont_agen_financ,
@@ -104,6 +113,21 @@ class PiOperacaoRepository:
         if not row:
             raise PiNaoEncontradoError("PI não encontrado.")
         return dict(row)
+
+    def obter_contato(self, id_contato):
+        if not id_contato:
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id_contato_cliente, nome_completo, email, telefone
+                  FROM tbl_contato_cliente
+                 WHERE id_contato_cliente = %s
+                """,
+                (id_contato,),
+            )
+            row = cursor.fetchone()
+        return dict(row) if row else None
 
     def listar_campanhas(self, id_pi):
         with self.conn.cursor() as cursor:

@@ -88,8 +88,12 @@ def compose_native_piece(source_bytes, geometry, copy=None, logo_bytes=None):
         copy.get("headline") or "",
         ink if family != "slate_16x9" else brand,
     )
-    canvas.fill_rect(*layout["cta"], brand)
-    canvas.draw_text(layout["cta"], copy.get("cta") or "SAIBA MAIS", ink)
+    cta = str(copy.get("cta") or "").strip()
+    if not cta and not copy.get("omit_cta"):
+        cta = "SAIBA MAIS"
+    if cta:
+        canvas.fill_rect(*layout["cta"], brand)
+        canvas.draw_text(layout["cta"], cta, ink)
     return canvas.to_png()
 
 

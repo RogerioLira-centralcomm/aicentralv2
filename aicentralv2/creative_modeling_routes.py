@@ -476,7 +476,10 @@ def api_unfoldings():
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             payload = request.form.to_dict()
-        for key in ("format_ids", "format_template_ids", "locks", "kv_notes"):
+        for key in (
+            "format_ids", "format_template_ids", "locks", "kv_notes",
+            "items", "construct_path",
+        ):
             value = payload.get(key)
             if isinstance(value, str) and value[:1] in "[{":
                 try:
@@ -489,7 +492,9 @@ def api_unfoldings():
         )
         if str(payload.get("generate") or "").lower() in {"1", "true", "yes"}:
             created = _service().generate_unfolding(
-                created["campaign"]["id"], session.get("user_id")
+                created["campaign"]["id"],
+                session.get("user_id"),
+                payload,
             )
         return _ok(created, 201)
 
@@ -512,9 +517,24 @@ def api_read_kv():
 def api_generate_unfolding(cid):
     return _execute(
         lambda: _ok(
-            _service().generate_unfolding(cid, session.get("user_id"))
+            _service().generate_unfolding(
+                cid, session.get("user_id"), _json(optional=True)
+            )
         )
     )
+
+
+@admin_required_api
+def api_quote_unfolding():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = request.args.to_dict()
+    return _execute(lambda: _ok(_service().quote_unfolding(payload)))
+
+
+@admin_required_api
+def api_unfold_paths():
+    return _execute(lambda: _ok(_service().list_unfold_paths()))
 
 
 @admin_required_api
@@ -995,6 +1015,17 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_read_kv",
         view_func=api_read_kv,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings/quote",
+        endpoint="creative_quote_unfolding",
+        view_func=api_quote_unfolding,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings/paths",
+        endpoint="creative_unfold_paths",
+        view_func=api_unfold_paths,
     )
     blueprint.add_url_rule(
         "/api/unfoldings/<int:cid>/generate",

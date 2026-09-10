@@ -1,6 +1,7 @@
 """Blocos determinísticos para prompts de mockups de formatos publicitários."""
 
 from .creative_brand_analysis import format_copy_system_lines
+from .creative_construct_params import locks_from_kv_items, normalize_kv_items
 
 ANTI_AI_LOOK = """FORBID AI LOOK
 No glowing rays, particle streams, neural-network lines, wifi magic,
@@ -24,13 +25,26 @@ including verbatim headline, CTA and logo.
 """ + ANTI_AI_LOOK
 
 
-UNFOLD_LOCK_SYSTEM = """Você extrai travas literais de um KV e das notas da campanha.
-Não invente oferta, benefício, preço ou slogan. Se as notas trouxerem texto,
-elas vencem qualquer leitura da imagem. Retorne somente JSON puro:
-{"headline":"...","subhead":"...","cta":"...","other_lines":[],"has_logo":true}.
+UNFOLD_LOCK_SYSTEM = """Você extrai os itens literais de um KV e das notas da campanha.
+Não invente oferta, benefício, preço, CTA ou slogan. Se as notas trouxerem texto,
+elas vencem qualquer leitura da imagem. Se um item não estiver visível, deixe
+o texto vazio e status absent. Se a leitura for duvidosa, status uncertain.
+Retorne somente JSON puro:
+{"headline":"...","subhead":"...","cta":"...","other_lines":[],"has_logo":true,
+ "items":{
+   "logo":{"text":"","status":"seen|uncertain|absent"},
+   "product_lockup":{"text":"...","status":"..."},
+   "talent":{"text":"descrição curta da pessoa/produto","status":"..."},
+   "headline":{"text":"...","status":"..."},
+   "offer":{"text":"...","status":"..."},
+   "benefits":{"text":"uma linha por benefício","status":"..."},
+   "cta":{"text":"...","status":"..."},
+   "legal":{"text":"...","status":"..."},
+   "background":{"text":"cor ou campo","status":"..."}
+ }}.
 headline, subhead e cta são strings em português do Brasil ou vazias.
 other_lines é uma lista de outras linhas visíveis, sem repetir headline/CTA.
-has_logo é true só se houver marca gráfica visível."""
+has_logo é true só se houver marca gráfica visível. Não fabrique CTA."""
 
 
 UNFOLD_PROMPT_SYSTEM = """Você é diretor de arte adaptando um KV aprovado para
@@ -207,13 +221,19 @@ def normalize_locks(value):
     other = data.get("other_lines") or []
     if not isinstance(other, list):
         other = []
-    return {
-        "headline": str(data.get("headline") or "").strip(),
-        "subhead": str(data.get("subhead") or "").strip(),
-        "cta": str(data.get("cta") or "").strip(),
-        "other_lines": [str(item).strip() for item in other if str(item).strip()],
-        "has_logo": data.get("has_logo") is True,
-    }
+    merged = locks_from_kv_items(data.get("items") or data, data)
+    if not merged["headline"]:
+        merged["headline"] = str(data.get("headline") or "").strip()
+    if not merged["subhead"]:
+        merged["subhead"] = str(data.get("subhead") or "").strip()
+    if not merged["cta"]:
+        merged["cta"] = str(data.get("cta") or "").strip()
+    if not merged["other_lines"]:
+        merged["other_lines"] = [str(item).strip() for item in other if str(item).strip()]
+    if data.get("has_logo") is True:
+        merged["has_logo"] = True
+    merged["items"] = normalize_kv_items({**data, "items": merged.get("items")})
+    return merged
 
 
 def unfold_image_lock(locks=None):
@@ -249,14 +269,18 @@ def unfold_ab_instruction(level, locks=None):
     return f"{body}\n\n{unfold_image_lock(locks)}"
 
 
-def paints_full_copy(family, flow_kind=None):
+def paints_full_copy(family, flow_kind=None, engine=None):
+    if str(engine or "") == "construct":
+        return False
     return (
         str(flow_kind or "") == "unfold"
         and family in {"square_1x1", "story_9x16", "landscape_social"}
     )
 
 
-def native_scene_prompt_suffix(geometry, copy=None, flow_kind=None, locks=None):
+def native_scene_prompt_suffix(
+    geometry, copy=None, flow_kind=None, locks=None, engine=None
+):
     """Restrições determinísticas da peça nativa, sem device/portal."""
     geometry = geometry if isinstance(geometry, dict) else {}
     copy = copy if isinstance(copy, dict) else {}
@@ -268,7 +292,7 @@ def native_scene_prompt_suffix(geometry, copy=None, flow_kind=None, locks=None):
         if len(size) == 2
         else geometry.get("target_size") or "native rectangle"
     )
-    if paints_full_copy(family, flow_kind):
+    if paints_full_copy(family, flow_kind, engine):
         lines = [
             UNFOLD_SOCIAL_COMPLETE,
             f"Target canvas: {target}.",
@@ -293,13 +317,16 @@ def native_scene_prompt_suffix(geometry, copy=None, flow_kind=None, locks=None):
 
 
 def apply_render_mode_to_prompt(
-    prompt, render_mode, geometry, copy=None, flow_kind=None, locks=None
+    prompt, render_mode, geometry, copy=None, flow_kind=None, locks=None,
+    engine=None,
 ):
     text = str(prompt or "").strip()
     if render_mode == "native":
-        suffix = native_scene_prompt_suffix(geometry, copy, flow_kind, locks)
+        suffix = native_scene_prompt_suffix(
+            geometry, copy, flow_kind, locks, engine
+        )
         marker = "COMPLETE SOCIAL ADVERTISEMENT" if paints_full_copy(
-            (geometry or {}).get("family"), flow_kind
+            (geometry or {}).get("family"), flow_kind, engine
         ) else "NATIVE ADVERTISING STILL"
         if marker not in text:
             text = f"{text}\n\n{suffix}".strip()

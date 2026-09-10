@@ -4316,16 +4316,30 @@
   color: #fff;
 }
 
+.mc-unfold {
+  --mc-ink: #142828;
+  --mc-mute: #5c6d6c;
+  --mc-rule: #c3cecb;
+  --mc-paper: #f3f5f3;
+  --mc-stage: #101918;
+  --mc-mark: #9ccf31;
+}
+
 .mc-unfold-head {
   align-items: end;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.mc-unfold-grid {
+.mc-unfold-head h2 {
+  letter-spacing: -0.03em;
+}
+
+.mc-unfold-board {
   display: grid;
-  grid-template-columns: minmax(18rem, 0.9fr) minmax(22rem, 1.1fr);
-  gap: 1.5rem;
+  grid-template-columns: minmax(17rem, 0.85fr) minmax(24rem, 1.15fr);
+  gap: 1.75rem 2rem;
+  align-items: start;
 }
 
 .mc-unfold-fonte,
@@ -4337,58 +4351,47 @@
 
 .mc-unfold h3 {
   margin: 0;
-  color: #183436;
-  font-size: 0.95rem;
+  color: var(--mc-ink);
+  font-size: 0.92rem;
   font-weight: 750;
-}
-
-.mc-unfold-kv {
-  display: grid;
-  gap: 0.65rem;
+  letter-spacing: -0.02em;
 }
 
 .mc-unfold-dropzone {
   position: relative;
   display: grid;
-  min-height: 12rem;
+  min-height: 18rem;
   place-items: center;
   overflow: hidden;
-  border: 1px dashed #8ca9a6;
-  border-radius: 0.65rem;
-  background: #fff;
-  color: #314b4b;
+  border: 0;
+  background: var(--mc-stage);
+  color: #d7e3e0;
   cursor: pointer;
 }
 
 .mc-unfold-dropzone:hover,
 .mc-unfold-dropzone.is-dragging,
 .mc-unfold-dropzone:focus-visible {
-  border-color: #1e4d4f;
-  background: #eef4f3;
-  outline: 2px solid rgba(30, 77, 79, 0.15);
-  outline-offset: 2px;
+  outline: 2px solid var(--mc-mark);
+  outline-offset: 3px;
 }
 
 .mc-unfold-drop-hint {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 1.25rem;
-}
-
-.mc-unfold-drop-hint i {
-  color: #1e4d4f;
-  font-size: 1.2rem;
-}
-
-.mc-unfold-drop-hint span {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.35rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.mc-unfold-drop-hint strong {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .mc-unfold-drop-hint small {
-  color: #53696a;
-  font-size: 0.68rem;
+  color: #9aada9;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
@@ -4401,7 +4404,8 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--mc-stage);
 }
 
 .mc-unfold-library-toggle {
@@ -4415,22 +4419,21 @@
 
 .mc-unfold-library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+  gap: 0.35rem;
 }
 
 .mc-unfold-library-grid button {
   padding: 0;
   overflow: hidden;
-  border: 1px solid #d8e3e2;
-  border-radius: 0.45rem;
-  background: #eef4f3;
+  border: 1px solid var(--mc-rule);
+  background: var(--mc-paper);
   cursor: pointer;
 }
 
 .mc-unfold-library-grid button.is-active {
-  border-color: #1e4d4f;
-  box-shadow: inset 3px 0 0 #9ccf31;
+  outline: 2px solid var(--mc-mark);
+  outline-offset: 1px;
 }
 
 .mc-unfold-library-grid img {
@@ -4442,50 +4445,138 @@
 
 .mc-unfold-review {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
+  padding-top: 0.35rem;
 }
 
 .mc-unfold-extra {
   margin: 0;
-  color: #53696a;
-  font-size: 0.78rem;
+  color: var(--mc-mute);
+  font-size: 0.75rem;
 }
 
-.mc-unfold-destinos .cx-btn-primary {
-  justify-self: start;
-  width: auto;
+.mc-unfold-pathbar {
+  display: grid;
+  grid-template-columns: auto auto minmax(10rem, 1fr) auto;
+  gap: 0.85rem 1.1rem;
+  align-items: end;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--mc-rule);
+}
+
+.mc-unfold-path-set {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mc-unfold-path-set legend,
+.mc-unfold-model .cx-label {
+  color: var(--mc-mute);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.mc-unfold-seg {
+  display: flex;
+  width: max-content;
+  border-bottom: 1px solid var(--mc-rule);
+}
+
+.mc-unfold-seg label {
+  position: relative;
+  cursor: pointer;
+}
+
+.mc-unfold-seg input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mc-unfold-seg span {
+  display: block;
+  padding: 0.35rem 0.7rem 0.45rem;
+  color: var(--mc-mute);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.mc-unfold-seg label:has(input:checked) span {
+  color: var(--mc-ink);
+  box-shadow: inset 0 -2px 0 var(--mc-ink);
+}
+
+.mc-unfold-seg-count span {
+  min-width: 1.6rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-unfold-model {
+  min-width: 11rem;
+}
+
+.mc-unfold-quote {
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+  color: var(--mc-ink);
+  text-align: right;
+}
+
+.mc-unfold-quote strong {
+  font-size: 1.55rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.mc-unfold-quote small {
+  max-width: 16rem;
+  color: var(--mc-mute);
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 .mc-unfold-formats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  gap: 0.85rem 0.7rem;
 }
 
 .mc-unfold-format {
   display: grid;
-  gap: 0.4rem;
-  padding: 0.65rem;
-  border: 1px solid #d8e3e2;
-  border-radius: 0.65rem;
-  background: #fff;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.mc-unfold-format.is-active {
-  border-color: #1e4d4f;
-  box-shadow: inset 3px 0 0 #1e4d4f;
+.mc-unfold-format:focus-visible {
+  outline: 2px solid var(--mc-ink);
+  outline-offset: 3px;
 }
 
 .mc-unfold-thumb {
   display: block;
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 2.25rem;
   overflow: hidden;
-  border: 1px solid #d8e3e2;
-  background: linear-gradient(180deg, #d8e3e2, #eef4f3);
+  background: #dce4e1;
+  box-shadow: inset 0 0 0 1px #b7c4c0;
+}
+
+.mc-unfold-format.is-active .mc-unfold-thumb {
+  box-shadow: inset 0 0 0 2px var(--mc-ink);
+  outline: 2px solid var(--mc-mark);
+  outline-offset: 2px;
 }
 
 .mc-unfold-format strong,
@@ -4493,45 +4584,123 @@
   display: block;
 }
 
+.mc-unfold-format strong {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
 .mc-unfold-format small {
-  color: #53696a;
-  font-size: 0.72rem;
+  color: var(--mc-mute);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-unfold-close {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.mc-unfold-items {
+  display: grid;
+  gap: 0;
+}
+
+.mc-unfold-item {
+  display: grid;
+  grid-template-columns: 5.4rem 6.4rem 1fr;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--mc-rule);
+}
+
+.mc-unfold-item-name {
+  color: var(--mc-ink);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.mc-unfold-item.is-uncertain .mc-unfold-item-name {
+  box-shadow: inset 3px 0 0 #c9a227;
+  padding-left: 0.4rem;
+}
+
+.mc-unfold-item.is-absent {
+  opacity: 0.55;
+}
+
+.mc-unfold-item .cx-input,
+.mc-unfold-item .cx-select,
+.mc-unfold-item textarea {
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
 }
 
 .mc-unfold-pecas {
-  margin-top: 1.25rem;
+  margin-top: 1.75rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #d8e3e2;
+  border-top: 1px solid var(--mc-rule);
 }
 
 .mc-unfold-piece-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1.25rem 1rem;
 }
 
 .mc-unfold-piece {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.75rem 0 0;
+  gap: 0.4rem;
+  align-content: start;
 }
 
-.mc-unfold-piece img {
+.mc-unfold-piece img,
+.mc-unfold-piece .mc-unfold-thumb {
   width: 100%;
   height: auto;
-  border: 1px solid #d8e3e2;
-  background: #eef4f3;
+  background: var(--mc-paper);
+  box-shadow: inset 0 0 0 1px var(--mc-rule);
 }
 
 .mc-unfold-piece-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
+}
+
+@media (max-width: 1100px) {
+  .mc-unfold-pathbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mc-unfold-quote {
+    justify-items: start;
+    text-align: left;
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 900px) {
-  .mc-unfold-grid {
+  .mc-unfold-board {
     grid-template-columns: 1fr;
+  }
+
+  .mc-unfold-pathbar {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-unfold-item {
+    grid-template-columns: 4.8rem 1fr;
+  }
+
+  .mc-unfold-item .cx-input,
+  .mc-unfold-item textarea {
+    grid-column: 1 / -1;
   }
 }
 

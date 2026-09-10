@@ -14,6 +14,8 @@
     viewerProfiles: '/parametros/api/viewer-profiles',
     unfoldings: '/parametros/api/unfoldings',
     readKv: '/parametros/api/unfoldings/read-kv',
+    unfoldQuote: '/parametros/api/unfoldings/quote',
+    unfoldPaths: '/parametros/api/unfoldings/paths',
     imageTiers: '/parametros/api/image-tiers',
   };
   const MOCKUPS = {
@@ -68,6 +70,30 @@
     publishModalCampaignId: null,
     imageTiers: [],
     publishPicks: {},
+    unfoldPaths: null,
+    unfoldQuote: null,
+    unfoldItems: {},
+  };
+
+  const KV_ITEM_ORDER = [
+    ['logo', 'Logo'],
+    ['product_lockup', 'Produto'],
+    ['talent', 'Foto'],
+    ['headline', 'Headline'],
+    ['offer', 'Oferta'],
+    ['benefits', 'Benefícios'],
+    ['cta', 'CTA'],
+    ['legal', 'Legal'],
+    ['background', 'Fundo'],
+  ];
+  const SCENE_LABELS = {
+    square: 'feed',
+    story: 'story',
+    landscape: 'paisagem',
+    half_page: 'half page',
+    rectangle: 'rectangle',
+    wide: 'faixa',
+    mobile: 'mobile',
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -171,6 +197,8 @@
     if (name === 'desdobrar') {
       renderUnfoldFormats();
       renderUnfoldLibrary();
+      fillUnfoldModels();
+      quoteUnfoldPath();
       if (state.unfoldCampaign) {
         renderUnfoldSpend(state.unfoldCampaign);
         syncPublishTriggers();
@@ -189,6 +217,7 @@
       ['campaigns', 'campanhas', API.campaigns],
       ['viewerProfiles', 'ambientes de mídia', API.viewerProfiles],
       ['imageTiers', 'preços de imagem', API.imageTiers],
+      ['unfoldPaths', 'caminhos do desdobrador', API.unfoldPaths],
     ];
     const results = await Promise.allSettled(resources.map(([, , url]) => api(url)));
     const failures = [];
@@ -205,6 +234,8 @@
     renderClients();
     renderUnfoldFormats();
     renderUnfoldLibrary();
+    fillUnfoldModels();
+    quoteUnfoldPath();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -2842,13 +2873,16 @@
     const root = $('#mcUnfoldFormatList');
     if (!root) return;
     const formats = unfoldFormats();
+    if (!state.unfoldFormatIds.size && formats.length) {
+      formats.forEach((format) => state.unfoldFormatIds.add(String(format.id)));
+    }
     root.innerHTML = formats.map((format) => `
       <button type="button" class="mc-unfold-format ${state.unfoldFormatIds.has(String(format.id)) ? 'is-active' : ''}"
               data-unfold-format="${format.id}">
         <span class="mc-unfold-thumb" style="${unfoldThumbStyle(format)}"></span>
-        <strong>${escapeHtml(format.name_pt)}</strong>
-        <small>${escapeHtml(format.target_size || format.default_size || '')} · ${escapeHtml(format.iab_family || format.category || '')}</small>
-      </button>`).join('') || '<p class="mc-section-note">Nenhum formato estático disponível.</p>';
+        <strong>${escapeHtml(formatShortName(format))}</strong>
+        <small>${escapeHtml(format.target_size || format.default_size || '')}</small>
+      </button>`).join('') || '<p class="mc-section-note">Nenhum retângulo estático neste catálogo.</p>';
   }
 
   function renderUnfoldLibrary() {
@@ -2886,13 +2920,96 @@
     renderUnfoldLibrary();
   }
 
+  function unfoldEngine() {
+    return $('#mcUnfoldPathBar input[name="unfold_engine"]:checked')?.value || 'paint';
+  }
+
+  function unfoldPack() {
+    return Number($('#mcUnfoldPathBar input[name="unfold_pack"]:checked')?.value || 6);
+  }
+
+  function formatSceneLabel(format) {
+    const map = state.unfoldPaths?.format_scenes || {};
+    const key = map[format.slug] || format.iab_family || format.category || '';
+    return SCENE_LABELS[key] || key;
+  }
+
+  function formatShortName(format) {
+    return String(format.name_pt || '')
+      .replace(/^IAB\s+/i, '')
+      .replace(/^Instagram\s+[—–-]\s+/i, 'IG ')
+      .replace(/^Facebook\s+[—–-]\s+/i, 'FB ')
+      .replace(/^LinkedIn\s+[—–-]\s+/i, 'LI ')
+      .replace(/^TikTok\s+[—–-]\s+/i, 'TT ');
+  }
+
+  function fillUnfoldModels() {
+    const select = $('#mcUnfoldModel');
+    const models = state.unfoldPaths?.models;
+    if (!select || !models?.length) return;
+    const current = select.value;
+    select.innerHTML = models.map((model) => (
+      `<option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>`
+    )).join('');
+    select.value = models.some((model) => model.id === current)
+      ? current
+      : (unfoldEngine() === 'construct'
+        ? 'black-forest-labs/flux.2-pro'
+        : 'openai/gpt-image-2');
+  }
+
+  function collectUnfoldItems() {
+    const items = {};
+    KV_ITEM_ORDER.forEach(([id]) => {
+      const field = $(`#mcUnfoldItem-${id}`);
+      const status = $(`#mcUnfoldItemStatus-${id}`);
+      const text = field?.value.trim() || '';
+      items[id] = {
+        id,
+        text,
+        status: status?.value || (text ? 'uncertain' : 'absent'),
+        lines: id === 'benefits' ? text.split('\n').map((line) => line.trim()).filter(Boolean) : undefined,
+      };
+    });
+    return items;
+  }
+
+  function renderUnfoldItems(items = {}) {
+    const root = $('#mcUnfoldItems');
+    if (!root) return;
+    root.innerHTML = KV_ITEM_ORDER.map(([id, label]) => {
+      const item = items[id] || {};
+      const text = item.text || (Array.isArray(item.lines) ? item.lines.join('\n') : '');
+      const status = item.status || (text ? 'uncertain' : 'absent');
+      const multiline = id === 'benefits' || id === 'talent' || id === 'legal';
+      return `
+        <div class="mc-unfold-item is-${status}">
+          <span class="mc-unfold-item-name">${escapeHtml(label)}</span>
+          <select class="cx-select mc-unfold-item-status" id="mcUnfoldItemStatus-${id}" aria-label="Situação de ${label}">
+            <option value="seen" ${status === 'seen' ? 'selected' : ''}>Visto</option>
+            <option value="uncertain" ${status === 'uncertain' ? 'selected' : ''}>Conferir</option>
+            <option value="absent" ${status === 'absent' ? 'selected' : ''}>Fora</option>
+          </select>
+          ${multiline
+            ? `<textarea class="cx-input" id="mcUnfoldItem-${id}" rows="2">${escapeHtml(text)}</textarea>`
+            : `<input class="cx-input" id="mcUnfoldItem-${id}" value="${escapeHtml(text)}">`}
+        </div>`;
+    }).join('');
+  }
+
   function syncUnfoldReview() {
     const name = $('#mcUnfoldReviewName');
-    const headline = $('#mcUnfoldReviewHeadline');
-    const cta = $('#mcUnfoldReviewCta');
+    const items = collectUnfoldItems();
+    state.unfoldItems = items;
     if ($('#mcUnfoldName')) $('#mcUnfoldName').value = name?.value.trim() || '';
-    if ($('#mcUnfoldHeadlineHidden')) $('#mcUnfoldHeadlineHidden').value = headline?.value.trim() || '';
-    if ($('#mcUnfoldCtaHidden')) $('#mcUnfoldCtaHidden').value = cta?.value.trim() || '';
+    if ($('#mcUnfoldHeadlineHidden')) $('#mcUnfoldHeadlineHidden').value = items.headline?.text || '';
+    if ($('#mcUnfoldCtaHidden')) $('#mcUnfoldCtaHidden').value = items.cta?.text || '';
+    if ($('#mcUnfoldItemsHidden')) $('#mcUnfoldItemsHidden').value = JSON.stringify(items);
+    if ($('#mcUnfoldEngine')) $('#mcUnfoldEngine').value = unfoldEngine();
+    if ($('#mcUnfoldPack')) $('#mcUnfoldPack').value = String(unfoldPack());
+    if ($('#mcUnfoldFidelity')) {
+      $('#mcUnfoldFidelity').value = unfoldEngine() === 'construct' ? 'publish' : 'draft';
+    }
   }
 
   function applyKvReview(data = {}) {
@@ -2903,14 +3020,63 @@
       ...(Array.isArray(data.other_lines) ? data.other_lines : []),
     ].filter(Boolean);
     if ($('#mcUnfoldReviewName')) $('#mcUnfoldReviewName').value = data.name || data.headline || '';
-    if ($('#mcUnfoldReviewHeadline')) $('#mcUnfoldReviewHeadline').value = data.headline || '';
-    if ($('#mcUnfoldReviewCta')) $('#mcUnfoldReviewCta').value = data.cta || data.cta_text || '';
+    const items = data.items && typeof data.items === 'object' ? data.items : {};
+    if (!items.headline) {
+      items.headline = { text: data.headline || '', status: data.headline ? 'uncertain' : 'absent' };
+    }
+    if (!items.cta) {
+      items.cta = { text: data.cta || data.cta_text || '', status: (data.cta || data.cta_text) ? 'uncertain' : 'absent' };
+    }
+    if (!items.offer && data.subhead) {
+      items.offer = { text: data.subhead, status: 'uncertain' };
+    }
+    renderUnfoldItems(items);
     const extra = $('#mcUnfoldReviewExtra');
     if (extra) {
       extra.hidden = !extras.length;
-      extra.textContent = extras.join(' · ');
+      extra.textContent = extras.join('  ');
     }
     syncUnfoldReview();
+  }
+
+  async function quoteUnfoldPath() {
+    const box = $('#mcUnfoldQuote');
+    if (!box) return;
+    const formats = unfoldFormats().filter((format) => state.unfoldFormatIds.has(String(format.id)));
+    const body = {
+      engine: unfoldEngine(),
+      scene_pack: unfoldPack(),
+      image_model: $('#mcUnfoldModel')?.value,
+      fidelity: unfoldEngine() === 'construct' ? 'publish' : 'draft',
+      format_slugs: formats.map((format) => format.slug),
+      format_ids: formats.map((format) => format.id),
+    };
+    const fallback = () => {
+      box.querySelector('strong').textContent = 'R$ 0,00';
+      const detail = $('#mcUnfoldQuoteDetail');
+      if (detail) detail.textContent = formats.length
+        ? 'Não foi possível cotar. Confira os destinos.'
+        : 'Marque os retângulos para ver o lote.';
+    };
+    if (!formats.length) {
+      fallback();
+      return;
+    }
+    try {
+      const quoted = await api(API.unfoldQuote, { method: 'POST', body: JSON.stringify(body) });
+      state.unfoldQuote = quoted;
+      box.querySelector('strong').textContent = brl(quoted.total_brl);
+      const detail = $('#mcUnfoldQuoteDetail');
+      if (detail) {
+        const shared = Number(quoted.shared_pieces || 0);
+        const how = quoted.engine === 'construct' ? 'Montar em camadas' : 'Pintar a peça';
+        detail.textContent = shared
+          ? `${how}. ${quoted.photo_calls} fotos para ${quoted.pieces} peças, ${shared} no mesmo recorte.`
+          : `${how}. ${quoted.photo_calls} fotos para ${quoted.pieces} peças.`;
+      }
+    } catch (_) {
+      fallback();
+    }
   }
 
   function showUnfoldPreview(url) {
@@ -2922,10 +3088,12 @@
       image.src = url;
       preview.hidden = false;
       if (hint) hint.hidden = true;
+      $('#mcUnfoldDropzone')?.classList.add('has-kv');
     } else {
       image.removeAttribute('src');
       preview.hidden = true;
       if (hint) hint.hidden = false;
+      $('#mcUnfoldDropzone')?.classList.remove('has-kv');
     }
   }
 
@@ -2954,7 +3122,7 @@
       if (formStatus) formStatus.textContent = '';
     } catch (error) {
       applyKvReview({});
-      if (status) status.textContent = 'Não deu para ler o texto. Preencha headline ou CTA.';
+      if (status) status.textContent = 'A leitura falhou. Conferir headline e CTA na lista abaixo.';
       if (formStatus) formStatus.textContent = '';
       toast(error.message, 'warning');
     }
@@ -3004,16 +3172,17 @@
           <article class="mc-unfold-piece">
             ${url ? `<img src="${escapeHtml(url)}" alt="">` : '<div class="mc-unfold-thumb"></div>'}
             <strong>${escapeHtml(format?.name_pt || 'Formato')}</strong>
-            <small>${escapeHtml(format?.target_size || '')} · ${brl(asset.spent_brl || campaign?.spent_brl)}</small>
+            <small>${escapeHtml(format?.target_size || '')} ${brl(asset.spent_brl || campaign?.spent_brl)}</small>
             ${asset.id ? `<span class="mc-fidelity-chip ${assetFidelity(asset) === 'publish' ? 'is-publish' : 'is-draft'}">${assetFidelity(asset) === 'publish' ? 'Publicável' : 'Rascunho'}</span>` : ''}
+            <small>${(asset.metadata || {}).engine === 'construct' ? 'Montada' : 'Pintada'}</small>
             <div class="mc-unfold-piece-actions">
-              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_simple" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Variação simples</button>
-              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_max" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Variação máxima</button>
+              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_simple" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Outra cor</button>
+              <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-unfold-ab="ab_max" data-scene-id="${scene.id}" data-asset-id="${asset.id || ''}">Outro recorte</button>
             </div>
           </article>`;
       });
     });
-    root.innerHTML = cards.join('') || '<div class="cx-empty-state"><p>Gere um desdobramento para ver as peças no formato.</p></div>';
+    root.innerHTML = cards.join('') || '<div class="cx-empty-state"><p>Feche as peças para ver o contato neste tamanho.</p></div>';
     renderUnfoldSpend(campaign);
     syncPublishTriggers();
     refreshPublishModal();
@@ -3027,18 +3196,30 @@
       const data = new FormData(form);
       const formatIds = Array.from(state.unfoldFormatIds);
       if (!formatIds.length) {
-        toast('Escolha ao menos um formato.', 'warning');
+        toast('Marque ao menos um retângulo.', 'warning');
         return;
       }
       if (!data.get('kv')?.size && !data.get('source_asset_id')) {
-        toast('Solte o KV ou escolha uma peça gerada.', 'warning');
+        toast('Solte o KV ou pegue uma peça já gerada.', 'warning');
         return;
       }
       if (!data.get('source_asset_id')) data.delete('source_asset_id');
       if (!data.get('kv') || !data.get('kv').size) data.delete('kv');
       data.set('format_ids', JSON.stringify(formatIds));
       data.set('generate', 'true');
-      status.textContent = 'Gerando desdobramentos com o DNA da marca e as travas de copy…';
+      data.set('engine', unfoldEngine());
+      data.set('scene_pack', String(unfoldPack()));
+      data.set('image_model', $('#mcUnfoldModel')?.value || '');
+      data.set('fidelity', unfoldEngine() === 'construct' ? 'publish' : 'draft');
+      data.set('items', JSON.stringify(collectUnfoldItems()));
+      data.set('locks', JSON.stringify({
+        headline: $('#mcUnfoldHeadlineHidden')?.value || '',
+        cta: $('#mcUnfoldCtaHidden')?.value || '',
+        items: collectUnfoldItems(),
+      }));
+      status.textContent = unfoldEngine() === 'construct'
+        ? 'Montando as peças em camadas…'
+        : 'Pintando as peças…';
       try {
         const created = await api(API.unfoldings, { method: 'POST', body: data });
         const campaign = created.campaign || created;
@@ -3052,7 +3233,7 @@
         } catch (_) { /* o strip de custo já usa a campanha atual */ }
         renderUnfoldPieces(state.unfoldCampaign);
         status.textContent = '';
-        toast('Desdobramentos gerados.', 'success');
+        toast('Peças fechadas.', 'success');
       } catch (error) {
         status.textContent = error.message;
         toast(error.message, 'error');
@@ -3065,7 +3246,7 @@
     const assetId = button.dataset.assetId;
     const level = button.dataset.unfoldAb;
     if (!sceneId || !assetId) {
-      toast('Gere a peça antes de pedir a variação.', 'warning');
+      toast('Feche a peça antes de pedir outra cor ou recorte.', 'warning');
       return;
     }
     await withLock(`unfold-ab-${assetId}`, button, async () => {
@@ -3077,7 +3258,7 @@
         state.unfoldCampaign = await api(`${API.campaigns}/${state.unfoldCampaign.id}`);
         renderUnfoldPieces(state.unfoldCampaign);
       }
-      toast(level === 'ab_max' ? 'Variação máxima gerada.' : 'Variação simples gerada.', 'success');
+      toast(level === 'ab_max' ? 'Outro recorte gerado.' : 'Outra cor gerada.', 'success');
     });
   }
 
@@ -4030,6 +4211,7 @@
       if (state.unfoldFormatIds.has(id)) state.unfoldFormatIds.delete(id);
       else state.unfoldFormatIds.add(id);
       renderUnfoldFormats();
+      quoteUnfoldPath();
     });
     setupBrandDropzone('#mcUnfoldDropzone', '#mcUnfoldFile', acceptUnfoldKv);
     $('#mcUnfoldDropzone')?.addEventListener('paste', (event) => {
@@ -4048,9 +4230,22 @@
       if (!button) return;
       chooseUnfoldAsset(button);
     });
-    ['#mcUnfoldReviewName', '#mcUnfoldReviewHeadline', '#mcUnfoldReviewCta'].forEach((selector) => {
-      $(selector)?.addEventListener('input', syncUnfoldReview);
+    $('#mcUnfoldReviewName')?.addEventListener('input', syncUnfoldReview);
+    $('#mcUnfoldItems')?.addEventListener('input', syncUnfoldReview);
+    $('#mcUnfoldItems')?.addEventListener('change', syncUnfoldReview);
+    $('#mcUnfoldPathBar')?.addEventListener('change', (event) => {
+      if (event.target.name === 'unfold_engine') {
+        const select = $('#mcUnfoldModel');
+        if (select && unfoldEngine() === 'construct') {
+          select.value = 'black-forest-labs/flux.2-pro';
+        } else if (select) {
+          select.value = 'openai/gpt-image-2';
+        }
+      }
+      syncUnfoldReview();
+      quoteUnfoldPath();
     });
+    $('#mcUnfoldModel')?.addEventListener('change', quoteUnfoldPath);
     $('#mcUnfoldGenerate')?.addEventListener('click', (event) => {
       createUnfolding(event.currentTarget).catch((error) => toast(error.message, 'error'));
     });

@@ -412,6 +412,7 @@ class CreativeGenerationClient:
         output_format="png",
         resolution="2K",
         background="opaque",
+        model=None,
     ):
         raw_references = list(input_references or [])
         if len(raw_references) > 2:
@@ -422,8 +423,9 @@ class CreativeGenerationClient:
             raise OpenRouterError("OpenRouter não está configurado.")
         requested_aspect_ratio = aspect_ratio
         provider_aspect_ratio = normalize_image_aspect_ratio(aspect_ratio)
+        image_model = str(model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
         payload = {
-            "model": DEFAULT_IMAGE_MODEL,
+            "model": image_model,
             "prompt": prompt,
             "aspect_ratio": provider_aspect_ratio,
             "quality": quality,
@@ -454,7 +456,7 @@ class CreativeGenerationClient:
             usage = data.get("usage") or {}
             return {
                 "b64_json": encoded,
-                "model": data.get("model") or DEFAULT_IMAGE_MODEL,
+                "model": data.get("model") or image_model,
                 "usage": usage,
                 "actual_cost_usd": _usage_cost(usage),
                 "output_format": output_format,

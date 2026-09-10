@@ -48,6 +48,12 @@ from .creative_image_fidelity import (
     quote_image_publish,
     resolve_image_tier,
 )
+from .creative_construct_params import (
+    describe_unfold_paths,
+    model_unit_usd,
+    quote_unfold_path,
+    resolve_construct_path,
+)
 from .creative_modeling_prompts import (
     ANTI_AI_LOOK,
     BRIEF_LOCK_RULES,
@@ -120,6 +126,14 @@ def _brief_locks(record):
     if not isinstance(brief, dict):
         brief = {}
     return normalize_locks(brief.get("locks") or record.get("locks"))
+
+
+def _brief_path(record):
+    record = record if isinstance(record, dict) else {}
+    brief = record.get("creative_brief")
+    if not isinstance(brief, dict):
+        brief = {}
+    return resolve_construct_path(brief.get("construct_path") or brief)
 
 
 def _campaign_pack(value):
@@ -1350,6 +1364,7 @@ class CreativeModelingService:
                     payload.get("visual_bible"), "Bíblia visual", max_length=6000
                 ),
                 "campaign_pack": _campaign_pack(payload.get("campaign_pack")),
+                "construct_path": resolve_construct_path(payload),
                 "scenes": [
                     {
                         "position": index,
@@ -1572,6 +1587,7 @@ class CreativeModelingService:
         position = context["position"]
         flow_kind = _flow_kind(context)
         locks = _brief_locks(context)
+        path = _brief_path(context)
         direction = format_direction(context)
         beat = format_beat(context, position)
         request_context = {
@@ -1679,6 +1695,7 @@ class CreativeModelingService:
                 self._compose_copy(context),
                 flow_kind=flow_kind,
                 locks=locks,
+                engine=path.get("engine"),
             )
             if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt:
                 prompt = f"{prompt}\n\n{unfold_image_lock(locks)}"
@@ -1738,7 +1755,9 @@ class CreativeModelingService:
         render_mode = self._resolve_render_mode(render_mode, geometry["family"])
         flow_kind = _flow_kind(context)
         locks = _brief_locks(context)
-        tier = resolve_image_tier(fidelity)
+        path = _brief_path(context)
+        image_model = path.get("image_model") or DEFAULT_IMAGE_MODEL
+        tier = resolve_image_tier(fidelity or path.get("fidelity"))
         source_asset = None
         if source_asset_id not in (None, ""):
             assets = self.repository.get_assets(
@@ -1762,6 +1781,7 @@ class CreativeModelingService:
             self._compose_copy(context),
             flow_kind=flow_kind,
             locks=locks,
+            engine=path.get("engine"),
         )
         if flow_kind == "unfold" and "LOCK BLOCK FOR GPT IMAGE 2" not in prompt:
             prompt = f"{prompt}\n\n{unfold_image_lock(locks)}"
@@ -1769,14 +1789,14 @@ class CreativeModelingService:
         if tier["name"] == PUBLISH:
             prompt = apply_publish_upgrade(prompt)
             variant_level = "publish"
-        estimate = self._estimate("image", tier["name"])
+        estimate = self._estimate("image", tier["name"], image_model)
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
             None,
             context["format_template_id"],
             "image",
             "openrouter",
-            DEFAULT_IMAGE_MODEL,
+            image_model,
             estimate,
             prompt=prompt,
             request_payload={
@@ -1788,6 +1808,8 @@ class CreativeModelingService:
                 "target_size": geometry.get("target_size"),
                 "iab_cousin": geometry.get("iab_cousin"),
                 "flow_kind": flow_kind,
+                "engine": path.get("engine"),
+                "image_model": image_model,
                 "variant_level": variant_level,
                 "fidelity": tier["name"],
                 "quality": tier["quality"],
@@ -1853,6 +1875,7 @@ class CreativeModelingService:
                 aspect_ratio=context.get("aspect_ratio") or "16:9",
                 quality=tier["quality"],
                 resolution=tier["resolution"],
+                model=image_model,
             )
             source_url = self.storage.save_generated_base64(
                 generated["b64_json"], generated.get("output_format", "png")
@@ -1863,6 +1886,7 @@ class CreativeModelingService:
                 context,
                 geometry,
                 render_mode,
+                engine=path.get("engine"),
             )
             asset_url = composed["asset_url"]
             response_meta = generated.get("response_metadata") or {}
@@ -1932,6 +1956,8 @@ class CreativeModelingService:
                     "iab_cousin": geometry.get("iab_cousin"),
                     "source_raster": composed.get("source_raster"),
                     "flow_kind": flow_kind,
+                    "engine": path.get("engine"),
+                    "image_model": generated.get("model") or image_model,
                     "variant_level": variant_level,
                     "fidelity": tier["name"],
                     "quality": tier["quality"],
@@ -2378,7 +2404,7 @@ class CreativeModelingService:
             )
             extracted = normalize_locks(result.get("result"))
         except Exception:
-            pass
+            extracted = normalize_locks(extracted)
         name = extracted["headline"] or (
             extracted["other_lines"][0] if extracted["other_lines"] else ""
         )
@@ -2443,8 +2469,11 @@ class CreativeModelingService:
         locks = normalize_locks(payload.get("locks") or {
             "headline": payload.get("headline") or payload.get("campaign_text"),
             "cta": payload.get("cta_text"),
-            "has_logo": True,
+            "subhead": payload.get("subhead") or payload.get("offer"),
+            "has_logo": payload.get("has_logo", True),
+            "items": payload.get("items"),
         })
+        path = resolve_construct_path(payload)
         if not locks["headline"] or not locks["cta"]:
             kv_data = self._kv_data_url(kv_url)
             try:
@@ -2484,6 +2513,11 @@ class CreativeModelingService:
             "kv_notes": notes,
             "locks": locks,
             "source": source,
+            "engine": path["engine"],
+            "scene_pack": path["scene_pack"],
+            "image_model": path["image_model"],
+            "fidelity": path["fidelity"],
+            "construct_path": path,
             "productions": [
                 {"format_template_id": _integer(item, "Formato")}
                 for item in raw_ids
@@ -2493,17 +2527,24 @@ class CreativeModelingService:
             plan["created_by"] = created_by
         return plan
 
-    def generate_unfolding(self, campaign_id, created_by=None):
+    def generate_unfolding(self, campaign_id, created_by=None, payload=None):
         campaign = self.campaign_detail(campaign_id)
         if _flow_kind(campaign) != "unfold":
             raise ValueError("Esta campanha não é um desdobramento.")
+        path = resolve_construct_path({
+            **(_brief_path(campaign)),
+            **(payload if isinstance(payload, dict) else {}),
+        })
         pieces = []
         for production in campaign.get("productions") or []:
             for scene in production.get("scenes") or []:
                 if scene.get("prompt_status") != "approved":
                     self.generate_scene_prompt(scene["id"], created_by=created_by)
                 generated = self.generate_scene(
-                    scene["id"], [], created_by=created_by, fidelity=DRAFT
+                    scene["id"],
+                    [],
+                    created_by=created_by,
+                    fidelity=path["fidelity"],
                 )
                 pieces.append({
                     "production_id": production.get("id"),
@@ -2513,7 +2554,31 @@ class CreativeModelingService:
                 })
         detail = self.campaign_detail(campaign_id)
         detail["pieces"] = pieces
+        detail["construct_path"] = path
         return detail
+
+    def quote_unfolding(self, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        slugs = payload.get("format_slugs") or payload.get("slugs") or []
+        if isinstance(slugs, str):
+            slugs = [item.strip() for item in slugs.split(",") if item.strip()]
+        raw_ids = payload.get("format_ids") or payload.get("format_template_ids") or []
+        if isinstance(raw_ids, str):
+            raw_ids = [item for item in raw_ids.split(",") if item.strip()]
+        if not slugs and raw_ids:
+            for item in raw_ids:
+                try:
+                    row = self.repository.get_format(_integer(item, "Formato"))
+                except Exception:
+                    row = None
+                if row and row.get("slug"):
+                    slugs.append(row["slug"])
+        quoted = quote_unfold_path(payload, slugs)
+        quoted["paths"] = describe_unfold_paths()
+        return _serialize(quoted)
+
+    def list_unfold_paths(self):
+        return _serialize(describe_unfold_paths())
 
     def _campaign_publish_candidates(self, campaign, asset_ids=None):
         wanted = None
@@ -2875,12 +2940,13 @@ class CreativeModelingService:
         return results
 
     @staticmethod
-    def _estimate(kind, fidelity=None):
+    def _estimate(kind, fidelity=None, image_model=None):
         if kind == "image":
-            return _money(
-                image_tier_estimate_usd(fidelity or DRAFT),
-                "Custo estimado",
+            usd = (
+                model_unit_usd(image_model, fidelity or DRAFT)
+                if image_model else image_tier_estimate_usd(fidelity or DRAFT)
             )
+            return _money(usd, "Custo estimado")
         defaults = {"prompt": "0.020000", "script": "0.030000"}
         env = f"CREATIVE_{kind.upper()}_ESTIMATED_COST_USD"
         return _money(os.getenv(env, defaults[kind]), "Custo estimado")
@@ -3238,9 +3304,12 @@ class CreativeModelingService:
     @staticmethod
     def _compose_copy(context):
         locks = _brief_locks(context)
+        items = locks.get("items") or {}
+        omit_cta = (items.get("cta") or {}).get("status") == "absent"
         return {
             "headline": locks["headline"] or context.get("campaign_name") or "",
-            "cta": locks["cta"] or context.get("cta_text") or "",
+            "cta": "" if omit_cta else (locks["cta"] or context.get("cta_text") or ""),
+            "omit_cta": omit_cta,
             "brand_color": context.get("primary_color") or "#1E4D4F",
         }
 
@@ -3281,13 +3350,14 @@ class CreativeModelingService:
             return None
 
     def _compose_native_asset(
-        self, source_url, encoded, context, geometry, render_mode
+        self, source_url, encoded, context, geometry, render_mode, engine=None
     ):
         if not should_compose(
             geometry.get("family"),
             render_mode,
             context.get("position") or 1,
             context.get("scene_count") or 1,
+            engine=engine,
         ):
             return {"asset_url": source_url, "source_raster": None}
         try:

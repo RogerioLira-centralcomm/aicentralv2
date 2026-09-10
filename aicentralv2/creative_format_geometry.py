@@ -284,9 +284,11 @@ def default_render_mode(family):
     return "mockup"
 
 
-def should_compose(family, render_mode, position=1, scene_count=1):
+def should_compose(family, render_mode, position=1, scene_count=1, engine=None):
     if render_mode != "native":
         return False
+    if str(engine or "") == "construct":
+        return True
     if family in {"rectangle", "wide_banner", "half_page", "slate_16x9"}:
         return True
     if family == "sequence_16x9":

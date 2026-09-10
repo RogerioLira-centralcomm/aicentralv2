@@ -163,6 +163,7 @@
                 <button type="button" id="cx-agent-record-copy-link">
                   <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copiar link</span>
                 </button>
+                <div id="cx-agent-record-more-extra"></div>
                 <button type="button" id="cx-agent-record-switch">
                   <i class="fa-solid fa-right-left" aria-hidden="true"></i><span>Trocar</span>
                 </button>
@@ -225,6 +226,34 @@
       <span>Agente CentralX <small>v1.0.0</small></span>
     </footer>
   </section>
+
+  <dialog id="cx-agent-media-dialog" class="cx-agent-media-dialog" aria-labelledby="cx-agent-media-title">
+    <div class="cx-agent-media-modal">
+      <header class="cx-agent-media-header">
+        <div>
+          <span class="cx-agent-media-eyebrow">CentralX</span>
+          <h2 id="cx-agent-media-title">Arquivos</h2>
+        </div>
+        <button type="button" class="cx-agent-icon-btn" data-agent-media-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <div id="cx-agent-media-tabs" class="cx-agent-media-tabs" role="tablist"></div>
+      <div id="cx-agent-media-content" class="cx-agent-media-content" role="tabpanel" tabindex="0"></div>
+      <footer class="cx-agent-media-footer">
+        <button type="button" id="cx-agent-media-copy" class="cx-agent-media-btn">
+          <i class="fa-regular fa-copy" aria-hidden="true"></i>Copiar URL
+        </button>
+        <a id="cx-agent-media-open" href="#" target="_blank" rel="noopener noreferrer" class="cx-agent-media-btn">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir em outra aba
+        </a>
+        <a id="cx-agent-media-download" href="#" target="_blank" rel="noopener noreferrer" class="cx-agent-media-btn">
+          <i class="fa-solid fa-download" aria-hidden="true"></i>Baixar
+        </a>
+        <button type="button" class="cx-agent-media-btn is-primary" data-agent-media-close>Fechar</button>
+      </footer>
+    </div>
+  </dialog>
 
   <dialog id="cx-agent-scope-sheet" class="cx-agent-bottom-sheet" aria-labelledby="cx-agent-scope-sheet-title">
     <div class="cx-agent-bottom-sheet-handle" aria-hidden="true"></div>

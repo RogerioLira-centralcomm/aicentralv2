@@ -10,6 +10,8 @@ from urllib.parse import urlsplit
 from ...services.openrouter_service import OpenRouterError, chat_completion
 from .. import storage
 from ..context_records import CLIENT_ENTITY_TYPES, canonical_type
+from ..presenters import document_hints
+from ..tools.commercial import lookup_document_refs
 from ..tools.executor import execute_tool
 from ..tools.registry import ToolValidationError, get_tool, openrouter_tools
 
@@ -17,7 +19,9 @@ MAX_TOOL_CALLS = 6
 MAX_HISTORY = 12
 
 SYSTEM_POLICY = """Você é o Agente CentralX, assistente de alto nível do ERP CentralX.
-Responda em português brasileiro com clareza e objetividade.
+Responda em português brasileiro, curto e operacional.
+Não descreva em prosa dados que o componente visual já mostra.
+Não simule raciocínio interno, thinking, reasoning nem etapas inventadas.
 Você pode ajudar livremente com análise, redação, planejamento, síntese e interpretação de anexos.
 Para informações do CentralX, use exclusivamente as ferramentas: comercial (clientes, agências, contatos, cotações, objetivos),
 operação (PIs, campanhas, SLA), catálogo CADU (canais, plataformas, audiências, formatos)
@@ -25,6 +29,8 @@ e financeiro (notas fiscais e reembolsos).
 Nunca peça ao usuário ID, código, CNPJ ou o nome “completo” se ele já deu um termo.
 Com um nome, código ou trecho e SEM registro selecionado, busque imediatamente: buscar_cliente (clientes e agências),
 buscar_cotacao, buscar_pi, buscar_campanha, listar_canais_plataformas e buscar_audiencias.
+Se o usuário informar um código de cotação (COT-...), busque exatamente por esse código.
+Se informar um número de PI (ex.: 36826 ou PI 036826), use buscar_pi nesse número. Não faça resumo global antes.
 Se a busca devolver vários registros, PARE. Não escolha um sozinho e não chame listar_cotacoes,
 listar_contatos, listar_pis_cliente nem consultar_* até o usuário escolher.
 Agência e cliente final são registros diferentes, mesmo com nomes parecidos.
@@ -32,12 +38,16 @@ Quando houver um registro selecionado no agente (entity_id), use esse ID:
 listar_cotacoes(cliente_id=...), listar_contatos, listar_atividades, listar_pis_cliente, consultar_*.
 Nunca busque de novo pelo nome do registro já selecionado.
 Não peça dados que as ferramentas já consultam na base.
+Perguntas vagas (“quais PIs temos?”, “como estão as campanhas?”) devem usar resumir_operacao
+com o ano corrente e escopo adequado. Não liste centenas de registros. Mostre o resumo por status
+e ofereça aprofundar. Evite listar todos os finalizados.
 Para totais de PIs e campanhas, use resumir_operacao. Para faturamento e NF, use listar_notas_fiscais ou resumir_financeiro.
 Para reembolsos, use listar_reembolsos. Preserve os números retornados sem estimar.
 Use listar_pis_cliente para PIs de um cliente ou agência e listar_campanhas_pi para campanhas de um PI.
 Quando a pergunta envolver SLA, saúde, timeline, checklist, pendências ou próximos passos,
 use consultar_operacao_pi. Responda nesta ordem: conclusão, informação relevante, objetos, ação sugerida.
 Nunca invente dados empresariais, IDs, URLs ou resultados. URLs só podem vir das ferramentas.
+Não afirme vínculo entre um anexo e um registro se a ferramenta não encontrou correspondência.
 Para navegação interna, preserve a URL relativa retornada pela ferramenta. Se precisar escrever
 uma URL absoluta do CentralX, o único domínio permitido é https://ai.centralcomm.media.
 Nunca crie links para example.com, exemplo.com ou qualquer domínio substituto.
@@ -166,6 +176,8 @@ def _contextual_arguments(tool_name, arguments, context):
     client_types = CLIENT_ENTITY_TYPES | {canonical_type("agencia")}
     if "cliente_id" in tool.required and "cliente_id" not in args and entity_type in client_types:
         args["cliente_id"] = entity_id
+    if tool_name == "resumir_operacao" and "cliente_id" not in args and entity_type in client_types:
+        args["cliente_id"] = entity_id
     if "cotacao_id" in tool.required and "cotacao_id" not in args and entity_type in {"cotacao", "quote"}:
         args["cotacao_id"] = entity_id
     if "contato_id" in tool.required and "contato_id" not in args and entity_type in {"contato", "contact"}:
@@ -210,6 +222,31 @@ def run(
         if any(item.get("mime") == "application/pdf" for item in (attachments or []))
         else None
     )
+    current_user_text = ""
+    for item in history:
+        if str(item.get("id")) == str(user_message_id):
+            current_user_text = str(item.get("content") or "")
+            break
+    hints = document_hints(current_user_text, attachments)
+    if attachments and (hints.get("pis") or hints.get("quotes") or hints.get("invoices")):
+        try:
+            match = lookup_document_refs(hints)
+        except Exception:
+            match = None
+        if match and match.get("display"):
+            displays.append(match["display"])
+            if match.get("context_focus"):
+                ui["context_focus"] = match["context_focus"]
+        messages.append({
+            "role": "system",
+            "content": (
+                "O anexo sugeriu estes identificadores (não confiáveis até confirmar na base): "
+                + json.dumps(hints, ensure_ascii=False)
+                + ". Se a ferramenta relacionou um registro, mostre o objeto e distinga "
+                "dados do documento vs dados encontrados no CentralX. "
+                "Se não houver correspondência, diga que não encontrou e ofereça buscar."
+            ),
+        })
 
     try:
         while executed < MAX_TOOL_CALLS:

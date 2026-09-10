@@ -9,8 +9,34 @@ from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
 from ...pi_operacao_service import PiOperacaoService
 from .. import storage
 from ..context_records import client_subtype, type_label_for
+from ..presenters import (
+    COT_CODE_RE,
+    DEFAULT_OPERATION_YEAR,
+    drive_folders,
+    format_brl,
+    format_date_br,
+    format_period_br,
+    load_quote_details,
+    quote_kind_label,
+)
 
 MAX_RESULTS = 20
+
+
+def _resolve_year(ano):
+    if ano in (None, ""):
+        return DEFAULT_OPERATION_YEAR
+    try:
+        year = int(ano)
+    except (TypeError, ValueError):
+        return DEFAULT_OPERATION_YEAR
+    if year < 2000 or year > 2100:
+        return DEFAULT_OPERATION_YEAR
+    return year
+
+
+def _period_meta(year):
+    return {"label": "Período", "value": str(year), "change_prompt": "Alterar período"}
 
 
 def _number(value):
@@ -65,7 +91,7 @@ DONE_ACTIVITY_STATUS = {"concluida", "concluída", "cancelada"}
 def _ok(
     data, title, items=None, links=None, focus=None, confirmation=None,
     display_type="result_list", summary=None, actions=None, empty=None,
-    ambiguous=False,
+    ambiguous=False, period=None,
 ):
     items = items if items is not None else (data if isinstance(data, list) else [data])
     display = {
@@ -80,6 +106,8 @@ def _ok(
     if empty:
         display["empty"] = empty
         display["type"] = display.get("type") or "empty"
+    if period:
+        display["period"] = period
     result = {
         "success": True,
         "data": data,
@@ -358,15 +386,19 @@ def consultar_contato(
 def _quote_list_item(item):
     valor_num = _number(item.get("valor_total"))
     status = item.get("status_label") or item.get("status") or ""
+    kind = item.get("tipo_comercial_label") or quote_kind_label(item)
     return {
         "type": "cotacao",
         "id": item.get("id"),
         "title": item.get("titulo") or item.get("numero_cotacao") or "Cotação",
-        "subtitle": status,
+        "subtitle": " · ".join(filter(None, [status, kind])),
         "status": status,
+        "kind": kind,
+        "code": item.get("numero_cotacao") or "",
         "value": item.get("valor") if valor_num else "",
         "value_number": valor_num,
         "updated": item.get("data") or "",
+        "period": format_period_br(item.get("periodo_inicio"), item.get("periodo_fim")),
         "responsible": item.get("vendedor_nome") or "",
         "url": f"/cotacoes/{item.get('id')}/detalhes",
         "primary_action": "use_context",
@@ -539,13 +571,24 @@ def listar_cotacoes(
 def buscar_cotacao(
     query, limit=10, _viewer_user_id=None, _allow_global=False, **_
 ):
+    term = str(query or "").strip()
+    code_match = COT_CODE_RE.search(term)
+    if code_match:
+        term = code_match.group(0).upper()
     quotes, failed = _query_or_fail(lambda: get_store().search_cotacoes(
-        query,
+        term,
         min(limit, MAX_RESULTS),
         executivo_id=None if _allow_global else _viewer_user_id,
     ))
     if failed:
         return failed
+    if code_match:
+        exact = [
+            item for item in quotes
+            if str(item.get("numero_cotacao") or "").upper() == term
+        ]
+        if exact:
+            quotes = exact
     items = [_quote_list_item(item) for item in quotes]
     ambiguous = len(items) > 1
     return _ok(
@@ -555,7 +598,7 @@ def buscar_cotacao(
         display_type="quote_list",
         summary=(
             f'Encontrei {len(items)} cotações. Qual você quer consultar?'
-            if ambiguous else f"{len(items)} cotação encontrada."
+            if ambiguous else ("Encontrei a cotação." if items else f'Nenhuma cotação encontrada para “{query}”.')
         ) if items else f'Nenhuma cotação encontrada para “{query}”.',
         ambiguous=ambiguous,
         focus=None if ambiguous else _unique_exact_focus(query, items, "cotacao", "comercial", "cotacao"),
@@ -568,15 +611,31 @@ def consultar_cotacao(
     quote = get_store().get_cotacao(str(cotacao_id))
     if not quote or not _quote_allowed(quote, _viewer_user_id, _allow_global):
         return _error("Cotação não encontrada ou indisponível.")
+    details = load_quote_details(quote)
+    totals = details.get("totals") or {}
     item = {
         "type": "cotacao",
         "id": quote.get("id"),
         "title": quote.get("titulo") or quote.get("numero_cotacao") or "Cotação",
-        "subtitle": " · ".join(filter(None, [quote.get("status_label"), quote.get("valor")])),
+        "subtitle": " · ".join(filter(None, [
+            quote.get("status_label") or quote.get("status"),
+            quote_kind_label(quote),
+        ])),
+        "code": quote.get("numero_cotacao") or "",
+        "status": quote.get("status_label") or quote.get("status") or "",
+        "kind": quote_kind_label(quote),
+        "gross": format_brl(totals.get("valor_bruto") or quote.get("valor_total")),
+        "net": format_brl(totals.get("valor_liquido")),
+        "cost": format_brl(totals.get("total_custo_midia")),
+        "margin": details.get("margin") or "",
         "responsible": quote.get("vendedor_nome") or "Não informado",
         "client_id": quote.get("cliente_id") or "",
         "client": quote.get("cliente_nome") or "",
-        "period": " a ".join(filter(None, [quote.get("periodo_inicio"), quote.get("periodo_fim")])),
+        "period": format_period_br(quote.get("periodo_inicio"), quote.get("periodo_fim")),
+        "objective": quote.get("objetivo") or "",
+        "platforms": details.get("platforms") or [],
+        "items": details.get("items") or [],
+        "price_breakdown": details.get("breakdown") or [],
         "url": f"/cotacoes/{quote.get('id')}/detalhes",
     }
     return _ok(
@@ -585,6 +644,8 @@ def consultar_cotacao(
         [item],
         [{"label": "Abrir cotação", "url": item["url"]}],
         _focus("cotacao", item["id"], item["title"], "comercial", "cotacao"),
+        display_type="quote_summary",
+        summary="Encontrei a cotação.",
     )
 
 
@@ -644,31 +705,66 @@ def listar_formatos(query=None, limit=20, **_):
 
 
 def _pi_item(item):
+    code = item.get("codigo_pi_cc") or item.get("codigo_pi_ag") or ""
     return {
         "type": "pi",
         "id": item.get("id_pi"),
         "title": item.get("titulo_pi") or item.get("codigo_pi_cc") or f"PI {item.get('id_pi')}",
         "subtitle": " · ".join(filter(None, [
-            item.get("cliente_nome"), item.get("agencia_nome"), item.get("sub_status_descricao"),
+            item.get("sub_status_descricao"),
+            item.get("cliente_nome"),
         ])),
-        "code": item.get("codigo_pi_cc") or item.get("codigo_pi_ag") or "",
+        "code": code,
         "client": item.get("cliente_nome") or "",
         "agency": item.get("agencia_nome") or "",
         "status": item.get("sub_status_descricao") or "",
         "value": _number(item.get("vr_bruto_pi")),
+        "net": format_brl(item.get("vr_liquido_pi") or item.get("valor_liquido")),
+        "gross": format_brl(item.get("vr_bruto_pi")),
         "responsible": item.get("responsavel_comercial_nome") or "",
         "responsible_photo": item.get("responsavel_comercial_foto_url") or "",
-        "period": " a ".join(filter(None, [
-            str(item.get("periodo_inicio") or ""),
-            str(item.get("periodo_fim") or ""),
-        ])),
+        "role": item.get("responsavel_comercial_cargo") or "",
+        "start": format_date_br(item.get("periodo_inicio")),
+        "end": format_date_br(item.get("periodo_fim")),
+        "period": format_period_br(item.get("periodo_inicio"), item.get("periodo_fim")),
         "url": f"/cadu_pi/editar/{item.get('id_pi')}",
+        "drive_folders": drive_folders(item),
     }
 
 
-def buscar_pi(query, limit=10, **_):
+def buscar_pi(query, limit=10, status=None, ano=None, **_):
+    repo = PiOperacaoRepository()
+    exact = repo.obter_pi_por_numero(query)
+    if exact:
+        item = _pi_item(exact)
+        return _ok(
+            [item],
+            item["title"],
+            [item],
+            display_type="pi_summary",
+            summary="Encontrei o PI.",
+            focus=_focus("pi", item["id"], item["title"], "operacao", "pi"),
+        )
+    year = _resolve_year(ano)
+    if status:
+        rows, failed = _query_or_fail(
+            lambda: repo.listar_pis(
+                min(limit, MAX_RESULTS), year, status, None
+            )
+        )
+        if failed:
+            return failed
+        items = [_pi_item(item) for item in rows]
+        return _ok(
+            items,
+            f"PIs {status} em {year}",
+            items,
+            display_type="entity_list",
+            summary=f"{len(items)} PI(s) {status} em {year}.",
+            period=_period_meta(year),
+        )
     rows, failed = _query_or_fail(
-        lambda: PiOperacaoRepository().buscar_pis(query, min(limit, MAX_RESULTS))
+        lambda: repo.buscar_pis(query, min(limit, MAX_RESULTS))
     )
     if failed:
         return failed
@@ -693,9 +789,18 @@ def consultar_pi(pi_id, **_):
         raw = PiOperacaoRepository().obter_pi(str(pi_id))
     except PiNaoEncontradoError:
         return _error("PI não encontrado ou indisponível.")
+    campaigns = PiOperacaoRepository().listar_campanhas(str(pi_id))
     item = _pi_item(raw)
     item.update({
         "client_id": raw.get("id_cliente") or "",
+        "campaigns": [{
+            "id": row.get("id_campanha"),
+            "title": row.get("nome_campanha") or f"Campanha {row.get('id_campanha')}",
+            "status": row.get("status_descricao") or "",
+            "period": format_period_br(row.get("periodo_inicio"), row.get("periodo_fim")),
+            "dashboard": row.get("link_dash") or "",
+        } for row in campaigns],
+        "campaign_count": len(campaigns),
     })
     return _ok(
         item,
@@ -703,25 +808,42 @@ def consultar_pi(pi_id, **_):
         [item],
         [{"label": "Abrir PI", "url": item["url"]}],
         _focus("pi", item["id"], item["title"], "operacao", "pi"),
+        display_type="pi_summary",
+        summary="Encontrei o PI.",
     )
 
 
 def listar_pis_cliente(
-    cliente_id, limit=20, _viewer_user_id=None, _allow_global=False, **_
+    cliente_id, limit=20, status=None, ano=None,
+    _viewer_user_id=None, _allow_global=False, **_
 ):
     store = get_store()
     client = store.get_cliente(str(cliente_id))
     if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
         return _error("Cliente não encontrado ou indisponível.")
+    year = _resolve_year(ano)
+    if not status:
+        raw = PiOperacaoRepository().resumo_operacao(year, cliente_id)
+        return _status_summary(
+            "pis", year, raw.get("pis_por_status") or [],
+            count_key="total_pis", prompt_prefix="Liste os PIs",
+        )
+    if "finaliz" in str(status).casefold() and int(limit or 20) > 8:
+        limit = 8
     rows = PiOperacaoRepository().listar_pis_cliente(
-        str(cliente_id), min(limit, MAX_RESULTS)
+        str(cliente_id), min(limit, MAX_RESULTS), year, status
     )
     items = []
     for row in rows:
         enriched = dict(row)
         enriched.setdefault("cliente_nome", client.get("nome") or "")
         items.append(_pi_item(enriched))
-    return _ok(items, f"{len(items)} PI(s) deste cliente", items)
+    return _ok(
+        items, f"{len(items)} PI(s) deste cliente", items,
+        display_type="entity_list",
+        summary=f"{len(items)} PI(s) {status} em {year}.",
+        period=_period_meta(year),
+    )
 
 
 def _campaign_item(item):
@@ -731,29 +853,45 @@ def _campaign_item(item):
         "type": "campanha",
         "id": item.get("id_campanha"),
         "title": item.get("nome_campanha") or f"Campanha {item.get('id_campanha')}",
-        "subtitle": " · ".join(filter(None, [item.get("cliente_nome"), item.get("status_descricao"), item.get("plataforma_nome")])),
+        "subtitle": " · ".join(filter(None, [item.get("status_descricao"), item.get("plataforma_nome")])),
         "pi_id": item.get("id_pi") or "",
+        "pi_code": item.get("codigo_pi_cc") or item.get("codigo_pi_ag") or "",
         "client": item.get("cliente_nome") or "",
         "status": item.get("status_descricao") or "",
         "platform": item.get("plataforma_nome") or "",
         "responsible": item.get("responsavel_operacao_nome") or "",
         "responsible_photo": item.get("responsavel_operacao_foto_url") or "",
+        "role": item.get("responsavel_operacao_cargo") or "",
         "contracted": contracted,
         "achieved": achieved,
         "delivery_percent": _percentage(achieved, contracted),
         "spent": _number(item.get("totalizador_gasto")),
         "budget": _number(item.get("custo_midia_orcado")),
         "value": _number(item.get("valor_plataforma")),
-        "period": " a ".join(filter(None, [
-            str(item.get("periodo_inicio") or ""),
-            str(item.get("periodo_fim") or ""),
-        ])),
+        "period": format_period_br(item.get("periodo_inicio"), item.get("periodo_fim")),
         "dashboard": item.get("link_dash") or "",
         "url": f"/campanhas-pi/{item.get('id_campanha')}",
     }
 
 
-def buscar_campanha(query, limit=10, **_):
+def buscar_campanha(query, limit=10, status=None, ano=None, risco=False, **_):
+    year = _resolve_year(ano)
+    if status or risco:
+        items = [
+            _campaign_item(item)
+            for item in PiOperacaoRepository().listar_campanhas_filtradas(
+                min(limit, MAX_RESULTS), year, status, None, bool(risco)
+            )
+        ]
+        label = "com risco" if risco else status
+        return _ok(
+            items,
+            f"Campanhas {label} em {year}",
+            items,
+            display_type="entity_list",
+            summary=f"{len(items)} campanha(s) {label} em {year}.",
+            period=_period_meta(year),
+        )
     items = [
         _campaign_item(item)
         for item in PiOperacaoRepository().buscar_campanhas(query, min(limit, MAX_RESULTS))
@@ -778,6 +916,8 @@ def consultar_campanha(campanha_id, **_):
         [item],
         [{"label": "Abrir campanha", "url": item["url"]}],
         _focus("campanha", item["id"], item["title"], "operacao", "campanha"),
+        display_type="campaign_summary",
+        summary="Encontrei a campanha.",
     )
 
 
@@ -822,8 +962,77 @@ def consultar_operacao_pi(pi_id, **_):
     )
 
 
-def resumir_operacao(**_):
-    raw = PiOperacaoRepository().resumo_operacao()
+def _status_summary(kind, year, rows, count_key="total_pis", prompt_prefix="Liste os PIs"):
+    counts = [{
+        "status": item.get("status_descricao") or item.get("status") or "Sem status",
+        "count": int(item.get(count_key) or item.get("count") or 0),
+        "label": item.get("status_descricao") or item.get("status") or "Sem status",
+    } for item in rows]
+    display_items = [{
+        "title": item["status"],
+        "subtitle": f'{item["count"]}',
+        "count": item["count"],
+        "group": kind,
+    } for item in counts]
+    title = f"{'PIs' if kind == 'pis' else 'Campanhas'} em {year}"
+    actions = []
+    for item in counts:
+        status = item["status"]
+        lowered = status.casefold()
+        if "finaliz" in lowered and item["count"] > 8:
+            continue
+        if item["count"] <= 0:
+            continue
+        if kind == "pis":
+            actions.append({
+                "kind": "prompt",
+                "label": status,
+                "prompt": f"{prompt_prefix} {status.casefold()}.",
+            })
+        else:
+            actions.append({
+                "kind": "prompt",
+                "label": f"Ver {status.casefold()}",
+                "prompt": f"Liste as campanhas {status.casefold()}.",
+            })
+    result = _ok(
+        {"year": year, "counts": counts, "total": sum(item["count"] for item in counts)},
+        title,
+        display_items,
+        display_type="status_summary",
+        summary=title,
+        actions=actions[:6],
+        period=_period_meta(year),
+    )
+    result["display"]["groups"] = [{
+        "title": title,
+        "items": [{"label": item["status"], "count": item["count"]} for item in counts],
+    }]
+    result["display"]["metrics"] = [
+        {"label": "Período", "value": year},
+        {"label": "Total", "value": sum(item["count"] for item in counts)},
+    ]
+    return result
+
+
+def resumir_operacao(ano=None, cliente_id=None, escopo=None, **_):
+    year = _resolve_year(ano)
+    raw = PiOperacaoRepository().resumo_operacao(year, cliente_id)
+    escopo = str(escopo or "operacao").casefold()
+    if escopo in {"pis", "pi"}:
+        return _status_summary("pis", year, raw.get("pis_por_status") or [], "total_pis")
+    if escopo in {"campanhas", "campanha"}:
+        campaign_rows = raw.get("campanhas_por_status") or []
+        summary = _status_summary(
+            "campanhas", year, campaign_rows, "total_campanhas", "Liste as campanhas"
+        )
+        actions = list(summary["display"]["actions"])
+        actions.append({
+            "kind": "prompt", "label": "Ver com risco",
+            "prompt": "Liste as campanhas com risco.",
+        })
+        summary["display"]["actions"] = actions
+        return summary
     pis_por_status = [{
         "status": item.get("status_descricao") or "Sem status",
         "count": int(item.get("total_pis") or 0),
@@ -846,6 +1055,7 @@ def resumir_operacao(**_):
         "count": int(item.get("total_campanhas") or 0),
     } for item in raw.get("campanhas_por_plataforma", [])]
     data = {
+        "year": year,
         "total_pis": sum(item["count"] for item in pis_por_status),
         "gross_value": round(sum(item["gross_value"] for item in pis_por_status), 2),
         "total_campaigns": sum(item["count"] for item in campanhas_por_status),
@@ -873,19 +1083,32 @@ def resumir_operacao(**_):
         for item in campanhas_por_status
     ]
     actions = []
-    if any("ativ" in str(item["status"]).casefold() for item in campanhas_por_status):
-        actions.append({"kind": "prompt", "label": "Campanhas ativas", "prompt": "Liste as campanhas ativas."})
-    if any("fatur" in str(item["status"]).casefold() for item in pis_por_status):
-        actions.append({"kind": "prompt", "label": "PIs em faturamento", "prompt": "Liste os PIs em faturamento."})
+    for item in pis_por_status:
+        if item["count"] and "finaliz" not in item["status"].casefold():
+            actions.append({
+                "kind": "prompt",
+                "label": item["status"],
+                "prompt": f"Liste os PIs {item['status'].casefold()}.",
+            })
+    for item in campanhas_por_status:
+        lowered = item["status"].casefold()
+        if item["count"] and "finaliz" not in lowered:
+            actions.append({
+                "kind": "prompt",
+                "label": f"Ver {item['status'].casefold()}",
+                "prompt": f"Liste as campanhas {item['status'].casefold()}.",
+            })
     result = _ok(
         data,
-        "Operação hoje",
+        f"Operação em {year}",
         display_items,
         display_type="operation_summary",
-        summary="Operação hoje",
-        actions=actions,
+        summary=f"Operação em {year}",
+        actions=actions[:8],
+        period=_period_meta(year),
     )
     result["display"]["metrics"] = [
+        {"label": "Período", "value": year},
         {"label": "PIs", "value": data["total_pis"]},
         {"label": "Campanhas", "value": data["total_campaigns"]},
         {"label": "Valor bruto", "value": data["gross_value"], "kind": "currency"},
@@ -948,9 +1171,9 @@ def listar_notas_fiscais(
         "amount": _number(item.get("valor")),
         "net": _number(item.get("valor_liquido")),
         "status": item.get("status_descricao") or "",
-        "issued_at": str(item.get("data_emissao") or ""),
-        "paid_at": str(item.get("data_pag_realizado") or ""),
-        "due": str(item.get("data_pag_prevista") or ""),
+        "issued_at": format_date_br(item.get("data_emissao")),
+        "paid_at": format_date_br(item.get("data_pag_realizado")),
+        "due": format_date_br(item.get("data_pag_prevista")),
         "pi_id": item.get("id_pi"),
         "url": f"/cadu_pi/editar/{item.get('id_pi')}" if item.get("id_pi") else "/financeiro/",
     } for item in rows]
@@ -1096,3 +1319,58 @@ def preparar_alteracao_contato(
         "phone": changes.get("telefone") or before.get("telefone") or "",
     }
     return _ok(preview, confirmation["title"], [preview], confirmation=confirmation)
+
+
+def lookup_document_refs(hints):
+    """Tenta relacionar identificadores extraídos de um anexo com registros reais."""
+    hits = []
+    unmatched = []
+    repo = PiOperacaoRepository()
+    store = get_store()
+    for number in hints.get("pis") or []:
+        raw = repo.obter_pi_por_numero(number)
+        if raw:
+            item = _pi_item(raw)
+            item["origin"] = "centralx"
+            hits.append(item)
+        else:
+            unmatched.append({"kind": "pi", "value": number})
+    for code in hints.get("quotes") or []:
+        quotes = store.search_cotacoes(code, 3) or []
+        exact = [
+            item for item in quotes
+            if str(item.get("numero_cotacao") or "").upper() == str(code).upper()
+        ]
+        if exact:
+            item = _quote_list_item(exact[0])
+            item["origin"] = "centralx"
+            hits.append(item)
+        else:
+            unmatched.append({"kind": "cotacao", "value": code})
+    if not hits:
+        return _ok(
+            {"source": "document", "matches": [], "unmatched": unmatched},
+            "Documento identificado",
+            [],
+            display_type="document_summary",
+            summary="Não encontrei um registro correspondente no CentralX.",
+            empty={
+                "title": "Não encontrei um registro correspondente no CentralX.",
+                "body": "O documento foi lido, mas não deu para relacionar com um PI, cotação ou NF com segurança.",
+                "actions": [
+                    {"kind": "prompt", "label": "Buscar cliente", "prompt": "Busque o cliente mencionado neste documento."},
+                    {"kind": "prompt", "label": "Buscar PI", "prompt": "Busque o PI mencionado neste documento."},
+                    {"kind": "prompt", "label": "Buscar cotação", "prompt": "Busque a cotação mencionada neste documento."},
+                ],
+            },
+        )
+    item = hits[0]
+    display_type = "pi_summary" if item.get("type") == "pi" else "quote_summary"
+    return _ok(
+        {"source": "centralx", "document": hints, "matches": hits, "unmatched": unmatched},
+        item.get("title") or "Documento identificado",
+        hits,
+        display_type=display_type,
+        summary="Documento identificado. Dados encontrados no CentralX.",
+        focus=_focus(item.get("type"), item.get("id"), item.get("title"), "operacao" if item.get("type") == "pi" else "comercial", item.get("type")),
+    )

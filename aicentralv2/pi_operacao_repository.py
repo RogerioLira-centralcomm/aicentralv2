@@ -7,6 +7,22 @@ class PiNaoEncontradoError(LookupError):
     pass
 
 
+def _year_clause(alias, year, date_column="periodo_inicio"):
+    year = int(year)
+    return (
+        f" AND (EXTRACT(YEAR FROM {alias}.{date_column}) = %s"
+        f" OR ({alias}.{date_column} IS NULL"
+        f" AND EXTRACT(YEAR FROM COALESCE({alias}.updated_at, CURRENT_TIMESTAMP)) = %s))"
+    ), [year, year]
+
+
+def _status_clause(alias_display, status):
+    wanted = str(status or "").strip()
+    if not wanted:
+        return "", []
+    return f" AND unaccent(COALESCE({alias_display}, '')) ILIKE unaccent(%s)", [f"%{wanted}%"]
+
+
 def _brl_sum_sql(expr):
     """Soma valores BRL guardados como texto (ex.: 'R$ 8.000,00')."""
     return (
@@ -54,13 +70,16 @@ class PiOperacaoRepository:
                        p.id_cliente, p.id_agencia,
                        p."Id_parc_reg" AS id_parceiro,
                        p.id_resp_comercial,
-                       p.id_pi_tipo, p.vr_bruto_pi, p.desvio_aceitavel_pct,
+                       p.id_pi_tipo, p.vr_bruto_pi, p.vr_liquido_pi,
+                       p.desvio_aceitavel_pct,
                        p.id_cont_cliente_midia, p.id_cont_cliente_financ,
                        p.id_cont_agen_midia, p.id_cont_agen_financ,
                        p.cotacao_id, cot.proposta_enviada_em,
                        cot.status AS cotacao_status,
                        p.id_sub_status_pi, p.id_status_pi, p.periodo_inicio,
                        p.periodo_fim, p.mes_ref_comp, p.observacoes_operacao,
+                       p.googled_pi_princ, p.googled_pi_financ,
+                       p.googled_pi_pecas, p.googled_pi_arq_ass,
                        p.updated_at,
                        cli.nome_fantasia AS cliente_nome,
                        ag.nome_fantasia AS agencia_nome,
@@ -144,25 +163,76 @@ class PiOperacaoRepository:
             raise LookupError("Campanha não encontrada.")
         return dict(row)
 
-    def listar_pis_cliente(self, cliente_id, limite=8):
+    def obter_pi_por_numero(self, termo):
+        digits = "".join(ch for ch in str(termo or "") if ch.isdigit())
+        if not digits:
+            return None
+        try:
+            return self.obter_pi(int(digits))
+        except (PiNaoEncontradoError, ValueError, TypeError):
+            return None
+
+    def listar_pis_cliente(self, cliente_id, limite=8, ano=None, status=None):
+        year_sql, year_params = _year_clause("p", ano) if ano else ("", [])
+        status_sql, status_params = _status_clause("ss.display", status)
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
                        p.id_cliente, p.id_agencia, p.cotacao_id, p.vr_bruto_pi,
-                       p.periodo_inicio, p.periodo_fim,
+                       p.vr_liquido_pi, p.periodo_inicio, p.periodo_fim,
                        cli.nome_fantasia AS cliente_nome,
                        ag.nome_fantasia AS agencia_nome,
-                       ss.display AS sub_status_descricao
+                       ss.display AS sub_status_descricao,
+                       resp.nome_completo AS responsavel_comercial_nome,
+                       resp.foto_url AS responsavel_comercial_foto_url
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
                   LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
-                 WHERE p.id_cliente = %s OR p.id_agencia = %s
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = p.id_resp_comercial
+                 WHERE (p.id_cliente = %s OR p.id_agencia = %s)
+                """ + year_sql + status_sql + """
                  ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
                  LIMIT %s
                 """,
-                (cliente_id, cliente_id, max(1, min(int(limite or 8), 20))),
+                (cliente_id, cliente_id, *year_params, *status_params,
+                 max(1, min(int(limite or 8), 20))),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def listar_pis(self, limite=8, ano=None, status=None, cliente_id=None):
+        year_sql, year_params = _year_clause("p", ano) if ano else ("", [])
+        status_sql, status_params = _status_clause("ss.display", status)
+        client_sql, client_params = ("", [])
+        if cliente_id:
+            client_sql = " AND (p.id_cliente = %s OR p.id_agencia = %s)"
+            client_params = [cliente_id, cliente_id]
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
+                       p.id_cliente, p.id_agencia, p.cotacao_id, p.vr_bruto_pi,
+                       p.vr_liquido_pi, p.periodo_inicio, p.periodo_fim,
+                       cli.nome_fantasia AS cliente_nome,
+                       ag.nome_fantasia AS agencia_nome,
+                       ss.display AS sub_status_descricao,
+                       resp.nome_completo AS responsavel_comercial_nome,
+                       resp.foto_url AS responsavel_comercial_foto_url
+                  FROM cadu_pi p
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                  LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
+                  LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = p.id_resp_comercial
+                 WHERE TRUE
+                """ + client_sql + year_sql + status_sql + """
+                 ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
+                 LIMIT %s
+                """,
+                (*client_params, *year_params, *status_params,
+                 max(1, min(int(limite or 8), 20))),
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -240,7 +310,16 @@ class PiOperacaoRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def resumo_operacao(self):
+    def resumo_operacao(self, ano=None, cliente_id=None):
+        year_sql, year_params = _year_clause("p", ano) if ano else ("", [])
+        camp_year_sql, camp_year_params = _year_clause("c", ano) if ano else ("", [])
+        client_sql, client_params = ("", [])
+        camp_client_sql, camp_client_params = ("", [])
+        if cliente_id:
+            client_sql = " AND (p.id_cliente = %s OR p.id_agencia = %s)"
+            client_params = [cliente_id, cliente_id]
+            camp_client_sql = " AND c.id_cliente = %s"
+            camp_client_params = [cliente_id]
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -250,9 +329,12 @@ class PiOperacaoRepository:
                        """ + _brl_sum_sql("p.vr_bruto_pi") + """ AS valor_bruto
                   FROM cadu_pi p
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
+                 WHERE TRUE
+                """ + client_sql + year_sql + """
                  GROUP BY p.id_sub_status_pi, ss.display
                  ORDER BY p.id_sub_status_pi
-                """
+                """,
+                (*client_params, *year_params),
             )
             pi_status = [dict(row) for row in cursor.fetchall()]
             cursor.execute(
@@ -265,9 +347,12 @@ class PiOperacaoRepository:
                        """ + _brl_sum_sql("c.custo_midia_orcado") + """ AS custo_orcado
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
+                 WHERE TRUE
+                """ + camp_client_sql + camp_year_sql + """
                  GROUP BY c.id_status, st.descricao
                  ORDER BY c.id_status
-                """
+                """,
+                (*camp_client_params, *camp_year_params),
             )
             campanha_status = [dict(row) for row in cursor.fetchall()]
             cursor.execute(
@@ -277,16 +362,68 @@ class PiOperacaoRepository:
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi_camp_plataforma plt
                          ON plt.id_plataforma = c.id_plataforma
+                 WHERE TRUE
+                """ + camp_client_sql + camp_year_sql + """
                  GROUP BY c.id_plataforma, plt.descricao
                  ORDER BY COUNT(*) DESC, plt.descricao
-                """
+                """,
+                (*camp_client_params, *camp_year_params),
             )
             plataformas = [dict(row) for row in cursor.fetchall()]
         return {
+            "ano": ano,
             "pis_por_status": pi_status,
             "campanhas_por_status": campanha_status,
             "campanhas_por_plataforma": plataformas,
         }
+
+    def listar_campanhas_filtradas(self, limite=8, ano=None, status=None, cliente_id=None, risco=False):
+        year_sql, year_params = _year_clause("c", ano) if ano else ("", [])
+        status_sql, status_params = _status_clause("st.descricao", status)
+        client_sql, client_params = ("", [])
+        if cliente_id:
+            client_sql = " AND c.id_cliente = %s"
+            client_params = [cliente_id]
+        risco_sql = ""
+        if risco:
+            risco_sql = (
+                " AND NULLIF(replace(replace(regexp_replace(COALESCE(c.obj_contratados, ''),"
+                " '[^0-9,.-]', '', 'g'), '.', ''), ',', '.'), '')::numeric > 0"
+                " AND (NULLIF(replace(replace(regexp_replace(COALESCE(c.totalizador_atingido, ''),"
+                " '[^0-9,.-]', '', 'g'), '.', ''), ',', '.'), '')::numeric"
+                " / NULLIF(replace(replace(regexp_replace(COALESCE(c.obj_contratados, ''),"
+                " '[^0-9,.-]', '', 'g'), '.', ''), ',', '.'), '')::numeric) < 0.8"
+            )
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id_campanha, c.id_pi, c.id_cliente, c.nome_campanha,
+                       c.link_dash, c.valor_plataforma, c.custo_midia_orcado,
+                       c.obj_contratados, c.totalizador_atingido,
+                       c.totalizador_gasto, c.periodo_inicio, c.periodo_fim,
+                       st.descricao AS status_descricao,
+                       plt.descricao AS plataforma_nome,
+                       cli.nome_fantasia AS cliente_nome,
+                       resp.nome_completo AS responsavel_operacao_nome,
+                       resp.foto_url AS responsavel_operacao_foto_url,
+                       p.codigo_pi_cc, p.codigo_pi_ag
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN cadu_pi p ON p.id_pi = c.id_pi
+                  LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
+                  LEFT JOIN cadu_pi_camp_plataforma plt
+                         ON plt.id_plataforma = c.id_plataforma
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.id_cliente
+                  LEFT JOIN tbl_contato_cliente resp
+                         ON resp.id_contato_cliente = c.id_responsavel_operacao
+                 WHERE TRUE
+                """ + client_sql + year_sql + status_sql + risco_sql + """
+                 ORDER BY c.updated_at DESC NULLS LAST, c.id_campanha DESC
+                 LIMIT %s
+                """,
+                (*client_params, *year_params, *status_params,
+                 max(1, min(int(limite or 8), 20))),
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def listar_notas_fiscais(self, pi_id=None, cliente_id=None, limite=8):
         clauses = ["TRUE"]

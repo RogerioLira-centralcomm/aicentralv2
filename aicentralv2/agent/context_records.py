@@ -4,6 +4,14 @@ from decimal import Decimal
 from urllib.parse import urlsplit
 
 from ..pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
+from .presenters import (
+    drive_folders,
+    format_brl,
+    format_date_br,
+    format_period_br,
+    load_quote_details,
+    quote_kind_label,
+)
 
 
 class ContextRecordError(LookupError):
@@ -108,6 +116,31 @@ def _fact(label, value, copy=False):
     if value in (None, ""):
         return None
     return {"label": label, "value": value, "copy": bool(copy)}
+
+
+def _period_fact(start, end):
+    return _fact("Período", format_period_br(start, end))
+
+
+def _money_fact(label, value):
+    return _fact(label, format_brl(value))
+
+
+def _secondary_actions(*actions):
+    return [item for item in actions if item]
+
+
+def _drive_action(folders, label="Pasta do Drive"):
+    if not folders:
+        return None
+    return {"kind": "drive", "label": label, "folders": folders}
+
+
+def _dashboard_action(url, label="Dashboard"):
+    href = safe_context_url(url, allow_external=True)
+    if not href:
+        return None
+    return {"kind": "dashboard", "label": label, "url": href}
 
 
 def _facts(*items):
@@ -288,7 +321,7 @@ def _client_context(store, pi_repo, client, client_allowed):
                 _entity(
                     "atividade", item.get("id") or index,
                     item.get("titulo") or item.get("tipo") or "Atividade",
-                    " · ".join(filter(None, [item.get("data"), item.get("status")])),
+                    " · ".join(filter(None, [format_date_br(item.get("data")), item.get("status")])),
                     url,
                 )
                 for index, item in enumerate(open_activities[:8])
@@ -393,7 +426,11 @@ def _quote_context(store, pi_repo, quote, quote_allowed):
         raise ContextRecordError("Cotação não encontrada.")
     quote_id = str(quote["id"])
     client_id = str(quote.get("cliente_id") or "")
+    agency_id = str(quote.get("agencia_id") or "")
     client = store.get_cliente(client_id) if client_id else None
+    agency = store.get_cliente(agency_id) if agency_id and agency_id != client_id else None
+    details = load_quote_details(quote)
+    totals = details.get("totals") or {}
     pis = []
     if client_id:
         try:
@@ -405,6 +442,9 @@ def _quote_context(store, pi_repo, quote, quote_allowed):
             pis = []
     url = f"/cotacoes/{quote_id}/detalhes"
     title = quote.get("titulo") or quote.get("numero_cotacao") or "Cotação"
+    code = quote.get("numero_cotacao") or ""
+    status = quote.get("status_label") or quote.get("status") or ""
+    kind = quote_kind_label(quote)
     context = {
         "module": "comercial",
         "screen": "cotacao",
@@ -424,6 +464,16 @@ def _quote_context(store, pi_repo, quote, quote_allowed):
                 entity_subtype=client_subtype(client),
             )],
         })
+    if agency:
+        relations.append({
+            "key": "agency", "title": "Agência", "count": 1,
+            "items": [_entity(
+                "cliente", agency_id, agency.get("nome") or "Agência",
+                type_label_for("cliente", "agencia"),
+                f"/crm-v3/#cliente={agency_id}",
+                entity_subtype="agencia",
+            )],
+        })
     if pis:
         relations.append({
             "key": "pis", "title": "PIs", "count": len(pis),
@@ -433,33 +483,85 @@ def _quote_context(store, pi_repo, quote, quote_allowed):
                 for item in pis
             ],
         })
+    primary = [
+        {"kind": "open", "label": "Abrir cotação", "url": url},
+        {"kind": "prompt", "label": "Preparar follow-up", "prompt": f"Prepare um follow-up para a cotação {title}."},
+    ]
+    secondary = _secondary_actions(
+        {"kind": "copy", "label": "Copiar link", "value": url},
+        {"kind": "prompt", "label": "Ver histórico", "prompt": "Mostre o histórico desta cotação."},
+        {"kind": "use_context", "label": "Ver cliente", "entity_type": "cliente", "entity_id": client_id,
+         "entity_label": (client or {}).get("nome") or "Cliente",
+         "entity_subtype": client_subtype(client)} if client else None,
+        {"kind": "use_context", "label": "Ver PI relacionado", "entity_type": "pi",
+         "entity_id": str(pis[0]["id_pi"]),
+         "entity_label": pis[0].get("titulo_pi") or f"PI {pis[0]['id_pi']}"} if pis else None,
+    )
     payload = _base(
-        "cotacao", quote, context, title, quote.get("numero_cotacao") or "", url,
+        "cotacao", quote, context, title, code, url,
         _facts(
-            _fact("Status", quote.get("status_label") or quote.get("status")),
-            _fact("Valor", quote.get("valor")),
-            _fact("Responsável", quote.get("vendedor_nome")),
-            _fact("Período", " a ".join(filter(None, [str(quote.get("periodo_inicio") or ""), str(quote.get("periodo_fim") or "")]))),
+            _money_fact("Valor bruto", totals.get("valor_bruto") or quote.get("valor_total")),
+            _money_fact("Valor líquido", totals.get("valor_liquido")),
+            _money_fact("Custo de mídia", totals.get("total_custo_midia")),
+            _fact("Margem", details.get("margin")),
+            _period_fact(quote.get("periodo_inicio"), quote.get("periodo_fim")),
             _fact("Objetivo", quote.get("objetivo")),
+            _fact("KPI", quote.get("kpi") or quote.get("kpi_principal")),
+            _fact("Meta", quote.get("meta_entrega") or quote.get("objetivo_contratado")),
         ),
         relations,
-        [
-            {"kind": "open", "label": "Abrir cotação", "url": url},
-            {"kind": "copy", "label": "Copiar link", "value": url},
-            {"kind": "prompt", "label": "Preparar follow-up", "prompt": f"Prepare um follow-up para a cotação {title}."},
-        ],
+        primary,
+        "Cotação",
     )
-    payload.update({"client": client, "pis": pis, "can_edit": False})
+    payload["identity"]["meta"] = " · ".join(filter(None, [status, kind]))
+    payload["identity"]["code"] = code
+    payload["identity"]["status"] = status
+    payload["identity"]["kind"] = kind
+    payload.update({
+        "client": client,
+        "agency": agency,
+        "pis": pis,
+        "can_edit": False,
+        "platforms": details.get("platforms") or [],
+        "quote_items": details.get("items") or [],
+        "price_breakdown": details.get("breakdown") or [],
+        "sections": [
+            {"key": "items", "title": "Itens da proposta", "count": len(details.get("items") or []), "collapsed": True},
+            {"key": "pricing", "title": "Composição de preço", "count": len(details.get("breakdown") or []), "collapsed": True},
+        ],
+        "actions_secondary": secondary,
+    })
     return payload
+
+
+def _campaign_row(item):
+    return _entity(
+        "campanha", item["id_campanha"],
+        item.get("nome_campanha") or f"Campanha {item['id_campanha']}",
+        " · ".join(filter(None, [
+            item.get("status_descricao"),
+            format_period_br(item.get("periodo_inicio"), item.get("periodo_fim")),
+        ])),
+        f"/campanhas-pi/{item['id_campanha']}",
+        status=item.get("status_descricao") or "",
+        platform=item.get("plataforma_nome") or "",
+        period=format_period_br(item.get("periodo_inicio"), item.get("periodo_fim")),
+        dashboard=item.get("link_dash") or "",
+    )
 
 
 def _pi_context(store, pi_repo, pi):
     pi_id = str(pi["id_pi"])
     client_id = str(pi.get("id_cliente") or "")
+    agency_id = str(pi.get("id_agencia") or "")
     client = store.get_cliente(client_id) if client_id else None
+    agency = store.get_cliente(agency_id) if agency_id and agency_id != client_id else None
     campaigns = pi_repo.listar_campanhas(pi_id)
+    folders = drive_folders(pi)
     url = f"/cadu_pi/editar/{pi_id}"
     title = pi.get("titulo_pi") or pi.get("codigo_pi_cc") or f"PI {pi_id}"
+    code = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or f"PI {pi_id}"
+    status = pi.get("sub_status_descricao") or ""
     context = {
         "module": "operacao",
         "screen": "pi",
@@ -479,32 +581,75 @@ def _pi_context(store, pi_repo, pi):
                 entity_subtype=client_subtype(client),
             )],
         })
+    if agency:
+        relations.append({
+            "key": "agency", "title": "Agência", "count": 1,
+            "items": [_entity(
+                "cliente", agency_id, agency.get("nome") or "Agência",
+                type_label_for("cliente", "agencia"),
+                f"/crm-v3/#cliente={agency_id}",
+                entity_subtype="agencia",
+            )],
+        })
     relations.append({
         "key": "campaigns", "title": "Campanhas", "count": len(campaigns),
-        "items": [
-            _entity("campanha", item["id_campanha"], item.get("nome_campanha") or f"Campanha {item['id_campanha']}",
-                    item.get("status_descricao") or item.get("plataforma_nome") or "",
-                    f"/campanhas-pi/{item['id_campanha']}")
-            for item in campaigns[:10]
-        ],
+        "items": [_campaign_row(item) for item in campaigns[:10]],
     })
-    return _base(
-        "pi", pi, context, title, pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or "", url,
+    dashboards = [
+        {"label": item.get("nome_campanha") or "Dashboard", "url": safe_context_url(item.get("link_dash"), allow_external=True)}
+        for item in campaigns if safe_context_url(item.get("link_dash"), allow_external=True)
+    ]
+    primary = [
+        {"kind": "open", "label": "Abrir PI", "url": url},
+        {"kind": "prompt", "label": "Ver campanhas", "prompt": "Liste as campanhas deste PI."},
+    ]
+    drive = _drive_action(folders)
+    if drive:
+        primary.append(drive)
+    if len(dashboards) == 1:
+        dash = _dashboard_action(dashboards[0]["url"], "Dashboard")
+        if dash:
+            primary.append(dash)
+    elif dashboards:
+        primary.append({"kind": "dashboard", "label": "Dashboards", "items": dashboards})
+    secondary = _secondary_actions(
+        {"kind": "copy", "label": "Copiar link", "value": url},
+        {"kind": "prompt", "label": "Ver faturamento", "prompt": "Mostre o faturamento deste PI."},
+        {"kind": "prompt", "label": "Ver histórico", "prompt": "Mostre o histórico operacional deste PI."},
+    )
+    payload = _base(
+        "pi", pi, context, title, code, url,
         _facts(
+            _fact("Status", status),
+            _money_fact("Valor líquido", pi.get("vr_liquido_pi") or pi.get("valor_liquido")),
+            _money_fact("Valor bruto", pi.get("vr_bruto_pi")),
+            _fact("Início", format_date_br(pi.get("periodo_inicio"))),
+            _fact("Término previsto", format_date_br(pi.get("periodo_fim"))),
             _fact("Código CentralComm", pi.get("codigo_pi_cc"), True),
             _fact("Código agência", pi.get("codigo_pi_ag"), True),
-            _fact("Status", pi.get("sub_status_descricao")),
-            _fact("Valor bruto", pi.get("vr_bruto_pi")),
-            _fact("Responsável", pi.get("responsavel_comercial_nome")),
-            _fact("Período", " a ".join(filter(None, [str(pi.get("periodo_inicio") or ""), str(pi.get("periodo_fim") or "")]))),
         ),
         relations,
-        [
-            {"kind": "open", "label": "Abrir PI", "url": url},
-            {"kind": "copy", "label": "Copiar link", "value": url},
-            {"kind": "prompt", "label": "Resumir operação", "prompt": f"Resuma a situação operacional do PI {title}."},
-        ],
+        primary,
+        "PI",
     )
+    payload["identity"]["meta"] = status
+    payload["identity"]["code"] = code
+    payload["identity"]["status"] = status
+    payload["identity"]["role"] = pi.get("responsavel_comercial_cargo") or ""
+    payload["identity"]["responsible_photo"] = pi.get("responsavel_comercial_foto_url") or ""
+    payload["identity"]["photo_url"] = ""
+    payload.update({
+        "client": client,
+        "agency": agency,
+        "campaigns": [_campaign_row(item) for item in campaigns],
+        "drive_folders": folders,
+        "dashboards": dashboards,
+        "actions_secondary": secondary,
+        "sections": [
+            {"key": "campaigns", "title": "Campanhas", "count": len(campaigns), "collapsed": True},
+        ],
+    })
+    return payload
 
 
 def _campaign_context(store, pi_repo, campaign):
@@ -513,8 +658,10 @@ def _campaign_context(store, pi_repo, campaign):
     pi = pi_repo.obter_pi(pi_id) if pi_id else None
     client_id = str(campaign.get("id_cliente") or (pi or {}).get("id_cliente") or "")
     client = store.get_cliente(client_id) if client_id else None
+    folders = drive_folders(pi or {})
     url = f"/campanhas-pi/{campaign_id}"
     title = campaign.get("nome_campanha") or f"Campanha {campaign_id}"
+    status = campaign.get("status_descricao") or ""
     context = {
         "module": "operacao",
         "screen": "campanha",
@@ -540,34 +687,56 @@ def _campaign_context(store, pi_repo, campaign):
                 entity_subtype=client_subtype(client),
             )],
         })
-    actions = [
+    quote_id = str((pi or {}).get("cotacao_id") or "")
+    if quote_id:
+        relations.append({
+            "key": "quote", "title": "Cotação", "count": 1,
+            "items": [_entity("cotacao", quote_id, f"Cotação {quote_id}", "", f"/cotacoes/{quote_id}/detalhes")],
+        })
+    delivery = _percentage(campaign.get("totalizador_atingido"), campaign.get("obj_contratados"))
+    primary = [
         {"kind": "open", "label": "Abrir campanha", "url": url},
-        {"kind": "copy", "label": "Copiar link", "value": url},
+        {"kind": "prompt", "label": "Ver PI", "prompt": "Abra o PI desta campanha."} if pi else None,
+        {"kind": "prompt", "label": "Ver entrega", "prompt": "Mostre a entrega desta campanha."},
     ]
-    dashboard_url = safe_context_url(campaign.get("link_dash"), allow_external=True)
-    if dashboard_url:
-        actions.append({"kind": "open", "label": "Abrir dashboard", "url": dashboard_url, "external": True})
-        actions.append({"kind": "copy", "label": "Copiar dashboard", "value": dashboard_url})
-    return _base(
+    drive = _drive_action(folders)
+    if drive:
+        primary.append(drive)
+    dash = _dashboard_action(campaign.get("link_dash"))
+    if dash:
+        primary.append(dash)
+    secondary = _secondary_actions(
+        {"kind": "copy", "label": "Copiar link", "value": url},
+        {"kind": "copy", "label": "Copiar dashboard", "value": dash["url"]} if dash else None,
+        {"kind": "prompt", "label": "Ver faturamento", "prompt": "Mostre o faturamento desta campanha."},
+    )
+    payload = _base(
         "campanha", campaign, context, title, campaign.get("plataforma_nome") or "", url,
         _facts(
-            _fact("Status", campaign.get("status_descricao")),
+            _fact("Status", status),
+            _period_fact(campaign.get("periodo_inicio"), campaign.get("periodo_fim")),
+            _money_fact("Budget", campaign.get("custo_midia_orcado")),
+            _fact("Contratado", campaign.get("obj_contratados")),
+            _fact("Realizado", campaign.get("totalizador_atingido")),
+            _fact("Entrega", delivery),
+            _money_fact("Valor contratado", campaign.get("valor_plataforma")),
+            _money_fact("Valor realizado", campaign.get("totalizador_gasto")),
             _fact("Plataforma", campaign.get("plataforma_nome")),
-            _fact("Responsável", campaign.get("responsavel_operacao_nome")),
-            _fact("Valor", campaign.get("valor_plataforma")),
-            _fact("Custo orçado", campaign.get("custo_midia_orcado")),
-            _fact("Objetivo contratado", campaign.get("obj_contratados")),
-            _fact("Objetivo atingido", campaign.get("totalizador_atingido")),
-            _fact("Entrega", _percentage(
-                campaign.get("totalizador_atingido"),
-                campaign.get("obj_contratados"),
-            )),
-            _fact("Total gasto", campaign.get("totalizador_gasto")),
-            _fact("Período", " a ".join(filter(None, [str(campaign.get("periodo_inicio") or ""), str(campaign.get("periodo_fim") or "")]))),
+            _fact("PI", (pi or {}).get("codigo_pi_cc") or (pi or {}).get("id_pi")),
         ),
         relations,
-        actions,
+        [item for item in primary if item],
+        "Campanha",
     )
+    payload["identity"]["meta"] = " · ".join(filter(None, [status, campaign.get("plataforma_nome")]))
+    payload["identity"]["status"] = status
+    payload["identity"]["role"] = campaign.get("responsavel_operacao_cargo") or ""
+    payload["identity"]["responsible_photo"] = campaign.get("responsavel_operacao_foto_url") or ""
+    payload["identity"]["photo_url"] = ""
+    payload["drive_folders"] = folders
+    payload["dashboards"] = [{"label": "Dashboard", "url": dash["url"]}] if dash else []
+    payload["actions_secondary"] = secondary
+    return payload
 
 
 def build_context_record(

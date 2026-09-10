@@ -39,6 +39,7 @@ class Tool:
 ID = {"type": "string", "minLength": 1, "maxLength": 80}
 LIMIT = {"type": "integer", "minimum": 1, "maximum": 20}
 STATUS = {"type": "string", "minLength": 1, "maxLength": 50}
+YEAR = {"type": "integer", "minimum": 2000, "maximum": 2100}
 
 TOOLS = {
     tool.name: tool for tool in (
@@ -120,9 +121,10 @@ TOOLS = {
             (),
         ),
         Tool(
-            "buscar_pi", "Busca PIs por ID, código ou título. Use em vez de pedir o código ao usuário.",
+            "buscar_pi",
+            "Busca um PI por número, código ou título. Se o usuário informar um número (ex.: 36826), busque esse PI direto. Não faça resumo global antes.",
             commercial.buscar_pi,
-            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT, "status": STATUS, "ano": YEAR},
             ("query",),
         ),
         Tool(
@@ -130,14 +132,23 @@ TOOLS = {
             commercial.consultar_pi, {"pi_id": ID}, ("pi_id",),
         ),
         Tool(
-            "listar_pis_cliente", "Lista os PIs vinculados a um cliente ou agência.",
+            "listar_pis_cliente",
+            "Resumo ou lista de PIs de um cliente/agência. Sem status, devolve o resumo do ano (padrão ano corrente) por status. Não liste dezenas de finalizados.",
             commercial.listar_pis_cliente,
-            {"cliente_id": ID, "limit": LIMIT}, ("cliente_id",),
+            {"cliente_id": ID, "limit": LIMIT, "status": STATUS, "ano": YEAR},
+            ("cliente_id",),
         ),
         Tool(
-            "buscar_campanha", "Busca campanhas operacionais por ID ou nome.",
+            "buscar_campanha",
+            "Busca campanhas por ID ou nome. Para listagens por status no ano, use status e ano. Não liste centenas de campanhas finalizadas.",
             commercial.buscar_campanha,
-            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            {
+                "query": {"type": "string", "minLength": 2, "maxLength": 120},
+                "limit": LIMIT,
+                "status": STATUS,
+                "ano": YEAR,
+                "risco": {"type": "boolean"},
+            },
             ("query",),
         ),
         Tool(
@@ -157,8 +168,14 @@ TOOLS = {
         ),
         Tool(
             "resumir_operacao",
-            "Consulta números consolidados da operação: PIs e valores por status, campanhas por status e plataforma, objetivos, entrega, gasto e orçamento.",
-            commercial.resumir_operacao, {}, (),
+            "Resumo de PIs e campanhas por status. Sem período, use o ano corrente. escopo=pis ou campanhas devolve só o resumo daquele conjunto, sem listar registros. Não totalize a base inteira.",
+            commercial.resumir_operacao,
+            {
+                "ano": YEAR,
+                "cliente_id": ID,
+                "escopo": {"type": "string", "enum": ["operacao", "pis", "campanhas"]},
+            },
+            (),
         ),
         Tool(
             "listar_objetivos",

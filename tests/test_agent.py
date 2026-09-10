@@ -66,6 +66,8 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("buscar_cotacao", SYSTEM_POLICY)
         self.assertIn("buscar_audiencias", SYSTEM_POLICY)
         self.assertIn("PARE", SYSTEM_POLICY)
+        self.assertIn("ano corrente", SYSTEM_POLICY)
+        self.assertIn("Não simule raciocínio interno", SYSTEM_POLICY)
 
     def test_context_completes_agency_alias_as_cliente_id(self):
         args = _contextual_arguments(
@@ -136,7 +138,9 @@ class AgentContractsTest(unittest.TestCase):
             mock_store.return_value.get_cliente.return_value = {
                 "id": "80", "nome": "LAPIS RARO", "executivo_id": "5",
             }
-            result = commercial.listar_pis_cliente("80", _allow_global=True)
+            result = commercial.listar_pis_cliente(
+                "80", status="Em andamento", _allow_global=True
+            )
         self.assertEqual(result["metadata"]["count"], 1)
         repository.return_value.listar_pis_cliente.assert_called_once()
 
@@ -242,7 +246,7 @@ class AgentContractsTest(unittest.TestCase):
             "sub_status_descricao": "Em andamento",
             "vr_bruto_pi": 50000,
         }]
-        result = commercial.listar_pis_cliente("7")
+        result = commercial.listar_pis_cliente("7", status="Em andamento")
         self.assertEqual(result["data"][0]["type"], "pi")
         self.assertEqual(result["data"][0]["client"], "Acme")
         self.assertEqual(result["data"][0]["value"], 50000.0)
@@ -332,8 +336,102 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(payload["top_k"], 40)
         self.assertFalse(payload["parallel_tool_calls"])
 
+    def test_dates_and_quote_codes_use_brazilian_format(self):
+        from aicentralv2.agent.presenters import document_hints, format_date_br, format_period_br
+        self.assertEqual(format_date_br("2026-08-21"), "21/08/2026")
+        self.assertEqual(format_period_br("2026-08-21", "2027-02-20"), "21/08/2026 — 20/02/2027")
+        self.assertEqual(format_date_br("2026-09-10T09:42:00"), "10/09/2026 às 09:42")
+        hints = document_hints("PI_036826.pdf COT-202608-3867DA", [{"name": "PI_036826.pdf"}])
+        self.assertIn("36826", hints["pis"])
+        self.assertIn("COT-202608-3867DA", hints["quotes"])
 
-class AgentApiSecurityTest(unittest.TestCase):
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    def test_buscar_pi_uses_exact_number_before_search(self, repository):
+        repository.return_value.obter_pi_por_numero.return_value = {
+            "id_pi": 36826,
+            "titulo_pi": "App Behavior — Conta Premiada",
+            "codigo_pi_cc": "036826",
+            "sub_status_descricao": "Em andamento",
+            "cliente_nome": "COPASA MG",
+            "vr_liquido_pi": "33600",
+            "periodo_inicio": "2026-08-13",
+            "responsavel_comercial_nome": "Luisa Santana",
+            "responsavel_comercial_foto_url": "/static/fotos/luisa.jpg",
+        }
+        result = commercial.buscar_pi("PI 36826")
+        repository.return_value.buscar_pis.assert_not_called()
+        self.assertEqual(result["display"]["type"], "pi_summary")
+        self.assertEqual(result["display"]["summary"], "Encontrei o PI.")
+        self.assertEqual(result["display"]["items"][0]["start"], "13/08/2026")
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    def test_resumir_operacao_defaults_to_current_year_status_summary(self, repository):
+        repository.return_value.resumo_operacao.return_value = {
+            "pis_por_status": [{"status_descricao": "Finalizado", "total_pis": 113, "valor_bruto": 1}],
+            "campanhas_por_status": [],
+            "campanhas_por_plataforma": [],
+        }
+        result = commercial.resumir_operacao(escopo="pis")
+        self.assertEqual(result["display"]["type"], "status_summary")
+        self.assertIn("Período", result["display"]["period"]["label"])
+        self.assertTrue(result["display"]["period"]["value"])
+        labels = [item["label"] for item in result["display"]["actions"]]
+        self.assertNotIn("Finalizado", labels)
+
+    @patch("aicentralv2.db.listar_itens_especificos_cotacao")
+    @patch("aicentralv2.db.obter_audiencias_cotacao")
+    @patch("aicentralv2.db.obter_linhas_cotacao")
+    @patch("aicentralv2.db.calcular_totais_financeiros_cotacao")
+    def test_quote_context_exposes_kind_values_and_disclosures(
+        self, mock_totals, mock_linhas, mock_aud, mock_extras
+    ):
+        mock_linhas.return_value = [{
+            "id": 1, "plataforma": "Meta Ads", "formato": "Performance",
+            "objetivo_kpi": "CPC", "valor_unitario_negociado": 1.82,
+            "volume_contratado": 65000, "investimento_liquido": 45000,
+            "investimento_bruto": 56250, "custo_midia": 28000,
+            "val_tech_fee": 1400, "val_com_vendas": 2240,
+        }]
+        mock_aud.return_value = []
+        mock_extras.return_value = []
+        mock_totals.return_value = {
+            "valor_liquido": 120000, "valor_bruto": 150000, "total_custo_midia": 91500,
+        }
+        store = MagicMock()
+        quote = {
+            "id": "91",
+            "titulo": "AG. INDIE IMOBILIÁRIO 150K",
+            "numero_cotacao": "COT-202608-3867DA",
+            "cliente_id": "7",
+            "agencia_id": "",
+            "status_label": "Rascunho",
+            "tipo_comercial": "midia",
+            "tipo_comercial_label": "Mídia",
+            "periodo_inicio": "2026-08-21",
+            "periodo_fim": "2027-02-20",
+            "objetivo": "Alcance",
+            "plataformas": ["Meta Ads", "YouTube"],
+        }
+        store.get_cotacao.return_value = quote
+        store.get_cliente.return_value = {"id": "7", "nome": "CLIENTE FINAL AGÊNCIA INDIE"}
+        pi_repo = MagicMock()
+        pi_repo.listar_pis_cliente.return_value = []
+        payload = build_context_record(
+            "cotacao", "91", store, lambda *_: True, lambda *_: True, pi_repo
+        )
+        facts = {item["label"]: item["value"] for item in payload["facts"]}
+        self.assertEqual(payload["identity"]["kind"], "Mídia")
+        self.assertEqual(payload["identity"]["code"], "COT-202608-3867DA")
+        self.assertEqual(facts["Período"], "21/08/2026 — 20/02/2027")
+        self.assertIn("R$ 150.000,00", facts["Valor bruto"])
+        self.assertIn("R$ 120.000,00", facts["Valor líquido"])
+        self.assertEqual(payload["platforms"], ["Meta Ads", "YouTube"])
+        self.assertEqual(payload["quote_items"][0]["title"], "Meta Ads")
+        self.assertTrue(payload["price_breakdown"])
+        labels = [item["label"] for item in payload["actions"]]
+        self.assertIn("Abrir cotação", labels)
+        self.assertIn("Preparar follow-up", labels)
+        self.assertNotIn("Copiar link", labels)
     def setUp(self):
         self.app = Flask(__name__)
         self.app.config.update(SECRET_KEY="agent-test", TESTING=True)
@@ -805,6 +903,11 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertIn("Usar como contexto", agent_js)
         self.assertIn("cx-agent-consulting", shell)
         self.assertIn("cx-agent-clear-conversation", shell)
+        self.assertIn("cx-agent-media-dialog", shell)
+        self.assertIn("Consultando cotação", agent_js)
+        self.assertNotIn("cx-agent-thinking", agent_js)
+        self.assertIn("quote_summary", agent_js)
+        self.assertIn("data-open-drive", agent_js)
 
 
 if __name__ == "__main__":

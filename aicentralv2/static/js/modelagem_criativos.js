@@ -353,18 +353,24 @@
         </span>
       </div>
       <div class="mc-generator-preview-copy">
-        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${sceneCount > 1 ? 'Carrossel interativo' : 'Peça estática'}</small></span>
+        <span><strong>${escapeHtml(format.name_pt)}</strong><small>${formatDirection(format).animated ? 'Anúncio em sequência' : 'Peça única'}</small></span>
         <span class="mc-format-size-stack">
           <span class="cx-badge cx-badge-muted">${escapeHtml(formatSizeLabel(format))}</span>
+          ${formatOrientationLabel(format) ? `<span class="cx-badge">${escapeHtml(formatOrientationLabel(format))}</span>` : ''}
           ${format.iab_family ? `<span class="cx-badge">${escapeHtml(format.iab_family)}</span>` : ''}
         </span>
-      </div>`;
+      </div>
+      ${renderFormatSlotMap(format)}
+      ${renderFormatElementChips(format)}`;
+    const beats = formatDirection(format).beats || [];
+    const orientation = formatOrientationLabel(format);
     $('#mcGeneratorScenePlan').innerHTML = `
-      <strong>${sceneCount === 1 ? '1 imagem' : '4 cenas'}</strong>
+      <strong>${sceneCount === 1 ? '1 quadro' : `${sceneCount} batidas`}</strong>
       <span>${sceneCount === 1
-        ? 'Banner estático: uma composição final para revisão.'
-        : 'Quatro imagens complementares formam o carrossel exibido no portal.'}</span>
-      <div>${Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>`;
+        ? `Um retângulo ${orientation ? orientation.toLowerCase() : ''}. Os elementos sentam nas zonas da modelagem.`
+        : `Do gancho ao fechamento no retângulo ${orientation ? orientation.toLowerCase() : 'deste formato'}. Cada batida posiciona os elementos.`}</span>
+      <div>${beats.map((beat) => `<i title="${escapeHtml(beat.job || '')}">${beat.position}</i>`).join('') || Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>
+      ${beats.length ? `<ol class="mc-beat-plan">${beats.map((beat) => `<li><strong>${escapeHtml(beat.label)}</strong> ${escapeHtml(beat.job)}</li>`).join('')}</ol>` : ''}`;
   }
 
   function parseDefaultSize(value) {
@@ -373,9 +379,47 @@
   }
 
   function formatSizeLabel(format) {
+    const direction = formatDirection(format);
+    if (direction.size_label) return direction.size_label;
     const size = parseDefaultSize(format?.default_size || format?.target_size);
-    if (size) return `${size.w}×${size.h}`;
+    if (size) return `${size.w} × ${size.h} px`;
     return format?.default_size || format?.aspect_ratio || 'Flexível';
+  }
+
+  function formatDirection(format) {
+    return format?.direction || {};
+  }
+
+  function formatOrientationLabel(format) {
+    const direction = formatDirection(format);
+    if (direction.orientation_label) return direction.orientation_label;
+    const map = { horizontal: 'Horizontal', vertical: 'Vertical', square: 'Quadrado' };
+    return map[direction.orientation] || '';
+  }
+
+  function formatBeat(format, position) {
+    return (formatDirection(format).beats || []).find(
+      (item) => Number(item.position) === Number(position),
+    ) || null;
+  }
+
+  function renderFormatSlotMap(format, beat) {
+    const direction = formatDirection(format);
+    const slots = (beat?.slots?.length ? beat.slots : direction.layout?.slots) || [];
+    if (!slots.length || !direction.width || !direction.height) return '';
+    return `<div class="mc-slot-map is-${escapeHtml(direction.orientation || 'square')}" style="aspect-ratio:${direction.width}/${direction.height}" aria-label="Onde sentam os elementos">
+      ${slots.map((slot) => `
+        <i class="is-${escapeHtml(slot.key)}" style="left:${slot.x}%;top:${slot.y}%;width:${slot.width}%;height:${slot.height}%">${escapeHtml(slot.label)}</i>
+      `).join('')}
+    </div>`;
+  }
+
+  function renderFormatElementChips(format) {
+    const elements = formatDirection(format).elements || [];
+    if (!elements.length) return '';
+    return `<ul class="mc-format-elements">${elements.map((item) => `
+      <li class="${item.present ? 'is-on' : 'is-off'}">${escapeHtml(item.label)}</li>
+    `).join('')}</ul>`;
   }
 
   function activeRenderMode() {
@@ -443,7 +487,11 @@
             campaign_text: data.campaign_text,
             cta_text: data.cta_text,
             format_name: format.name_pt,
+            format_slug: format.slug,
             mechanic: format.mechanic,
+            default_size: format.default_size || format.target_size,
+            behavior_spec: format.behavior_spec || {},
+            layers: format.layers || [],
             scene_count: sceneCountForFormat(format),
           }),
         });
@@ -730,7 +778,7 @@
           <span class="mc-scene-thumb">${thumb
             ? `<img src="${escapeHtml(assetUrl(thumb))}" alt="">`
             : `<i>${index + 1}</i>`}</span>
-          <span><strong>Cena ${index + 1}</strong><small>${escapeHtml(scene.description || (approved ? 'Imagem aprovada' : 'Em preparação'))}</small></span>
+          <span><strong>${escapeHtml(formatBeat(activeProductionFormat(), index + 1)?.label || `Cena ${index + 1}`)}</strong><small>${escapeHtml(scene.description || (approved ? 'Imagem aprovada' : 'Em preparação'))}</small></span>
         </button>`;
     }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
     renderContinuitySpine();
@@ -764,14 +812,25 @@
           .filter(Boolean)
           .join('')
       : '';
+    const direction = formatDirection(format);
+    const beats = direction.beats || [];
     root.innerHTML = `
-      <p>Roteiro-mãe</p>
+      <p>Direção do formato</p>
       <strong>${escapeHtml(state.campaign?.name || 'Campanha')}</strong>
       <small>${escapeHtml(format.name_pt || format.mechanic || 'Formato')}</small>
+      ${direction.size_label ? `<p class="mc-spine-size">${escapeHtml(direction.size_label)}${formatOrientationLabel(format) ? ` · ${escapeHtml(formatOrientationLabel(format))}` : ''}</p>` : ''}
+      ${direction.layout?.summary ? `<p class="mc-spine-layout">${escapeHtml(direction.layout.summary)}</p>` : ''}
+      ${renderFormatSlotMap(format)}
+      ${renderFormatElementChips(format)}
       ${campaignBible() ? `<blockquote>${escapeHtml(campaignBible())}</blockquote>` : '<blockquote>Bíblia visual ainda não registrada.</blockquote>'}
+      ${beats.length ? `<ol class="mc-beat-plan">${beats.map((beat) => `<li><strong>${escapeHtml(beat.label)}</strong> ${escapeHtml(beat.job)}</li>`).join('')}</ol>` : ''}
       <dl>
-        <div><dt>CTA</dt><dd>${escapeHtml(state.campaign?.cta_text || 'Sem CTA')}</dd></div>
-        <div><dt>Tipo</dt><dd>${escapeHtml(format.media_type || 'imagem')}</dd></div>
+        ${direction.elements?.length
+          ? (direction.elements.some((item) => item.key === 'cta' && item.present)
+            ? `<div><dt>CTA</dt><dd>${escapeHtml(state.campaign?.cta_text || 'Sem texto de CTA')}</dd></div>`
+            : '<div><dt>CTA</dt><dd>Este formato não tem</dd></div>')
+          : `<div><dt>CTA</dt><dd>${escapeHtml(state.campaign?.cta_text || 'Sem CTA')}</dd></div>`}
+        <div><dt>Mecânica</dt><dd>${escapeHtml(direction.behavior || format.mechanic || 'imagem')}</dd></div>
       </dl>
       ${copy ? `<div class="mc-spine-copy">
         <span>Sistema de copy</span>
@@ -792,19 +851,17 @@
     const assets = sceneAssets(scene);
     const prompt = scene.rendered_prompt || scene.prompt || '';
     const hasPrompt = Boolean(prompt.trim());
-    const inheritedOnly = hasPrompt && (scene.prompt_status === 'draft' || !scene.prompt_status);
-    const isFirst = index === 0;
-    const generateLabel = (isFirst && inheritedOnly) || !hasPrompt
-      ? 'Gerar direção'
-      : 'Ajustar esta cena';
+    const format = activeProductionFormat();
+    const beat = formatBeat(format, index + 1);
+    const generateLabel = 'Gerar roteiro desta cena';
     const hero = assets.find((asset) => String(asset.id) === String(state.previewAssetId))
       || assets.find((asset) => asset.status === 'approved')
       || assets[0];
-    const format = activeProductionFormat();
-    const size = parseDefaultSize(format.default_size || format.target_size);
+    const size = parseDefaultSize(
+      formatDirection(format).target_size || format.default_size || format.target_size,
+    );
     const renderMode = activeRenderMode();
     const family = hero?.metadata?.iab_family || format.iab_family || '';
-    const targetSize = hero?.metadata?.target_size || format.target_size || format.default_size || '';
     const providerRatio = hero?.metadata?.provider_aspect_ratio || '';
     const defects = hero?.metadata?.quality_review?.defects || [];
     const defectLabels = {
@@ -824,21 +881,36 @@
       ? `--frame-w:${size.w};--frame-h:${size.h};aspect-ratio:${size.w}/${size.h}`
       : '';
     const frameMeta = [
+      formatSizeLabel(format),
       providerRatio ? `gerado em ${providerRatio}` : '',
-      targetSize ? `alvo ${String(targetSize).replace(/x/i, '×')}` : '',
       family ? `família ${family}` : '',
     ].filter(Boolean).join(' · ');
     root.innerHTML = `
       <header class="mc-scene-review-head">
-        <div><span>Cena ${index + 1} de ${scenes.length}</span><h3>${escapeHtml(scene.description || `Cena ${index + 1}`)}</h3></div>
+        <div>
+          <span>${escapeHtml(beat?.label || `Cena ${index + 1}`)} · ${index + 1} de ${scenes.length}</span>
+          <p class="mc-scene-px">${escapeHtml(formatSizeLabel(format))}${formatOrientationLabel(format) ? ` · ${escapeHtml(formatOrientationLabel(format))}` : ''}</p>
+          <h3>${escapeHtml(beat?.job || scene.description || `Cena ${index + 1}`)}</h3>
+        </div>
         ${statusBadge(scene.status || scene.prompt_status || 'draft')}
       </header>
+      ${renderFormatElementChips({
+        ...format,
+        direction: {
+          ...formatDirection(format),
+          elements: (formatDirection(format).elements || []).map((item) => ({
+            ...item,
+            present: item.present && (!beat?.on_screen?.length || beat.on_screen.includes(item.key)),
+          })),
+        },
+      })}
+      ${renderFormatSlotMap(format, beat)}
       <section class="mc-scene-delta">
         <div class="mc-scene-delta-line">
-          <label for="mcSceneDelta">O que muda</label>
-          <p class="mc-scene-story">${escapeHtml(scene.description || 'Sem delta no storyboard.')}</p>
+          <label for="mcSceneDelta">Nesta batida</label>
+          <p class="mc-scene-story">${escapeHtml(scene.description || beat?.job || 'Sem roteiro desta batida.')}</p>
         </div>
-        <textarea class="cx-textarea" id="mcSceneDelta" rows="2" placeholder="Ajuste curto: luz, recorte, copy ou CTA."></textarea>
+        <textarea class="cx-textarea" id="mcSceneDelta" rows="2" placeholder="O que este quadro precisa mostrar. Não é variação da cena 1."></textarea>
         <div class="mc-inspector-actions">
           <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">${escapeHtml(generateLabel)}</button>
           ${hasPrompt ? '<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>' : ''}

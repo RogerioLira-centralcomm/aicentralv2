@@ -29,6 +29,8 @@ from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     canvas_mismatch,
     default_render_mode,
+    format_beat,
+    format_direction,
     hygiene_instruction,
     resolve_format_geometry,
     should_compose,
@@ -515,6 +517,7 @@ class CreativeModelingService:
                 geometry["family"]
             )
             format_data["element_budget"] = geometry.get("budget")
+            format_data["direction"] = format_direction(format_data)
         return _serialize(formats)
 
     def list_viewer_profiles(self):
@@ -895,7 +898,23 @@ class CreativeModelingService:
             "format": {
                 "name": _text(payload.get("format_name"), "Formato", max_length=200),
                 "mechanic": _text(payload.get("mechanic"), "Mecânica", max_length=100),
+                "slug": _text(payload.get("format_slug"), "Slug", max_length=80),
+                "default_size": _text(payload.get("default_size"), "Tamanho", max_length=40),
+                "behavior_spec": payload.get("behavior_spec")
+                if isinstance(payload.get("behavior_spec"), dict)
+                else {},
                 "scene_count": scene_count,
+                "direction": format_direction({
+                    "slug": payload.get("format_slug"),
+                    "mechanic": payload.get("mechanic"),
+                    "default_size": payload.get("default_size"),
+                    "behavior_spec": payload.get("behavior_spec")
+                    if isinstance(payload.get("behavior_spec"), dict)
+                    else {},
+                    "layers": payload.get("layers")
+                    if isinstance(payload.get("layers"), list)
+                    else [],
+                }),
             },
         }
         generated = self.generator.generate_campaign_brief(context)
@@ -941,15 +960,22 @@ class CreativeModelingService:
         })
 
     @staticmethod
-    def fallback_scene_descriptions(campaign_text, scene_count):
+    def fallback_scene_descriptions(campaign_text, scene_count, format_row=None):
         message = campaign_text or "Comunicar a mensagem principal da campanha"
+        direction = format_direction(format_row or {})
+        beats = direction.get("beats") or []
+        if beats and len(beats) == int(scene_count or 0):
+            return [
+                f"{beat['label']}: {beat['job']} Mensagem: {message}."
+                for beat in beats
+            ]
         if scene_count == 1:
             return [f"Composição final: {message}. Encerrar com reconhecimento de marca."]
         return [
             f"Gancho: apresentar uma situação visual que gere atenção para {message}.",
             f"Contexto e produto: revelar a marca e conectar o produto a {message}.",
             f"Benefício: tornar visualmente concreto o valor central de {message}.",
-            f"Fechamento: resolver a narrativa, reforçar a marca e apresentar o CTA.",
+            f"Fechamento: resolver a narrativa e reforçar a marca.",
         ]
 
     def delete_client(self, client_id):
@@ -1014,7 +1040,9 @@ class CreativeModelingService:
             expected_scene_count = scene_count_for_format(format_data)
             if not descriptions:
                 descriptions = self.fallback_scene_descriptions(
-                    payload.get("campaign_text"), expected_scene_count
+                    payload.get("campaign_text"),
+                    expected_scene_count,
+                    format_data,
                 )
             if len(descriptions) != expected_scene_count:
                 raise ValueError(
@@ -1097,14 +1125,17 @@ class CreativeModelingService:
         )
 
     @staticmethod
-    def scene_role(position, total):
+    def scene_role(position, total, format_row=None):
+        beat = format_beat(format_row or {}, position)
+        if beat:
+            return beat["job"]
         if int(total or 1) == 1:
-            return "Single final composition: communicate the full message and CTA."
+            return "Single final composition: the whole ad in this rectangle."
         roles = {
-            1: "Opening hook: establish the campaign world and earn attention.",
-            2: "Context: introduce the product, service, or central proposition.",
-            3: "Benefit: make the main value tangible without inventing claims.",
-            4: "Resolution: close the sequence with brand recognition and CTA.",
+            1: "Opening beat: establish the campaign world and earn attention.",
+            2: "Context beat: the product enters this format. Not a recrop of scene 1.",
+            3: "Benefit beat: make the main value tangible without inventing claims.",
+            4: "Closing beat: resolve the same ad. Show a CTA only if the format has one.",
         }
         return roles.get(int(position or 1), roles[1])
 
@@ -1113,17 +1144,62 @@ class CreativeModelingService:
         description = context.get("description") or context.get("campaign_text") or ""
         total = context.get("scene_count") or 1
         creative_brief = context.get("creative_brief") or {}
+        direction = format_direction(context)
+        beat = format_beat(context, context.get("position") or 1)
+        size_label = direction.get("size_label") or direction.get("target_size") or ""
         lines = [
-            "Create one premium advertising image.",
+            "Create one premium advertising still that is a beat of ONE animated or interactive ad.",
             f"Brand: {context.get('client_name') or ''}.",
             f"Campaign: {context.get('campaign_name') or ''}.",
             f"Objective: {context.get('objective') or ''}.",
             f"Scene {context['position']} of {total}: {description}.",
-            CreativeModelingService.scene_role(context["position"], total),
+            CreativeModelingService.scene_role(
+                context["position"], total, context
+            ),
             f"Format: {context.get('format_name') or ''}.",
             f"Mechanic: {context.get('mechanic') or ''}.",
+            f"Exact canvas: {size_label or context.get('aspect_ratio') or '16:9'}.",
             f"Aspect ratio: {context.get('aspect_ratio') or '16:9'}.",
         ]
+        if direction.get("orientation"):
+            lines.append(
+                f"Orientation: {direction['orientation']}. "
+                f"Read {direction.get('reading') or direction['orientation']}."
+            )
+        layout = direction.get("layout") or {}
+        if layout.get("prompt"):
+            lines.append(f"Format modeling: {layout['prompt']}")
+        if beat:
+            lines.append(
+                f"Beat {beat['label']}: {beat['job']} "
+                f"On screen now: {', '.join(beat.get('on_screen') or []) or 'visual only'}."
+            )
+        slots = (beat or {}).get("slots") or layout.get("slots") or []
+        if slots:
+            lines.append(
+                "Place elements in these slots (percent of the exact canvas): "
+                + "; ".join(
+                    f"{item.get('label')}: x{item.get('x')}% y{item.get('y')}% "
+                    f"w{item.get('width')}% h{item.get('height')}%"
+                    for item in slots
+                    if isinstance(item, dict)
+                )
+                + "."
+            )
+        present = [
+            item["label"]
+            for item in direction.get("elements") or []
+            if item.get("present")
+        ]
+        missing = [
+            item["label"]
+            for item in direction.get("elements") or []
+            if not item.get("present")
+        ]
+        if present:
+            lines.append(f"This format has: {', '.join(present)}.")
+        if missing:
+            lines.append(f"This format does not have: {', '.join(missing)}.")
         if creative_brief.get("visual_bible"):
             lines.append(
                 "Shared visual bible for every scene: "
@@ -1142,24 +1218,25 @@ class CreativeModelingService:
         behavior = context.get("behavior_spec") or {}
         if total > 1:
             lines.append(
-                "This image is one frame of an interactive image carousel. "
-                "Keep the same dimensions, brand system, characters, product "
-                "appearance and visual grammar across all frames. Show no video "
-                "player, playback controls, timeline or filmstrip."
+                "This still is one beat of the same ad, from the first frame "
+                "to the last. Do not recrop scene 1. Keep canvas, brand system "
+                "and product identity. The mechanic of this format must be "
+                f"legible in this beat: {direction.get('behavior') or behavior.get('type') or 'sequence'}."
             )
-            if behavior.get("type") and behavior.get("type") != "static":
-                lines.append(
-                    f"Portal interaction represented by the sequence: "
-                    f"{behavior.get('type')}."
-                )
         if context.get("tone_of_voice"):
             lines.append(f"Brand tone: {context['tone_of_voice']}.")
         if context.get("primary_color"):
             lines.append(f"Primary brand color: {context['primary_color']}.")
         if context.get("secondary_color"):
             lines.append(f"Secondary brand color: {context['secondary_color']}.")
-        if context.get("cta_text"):
+        has_cta = any(
+            item.get("key") == "cta" and item.get("present")
+            for item in direction.get("elements") or []
+        )
+        if has_cta and context.get("cta_text") and int(context.get("position") or 1) == int(total or 1):
             lines.append(f"Call to action: {context['cta_text']}.")
+        elif not has_cta:
+            lines.append("This format has no CTA. Do not invent a button or endcard command.")
         if not context.get("show_price"):
             lines.append("Do not show prices.")
         if context.get("background_guidance"):
@@ -1171,9 +1248,8 @@ class CreativeModelingService:
                 "Keep visual continuity with the campaign sequence while making "
                 "this scene independently reviewable.",
                 "All visible advertising copy must be Brazilian Portuguese. "
-                "Use the supplied call to action literally. Never invent an "
-                "English slogan; if text cannot be rendered correctly, omit it. "
-                "Registered product names may remain unchanged.",
+                "Never invent an English slogan; if text cannot be rendered "
+                "correctly, omit it. Registered product names may remain unchanged.",
                 "Do not reproduce third-party platform logos or interfaces.",
             ]
         )
@@ -1187,14 +1263,10 @@ class CreativeModelingService:
         delta = _text(payload.get("delta"), "Ajuste da cena", max_length=2000)
         context = self.repository.get_scene_context(scene_id)
         position = context["position"]
-        master_prompt = context.get("master_prompt") or ""
         flow_kind = _flow_kind(context)
         locks = _brief_locks(context)
-        inherit_from_master = (
-            flow_kind != "unfold"
-            and position > 1
-            and bool(str(master_prompt).strip())
-        )
+        direction = format_direction(context)
+        beat = format_beat(context, position)
         request_context = {
             "campaign": {
                 "name": context["campaign_name"],
@@ -1206,7 +1278,9 @@ class CreativeModelingService:
                 "scene": context["position"],
                 "scene_count": context.get("scene_count") or 1,
                 "scene_role": self.scene_role(
-                    context["position"], context.get("scene_count") or 1
+                    context["position"],
+                    context.get("scene_count") or 1,
+                    context,
                 ),
                 "storyboard": context.get("storyboard") or [],
                 "visual_bible": (
@@ -1214,12 +1288,16 @@ class CreativeModelingService:
                 ),
                 "visible_language": "pt-BR",
                 "scene_delta": delta,
+                "beat": beat,
             },
             "flow_kind": flow_kind,
             "locks": locks,
             "kv_notes": ((context.get("creative_brief") or {}).get("kv_notes") or {}),
-            "inherit_from_master": inherit_from_master,
-            "master_prompt": master_prompt if inherit_from_master else None,
+            "inherit_from_master": False,
+            "master_prompt": None,
+            "sequence_bible": (
+                (context.get("creative_brief") or {}).get("visual_bible")
+            ),
             "client_identity": {
                 "name": context["client_name"],
                 "sector": context.get("client_sector"),
@@ -1256,6 +1334,7 @@ class CreativeModelingService:
         request_context["format"]["target_size"] = geometry.get("target_size")
         request_context["format"]["render_mode"] = render_mode
         request_context["format"]["element_budget"] = geometry.get("budget")
+        request_context["format"]["direction"] = direction
         if render_mode == "native":
             request_context["render_constraints"] = apply_render_mode_to_prompt(
                 "",

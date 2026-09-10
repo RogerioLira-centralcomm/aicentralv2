@@ -6,7 +6,7 @@ from decimal import Decimal
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from psycopg.types.json import Json
 
-from .creative_format_geometry import SOCIAL_FORMAT_SLUGS
+from .creative_format_geometry import scene_count_for_format
 from .creative_modeling_prompts import build_inherited_scene_prompt
 
 
@@ -16,19 +16,6 @@ class CreativeNotFoundError(LookupError):
 
 class CreativeConflictError(ValueError):
     pass
-
-
-def scene_count_for_format(format_row):
-    slug = str((format_row or {}).get("slug") or "")
-    if slug in SOCIAL_FORMAT_SLUGS:
-        return 1
-    behavior = (format_row or {}).get("behavior_spec") or {}
-    return (
-        1
-        if behavior.get("type") == "static"
-        and (format_row or {}).get("mechanic") == "static_display"
-        else 4
-    )
 
 
 class CreativeModelingRepository:

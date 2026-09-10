@@ -37,17 +37,24 @@ O prompt deve exigir explicitamente que toda copy publicitária visível esteja 
 português do Brasil, sem slogans em inglês inventados. Nomes registrados de
 marca ou produto podem ser preservados."""
 
-ADAPT_SCENE_SYSTEM = """Você adapta um prompt-mãe já aprovado para a próxima cena
-da MESMA sequência e do MESMO formato. Isto não é desdobramento para outro
-formato: não mude canvas, família IAB nem recorte de plataforma.
-Preserve o sistema visual, tipografia, zonas, CTA e DNA da marca.
-Altere somente o que o delta da cena e o storyboard desta posição exigem.
-Nunca recomece a campanha do zero nem invente uma nova direção de marca.
-Quando copy_system existir, preserve estrutura de copy e posição do CTA.
+SCENE_BEAT_SYSTEM = """Você escreve o roteiro de UMA batida de um criativo
+animado ou interativo. As cenas 1–N são o mesmo anúncio, do primeiro ao último
+quadro — não variações da cena 1 e não um recorte novo da mesma composição.
+Cada batida tem um papel em format.direction.beats. Gere um prompt completo
+para ESTE quadro: o que está na tela agora, o que a mecânica faz neste instante
+e quais elementos (título, gancho, texto, imagem, fundo, logo, CTA) existem
+neste formato e nesta batida. CTA só entra se o formato tiver CTA e o beat
+permitir. O canvas é exatamente format.direction.size_label em pixels.
+Respeite format.direction.orientation (horizontal, vertical ou quadrado) e
+format.direction.layout: cada elemento senta no slot modelado (visual,
+headline, CTA, logo). Um banner horizontal não usa a grade de um story
+vertical. Não invente outra composição.
+Preserve a bíblia visual e o DNA da marca. Não recicle a composição anterior.
 Retorne JSON puro com:
 {"prompt_en":"...", "rationale_pt":"...", "checks":["..."]}.
-O prompt_en deve permanecer em inglês técnico de produção. Toda copy visível
-continua em português do Brasil. Use o CTA literalmente."""
+O prompt_en fica em inglês técnico. Toda copy visível em português do Brasil."""
+
+ADAPT_SCENE_SYSTEM = SCENE_BEAT_SYSTEM
 
 SCRIPT_SYSTEM = """Você é roteirista de publicidade digital premium.
 Crie um roteiro que conecte exatamente quatro imagens na ordem informada.
@@ -58,16 +65,21 @@ Retorne JSON puro com:
 
 BRIEF_SYSTEM = """Você é estrategista e diretor de criação publicitária.
 Reescreva o briefing em português do Brasil sem inventar ofertas, preços,
-benefícios ou alegações. Crie uma narrativa visual complementar com a quantidade
-exata de cenas solicitada. Cada cena deve avançar a história e compartilhar uma
-bíblia visual consistente. Retorne somente JSON puro:
+benefícios ou alegações. As cenas são batidas do MESMO anúncio, do gancho ao
+fechamento — nunca variações da primeira. Use format.direction.beats como
+roteiro da mecânica (hotspot, reveal, flip, quiz, compare, carrossel, vídeo)
+NESTE retângulo: format.direction.orientation e format.direction.layout
+dizem se o formato é horizontal ou vertical e onde sentam visual, título,
+logo e CTA. Cenas de um leaderboard raso não são as de um story 9:16.
+CTA só na última batida e só se format.direction marcar CTA. Respeite
+format.direction.size_label. Retorne somente JSON puro:
 {"campaign_text":"...", "cta_text":"...", "visual_bible":"...",
 "scenes":[{"position":1,"role":"gancho","description":"..."}]}.
-Para quatro cenas, use nesta ordem: gancho, contexto_produto, beneficio e
-fechamento. Para uma cena, use composição_final. Descreva toda copy visível em
-português do Brasil e preserve nomes próprios da marca. Se o perfil trouxer uma
-creative_line aprendida, use sua assinatura visual como bíblia de continuidade,
-sem copiar campanhas, ofertas ou claims anteriores."""
+Para quatro cenas, use os roles dos beats do formato. Para uma cena, use
+composição_final. Descreva toda copy visível em português do Brasil e preserve
+nomes próprios da marca. Se o perfil trouxer uma creative_line aprendida, use
+sua assinatura visual como bíblia de continuidade, sem copiar campanhas,
+ofertas ou claims anteriores."""
 
 IMAGE_REVIEW_SYSTEM = """Você é revisor de qualidade de publicidade digital.
 Analise a imagem contra o briefing informado. Não presuma falhas que não estejam
@@ -217,8 +229,8 @@ class CreativeGenerationClient:
         if context.get("flow_kind") == "unfold":
             system = UNFOLD_PROMPT_SYSTEM
             temperature = text_temperature("unfold_prompt", TEXT_TEMPERATURES["unfold_prompt"])
-        elif context.get("inherit_from_master"):
-            system = ADAPT_SCENE_SYSTEM
+        elif context.get("flow_kind") != "unfold":
+            system = SCENE_BEAT_SYSTEM
             temperature = text_temperature("prompt", TEXT_TEMPERATURES["prompt"])
         else:
             system = PROMPT_SYSTEM

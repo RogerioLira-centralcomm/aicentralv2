@@ -20,6 +20,7 @@ from aicentralv2.creative_format_geometry import (
     SOCIAL_PAINT_FAMILIES,
     canvas_mismatch,
     default_render_mode,
+    format_direction,
     format_family_spec,
     should_compose,
 )
@@ -921,6 +922,11 @@ class CreativeServiceTest(unittest.TestCase):
             "secondary_color": "#9CCF31",
             "brand_profile": {},
             "scene_count": 4,
+            "format_slug": "hotspot",
+            "mechanic": "hotspot",
+            "default_size": "1920x1080",
+            "behavior_spec": {"type": "hotspot"},
+            "layers": [{"role": "base_scene"}],
         }
         repository.create_generation_job.return_value = 3
         repository.update_scene_prompt.return_value = {
@@ -941,13 +947,14 @@ class CreativeServiceTest(unittest.TestCase):
         )
         service.generate_scene_prompt(52, payload={"delta": "mais recorte no produto"})
 
-        self.assertTrue(captured["context"]["inherit_from_master"])
-        self.assertIn("MASTER VISUAL SYSTEM", captured["context"]["master_prompt"])
+        self.assertFalse(captured["context"]["inherit_from_master"])
+        self.assertIsNone(captured["context"]["master_prompt"])
+        self.assertEqual(captured["context"]["campaign"]["beat"]["role"], "contexto")
         self.assertEqual(
             captured["context"]["campaign"]["scene_delta"],
             "mais recorte no produto",
         )
-        self.assertNotIn("from scratch", json.dumps(captured["context"]))
+        self.assertIn("sequence_bible", captured["context"])
 
     def test_cena_inicial_expande_o_roteiro_mae(self):
         captured = {}
@@ -1111,8 +1118,8 @@ class CreativeServiceTest(unittest.TestCase):
             "master_prompt": "MASTER",
         })
 
-        self.assertIn("prompt-mãe", captured["system"])
-        self.assertIn("Nunca recomece", captured["system"])
+        self.assertIn("batida", captured["system"])
+        self.assertIn("não variações", captured["system"])
         self.assertNotIn("from scratch", captured["system"].lower())
 
     def test_refine_de_asset_reusa_prompt_do_job(self):
@@ -1267,13 +1274,80 @@ class CreativeServiceTest(unittest.TestCase):
             "behavior_spec": {"type": "interactive"},
         }), 4)
         self.assertIn(
-            "Opening hook",
+            "Opening beat",
             CreativeModelingService.scene_role(1, 4),
         )
         self.assertIn(
-            "CTA",
+            "only if the format has one",
             CreativeModelingService.scene_role(4, 4),
         )
+        hotspot = format_direction({
+            "slug": "hotspot",
+            "mechanic": "hotspot",
+            "default_size": "1920x1080",
+            "behavior_spec": {"type": "hotspot"},
+            "layers": [{"role": "base_scene"}],
+        })
+        self.assertEqual(hotspot["size_label"], "1920 × 1080 px")
+        self.assertEqual(hotspot["orientation"], "horizontal")
+        self.assertEqual(hotspot["beats"][1]["role"], "contexto")
+        self.assertFalse(any(item["key"] == "cta" and item["present"] for item in hotspot["elements"]))
+        banner = format_direction({
+            "slug": "iab-leaderboard",
+            "mechanic": "static_display",
+            "default_size": "728x90",
+            "behavior_spec": {"type": "static"},
+            "layers": [{"role": "headline"}, {"role": "cta"}],
+        })
+        self.assertEqual(banner["orientation"], "horizontal")
+        self.assertEqual(banner["family"], "wide_banner")
+        self.assertEqual(banner["beats"][0]["label"], "Faixa horizontal")
+        visual = next(item for item in banner["layout"]["slots"] if item["key"] == "visual")
+        self.assertLess(visual["width"], 40)
+        story = format_direction({
+            "slug": "instagram-story",
+            "mechanic": "static_display",
+            "default_size": "1080x1920",
+            "behavior_spec": {"type": "static"},
+            "layers": [{"role": "headline"}, {"role": "cta"}],
+        })
+        self.assertEqual(story["orientation"], "vertical")
+        self.assertEqual(story["family"], "story_9x16")
+        self.assertIn("9:16", story["beats"][0]["job"])
+        half = format_direction({
+            "slug": "iab-half-page",
+            "mechanic": "static_display",
+            "default_size": "300x600",
+            "behavior_spec": {"type": "static"},
+        })
+        self.assertEqual(half["orientation"], "vertical")
+        self.assertIn("Coluna", half["beats"][0]["label"])
+        compare_h = format_direction({
+            "slug": "arraste-descubra",
+            "mechanic": "arraste-descubra",
+            "default_size": "728x90",
+            "behavior_spec": {"type": "compare"},
+        })
+        self.assertIn("linha vertical", compare_h["beats"][1]["job"])
+        compare_v = format_direction({
+            "slug": "arraste-descubra",
+            "mechanic": "arraste-descubra",
+            "default_size": "300x600",
+            "behavior_spec": {"type": "compare"},
+        })
+        self.assertIn("linha horizontal", compare_v["beats"][1]["job"])
+        prompt = CreativeModelingService.build_scene_prompt({
+            "position": 1,
+            "scene_count": 1,
+            "format_name": "Leaderboard",
+            "slug": "iab-leaderboard",
+            "mechanic": "static_display",
+            "default_size": "728x90",
+            "behavior_spec": {"type": "static"},
+            "description": "Oferta da marca",
+        })
+        self.assertIn("Orientation: horizontal", prompt)
+        self.assertIn("Visual left", prompt)
 
     def test_formatos_expoem_contagem_canonica_de_cenas(self):
         repository = Mock()
@@ -1286,10 +1360,10 @@ class CreativeServiceTest(unittest.TestCase):
             generator=FakeGenerator(),
             storage=FakeStorage(),
         )
-        self.assertEqual(
-            [item["scene_count"] for item in service.list_formats()],
-            [1, 4],
-        )
+        listed = service.list_formats()
+        self.assertEqual([item["scene_count"] for item in listed], [1, 4])
+        self.assertIn("direction", listed[1])
+        self.assertEqual(listed[1]["direction"]["behavior"], "reveal")
 
     def test_perfil_de_viewer_preserva_hero_e_catalogo_seguro(self):
         self.repo.viewer_profiles[1]["shell_spec"] = {
@@ -1365,8 +1439,8 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("Brazilian Portuguese", prompt)
         self.assertIn("Full storyboard", prompt)
         self.assertIn("Shared visual bible", prompt)
-        self.assertIn("interactive image carousel", prompt)
-        self.assertIn("Show no video player", prompt)
+        self.assertIn("one beat of the same ad", prompt)
+        self.assertIn("não variação", prompt)
 
     def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self):
         repository = Mock()
@@ -2259,8 +2333,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=25", page)
-        self.assertIn("modelagem_criativos.js') }}?v=25", page)
+        self.assertIn("modelagem_criativos.css') }}?v=28", page)
+        self.assertIn("modelagem_criativos.js') }}?v=28", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2281,7 +2355,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('id="mcSceneRail"', production)
         self.assertIn('id="mcContinuitySpine"', production)
-        self.assertIn("Roteiro-mãe", production)
+        self.assertIn("Direção do formato", production)
         self.assertIn('id="mcProductionStage"', production)
         self.assertIn('data-preview-device="desktop"', production)
         self.assertIn('data-preview-device="mobile"', production)
@@ -2597,7 +2671,11 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function sceneCountForFormat", frontend)
         self.assertIn("function renderProduction", frontend)
         self.assertIn("function renderContinuitySpine", frontend)
-        self.assertIn("Ajustar esta cena", frontend)
+        self.assertIn("Gerar roteiro desta cena", frontend)
+        self.assertIn("function formatDirection", frontend)
+        self.assertIn("function renderFormatSlotMap", frontend)
+        self.assertIn("mc-slot-map", frontend)
+        self.assertIn("mc-scene-px", frontend)
         self.assertIn("Ajustar esta imagem", frontend)
         self.assertIn("mc-refine-bar", frontend)
         self.assertIn("/assets/${assetId}/refine", frontend)

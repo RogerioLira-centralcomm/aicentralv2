@@ -1,16 +1,14 @@
-{% macro campaign_toggle(pi, compact=false) -%}
+{% macro pi_group_toggle(pi) -%}
 {% set count = pi.get('total_campanhas', 0) %}
 {% if count > 0 %}
-<button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
-        class="pi-expand-chip{% if compact %} is-compact{% endif %}"
-        data-campaign-toggle="{{ pi.id_pi }}" data-campaign-count="{{ count }}"
-        aria-expanded="false" aria-controls="camp-collapse-{{ pi.id_pi }}">
-  <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
-  <span data-campaign-toggle-label>Mostrar {{ count }} campanha{% if count != 1 %}s{% endif %}</span>
-  <i class="fa-solid fa-chevron-down chevron-camp" id="chevron-{{ pi.id_pi }}" aria-hidden="true"></i>
+<button type="button" onclick="togglePiGroup({{ pi.id_pi }}, event)"
+        class="pi-group-toggle"
+        data-pi-group-toggle="{{ pi.id_pi }}"
+        aria-expanded="true"
+        aria-controls="pi-campaign-group-{{ pi.id_pi }}"
+        aria-label="Recolher campanhas do PI">
+  <i class="fa-solid fa-chevron-down chevron-pi-group" aria-hidden="true"></i>
 </button>
-{% else %}
-<span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem campanhas</span>
 {% endif %}
 {%- endmacro %}
 

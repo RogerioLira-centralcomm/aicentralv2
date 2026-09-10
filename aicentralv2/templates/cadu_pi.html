@@ -8,7 +8,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=9">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -40,7 +40,7 @@
       {% if visao_por_agencia|default(false) %}
       {% include 'cadu_pi/_agency_group.html' %}
       {% else %}
-      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-table--commercial{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
+      <table class="cx-table cx-table-dense w-full pi-list-table pi-list-table-detail{% if origem_lista == 'nf_emitida' %} pi-list-table--fiscal{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-table--hierarchy{% endif %}{% if sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-list-table--billing{% endif %}">
         {% if origem_lista == 'nf_emitida' %}
         <colgroup class="pi-fiscal-columns">
           <col class="pi-col-reference">
@@ -54,12 +54,12 @@
           <col class="pi-col-invoice">
         </colgroup>
         {% elif sub_status_atual|string in ['1', '2', '3'] %}
-        <colgroup class="pi-commercial-columns">
+        <colgroup class="pi-hierarchy-columns">
           <col class="pi-col-primary">
           <col class="pi-col-client">
           <col class="pi-col-owner">
           <col class="pi-col-period">
-          <col class="pi-col-campaigns">
+          <col class="pi-col-delivery">
           <col class="pi-col-finance">
           <col class="pi-col-actions">
         </colgroup>
@@ -94,7 +94,7 @@
           </tr>
           {% endif %}
           {% for pi in grupo.pis %}
-          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
+          <tr id="pi-{{ pi.id_pi }}" class="pi-row{% if sub_status_atual|string in ['1', '2', '3'] %} row-pi{% endif %}{% if sub_status_atual|string == '2' %} pi-row--config{% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %} pi-row--billing{% endif %}"{% if sub_status_atual|string in ['1', '2', '3'] %} data-pi-id="{{ pi.id_pi }}" data-campaign-count="{{ pi.get('total_campanhas', 0) }}"{% if pi.get('campanha_ids') %} data-campanha-ids='{{ pi.campanha_ids|tojson }}'{% endif %}{% endif %}{% if origem_lista == 'nf_emitida' %} data-nf-group-item="{{ grupo.key }}"{% endif %}>
           {% if sub_status_atual|string in ['1', '2', '3'] %}
             {% include 'cadu_pi/_pi_card.html' %}
           {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
@@ -310,7 +310,9 @@
             {% endif %}
           {% endif %}
           </tr>
+          {% if sub_status_atual|string not in ['1', '2', '3'] %}
           {% include 'cadu_pi/_campaign_rows.html' %}
+          {% endif %}
           {% endfor %}
           {% endfor %}
         </tbody>

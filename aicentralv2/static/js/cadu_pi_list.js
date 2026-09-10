@@ -286,6 +286,67 @@
     el.style.display = text ? '' : 'none';
   }
 
+  function campaignStatusPillClass(statusName) {
+    const status = (statusName || '').toLowerCase();
+    if (status.indexOf('ativa') !== -1 || status.indexOf('veicul') !== -1) return 'is-active';
+    if (status.indexOf('análise') !== -1 || status.indexOf('analise') !== -1 || status.indexOf('revis') !== -1) return 'is-review';
+    if (status.indexOf('pend') !== -1 || status.indexOf('paus') !== -1) return 'is-pending';
+    return '';
+  }
+
+  function buildCampaignDetailRowHtml(idPi, c) {
+    const objContratadoNum = UI.parseVolume(c.obj_contratados);
+    const objAtingidoNum = UI.parseVolume(c.totalizador_atingido);
+    const pctObj = c.pct_objetivo != null ? Number(c.pct_objetivo) : (objContratadoNum > 0 ? Math.round((objAtingidoNum / objContratadoNum) * 100) : 0);
+
+    const gasto = c.custo_midia_realizado != null ? parseBrl(c.custo_midia_realizado) : parseBrl(c.totalizador_gasto);
+    const previsto = c.custo_midia_previsto != null ? parseBrl(c.custo_midia_previsto) : parseBrl(c.valor_plataforma);
+    const pctMidia = c.pct_custo_midia != null ? Number(c.pct_custo_midia) : (previsto > 0 ? Math.round((gasto / previsto) * 100) : 0);
+
+    const periodoLinha1 = '<strong class="pi-inner-flight">' + escapeHtml(c.periodo_inicio || '—') + (c.periodo_fim ? ' — ' + escapeHtml(c.periodo_fim) : '') + '</strong>';
+    const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
+      ? '<span class="pi-inner-muted">' + escapeHtml(c.periodo_dias) + ' dias</span>' : '';
+    const pctPeriodo = c.periodo_pct_elapsed != null ? Number(c.periodo_pct_elapsed) : null;
+    let celPeriodo = periodoLinha1 + periodoLinha2;
+    if (pctPeriodo != null && !isNaN(pctPeriodo)) {
+      celPeriodo += '<div class="pi-inner-progress">' + UI.buildProgressHtml(pctPeriodo, { small: true }) + '</div>';
+    }
+
+    const payload = encodeURIComponent(JSON.stringify(c));
+    const platId = c.id_plataforma != null ? c.id_plataforma : '';
+    const platNome = escapeHtml(c.plataforma_nome || 'Não informado');
+    const statusNome = c.status_nome || 'Status não informado';
+    const statusClass = campaignStatusPillClass(statusNome);
+    const linkCount = (c.googled_pi_princ ? 1 : 0) + (c.link_dash ? 1 : 0);
+
+    let celObjetivo = UI.cellEmptyHtml('empty-na');
+    if (objContratadoNum > 0) {
+      celObjetivo = UI.buildProgressHtml(pctObj, { small: true }) +
+        '<strong class="pi-inner-value">' + fmtInt(objAtingidoNum) + ' entregues</strong>' +
+        '<span class="pi-inner-muted">de ' + fmtInt(objContratadoNum) + ' contratados</span>';
+    }
+
+    let celMidia = UI.cellEmptyHtml('empty-pending');
+    if (previsto > 0 || gasto > 0) {
+      celMidia = UI.buildProgressHtml(pctMidia, { small: true }) +
+        '<strong class="pi-inner-value">' + fmtBrl(gasto) + '</strong>' +
+        '<span class="pi-inner-muted">de ' + fmtBrl(previsto) + '</span>';
+    }
+
+    return '<tr class="pi-campaign-detail-row pi-campaign-row row-campaign--child" data-campaign-parent="' + idPi + '" data-plataforma-id="' + platId + '" data-plataforma-nome="' + platNome + '" data-camp-payload="' + payload + '" tabindex="0" title="Ver detalhes da campanha">' +
+      '<td data-label="Nome" class="pi-campaign-detail-name"><strong>' + escapeHtml(c.nome_campanha || 'Campanha sem nome') + '</strong>' +
+      '<span class="pi-campaign-status-pill ' + statusClass + '">' + escapeHtml(statusNome) + '</span></td>' +
+      '<td data-label="Cliente" class="pi-campaign-detail-platform platform-cell"><div class="platform-badge" data-platform-badge><span class="platform-icon-wrap" title="' + platNome + '"><i class="platform-icon fa-solid fa-bullhorn"></i></span>' +
+      '<span class="link-count-badge' + (linkCount === 0 ? ' empty' : '') + '">L' + linkCount + '</span></div>' +
+      '<span>' + platNome + '</span></td>' +
+      '<td data-label="Responsável" class="pi-commercial-owner"><span class="cx-cell-empty empty-na">—</span></td>' +
+      '<td data-label="Veiculação" class="pi-inner-flight-cell">' + celPeriodo + '</td>' +
+      '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
+      '<td data-label="Investimento" class="pi-campaign-detail-money pi-inner-investment">' + celMidia + '</td>' +
+      '<td data-label="Ações" class="pi-commercial-actions" aria-hidden="true"></td>' +
+      '</tr>';
+  }
+
   function buildCampanhaRowHtml(c) {
     const objContratadoNum = UI.parseVolume(c.obj_contratados);
     const objAtingidoNum = UI.parseVolume(c.totalizador_atingido);
@@ -352,85 +413,194 @@
       '</tr>';
   }
 
-  window.toggleCampanhas = function (idPi, event) {
-    if (event && event.stopPropagation) event.stopPropagation();
-    const row = document.getElementById('camp-collapse-' + idPi);
-    const chevron = document.getElementById('chevron-' + idPi);
-    if (!row) return;
+  function removeCampaignRowsForPi(idPi) {
+    document.querySelectorAll('[data-campaign-parent="' + idPi + '"], [data-campaign-loading="' + idPi + '"]').forEach(function (row) {
+      row.remove();
+    });
+  }
 
-    const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
-    const shouldExpand = !toggle || toggle.getAttribute('aria-expanded') !== 'true';
-    const detailRows = document.querySelectorAll('[data-campaign-parent="' + idPi + '"]');
-    if (loadedCampanhas[idPi] && detailRows.length) {
-      row.classList.add('hidden');
-      detailRows.forEach(function (detailRow) {
-        detailRow.classList.toggle('hidden', !shouldExpand);
-      });
-    } else {
-      row.classList.toggle('hidden', !shouldExpand);
+  function buildCampaignLoadingRow(idPi) {
+    return '<tr class="pi-campaign-loading-row" data-campaign-loading="' + idPi + '" data-campaign-parent="' + idPi + '">' +
+      '<td colspan="7"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Carregando campanhas…</td></tr>';
+  }
+
+  function insertCampaignRowsAfterPi(piRow, idPi, campanhas) {
+    removeCampaignRowsForPi(idPi);
+    if (!campanhas || !campanhas.length) return [];
+    const campIds = [];
+    let html = '';
+    campanhas.forEach(function (c) {
+      if (c.id_campanha) campIds.push(c.id_campanha);
+      html += buildCampaignDetailRowHtml(idPi, c);
+    });
+    piRow.insertAdjacentHTML('afterend', html);
+    const inserted = [];
+    let node = piRow.nextElementSibling;
+    while (node && node.getAttribute('data-campaign-parent') === String(idPi)) {
+      inserted.push(node);
+      node = node.nextElementSibling;
     }
-    if (chevron) chevron.classList.toggle('open', shouldExpand);
+    UI.applyPlatformIcons(piRow.parentElement);
+    updateFlagSummary(idPi, campIds);
+    return inserted;
+  }
+
+  function setPiGroupExpanded(idPi, expanded) {
+    document.querySelectorAll('[data-campaign-parent="' + idPi + '"]').forEach(function (row) {
+      row.hidden = !expanded;
+    });
+    const toggle = document.querySelector('[data-pi-group-toggle="' + idPi + '"]');
     if (toggle) {
-      toggle.setAttribute('aria-expanded', String(shouldExpand));
-      const count = toggle.getAttribute('data-campaign-count') || '';
-      const label = toggle.querySelector('[data-campaign-toggle-label]');
-      if (label) label.textContent = shouldExpand ? 'Ocultar campanhas' : ('Mostrar ' + count + ' campanha' + (count === '1' ? '' : 's'));
+      toggle.setAttribute('aria-expanded', String(expanded));
+      toggle.setAttribute('aria-label', expanded ? 'Recolher campanhas do PI' : 'Expandir campanhas do PI');
     }
+  }
 
-    if (shouldExpand && !loadedCampanhas[idPi]) {
-      fetch('/api/cadu-pi/' + idPi + '/campanhas')
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          loadedCampanhas[idPi] = true;
-          const container = document.getElementById('camp-content-' + idPi);
-          if (!data.success || !data.campanhas || data.campanhas.length === 0) {
-            container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i>' +
-              '<p class="text-[11px] text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
-            return;
+  function loadCampaignsForPi(idPi) {
+    const piRow = document.getElementById('pi-' + idPi);
+    if (!piRow || loadedCampanhas[idPi] === true) return Promise.resolve();
+    if (loadedCampanhas[idPi] === 'loading') return loadedCampanhas[idPi + '_promise'] || Promise.resolve();
+    loadedCampanhas[idPi] = 'loading';
+    piRow.insertAdjacentHTML('afterend', buildCampaignLoadingRow(idPi));
+
+    const promise = fetch('/api/cadu-pi/' + idPi + '/campanhas')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        loadedCampanhas[idPi] = true;
+        if (!piRow.isConnected) return;
+        if (!data.success || !data.campanhas || !data.campanhas.length) {
+          removeCampaignRowsForPi(idPi);
+          return;
+        }
+        insertCampaignRowsAfterPi(piRow, idPi, data.campanhas);
+        const toggle = document.querySelector('[data-pi-group-toggle="' + idPi + '"]');
+        const expanded = !toggle || toggle.getAttribute('aria-expanded') !== 'false';
+        setPiGroupExpanded(idPi, expanded);
+      })
+      .catch(function () {
+        loadedCampanhas[idPi] = false;
+        removeCampaignRowsForPi(idPi);
+        piRow.insertAdjacentHTML('afterend',
+          '<tr class="pi-campaign-loading-row" data-campaign-parent="' + idPi + '"><td colspan="7">' +
+          '<span class="pi-campaign-error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+          ' Não foi possível carregar as campanhas. ' +
+          '<button type="button" class="cx-btn cx-btn-sm cx-btn-outline" onclick="retryCampanhas(' + idPi + ')">Tentar novamente</button></span></td></tr>');
+      });
+    loadedCampanhas[idPi + '_promise'] = promise;
+    return promise;
+  }
+
+  function autoLoadHierarchyCampaigns() {
+    const piRows = Array.prototype.slice.call(document.querySelectorAll('tr.pi-row.row-pi[data-campaign-count]'));
+    const queue = piRows.filter(function (row) {
+      return parseInt(row.getAttribute('data-campaign-count') || '0', 10) > 0;
+    });
+    if (!queue.length) return;
+
+    let index = 0;
+    const concurrency = 4;
+    function pump() {
+      const batch = queue.slice(index, index + concurrency);
+      index += concurrency;
+      if (!batch.length) return;
+      Promise.all(batch.map(function (row) {
+        const idPi = parseInt(row.getAttribute('data-pi-id') || row.id.replace('pi-', ''), 10);
+        return loadCampaignsForPi(idPi);
+      })).finally(function () {
+        if (index < queue.length) {
+          if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(pump);
+          } else {
+            window.setTimeout(pump, 0);
           }
-          if (!container.dataset.campRowClickDelegated) {
-            container.dataset.campRowClickDelegated = '1';
-            container.addEventListener('click', function (e) {
-              const tr = e.target.closest('tr[data-camp-payload]');
-              if (!tr) return;
-              e.stopPropagation();
-              try {
-                const camp = JSON.parse(decodeURIComponent(tr.getAttribute('data-camp-payload')));
-                if (typeof abrirViewCampanhaLista === 'function') abrirViewCampanhaLista(camp);
-              } catch (err) { console.error(err); }
-            });
-          }
-          let html = '<table class="camp-table camp-table--operational"><colgroup>' +
-            '<col style="width:24%"><col style="width:12%"><col style="width:18%"><col style="width:14%"><col style="width:16%"><col style="width:16%">' +
-            '</colgroup><thead><tr>' +
-            '<th class="text-left">Campanha</th><th class="text-left">Plataforma</th><th class="text-left">Veiculação</th>' +
-            '<th class="text-left">Custo unitário</th><th class="text-left">Entrega</th><th class="text-left">Investimento</th>' +
-            '</tr></thead><tbody>';
-          const campIds = [];
-          data.campanhas.forEach(function (c) {
-            if (c.id_campanha) campIds.push(c.id_campanha);
-            html += buildCampanhaRowHtml(c);
-          });
-          html += '</tbody></table>';
-          container.innerHTML = html;
-          UI.applyPlatformIcons(container);
-          updateFlagSummary(idPi, campIds);
-        })
-        .catch(function () {
-          const container = document.getElementById('camp-content-' + idPi);
-          if (!container) return;
-          container.innerHTML = '<div class="pi-campaign-error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
-            '<span>Não foi possível carregar as campanhas.</span>' +
-            '<button type="button" class="cx-btn cx-btn-sm cx-btn-outline" onclick="retryCampanhas(' + idPi + ')">Tentar novamente</button></div>';
-        });
+        }
+      });
     }
+    pump();
+  }
+
+  window.togglePiGroup = function (idPi, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    const toggle = document.querySelector('[data-pi-group-toggle="' + idPi + '"]');
+    const shouldExpand = toggle ? toggle.getAttribute('aria-expanded') !== 'true' : true;
+    if (shouldExpand && !loadedCampanhas[idPi]) {
+      loadCampaignsForPi(idPi).then(function () {
+        setPiGroupExpanded(idPi, true);
+      });
+      return;
+    }
+    setPiGroupExpanded(idPi, shouldExpand);
+  };
+
+  window.toggleCampanhas = function (idPi, event) {
+    if (document.getElementById('camp-collapse-' + idPi)) {
+      if (event && event.stopPropagation) event.stopPropagation();
+      const row = document.getElementById('camp-collapse-' + idPi);
+      const chevron = document.getElementById('chevron-' + idPi);
+      if (!row) return;
+
+      const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+      const shouldExpand = !toggle || toggle.getAttribute('aria-expanded') !== 'true';
+      row.classList.toggle('hidden', !shouldExpand);
+      if (chevron) chevron.classList.toggle('open', shouldExpand);
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', String(shouldExpand));
+        const count = toggle.getAttribute('data-campaign-count') || '';
+        const label = toggle.querySelector('[data-campaign-toggle-label]');
+        if (label) label.textContent = shouldExpand ? 'Ocultar campanhas' : ('Mostrar ' + count + ' campanha' + (count === '1' ? '' : 's'));
+      }
+
+      if (shouldExpand && !loadedCampanhas[idPi]) {
+        fetch('/api/cadu-pi/' + idPi + '/campanhas')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            loadedCampanhas[idPi] = true;
+            const container = document.getElementById('camp-content-' + idPi);
+            if (!data.success || !data.campanhas || data.campanhas.length === 0) {
+              container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i>' +
+                '<p class="text-[11px] text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
+              return;
+            }
+            let html = '<table class="camp-table camp-table--operational"><colgroup>' +
+              '<col style="width:24%"><col style="width:12%"><col style="width:18%"><col style="width:14%"><col style="width:16%"><col style="width:16%">' +
+              '</colgroup><thead><tr>' +
+              '<th class="text-left">Campanha</th><th class="text-left">Plataforma</th><th class="text-left">Veiculação</th>' +
+              '<th class="text-left">Custo unitário</th><th class="text-left">Entrega</th><th class="text-left">Investimento</th>' +
+              '</tr></thead><tbody>';
+            const campIds = [];
+            data.campanhas.forEach(function (c) {
+              if (c.id_campanha) campIds.push(c.id_campanha);
+              html += buildCampanhaRowHtml(c);
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            UI.applyPlatformIcons(container);
+            updateFlagSummary(idPi, campIds);
+          })
+          .catch(function () {
+            const container = document.getElementById('camp-content-' + idPi);
+            if (!container) return;
+            container.innerHTML = '<div class="pi-campaign-error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+              '<span>Não foi possível carregar as campanhas.</span>' +
+              '<button type="button" class="cx-btn cx-btn-sm cx-btn-outline" onclick="retryCampanhas(' + idPi + ')">Tentar novamente</button></div>';
+          });
+      }
+      return;
+    }
+    window.togglePiGroup(idPi, event);
   };
 
   window.retryCampanhas = function (idPi) {
     loadedCampanhas[idPi] = false;
-    const row = document.getElementById('camp-collapse-' + idPi);
-    if (row) row.classList.add('hidden');
-    window.toggleCampanhas(idPi, { stopPropagation: function () {} });
+    delete loadedCampanhas[idPi + '_promise'];
+    removeCampaignRowsForPi(idPi);
+    if (document.getElementById('camp-collapse-' + idPi)) {
+      const row = document.getElementById('camp-collapse-' + idPi);
+      if (row) row.classList.add('hidden');
+      window.toggleCampanhas(idPi, { stopPropagation: function () {} });
+      return;
+    }
+    loadCampaignsForPi(idPi);
   };
 
   window.toggleAgenciaPis = function (idAgencia, event) {
@@ -447,14 +617,35 @@
 
   window.toggleTodasCampanhas = function () {
     window.todasExpandidas = !window.todasExpandidas;
-    document.querySelectorAll('tr.collapse-camp-row').forEach(function (row) {
-      const idPi = row.id.replace('camp-collapse-', '');
-      const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
-      const isExpanded = toggle && toggle.getAttribute('aria-expanded') === 'true';
-      if (window.todasExpandidas !== isExpanded) {
-        toggleCampanhas(parseInt(idPi, 10), { stopPropagation: function () {} });
-      }
-    });
+    const hierarchyRows = document.querySelectorAll('tr.pi-row.row-pi[data-pi-id]');
+    if (hierarchyRows.length) {
+      hierarchyRows.forEach(function (row) {
+        const idPi = parseInt(row.getAttribute('data-pi-id') || '0', 10);
+        if (!idPi) return;
+        const toggle = document.querySelector('[data-pi-group-toggle="' + idPi + '"]');
+        const isExpanded = toggle ? toggle.getAttribute('aria-expanded') === 'true' : window.todasExpandidas;
+        if (window.todasExpandidas !== isExpanded) {
+          if (window.todasExpandidas) {
+            if (!loadedCampanhas[idPi]) {
+              loadCampaignsForPi(idPi).then(function () { setPiGroupExpanded(idPi, true); });
+            } else {
+              setPiGroupExpanded(idPi, true);
+            }
+          } else {
+            setPiGroupExpanded(idPi, false);
+          }
+        }
+      });
+    } else {
+      document.querySelectorAll('tr.collapse-camp-row').forEach(function (row) {
+        const idPi = row.id.replace('camp-collapse-', '');
+        const toggle = document.querySelector('[data-campaign-toggle="' + idPi + '"]');
+        const isExpanded = toggle && toggle.getAttribute('aria-expanded') === 'true';
+        if (window.todasExpandidas !== isExpanded) {
+          toggleCampanhas(parseInt(idPi, 10), { stopPropagation: function () {} });
+        }
+      });
+    }
     const label = document.getElementById('label_expandir_todas');
     const icon = document.getElementById('icon_expandir_todas');
     const button = document.getElementById('btn_expandir_todas');
@@ -727,7 +918,10 @@
     renderActiveFilters();
     assignMobileCellLabels();
     UI.updatePiStickyTop();
-    if (subStatusAtual === '4' && origemLista === 'operacao') {
+    if (document.querySelector('.pi-list-table--hierarchy')) {
+      window.todasExpandidas = true;
+      autoLoadHierarchyCampaigns();
+    } else if (subStatusAtual === '4' && origemLista === 'operacao') {
       document.querySelectorAll('.pi-campaigns-always-open').forEach(function (row) {
         const idPi = parseInt(row.id.replace('camp-collapse-', ''), 10);
         if (idPi) window.toggleCampanhas(idPi, { stopPropagation: function () {} });
@@ -789,8 +983,9 @@
       }
     });
     document.addEventListener('click', function (event) {
-      const row = event.target.closest('.pi-campaign-detail-row');
-      if (!row) return;
+      if (event.target.closest('.pi-group-toggle, .cx-btn, a.pi-code-link')) return;
+      const row = event.target.closest('.pi-campaign-detail-row, .pi-campaign-row[data-camp-payload]');
+      if (!row || row.classList.contains('pi-campaign-loading-row')) return;
       try {
         const campaign = JSON.parse(decodeURIComponent(row.getAttribute('data-camp-payload')));
         if (typeof abrirViewCampanhaLista === 'function') abrirViewCampanhaLista(campaign);

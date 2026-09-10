@@ -77,15 +77,15 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi_footer_totais", (PARTIALS / "_summary.html").read_text())
 
     def test_expansion_keeps_deep_links_and_accessibility_state(self):
-        campaign = (PARTIALS / "_campaign_rows.html").read_text()
         row = (PARTIALS / "_pi_row.html").read_text()
-        for marker in ("camp-collapse-", "camp-content-"):
-            self.assertIn(marker, campaign)
-        self.assertIn("data-campaign-toggle", row)
-        self.assertIn('aria-expanded="false"', row)
+        self.assertIn("data-pi-group-toggle", row)
+        self.assertIn('aria-expanded="true"', row)
         self.assertIn("aria-controls=", row)
+        self.assertIn("togglePiGroup", self.js)
+        self.assertIn("data-campaign-parent", self.js)
         self.assertIn("setAttribute('aria-expanded'", self.js)
         self.assertIn("id=\"pi-{{ pi.id_pi }}\"", self.template)
+        self.assertIn("data-pi-id", self.template)
 
     def test_campaigns_use_natural_height_and_no_nested_vertical_scroll(self):
         campaign = (PARTIALS / "_campaign_rows.html").read_text()
@@ -123,17 +123,18 @@ class CaduPiListUiContractTest(unittest.TestCase):
 
     def test_internal_campaign_grid_matches_operational_tracking(self):
         for marker in (
-            "camp-table--operational",
+            "buildCampaignDetailRowHtml",
+            "pi-campaign-detail-row",
             "pi-inner-flight-cell",
-            "pi-inner-unit-cost",
             "pi-inner-delivery",
             "pi-inner-investment",
+            "pi-campaign-status-pill",
         ):
             self.assertIn(marker, self.js)
-        for label in ("Veiculação", "Custo unitário", "Entrega", "Investimento"):
+        for label in ("Veiculação", "Entrega", "Investimento"):
             self.assertIn(label, self.js)
-        self.assertIn(".pi-page .camp-table--operational", self.css)
-        self.assertIn("border-left: 4px solid #5f8f89", self.css)
+        self.assertIn("camp-table--operational", self.js)
+        self.assertIn(".pi-page .pi-list-table--hierarchy .pi-campaign-detail-row", self.css)
 
     def test_table_header_layout_keeps_static_header_above_rows(self):
         self.assertRegex(
@@ -151,10 +152,10 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn(".pi-page .pi-list-table thead {", self.css)
         self.assertIn("display: table-header-group;", self.css)
         self.assertIn("@media (min-width: 768px)", self.css)
-        self.assertIn(".pi-page .pi-list-table--commercial > thead,", self.css)
-        for index, width in enumerate(("18%", "20%", "12%", "14%", "14%", "16%", "6%"), start=1):
-            self.assertIn(f".pi-commercial-head th:nth-child({index}) {{ width: {width}; }}", self.css)
-        self.assertIn(".pi-page .pi-list-table--commercial th,", self.css)
+        self.assertIn(".pi-page .pi-list-table--hierarchy > thead", self.css)
+        for index, width in enumerate(("20%", "18%", "11%", "13%", "14%", "18%", "6%"), start=1):
+            self.assertIn(f".pi-hierarchy-head th:nth-child({index}) {{ width: {width}; }}", self.css)
+        self.assertIn(".pi-page .pi-list-table--hierarchy th,", self.css)
         self.assertNotIn("updateListStickyOffsets", self.js)
 
     def test_commercial_views_use_camp_list_header_like_acompanhamento(self):
@@ -175,12 +176,14 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-operation camp-list-page", self.template)
         self.assertIn("camp-list-content", self.template)
         self.assertIn('class="sr-only">Executivo', header.split("{% else %}", 1)[0])
-        self.assertIn("pi-list-table--commercial", self.template)
-        self.assertIn("pi-commercial-columns", self.template)
-        self.assertIn("Cliente e vínculos", table)
-        self.assertEqual(table.count("pi-commercial-head"), 1)
+        self.assertIn("pi-list-table--hierarchy", self.template)
+        self.assertIn("pi-hierarchy-columns", self.template)
+        self.assertIn("Cliente", table)
+        self.assertIn("Entrega", table)
+        self.assertEqual(table.count("pi-hierarchy-head"), 1)
         self.assertIn("cadu_pi/_pi_card.html", self.template)
-        self.assertIn("data-label=\"Financeiro\"", card)
+        self.assertIn("data-label=\"Investimento\"", card)
+        self.assertIn("btn_expandir_todas", commercial_header)
         self.assertIn("<tfoot>", summary)
         self.assertIn("pi-commercial-summary__values", summary)
         self.assertIn("table-layout: fixed", self.css)
@@ -218,23 +221,22 @@ class CaduPiListUiContractTest(unittest.TestCase):
                 nomes_meses={},
             )
             self.assertEqual(7, rendered.count("<td"))
-            self.assertIn('data-label="Financeiro"', rendered)
+            self.assertIn('data-label="Investimento"', rendered)
+            self.assertIn("pi-group-toggle", rendered)
             self.assertIn(">—</strong>", rendered)
         self.assertIn("Mídia", rendered)
 
-    def test_campaigns_expand_in_a_distinct_shared_subtable(self):
-        campaign = (PARTIALS / "_campaign_rows.html").read_text()
-        self.assertNotIn("buildOperationalCampaignRowHtml", self.js)
-        self.assertIn("camp-table--operational", self.js)
-        self.assertIn("Campanhas vinculadas", campaign)
-        self.assertIn("colspan=\"{% if sub_status_atual|string in ['1', '2', '3'] %}7", campaign)
-        self.assertIn("pi-camp-block__header", self.css)
+    def test_commercial_campaigns_use_flat_hierarchy_rows(self):
+        self.assertIn("autoLoadHierarchyCampaigns", self.js)
+        self.assertIn("buildCampaignDetailRowHtml", self.js)
+        self.assertIn("sub_status_atual|string not in ['1', '2', '3']", self.template)
+        self.assertNotIn('<table class="camp-table camp-table--operational">', self.template)
 
     def test_mobile_cards_and_reduced_motion_are_explicit(self):
         self.assertIn("@media (max-width: 767px)", self.css)
         self.assertIn("content: attr(data-label)", self.css)
         card = (PARTIALS / "_pi_card.html").read_text()
-        for label in ("PI e título", "Cliente e vínculos", "Responsável", "Veiculação", "Campanhas", "Financeiro", "Ações"):
+        for label in ("Nome", "Cliente", "Responsável", "Veiculação", "Entrega", "Investimento", "Ações"):
             self.assertIn(f'data-label="{label}"', card)
         self.assertIn("@media (prefers-reduced-motion: reduce)", self.css)
 
@@ -325,12 +327,21 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertEqual([], small_px)
         self.assertEqual([], small_rem)
 
+    def test_operation_layout_uses_full_width_content_area(self):
+        self.assertIn(".pi-page.pi-operation {", self.css)
+        self.assertIn("max-width: none", self.css)
+        self.assertRegex(
+            self.css,
+            r"\.pi-page\.pi-operation > \.pi-list-surface\.camp-list-content\s*\{[^}]*max-width:\s*none;",
+        )
+
     def test_dedicated_script_owns_filters_and_lazy_expansion(self):
         for function_name in (
             "aplicarFiltros",
             "debounceAplicarFiltros",
             "buscarClientesFiltro",
             "filtrarMesesPorAno",
+            "togglePiGroup",
             "toggleCampanhas",
             "toggleTodasCampanhas",
             "toggleAgenciaPis",

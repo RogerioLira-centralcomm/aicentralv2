@@ -1797,6 +1797,193 @@
   padding: 0.25rem 0.625rem;
 }
 
+.pi-page.pi-operation {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.pi-page.pi-operation > .pi-list-surface.camp-list-content {
+  max-width: none;
+  width: 100%;
+}
+
+.pi-page.pi-operation .pi-list-surface {
+  margin-inline: 0;
+  padding-inline: clamp(12px, 1.7vw, 24px);
+}
+
+.pi-page .pi-list-table--hierarchy {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.pi-hierarchy-columns .pi-col-primary { width: 20%; }
+.pi-hierarchy-columns .pi-col-client { width: 18%; }
+.pi-hierarchy-columns .pi-col-owner { width: 11%; }
+.pi-hierarchy-columns .pi-col-period { width: 13%; }
+.pi-hierarchy-columns .pi-col-delivery { width: 14%; }
+.pi-hierarchy-columns .pi-col-finance { width: 18%; }
+.pi-hierarchy-columns .pi-col-actions { width: 6%; }
+
+.pi-hierarchy-head th:nth-child(1) { width: 20%; }
+.pi-hierarchy-head th:nth-child(2) { width: 18%; }
+.pi-hierarchy-head th:nth-child(3) { width: 11%; }
+.pi-hierarchy-head th:nth-child(4) { width: 13%; }
+.pi-hierarchy-head th:nth-child(5) { width: 14%; }
+.pi-hierarchy-head th:nth-child(6) { width: 18%; }
+.pi-hierarchy-head th:nth-child(7) { width: 6%; }
+
+.pi-page .pi-list-table--hierarchy > thead {
+  position: sticky;
+  z-index: 4;
+  top: calc(var(--erp-topbar-h, 3.25rem) + var(--pi-filter-height, 0px));
+}
+
+.pi-page .pi-list-table--hierarchy > thead th {
+  border-bottom: 1px solid var(--pi-line, #e2e8f0);
+  background: #f6f8f8;
+}
+
+.pi-page .pi-list-table--hierarchy th,
+.pi-page .pi-list-table--hierarchy td {
+  padding: 0.65rem 0.75rem;
+  vertical-align: top;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-col-finance,
+.pi-page .pi-list-table--hierarchy .pi-hierarchy-head th:nth-child(6) {
+  text-align: right;
+}
+
+.pi-page .pi-list-table--hierarchy tbody > .row-pi > td {
+  border-bottom: 1px solid #d8e2e2;
+  background: #fff;
+}
+
+.pi-page .pi-list-table--hierarchy tbody > .row-pi:hover > td {
+  background: #f9fbfb;
+}
+
+.pi-group-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.35rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #5f7073;
+  cursor: pointer;
+}
+
+.pi-group-toggle:hover,
+.pi-group-toggle:focus-visible {
+  background: #e8f1f1;
+  color: #1e4d4f;
+  outline: 0;
+  box-shadow: var(--cx-focus, 0 0 0 3px rgba(30, 77, 79, 0.18));
+}
+
+.pi-group-toggle .chevron-pi-group {
+  transition: transform 0.15s ease;
+}
+
+.pi-group-toggle[aria-expanded="false"] .chevron-pi-group {
+  transform: rotate(-90deg);
+}
+
+.pi-commercial-primary__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+}
+
+.pi-commercial-delivery {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.pi-commercial-delivery strong {
+  display: block;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-campaign-detail-row > td {
+  border-bottom: 1px solid #e8eded;
+  background: #f8fafc;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  vertical-align: middle;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-campaign-detail-row:hover > td,
+.pi-page .pi-list-table--hierarchy .pi-campaign-detail-row:focus-visible > td {
+  background: #eef5f4;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-campaign-detail-row {
+  cursor: pointer;
+}
+
+.pi-page .pi-list-table--hierarchy .pi-campaign-detail-row:focus-visible {
+  outline: 0;
+}
+
+.pi-campaign-detail-name {
+  padding-left: 1.75rem !important;
+}
+
+.pi-campaign-status-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.pi-campaign-status-pill.is-active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pi-campaign-status-pill.is-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pi-campaign-status-pill.is-review {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.pi-campaign-loading-row > td {
+  padding: 0.45rem 0.75rem 0.45rem 2.5rem !important;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1280px) {
+  .pi-hierarchy-columns .pi-col-owner,
+  .pi-page .pi-list-table--hierarchy .pi-commercial-owner {
+    display: none;
+  }
+}
+
 .pi-page .pi-list-table--commercial {
   min-width: 68rem;
   table-layout: fixed;
@@ -1824,6 +2011,12 @@
   vertical-align: top;
 }
 
+.pi-page .pi-list-table--hierarchy .pi-commercial-code-line,
+.pi-page .pi-list-table--hierarchy .pi-commercial-meta,
+.pi-page .pi-list-table--hierarchy .pi-commercial-client span,
+.pi-page .pi-list-table--hierarchy .pi-commercial-period span,
+.pi-page .pi-list-table--hierarchy .pi-commercial-finance > div,
+.pi-page .pi-list-table--hierarchy .pi-commercial-actions,
 .pi-commercial-code-line,
 .pi-commercial-meta,
 .pi-commercial-client span,
@@ -2112,8 +2305,8 @@
 }
 
 .pi-page.pi-operation > .pi-list-surface.camp-list-content {
-  margin: 0 auto;
-  max-width: 1780px;
+  margin: 0;
+  max-width: none;
   width: 100%;
   padding-top: 0;
 }
@@ -2404,7 +2597,35 @@
 
   .pi-page .pi-list-table--approval tbody > .pi-row > td::before,
   .pi-page .pi-list-table--operation tbody > .pi-row > td::before,
-  .pi-page .pi-list-table--operation tbody > .pi-campaign-detail-row > td::before {
+  .pi-page .pi-list-table--operation tbody > .pi-campaign-detail-row > td::before,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-row > td::before,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-campaign-detail-row > td::before {
     display: none;
+  }
+
+  .pi-page .pi-list-table-detail.pi-list-table--hierarchy {
+    display: table;
+    min-width: 0;
+  }
+
+  .pi-page .pi-list-table--hierarchy > thead,
+  .pi-page .pi-list-table--hierarchy > tbody,
+  .pi-page .pi-list-table--hierarchy > tfoot {
+    display: table-row-group;
+  }
+
+  .pi-page .pi-list-table--hierarchy tbody > .pi-row,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-campaign-detail-row,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-campaign-loading-row {
+    display: table-row;
+    padding: 0;
+  }
+
+  .pi-page .pi-list-table--hierarchy tbody > .pi-row > td,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-campaign-detail-row > td,
+  .pi-page .pi-list-table--hierarchy tbody > .pi-campaign-loading-row > td {
+    display: table-cell;
+    border-bottom: 1px solid var(--pi-line);
+    padding: 0.75rem;
   }
 }

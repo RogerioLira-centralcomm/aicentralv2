@@ -1,12 +1,12 @@
 <thead>
   {% if sub_status_atual|string in ['1', '2', '3'] %}
-  <tr class="pi-commercial-head">
-    <th>PI e título</th>
-    <th>Cliente e vínculos</th>
+  <tr class="pi-hierarchy-head">
+    <th>Nome</th>
+    <th>Cliente</th>
     <th>Responsável</th>
     <th>Veiculação</th>
-    <th>Campanhas</th>
-    <th>Financeiro</th>
+    <th>Entrega</th>
+    <th>Investimento</th>
     <th class="text-center">Ações</th>
   </tr>
   {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}

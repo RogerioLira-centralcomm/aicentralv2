@@ -206,7 +206,7 @@
     {% endif %}
 
     {% if not visao_por_agencia|default(false)
-          and (menu_sub_status not in ['1', '2'] or visao_comercial|default('') == 'cancelados')
+          and sub_status_atual|string in ['1', '2', '3']
           and not (menu_sub_status == '4' and origem_lista == 'operacao') %}
     <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()" class="pi-op-btn" aria-expanded="false">
       <i class="fa-solid fa-angles-down" id="icon_expandir_todas" aria-hidden="true"></i>

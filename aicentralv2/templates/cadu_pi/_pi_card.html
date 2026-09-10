@@ -3,25 +3,31 @@
 {% set sub_status = sub_status_atual|string %}
 {% set pct_midia_pi = pi.get('camp_pct_midia', 0) %}
 {% set midia_width = [pct_midia_pi, 100]|min if pct_midia_pi > 0 else 0 %}
+{% set camp_count = pi.get('total_campanhas', 0) %}
 
-<td class="pi-commercial-primary" data-label="PI e título">
-  <div class="pi-commercial-code-line">
-    <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
-      {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
-    </a>
-    {% if pi.get('status_descricao') %}
-    <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">
-      {{ pi.status_descricao }}
-    </span>
-    {% endif %}
+<td class="pi-commercial-primary" data-label="Nome">
+  <div class="pi-commercial-primary__lead">
+    {{ pi_row.pi_group_toggle(pi) }}
+    <div class="min-w-0">
+      <div class="pi-commercial-code-line">
+        <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
+          {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
+        </a>
+        {% if pi.get('status_descricao') %}
+        <span class="pi-status-badge {% if 'aprov' in status_lower %}status-aprovada{% elif 'pend' in status_lower %}status-pendente{% elif 'rascunh' in status_lower %}status-rascunho{% else %}status-default{% endif %}">
+          {{ pi.status_descricao }}
+        </span>
+        {% endif %}
+      </div>
+      <strong class="pi-commercial-title" title="{{ pi_row.title_text(pi) }}">{{ pi_row.title_text(pi) }}</strong>
+      <span class="pi-commercial-meta">
+        {% if pi.get('mes_ref_comp') %}{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }} · {% endif %}#{{ pi.id_pi }}
+      </span>
+    </div>
   </div>
-  <strong class="pi-commercial-title" title="{{ pi_row.title_text(pi) }}">{{ pi_row.title_text(pi) }}</strong>
-  <span class="pi-commercial-meta">
-    {% if pi.get('mes_ref_comp') %}{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }} · {% endif %}#{{ pi.id_pi }}
-  </span>
 </td>
 
-<td class="pi-commercial-client" data-label="Cliente e vínculos">
+<td class="pi-commercial-client" data-label="Cliente">
   <strong>{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
   {% if pi.get('agencia_nome') %}<span><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>{% endif %}
   {% if pi.get('parceiro_nome') %}<span><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>{% endif %}
@@ -43,11 +49,16 @@
   {% endif %}
 </td>
 
-<td class="pi-commercial-campaigns" data-label="Campanhas">
-  {{ pi_row.campaign_toggle(pi) }}
+<td class="pi-commercial-delivery" data-label="Entrega">
+  {% if camp_count > 0 %}
+  <strong>{{ camp_count }} campanha{% if camp_count != 1 %}s{% endif %}</strong>
+  <span>vinculada{% if camp_count != 1 %}s{% endif %}</span>
+  {% else %}
+  <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Sem campanhas</span>
+  {% endif %}
 </td>
 
-<td class="pi-commercial-finance" data-label="Financeiro">
+<td class="pi-commercial-finance" data-label="Investimento">
   {% if sub_status == '3' and pi.get('camp_midia_prev_total', 0) > 0 %}
   <div class="pi-commercial-media" title="Custo de mídia realizado">
     <span>Mídia</span>

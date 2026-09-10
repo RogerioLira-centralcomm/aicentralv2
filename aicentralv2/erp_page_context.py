@@ -77,6 +77,8 @@ def resolve_page_context():
             module, screen = "operacao", "pedidos_insercao"
     elif endpoint.startswith("cotacoes."):
         module, screen = "comercial", "cotacao"
+    elif endpoint.startswith("pi_financeiro."):
+        module, screen = "financeiro", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("financeiro."):
         module, screen = "financeiro", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("crm_v3."):

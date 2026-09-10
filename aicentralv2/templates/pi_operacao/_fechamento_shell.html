@@ -1,0 +1,61 @@
+{% set preview = preview or {} %}
+{% set gate_ok = preview.get('gate_ok') %}
+{% set codigo = pi.codigo_pi_cc or pi.codigo_pi_ag or ('PI ' ~ pi.id_pi) %}
+{% set is_fechamento = modo == 'fechamento' %}
+{% set back_url = url_for('cadu_pi_editar', id_pi=pi.id_pi) if is_fechamento else url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') %}
+<div id="pi-operacao-app"
+     class="pi-operation pi-has-mobile-tabs"
+     data-pi-id="{{ pi.id_pi }}"
+     data-stage="{{ pi.id_sub_status_pi }}"
+     data-readonly="{{ 'true' if somente_leitura else 'false' }}"
+     data-fechamento-modo="{{ modo }}">
+  <header class="pi-op-header">
+    <div class="pi-op-header__row">
+      <div class="pi-op-title-wrap">
+        <a href="{{ back_url }}" class="pi-op-icon-btn" title="Voltar" aria-label="Voltar">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1>{% if is_fechamento %}Finalizar PI · {{ codigo }}{% else %}PI no Financeiro · {{ codigo }}{% endif %}</h1>
+            {% if preview.get('status_financeiro_label') %}
+            <span class="pi-op-badge">{{ preview.status_financeiro_label }}</span>
+            {% endif %}
+            {% if preview.get('saude_label') %}
+            <span class="pi-op-badge pi-saude-badge" data-saude="{{ preview.saude_pi }}">{{ preview.saude_label }}</span>
+            {% endif %}
+          </div>
+          <p>{{ pi.cliente_nome or 'Cliente não informado' }}{% if pi.agencia_nome %} · {{ pi.agencia_nome }}{% endif %}</p>
+        </div>
+      </div>
+      <div class="pi-op-actions">
+        {% if pi.googled_pi_princ %}
+        <a href="{{ pi.googled_pi_princ }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">
+          <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
+        </a>
+        {% endif %}
+        <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
+          <i class="fa-regular fa-envelope" aria-hidden="true"></i>Comunicações
+        </button>
+        {% if is_fechamento %}
+        <button type="button" id="btn_enviar_financeiro"
+                class="pi-op-btn pi-op-btn--accent"
+                {% if not gate_ok %}disabled{% endif %}
+                data-gate-ok="{{ 'true' if gate_ok else 'false' }}">
+          <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>Enviar ao Financeiro
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  {% include 'pi_operacao/_mobile_tabs.html' %}
+
+  <div class="pi-op-layout">
+    <main id="pi-mobile-edit" class="pi-op-main" aria-label="Fechamento do PI"
+          role="tabpanel" aria-labelledby="pi-mobile-tab-edit" data-mobile-panel="edit" tabindex="0">
+      {% include 'pi_operacao/_fechamento_main.html' %}
+    </main>
+    {% include 'pi_operacao/_sidebar.html' %}
+  </div>
+</div>

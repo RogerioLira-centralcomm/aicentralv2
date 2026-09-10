@@ -1035,12 +1035,35 @@
   table-layout: fixed;
 }
 
-.pi-billing-columns .pi-col-title { width: 16%; }
-.pi-billing-columns .pi-col-client { width: 27%; }
-.pi-billing-columns .pi-col-owner { width: 13%; }
-.pi-billing-columns .pi-col-period { width: 15%; }
+.pi-billing-columns .pi-col-title { width: 22%; }
+.pi-billing-columns .pi-col-media { width: 18%; }
 .pi-billing-columns .pi-col-finance { width: 16%; }
-.pi-billing-columns .pi-col-documents { width: 13%; }
+.pi-billing-columns .pi-col-status { width: 14%; }
+.pi-billing-columns .pi-col-documents { width: 16%; }
+.pi-billing-columns .pi-col-actions { width: 14%; }
+
+.pi-billing-media,
+.pi-billing-status {
+  min-width: 0;
+}
+.pi-billing-media > div,
+.pi-billing-flags {
+  display: grid;
+  gap: 0.2rem;
+}
+.pi-billing-flags {
+  margin-top: 0.45rem;
+}
+.pi-billing-media span,
+.pi-billing-media small {
+  color: #718083;
+  font-size: 0.75rem !important;
+}
+.pi-billing-media strong {
+  color: #1e293b;
+  font-size: 0.8125rem !important;
+  font-variant-numeric: tabular-nums;
+}
 
 .pi-page .pi-list-table tbody .pi-row--billing > td {
   padding: 0.75rem 0.7rem;

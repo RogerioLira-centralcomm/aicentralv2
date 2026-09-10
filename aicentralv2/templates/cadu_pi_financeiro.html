@@ -1,0 +1,19 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}PI no Financeiro · {{ pi.codigo_pi_cc or pi.id_pi }} - CentralComm AI{% endblock %}
+{% block page_label %}Financeiro{% endblock %}
+{% block page_subtitle %}Resultado, comprovação e faturamento{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=12">
+{% endblock %}
+
+{% block content %}
+{% include 'pi_operacao/_fechamento_shell.html' %}
+{% include 'pi_operacao/_drive_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_fechamento.js') }}?v=1"></script>
+{% endblock %}

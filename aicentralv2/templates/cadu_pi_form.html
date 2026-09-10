@@ -81,11 +81,10 @@
             <i class="fas fa-play" aria-hidden="true"></i>Iniciar campanhas
           </button>
           {% elif pi.id_sub_status_pi|string == '3' %}
-          <button type="button" id="btn_enviar_financeiro"
-            onclick="document.getElementById('modal_confirmar_financeiro').showModal()"
+          <a href="{{ url_for('pi_financeiro.fechamento', id_pi=pi.id_pi) }}" id="btn_enviar_financeiro"
             class="pi-op-btn pi-op-btn--accent">
-            <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>Encerrar e enviar ao Financeiro
-          </button>
+            <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>Finalizar e enviar ao Financeiro
+          </a>
           {% endif %}
         {% elif modo == 'editar' and pi and somente_leitura and pi.googled_pi_princ %}
           <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary">

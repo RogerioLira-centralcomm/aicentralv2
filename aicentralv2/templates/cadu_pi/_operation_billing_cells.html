@@ -1,18 +1,12 @@
-<td class="pi-billing-identity">
-  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}"
+<td class="pi-billing-identity" data-label="PI / entidades">
+  <a href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}"
      class="pi-code-link"
-     title="{% if lista_somente_leitura %}Visualizar PI{% else %}Editar PI{% endif %}">
+     title="Abrir workspace financeiro">
     {{ pi.codigo_pi_cc or pi.codigo_pi_ag or 'PI sem código' }}
   </a>
   {% if pi.get('titulo_pi') %}
   <span class="pi-billing-title" title="{{ pi.titulo_pi }}">{{ pi.titulo_pi }}</span>
   {% endif %}
-  {% if pi.get('mes_ref_comp') %}
-  <span class="pi-billing-reference">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
-  {% endif %}
-</td>
-
-<td class="pi-billing-client-cell">
   <strong class="pi-billing-client">{{ pi.get('cliente_nome') or 'Cliente não informado' }}</strong>
   {% if pi.get('agencia_nome') %}
   <span class="pi-billing-relation"><i class="fa-regular fa-building" aria-hidden="true"></i>{{ pi.agencia_nome }}</span>
@@ -20,28 +14,26 @@
   {% if pi.get('parceiro_nome') %}
   <span class="pi-billing-relation"><i class="fa-solid fa-handshake-simple" aria-hidden="true"></i>{{ pi.parceiro_nome }}</span>
   {% endif %}
-</td>
-
-<td class="pi-billing-owner">
   {{ pi_row.executive(pi) }}
 </td>
 
-<td class="pi-billing-flight">
-  {% if pi.get('periodo_inicio') %}
-  <strong>
-    {{ pi.periodo_inicio.strftime('%d/%m/%Y') }}
-    {% if pi.get('periodo_fim') %}<span aria-hidden="true">—</span> {{ pi.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}
-  </strong>
-  {% if pi.get('periodo_fim') %}
-  {% set dias_veiculacao = (pi.periodo_fim - pi.periodo_inicio).days %}
-  <span>{{ dias_veiculacao }} dia{% if dias_veiculacao != 1 %}s{% endif %}</span>
-  {% endif %}
-  {% else %}
-  <span class="pi-config-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Período pendente</span>
-  {% endif %}
+<td class="pi-billing-media" data-label="Resultado mídia">
+  <div>
+    <span>Gasto / previsto</span>
+    <strong>{{ pi.camp_pct_midia or 0 }}%</strong>
+    <small>
+      {{ pi.camp_midia_gasto_total|format_brl if pi.get('camp_midia_gasto_total') else '—' }}
+      /
+      {{ pi.camp_midia_prev_total|format_brl if pi.get('camp_midia_prev_total') else '—' }}
+    </small>
+  </div>
+  <div class="pi-billing-flags">
+    <span class="pi-saude-badge" data-saude="{{ pi.get('saude_pi') or 'sem_dados' }}">{{ pi.get('saude_label') or 'Sem dados' }}</span>
+    <span class="pi-op-badge">Zona {{ pi.get('zona_lucratividade') or '—' }}</span>
+  </div>
 </td>
 
-<td class="pi-billing-finance">
+<td class="pi-billing-finance" data-label="Resultado comercial">
   <div>
     <span>Valor líquido</span>
     <strong class="is-net">{{ pi.valor_liquido|format_brl if pi.get('valor_liquido') else 'Pendente' }}</strong>
@@ -50,9 +42,19 @@
     <span>Valor bruto</span>
     <strong>{{ pi.valor_bruto|format_brl if pi.get('valor_bruto') else 'Pendente' }}</strong>
   </div>
+  {% if pi.get('val_margem_cc') %}
+  <div>
+    <span>Margem CC</span>
+    <strong>{{ pi.val_margem_cc|format_brl }}</strong>
+  </div>
+  {% endif %}
 </td>
 
-<td class="pi-billing-documents" onclick="event.stopPropagation()">
+<td class="pi-billing-status" data-label="Status financeiro">
+  <span class="pi-op-badge">{{ pi.get('status_financeiro_label') or 'Aguardando comprovação' }}</span>
+</td>
+
+<td class="pi-billing-documents" data-label="Documentos" onclick="event.stopPropagation()">
   {% set pi_info = {
     'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
     'titulo': pi.titulo_pi or '',
@@ -84,4 +86,10 @@
     <span class="pi-document-state"><i class="fa-solid fa-file-circle-xmark" aria-hidden="true"></i>Sem NF</span>
     {% endif %}
   </div>
+</td>
+
+<td class="pi-billing-actions" data-label="Ações" onclick="event.stopPropagation()">
+  <a href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}" class="pi-op-btn pi-op-btn--primary">
+    Abrir workspace
+  </a>
 </td>

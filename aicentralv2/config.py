@@ -61,6 +61,11 @@ class Config:
 	BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
 	BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Cadu')
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+	FINANCEIRO_HANDOFF_EMAILS = os.getenv('FINANCEIRO_HANDOFF_EMAILS', '')
+	PI_HANDOFF_GATE = os.getenv('PI_HANDOFF_GATE', 'true').lower() in ('true', '1', 'yes', 'on')
+	BREVO_HANDOFF_INTERNO = os.getenv('BREVO_HANDOFF_INTERNO', 'true').lower() in ('true', '1', 'yes', 'on')
+	MAKE_HANDOFF_FALLBACK = os.getenv('MAKE_HANDOFF_FALLBACK', 'false').lower() in ('true', '1', 'yes', 'on')
+	PI_HANDOFF_BLOQUEIA_RISCO = os.getenv('PI_HANDOFF_BLOQUEIA_RISCO', 'false').lower() in ('true', '1', 'yes', 'on')
 	
 	# Cache (Redis ou SimpleCache)
 	CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')  # 'RedisCache' para Redis

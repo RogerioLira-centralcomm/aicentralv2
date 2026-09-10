@@ -247,10 +247,10 @@ class PiOperacaoServiceTest(unittest.TestCase):
         service.gerar_checklist(10, {}, autor_id=99)
         service.gerar_checklist(10, {}, autor_id=99)
         estado = service.estado_completo(10)["checklist_operacional"]
-        self.assertEqual(len(estado["itens_pi"]), 7)
+        self.assertEqual(len(estado["itens_pi"]), 13)
         self.assertEqual(len(estado["campanhas"]), 2)
         self.assertTrue(all(len(item["itens"]) == 5 for item in estado["campanhas"]))
-        self.assertEqual(len(repo.checklist), 17)
+        self.assertEqual(len(repo.checklist), 23)
 
     def test_checklist_escala_para_vinte_campanhas(self):
         repo = FakeRepository()
@@ -267,7 +267,7 @@ class PiOperacaoServiceTest(unittest.TestCase):
         service = PiOperacaoService(repository=repo)
         service.gerar_checklist(10, {}, autor_id=99)
         estrutura = service.estado_completo(10)["checklist_operacional"]
-        self.assertEqual(estrutura["progresso"]["total"], 107)
+        self.assertEqual(estrutura["progresso"]["total"], 113)
         self.assertEqual(len(estrutura["campanhas"]), 20)
         self.assertTrue(
             all(len(campanha["itens"]) == 5 for campanha in estrutura["campanhas"])

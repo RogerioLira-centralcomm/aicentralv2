@@ -66,11 +66,11 @@
         {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
         <colgroup class="pi-billing-columns">
           <col class="pi-col-title">
-          <col class="pi-col-client">
-          <col class="pi-col-owner">
-          <col class="pi-col-period">
+          <col class="pi-col-media">
           <col class="pi-col-finance">
+          <col class="pi-col-status">
           <col class="pi-col-documents">
+          <col class="pi-col-actions">
         </colgroup>
         {% endif %}
         {% include 'cadu_pi/_table.html' %}
@@ -228,6 +228,11 @@
                 'valorLiquido': pi.valor_liquido or ''
               } %}
               <div class="inline-flex items-center gap-1 flex-wrap justify-center">
+              <a href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}"
+                 class="inline-flex items-center justify-center h-6 px-1.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
+                 title="Abrir workspace financeiro">
+                Workspace
+              </a>
               {% if origem_lista == 'faturamento' and not pi.get('nf_id') %}
               <button type="button"
                       onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
@@ -310,7 +315,7 @@
             {% endif %}
           {% endif %}
           </tr>
-          {% if sub_status_atual|string not in ['1', '2', '3'] %}
+          {% if sub_status_atual|string not in ['1', '2', '3', '4'] %}
           {% include 'cadu_pi/_campaign_rows.html' %}
           {% endif %}
           {% endfor %}

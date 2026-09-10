@@ -1,0 +1,170 @@
+{% set preview = preview or {} %}
+{% set pendencias = preview.get('pendencias') or [] %}
+{% set campanhas = preview.get('campanhas') or [] %}
+
+<section id="pi-mobile-summary" class="pi-op-panel" aria-label="Resumo do resultado"
+         role="tabpanel" aria-labelledby="pi-mobile-tab-summary" data-mobile-panel="summary" tabindex="0">
+  <header class="pi-op-panel__head">
+    <h2>Resultado e reconciliação</h2>
+    <p>Gasto de mídia, entrega e DRE comercial{% if preview.get('persistido') %} — snapshot do handoff{% endif %}.</p>
+  </header>
+  <div class="pi-fechamento-kpis">
+    <article>
+      <span>Gasto de mídia</span>
+      <strong>{{ preview.gasto_midia_realizado|format_brl if preview.get('gasto_midia_realizado') is not none else '—' }}</strong>
+      <small>{{ preview.pct_gasto_midia or 0 }}% de {{ preview.gasto_midia_previsto|format_brl if preview.get('gasto_midia_previsto') is not none else '—' }}</small>
+    </article>
+    <article>
+      <span>Entrega</span>
+      <strong>{{ preview.pct_objetivo or 0 }}%</strong>
+      <small>Objetivo contratado vs. atingido</small>
+    </article>
+    <article>
+      <span>Zona</span>
+      <strong>Zona {{ preview.zona_lucratividade or '—' }}</strong>
+      <small>{{ preview.zona_label or 'Sem classificação' }}</small>
+    </article>
+    <article>
+      <span>Resultado</span>
+      <strong>{{ preview.margem_liquida_calculada|format_brl if preview.get('margem_liquida_calculada') is not none else '—' }}</strong>
+      <small>Líquido − mídia realizada</small>
+    </article>
+  </div>
+</section>
+
+<section class="pi-op-panel" aria-label="DRE comercial">
+  <header class="pi-op-panel__head">
+    <h2>Resultado comercial</h2>
+  </header>
+  <dl class="pi-fechamento-dre">
+    <div><dt>Bruto</dt><dd>{{ preview.valor_bruto|format_brl if preview.get('valor_bruto') is not none else '—' }}</dd></div>
+    <div><dt>Líquido</dt><dd>{{ preview.valor_liquido|format_brl if preview.get('valor_liquido') is not none else '—' }}</dd></div>
+    <div><dt>Margem CC</dt><dd>{{ preview.margem_cc|format_brl if preview.get('margem_cc') is not none else '—' }}</dd></div>
+    <div><dt>Tech fee</dt><dd>{{ preview.tech_fee|format_brl if preview.get('tech_fee') is not none else '—' }}</dd></div>
+    <div><dt>Comissão vendas</dt><dd>{{ preview.com_vendas|format_brl if preview.get('com_vendas') is not none else '—' }}</dd></div>
+    <div><dt>PL incentivos</dt><dd>{{ preview.pl_incentivos|format_brl if preview.get('pl_incentivos') is not none else '—' }}</dd></div>
+    <div><dt>Impostos</dt><dd>{{ preview.impostos|format_brl if preview.get('impostos') is not none else '—' }}</dd></div>
+    <div><dt>Mídia realizada</dt><dd>{{ preview.gasto_midia_realizado|format_brl if preview.get('gasto_midia_realizado') is not none else '—' }}</dd></div>
+  </dl>
+</section>
+
+{% if modo == 'fechamento' %}
+<section class="pi-op-panel" aria-label="Pendências do gate">
+  <header class="pi-op-panel__head">
+    <h2>Pendências do fechamento</h2>
+    <p>{% if pendencias %}Resolva antes de enviar ao financeiro.{% else %}Nenhuma pendência bloqueante.{% endif %}</p>
+  </header>
+  {% if pendencias %}
+  <ul class="pi-fechamento-pendencias">
+    {% for item in pendencias %}
+    <li>{{ item.mensagem }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="pi-fechamento-ok">Checklist de fechamento concluído. O envio está liberado.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="pi-op-panel" aria-label="Observações da operação">
+  <header class="pi-op-panel__head">
+    <h2>Observações para o financeiro</h2>
+  </header>
+  {% if modo == 'fechamento' %}
+  <label class="sr-only" for="obs_operacao_fechamento">Observações da operação</label>
+  <textarea id="obs_operacao_fechamento" class="pi-fechamento-obs" rows="4"
+            placeholder="Contexto de veiculação, desvios e pendências que o financeiro precisa saber.">{{ preview.observacoes_operacao or pi.obs_operacao or '' }}</textarea>
+  {% else %}
+  <p>{{ preview.observacoes_operacao or pi.obs_operacao or 'Sem observações registradas no fechamento.' }}</p>
+  {% endif %}
+</section>
+
+<section class="pi-op-panel" aria-label="Campanhas do snapshot">
+  <header class="pi-op-panel__head">
+    <h2>Campanhas</h2>
+    <p>Evidência agregada — detalhe secundário.</p>
+  </header>
+  {% if campanhas %}
+  <div class="cx-table-scroll">
+    <table class="cx-table cx-table-dense w-full">
+      <thead>
+        <tr>
+          <th>Campanha</th>
+          <th>Plataforma</th>
+          <th>Gasto</th>
+          <th>Entrega</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for campanha in campanhas %}
+        <tr>
+          <td>{{ campanha.nome_campanha or '—' }}</td>
+          <td>{{ campanha.plataforma or '—' }}</td>
+          <td>{{ campanha.pct_gasto or campanha.pct_gasto_midia or 0 }}% · {{ (campanha.gasto_realizado or campanha.gasto_midia_realizado)|format_brl if (campanha.gasto_realizado or campanha.gasto_midia_realizado) is not none else '—' }}</td>
+          <td>{{ campanha.pct_objetivo or 0 }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>Nenhuma campanha no snapshot.</p>
+  {% endif %}
+</section>
+
+<section class="pi-op-panel" aria-label="Documentos e NF">
+  <header class="pi-op-panel__head">
+    <h2>Comprovação, documentos e NF</h2>
+  </header>
+  <div class="pi-fechamento-docs">
+    {% if preview.drive and preview.drive.principal %}
+    <a href="{{ preview.drive.principal }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Pasta principal</a>
+    {% endif %}
+    {% if preview.drive and preview.drive.financeiro %}
+    <a href="{{ preview.drive.financeiro }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Pasta financeiro</a>
+    {% endif %}
+    {% if preview.drive and preview.drive.assinados %}
+    <a href="{{ preview.drive.assinados }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">Arquivos assinados</a>
+    {% endif %}
+    {% if pi.nf_id %}
+    <span class="pi-document-state is-issued">NF vinculada</span>
+    {% else %}
+    <span class="pi-document-state">Sem NF</span>
+    {% endif %}
+  </div>
+  {% if documentos %}
+  <div class="pi-fechamento-pdfs">
+    <h3>Gerar PDFs</h3>
+    <p>Documentos usam o snapshot congelado no handoff — não recalculam campanhas ao vivo.</p>
+    <div class="pi-fechamento-docs">
+      {% for doc in documentos %}
+      {% if doc.get('disponivel', true) %}
+      <a href="{{ url_for('pi_financeiro.documento_pdf', id_pi=pi.id_pi, tipo=doc.tipo, variante=doc.variante) }}"
+         class="pi-op-btn pi-op-btn--secondary" target="_blank" rel="noopener">
+        <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>{{ doc.label }}
+      </a>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<dialog id="modal_confirmar_financeiro" class="cx-modal-shell">
+  <div class="cx-modal-panel max-w-md bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-sm text-gray-800">Enviar ao Financeiro</h3>
+    </div>
+    <div class="px-4 py-4 text-sm text-gray-700 space-y-2">
+      <p>Confirme o handoff com o resumo abaixo. O e-mail interno será enviado via Brevo.</p>
+      <p><strong>PI:</strong> {{ codigo if codigo is defined else (pi.codigo_pi_cc or pi.id_pi) }}</p>
+      <p><strong>Cliente:</strong> {{ pi.cliente_nome or '—' }}</p>
+      <p><strong>Zona:</strong> {{ preview.zona_lucratividade or '—' }} · {{ preview.pct_gasto_midia or 0 }}% de gasto</p>
+    </div>
+    <div class="pi-mobile-modal-actions px-4 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_financeiro').close()" class="pi-op-btn pi-op-btn--secondary">Cancelar</button>
+      <button type="button" id="btn_confirmar_financeiro" class="pi-op-btn pi-op-btn--accent">Confirmar envio</button>
+    </div>
+  </div>
+  <form method="dialog" class="cx-modal-dismiss bg-black/50"><button>close</button></form>
+</dialog>

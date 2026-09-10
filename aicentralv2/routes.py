@@ -9980,8 +9980,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 pis, filtros.get('tipo_entidade') if origem_lista in ('faturamento', 'nf_emitida') else None
             )
 
-            # Custo de mídia agregado das campanhas (visão Em andamento)
-            if filtros.get('id_sub_status_pi') == 3 and pis:
+            # Custo de mídia agregado das campanhas (andamento e fila financeira)
+            if filtros.get('id_sub_status_pi') in (3, 4) and pis:
                 ids = [p['id_pi'] for p in pis if p.get('id_pi')]
                 agg_map = db.obter_progresso_campanhas_por_pis(ids)
                 for pi in pis:
@@ -10002,6 +10002,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     pi['camp_midia_prev_total'] = previsto_total
                     pi['camp_pct_midia'] = int(pct_midia)
                     pi['campanha_ids'] = bucket.get('campanha_ids') or []
+                if filtros.get('id_sub_status_pi') == 4:
+                    from aicentralv2.pi_fechamento_service import PiFechamentoService
+                    PiFechamentoService().anexar_lista(pis)
 
             status_pi = db.obter_status_pi()
             if origem_lista == 'faturamento':
@@ -10924,104 +10927,46 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/cadu_pi/<int:id_pi>/enviar-financeiro', methods=['POST'])
     @login_required
     def cadu_pi_enviar_financeiro(id_pi):
-        """Finaliza campanhas e envia PI para faturamento"""
+        """Fecha o PI com snapshot e envia ao financeiro via Brevo."""
         try:
-            import requests
-            import os
-            from datetime import datetime
-            from aicentralv2.services.pi_make_webhooks import valor_liquido_pi_webhook
+            from aicentralv2.pi_fechamento_service import HandoffBloqueadoError, PiFechamentoService
 
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
                 return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
 
-            conn = db.get_db()
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        UPDATE cadu_pi_campanha
-                        SET id_status = (SELECT id FROM cadu_pi_camp_status WHERE descricao = 'Finalizada' LIMIT 1),
-                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
-                        WHERE id_pi = %s
-                    ''', (id_pi,))
-                    quant_campanhas = cursor.rowcount
-
-                    cursor.execute('''
-                        UPDATE cadu_pi
-                        SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em faturamento' LIMIT 1),
-                            id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Faturamento' LIMIT 1),
-                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
-                        WHERE id_pi = %s
-                    ''', (id_pi,))
-                    conn.commit()
-            except Exception as e:
-                conn.rollback()
-                raise e
-
-            numero = pi.get('codigo_pi_cc', '')
-            is_dev = app.config.get('DEBUG', False)
-            tem_agencia = bool(pi.get('id_agencia'))
-
-            def fmt_data_curta(val):
-                if not val:
-                    return ''
-                if isinstance(val, str):
-                    try:
-                        val = datetime.strptime(val, '%Y-%m-%d')
-                    except ValueError:
-                        return val
-                return val.strftime('%d/%m/%Y %H:%M:%S')
-
-            webhook_erros = []
-
-            url_faturamento = os.getenv('MAKE_WEBHOOK_PI_FATURAMENTO')
-            if url_faturamento:
-                tem_parceiro = bool(pi.get('id_parceiro'))
-                params_faturamento = {
-                    'testeparam': 'yes' if is_dev else 'no',
-                    'codPI': numero,
-                    'razaosccliente': pi.get('cliente_razao_social') or '',
-                    'nomefcliente': pi.get('cliente_nome') or '',
-                    'pastaprgoogle': pi.get('googled_pi_princ') or '',
-                    'valorliquidopi': valor_liquido_pi_webhook(pi),
-                    'emailresponsavelpi': pi.get('resp_comercial_email') or '',
-                    'quantcampanhas': quant_campanhas,
-                    'mesref': fmt_data_curta(pi.get('mes_ref')),
-                    'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
-                    'datafim': fmt_data_curta(pi.get('periodo_fim')),
-                    'pastaassinadas': pi.get('googled_pi_arq_ass') or '',
-                    'instrucoesfinanceiro': (pi.get('observacoes_financeiro') or '').strip() or 'Sem instruções',
-                    'nomerespPI': pi.get('resp_comercial_nome') or '',
-                    'titulo': pi.get('titulo_pi') or '',
-                    'pi_tem_agencia': 'sim' if tem_agencia else 'não',
-                }
-                if tem_agencia:
-                    params_faturamento['nomefagencia'] = pi.get('agencia_nome') or ''
-                if tem_parceiro:
-                    params_faturamento['razaosparceiro'] = pi.get('parceiro_razao_social') or ''
-                    params_faturamento['nomeparceiro'] = pi.get('parceiro_nome') or ''
-
-                try:
-                    resp = requests.get(url_faturamento, params=params_faturamento, timeout=30)
-                    resp.raise_for_status()
-                except Exception as wh_err:
-                    app.logger.error(f"Erro webhook PI_FATURAMENTO: {wh_err}")
-                    webhook_erros.append(str(wh_err))
-
+            payload = request.get_json(silent=True) or {}
+            resultado = PiFechamentoService().enviar_financeiro(
+                id_pi,
+                session.get('user_id'),
+                observacoes=payload.get('observacoes_operacao'),
+            )
             registrar_auditoria(
                 acao='UPDATE',
                 modulo='cadu_pi',
-                descricao=f'PI enviado para faturamento - PI: {numero}',
+                descricao=f'PI enviado para faturamento - PI: {pi.get("codigo_pi_cc", "")}',
                 registro_id=id_pi,
                 registro_tipo='cadu_pi',
                 dados_anteriores={'id_sub_status_pi': pi.get('id_sub_status_pi')},
-                dados_novos={'sub_status': 'Em faturamento', 'campanhas_finalizadas': quant_campanhas}
+                dados_novos={
+                    'sub_status': 'Em faturamento',
+                    'campanhas_finalizadas': resultado.get('campanhas_finalizadas'),
+                    'versao_snapshot': resultado.get('versao'),
+                },
             )
-            _sincronizar_operacao_pi_seguro(id_pi)
-
-            if webhook_erros:
-                return jsonify({'success': True, 'warning': f'PI enviado para faturamento, mas {len(webhook_erros)} webhook(s) falharam'})
-            return jsonify({'success': True})
+            response = {
+                'success': True,
+                'redirect': resultado.get('redirect'),
+            }
+            if resultado.get('warning'):
+                response['warning'] = resultado['warning']
+            return jsonify(response)
+        except HandoffBloqueadoError as blocked:
+            return jsonify({
+                'success': False,
+                'message': 'PI com pendências de fechamento.',
+                'pendencias': blocked.pendencias,
+            }), 422
         except Exception as e:
             app.logger.error(f"Erro ao enviar PI para faturamento: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500

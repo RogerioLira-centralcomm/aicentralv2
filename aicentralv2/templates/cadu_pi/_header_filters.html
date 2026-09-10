@@ -87,8 +87,8 @@
 <form id="filtros_form" class="pi-op-header camp-list-header" aria-label="Filtros da lista de PIs">
   <div class="camp-list-header__identity">
     {% if origem_lista == 'faturamento' %}
-    <h1 id="pi-list-title">Faturamento de PIs</h1>
-    <p>PIs prontos para emissão e vínculo de notas fiscais.</p>
+    <h1 id="pi-list-title">Fila de faturamento</h1>
+    <p>Emitir NF e documentos dos PIs encerrados pela operação.</p>
     {% elif menu_sub_status == '1' %}
     <h1 id="pi-list-title">PIs em aprovação</h1>
     <p>PIs aguardando validação comercial.</p>
@@ -102,8 +102,8 @@
     <h1 id="pi-list-title">PIs em andamento</h1>
     <p>PIs ativos com campanhas e financeiro consolidado.</p>
     {% elif sub_status_atual|string == '4' and origem_lista == 'operacao' %}
-    <h1 id="pi-list-title">PIs em faturamento</h1>
-    <p>PIs operacionais prontos para faturamento e documentos.</p>
+    <h1 id="pi-list-title">PIs enviados ao Financeiro</h1>
+    <p>PIs encerrados pela operação; acompanhe pendências de documentação e NF.</p>
     {% else %}
     <h1 id="pi-list-title">PIs</h1>
     <p>PIs comerciais filtrados por executivo, cliente e competência.</p>

@@ -1252,3 +1252,63 @@ body.pi-op-lock { overflow: hidden; }
   }
   .pi-confirm-dialog__actions .pi-op-btn { min-height: 44px; }
 }
+
+.pi-fechamento-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+.pi-fechamento-kpis article {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.7rem;
+  background: #fff;
+}
+.pi-fechamento-kpis span,
+.pi-fechamento-kpis small { color: var(--pi-muted); }
+.pi-fechamento-kpis strong {
+  color: #132e30;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.pi-fechamento-dre {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.pi-fechamento-dre div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.6rem;
+  background: #fff;
+}
+.pi-fechamento-dre dt { color: var(--pi-muted); font-size: 12px; }
+.pi-fechamento-dre dd { margin: 0; color: #132e30; font-weight: 700; }
+.pi-fechamento-pendencias {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #9a3412;
+}
+.pi-fechamento-ok { color: #176447; font-weight: 650; }
+.pi-fechamento-obs {
+  width: 100%;
+  min-height: 6rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+.pi-fechamento-docs { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pi-fechamento-pdfs { margin-top: 0.85rem; }
+.pi-fechamento-pdfs h3 {
+  margin: 0 0 0.35rem;
+  color: #132e30;
+  font-size: 0.85rem;
+}
+.pi-saude-badge[data-saude="risco"] { background: #fee2e2; color: #991b1b; }
+.pi-saude-badge[data-saude="atencao"] { background: #ffedd5; color: #9a3412; }

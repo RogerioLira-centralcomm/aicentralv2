@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PI enviado ao Financeiro</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    <tr>
+                        <td style="background-color:#172d32;padding:20px 32px;color:#ffffff;">
+                            <span style="font-size:15px;font-weight:700;display:block;">PI enviado ao Financeiro</span>
+                            <span style="font-size:12px;opacity:.8;display:block;margin-top:4px;">{{ snapshot.codigo_pi or snapshot.id_pi }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:24px 32px;">
+                            <p style="margin:0 0 16px;font-size:13px;color:#334155;">O PI foi encerrado pela operação e está na fila financeira.</p>
+                            <table role="presentation" width="100%" style="background:#f8fafc;border-radius:8px;margin-bottom:16px;">
+                                <tr>
+                                    <td style="padding:14px;">
+                                        <span style="display:block;font-size:12px;color:#64748b;">Cliente</span>
+                                        <strong style="font-size:14px;color:#172d32;">{{ snapshot.cliente_nome or '—' }}</strong>
+                                        {% if snapshot.agencia_nome %}
+                                        <span style="display:block;font-size:12px;color:#64748b;margin-top:8px;">Agência: {{ snapshot.agencia_nome }}</span>
+                                        {% endif %}
+                                        <span style="display:block;font-size:12px;color:#64748b;margin-top:8px;">Executivo: {{ snapshot.executivo or '—' }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" style="margin-bottom:16px;">
+                                <tr>
+                                    <td style="padding:8px 0;font-size:12px;color:#64748b;">Gasto / previsto</td>
+                                    <td style="padding:8px 0;font-size:12px;color:#172d32;text-align:right;">{{ snapshot.pct_gasto_midia or 0 }}%</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0;font-size:12px;color:#64748b;">Zona</td>
+                                    <td style="padding:8px 0;font-size:12px;color:#172d32;text-align:right;">{{ snapshot.zona_lucratividade or '—' }} · {{ snapshot.zona_label or '' }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0;font-size:12px;color:#64748b;">Saúde</td>
+                                    <td style="padding:8px 0;font-size:12px;color:#172d32;text-align:right;">{{ snapshot.saude_label or snapshot.saude_pi }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0;font-size:12px;color:#64748b;">Resultado</td>
+                                    <td style="padding:8px 0;font-size:12px;color:#172d32;text-align:right;">{{ snapshot.margem_liquida_calculada }}</td>
+                                </tr>
+                            </table>
+                            {% if snapshot.observacoes_operacao %}
+                            <p style="font-size:12px;color:#334155;"><strong>Observações da operação:</strong> {{ snapshot.observacoes_operacao }}</p>
+                            {% endif %}
+                            <p style="margin:20px 0 0;">
+                                <a href="{{ workspace_url }}" style="display:inline-block;background:#08734f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;">Abrir workspace financeiro</a>
+                            </p>
+                            {% if snapshot.drive %}
+                            <p style="margin-top:16px;font-size:12px;color:#64748b;">
+                                {% if snapshot.drive.principal %}<a href="{{ snapshot.drive.principal }}">Pasta principal</a>{% endif %}
+                                {% if snapshot.drive.financeiro %} · <a href="{{ snapshot.drive.financeiro }}">Financeiro</a>{% endif %}
+                                {% if snapshot.drive.assinados %} · <a href="{{ snapshot.drive.assinados }}">Assinados</a>{% endif %}
+                            </p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

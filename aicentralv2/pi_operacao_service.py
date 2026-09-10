@@ -46,6 +46,11 @@ TIPOS_POR_SUBSTATUS = {
         "relatorios_faturamento",
         "atualizacao_manual",
     ),
+    4: (
+        "cliente_fechamento",
+        "agencia_fechamento",
+        "atualizacao_manual",
+    ),
 }
 
 ASSUNTOS = {
@@ -62,6 +67,8 @@ ASSUNTOS = {
     "risco_entrega": "Atenção ao ritmo de entrega da campanha",
     "campanha_finalizada": "Campanha finalizada",
     "relatorios_faturamento": "Dashboard e relatórios para faturamento",
+    "cliente_fechamento": "Fechamento da campanha e relatórios",
+    "agencia_fechamento": "Fechamento da campanha para a agência",
 }
 
 ITENS_PI = (
@@ -112,6 +119,48 @@ ITENS_PI = (
         "descricao": "Enviar PI para o Financeiro",
         "fase": "fechamento",
         "ordem": 130,
+        "modo_conclusao": "automatico",
+    },
+    {
+        "codigo": "comprovacao_veiculacao",
+        "descricao": "Comprovação de veiculação anexada/gerada",
+        "fase": "financeiro",
+        "ordem": 140,
+        "modo_conclusao": "manual",
+    },
+    {
+        "codigo": "carta_bonificacao",
+        "descricao": "Carta de bonificação gerada (se aplicável)",
+        "fase": "financeiro",
+        "ordem": 150,
+        "modo_conclusao": "manual",
+    },
+    {
+        "codigo": "relatorio_cliente_enviado",
+        "descricao": "Relatório enviado ao cliente",
+        "fase": "financeiro",
+        "ordem": 160,
+        "modo_conclusao": "automatico",
+    },
+    {
+        "codigo": "assinatura_d4sign",
+        "descricao": "Documentos assinados via D4Sign",
+        "fase": "financeiro",
+        "ordem": 170,
+        "modo_conclusao": "automatico",
+    },
+    {
+        "codigo": "nf_vinculada",
+        "descricao": "NF vinculada ao PI",
+        "fase": "financeiro",
+        "ordem": 180,
+        "modo_conclusao": "automatico",
+    },
+    {
+        "codigo": "pagamento_confirmado",
+        "descricao": "Pagamento registrado",
+        "fase": "financeiro",
+        "ordem": 190,
         "modo_conclusao": "automatico",
     },
 )
@@ -219,6 +268,7 @@ class PiOperacaoService:
             "campanha_iniciada": "comunicar_campanha_iniciada",
             "campanha_otimizada": "comunicar_campanha_otimizada",
             "campanha_finalizada": "comunicar_campanha_finalizada",
+            "cliente_fechamento": "relatorio_cliente_enviado",
         }
         for tipo, codigo in email_por_codigo.items():
             if tipo in emails_sucesso:

@@ -1,0 +1,8 @@
+{% extends "emails/externos/pi_operacao/base.html" %}
+{% block title %}Fechamento da campanha — PI {{ codigo_pi }}{% endblock %}
+{% block preheader %}Resultado e relatórios do PI {{ codigo_pi }}.{% endblock %}
+{% block heading %}Fechamento da campanha{% endblock %}
+{% block message %}
+<p style="margin:0 0 16px;">Encerramos a operação do PI <strong>{{ codigo_pi }}</strong> e consolidamos o resultado da veiculação.</p>
+<p style="margin:0;">Os dashboards e pastas de comprovação estão disponíveis nos links abaixo para validação e faturamento.</p>
+{% endblock %}

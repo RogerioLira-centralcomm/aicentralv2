@@ -102,9 +102,11 @@ class CaduPiListUiContractTest(unittest.TestCase):
         billing = (PARTIALS / "_operation_billing_cells.html").read_text()
         campaign = (PARTIALS / "_campaign_rows.html").read_text()
         self.assertIn("pi-billing-head", table)
-        self.assertIn("Cliente e relacionamento", table)
+        self.assertIn("PI / entidades", table)
+        self.assertIn("Resultado mídia", table)
+        self.assertIn("Resultado comercial", table)
+        self.assertIn("Status financeiro", table)
         self.assertNotIn("<th>Campanhas</th>", table.split("pi-billing-head", 1)[1].split("</tr>", 1)[0])
-        self.assertIn("Financeiro", table)
         self.assertIn("Documentos", table)
         self.assertIn("pi-billing-finance", billing)
         self.assertIn("Valor líquido", billing)
@@ -112,14 +114,17 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-billing-document-actions", billing)
         self.assertIn("fa-file-invoice", billing)
         self.assertIn("Sem NF", billing)
+        self.assertIn("Abrir workspace", billing)
         self.assertNotIn("pi-billing-campaigns", billing)
-        self.assertIn("campanhas_sempre_abertas %}6", campaign)
-        self.assertIn("pi-campaigns-always-open", campaign)
+        self.assertNotIn("pi-campaigns-always-open", campaign)
         self.assertIn("_billing_summary.html", self.template)
         self.assertIn("pi-billing-columns", self.template)
         self.assertIn("pi-row--billing", self.template)
         self.assertIn("pi-list-table--billing", self.template)
-        self.assertIn("subStatusAtual === '4' && origemLista === 'operacao'", self.js)
+        self.assertNotIn("subStatusAtual === '4' && origemLista === 'operacao'", self.js)
+        header = (PARTIALS / "_header_filters.html").read_text()
+        self.assertIn("PIs enviados ao Financeiro", header)
+        self.assertIn("Fila de faturamento", header)
 
     def test_internal_campaign_grid_matches_operational_tracking(self):
         for marker in (
@@ -229,7 +234,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
     def test_commercial_campaigns_use_flat_hierarchy_rows(self):
         self.assertIn("autoLoadHierarchyCampaigns", self.js)
         self.assertIn("buildCampaignDetailRowHtml", self.js)
-        self.assertIn("sub_status_atual|string not in ['1', '2', '3']", self.template)
+        self.assertIn("sub_status_atual|string not in ['1', '2', '3', '4']", self.template)
         self.assertNotIn('<table class="camp-table camp-table--operational">', self.template)
 
     def test_mobile_cards_and_reduced_motion_are_explicit(self):

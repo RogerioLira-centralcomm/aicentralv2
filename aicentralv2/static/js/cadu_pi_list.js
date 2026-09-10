@@ -921,11 +921,6 @@
     if (document.querySelector('.pi-list-table--hierarchy')) {
       window.todasExpandidas = true;
       autoLoadHierarchyCampaigns();
-    } else if (subStatusAtual === '4' && origemLista === 'operacao') {
-      document.querySelectorAll('.pi-campaigns-always-open').forEach(function (row) {
-        const idPi = parseInt(row.id.replace('camp-collapse-', ''), 10);
-        if (idPi) window.toggleCampanhas(idPi, { stopPropagation: function () {} });
-      });
     }
     window.addEventListener('resize', function () {
       UI.updatePiStickyTop();

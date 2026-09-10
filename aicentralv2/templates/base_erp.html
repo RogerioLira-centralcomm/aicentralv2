@@ -618,10 +618,10 @@
             {'group': 'Campanhas', 'label': 'Diários geral', 'endpoint': 'campanhas_pi_lista', 'match_args': {'view': 'diarios'}, 'url': url_for('campanhas_pi_lista', view='diarios'), 'icon': 'fa-calendar-days'},
             {'group': 'Pedidos de inserção', 'label': 'PI em andamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 3}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=3), 'icon': 'fa-bars-progress'},
             {'group': 'Pedidos de inserção', 'label': 'PI em aprovação', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 1}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=1), 'icon': 'fa-circle-check'},
-            {'group': 'Pedidos de inserção', 'label': 'PI em faturamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'operacao'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao'), 'icon': 'fa-file-circle-check'}
+            {'group': 'Pedidos de inserção', 'label': 'Enviados ao Financeiro', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'operacao'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao'), 'icon': 'fa-file-circle-check'}
         ]},
         {'section': 'Financeiro', 'items': [
-            {'group': 'Receitas e faturamento', 'label': 'Em faturamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'faturamento'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
+            {'group': 'Receitas e faturamento', 'label': 'Fila de faturamento', 'endpoint': 'cadu_pi_lista', 'match_args': {'id_sub_status_pi': 4, 'origem': 'faturamento'}, 'url': url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento'), 'icon': 'fa-receipt'},
             {'group': 'Receitas e faturamento', 'label': 'Incentivos', 'endpoint': 'financeiro.relatorio_incentivos', 'url': url_for('financeiro.relatorio_incentivos'), 'icon': 'fa-percent'},
             {'group': 'Receitas e faturamento', 'label': 'NF emitida', 'endpoint': 'cadu_pi_lista', 'match_args': {'origem': 'nf_emitida'}, 'url': url_for('cadu_pi_lista', origem='nf_emitida'), 'icon': 'fa-file-lines'},
             {'group': 'Despesas', 'label': 'Meus reembolsos', 'endpoint': 'financeiro.meus_reembolsos', 'url': url_for('financeiro.meus_reembolsos'), 'icon': 'fa-wallet'},

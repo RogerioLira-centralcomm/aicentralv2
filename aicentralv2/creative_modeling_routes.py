@@ -482,6 +482,18 @@ def api_unfoldings():
 
 
 @admin_required_api
+def api_read_kv():
+    def execute():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = request.form.to_dict()
+        files = request.files.getlist("kv") or request.files.getlist("file")
+        return _ok(_service().read_kv(payload, files))
+
+    return _execute(execute)
+
+
+@admin_required_api
 def api_generate_unfolding(cid):
     return _execute(
         lambda: _ok(
@@ -945,6 +957,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_unfoldings",
         view_func=api_unfoldings,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/unfoldings/read-kv",
+        endpoint="creative_read_kv",
+        view_func=api_read_kv,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/unfoldings/<int:cid>/generate",

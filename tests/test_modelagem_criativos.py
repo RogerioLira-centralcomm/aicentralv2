@@ -2129,6 +2129,30 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertTrue(service.create_unfolding.called)
         service.generate_unfolding.assert_called()
 
+    def test_api_read_kv_devolve_headline_cta_e_nome(self):
+        service = CreativeModelingService(
+            repository=FakeRepository(),
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/unfoldings/read-kv",
+                data={"kv": (BytesIO(b"kv"), "kv.png")},
+                content_type="multipart/form-data",
+            )
+        payload = response.get_json()["data"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["headline"], "Coleção Outono")
+        self.assertEqual(payload["cta"], "Conheça a coleção")
+        self.assertEqual(payload["name"], "Coleção Outono")
+
     def test_api_lotes_publicaveis_e_tiers(self):
         service = Mock()
         service.list_image_tiers.return_value = [
@@ -2235,8 +2259,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=22", page)
-        self.assertIn("modelagem_criativos.js') }}?v=22", page)
+        self.assertIn("modelagem_criativos.css') }}?v=25", page)
+        self.assertIn("modelagem_criativos.js') }}?v=25", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2317,15 +2341,25 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Todas as modelagens", historico)
         unfold = (template_dir / "_mc_desdobrar.html").read_text(encoding="utf-8")
         self.assertIn('id="mcUnfoldForm"', unfold)
+        self.assertIn('id="mcUnfoldDropzone"', unfold)
+        self.assertIn('id="mcUnfoldKvReview"', unfold)
         self.assertIn('id="mcUnfoldFormatList"', unfold)
         self.assertIn('id="mcUnfoldGenerate"', unfold)
         self.assertIn('id="mcUnfoldSpend"', unfold)
         self.assertIn('id="mcUnfoldPieces"', unfold)
-        self.assertIn("Gerar desdobramentos", unfold)
+        self.assertIn("Gerar rascunhos", unfold)
+        self.assertNotIn("Gerar desdobramentos", unfold)
+        self.assertNotIn('id="mcUnfoldSourceCampaign"', unfold)
+        self.assertIn('type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset"', unfold)
+        self.assertEqual(unfold.count("<select"), 1)
+        self.assertNotIn('name="offer"', unfold)
         self.assertIn("publicáveis em alta", unfold)
-        self.assertIn('id="mcUnfoldPublishBatch"', unfold)
+        self.assertIn('id="mcUnfoldOpenPublish"', unfold)
+        self.assertNotIn('id="mcUnfoldPublishBatch"', unfold)
         production_html = (template_dir / "_mc_variacoes.html").read_text(encoding="utf-8")
-        self.assertIn('id="mcPublishBatch"', production_html)
+        self.assertIn('id="mcOpenPublishBatch"', production_html)
+        self.assertIn('id="mcPublishDialog"', page)
+        self.assertIn('id="mcPublishBatch"', page)
         self.assertIn("setupBrandDropzone(", production_js)
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
@@ -2580,6 +2614,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function historyTotal", frontend)
         self.assertIn("mc-campaign-cost", frontend)
         self.assertIn("unfoldings: '/parametros/api/unfoldings'", frontend)
+        self.assertIn("readKv: '/parametros/api/unfoldings/read-kv'", frontend)
+        self.assertIn("function readUnfoldKv", frontend)
+        self.assertIn("function syncUnfoldReview", frontend)
+        self.assertIn("Lendo o KV", frontend)
+        self.assertIn("acceptUnfoldKv", frontend)
+        self.assertIn("#mcUnfoldDropzone", frontend)
+        self.assertIn("syncUnfoldReview();", frontend)
+        self.assertNotIn("function renderUnfoldSources", frontend)
+        self.assertNotIn("mcUnfoldSourceCampaign", frontend)
         self.assertIn("function createUnfolding", frontend)
         self.assertIn("function unfoldVariation", frontend)
         self.assertIn("flow_kind: 'model'", frontend)
@@ -2587,7 +2630,19 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Variação simples", frontend)
         self.assertIn("Variação máxima", frontend)
         self.assertIn("function renderPublishBatch", frontend)
+        self.assertIn("function openPublishModal", frontend)
         self.assertIn("Gerar publicáveis", frontend)
+        self.assertIn("Os rascunhos saem em low/1K", frontend)
+        review_js = frontend[frontend.index("function renderSceneReview"):frontend.index("function renderProductionViewer")]
+        self.assertLess(
+            review_js.index('data-scene-action="generate-prompt"'),
+            review_js.index('data-scene-action="approve-prompt"'),
+        )
+        self.assertLess(
+            review_js.index('data-scene-action="approve-prompt"'),
+            review_js.index("mc-scene-direction"),
+        )
+        self.assertIn("Aprovar direção", review_js)
         self.assertIn("Gerar rascunho", frontend)
         self.assertIn("fidelity', 'draft'", frontend)
         self.assertNotIn("Confirmar consumo de saldo", frontend)
@@ -2826,6 +2881,29 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertEqual(saved["creative_brief"]["source"]["type"], "upload")
         self.assertEqual(len(saved["productions"]), 1)
         self.assertEqual(result["campaign"]["id"], 40)
+
+    def test_read_kv_usa_ocr_e_sugere_nome_sem_gravar(self):
+        repository = Mock()
+        repository.get_assets.return_value = [{
+            "id": 3,
+            "asset_url": "/static/uploads/creative_references/kv.png",
+            "asset_type": "image",
+        }]
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        uploaded = service.read_kv({}, files=[
+            FileStorage(stream=BytesIO(b"kv-bytes"), filename="kv.png"),
+        ])
+        self.assertEqual(uploaded["headline"], "Coleção Outono")
+        self.assertEqual(uploaded["cta"], "Conheça a coleção")
+        self.assertEqual(uploaded["name"], "Coleção Outono")
+        chosen = service.read_kv({"source_asset_id": 3})
+        self.assertEqual(chosen["headline"], "Coleção Outono")
+        self.assertEqual(chosen["preview_url"], "/static/uploads/creative_references/kv.png")
+        repository.create_campaign_with_productions.assert_not_called()
 
     def test_prompt_de_unfold_nao_herda_cena_e_auto_aprova(self):
         captured = {}

@@ -1,10 +1,15 @@
+.erp-main-content:has(.mc-shell) {
+  width: 100%;
+  max-width: none;
+}
+
 .mc-shell {
   display: grid;
   width: 100%;
   min-width: 0;
   gap: 1rem;
-  max-width: 1600px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   overflow-x: clip;
   color: var(--cx-text, #1f2937);
 }
@@ -39,6 +44,13 @@
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
+}
+
+.mc-panel,
+.mc-panel > .cx-section,
+.mc-generator-workspace,
+.mc-production-bench {
+  width: 100%;
 }
 
 .mc-panel.hidden,
@@ -753,7 +765,8 @@
 .mc-production-grid {
   display: grid;
   min-height: 39rem;
-  grid-template-columns: minmax(30rem, 1.15fr) minmax(25rem, 0.85fr);
+  width: 100%;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
 }
 
 .mc-scene-review {
@@ -2027,6 +2040,7 @@
 .mc-workspace-head {
   align-items: end;
   justify-content: flex-start;
+  flex-wrap: wrap;
   padding: 0.875rem 1rem;
   border: 1px solid var(--cx-border, #e2e8f0);
   border-radius: var(--cx-radius-lg, 0.75rem);
@@ -2035,6 +2049,11 @@
 
 .mc-workspace-head > .cx-field {
   width: min(36rem, 100%);
+  flex: 1 1 16rem;
+}
+
+.mc-publish-trigger {
+  flex: 0 0 auto;
 }
 
 .mc-campaign-brief {
@@ -3767,26 +3786,15 @@
 .mc-publish-batch {
   display: grid;
   gap: 0.75rem;
-  margin: 1rem 0;
-  padding: 1rem;
-  border: 1px solid #d8e3e2;
-  background: #eef4f3;
-}
-
-.mc-publish-batch[hidden] {
-  display: none;
-}
-
-.mc-publish-batch h3 {
-  margin: 0;
-  color: #183436;
-  font-size: 0.95rem;
-  font-weight: 750;
 }
 
 .mc-publish-batch p {
-  margin: 0.25rem 0 0;
+  margin: 0;
   color: #53696a;
+}
+
+#mcPublishDialog {
+  width: min(100% - 2rem, 32rem);
 }
 
 .mc-publish-list {
@@ -3830,6 +3838,8 @@
 
 .mc-unfold-head {
   align-items: end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .mc-unfold-grid {
@@ -3857,6 +3867,115 @@
   gap: 0.65rem;
 }
 
+.mc-unfold-dropzone {
+  position: relative;
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed #8ca9a6;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #314b4b;
+  cursor: pointer;
+}
+
+.mc-unfold-dropzone:hover,
+.mc-unfold-dropzone.is-dragging,
+.mc-unfold-dropzone:focus-visible {
+  border-color: #1e4d4f;
+  background: #eef4f3;
+  outline: 2px solid rgba(30, 77, 79, 0.15);
+  outline-offset: 2px;
+}
+
+.mc-unfold-drop-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.25rem;
+}
+
+.mc-unfold-drop-hint i {
+  color: #1e4d4f;
+  font-size: 1.2rem;
+}
+
+.mc-unfold-drop-hint span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.mc-unfold-drop-hint small {
+  color: #53696a;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.mc-unfold-drop-preview {
+  position: absolute;
+  inset: 0;
+}
+
+.mc-unfold-drop-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mc-unfold-library-toggle {
+  margin: 0;
+}
+
+.mc-unfold-library {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mc-unfold-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.mc-unfold-library-grid button {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d8e3e2;
+  border-radius: 0.45rem;
+  background: #eef4f3;
+  cursor: pointer;
+}
+
+.mc-unfold-library-grid button.is-active {
+  border-color: #1e4d4f;
+  box-shadow: inset 3px 0 0 #9ccf31;
+}
+
+.mc-unfold-library-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.mc-unfold-review {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.mc-unfold-extra {
+  margin: 0;
+  color: #53696a;
+  font-size: 0.78rem;
+}
+
+.mc-unfold-destinos .cx-btn-primary {
+  justify-self: start;
+  width: auto;
+}
+
 .mc-unfold-formats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
@@ -3881,11 +4000,12 @@
 }
 
 .mc-unfold-thumb {
+  display: block;
   width: 100%;
-  max-height: 4.5rem;
+  min-height: 2.5rem;
   overflow: hidden;
   border: 1px solid #d8e3e2;
-  background: #eef4f3;
+  background: linear-gradient(180deg, #d8e3e2, #eef4f3);
 }
 
 .mc-unfold-format strong,

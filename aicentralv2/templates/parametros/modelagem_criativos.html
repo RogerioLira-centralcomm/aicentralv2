@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=22">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=25">
 {% endblock %}
 
 {% block content %}
@@ -57,9 +57,17 @@
   <section class="mc-panel hidden" data-panel="historico" role="tabpanel">
     {% include "parametros/_mc_historico.html" %}
   </section>
+
+  <dialog class="cx-modal" id="mcPublishDialog">
+    <header class="cx-modal-header">
+      <strong>Publicáveis em lote</strong>
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-action="close-publish">Fechar</button>
+    </header>
+    <div class="cx-modal-body mc-publish-batch" id="mcPublishBatch"></div>
+  </dialog>
 </main>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=22" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=25" defer></script>
 {% endblock %}

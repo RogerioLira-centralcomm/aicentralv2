@@ -12,6 +12,7 @@
     history: '/parametros/api/history',
     viewerProfiles: '/parametros/api/viewer-profiles',
     unfoldings: '/parametros/api/unfoldings',
+    readKv: '/parametros/api/unfoldings/read-kv',
     imageTiers: '/parametros/api/image-tiers',
   };
   const MOCKUPS = {
@@ -58,6 +59,8 @@
     locks: new Set(),
     unfoldFormatIds: new Set(),
     unfoldCampaign: null,
+    unfoldLibrary: [],
+    publishModalCampaignId: null,
     imageTiers: [],
     publishPicks: {},
   };
@@ -162,14 +165,11 @@
     if (name === 'produzir') renderWorkspace();
     if (name === 'desdobrar') {
       renderUnfoldFormats();
-      renderUnfoldSources();
+      renderUnfoldLibrary();
       if (state.unfoldCampaign) {
         renderUnfoldSpend(state.unfoldCampaign);
-        renderPublishBatch(
-          $('#mcUnfoldPublishBatch'),
-          state.unfoldCampaign.productions,
-          state.unfoldCampaign.id,
-        );
+        syncPublishTriggers();
+        refreshPublishModal();
       }
     }
   }
@@ -199,7 +199,7 @@
     renderLibrary();
     renderClients();
     renderUnfoldFormats();
-    renderUnfoldSources();
+    renderUnfoldLibrary();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -577,6 +577,7 @@
     const hasCampaign = Boolean(state.campaign);
     $('#mcVariationEmpty').classList.toggle('hidden', hasCampaign);
     $('#mcVariationWorkspace').classList.toggle('hidden', !hasCampaign);
+    syncPublishTriggers();
     if (!hasCampaign) return;
     const c = state.campaign;
     $('#mcCampaignBrief').innerHTML = `
@@ -620,12 +621,28 @@
     });
   }
 
+  function publishProductionsFor(campaignId) {
+    if (state.campaign && String(state.campaign.id) === String(campaignId)) {
+      return [state.production].filter(Boolean);
+    }
+    if (state.unfoldCampaign && String(state.unfoldCampaign.id) === String(campaignId)) {
+      return state.unfoldCampaign.productions || [];
+    }
+    return [];
+  }
+
+  function syncPublishTriggers() {
+    const produce = $('#mcOpenPublishBatch');
+    if (produce) produce.hidden = !state.campaign;
+    const unfold = $('#mcUnfoldOpenPublish');
+    if (unfold) unfold.hidden = !state.unfoldCampaign;
+  }
+
   function renderPublishBatch(root, productions, campaignId) {
     if (!root) return;
     const drafts = collectDraftPieces(productions);
     if (!drafts.length || !campaignId) {
-      root.hidden = true;
-      root.innerHTML = '';
+      root.innerHTML = '<p>Não há rascunhos para gerar em alta.</p>';
       return;
     }
     const key = String(campaignId);
@@ -640,12 +657,8 @@
     const picks = state.publishPicks[key];
     const selected = drafts.filter((item) => picks.has(String(item.asset_id)));
     const total = selected.length * publishUnitBrl();
-    root.hidden = false;
     root.innerHTML = `
-      <div>
-        <h3>Publicáveis em lote</h3>
-        <p>Os rascunhos saem em low/1K. A alta (high/2K) só roda neste lote, sem mudar a montagem.</p>
-      </div>
+      <p>Os rascunhos saem em low/1K. A alta (high/2K) só roda neste lote, sem mudar a montagem.</p>
       <ul class="mc-publish-list">
         ${drafts.map((item) => `
           <li>
@@ -659,6 +672,23 @@
       <button class="cx-btn cx-btn-primary" type="button" data-publish-batch="${campaignId}" ${selected.length ? '' : 'disabled'}>
         Gerar publicáveis
       </button>`;
+  }
+
+  function openPublishModal(productions, campaignId) {
+    if (!campaignId) {
+      toast('Escolha uma campanha ativa.', 'warning');
+      return;
+    }
+    state.publishModalCampaignId = campaignId;
+    renderPublishBatch($('#mcPublishBatch'), productions, campaignId);
+    $('#mcPublishDialog')?.showModal();
+  }
+
+  function refreshPublishModal() {
+    const dialog = $('#mcPublishDialog');
+    const campaignId = state.publishModalCampaignId;
+    if (!dialog?.open || !campaignId) return;
+    renderPublishBatch($('#mcPublishBatch'), publishProductionsFor(campaignId), campaignId);
   }
 
   async function publishSelectedBatch(button) {
@@ -681,6 +711,8 @@
       if (state.campaign && String(state.campaign.id) === String(campaignId)) {
         await selectCampaign(campaignId, state.activeSceneId);
       }
+      syncPublishTriggers();
+      refreshPublishModal();
     });
   }
 
@@ -703,7 +735,8 @@
     }).join('') || '<div class="mc-scene-rail-empty">Esta campanha ainda não possui cenas.</div>';
     renderContinuitySpine();
     renderSceneReview(activeScene());
-    renderPublishBatch($('#mcPublishBatch'), [state.production].filter(Boolean), state.campaign?.id);
+    syncPublishTriggers();
+    refreshPublishModal();
     renderProductionViewer();
     renderProductionStage();
   }
@@ -808,13 +841,13 @@
         <textarea class="cx-textarea" id="mcSceneDelta" rows="2" placeholder="Ajuste curto: luz, recorte, copy ou CTA."></textarea>
         <div class="mc-inspector-actions">
           <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-scene-action="generate-prompt">${escapeHtml(generateLabel)}</button>
+          ${hasPrompt ? '<button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>' : ''}
         </div>
         <details class="mc-scene-direction">
           <summary>Direção</summary>
           <textarea class="cx-textarea" id="mcPromptEditor" rows="6" placeholder="Gere ou escreva a direção desta cena">${escapeHtml(prompt)}</textarea>
           <div class="mc-inspector-actions">
             <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-scene-action="save-prompt">Salvar</button>
-            <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-scene-action="approve-prompt">Aprovar direção</button>
           </div>
         </details>
       </section>
@@ -2280,15 +2313,137 @@
       </button>`).join('') || '<p class="mc-section-note">Nenhum formato estático disponível.</p>';
   }
 
-  function renderUnfoldSources() {
-    const select = $('#mcUnfoldSourceCampaign');
-    if (!select) return;
-    const current = select.value;
-    const models = state.campaigns.filter((item) => (item.flow_kind || 'model') !== 'unfold');
-    select.innerHTML = '<option value="">Escolher modelagem</option>' + models.map((campaign) => (
-      `<option value="${campaign.id}">${escapeHtml(campaign.name)} — ${escapeHtml(campaign.client)} · ${campaignCost(campaign)}</option>`
-    )).join('');
-    select.value = current;
+  function renderUnfoldLibrary() {
+    const grid = $('#mcUnfoldLibraryGrid');
+    if (!grid) return;
+    const items = state.unfoldLibrary;
+    grid.innerHTML = items.map((asset) => `
+      <button type="button" class="${String($('#mcUnfoldSourceAsset')?.value) === String(asset.id) ? 'is-active' : ''}"
+              data-unfold-asset="${asset.id}" data-unfold-url="${escapeHtml(asset.preview_url || '')}">
+        <img src="${escapeHtml(asset.preview_url || '')}" alt="${escapeHtml(asset.original_name || asset.campaign_name || 'Peça')}">
+      </button>`).join('') || '<p class="mc-section-note">Nenhuma peça de modelagem ainda.</p>';
+  }
+
+  async function loadUnfoldLibrary() {
+    const models = modelCampaigns();
+    const results = await Promise.allSettled(
+      models.map((campaign) => api(`${API.campaigns}/${campaign.id}/assets`)),
+    );
+    const items = [];
+    results.forEach((result, index) => {
+      if (result.status !== 'fulfilled') return;
+      const campaign = models[index];
+      (result.value || []).forEach((asset) => {
+        if (asset.asset_type === 'video') return;
+        const url = asset.asset_url || asset.url || '';
+        if (!url) return;
+        items.push({
+          ...asset,
+          campaign_name: campaign.name,
+          preview_url: url,
+        });
+      });
+    });
+    state.unfoldLibrary = items;
+    renderUnfoldLibrary();
+  }
+
+  function syncUnfoldReview() {
+    const name = $('#mcUnfoldReviewName');
+    const headline = $('#mcUnfoldReviewHeadline');
+    const cta = $('#mcUnfoldReviewCta');
+    if ($('#mcUnfoldName')) $('#mcUnfoldName').value = name?.value.trim() || '';
+    if ($('#mcUnfoldHeadlineHidden')) $('#mcUnfoldHeadlineHidden').value = headline?.value.trim() || '';
+    if ($('#mcUnfoldCtaHidden')) $('#mcUnfoldCtaHidden').value = cta?.value.trim() || '';
+  }
+
+  function applyKvReview(data = {}) {
+    const review = $('#mcUnfoldKvReview');
+    if (review) review.hidden = false;
+    const extras = [
+      data.subhead,
+      ...(Array.isArray(data.other_lines) ? data.other_lines : []),
+    ].filter(Boolean);
+    if ($('#mcUnfoldReviewName')) $('#mcUnfoldReviewName').value = data.name || data.headline || '';
+    if ($('#mcUnfoldReviewHeadline')) $('#mcUnfoldReviewHeadline').value = data.headline || '';
+    if ($('#mcUnfoldReviewCta')) $('#mcUnfoldReviewCta').value = data.cta || data.cta_text || '';
+    const extra = $('#mcUnfoldReviewExtra');
+    if (extra) {
+      extra.hidden = !extras.length;
+      extra.textContent = extras.join(' · ');
+    }
+    syncUnfoldReview();
+  }
+
+  function showUnfoldPreview(url) {
+    const preview = $('#mcUnfoldKvPreview');
+    const hint = $('#mcUnfoldDropHint');
+    const image = preview?.querySelector('img');
+    if (!preview || !image) return;
+    if (url) {
+      image.src = url;
+      preview.hidden = false;
+      if (hint) hint.hidden = true;
+    } else {
+      image.removeAttribute('src');
+      preview.hidden = true;
+      if (hint) hint.hidden = false;
+    }
+  }
+
+  function setUnfoldFile(file) {
+    const input = $('#mcUnfoldFile');
+    if (!input) return;
+    const transfer = new DataTransfer();
+    if (file) transfer.items.add(file);
+    input.files = transfer.files;
+  }
+
+  async function readUnfoldKv({ file, assetId } = {}) {
+    const status = $('#mcUnfoldReadStatus');
+    const formStatus = $('#mcUnfoldStatus');
+    applyKvReview({});
+    if (status) status.textContent = 'Lendo o KV…';
+    if (formStatus) formStatus.textContent = 'Lendo o KV…';
+    const body = new FormData();
+    if (assetId) body.append('source_asset_id', String(assetId));
+    else if (file) body.append('kv', file);
+    try {
+      const data = await api(API.readKv, { method: 'POST', body });
+      applyKvReview(data || {});
+      if (data?.preview_url && assetId) showUnfoldPreview(data.preview_url);
+      if (status) status.textContent = '';
+      if (formStatus) formStatus.textContent = '';
+    } catch (error) {
+      applyKvReview({});
+      if (status) status.textContent = 'Não deu para ler o texto. Preencha headline ou CTA.';
+      if (formStatus) formStatus.textContent = '';
+      toast(error.message, 'warning');
+    }
+  }
+
+  function acceptUnfoldKv(files) {
+    const file = Array.from(files || []).find((item) => /^image\/(png|jpeg|webp)$/.test(item.type));
+    if (!file) {
+      toast('Use PNG, JPG ou WEBP.', 'warning');
+      return;
+    }
+    setUnfoldFile(file);
+    if ($('#mcUnfoldSourceAsset')) $('#mcUnfoldSourceAsset').value = '';
+    showUnfoldPreview(URL.createObjectURL(file));
+    readUnfoldKv({ file }).catch((error) => toast(error.message, 'error'));
+  }
+
+  function chooseUnfoldAsset(button) {
+    const assetId = button.dataset.unfoldAsset;
+    const url = button.dataset.unfoldUrl;
+    if ($('#mcUnfoldSourceAsset')) $('#mcUnfoldSourceAsset').value = assetId;
+    setUnfoldFile(null);
+    showUnfoldPreview(url);
+    $$('#mcUnfoldLibraryGrid [data-unfold-asset]').forEach((node) => {
+      node.classList.toggle('is-active', node === button);
+    });
+    readUnfoldKv({ assetId }).catch((error) => toast(error.message, 'error'));
   }
 
   function renderUnfoldSpend(campaign) {
@@ -2322,33 +2477,15 @@
     });
     root.innerHTML = cards.join('') || '<div class="cx-empty-state"><p>Gere um desdobramento para ver as peças no formato.</p></div>';
     renderUnfoldSpend(campaign);
-    renderPublishBatch($('#mcUnfoldPublishBatch'), productions, campaign?.id);
-  }
-
-  async function loadUnfoldSourceAssets() {
-    const campaignId = $('#mcUnfoldSourceCampaign')?.value;
-    const select = $('#mcUnfoldSourceAsset');
-    if (!select) return;
-    if (!campaignId) {
-      select.innerHTML = '<option value="">Upload do KV</option>';
-      return;
-    }
-    try {
-      const assets = await api(`${API.campaigns}/${campaignId}/assets`);
-      const usable = (assets || []).filter((item) => item.asset_type !== 'video');
-      select.innerHTML = '<option value="">Upload do KV</option>' + usable.map((asset) => (
-        `<option value="${asset.id}">${escapeHtml(asset.original_name || asset.asset_type || `Peça ${asset.id}`)}</option>`
-      )).join('');
-    } catch (error) {
-      select.innerHTML = '<option value="">Upload do KV</option>';
-      toast(error.message, 'error');
-    }
+    syncPublishTriggers();
+    refreshPublishModal();
   }
 
   async function createUnfolding(button) {
     const form = $('#mcUnfoldForm');
     const status = $('#mcUnfoldStatus');
     await withLock('unfold', button, async () => {
+      syncUnfoldReview();
       const data = new FormData(form);
       const formatIds = Array.from(state.unfoldFormatIds);
       if (!formatIds.length) {
@@ -2356,7 +2493,7 @@
         return;
       }
       if (!data.get('kv')?.size && !data.get('source_asset_id')) {
-        toast('Envie o KV ou escolha uma peça aprovada.', 'warning');
+        toast('Solte o KV ou escolha uma peça gerada.', 'warning');
         return;
       }
       if (!data.get('source_asset_id')) data.delete('source_asset_id');
@@ -2373,7 +2510,7 @@
         try {
           state.campaigns = await api(API.campaigns);
           renderCampaignOptions();
-          renderUnfoldSources();
+          renderUnfoldLibrary();
         } catch (_) { /* o strip de custo já usa a campanha atual */ }
         renderUnfoldPieces(state.unfoldCampaign);
         status.textContent = '';
@@ -3018,6 +3155,8 @@
       });
     } else if (action === 'close-share') {
       $('#mcShareDialog').close();
+    } else if (action === 'close-publish') {
+      $('#mcPublishDialog')?.close();
     } else if (action === 'open-creative-line') {
       state.creativeLineClientId = Number(button.dataset.clientId);
       $('#mcCreativeLineClient').value = String(state.creativeLineClientId);
@@ -3226,6 +3365,12 @@
     $('#mcCampaignForm').addEventListener('input', renderGeneratorSummary);
     $('#mcGeneratorFormatCategory').addEventListener('change', renderGeneratorFormats);
     $('#mcCampaignSelect').addEventListener('change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
+    $('#mcOpenPublishBatch')?.addEventListener('click', () => {
+      openPublishModal([state.production].filter(Boolean), state.campaign?.id);
+    });
+    $('#mcUnfoldOpenPublish')?.addEventListener('click', () => {
+      openPublishModal(state.unfoldCampaign?.productions || [], state.unfoldCampaign?.id);
+    });
     $('#mcProductionViewer').addEventListener('change', (event) => {
       state.selectedViewerProfileId = Number(event.target.value) || null;
       renderProductionStage();
@@ -3270,8 +3415,25 @@
       else state.unfoldFormatIds.add(id);
       renderUnfoldFormats();
     });
-    $('#mcUnfoldSourceCampaign')?.addEventListener('change', () => {
-      loadUnfoldSourceAssets().catch((error) => toast(error.message, 'error'));
+    setupBrandDropzone('#mcUnfoldDropzone', '#mcUnfoldFile', acceptUnfoldKv);
+    $('#mcUnfoldDropzone')?.addEventListener('paste', (event) => {
+      acceptUnfoldKv(event.clipboardData?.files);
+    });
+    $('#mcUnfoldUseGenerated')?.addEventListener('click', () => {
+      const library = $('#mcUnfoldLibrary');
+      if (!library) return;
+      library.hidden = !library.hidden;
+      if (!library.hidden) {
+        loadUnfoldLibrary().catch((error) => toast(error.message, 'error'));
+      }
+    });
+    $('#mcUnfoldLibraryGrid')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-unfold-asset]');
+      if (!button) return;
+      chooseUnfoldAsset(button);
+    });
+    ['#mcUnfoldReviewName', '#mcUnfoldReviewHeadline', '#mcUnfoldReviewCta'].forEach((selector) => {
+      $(selector)?.addEventListener('input', syncUnfoldReview);
     });
     $('#mcUnfoldGenerate')?.addEventListener('click', (event) => {
       createUnfolding(event.currentTarget).catch((error) => toast(error.message, 'error'));
@@ -3289,16 +3451,7 @@
       if (!state.publishPicks[campaignId]) state.publishPicks[campaignId] = new Set();
       if (box.checked) state.publishPicks[campaignId].add(id);
       else state.publishPicks[campaignId].delete(id);
-      if (state.campaign && String(state.campaign.id) === campaignId) {
-        renderPublishBatch($('#mcPublishBatch'), [state.production].filter(Boolean), state.campaign.id);
-      }
-      if (state.unfoldCampaign && String(state.unfoldCampaign.id) === campaignId) {
-        renderPublishBatch(
-          $('#mcUnfoldPublishBatch'),
-          state.unfoldCampaign.productions,
-          state.unfoldCampaign.id,
-        );
-      }
+      refreshPublishModal();
     });
     document.addEventListener('click', (event) => {
       const button = event.target.closest('[data-publish-batch]');

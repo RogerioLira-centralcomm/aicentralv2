@@ -2,8 +2,11 @@
   <div class="cx-section-header mc-unfold-head">
     <div>
       <h2>Desdobrar criativo</h2>
-      <p>O KV e o DNA da marca entram no GPT Image 2. Texto, CTA e logo ficam travados. O formato só muda geometria.</p>
+      <p>Solte o KV. O texto travado sai da peça. Depois escolha os retângulos.</p>
     </div>
+    <button class="cx-btn cx-btn-secondary mc-publish-trigger" id="mcUnfoldOpenPublish" type="button" hidden>
+      Publicáveis em lote
+    </button>
     <p class="mc-history-spend" id="mcUnfoldSpend" hidden>
       <span>Gasto deste desdobramento</span>
       <strong>R$ 0,00</strong>
@@ -12,55 +15,60 @@
 
   <div class="cx-section-body mc-unfold-grid">
     <form id="mcUnfoldForm" class="mc-unfold-fonte">
-      <h3>Fonte</h3>
       <label class="cx-field">
         <span class="cx-label">Marca</span>
         <select class="cx-select" id="mcUnfoldClient" name="client_ref" required>
           <option value="">Selecione um cliente</option>
         </select>
       </label>
-      <label class="cx-field">
-        <span class="cx-label">Nome do desdobramento</span>
-        <input class="cx-input" name="name" required maxlength="200" placeholder="Coleção Outono — desdobramento social">
-      </label>
-      <div class="mc-unfold-kv">
-        <label class="cx-field">
-          <span class="cx-label">KV ou peça aprovada</span>
-          <input class="cx-input" id="mcUnfoldFile" name="kv" type="file" accept="image/png,image/jpeg,image/webp">
-        </label>
-        <label class="cx-field">
-          <span class="cx-label">Ou peça de uma modelagem</span>
-          <select class="cx-select" id="mcUnfoldSourceCampaign">
-            <option value="">Escolher modelagem</option>
-          </select>
-        </label>
-        <label class="cx-field">
-          <span class="cx-label">Peça</span>
-          <select class="cx-select" id="mcUnfoldSourceAsset" name="source_asset_id">
-            <option value="">Upload do KV</option>
-          </select>
-        </label>
+
+      <div class="mc-unfold-dropzone" id="mcUnfoldDropzone" role="button" tabindex="0">
+        <input class="mc-visually-hidden" id="mcUnfoldFile" name="kv" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1">
+        <input type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset" value="">
+        <input type="hidden" name="name" id="mcUnfoldName" value="">
+        <input type="hidden" name="headline" id="mcUnfoldHeadlineHidden" value="">
+        <input type="hidden" name="cta_text" id="mcUnfoldCtaHidden" value="">
+        <div class="mc-unfold-drop-preview" id="mcUnfoldKvPreview" hidden>
+          <img alt="KV selecionado">
+        </div>
+        <div class="mc-unfold-drop-hint" id="mcUnfoldDropHint">
+          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+          <span><strong>Solte o KV aqui</strong><small>Ou clique para escolher no dispositivo.</small></span>
+        </div>
       </div>
-      <label class="cx-field">
-        <span class="cx-label">Headline travada</span>
-        <input class="cx-input" name="headline" maxlength="180" placeholder="Texto que não pode mudar">
-      </label>
-      <label class="cx-field">
-        <span class="cx-label">CTA travado</span>
-        <input class="cx-input" name="cta_text" maxlength="80" placeholder="Conheça a coleção">
-      </label>
-      <label class="cx-field">
-        <span class="cx-label">O que é específico desta campanha</span>
-        <textarea class="cx-textarea" name="offer" rows="3" maxlength="2000" placeholder="Oferta, recorte sazonal, o que é obrigatório na arte — sem reescrever o KV."></textarea>
-      </label>
+      <p class="mc-unfold-library-toggle">
+        <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcUnfoldUseGenerated" type="button">Usar peça gerada</button>
+      </p>
+      <div class="mc-unfold-library" id="mcUnfoldLibrary" hidden>
+        <p>Peças das modelagens. Um clique lê o texto e trava a copy.</p>
+        <div class="mc-unfold-library-grid" id="mcUnfoldLibraryGrid"></div>
+      </div>
+
+      <div class="mc-unfold-review" id="mcUnfoldKvReview" hidden>
+        <h3>O que o KV disse</h3>
+        <p class="mc-section-note" id="mcUnfoldReadStatus"></p>
+        <label class="cx-field">
+          <span class="cx-label">Nome</span>
+          <input class="cx-input" id="mcUnfoldReviewName" maxlength="200" placeholder="Nome do desdobramento">
+        </label>
+        <label class="cx-field">
+          <span class="cx-label">Headline</span>
+          <input class="cx-input" id="mcUnfoldReviewHeadline" maxlength="180" placeholder="Texto travado">
+        </label>
+        <label class="cx-field">
+          <span class="cx-label">CTA</span>
+          <input class="cx-input" id="mcUnfoldReviewCta" maxlength="80" placeholder="Chamada">
+        </label>
+        <p class="mc-unfold-extra" id="mcUnfoldReviewExtra" hidden></p>
+      </div>
     </form>
 
     <div class="mc-unfold-destinos">
       <h3>Destinos</h3>
-      <p>IAB e redes sociais. Cada retângulo é o canvas real.</p>
+      <p>IAB e redes. Cada retângulo é o canvas real.</p>
       <div id="mcUnfoldFormatList" class="mc-unfold-formats"></div>
-      <button class="cx-btn cx-btn-primary" id="mcUnfoldGenerate" type="button" form="mcUnfoldForm">
-        Gerar desdobramentos
+      <button class="cx-btn cx-btn-primary" id="mcUnfoldGenerate" type="button">
+        Gerar rascunhos
       </button>
       <p class="mc-section-note" id="mcUnfoldStatus"></p>
     </div>
@@ -69,7 +77,6 @@
   <div class="mc-unfold-pecas">
     <h3>Peças</h3>
     <p>Os rascunhos saem baratos. Ajuste no clique e, no lote, gere as publicáveis em alta.</p>
-    <section class="mc-publish-batch" id="mcUnfoldPublishBatch" hidden></section>
     <div id="mcUnfoldPieces" class="mc-unfold-piece-grid">
       <div class="cx-empty-state"><p>Gere um desdobramento para ver as peças no formato.</p></div>
     </div>

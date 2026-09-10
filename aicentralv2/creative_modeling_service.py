@@ -1865,6 +1865,54 @@ class CreativeModelingService:
         except Exception:
             return None
 
+    def read_kv(self, payload, files=None):
+        payload = payload if isinstance(payload, dict) else {}
+        files = list(files or [])
+        source_asset_id = payload.get("source_asset_id")
+        kv_data = None
+        preview_url = None
+        if source_asset_id not in (None, ""):
+            assets = self.repository.get_assets(
+                [_integer(source_asset_id, "Peça de origem")],
+                approved_only=False,
+            )
+            if not assets:
+                raise CreativeNotFoundError("Peça de origem não encontrada.")
+            preview_url = assets[0].get("asset_url")
+            kv_data = self._kv_data_url(preview_url)
+        elif files:
+            uploaded = files[0]
+            raw = uploaded.read()
+            if hasattr(uploaded, "stream"):
+                try:
+                    uploaded.stream.seek(0)
+                except Exception:
+                    pass
+            if not raw:
+                raise ValueError("Envie o KV ou escolha uma peça gerada.")
+            mime = getattr(uploaded, "mimetype", None) or "image/png"
+            kv_data = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+        else:
+            raise ValueError("Envie o KV ou escolha uma peça gerada.")
+        extracted = {"headline": "", "subhead": "", "cta": "", "other_lines": [], "has_logo": False}
+        try:
+            result = self.generator.extract_kv_locks(
+                {"source_asset_id": source_asset_id},
+                kv_data,
+            )
+            extracted = normalize_locks(result.get("result"))
+        except Exception:
+            pass
+        name = extracted["headline"] or (
+            extracted["other_lines"][0] if extracted["other_lines"] else ""
+        )
+        name = (name or "Desdobramento")[:120]
+        return _serialize({
+            **extracted,
+            "name": name,
+            "preview_url": preview_url,
+        })
+
     def create_unfolding(self, payload, files=None, created_by=None):
         payload = payload if isinstance(payload, dict) else {}
         files = list(files or [])

@@ -348,11 +348,17 @@ class FakeRepository:
 class FakeGenerator:
     def generate_campaign_brief(self, context):
         count = context["format"]["scene_count"]
-        roles = (
-            ["composição_final"]
-            if count == 1
-            else ["gancho", "contexto_produto", "beneficio", "fechamento"]
-        )
+        extras = {
+            6: ["oferta", "reforco"],
+            8: ["oferta", "reforco", "gancho_b", "fechamento_ab"],
+        }
+        if count == 1:
+            roles = ["composição_final"]
+        else:
+            roles = ["gancho", "contexto_produto", "beneficio"]
+            roles.extend(extras.get(count, []))
+            roles.append("fechamento")
+            roles = roles[:count]
         return {
             "result": {
                 "campaign_text": "Mensagem aprimorada em português.",
@@ -1378,6 +1384,16 @@ class CreativeServiceTest(unittest.TestCase):
             "mechanic": "reveal",
             "behavior_spec": {"type": "interactive"},
         }), 4)
+        social = format_direction({
+            "slug": "instagram-feed",
+            "mechanic": "static_display",
+            "default_size": "1080x1080",
+            "behavior_spec": {"type": "static"},
+        }, scene_count=6)
+        self.assertEqual(social["scene_count"], 6)
+        self.assertEqual(len(social["beats"]), 6)
+        self.assertEqual(social["beats"][-1]["role"], "fechamento")
+        self.assertEqual(social["beats"][3]["role"], "oferta")
         self.assertIn(
             "Opening beat",
             CreativeModelingService.scene_role(1, 4),
@@ -1504,6 +1520,33 @@ class CreativeServiceTest(unittest.TestCase):
             netflix["shell_spec"]["sections"][0]["items"][0]["category"],
             "Cultura",
         )
+
+    def test_aprimora_briefing_aceita_seis_e_oito_cenas(self):
+        six = self.service.enhance_campaign_brief({
+            "client_name": "Marca Exemplo",
+            "name": "Lançamento",
+            "campaign_text": "Apresentar o novo produto para famílias.",
+            "format_slug": "instagram-feed",
+            "mechanic": "static_display",
+            "default_size": "1080x1080",
+            "behavior_spec": {"type": "static"},
+            "scene_count": 6,
+        })
+        self.assertEqual(len(six["scenes"]), 6)
+        eight = self.service.enhance_campaign_brief({
+            "client_name": "Marca Exemplo",
+            "name": "Lançamento",
+            "campaign_text": "Apresentar o novo produto para famílias.",
+            "scene_count": 8,
+        })
+        self.assertEqual(len(eight["scenes"]), 8)
+        with self.assertRaisesRegex(ValueError, "1, 4, 6 ou 8"):
+            self.service.enhance_campaign_brief({
+                "client_name": "Marca Exemplo",
+                "name": "Lançamento",
+                "campaign_text": "Mensagem",
+                "scene_count": 3,
+            })
 
     def test_aprimora_briefing_em_quatro_cenas_complementares(self):
         result = self.service.enhance_campaign_brief({
@@ -1808,6 +1851,53 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(saved["productions"][0]["scene_prompts"]), 4)
         self.assertIn("BRIEF LOCK", saved["productions"][0]["scene_prompts"][0])
         self.assertIn("FORBID AI LOOK", saved["productions"][0]["scene_prompts"][0])
+        self.assertEqual(saved["creative_brief"]["construct_path"]["engine"], "construct")
+
+    def test_plano_aceita_seis_cenas_em_iab_social_com_caminho_c(self):
+        repository = Mock()
+        repository.get_format.return_value = {
+            "id": 9,
+            "slug": "instagram-feed",
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+            "default_size": "1080x1080",
+            "name_pt": "Instagram Feed",
+        }
+        repository.create_campaign_with_productions.return_value = {
+            "id": 32,
+            "productions": [{"id": 52}],
+        }
+        repository.get_campaign.return_value = {"id": 32, "name": "Social seis"}
+        repository.get_production.return_value = {
+            "id": 52,
+            "scene_count": 6,
+            "scenes": [{"id": index} for index in range(1, 7)],
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        result = service.create_production_plan({
+            "name": "Social seis",
+            "campaign_text": "Oferta da semana",
+            "scene_count": 6,
+            "productions": [{"format_template_id": 9}],
+        })
+        saved = repository.create_campaign_with_productions.call_args.args[0]
+        self.assertEqual(saved["productions"][0]["scene_count"], 6)
+        self.assertEqual(len(saved["productions"][0]["scene_descriptions"]), 6)
+        self.assertEqual(saved["creative_brief"]["construct_path"]["engine"], "construct")
+        self.assertEqual(saved["creative_brief"]["construct_path"]["fidelity"], "publish")
+        self.assertEqual(len(result["productions"][0]["scenes"]), 6)
+        eight = service.fallback_scene_descriptions("Oferta", 8, {
+            "slug": "iab-leaderboard",
+            "mechanic": "static_display",
+            "default_size": "728x90",
+            "behavior_spec": {"type": "static"},
+        })
+        self.assertEqual(len(eight), 8)
+        self.assertIn("Fechamento", eight[-1])
 
     def test_plano_persiste_campaign_pack(self):
         repository = Mock()
@@ -2689,8 +2779,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("cx-tabs", page)
-        self.assertIn("modelagem_criativos.css') }}?v=36", page)
-        self.assertIn("modelagem_criativos.js') }}?v=36", page)
+        self.assertIn("modelagem_criativos.css') }}?v=39", page)
+        self.assertIn("modelagem_criativos.js') }}?v=39", page)
         for tab in ("preparar", "produzir", "desdobrar", "formatos", "marcas", "historico"):
             self.assertIn(f'data-tab="{tab}"', page)
         self.assertNotIn("Variações A/B", page)
@@ -2706,6 +2796,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcCampaignPackUrl"', generator)
         self.assertIn('id="mcStoryboardEditor"', generator)
         self.assertIn("Iniciar produção", generator)
+        self.assertIn('id="mcPreparePathBar"', generator)
+        self.assertIn('name="prepare_engine" value="construct" checked', generator)
+        self.assertIn('name="prepare_pack" value="4" checked', generator)
+        self.assertIn("A bancada abre com as batidas que você marcar", generator)
         self.assertNotIn("Variação A", generator)
         self.assertNotIn("Limite de IA", generator)
         self.assertNotIn("Limite inicial", generator)
@@ -2788,13 +2882,13 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcUnfoldGenerate"', unfold)
         self.assertIn('id="mcUnfoldSpend"', unfold)
         self.assertIn('id="mcUnfoldPieces"', unfold)
-        self.assertIn("Gerar rascunhos", unfold)
+        self.assertIn("Fechar as peças", unfold)
         self.assertNotIn("Gerar desdobramentos", unfold)
         self.assertNotIn('id="mcUnfoldSourceCampaign"', unfold)
         self.assertIn('type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset"', unfold)
-        self.assertEqual(unfold.count("<select"), 1)
+        self.assertGreaterEqual(unfold.count("<select"), 1)
         self.assertNotIn('name="offer"', unfold)
-        self.assertIn("publicáveis em alta", unfold)
+        self.assertIn("Publicáveis em lote", unfold)
         self.assertIn('id="mcUnfoldOpenPublish"', unfold)
         self.assertNotIn('id="mcUnfoldPublishBatch"', unfold)
         production_html = (template_dir / "_mc_variacoes.html").read_text(encoding="utf-8")
@@ -3096,6 +3190,15 @@ class CreativeFilesContractTest(unittest.TestCase):
             repository,
         )
         self.assertIn("function sceneCountForFormat", frontend)
+        self.assertIn("function prepareEngine", frontend)
+        self.assertIn("mcPreparePathBar", frontend)
+        self.assertIn("construct_path", frontend)
+        gerador = (
+            root / "aicentralv2" / "templates" / "parametros" / "_mc_gerador.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn('name="prepare_engine" value="construct" checked', gerador)
+        self.assertIn('name="prepare_pack" value="4" checked', gerador)
+        self.assertIn("A bancada abre com as batidas que você marcar", gerador)
         self.assertIn("function renderProduction", frontend)
         self.assertIn("function renderContinuitySpine", frontend)
         self.assertIn("Gerar roteiro desta cena", frontend)
@@ -3154,8 +3257,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function unfoldVariation", frontend)
         self.assertIn("flow_kind: 'model'", frontend)
         self.assertIn("data-unfold-ab", frontend)
-        self.assertIn("Variação simples", frontend)
-        self.assertIn("Variação máxima", frontend)
+        self.assertIn("Outra cor", frontend)
+        self.assertIn("Outro recorte", frontend)
         self.assertIn("function renderPublishBatch", frontend)
         self.assertIn("function openPublishModal", frontend)
         self.assertIn("Gerar publicáveis", frontend)

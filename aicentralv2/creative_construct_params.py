@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .creative_format_geometry import FORMAT_IAB_FAMILY
+from .creative_format_geometry import FORMAT_IAB_FAMILY, resolve_scene_count
 from .creative_image_fidelity import DRAFT, PUBLISH, resolve_image_tier
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 
@@ -204,31 +204,43 @@ def model_unit_usd(model, fidelity):
 
 
 def quote_unfold_path(payload=None, slugs=None):
-    path = resolve_construct_path(payload)
+    data = payload if isinstance(payload, dict) else {}
+    path = resolve_construct_path(data)
     slugs = [str(item or "").strip() for item in (slugs or []) if str(item or "").strip()]
-    scenes = unique_scenes_for_slugs(slugs, path["scene_pack"])
-    pieces = len(slugs)
     unit = model_unit_usd(path["image_model"], path["fidelity"])
-    if path["engine"] == ENGINE_CONSTRUCT:
-        calls = max(len(scenes), 1 if pieces else 0)
-        shared = max(0, pieces - calls)
-    else:
-        calls = pieces
+    batch = resolve_scene_count(data.get("scene_count"), default=None)
+    if batch:
+        calls = batch
+        pieces = batch
         shared = 0
-    total = round(unit * calls, 6)
-    quoted = annotate_cost({
-        **path,
-        "pieces": pieces,
-        "photo_calls": calls,
-        "shared_pieces": shared,
-        "scenes": [
+        scenes = [
+            {"key": f"beat_{index}", "label": f"Cena {index}", "output": ""}
+            for index in range(1, batch + 1)
+        ]
+    else:
+        scenes = unique_scenes_for_slugs(slugs, path["scene_pack"])
+        pieces = len(slugs)
+        if path["engine"] == ENGINE_CONSTRUCT:
+            calls = max(len(scenes), 1 if pieces else 0)
+            shared = max(0, pieces - calls)
+        else:
+            calls = pieces
+            shared = 0
+        scenes = [
             {
                 "key": key,
                 "label": SCENE_KEYS.get(key, {}).get("label") or key,
                 "output": SCENE_KEYS.get(key, {}).get("output") or "",
             }
             for key in scenes
-        ],
+        ]
+    total = round(unit * calls, 6)
+    quoted = annotate_cost({
+        **path,
+        "pieces": pieces,
+        "photo_calls": calls,
+        "shared_pieces": shared,
+        "scenes": scenes,
         "unit_usd": unit,
         "unit_brl": brl_from_usd(unit),
         "total_usd": total,

@@ -113,6 +113,16 @@ class CreativeConstructPathTest(unittest.TestCase):
         self.assertEqual(merged["headline"], "Aproveite muita internet")
         self.assertEqual(merged["cta"], "")
 
+    def test_quote_preparar_cobra_as_batidas_do_lote(self):
+        quoted = quote_unfold_path({
+            "engine": "construct",
+            "scene_count": 6,
+            "image_model": "black-forest-labs/flux.2-pro",
+        }, ["instagram-feed"])
+        self.assertEqual(quoted["photo_calls"], 6)
+        self.assertEqual(quoted["pieces"], 6)
+        self.assertEqual(quoted["engine"], ENGINE_CONSTRUCT)
+
     def test_resolve_path_c_usa_flux_e_publish(self):
         path = resolve_construct_path({"engine": "c"})
         self.assertEqual(path["engine"], ENGINE_CONSTRUCT)

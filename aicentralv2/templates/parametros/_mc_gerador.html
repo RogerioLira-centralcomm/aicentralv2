@@ -2,7 +2,7 @@
   <div>
     <span class="mc-generator-kicker">Preparação</span>
     <h2>Dê forma à campanha antes de produzir</h2>
-    <p>Combine marca, mensagem e formato. A bancada será aberta com a quantidade certa de cenas.</p>
+    <p>A bancada abre com as batidas que você marcar. O formato só sugere o retângulo.</p>
   </div>
   <ol class="mc-generator-path" aria-label="Etapas da configuração">
     <li><span>1</span>Marca</li>
@@ -107,6 +107,50 @@
     </div>
     <div class="mc-generator-format-preview" id="mcGeneratorFormatPreview">
       <p>Escolha um formato para definir a produção.</p>
+    </div>
+    <div class="mc-prepare-pathbar" id="mcPreparePathBar">
+      <fieldset class="mc-unfold-path-set">
+        <legend>Como fecha</legend>
+        <div class="mc-unfold-seg">
+          <label>
+            <input type="radio" name="prepare_engine" value="construct" checked>
+            <span>Montar em camadas</span>
+          </label>
+          <label>
+            <input type="radio" name="prepare_engine" value="paint">
+            <span>Pintar a peça</span>
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="mc-unfold-path-set">
+        <legend>Recortes</legend>
+        <div class="mc-unfold-seg mc-unfold-seg-count">
+          <label>
+            <input type="radio" name="prepare_pack" value="4" checked>
+            <span>4</span>
+          </label>
+          <label>
+            <input type="radio" name="prepare_pack" value="6">
+            <span>6</span>
+          </label>
+          <label>
+            <input type="radio" name="prepare_pack" value="8">
+            <span>8</span>
+          </label>
+        </div>
+      </fieldset>
+      <label class="cx-field mc-prepare-model">
+        <span class="cx-label">Motor da foto</span>
+        <select class="cx-select" id="mcPrepareModel" name="image_model">
+          <option value="black-forest-labs/flux.2-pro">FLUX.2 Pro</option>
+          <option value="openai/gpt-image-2">GPT Image 2</option>
+          <option value="google/gemini-2.5-flash-image">Gemini Flash Image</option>
+        </select>
+      </label>
+      <aside class="mc-prepare-quote" id="mcPrepareQuote" aria-live="polite">
+        <strong>R$ 0,00</strong>
+        <small id="mcPrepareQuoteDetail">Marque o formato para ver o lote.</small>
+      </aside>
     </div>
     <div class="mc-scene-plan" id="mcGeneratorScenePlan" aria-live="polite"></div>
   </aside>

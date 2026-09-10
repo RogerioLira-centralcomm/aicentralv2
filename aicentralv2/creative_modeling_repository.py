@@ -6,7 +6,8 @@ from decimal import Decimal
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from psycopg.types.json import Json
 
-from .creative_format_geometry import scene_count_for_format
+from .creative_construct_params import ENGINE_CONSTRUCT
+from .creative_format_geometry import resolve_scene_count, scene_count_for_format
 from .creative_modeling_prompts import build_inherited_scene_prompt
 
 HOUSE_CRM_CLIENT_ID = 174
@@ -704,7 +705,21 @@ class CreativeModelingRepository:
             for requested in data["productions"]:
                 format_id = requested["format_template_id"]
                 format_row = formats[format_id]
-                scene_count = scene_count_for_format(format_row)
+                requested_count = resolve_scene_count(
+                    requested.get("scene_count"),
+                    default=None,
+                )
+                descriptions = requested.get("scene_descriptions") or []
+                if requested_count:
+                    scene_count = requested_count
+                elif len(descriptions) in (1, 4, 6, 8):
+                    scene_count = len(descriptions)
+                else:
+                    scene_count = scene_count_for_format(format_row)
+                unlock_all = (
+                    ((data.get("creative_brief") or {}).get("construct_path") or {}).get("engine")
+                    == ENGINE_CONSTRUCT
+                )
                 cursor.execute(
                     """
                     INSERT INTO cx_creative_productions (
@@ -758,7 +773,7 @@ class CreativeModelingRepository:
                             description,
                             scene_prompt,
                             prompt_status,
-                            "ready" if position == 1 else "blocked",
+                            "ready" if position == 1 or unlock_all else "blocked",
                         ),
                     )
                     scene_ids.append(cursor.fetchone()["id"])
@@ -1356,9 +1371,11 @@ class CreativeModelingRepository:
             if scene_id is not None:
                 cursor.execute(
                     """
-                    SELECT s.id, s.position, s.status, p.status AS production_status
+                    SELECT s.id, s.position, s.status, p.status AS production_status,
+                           c.creative_brief
                       FROM cx_creative_scenes s
                       JOIN cx_creative_productions p ON p.id = s.production_id
+                      JOIN cx_campaigns c ON c.id = p.campaign_id
                      WHERE s.id = %s
                      FOR UPDATE OF s, p
                     """,
@@ -1370,7 +1387,9 @@ class CreativeModelingRepository:
                 if scene["production_status"] != "active":
                     raise CreativeConflictError("Produção não está ativa.")
                 prompt_job = job_type == "prompt"
-                if not prompt_job:
+                brief = scene.get("creative_brief") if isinstance(scene.get("creative_brief"), dict) else {}
+                construct_engine = ((brief.get("construct_path") or {}).get("engine"))
+                if not prompt_job and construct_engine != ENGINE_CONSTRUCT:
                     cursor.execute(
                         """
                         SELECT COUNT(*) AS pending_previous

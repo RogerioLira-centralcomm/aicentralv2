@@ -596,6 +596,10 @@ _ORIENTATION_BEATS = {
             "gancho": "Primeiro quadro da faixa horizontal. Leitura da esquerda para a direita.",
             "contexto": "O produto entra no quadro seguinte da mesma faixa. Não é variação.",
             "beneficio": "O valor fica visível neste instante da sequência horizontal.",
+            "oferta": "A oferta ou a prova atravessa a faixa. Continua o mesmo anúncio.",
+            "reforco": "Outro recorte do mesmo talent na faixa horizontal. Não é variação.",
+            "gancho_b": "Segundo gancho na mesma faixa. A/B de talent, não outra campanha.",
+            "fechamento_ab": "Fechamento alternativo da faixa. A/B de talent.",
             "fechamento": "Último quadro da faixa. CTA só se o formato tiver.",
         },
         "video": {
@@ -640,6 +644,10 @@ _ORIENTATION_BEATS = {
             "gancho": "Primeiro quadro do retrato. Leitura de cima para baixo.",
             "contexto": "O produto entra no quadro seguinte da mesma coluna. Não é variação.",
             "beneficio": "O valor fica visível neste instante da sequência vertical.",
+            "oferta": "A oferta ou a prova desce na coluna. Continua o mesmo anúncio.",
+            "reforco": "Outro recorte do mesmo talent na coluna. Não é variação.",
+            "gancho_b": "Segundo gancho no retrato. A/B de talent, não outra campanha.",
+            "fechamento_ab": "Fechamento alternativo do retrato. A/B de talent.",
             "fechamento": "Último quadro do retrato. CTA acima da safe area, só se o formato tiver.",
         },
         "video": {
@@ -684,6 +692,10 @@ _ORIENTATION_BEATS = {
             "gancho": "Primeiro quadro do feed quadrado.",
             "contexto": "O produto entra no quadro seguinte do mesmo 1:1. Não é variação.",
             "beneficio": "O valor fica visível neste instante da sequência quadrada.",
+            "oferta": "A oferta ou a prova no mesmo 1:1. Continua o mesmo anúncio.",
+            "reforco": "Outro recorte do mesmo talent no quadrado. Não é variação.",
+            "gancho_b": "Segundo gancho no feed. A/B de talent, não outra campanha.",
+            "fechamento_ab": "Fechamento alternativo do quadrado. A/B de talent.",
             "fechamento": "Último quadro. CTA no rodapé, só se o formato tiver.",
         },
         "video": {
@@ -706,6 +718,35 @@ _BEHAVIOR_ALIASES = {
     "cartas": "flip",
     "video-outstream": "video",
 }
+
+ALLOWED_SCENE_COUNTS = (1, 4, 6, 8)
+
+_CAROUSEL_EXTRAS = [
+    (
+        "oferta",
+        "Oferta",
+        "A oferta ou a prova entra neste quadro. Continua o mesmo anúncio, não é variação.",
+        ["images", "title", "text"],
+    ),
+    (
+        "reforco",
+        "Reforço",
+        "Reforça o valor com outro recorte do mesmo talent. Ainda o mesmo anúncio.",
+        ["images", "text"],
+    ),
+    (
+        "gancho_b",
+        "Segundo gancho",
+        "Outro gancho do mesmo anúncio. Recorte A/B do talent, não outra campanha.",
+        ["background", "images", "hook"],
+    ),
+    (
+        "fechamento_ab",
+        "Segundo fechamento",
+        "Fechamento alternativo. Mesmo CTA se o formato tiver. A/B de talent.",
+        ["images", "logo", "cta"],
+    ),
+]
 
 _BEATS = {
     "static": [(
@@ -804,7 +845,7 @@ def _slots_for_elements(slots, on_screen):
 
 
 def _specialize_beat(role, label, job, on_screen, behavior, family, orientation):
-    if behavior == "static" and family in _STATIC_FAMILY_BEATS:
+    if role == "composicao_final" and family in _STATIC_FAMILY_BEATS:
         return _STATIC_FAMILY_BEATS[family]
     overlay = (_ORIENTATION_BEATS.get(orientation) or {}).get(behavior) or {}
     specialized = overlay.get(role) or job
@@ -814,7 +855,18 @@ def _specialize_beat(role, label, job, on_screen, behavior, family, orientation)
     return role, label, specialized, on_screen
 
 
+def resolve_scene_count(value, default=None):
+    try:
+        count = default if value in (None, "") else int(value)
+    except (TypeError, ValueError):
+        count = default
+    if count in ALLOWED_SCENE_COUNTS:
+        return count
+    return default if default in ALLOWED_SCENE_COUNTS or default is None else 4
+
+
 def scene_count_for_format(format_row):
+    """Sugestão do formato: 1 no estático/social, 4 no interativo."""
     slug = str((format_row or {}).get("slug") or "")
     if slug in SOCIAL_FORMAT_SLUGS:
         return 1
@@ -825,6 +877,29 @@ def scene_count_for_format(format_row):
         and (format_row or {}).get("mechanic") == "static_display"
         else 4
     )
+
+
+def _extend_beats(templates, scene_count):
+    templates = list(templates or [])
+    count = resolve_scene_count(scene_count, default=len(templates) if len(templates) in ALLOWED_SCENE_COUNTS else 4)
+    if not templates:
+        templates = list(_BEATS["carousel"])
+    if len(templates) >= count:
+        return templates[:count]
+    need = count - len(templates)
+    extras = _CAROUSEL_EXTRAS[:need]
+    if len(templates) == 1:
+        return list(_BEATS["carousel"][:-1]) + extras[: max(0, count - 4)] + [_BEATS["carousel"][-1]]
+    return templates[:-1] + extras + templates[-1:]
+
+
+def _beats_for(behavior, scene_count):
+    count = resolve_scene_count(scene_count, default=4)
+    if count == 1:
+        return list(_BEATS["static"])
+    key = "carousel" if behavior == "static" else behavior
+    templates = list(_BEATS.get(key, _BEATS["carousel"]))
+    return _extend_beats(templates, count)
 
 
 def _behavior_key(format_row):
@@ -885,13 +960,17 @@ def _element_flags(format_row, geometry, scene_count, behavior):
     }
 
 
-def format_direction(format_row):
+def format_direction(format_row, scene_count=None):
     row = format_row if isinstance(format_row, dict) else {}
+    suggested = scene_count_for_format(row)
+    count = resolve_scene_count(
+        scene_count if scene_count is not None else row.get("scene_count"),
+        default=suggested,
+    )
     if not any(
         row.get(key)
         for key in ("slug", "mechanic", "behavior_spec", "default_size", "layers", "format_slug")
     ):
-        count = scene_count_for_format(row)
         return {
             "width": None,
             "height": None,
@@ -920,7 +999,7 @@ def format_direction(format_row):
         if match:
             width, height = int(match.group(1)), int(match.group(2))
             target = f"{width}x{height}"
-    scene_count = scene_count_for_format(row)
+    scene_count = count
     behavior = _behavior_key(row)
     family = geometry.get("family") or _family_from_size(
         (width, height) if width and height else None
@@ -933,9 +1012,9 @@ def format_direction(format_row):
         "slots": slots,
         "safe_area": row.get("safe_area") if isinstance(row.get("safe_area"), dict) else None,
     }
-    templates = _BEATS["static"] if scene_count == 1 else _BEATS.get(behavior, _BEATS["carousel"])
+    templates = _beats_for(behavior, scene_count)
     beats = []
-    for position, template in enumerate(templates[:scene_count], start=1):
+    for position, template in enumerate(templates, start=1):
         role, label, job, on_screen = _specialize_beat(
             *template, behavior, family, orientation
         )
@@ -972,8 +1051,8 @@ def format_direction(format_row):
     }
 
 
-def format_beat(format_row, position):
-    direction = format_direction(format_row)
+def format_beat(format_row, position, scene_count=None):
+    direction = format_direction(format_row, scene_count=scene_count)
     for beat in direction.get("beats") or []:
         if int(beat.get("position") or 0) == int(position or 1):
             return beat

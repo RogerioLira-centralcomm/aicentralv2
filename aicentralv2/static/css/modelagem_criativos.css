@@ -574,6 +574,43 @@
   font-weight: 800;
 }
 
+.mc-prepare-pathbar {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #dce4e7;
+}
+
+.mc-prepare-pathbar .mc-unfold-path-set legend,
+.mc-prepare-model .cx-label {
+  color: #5b6f72;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.mc-prepare-model {
+  min-width: 0;
+}
+
+.mc-prepare-quote {
+  display: grid;
+  justify-items: start;
+  gap: 0.1rem;
+}
+
+.mc-prepare-quote strong {
+  color: #183436;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.mc-prepare-quote small {
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
 /* Produção: uma bancada contínua, da cena ao contexto */
 .mc-production-bench {
   display: grid;

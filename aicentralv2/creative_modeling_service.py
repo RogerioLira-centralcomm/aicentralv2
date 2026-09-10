@@ -25,17 +25,19 @@ from .creative_modeling_repository import (
     HOUSE_CRM_CLIENT_ID,
     CreativeModelingRepository,
     CreativeNotFoundError,
-    scene_count_for_format,
 )
 from .creative_format_compose import compose_native_piece
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
+    ALLOWED_SCENE_COUNTS,
     canvas_mismatch,
     default_render_mode,
     format_beat,
     format_direction,
     hygiene_instruction,
     resolve_format_geometry,
+    resolve_scene_count,
+    scene_count_for_format,
     should_compose,
 )
 from .creative_modeling_storage import CreativeAssetStorage
@@ -49,6 +51,7 @@ from .creative_image_fidelity import (
     resolve_image_tier,
 )
 from .creative_construct_params import (
+    ENGINE_CONSTRUCT,
     describe_unfold_paths,
     model_unit_usd,
     quote_unfold_path,
@@ -134,6 +137,18 @@ def _brief_path(record):
     if not isinstance(brief, dict):
         brief = {}
     return resolve_construct_path(brief.get("construct_path") or brief)
+
+
+def _plan_construct_path(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    nested = payload.get("construct_path")
+    merged = dict(nested) if isinstance(nested, dict) else {}
+    for key in ("engine", "scene_pack", "image_model", "fidelity"):
+        if payload.get(key) not in (None, ""):
+            merged[key] = payload[key]
+    if payload.get("flow_kind") != "unfold" and not merged.get("engine"):
+        merged["engine"] = ENGINE_CONSTRUCT
+    return resolve_construct_path(merged or payload)
 
 
 def _campaign_pack(value):
@@ -1109,8 +1124,8 @@ class CreativeModelingService:
     def enhance_campaign_brief(self, payload):
         payload = payload if isinstance(payload, dict) else {}
         scene_count = _integer(payload.get("scene_count", 4), "Quantidade de cenas")
-        if scene_count not in (1, 4):
-            raise ValueError("A quantidade de cenas deve ser 1 ou 4.")
+        if scene_count not in ALLOWED_SCENE_COUNTS:
+            raise ValueError("A quantidade de cenas deve ser 1, 4, 6 ou 8.")
         pack = _campaign_pack(payload.get("campaign_pack"))
         message = _text(
             payload.get("campaign_text"),
@@ -1164,7 +1179,8 @@ class CreativeModelingService:
                     "layers": payload.get("layers")
                     if isinstance(payload.get("layers"), list)
                     else [],
-                }),
+                    "scene_count": scene_count,
+                }, scene_count=scene_count),
             },
         }
         generated = self.generator.generate_campaign_brief(context)
@@ -1212,21 +1228,32 @@ class CreativeModelingService:
     @staticmethod
     def fallback_scene_descriptions(campaign_text, scene_count, format_row=None):
         message = campaign_text or "Comunicar a mensagem principal da campanha"
-        direction = format_direction(format_row or {})
+        count = resolve_scene_count(scene_count, default=4)
+        direction = format_direction(format_row or {}, scene_count=count)
         beats = direction.get("beats") or []
-        if beats and len(beats) == int(scene_count or 0):
+        if beats and len(beats) == count:
             return [
                 f"{beat['label']}: {beat['job']} Mensagem: {message}."
                 for beat in beats
             ]
-        if scene_count == 1:
+        if count == 1:
             return [f"Composição final: {message}. Encerrar com reconhecimento de marca."]
-        return [
+        lines = [
             f"Gancho: apresentar uma situação visual que gere atenção para {message}.",
             f"Contexto e produto: revelar a marca e conectar o produto a {message}.",
             f"Benefício: tornar visualmente concreto o valor central de {message}.",
+            f"Oferta: tornar a oferta ou a prova visível em {message}.",
+            f"Reforço: outro recorte do mesmo anúncio para {message}.",
+            f"Segundo gancho: outro recorte A/B do talent para {message}.",
+            f"Segundo fechamento: fechar o mesmo anúncio com outro recorte.",
             f"Fechamento: resolver a narrativa e reforçar a marca.",
         ]
+        extras = {
+            4: lines[:3] + [lines[-1]],
+            6: lines[:3] + lines[3:5] + [lines[-1]],
+            8: lines[:3] + lines[3:7] + [lines[-1]],
+        }
+        return extras.get(count, extras[4])
 
     def delete_client(self, client_id):
         client_id = _integer(client_id, "Cliente")
@@ -1280,13 +1307,28 @@ class CreativeModelingService:
                 raise ValueError("Cada formato pode ter apenas uma produção.")
             format_ids.add(format_id)
             descriptions = raw.get("scene_descriptions") or []
-            if not isinstance(descriptions, list) or len(descriptions) > 4:
+            if not isinstance(descriptions, list) or len(descriptions) > 8:
                 raise ValueError(
-                    f"Cenas da produção {index} devem ser uma lista de até 4 itens."
+                    f"Cenas da produção {index} devem ser uma lista de até 8 itens."
                 )
             format_data = self.repository.get_format(format_id)
-            expected_scene_count = scene_count_for_format(format_data)
-            if not descriptions:
+            suggested = scene_count_for_format(format_data)
+            explicit = resolve_scene_count(
+                raw.get("scene_count", payload.get("scene_count")),
+                default=None,
+            )
+            if descriptions:
+                if len(descriptions) not in ALLOWED_SCENE_COUNTS:
+                    raise ValueError(
+                        "A quantidade de cenas deve ser 1, 4, 6 ou 8."
+                    )
+                expected_scene_count = len(descriptions)
+                if explicit and explicit != expected_scene_count:
+                    raise ValueError(
+                        f"O lote precisa de {explicit} cena(s)."
+                    )
+            else:
+                expected_scene_count = explicit or suggested
                 descriptions = self.fallback_scene_descriptions(
                     payload.get("campaign_text"),
                     expected_scene_count,
@@ -1294,7 +1336,7 @@ class CreativeModelingService:
                 )
             if len(descriptions) != expected_scene_count:
                 raise ValueError(
-                    f"O formato exige exatamente {expected_scene_count} cena(s)."
+                    f"O lote precisa de {expected_scene_count} cena(s)."
                 )
             storyboard = [
                 {"position": position, "description": description}
@@ -1316,6 +1358,7 @@ class CreativeModelingService:
             productions.append(
                 {
                     "format_template_id": format_id,
+                    "scene_count": expected_scene_count,
                     "scene_descriptions": [
                         _text(
                             description,
@@ -1364,7 +1407,7 @@ class CreativeModelingService:
                     payload.get("visual_bible"), "Bíblia visual", max_length=6000
                 ),
                 "campaign_pack": _campaign_pack(payload.get("campaign_pack")),
-                "construct_path": resolve_construct_path(payload),
+                "construct_path": _plan_construct_path(payload),
                 "scenes": [
                     {
                         "position": index,
@@ -1405,6 +1448,7 @@ class CreativeModelingService:
             "creative_brief": {
                 "visual_bible": payload.get("visual_bible"),
                 "campaign_pack": pack,
+                "construct_path": _plan_construct_path(payload),
                 "scenes": storyboard,
             },
             "storyboard": storyboard,
@@ -1426,7 +1470,7 @@ class CreativeModelingService:
 
     @staticmethod
     def scene_role(position, total, format_row=None):
-        beat = format_beat(format_row or {}, position)
+        beat = format_beat(format_row or {}, position, scene_count=total)
         if beat:
             return beat["job"]
         if int(total or 1) == 1:
@@ -1436,6 +1480,10 @@ class CreativeModelingService:
             2: "Context beat: the product enters this format. Not a recrop of scene 1.",
             3: "Benefit beat: make the main value tangible without inventing claims.",
             4: "Closing beat: resolve the same ad. Show a CTA only if the format has one.",
+            5: "Offer/proof beat: make the offer or proof visible. Same ad, not a variation.",
+            6: "Reinforce beat: another crop of the same talent. Same ad.",
+            7: "Second hook: A/B talent crop. Same ad, not another campaign.",
+            8: "Alternate close: resolve the same ad. Show a CTA only if the format has one.",
         }
         return roles.get(int(position or 1), roles[1])
 

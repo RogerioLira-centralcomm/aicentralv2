@@ -235,7 +235,9 @@
     renderUnfoldFormats();
     renderUnfoldLibrary();
     fillUnfoldModels();
+    fillPrepareModels();
     quoteUnfoldPath();
+    quotePreparePath();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -438,6 +440,7 @@
     renderGeneratorFormatPreview();
     renderGeneratorSummary();
     updateGeneratorAvailability();
+    quotePreparePath();
   }
 
   function updateGeneratorAvailability() {
@@ -482,14 +485,14 @@
       ${renderFormatSlotMap(format)}
       ${direction.layout?.summary ? `<p class="mc-format-layout-note">${escapeHtml(direction.layout.summary)}</p>` : ''}
       ${renderFormatElementChips(format)}`;
-    const beats = formatDirection(format).beats || [];
+    const beats = prepareBeats(format, sceneCount);
     const orientation = formatOrientationLabel(format);
     $('#mcGeneratorScenePlan').innerHTML = `
       <strong>${sceneCount === 1 ? '1 quadro' : `${sceneCount} batidas`}</strong>
       <span>${sceneCount === 1
         ? `Um retângulo ${orientation ? orientation.toLowerCase() : ''}. Os elementos sentam nas zonas da modelagem.`
-        : `Do gancho ao fechamento no retângulo ${orientation ? orientation.toLowerCase() : 'deste formato'}. Cada batida posiciona os elementos.`}</span>
-      <div>${beats.map((beat) => `<i title="${escapeHtml(beat.job || '')}">${beat.position}</i>`).join('') || Array.from({ length: sceneCount }, (_, index) => `<i>${index + 1}</i>`).join('')}</div>
+        : `A bancada abre com ${sceneCount} batidas no retângulo ${orientation ? orientation.toLowerCase() : 'deste formato'}.`}</span>
+      <div>${beats.map((beat, index) => `<i title="${escapeHtml(beat.job || '')}">${beat.position || index + 1}</i>`).join('')}</div>
       ${beats.length ? `<ol class="mc-beat-plan">${beats.map((beat) => `<li><strong>${escapeHtml(beat.label)}</strong> ${escapeHtml(beat.job)}</li>`).join('')}</ol>` : ''}`;
   }
 
@@ -549,9 +552,9 @@
     return activeProductionFormat()?.default_render_mode || 'mockup';
   }
 
-  function sceneCountForFormat(format) {
+  function suggestedSceneCount(format) {
     const canonical = Number(format?.scene_count);
-    if ([1, 4].includes(canonical)) return canonical;
+    if ([1, 4, 6, 8].includes(canonical)) return canonical;
     const behavior = String(format?.behavior_spec?.type || format?.mechanic || '').toLowerCase();
     const mechanic = String(format?.mechanic || '').toLowerCase();
     const name = String(format?.name_pt || '').toLowerCase();
@@ -560,6 +563,58 @@
         || name.includes('banner')
         || ['leaderboard', 'billboard', 'halfpage'].some((term) => name.includes(term)));
     return isStaticBanner ? 1 : 4;
+  }
+
+  function prepareEngine() {
+    return $('#mcPreparePathBar input[name="prepare_engine"]:checked')?.value || 'construct';
+  }
+
+  function preparePack() {
+    const selected = Number($('#mcPreparePathBar input[name="prepare_pack"]:checked')?.value);
+    return [4, 6, 8].includes(selected) ? selected : 4;
+  }
+
+  function sceneCountForFormat(format) {
+    const selected = Number($('#mcPreparePathBar input[name="prepare_pack"]:checked')?.value);
+    if ([1, 4, 6, 8].includes(selected)) return selected;
+    const suggested = suggestedSceneCount(format);
+    return suggested === 1 ? 4 : suggested;
+  }
+
+  const PREPARE_BEATS = {
+    4: [
+      { label: 'Gancho', job: 'Primeiro quadro do mesmo anúncio.' },
+      { label: 'Contexto', job: 'O produto entra. Não é variação.' },
+      { label: 'Benefício', job: 'O valor fica visível neste instante.' },
+      { label: 'Fechamento', job: 'Último quadro. CTA só se o formato tiver.' },
+    ],
+    6: [
+      { label: 'Gancho', job: 'Primeiro quadro do mesmo anúncio.' },
+      { label: 'Contexto', job: 'O produto entra. Não é variação.' },
+      { label: 'Benefício', job: 'O valor fica visível neste instante.' },
+      { label: 'Oferta', job: 'A oferta ou a prova entra. Continua o mesmo anúncio.' },
+      { label: 'Reforço', job: 'Outro recorte do mesmo talent.' },
+      { label: 'Fechamento', job: 'Último quadro. CTA só se o formato tiver.' },
+    ],
+    8: [
+      { label: 'Gancho', job: 'Primeiro quadro do mesmo anúncio.' },
+      { label: 'Contexto', job: 'O produto entra. Não é variação.' },
+      { label: 'Benefício', job: 'O valor fica visível neste instante.' },
+      { label: 'Oferta', job: 'A oferta ou a prova entra. Continua o mesmo anúncio.' },
+      { label: 'Reforço', job: 'Outro recorte do mesmo talent.' },
+      { label: 'Segundo gancho', job: 'A/B de talent. Não é outra campanha.' },
+      { label: 'Segundo fechamento', job: 'Fechamento alternativo. A/B de talent.' },
+      { label: 'Fechamento', job: 'Último quadro. CTA só se o formato tiver.' },
+    ],
+  };
+
+  function prepareBeats(format, sceneCount) {
+    const directionBeats = formatDirection(format).beats || [];
+    if (directionBeats.length === sceneCount) return directionBeats;
+    return (PREPARE_BEATS[sceneCount] || PREPARE_BEATS[4]).map((beat, index) => ({
+      ...beat,
+      position: index + 1,
+    }));
   }
 
   function renderStoryboardEditor() {
@@ -673,8 +728,20 @@
       data.show_price = new FormData(form).has('show_price');
       data.scene_count = sceneCountForFormat(format);
       data.format_template_id = Number(format.id);
+      data.engine = prepareEngine();
+      data.scene_pack = preparePack();
+      data.image_model = $('#mcPrepareModel')?.value || '';
+      data.fidelity = prepareEngine() === 'construct' ? 'publish' : 'draft';
+      data.construct_path = {
+        engine: data.engine,
+        scene_pack: data.scene_pack,
+        image_model: data.image_model,
+        fidelity: data.fidelity,
+      };
+      data.locks = collectPrepareLocks(data);
       data.productions = [{
         format_template_id: Number(format.id),
+        scene_count: data.scene_count,
         scene_descriptions: state.enhancedBrief?.scenes?.length === sceneCountForFormat(format)
           ? state.enhancedBrief.scenes.map((scene) => scene.description)
           : [],
@@ -996,6 +1063,83 @@
       extracted: state.campaignPack.extracted || {},
       locks: state.campaignPack.locks || {},
     };
+  }
+
+  function collectPrepareLocks(data = {}) {
+    const extracted = state.campaignPack.extracted || {};
+    const headline = String(extracted.headline || data.campaign_text || '').trim();
+    const offer = String(extracted.offer || extracted.subhead || '').trim();
+    const cta = String(extracted.cta || data.cta_text || '').trim();
+    const statusOf = (text) => (text ? 'seen' : 'absent');
+    return {
+      headline,
+      subhead: offer,
+      cta,
+      has_logo: extracted.has_logo !== false,
+      items: {
+        headline: { text: headline, status: statusOf(headline) },
+        offer: { text: offer, status: statusOf(offer) },
+        cta: { text: cta, status: statusOf(cta) },
+      },
+    };
+  }
+
+  function fillPrepareModels() {
+    const select = $('#mcPrepareModel');
+    const models = state.unfoldPaths?.models;
+    if (!select || !models?.length) return;
+    const current = select.value;
+    select.innerHTML = models.map((model) => (
+      `<option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>`
+    )).join('');
+    select.value = models.some((model) => model.id === current)
+      ? current
+      : (prepareEngine() === 'construct'
+        ? 'black-forest-labs/flux.2-pro'
+        : 'openai/gpt-image-2');
+  }
+
+  async function quotePreparePath() {
+    const box = $('#mcPrepareQuote');
+    if (!box) return;
+    const format = generatorSelectedFormat();
+    const sceneCount = format ? sceneCountForFormat(format) : 0;
+    const engine = prepareEngine();
+    const fallback = () => {
+      box.querySelector('strong').textContent = 'R$ 0,00';
+      const detail = $('#mcPrepareQuoteDetail');
+      if (detail) {
+        detail.textContent = format
+          ? 'Não foi possível cotar este lote.'
+          : 'Marque o formato para ver o lote.';
+      }
+    };
+    if (!format || !sceneCount) {
+      fallback();
+      return;
+    }
+    try {
+      const quoted = await api(API.unfoldQuote, {
+        method: 'POST',
+        body: JSON.stringify({
+          engine,
+          scene_pack: preparePack(),
+          scene_count: sceneCount,
+          image_model: $('#mcPrepareModel')?.value,
+          fidelity: engine === 'construct' ? 'publish' : 'draft',
+          format_slugs: [format.slug].filter(Boolean),
+          format_ids: [format.id],
+        }),
+      });
+      box.querySelector('strong').textContent = brl(quoted.total_brl);
+      const detail = $('#mcPrepareQuoteDetail');
+      if (detail) {
+        const verb = engine === 'construct' ? 'montadas' : 'pintadas';
+        detail.textContent = `${sceneCount} ${sceneCount === 1 ? 'batida' : 'batidas'} ${verb}`;
+      }
+    } catch (error) {
+      fallback();
+    }
   }
 
   function resetCampaignPack() {
@@ -1775,8 +1919,8 @@
     const environment = placement.context === 'tv'
       ? 'TV'
       : 'Portal desktop e mobile';
-    return sceneCountForFormat(format) > 1
-      ? `4 cenas · ${environment}`
+    return suggestedSceneCount(format) > 1
+      ? `${suggestedSceneCount(format)} cenas · ${environment}`
       : `${format.default_size || format.aspect_ratio || 'Flexível'} · ${environment}`;
   }
 
@@ -1802,7 +1946,7 @@
             format.iab_cousin ? `primo ${format.iab_cousin}` : '',
           ].filter(Boolean).join(' · ') || formatExperienceLabel(format))}</small>
         </span>
-        <em>${sceneCountForFormat(format) > 1 ? 'Carrossel' : 'Estático'}</em>
+        <em>${suggestedSceneCount(format) > 1 ? 'Carrossel' : 'Estático'}</em>
       </button>`;
     }).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
   }
@@ -4159,6 +4303,26 @@
     });
     $('#mcCampaignForm').addEventListener('input', renderGeneratorSummary);
     $('#mcGeneratorFormatCategory').addEventListener('change', renderGeneratorFormats);
+    $('#mcPreparePathBar')?.addEventListener('change', (event) => {
+      if (event.target.name === 'prepare_engine') {
+        const select = $('#mcPrepareModel');
+        if (select && prepareEngine() === 'construct') {
+          select.value = 'black-forest-labs/flux.2-pro';
+        } else if (select) {
+          select.value = 'openai/gpt-image-2';
+        }
+      }
+      if (event.target.name === 'prepare_pack') {
+        if (state.enhancedBrief?.scenes?.length !== sceneCountForFormat(generatorSelectedFormat())) {
+          state.enhancedBrief = null;
+          renderStoryboardEditor();
+        }
+      }
+      renderGeneratorFormatPreview();
+      renderGeneratorSummary();
+      quotePreparePath();
+    });
+    $('#mcPrepareModel')?.addEventListener('change', quotePreparePath);
     $('#mcCampaignSelect').addEventListener('change', (event) => selectCampaign(event.target.value).catch((error) => toast(error.message, 'error')));
     $('#mcOpenPublishBatch')?.addEventListener('click', () => {
       openPublishModal([state.production].filter(Boolean), state.campaign?.id);

@@ -677,6 +677,18 @@
   background: var(--cx-surface);
   min-height: 60px;
 }
+.cx-drawer[data-size="editor"] .cx-drawer-header {
+  min-height: 52px;
+  padding: 8px 20px;
+}
+.cx-drawer[data-size="editor"] .cx-drawer-titles {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cx-drawer[data-size="editor"] .cx-drawer-breadcrumb {
+  margin-top: 0;
+}
 .cx-drawer-title {
   font-size: 16px;
   font-weight: 700;
@@ -2032,6 +2044,23 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   color: var(--cx-text-subtle);
   font-size: 12px;
 }
+.cx-atividade-roteiro-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cx-atividade-roteiro-hint { margin-top: 0; }
+.cx-atividade-roteiro-count {
+  color: var(--cx-text-subtle);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cx-atividade-roteiro-count.is-limit {
+  color: #b42318;
+  font-weight: 700;
+}
 .cx-atividade-ia {
   flex: 0 0 auto;
   margin-top: 0;
@@ -2160,10 +2189,81 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   flex-wrap: wrap;
   gap: 4px;
 }
+.cx-atividade-ia-topics,
 .cx-atividade-ia-products {
+  margin: 0 0 12px;
+}
+.cx-atividade-ia-topics h3,
+.cx-atividade-ia-products h3 {
   margin: 0 0 8px;
+  color: #173c3e;
+  font-size: 12.5px;
+  font-weight: 700;
 }
 .cx-atividade-ia-products[hidden] { display: none; }
+.cx-atividade-brand {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef3f3;
+  color: #315355;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+.cx-atividade-ia-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 0 0 14px;
+}
+.cx-atividade-ia-progress[hidden] { display: none; }
+.cx-atividade-ia-progress p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--cx-text-muted);
+  font-size: 12px;
+}
+.cx-atividade-ia-progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4ecec;
+}
+.cx-atividade-ia-progress-track span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--cx-brand);
+  transition: width 280ms ease;
+}
+.cx-atividade-ia-progress [data-ia-progress-pct] {
+  color: #173c3e;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.cx-atividade-ia-legend {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--cx-text-subtle);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.cx-atividade-ia-legend button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--cx-brand);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 .cx-atividade-ia-meta {
   display: flex;
   flex-wrap: wrap;
@@ -2257,6 +2357,7 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 }
 .cx-atividade-result > header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -2637,7 +2738,7 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
 }
 .cx-atividade-date-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 7px;
   margin: 10px 0;
 }
@@ -2646,6 +2747,130 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
   align-items: end;
   gap: 12px;
+}
+.cx-atividade-relations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cx-atividade-client-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--cx-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--cx-text);
+}
+.cx-atividade-client-field i { color: var(--cx-text-muted); }
+.cx-atividade-client-field strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cx-atividade-client-field button {
+  border: 0;
+  padding: 0 2px;
+  background: none;
+  color: var(--cx-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: default;
+}
+.cx-atividade-details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cx-atividade-details-head .cx-atividade-side-title { margin-bottom: 0; }
+.cx-atividade-status-field {
+  display: grid;
+  gap: 4px;
+  min-width: 148px;
+}
+.cx-atividade-status-field span {
+  color: var(--cx-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.cx-atividade-status-field select {
+  min-height: 32px;
+  padding: 4px 8px 4px 22px;
+  border: 1px solid var(--cx-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--cx-text);
+  font: inherit;
+  font-size: 12px;
+}
+.cx-atividade-status-field[data-status="pendente"] select {
+  background: #f1f5f9;
+  color: #475569;
+}
+.cx-atividade-status-field[data-status="em_andamento"] select {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.cx-atividade-status-field[data-status="concluida"] select {
+  background: #ecfdf3;
+  color: #067647;
+}
+.cx-atividade-date-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: var(--cx-text-subtle);
+  font-size: 12px;
+}
+.cx-atividade-suggest-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dbe7f3;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+.cx-atividade-suggest-date[hidden] { display: none; }
+.cx-atividade-suggest-date strong {
+  display: block;
+  color: #173c3e;
+  font-size: 12.5px;
+}
+.cx-atividade-suggest-date p {
+  margin: 2px 0 0;
+  color: var(--cx-text-subtle);
+  font-size: 12px;
+}
+.cx-atividade-suggest-date button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--cx-brand);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cx-atividade-result-badge {
+  margin-left: auto;
+  color: #b54708;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
 }
 .cx-atividade-date-grid input {
   min-width: 0;
@@ -4347,13 +4572,31 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   }
 }
 
-@media (max-width: 900px) {
-  .cx-drawer[data-size="editor"] .cx-drawer-body {
+@media (max-width: 1024px) {
+  .cx-atividade-editor-grid {
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
   }
-  .cx-drawer[data-size="editor"] .cx-drawer-body > div,
-  .cx-atividade-editor,
-  .cx-cotacao-editor,
+  .cx-atividade-editor-main,
+  .cx-atividade-editor-side {
+    overflow: visible;
+  }
+  .cx-atividade-editor-main {
+    border-right: 0;
+    border-bottom: 1px solid var(--cx-border);
+  }
+  .cx-atividade-relations-grid,
+  .cx-atividade-date-grid,
+  .cx-atividade-suggest-date {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 900px) {
+  .cx-drawer[data-size="editor"] .cx-cotacao-editor,
   .cx-cotacao-editor-grid {
     height: auto;
     min-height: 100%;
@@ -4361,28 +4604,19 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-cot-type-track {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .cx-atividade-editor-grid {
-    height: auto;
-    display: flex;
-    flex-direction: column;
-  }
   .cx-cotacao-editor-grid {
-    height: auto;
     display: flex;
     flex-direction: column;
   }
-  .cx-atividade-editor-main,
-  .cx-atividade-editor-side,
   .cx-cotacao-editor-main,
   .cx-cotacao-editor-side {
     overflow: visible;
   }
-  .cx-atividade-editor-main,
   .cx-cotacao-editor-main {
     border-right: 0;
     border-bottom: 1px solid var(--cx-border);
   }
-  .cx-atividade-roteiro { min-height: 300px; }
+  .cx-atividade-roteiro { min-height: 220px; }
 }
 
 @media (max-width: 640px) {
@@ -4415,6 +4649,8 @@ body.cx-drawer-split-active .cx-drawer-split-anchor {
   .cx-atividade-ia-generate { width: 100%; }
   .cx-atividade-date-grid { grid-template-columns: 1fr; }
   .cx-atividade-date-grid input { font-size: 13.5px; }
+  .cx-atividade-relations-grid { grid-template-columns: 1fr; }
+  .cx-atividade-details-head { flex-direction: column; }
   .cx-meeting-grid { grid-template-columns: 1fr; }
   .cx-meeting-attendee-entry { grid-template-columns: 1fr; }
 }

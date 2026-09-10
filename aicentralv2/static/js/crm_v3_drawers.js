@@ -837,11 +837,79 @@
         target.textContent = clienteId ? ('Cliente #' + clienteId) : '—';
     }
 
+    function wireStatusSelect(wrapper, form) {
+        var select = wrapper.querySelector('[data-status-select]');
+        var hidden = form.querySelector('[data-field="status"]');
+        if (!select || !hidden) return;
+        function sync() {
+            var value = hidden.value || 'pendente';
+            select.value = value;
+            var field = select.closest('.cx-atividade-status-field');
+            if (field) field.setAttribute('data-status', value);
+        }
+        select.value = hidden.value || 'pendente';
+        sync();
+        select.addEventListener('change', function () {
+            hidden.value = select.value;
+            sync();
+        });
+    }
+
+    function wireRegistroCounter(form) {
+        var area = form.querySelector('[data-field="descricao"]');
+        var count = form.querySelector('[data-registro-count]');
+        if (!area || !count) return;
+        var max = Number(area.getAttribute('maxlength') || 50000);
+        function sync() {
+            if (area.value.length > max) area.value = area.value.slice(0, max);
+            count.textContent = area.value.length + '/' + max;
+            count.classList.toggle('is-limit', area.value.length >= max);
+        }
+        area.addEventListener('input', sync);
+        sync();
+    }
+
+    function wireSuggestDate(wrapper, form, clienteId) {
+        var card = wrapper.querySelector('[data-suggest-date]');
+        var btn = wrapper.querySelector('[data-suggest-date-btn]');
+        var dataEl = form.querySelector('[data-field="data"]');
+        var prazoEl = form.querySelector('[data-field="data_prazo"]');
+        if (!card || !btn) return;
+        function syncCard() {
+            var empty = !(dataEl && dataEl.value) || !(prazoEl && prazoEl.value);
+            card.hidden = !empty;
+        }
+        [dataEl, prazoEl].forEach(function (el) {
+            if (el) el.addEventListener('input', syncCard);
+        });
+        btn.addEventListener('click', function () {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            var payload = enrichAtividadeIaPayload(serializeForm(form), form, clienteId);
+            payload.cliente_id = clienteId;
+            apiFetch('/ia/sugerir-data', { method: 'POST', body: payload }).then(function (res) {
+                var data = res.data || res;
+                if (dataEl && data.data) dataEl.value = data.data;
+                if (prazoEl && (data.data_prazo || data.data)) {
+                    prazoEl.value = data.data_prazo || data.data;
+                }
+                syncCard();
+                toast(data.motivo || 'Data sugerida aplicada');
+            }).catch(function (err) {
+                toast(err.message || 'Não foi possível sugerir a data', true);
+            }).then(function () {
+                btn.disabled = false;
+            });
+        });
+        syncCard();
+    }
+
     function applyTextSafely(form, texto) {
         var desc = form.querySelector('[data-field="descricao"]');
         texto = stripMarkdown(texto || '');
         if (!desc || !texto) return false;
         desc.value = texto;
+        desc.dispatchEvent(new Event('input', { bubbles: true }));
         desc.focus();
         return true;
     }
@@ -969,21 +1037,36 @@
         actions.className = 'cx-atividade-ia-history-actions';
         actions.setAttribute('aria-label', 'Ações da geração');
 
-        function addAction(label, onClick) {
+        function addAction(label, icon, onClick) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.textContent = label;
+            btn.innerHTML = '<i class="' + icon + '" aria-hidden="true"></i> ' + label;
             btn.addEventListener('click', onClick);
             actions.appendChild(btn);
             return btn;
         }
 
-        addAction('Editar', function () { startInlineEdit(target, item, form, wrapper); });
-        addAction('Apagar', function () { removeHistoryEntry(target, item, wrapper); });
-        addAction('Modelo', function () {
+        addAction('Editar texto', 'fa-regular fa-pen-to-square', function () {
+            startInlineEdit(target, item, form, wrapper);
+        });
+        addAction('Limpar', 'fa-regular fa-trash-can', function () {
+            var run = function () { removeHistoryEntry(target, item, wrapper); };
+            if (typeof window.showConfirm === 'function') {
+                window.showConfirm({
+                    title: 'Limpar texto',
+                    message: 'O texto gerado será removido deste guia.',
+                    theme: 'danger',
+                    confirmText: 'Limpar',
+                    onConfirm: run
+                });
+                return;
+            }
+            run();
+        });
+        addAction('Aplicar modelo', 'fa-regular fa-floppy-disk', function () {
             saveStyleModel(wrapper, item.texto, inferAssistantFormato(form), form, item.assunto);
         });
-        addAction('Copiar', function () {
+        addAction('Copiar conteúdo', 'fa-regular fa-copy', function () {
             copyAssistantText(item.assunto ? item.assunto + '\n\n' + item.texto : item.texto);
         });
         if (item.canApply) {
@@ -1517,72 +1600,23 @@
         )) {
             focoField.value = 'falar_sobre_canal';
         }
-        if (!(atividade && atividade.id)) {
-            var hojeAtividade = isoHoje();
-            var dataEl = form.querySelector('[data-field="data"]');
-            var prazoEl = form.querySelector('[data-field="data_prazo"]');
-            if (dataEl && !dataEl.value) dataEl.value = hojeAtividade;
-            if (prazoEl && !prazoEl.value) prazoEl.value = hojeAtividade;
-        }
-
         var tipoVal = (form.querySelector('[data-field="tipo"]') || {}).value || '';
         var fmtEl = form.querySelector('[data-field="formato"]');
         if (fmtEl && (!fmtEl.value || fmtEl.value === 'roteiro')) {
             if (tipoVal === 'email' || tipoVal === 'whatsapp') fmtEl.value = tipoVal;
         }
 
-        // Conecta os chip-groups (Tipo, Status, Formato) à respectiva hidden.
+        // Conecta os chip-groups (Tipo, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
+        wireStatusSelect(wrapper, form);
+        wireRegistroCounter(form);
+        wireSuggestDate(wrapper, form, clienteId);
         wireStyleModel(wrapper);
         loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
         var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
-
-        function syncAssistantChannel(value) {
-            var fmt = form.querySelector('[data-field="formato"]');
-            var label = wrapper.querySelector('[data-ia-channel-label]');
-            var generate = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
-            var channel = value === 'email' || value === 'whatsapp' ? value : 'roteiro';
-            if (fmt) fmt.value = channel;
-            var labels = {
-                email: 'E-mail com assunto e mensagem, ancorado no registro.',
-                whatsapp: 'Mensagem pronta para WhatsApp, com os nomes desta atividade.',
-                ligacao: 'Abertura e perguntas para ligação com o contato.',
-                reuniao: 'Abertura e perguntas para reunião com as pessoas certas.'
-            };
-            if (label) label.textContent = labels[value] || 'Usa o registro, as pessoas e o canal escolhido.';
-            if (generate) {
-                generate.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' +
-                    (value === 'email' ? 'Gerar e-mail' : value === 'whatsapp'
-                        ? 'Gerar mensagem' : 'Gerar');
-            }
-        }
-        function syncCanalProdutos() {
-            var foco = (form.querySelector('[data-field="foco"]') || {}).value;
-            var row = wrapper.querySelector('[data-canal-produtos]');
-            if (row) row.hidden = foco !== 'falar_sobre_canal';
-        }
-        syncAssistantChannel(tipoVal);
-        syncCanalProdutos();
         meetingEditor.toggle(tipoVal);
-        $$('[data-chip-group="foco"] .cx-drawer-chip', wrapper).forEach(function (chip) {
-            chip.addEventListener('click', syncCanalProdutos);
-        });
-
-        $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
-            chip.addEventListener('click', function () {
-                var val = chip.getAttribute('data-value');
-                syncAssistantChannel(val);
-                meetingEditor.toggle(val);
-            });
-        });
-
-        // IA actions
-        $$('[data-ia-action]', wrapper).forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                runIA(btn, form, wrapper.querySelector('[data-ia-output]'), clienteId, wrapper);
-            });
-        });
+        wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor);
 
         _atividadeDrawerId = cxDrawer.open({
             title: (atividade && atividade.id) ? 'Editar atividade' : 'Nova atividade',
@@ -1748,9 +1782,24 @@
             ligacao: 'Guia para ligação',
             reuniao: 'Guia para reunião'
         };
-        heading.textContent = labels[channel] || 'Abordagem sugerida';
+        var icons = {
+            ligacao: 'fa-solid fa-phone',
+            reuniao: 'fa-solid fa-users',
+            email: 'fa-regular fa-envelope',
+            whatsapp: 'fa-brands fa-whatsapp'
+        };
+        heading.innerHTML = (icons[channel]
+            ? '<i class="' + icons[channel] + '" aria-hidden="true"></i> '
+            : '') + (labels[channel] || 'Abordagem sugerida');
         source.textContent = data.source === 'openrouter' ? 'IA contextual' : 'Modelo local';
         head.append(heading, source);
+        var contactSelect = form && form.querySelector('[data-field="contato_id"]');
+        if (!contactSelect || !String(contactSelect.value || '').trim()) {
+            var badge = document.createElement('em');
+            badge.className = 'cx-atividade-result-badge';
+            badge.textContent = 'Sem contato selecionado — saudação genérica aplicada.';
+            head.appendChild(badge);
+        }
         result.appendChild(head);
 
         var subject = stripMarkdown(data.assunto || '');
@@ -1812,26 +1861,6 @@
         }
 
         var actions = document.createElement('footer');
-        var copyButton = document.createElement('button');
-        copyButton.type = 'button';
-        copyButton.className = 'cx-atividade-result-action';
-        copyButton.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar ' +
-            (channel === 'email' ? 'e-mail' : channel === 'whatsapp' ? 'mensagem' : 'guia');
-        copyButton.addEventListener('click', function () {
-            copyAssistantText(subject ? subject + '\n\n' + message : message);
-        });
-        actions.appendChild(copyButton);
-        if (subject) {
-            var copySubject = document.createElement('button');
-            copySubject.type = 'button';
-            copySubject.className = 'cx-atividade-result-action';
-            copySubject.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar assunto';
-            copySubject.addEventListener('click', function () {
-                copyAssistantText(subject);
-            });
-            actions.appendChild(copySubject);
-        }
-
         var contact = data.contato || {};
         if (channel === 'whatsapp') {
             var phone = whatsappNumber(
@@ -1867,8 +1896,8 @@
             }, form, wrapper);
         }
         if (
-            (channel === 'whatsapp' && actions.children.length === 1)
-            || (channel === 'email' && actions.children.length === 1)
+            (channel === 'whatsapp' && !actions.querySelector('a'))
+            || (channel === 'email' && !actions.querySelector('a'))
         ) {
             var missing = document.createElement('small');
             missing.className = 'cx-atividade-result-missing';
@@ -1881,7 +1910,7 @@
     }
 
     function selectedOptionLabel(select) {
-        if (!select || select.selectedIndex < 0) return '';
+        if (!select || select.selectedIndex < 0 || !select.value) return '';
         return String(select.options[select.selectedIndex].textContent || '')
             .split(' — ')[0].trim();
     }
@@ -1900,7 +1929,9 @@
         var state = window.crmV3 && window.crmV3.state;
         var cliente = (state && String(state.clienteId) === String(clienteId) && state.cliente) || {};
         payload.contato_nome = selectedOptionLabel(form.querySelector('[data-field="contato_id"]'));
+        payload.destinatario = payload.contato_nome || '';
         payload.executivo_nome = selectedOptionLabel(form.querySelector('[data-field="executivo_id"]'));
+        payload.responsavel_interno = payload.executivo_nome || '';
         payload.cliente_nome = cliente.nome || payload.cliente_nome || '';
         payload.is_agencia = !!cliente.is_agencia;
         payload.agencia_nome = cliente.is_agencia
@@ -1914,6 +1945,83 @@
             payload.foco = payload.foco || 'falar_sobre_canal';
         }
         return payload;
+    }
+
+    function setAssistantProgress(wrapper, pct, label) {
+        var box = wrapper.querySelector('[data-ia-progress]');
+        var bar = wrapper.querySelector('[data-ia-progress-bar]');
+        var text = wrapper.querySelector('[data-ia-progress-label]');
+        var percent = wrapper.querySelector('[data-ia-progress-pct]');
+        if (!box) return;
+        box.hidden = false;
+        if (text && label) text.textContent = label;
+        if (bar) bar.style.width = pct + '%';
+        if (percent) percent.textContent = pct + '%';
+    }
+
+    function startAssistantProgress(wrapper) {
+        stopAssistantProgress(wrapper, true);
+        var steps = [
+            { pct: 28, label: 'Lendo registro, cliente, contato, canal e histórico...' },
+            { pct: 58, label: 'Montando contexto da conversa...' },
+            { pct: 82, label: 'Gerando texto...' }
+        ];
+        var index = 0;
+        setAssistantProgress(wrapper, steps[0].pct, steps[0].label);
+        wrapper._iaProgressTimer = setInterval(function () {
+            index += 1;
+            if (index >= steps.length) {
+                clearInterval(wrapper._iaProgressTimer);
+                wrapper._iaProgressTimer = null;
+                return;
+            }
+            setAssistantProgress(wrapper, steps[index].pct, steps[index].label);
+        }, 750);
+    }
+
+    function stopAssistantProgress(wrapper, keepVisible) {
+        if (wrapper._iaProgressTimer) {
+            clearInterval(wrapper._iaProgressTimer);
+            wrapper._iaProgressTimer = null;
+        }
+        var box = wrapper.querySelector('[data-ia-progress]');
+        if (!keepVisible && box) box.hidden = true;
+    }
+
+    function runAtividadeAssistente(btn, form, output, clienteId, wrapper) {
+        runIA(btn, form, output, clienteId, wrapper);
+    }
+
+    function wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor) {
+        syncAssistantChannelLabel(wrapper, form, (form.querySelector('[data-field="tipo"]') || {}).value);
+        $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                var val = chip.getAttribute('data-value');
+                syncAssistantChannelLabel(wrapper, form, val);
+                if (meetingEditor) meetingEditor.toggle(val);
+            });
+        });
+        $$('[data-ia-action]', wrapper).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                runAtividadeAssistente(
+                    btn, form, wrapper.querySelector('[data-ia-output]'), clienteId, wrapper
+                );
+            });
+        });
+    }
+
+    function syncAssistantChannelLabel(wrapper, form, value) {
+        var fmt = form.querySelector('[data-field="formato"]');
+        var label = wrapper.querySelector('[data-ia-channel-label]');
+        var generate = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
+        var channel = value === 'email' || value === 'whatsapp' ? value : 'roteiro';
+        if (fmt) fmt.value = channel;
+        if (label) {
+            label.textContent = 'Use o contexto do CRM para gerar conteúdos, sugestões e próximos passos.';
+        }
+        if (generate) {
+            generate.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gerar';
+        }
     }
 
     function runIA(btn, form, output, clienteId, wrapper) {
@@ -1955,6 +2063,7 @@
         iaButtons.forEach(function (actionBtn) { actionBtn.disabled = true; });
         var iaPanel = wrapper.querySelector('.cx-atividade-ia');
         if (iaPanel) iaPanel.setAttribute('aria-busy', 'true');
+        startAssistantProgress(wrapper);
         output.classList.add('is-visible');
         output.classList.remove('is-result');
         output.setAttribute('aria-busy', 'true');
@@ -2107,6 +2216,7 @@
             iaButtons.forEach(function (actionBtn) { actionBtn.disabled = false; });
             output.removeAttribute('aria-busy');
             if (iaPanel) iaPanel.removeAttribute('aria-busy');
+            stopAssistantProgress(wrapper);
         });
     }
 

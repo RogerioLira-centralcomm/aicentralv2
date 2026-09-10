@@ -775,6 +775,9 @@ class CrmTestApiTest(unittest.TestCase):
             routes._call_openrouter = original_call
 
         self.assertEqual(result["source"], "openrouter")
+        self.assertIn("Destinatário:", captured["user"])
+        self.assertIn("equipe da", captured["user"])
+        self.assertIn("Não há contato selecionado", captured["system"])
         self.assertIn("Foco: Apresentar a solução do registro", captured["user"])
         self.assertIn("Tom: Consultivo", captured["user"])
         self.assertIn("Antecipar objeções sobre prazo", captured["user"])
@@ -857,6 +860,50 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertTrue(data["objecoes_a_explorar"])
         self.assertTrue(data["fechamento"])
         self.assertTrue(data["texto"])
+
+    def test_roteiro_sem_contato_sauda_a_equipe(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/gerar-roteiro",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "titulo": "Apresentar formatos interativos",
+                    "tipo": "ligacao",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+        self.assertEqual(res.status_code, 200)
+        abertura = res.get_json()["data"]["abertura"]
+        self.assertIn("equipe da", abertura.lower())
+        contato = (store.list_contatos("auto-shopping") or [])[0]
+        self.assertNotIn(contato["nome"].split()[0], abertura)
+
+    def test_sugerir_data_devolve_iso(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/sugerir-data",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "tipo": "ligacao",
+                    "titulo": "Apresentar formatos interativos",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()["data"]
+        self.assertRegex(data["data"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertRegex(data["data_prazo"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertTrue(data["motivo"])
 
     def test_historico_ia_funciona_no_store_mock(self):
         generated = self.client.post(

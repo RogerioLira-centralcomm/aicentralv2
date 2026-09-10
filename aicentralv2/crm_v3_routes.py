@@ -1104,15 +1104,14 @@ def _call_openrouter_multimodal(system_prompt: str, text_prompt: str, image_data
 
 
 def _contato_para_ia(data: dict, cliente_id: str):
-    """Contato escolhido no drawer, senão o principal do cliente."""
+    """Contato escolhido no drawer. Sem seleção, não reaproveita outra pessoa."""
     contato_id = str(data.get("contato_id") or "").strip()
     contatos = store.list_contatos(cliente_id) or [] if cliente_id else []
     if contato_id:
         for c in contatos:
             if str(c.get("id")) == contato_id:
                 return c, contatos
-    principal = next((c for c in contatos if c.get("principal")), (contatos[0] if contatos else {}))
-    return principal or {}, contatos
+    return {}, contatos
 
 
 def _texto_ia_limpo(texto) -> str:
@@ -1215,6 +1214,31 @@ CANAIS_MIDIA = (
 )
 
 
+def _nome_destinatario(data: dict, cliente=None, contato=None):
+    """Destinatário da conversa: contato do cliente ou equipe/empresa. Nunca o logado."""
+    cliente = cliente or {}
+    contato = contato or {}
+    nome_contato = texto_sem_markdown(
+        data.get("destinatario") or data.get("contato_nome") or contato.get("nome") or ""
+    ).strip()
+    nome_cliente = (
+        cliente.get("nome") or data.get("cliente_nome") or "o cliente"
+    ).strip()
+    if nome_contato:
+        return nome_contato, True
+    return f"equipe da {nome_cliente}", False
+
+
+def _nome_responsavel_interno(data: dict, cliente=None) -> str:
+    return texto_sem_markdown(
+        data.get("responsavel_interno")
+        or data.get("executivo_nome")
+        or _nome_executivo_sessao()
+        or (cliente or {}).get("responsavel")
+        or "Equipe CentralComm"
+    ).strip()
+
+
 def _ancora_conversa(data: dict, cliente=None, contato=None) -> dict:
     """Dados da conversa atual — uso interno do prompt, nunca como jargão ao cliente."""
     cliente = cliente or {}
@@ -1225,15 +1249,17 @@ def _ancora_conversa(data: dict, cliente=None, contato=None) -> dict:
         for item in (cliente.get("clientes_finais") or [])
         if (item.get("nome") or "").strip()
     ][:12]
+    destinatario, tem_contato = _nome_destinatario(data, cliente, contato)
     return {
         "tipo": (data.get("tipo") or "atividade").strip(),
         "titulo": texto_sem_markdown(data.get("titulo") or "").strip(),
         "registro": texto_sem_markdown(
             data.get("notas_executivo") or data.get("descricao") or ""
         ).strip()[:1000],
-        "contato": texto_sem_markdown(
-            data.get("contato_nome") or (contato.get("nome") or "")
-        ).strip(),
+        "contato": destinatario if tem_contato else "",
+        "destinatario": destinatario,
+        "tem_contato": tem_contato,
+        "responsavel_interno": _nome_responsavel_interno(data, cliente),
         "executivo": texto_sem_markdown(
             data.get("executivo_nome")
             or _nome_executivo_sessao()
@@ -1266,7 +1292,23 @@ def _regras_texto_externo() -> str:
         "Ancore cerca de 75% do texto no título, no registro e nos nomes reais "
         "(contato, executivo, cliente, agência e clientes da agência).\n"
         "Canal ou produto só entra se estiver no registro, no título ou no foco. "
-        "A CentralComm como casa só entra quando o foco for apresentar a empresa."
+        "A CentralComm como casa só entra quando o foco for apresentar a empresa.\n"
+        "O responsável interno (usuário logado) nunca é o destinatário da saudação."
+    )
+
+
+def _regras_destinatario(ancora=None) -> str:
+    ancora = ancora or {}
+    if ancora.get("tem_contato") and ancora.get("destinatario"):
+        return (
+            f"Saudação: use o nome do contato ({ancora['destinatario']}). "
+            "Não use o responsável interno como destinatário."
+        )
+    alvo = ancora.get("destinatario") or "equipe do cliente"
+    return (
+        f"Não há contato selecionado. Trate o destinatário como a empresa/equipe ({alvo}). "
+        "Não invente nome de pessoa nem reaproveite o responsável interno. "
+        "Exemplo: Olá, equipe da AGÊNCIA INDIE. Tudo bem?"
     )
 
 
@@ -1276,7 +1318,9 @@ def _bloco_ancora(ancora: dict) -> str:
         f"Tipo de abordagem: {ancora.get('tipo') or 'conversa'}",
         f"Assunto: {ancora.get('titulo') or '(sem título)'}",
         f"Cliente: {ancora.get('cliente') or '(não informado)'}",
-        f"Contato: {ancora.get('contato') or '(não informado)'}",
+        f"Destinatário: {ancora.get('destinatario') or '(equipe/empresa)'}",
+        f"Contato selecionado: {'sim' if ancora.get('tem_contato') else 'não'}",
+        f"Responsável interno: {ancora.get('responsavel_interno') or '(não informado)'}",
         f"Executivo: {ancora.get('executivo') or '(não informado)'}",
     ]
     if ancora.get("agencia"):
@@ -1319,7 +1363,11 @@ def _variaveis_estilo(ancora=None) -> dict:
     ancora = ancora or {}
     cliente = (ancora.get("cliente") or "o cliente").strip()
     return {
-        "contato": (ancora.get("contato") or "responsável").strip(),
+        "contato": (
+            ancora.get("contato")
+            or ancora.get("destinatario")
+            or f"equipe da {cliente}"
+        ).strip(),
         "executivo": (ancora.get("executivo") or "Equipe CentralComm").strip(),
         "cliente": cliente,
         "agencia": (ancora.get("agencia") or cliente).strip(),
@@ -1387,14 +1435,21 @@ def _roteiro_fallback(titulo, tipo, cliente, contato=None, foco="", tom="") -> s
     )
 
 
-def _abordagem_ligacao_fallback(titulo, cliente, contato=None) -> dict:
+def _abordagem_ligacao_fallback(titulo, cliente, contato=None, data=None) -> dict:
     nome_cliente = (cliente or {}).get("nome") or "o cliente"
-    nome_contato = (contato or {}).get("nome") or "responsável"
+    destinatario, tem_contato = _nome_destinatario(data or {}, cliente, contato)
     objetivo = (titulo or "retomar o relacionamento comercial").strip()
-    abertura = (
-        f"Olá {nome_contato}, aqui é da CentralComm. "
-        f"Queria falar com você sobre {objetivo.lower()}."
-    )
+    if tem_contato:
+        abertura = (
+            f"Olá {destinatario}, aqui é da CentralComm. "
+            f"Queria falar com você sobre {objetivo.lower()}."
+        )
+    else:
+        abertura = (
+            f"Olá, {destinatario}. Tudo bem? "
+            f"Estou entrando em contato para conversar sobre {objetivo.lower()} "
+            f"que podemos gerar mais engajamento nas campanhas da marca."
+        )
     perguntas = [
         f"Como este tema está sendo tratado hoje na {nome_cliente}?",
         "Quais prioridades ou resultados precisam ser atendidos primeiro?",
@@ -1474,6 +1529,7 @@ def _montar_roteiro(data: dict) -> dict:
                 "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
                 "Crie um guia prático para ligação ou reunião, não uma mensagem pronta.\n"
                 f"{_regras_texto_externo()}\n"
+                f"{_regras_destinatario(ancora)}\n"
                 "Não invente dados. Retorne APENAS JSON válido no formato "
                 '{"abertura":"abertura curta e natural",'
                 '"objetivo":"resultado esperado desta conversa",'
@@ -1496,7 +1552,7 @@ def _montar_roteiro(data: dict) -> dict:
             ]
             if not perguntas:
                 perguntas = _abordagem_ligacao_fallback(
-                    titulo, cliente, contato
+                    titulo, cliente, contato, data
                 )["perguntas"]
             pontos = [
                 _texto_ia_limpo(item)
@@ -1532,7 +1588,7 @@ def _montar_roteiro(data: dict) -> dict:
             }
         except Exception as exc:
             _log_provider_failure("gerar-roteiro", exc)
-    fallback = _abordagem_ligacao_fallback(titulo, cliente, contato)
+    fallback = _abordagem_ligacao_fallback(titulo, cliente, contato, data)
     return {
         **fallback,
         "motivo": "Roteiro seguro baseado no tipo, foco e classificação disponíveis.",
@@ -1783,6 +1839,67 @@ def api_ia_sugerir_atividade():
     return _ok(_registrar_saida_ia(data, "sugerir-atividade", sugestao))
 
 
+@bp.route("/api/ia/sugerir-data", methods=["POST"])
+@login_required_api
+def api_ia_sugerir_data():
+    data = request.get_json(silent=True) or {}
+    cliente_id = data.get("cliente_id") or ""
+    cliente = store.get_cliente(cliente_id) if cliente_id else None
+    classificacao = (cliente or {}).get("classificacao_cliente") or "Prospecção"
+    hoje = date.today()
+    delta = {"Prospecção": 1, "Ativo": 3, "Geladeira": 14}.get(classificacao, 2)
+    tipo = (data.get("tipo") or "atividade").strip()
+    titulo = texto_sem_markdown(data.get("titulo") or "").strip()
+    registro = texto_sem_markdown(
+        data.get("notas_executivo") or data.get("descricao") or ""
+    ).strip()[:600]
+
+    if _openrouter_available() and cliente:
+        try:
+            parsed = _parse_ia_json(
+                _call_openrouter(
+                    "Você sugere uma data comercial coerente com o tipo de atividade "
+                    "e o registro. Não use um intervalo fixo. Responda APENAS JSON: "
+                    '{"data":"YYYY-MM-DD","data_prazo":"YYYY-MM-DD","motivo":"..."}.',
+                    (
+                        f"Hoje: {hoje.isoformat()}\n"
+                        f"Tipo: {tipo}\nTítulo: {titulo or '(sem título)'}\n"
+                        f"Registro: {registro or '(vazio)'}\n"
+                        f"Cliente: {(cliente or {}).get('nome') or ''}\n"
+                        f"Classificação: {classificacao}\n"
+                    ),
+                    max_tokens=220,
+                    temperature=0.2,
+                ),
+                required=("data",),
+            )
+            sugerida = _texto_ia_limpo(parsed.get("data"))
+            prazo = _texto_ia_limpo(parsed.get("data_prazo")) or sugerida
+            date.fromisoformat(sugerida)
+            date.fromisoformat(prazo)
+            saida = {
+                "data": sugerida,
+                "data_prazo": prazo,
+                "motivo": _texto_ia_limpo(parsed.get("motivo")) or "Data sugerida pelo assistente.",
+                "source": "openrouter",
+            }
+            return _ok(saida)
+        except Exception as exc:
+            _log_provider_failure("sugerir-data", exc)
+
+    sugerida = (hoje + timedelta(days=delta)).isoformat()
+    saida = {
+        "data": sugerida,
+        "data_prazo": sugerida,
+        "motivo": (
+            f"Sugestão com base na classificação {classificacao} "
+            f"e no tipo {tipo}."
+        ),
+        "source": "fallback",
+    }
+    return _ok(saida)
+
+
 @bp.route("/api/ia/touchpoints", methods=["POST"])
 @login_required_api
 def api_ia_touchpoints():
@@ -1871,13 +1988,14 @@ def api_ia_gerar_comunicacao():
 
     if _openrouter_available() and cliente and objetivo:
         try:
-            nome_contato = (contato_principal or {}).get("nome") or "responsável"
-            responsavel = (session.get("user_name") or cliente.get("responsavel") or "Equipe CentralComm").strip()
+            destinatario, _tem_contato = _nome_destinatario(data, cliente, contato_principal)
+            responsavel = _nome_responsavel_interno(data, cliente)
             contexto = _contexto_ia_json(data, "comunicacao")
             ancora = _ancora_conversa(data, cliente, contato_principal)
             system_prompt = (
                 "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
                 f"{_regras_texto_externo()} "
+                f"{_regras_destinatario(ancora)} "
                 "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
                 "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
                 "Retorne APENAS JSON: "
@@ -1888,7 +2006,7 @@ def api_ia_gerar_comunicacao():
                 f"{_bloco_ancora(ancora)}\n"
                 f"{_bloco_modelo_estilo(ancora)}"
                 f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
-                f"Contato: {nome_contato}\nAssinatura: {responsavel}\n"
+                f"Destinatário: {destinatario}\nAssinatura: {responsavel}\n"
                 f"Apoio comercial:\n{contexto}"
             )
             parsed = _parse_ia_json(
@@ -1914,17 +2032,14 @@ def api_ia_gerar_comunicacao():
 
     # Fallback determinístico
     nome_cliente = (cliente or {}).get("nome") or "cliente"
-    responsavel = (
-        session.get("user_name")
-        or (cliente or {}).get("responsavel")
-        or "Equipe CentralComm"
-    )
-    nome_contato = contato_principal.get("nome") if contato_principal else "responsável"
+    responsavel = _nome_responsavel_interno(data, cliente)
+    destinatario, tem_contato = _nome_destinatario(data, cliente, contato_principal)
     assunto = f"Follow-up comercial — {nome_cliente}"
     contexto_atividade = objetivo or "retomar o relacionamento comercial"
+    saudacao = destinatario if tem_contato else destinatario
     if tipo == "whatsapp":
         mensagem = (
-            f"Oi {nome_contato}, aqui é {responsavel} da CentralComm.\n\n"
+            f"Oi {saudacao}, aqui é {responsavel} da CentralComm.\n\n"
             f"Queria falar sobre {contexto_atividade}. "
             f"Preparei este contato considerando o momento da {nome_cliente} "
             "e gostaria de alinhar o próximo passo.\n\n"
@@ -1932,7 +2047,7 @@ def api_ia_gerar_comunicacao():
         )
     else:
         mensagem = (
-            f"Olá {nome_contato},\n\n"
+            f"Olá, {destinatario}.\n\n"
             f"Aqui é {responsavel}, da CentralComm.\n\n"
             f"Estou entrando em contato para tratar de {contexto_atividade}. "
             f"Considerei o momento comercial da {nome_cliente} e organizei os pontos "

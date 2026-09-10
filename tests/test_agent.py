@@ -8,7 +8,7 @@ from flask import Flask
 
 from aicentralv2.agent import bp
 from aicentralv2.agent.context_records import build_context_record, safe_context_url
-from aicentralv2.agent.services.orchestrator import _contextual_arguments, _sanitize_markdown_links
+from aicentralv2.agent.services.orchestrator import SYSTEM_POLICY, _contextual_arguments, _sanitize_markdown_links
 from aicentralv2.agent.tools import commercial
 from aicentralv2.agent.tools.registry import TOOLS, ToolValidationError, get_tool, validate_arguments
 from aicentralv2.crm_v3_repository import StoreUnavailable
@@ -41,7 +41,8 @@ class AgentContractsTest(unittest.TestCase):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
     def test_registry_contains_only_allowlisted_read_tools(self):
-        self.assertEqual(len(TOOLS), 20)
+        self.assertEqual(len(TOOLS), 25)
+        self.assertIn("buscar_cotacao", TOOLS)
         self.assertIn("consultar_contato", TOOLS)
         self.assertIn("consultar_pi", TOOLS)
         self.assertIn("consultar_campanha", TOOLS)
@@ -49,12 +50,21 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("listar_campanhas_pi", TOOLS)
         self.assertIn("consultar_operacao_pi", TOOLS)
         self.assertIn("resumir_operacao", TOOLS)
+        self.assertIn("listar_objetivos", TOOLS)
+        self.assertIn("listar_notas_fiscais", TOOLS)
+        self.assertIn("listar_reembolsos", TOOLS)
+        self.assertIn("resumir_financeiro", TOOLS)
         self.assertIn("preparar_alteracao_contato", TOOLS)
         self.assertIn("listar_canais_plataformas", TOOLS)
         self.assertIn("buscar_audiencias", TOOLS)
         self.assertIn("listar_formatos", TOOLS)
         self.assertTrue(all(tool.operation_type == "read" for tool in TOOLS.values()))
         self.assertTrue(all(not tool.confirmation_required for tool in TOOLS.values()))
+
+    def test_agent_policy_searches_instead_of_asking_for_ids(self):
+        self.assertIn("Nunca peça ao usuário ID", SYSTEM_POLICY)
+        self.assertIn("buscar_cotacao", SYSTEM_POLICY)
+        self.assertIn("buscar_audiencias", SYSTEM_POLICY)
 
     @patch("aicentralv2.agent.tools.commercial.db")
     def test_catalog_tools_expose_platform_audience_and_format(self, mock_db):
@@ -94,6 +104,26 @@ class AgentContractsTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(item["responsible"], "Executiva Central")
         self.assertEqual(item["url"], "/crm-v3/#cliente=1843")
+
+    def test_parses_brazilian_currency_text(self):
+        self.assertEqual(commercial._number("R$ 8.000,00"), 8000.0)
+        self.assertEqual(commercial._number("3.351,35"), 3351.35)
+
+    def test_search_focus_ignores_accents(self):
+        self.assertEqual(commercial._normalized("Lápis raro"), "lapis raro")
+
+    @patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository")
+    def test_client_pi_list_accepts_agency_owned_records(self, repository):
+        repository.return_value.listar_pis_cliente.return_value = [{
+            "id_pi": 118, "codigo_pi_cc": "83633", "titulo_pi": "CAMPANHA SEGURANÇA",
+        }]
+        with patch("aicentralv2.agent.tools.commercial.get_store") as mock_store:
+            mock_store.return_value.get_cliente.return_value = {
+                "id": "80", "nome": "LAPIS RARO", "executivo_id": "5",
+            }
+            result = commercial.listar_pis_cliente("80", _allow_global=True)
+        self.assertEqual(result["metadata"]["count"], 1)
+        repository.return_value.listar_pis_cliente.assert_called_once()
 
     @patch("aicentralv2.agent.tools.commercial.get_store")
     def test_assigned_tool_search_passes_executive_filter(self, mock_store):
@@ -296,7 +326,8 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()["data"]
         self.assertIn("commercial.read.assigned", data["capabilities"])
-        self.assertNotIn("commercial.read.global", data["capabilities"])
+        self.assertIn("commercial.read.global", data["capabilities"])
+        self.assertNotIn("commercial.write.global", data["capabilities"])
         self.assertTrue(data["csrf_token"])
         self.assertEqual(data["user"]["photo_url"], "/static/uploads/contatos/teste.jpg")
 
@@ -311,26 +342,51 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertIn("commercial.read.global", data["capabilities"])
         self.assertIn("commercial.write.global", data["capabilities"])
 
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[])
     @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store")
-    def test_commercial_search_forces_assigned_scope_for_regular_user(self, mock_store, _mock_ops):
+    def test_commercial_search_all_is_available_to_regular_user(
+        self, mock_store, _mock_ops, _mock_channels, _mock_audiences
+    ):
         mock_store.return_value.search_clientes.return_value = []
         mock_store.return_value.search_cotacoes.return_value = []
         with self.client.session_transaction() as session:
             session.update(user_id=10, is_centralcomm=True, user_type="client")
         response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["scope"], "all")
+        mock_store.return_value.search_clientes.assert_called_once_with(
+            "acme", 8, executivo_id=None
+        )
+        mock_store.return_value.search_cotacoes.assert_called_once_with(
+            "acme", 8, executivo_id=None
+        )
+
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[])
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_commercial_search_mine_still_filters_regular_user(
+        self, mock_store, _mock_ops, _mock_channels, _mock_audiences
+    ):
+        mock_store.return_value.search_clientes.return_value = []
+        mock_store.return_value.search_cotacoes.return_value = []
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="client")
+        response = self.client.get("/api/agent/commercial/search?q=acme&scope=mine")
         self.assertEqual(response.get_json()["data"]["scope"], "mine")
         mock_store.return_value.search_clientes.assert_called_once_with(
             "acme", 8, executivo_id=10
         )
-        mock_store.return_value.search_cotacoes.assert_called_once_with(
-            "acme", 8, executivo_id=10
-        )
 
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[])
     @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store")
-    def test_commercial_search_all_is_available_to_admin(self, mock_store, _mock_ops):
+    def test_commercial_search_all_is_available_to_admin(
+        self, mock_store, _mock_ops, _mock_channels, _mock_audiences
+    ):
         mock_store.return_value.search_clientes.return_value = []
         mock_store.return_value.search_cotacoes.return_value = []
         with self.client.session_transaction() as session:
@@ -358,10 +414,14 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertIsNone(data["active_conversation"])
         self.assertEqual(data["insights"]["entity"], None)
 
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[])
     @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
     @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [{"id": "1"}], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store")
-    def test_commercial_search_returns_partial_results_when_crm_fails(self, mock_store, _mock_ops, _rollback):
+    def test_commercial_search_returns_partial_results_when_crm_fails(
+        self, mock_store, _mock_ops, _rollback, _mock_channels, _mock_audiences
+    ):
         store = mock_store.return_value
         store.search_clientes.side_effect = RuntimeError("unaccent missing")
         store.search_cotacoes.return_value = []
@@ -373,11 +433,37 @@ class AgentApiSecurityTest(unittest.TestCase):
         payload = response.get_json()["data"]
         self.assertEqual(payload["clients"], [])
         self.assertEqual(payload["pis"][0]["id"], "1")
+        self.assertEqual(payload["channels"], [])
+        self.assertEqual(payload["audiences"], [])
 
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[
+        {"id": 8, "nome": "Intenção automotiva", "plataforma_nome": "DV360", "perfil_socioeconomico": "AB"},
+    ])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[
+        {"id": 3, "nome": "DV360", "canais": "Display", "total_audiencias": 18},
+    ])
+    @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
+    @patch("aicentralv2.agent.routes.get_store")
+    def test_commercial_search_includes_channels_and_audiences(
+        self, mock_store, _mock_ops, _mock_channels, _mock_audiences
+    ):
+        mock_store.return_value.search_clientes.return_value = []
+        mock_store.return_value.search_cotacoes.return_value = []
+        mock_store.return_value.search_contatos.return_value = []
+        with self.client.session_transaction() as session:
+            session.update(user_id=10, is_centralcomm=True, user_type="admin")
+        payload = self.client.get("/api/agent/commercial/search?q=dv360&scope=all").get_json()["data"]
+        self.assertEqual(payload["channels"][0]["nome"], "DV360")
+        self.assertEqual(payload["audiences"][0]["nome"], "Intenção automotiva")
+
+    @patch("aicentralv2.agent.routes.db.buscar_audiencias", return_value=[])
+    @patch("aicentralv2.agent.routes.db.buscar_canais_plataformas", return_value=[])
     @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
     @patch("aicentralv2.agent.routes.search_operational_records", return_value={"pis": [], "campaigns": []})
     @patch("aicentralv2.agent.routes.get_store", side_effect=StoreUnavailable("crm down"))
-    def test_commercial_search_survives_store_unavailable(self, _mock_store, _mock_ops, _rollback):
+    def test_commercial_search_survives_store_unavailable(
+        self, _mock_store, _mock_ops, _rollback, _mock_channels, _mock_audiences
+    ):
         with self.client.session_transaction() as session:
             session.update(user_id=10, is_centralcomm=True, user_type="admin")
         response = self.client.get("/api/agent/commercial/search?q=acme&scope=all")
@@ -427,15 +513,32 @@ class AgentApiSecurityTest(unittest.TestCase):
         self.assertEqual(updated.status_code, 200)
         store.update_cliente.assert_called_once_with("7", {"nome": "Acme Nova"})
 
+    @patch("aicentralv2.agent.routes.PiOperacaoRepository")
     @patch("aicentralv2.agent.routes.get_store")
-    def test_regular_user_cannot_open_unassigned_client(self, mock_store):
-        mock_store.return_value.get_cliente.return_value = {
+    def test_regular_user_can_read_unassigned_client_but_cannot_edit(self, mock_store, mock_pi):
+        store = mock_store.return_value
+        store.get_cliente.return_value = {
             "id": "7", "nome": "Acme", "executivo_id": "99"
         }
+        store.list_contatos.return_value = []
+        store.list_atividades.return_value = []
+        store.list_cotacoes.return_value = []
+        mock_pi.return_value.listar_pis_cliente.return_value = []
         with self.client.session_transaction() as session:
-            session.update(user_id=10, is_centralcomm=True, user_type="client")
-        response = self.client.get("/api/agent/commercial/record/cliente/7")
-        self.assertEqual(response.status_code, 404)
+            session.update(
+                user_id=10,
+                is_centralcomm=True,
+                user_type="client",
+                agent_csrf_token="token",
+            )
+        opened = self.client.get("/api/agent/commercial/record/cliente/7")
+        self.assertEqual(opened.status_code, 200)
+        denied = self.client.patch(
+            "/api/agent/commercial/clients/7",
+            json={"nome": "Acme Nova"},
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(denied.status_code, 404)
 
     @patch("aicentralv2.agent.routes.PiOperacaoRepository")
     @patch("aicentralv2.agent.routes.get_store")

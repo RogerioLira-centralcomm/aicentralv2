@@ -82,20 +82,6 @@
             }
         }
 
-        /* Busca PI compacta — sobrescreve DaisyUI input-sm que força height:2rem */
-        #nav-busca-pi-input {
-            height: 20px !important;
-            min-height: 20px !important;
-            font-size: 0.75rem !important;
-            padding-left: 6px !important;
-            padding-right: 6px !important;
-        }
-        #nav-busca-pi-btn {
-            height: 20px !important;
-            width: 20px !important;
-            min-height: 20px !important;
-        }
-        
         /* Navbar menu active state */
         .menu li > a.active {
             background-color: #e8f5e9 !important;
@@ -642,21 +628,6 @@
                         </ul>
                     </div>
                     {% endif %}
-
-                    <!-- Busca PI por código ou título (todos os usuários logados) -->
-                    <div class="hidden lg:flex items-center gap-1 ml-2 pl-2 border-l border-base-200 shrink-0 min-w-0" title="Localizar PI por código ou título (parcial)">
-                        <label class="sr-only" for="nav-busca-pi-input">Buscar PI por código ou título</label>
-                        <div class="relative">
-                            <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-base-content/50 text-xs pointer-events-none" aria-hidden="true"></i>
-                            <input type="text" id="nav-busca-pi-input" maxlength="200" placeholder="Código ou título" autocomplete="off"
-                                class="input input-bordered input-sm w-[9rem] sm:w-[11rem] min-h-0 text-xs pl-7 focus-visible:ring-2 focus-visible:ring-primary/45" />
-                        </div>
-                        <button type="button" id="nav-busca-pi-btn"
-                            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-base-300 bg-base-100 text-base-content/55 shadow-sm transition-all duration-150 hover:border-base-content/18 hover:bg-base-200 hover:text-base-content hover:shadow active:border-base-content/22 active:bg-base-300 active:text-base-content active:shadow-inner focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
-                            aria-label="Buscar PI">
-                            <i class="fas fa-search text-xs" aria-hidden="true"></i>
-                        </button>
-                    </div>
                 </div>
 
                 <!-- User dropdown (right side) -->
@@ -999,20 +970,6 @@
                             </details>
                         </li>
                         {% endif %}
-
-                        <!-- Busca PI (mobile) -->
-                        <li class="mt-3 px-1">
-                            <p class="text-xs font-medium text-gray-400 tracking-wide px-2 mb-1">Buscar PI</p>
-                            <div class="flex gap-1.5 items-center px-1">
-                                <input type="text" id="nav-busca-pi-input-mobile" maxlength="200" placeholder="Código ou título" autocomplete="off"
-                                    class="input input-bordered input-sm flex-1 h-9 min-h-0 text-sm" />
-                                <button type="button" id="nav-busca-pi-btn-mobile"
-                                    class="inline-flex h-9 min-h-0 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-primary-content shadow-sm transition-[transform,filter,box-shadow] duration-150 hover:brightness-105 hover:shadow-md active:scale-[0.97] active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
-                                    aria-label="Buscar PI">
-                                    <i class="fas fa-search text-sm text-primary-content" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                        </li>
                     </ul>
                 </nav>
 
@@ -1135,70 +1092,6 @@
                 });
             });
 
-            // Busca PI: se existir, redireciona na hora para a lista (só esse PI + termo no campo busca)
-            (function initNavBuscaPi() {
-                function getQueryFromInputs() {
-                    var desktop = document.getElementById('nav-busca-pi-input');
-                    var mobile = document.getElementById('nav-busca-pi-input-mobile');
-                    var d = (desktop && desktop.value || '').trim();
-                    var m = (mobile && mobile.value || '').trim();
-                    return d || m;
-                }
-                function runNavBuscaPi() {
-                    var q = getQueryFromInputs();
-                    if (!q) {
-                        if (typeof showToast === 'function') {
-                            showToast('Informe o código ou o título do PI.', 'warning');
-                        }
-                        return;
-                    }
-                    fetch('/api/cadu_pi/localizar?' + new URLSearchParams({ q: q }), { credentials: 'same-origin' })
-                        .then(function(r) {
-                            var ct = r.headers.get('content-type') || '';
-                            if (!ct.includes('application/json')) {
-                                throw new Error('not-json');
-                            }
-                            return r.json();
-                        })
-                        .then(function(data) {
-                            if (!data.found) {
-                                if (typeof showToast === 'function') {
-                                    showToast(data.message || 'Nenhum PI encontrado com este termo.', 'error', 5000);
-                                }
-                                return;
-                            }
-                            var url = data.lista_url || '';
-                            if (url.indexOf('/') !== 0) {
-                                if (typeof showToast === 'function') {
-                                    showToast('Resposta inválida da busca.', 'error');
-                                }
-                                return;
-                            }
-                            window.location.assign(url);
-                        })
-                        .catch(function() {
-                            if (typeof showToast === 'function') {
-                                showToast('Erro ao buscar PI. Faça login se necessário.', 'error');
-                            }
-                        });
-                }
-                var inp = document.getElementById('nav-busca-pi-input');
-                var btn = document.getElementById('nav-busca-pi-btn');
-                var inpM = document.getElementById('nav-busca-pi-input-mobile');
-                var btnM = document.getElementById('nav-busca-pi-btn-mobile');
-                if (inp && btn) {
-                    btn.addEventListener('click', function() { runNavBuscaPi(); });
-                    inp.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') { e.preventDefault(); runNavBuscaPi(); }
-                    });
-                }
-                if (inpM && btnM) {
-                    btnM.addEventListener('click', function() { runNavBuscaPi(); });
-                    inpM.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') { e.preventDefault(); runNavBuscaPi(); }
-                    });
-                }
-            })();
         });
 
         function closeFlashMessage(element) {

@@ -1,5 +1,8 @@
 """Consultas contextuais e propostas confirmáveis do Agente CentralX."""
 
+import re
+import unicodedata
+
 from ... import db
 from ...crm_v3_repository import get_store
 from ...pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
@@ -12,8 +15,19 @@ MAX_RESULTS = 20
 def _number(value):
     if value in (None, ""):
         return None
-    try:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
         return float(value)
+    text = re.sub(r"[^\d,.-]", "", str(value).strip())
+    if not text:
+        return None
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
     except (TypeError, ValueError):
         return None
 
@@ -88,6 +102,7 @@ def _client_item(item):
         "subtitle": " · ".join(filter(None, [
             item.get("tipo_label"), " / ".join(filter(None, [item.get("cidade"), item.get("uf")])),
         ])),
+        "is_agency": bool(item.get("is_agencia")),
         "responsible": item.get("responsavel") or "Não informado",
         "url": f"/crm-v3/#cliente={item.get('id')}",
     }
@@ -104,7 +119,9 @@ def _focus(entity_type, entity_id, label, module, screen):
 
 
 def _normalized(value):
-    return " ".join(str(value or "").casefold().split())
+    text = " ".join(str(value or "").casefold().split())
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
 
 
 def _unique_exact_focus(query, items, entity_type, module, screen):
@@ -142,7 +159,7 @@ def buscar_cliente(
     items = [_client_item(item) for item in clients]
     return _ok(
         items,
-        f"{len(items)} cliente(s) encontrado(s)",
+        f"{len(items)} cliente(s) ou agência(s) encontrado(s)",
         items,
         focus=_unique_exact_focus(query, items, "cliente", "crm", "cliente_detalhe"),
     )
@@ -156,8 +173,16 @@ def consultar_cliente(
         return _error("Cliente não encontrado ou indisponível.")
     item = _client_item(client)
     item.update({
-        "classification": client.get("classificacao"),
+        "classification": client.get("classificacao") or client.get("classificacao_cliente"),
+        "abc": client.get("categoria_abc") or client.get("categoria"),
+        "cnpj": client.get("cnpj") or "",
         "agency": client.get("agencia_nome") or None,
+        "note": client.get("nota_executivo") or "",
+        "email": client.get("email") or "",
+        "phone": client.get("telefone") or "",
+        "bv_percent": client.get("bv_percentual"),
+        "margin": client.get("margem_cc"),
+        "profile": client.get("perfil") or "",
     })
     return _ok(
         item,
@@ -253,6 +278,19 @@ def consultar_contato(
     )
 
 
+def _quote_list_item(item):
+    return {
+        "type": "cotacao",
+        "id": item.get("id"),
+        "title": item.get("titulo") or item.get("numero_cotacao") or "Cotação",
+        "subtitle": " · ".join(filter(None, [
+            item.get("cliente_nome"), item.get("status_label"), item.get("valor"),
+        ])),
+        "responsible": item.get("vendedor_nome") or "Não informado",
+        "url": f"/cotacoes/{item.get('id')}/detalhes",
+    }
+
+
 def listar_atividades(
     cliente_id, limit=20, status=None,
     _viewer_user_id=None, _allow_global=False, **_
@@ -294,15 +332,27 @@ def listar_cotacoes(
     if status:
         wanted = status.casefold()
         quotes = [q for q in quotes if wanted in str(q.get("status_label") or q.get("status") or "").casefold()]
-    items = [{
-        "type": "cotacao",
-        "id": item.get("id"),
-        "title": item.get("titulo") or item.get("numero_cotacao") or "Cotação",
-        "subtitle": " · ".join(filter(None, [item.get("status_label"), item.get("valor")])),
-        "responsible": item.get("vendedor_nome") or "Não informado",
-        "url": f"/cotacoes/{item.get('id')}/detalhes",
-    } for item in quotes[:min(limit, MAX_RESULTS)]]
+    items = [_quote_list_item(item) for item in quotes[:min(limit, MAX_RESULTS)]]
     return _ok(items, f"{len(items)} cotação(ões)", items)
+
+
+def buscar_cotacao(
+    query, limit=10, _viewer_user_id=None, _allow_global=False, **_
+):
+    quotes, failed = _query_or_fail(lambda: get_store().search_cotacoes(
+        query,
+        min(limit, MAX_RESULTS),
+        executivo_id=None if _allow_global else _viewer_user_id,
+    ))
+    if failed:
+        return failed
+    items = [_quote_list_item(item) for item in quotes]
+    return _ok(
+        items,
+        f"{len(items)} cotação(ões) encontrada(s)",
+        items,
+        focus=_unique_exact_focus(query, items, "cotacao", "comercial", "cotacao"),
+    )
 
 
 def consultar_cotacao(
@@ -332,7 +382,11 @@ def consultar_cotacao(
 
 
 def listar_canais_plataformas(query=None, limit=20, **_):
-    rows = db.buscar_canais_plataformas(query, min(limit, MAX_RESULTS))
+    rows, failed = _query_or_fail(
+        lambda: db.buscar_canais_plataformas(query, min(limit, MAX_RESULTS))
+    )
+    if failed:
+        return failed
     items = [{
         "title": item.get("nome") or "Plataforma",
         "subtitle": " · ".join(filter(None, [
@@ -347,7 +401,9 @@ def listar_canais_plataformas(query=None, limit=20, **_):
 
 
 def buscar_audiencias(query, plataforma_id=None, limit=20, **_):
-    rows = db.buscar_audiencias(query, min(limit, MAX_RESULTS))
+    rows, failed = _query_or_fail(lambda: db.buscar_audiencias(query, min(limit, MAX_RESULTS)))
+    if failed:
+        return failed
     if plataforma_id not in (None, ""):
         rows = [
             item for item in rows
@@ -385,9 +441,12 @@ def _pi_item(item):
         "type": "pi",
         "id": item.get("id_pi"),
         "title": item.get("titulo_pi") or item.get("codigo_pi_cc") or f"PI {item.get('id_pi')}",
-        "subtitle": " · ".join(filter(None, [item.get("cliente_nome"), item.get("sub_status_descricao")])),
+        "subtitle": " · ".join(filter(None, [
+            item.get("cliente_nome"), item.get("agencia_nome"), item.get("sub_status_descricao"),
+        ])),
         "code": item.get("codigo_pi_cc") or item.get("codigo_pi_ag") or "",
         "client": item.get("cliente_nome") or "",
+        "agency": item.get("agencia_nome") or "",
         "status": item.get("sub_status_descricao") or "",
         "value": _number(item.get("vr_bruto_pi")),
         "responsible": item.get("responsavel_comercial_nome") or "",
@@ -434,7 +493,7 @@ def consultar_pi(pi_id, **_):
 
 
 def listar_pis_cliente(
-    cliente_id, limit=10, _viewer_user_id=None, _allow_global=False, **_
+    cliente_id, limit=20, _viewer_user_id=None, _allow_global=False, **_
 ):
     store = get_store()
     client = store.get_cliente(str(cliente_id))
@@ -596,6 +655,160 @@ def resumir_operacao(**_):
         for item in campanhas_por_status
     ]
     return _ok(data, "Resumo da operação", display)
+
+
+def listar_objetivos(
+    cliente_id, limit=20, _viewer_user_id=None, _allow_global=False, **_
+):
+    store = get_store()
+    client = store.get_cliente(str(cliente_id))
+    if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+        return _error("Cliente não encontrado ou indisponível.")
+    goals = store.list_objetivos(str(cliente_id))
+    if goals is None:
+        return _error("Cliente não encontrado ou indisponível.")
+    items = [{
+        "id": item.get("id"),
+        "title": item.get("texto") or "Objetivo",
+        "subtitle": " · ".join(filter(None, [
+            "Conquistado" if item.get("concluido") or item.get("conquistado") else "Aberto",
+            item.get("prazo") or item.get("data_prazo") or "",
+        ])),
+        "done": bool(item.get("concluido") or item.get("conquistado")),
+        "deadline": item.get("prazo") or item.get("data_prazo") or "",
+        "url": f"/crm-v3/#cliente={cliente_id}",
+    } for item in goals[:min(limit, MAX_RESULTS)]]
+    return _ok(items, f"{len(items)} objetivo(s)", items)
+
+
+def listar_notas_fiscais(
+    pi_id=None, cliente_id=None, limit=10,
+    _viewer_user_id=None, _allow_global=False, **_
+):
+    if cliente_id:
+        client = get_store().get_cliente(str(cliente_id))
+        if not client or not _client_allowed(client, _viewer_user_id, _allow_global):
+            return _error("Cliente não encontrado ou indisponível.")
+    rows, failed = _query_or_fail(lambda: PiOperacaoRepository().listar_notas_fiscais(
+        pi_id=pi_id, cliente_id=cliente_id, limite=min(limit, MAX_RESULTS)
+    ))
+    if failed:
+        return failed
+    items = [{
+        "type": "nota_fiscal",
+        "id": item.get("id"),
+        "title": item.get("numero_nota") or f"NF {item.get('id')}",
+        "subtitle": " · ".join(filter(None, [
+            item.get("cliente_nome"),
+            item.get("codigo_pi_cc"),
+            item.get("status_descricao"),
+        ])),
+        "amount": _number(item.get("valor")),
+        "net": _number(item.get("valor_liquido")),
+        "status": item.get("status_descricao") or "",
+        "issued_at": str(item.get("data_emissao") or ""),
+        "paid_at": str(item.get("data_pag_realizado") or ""),
+        "due": str(item.get("data_pag_prevista") or ""),
+        "pi_id": item.get("id_pi"),
+        "url": f"/cadu_pi/editar/{item.get('id_pi')}" if item.get("id_pi") else "/financeiro/",
+    } for item in rows]
+    return _ok(items, f"{len(items)} nota(s) fiscal(is)", items)
+
+
+def listar_reembolsos(limit=10, status=None, _viewer_user_id=None, _allow_global=False, **_):
+    from ...financeiro.db_finance import list_expenses_for_user
+    from ...financeiro.permissions import is_finance_admin
+
+    filtros = {"status": status} if status else {}
+    if _allow_global and is_finance_admin():
+        rows, failed = _query_or_fail(lambda: _list_all_expenses(filtros, min(limit, MAX_RESULTS)))
+    else:
+        rows, failed = _query_or_fail(lambda: list_expenses_for_user(
+            _viewer_user_id, filtros
+        )[:min(limit, MAX_RESULTS)])
+    if failed:
+        return failed
+    items = [{
+        "type": "reembolso",
+        "id": item.get("id"),
+        "title": item.get("merchant_name") or item.get("notes") or "Despesa",
+        "subtitle": " · ".join(filter(None, [
+            item.get("category_label"),
+            item.get("status"),
+            str(item.get("expense_date") or ""),
+        ])),
+        "amount": _number(item.get("total_amount")),
+        "status": item.get("status") or "",
+        "client_id": item.get("client_id") or "",
+        "url": "/financeiro/meus-reembolsos",
+    } for item in rows[:min(limit, MAX_RESULTS)]]
+    return _ok(items, f"{len(items)} reembolso(s)", items)
+
+
+def _list_all_expenses(filtros, limit):
+    conn = db.get_db()
+    clauses = ["TRUE"]
+    params = []
+    if filtros.get("status"):
+        clauses.append("e.status = %s")
+        params.append(filtros["status"])
+    params.append(limit)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT e.id, e.user_id, e.status, e.merchant_name, e.expense_date,
+                   e.total_amount, e.client_id, e.notes,
+                   cat.label AS category_label
+              FROM finance_expenses e
+              LEFT JOIN finance_expense_categories cat ON cat.id = e.category_id
+             WHERE {' AND '.join(clauses)}
+             ORDER BY e.created_at DESC
+             LIMIT %s
+            """,
+            tuple(params),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def resumir_financeiro(_viewer_user_id=None, _allow_global=False, **_):
+    from ...financeiro.db_finance import list_expenses_for_user, list_summaries_for_user
+    from ...financeiro.permissions import is_finance_admin
+
+    def _run():
+        expenses = list_expenses_for_user(_viewer_user_id, {})
+        summaries = list_summaries_for_user(_viewer_user_id)
+        invoices = PiOperacaoRepository().resumo_notas_fiscais()
+        return expenses, summaries, invoices
+
+    packed, failed = _query_or_fail(_run)
+    if failed:
+        return failed
+    expenses, summaries, invoices = packed
+    mine_total = round(sum(_number(item.get("total_amount")) or 0 for item in expenses), 2)
+    by_status = {}
+    for item in expenses:
+        key = item.get("status") or "sem_status"
+        by_status[key] = by_status.get(key, 0) + 1
+    data = {
+        "my_expenses": len(expenses),
+        "my_expense_total": mine_total,
+        "my_expenses_by_status": by_status,
+        "my_summaries": len(summaries or []),
+        "invoices_by_status": [{
+            "status": item.get("status_descricao"),
+            "count": int(item.get("total") or 0),
+        } for item in invoices],
+        "scope": "all" if _allow_global and is_finance_admin() else "mine",
+    }
+    display = [{
+        "title": "Meus reembolsos",
+        "subtitle": f'{data["my_expenses"]} lançamento(s)',
+        "value": mine_total,
+    }] + [{
+        "title": item["status"],
+        "subtitle": f'{item["count"]} NF(s)',
+    } for item in data["invoices_by_status"]]
+    return _ok(data, "Resumo financeiro", display)
 
 
 def preparar_alteracao_contato(

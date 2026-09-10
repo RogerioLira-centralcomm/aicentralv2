@@ -43,15 +43,15 @@
       <label for="cx-agent-commercial-query">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input id="cx-agent-commercial-query" type="search" autocomplete="off"
-               placeholder="Buscar cliente, contato, cotação, PI ou campanha">
+               placeholder="Buscar PI, cliente, agência, cotação, canal ou audiência">
         <kbd>⌘ K</kbd>
       </label>
       <select id="cx-agent-commercial-scope" aria-label="Escopo da busca" hidden>
-        <option value="mine">Meus registros</option>
         <option value="all">Toda a Centralcomm</option>
+        <option value="mine">Meus registros</option>
       </select>
       <button type="button" id="cx-agent-scope-trigger" class="cx-agent-scope-trigger" hidden>
-        <span>Meus registros</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        <span>Toda a Centralcomm</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
       </button>
       <button type="button" id="cx-agent-search-close" class="cx-agent-icon-btn" aria-label="Fechar busca">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -74,7 +74,7 @@
               <span></span><span></span><span></span>
             </div>
             <h2>Como posso ajudar, <span id="cx-agent-user-name">hoje?</span></h2>
-            <p>Converse livremente ou consulte dados comerciais do CentralX.</p>
+            <p>Peça PI, cliente, agência, cotação, canal ou audiência — eu consulto a base.</p>
             <div id="cx-agent-quick-prompts" class="cx-agent-quick-prompts"></div>
           </div>
         </div>
@@ -223,7 +223,7 @@
       </button>
       <button type="button" data-commercial-scope="all">
         <i class="fa-solid fa-building" aria-hidden="true"></i>
-        <span><strong>Toda a Centralcomm</strong><small>Busca global disponível para administradores.</small></span>
+        <span><strong>Toda a Centralcomm</strong><small>Clientes, PIs e cotações de toda a equipe.</small></span>
         <i class="fa-solid fa-check" aria-hidden="true"></i>
       </button>
     </div>

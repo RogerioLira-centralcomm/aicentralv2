@@ -53,6 +53,7 @@ def has_global_commercial_access():
 
 def public_capabilities():
     capabilities = set(ASSIGNED_CAPABILITIES)
+    capabilities.add("commercial.read.global")
     if has_global_commercial_access():
-        capabilities.update(GLOBAL_CAPABILITIES)
+        capabilities.add("commercial.write.global")
     return sorted(capabilities)

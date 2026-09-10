@@ -397,7 +397,9 @@
       contato: 'fa-user',
       cotacao: 'fa-file-lines',
       pi: 'fa-receipt',
-      campanha: 'fa-bullhorn'
+      campanha: 'fa-bullhorn',
+      canal: 'fa-tower-broadcast',
+      audiencia: 'fa-users'
     }[String(type || '').toLowerCase()] || 'fa-address-card';
   }
 
@@ -542,11 +544,16 @@
 
   function renderCommercialResults(data) {
     var clients = data.clients || [];
+    var agencies = clients.filter(function (item) { return item.is_agencia; });
+    var clientRecords = clients.filter(function (item) { return !item.is_agencia; });
     var contacts = data.contacts || [];
     var quotes = data.quotes || [];
     var pis = data.pis || [];
     var campaigns = data.campaigns || [];
-    if (!clients.length && !contacts.length && !quotes.length && !pis.length && !campaigns.length) {
+    var channels = data.channels || [];
+    var audiences = data.audiences || [];
+    if (!clientRecords.length && !agencies.length && !contacts.length && !quotes.length &&
+        !pis.length && !campaigns.length && !channels.length && !audiences.length) {
       els.commercialResults.innerHTML = '<p class="cx-agent-commercial-empty">Nenhum registro encontrado.</p>';
       els.commercialResults.hidden = false;
       return;
@@ -556,8 +563,10 @@
       if (!items.length) return;
       groups.push('<section><h3>' + escapeHtml(title) + '</h3>' + items.map(function (raw) {
         var item = mapper(raw);
-        return '<button type="button" data-search-record="' + type + '" data-record-id="' + escapeHtml(item.id) +
-          '" data-record-label="' + escapeHtml(item.title) + '"><i class="fa-regular ' + contextIcon(type) + '"></i>' +
+        var attrs = item.interactive === false ? '' :
+          ' data-search-record="' + type + '" data-record-id="' + escapeHtml(item.id) +
+          '" data-record-label="' + escapeHtml(item.title) + '"';
+        return '<button type="button"' + attrs + '><i class="fa-regular ' + contextIcon(type) + '"></i>' +
           '<span><strong>' + escapeHtml(item.title) + '</strong>' +
           (item.subtitle ? '<small>' + escapeHtml(item.subtitle) + '</small>' : '') +
           (item.phone ? '<small><i class="fa-solid fa-phone"></i> ' + escapeHtml(item.phone) + '</small>' : '') +
@@ -565,13 +574,15 @@
           '</span></button>';
       }).join('') + '</section>');
     }
-    addGroup('Clientes', 'cliente', clients, function (item) {
+    function mapParty(item) {
       return {
         id: item.id,
         title: item.nome || 'Cliente',
-        subtitle: [item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')
+        subtitle: [item.tipo_label || (item.is_agencia ? 'Agência' : ''), item.responsavel, item.cidade, item.uf].filter(Boolean).join(' · ')
       };
-    });
+    }
+    addGroup('Clientes', 'cliente', clientRecords, mapParty);
+    addGroup('Agências', 'cliente', agencies, mapParty);
     addGroup('Contatos', 'contato', contacts, function (item) {
       return {
         id: item.id,
@@ -590,6 +601,22 @@
     });
     addGroup('PIs', 'pi', pis, function (item) { return item; });
     addGroup('Campanhas', 'campanha', campaigns, function (item) { return item; });
+    addGroup('Canais e plataformas', 'canal', channels, function (item) {
+      return {
+        id: item.id,
+        title: item.nome || 'Plataforma',
+        subtitle: [item.canais, item.total_audiencias ? item.total_audiencias + ' audiência(s)' : ''].filter(Boolean).join(' · '),
+        interactive: false
+      };
+    });
+    addGroup('Audiências', 'audiencia', audiences, function (item) {
+      return {
+        id: item.id,
+        title: item.nome || 'Audiência',
+        subtitle: [item.plataforma_nome, item.perfil].filter(Boolean).join(' · '),
+        interactive: false
+      };
+    });
     els.commercialResults.innerHTML = groups.join('');
     els.commercialResults.hidden = false;
   }
@@ -606,7 +633,7 @@
       state.commercialController = new AbortController();
       var params = new URLSearchParams({
         q: query,
-        scope: els.commercialScope.value || 'mine',
+        scope: els.commercialScope.value || 'all',
         limit: '8'
       });
       api('/api/agent/commercial/search?' + params.toString(), {
@@ -868,8 +895,9 @@
 
   function suggestionCatalog() {
     var commercial = [
+      { label: 'Buscar cliente ou agência', prompt: 'Busque o cliente ou a agência pelo nome e mostre o cadastro.' },
       { label: 'Buscar PI pelo código', prompt: 'Busque o PI pelo código e apresente status, cliente, campanha, período e valores.' },
-      { label: 'Listar cotações de cliente', prompt: 'Liste as cotações deste cliente com tipo, status, responsável e valor.' },
+      { label: 'Buscar cotação', prompt: 'Busque a cotação pelo número, campanha ou cliente.' },
       { label: 'Consultar canais e plataformas', prompt: 'Consulte os canais e plataformas disponíveis na base comercial.' },
       { label: 'Buscar audiência CADU', prompt: 'Busque audiências do CADU relacionadas ao que estou descrevendo.' },
       { label: 'Consultar formatos', prompt: 'Consulte formatos comerciais relacionados ao meu pedido.' }
@@ -927,7 +955,8 @@
         els.commercialScope.hidden = state.capabilities.indexOf('commercial.read.global') === -1;
         els.scopeTrigger.hidden = els.commercialScope.hidden;
         if (els.commercialScope.hidden) els.commercialScope.value = 'mine';
-        syncCommercialScope(els.commercialScope.value);
+        else if (!els.commercialScope.value) els.commercialScope.value = 'all';
+        syncCommercialScope(els.commercialScope.value || 'all');
         state.bootstrapped = true;
         state.currentUser = data.user || state.currentUser;
         els.userName.textContent = (data.user && data.user.name) || 'tudo bem?';

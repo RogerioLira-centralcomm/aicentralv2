@@ -43,7 +43,8 @@ STATUS = {"type": "string", "minLength": 1, "maxLength": 50}
 TOOLS = {
     tool.name: tool for tool in (
         Tool(
-            "buscar_cliente", "Busca clientes por nome, razão social ou documento.",
+            "buscar_cliente",
+            "Busca clientes e agências por nome, razão social, fantasia ou documento. Use em vez de pedir ID ao usuário.",
             commercial.buscar_cliente,
             {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
             ("query",),
@@ -75,6 +76,13 @@ TOOLS = {
             "listar_cotacoes", "Lista cotações de um cliente.",
             commercial.listar_cotacoes,
             {"cliente_id": ID, "limit": LIMIT, "status": STATUS}, ("cliente_id",),
+        ),
+        Tool(
+            "buscar_cotacao",
+            "Busca cotações por número, título da campanha ou nome do cliente/agência. Use em vez de pedir o ID.",
+            commercial.buscar_cotacao,
+            {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
+            ("query",),
         ),
         Tool(
             "consultar_cotacao", "Consulta uma cotação específica por ID.",
@@ -112,7 +120,7 @@ TOOLS = {
             (),
         ),
         Tool(
-            "buscar_pi", "Busca PIs por ID, código ou título.",
+            "buscar_pi", "Busca PIs por ID, código ou título. Use em vez de pedir o código ao usuário.",
             commercial.buscar_pi,
             {"query": {"type": "string", "minLength": 2, "maxLength": 120}, "limit": LIMIT},
             ("query",),
@@ -122,7 +130,7 @@ TOOLS = {
             commercial.consultar_pi, {"pi_id": ID}, ("pi_id",),
         ),
         Tool(
-            "listar_pis_cliente", "Lista os PIs vinculados a um cliente.",
+            "listar_pis_cliente", "Lista os PIs vinculados a um cliente ou agência.",
             commercial.listar_pis_cliente,
             {"cliente_id": ID, "limit": LIMIT}, ("cliente_id",),
         ),
@@ -151,6 +159,31 @@ TOOLS = {
             "resumir_operacao",
             "Consulta números consolidados da operação: PIs e valores por status, campanhas por status e plataforma, objetivos, entrega, gasto e orçamento.",
             commercial.resumir_operacao, {}, (),
+        ),
+        Tool(
+            "listar_objetivos",
+            "Lista objetivos comerciais de um cliente, incluindo prazo e se já foi conquistado.",
+            commercial.listar_objetivos,
+            {"cliente_id": ID, "limit": LIMIT}, ("cliente_id",),
+        ),
+        Tool(
+            "listar_notas_fiscais",
+            "Lista notas fiscais de um PI ou de um cliente/agência, com status de emissão e pagamento.",
+            commercial.listar_notas_fiscais,
+            {"pi_id": ID, "cliente_id": ID, "limit": LIMIT},
+            (),
+        ),
+        Tool(
+            "listar_reembolsos",
+            "Lista reembolsos e despesas do financeiro. Sem acesso global, mostra só os do usuário.",
+            commercial.listar_reembolsos,
+            {"limit": LIMIT, "status": STATUS},
+            (),
+        ),
+        Tool(
+            "resumir_financeiro",
+            "Resume reembolsos do usuário e o volume de notas fiscais por status de pagamento.",
+            commercial.resumir_financeiro, {}, (),
         ),
         Tool(
             "preparar_alteracao_contato",

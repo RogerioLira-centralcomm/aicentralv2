@@ -44,11 +44,11 @@ def suggestion_prompts(context):
             {"label": "Analisar proposta", "prompt": "Vou anexar uma proposta. Resuma escopo, valores, riscos e próximos passos.", "icon": "fa-file-lines"},
         ]
     return [
-        {"label": "Buscar um cliente", "prompt": "Busque um cliente pelo nome.", "icon": "fa-magnifying-glass"},
-        {"label": "Consultar contatos", "prompt": "Quero listar os contatos de um cliente.", "icon": "fa-address-book"},
-        {"label": "Consultar cotações", "prompt": "Quero listar as cotações de um cliente.", "icon": "fa-file-invoice-dollar"},
-        {"label": "Resumo da operação", "prompt": "Mostre os números consolidados atuais de PIs e campanhas.", "icon": "fa-chart-line"},
-        {"label": "Analisar documento", "prompt": "Vou anexar um documento. Faça uma análise estruturada dos pontos principais.", "icon": "fa-file-lines"},
+        {"label": "Buscar cliente ou agência", "prompt": "Busque na base o cliente ou a agência que eu citar.", "icon": "fa-magnifying-glass"},
+        {"label": "Buscar um PI", "prompt": "Busque o PI pelo código ou título e resuma status, cliente, agência e valor.", "icon": "fa-receipt"},
+        {"label": "Buscar uma cotação", "prompt": "Busque a cotação pelo número, campanha ou cliente.", "icon": "fa-file-invoice"},
+        {"label": "Canais e plataformas", "prompt": "Busque canais e plataformas do CADU relacionados ao que eu citar.", "icon": "fa-tower-broadcast"},
+        {"label": "Buscar audiências", "prompt": "Busque audiências do CADU pelo nome ou perfil.", "icon": "fa-users"},
     ]
 
 

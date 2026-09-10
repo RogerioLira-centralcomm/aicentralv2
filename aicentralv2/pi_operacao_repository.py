@@ -7,6 +7,14 @@ class PiNaoEncontradoError(LookupError):
     pass
 
 
+def _brl_sum_sql(expr):
+    """Soma valores BRL guardados como texto (ex.: 'R$ 8.000,00')."""
+    return (
+        "COALESCE(SUM(NULLIF(replace(replace("
+        f"regexp_replace(COALESCE({expr}, ''), '[^0-9,.-]', '', 'g'), '.', ''), ',', '.'), '')::numeric), 0)"
+    )
+
+
 class PropriedadeInvalidaError(ValueError):
     pass
 
@@ -141,16 +149,20 @@ class PiOperacaoRepository:
             cursor.execute(
                 """
                 SELECT p.id_pi, p.codigo_pi_cc, p.codigo_pi_ag, p.titulo_pi,
-                       p.id_cliente, p.cotacao_id, p.vr_bruto_pi,
+                       p.id_cliente, p.id_agencia, p.cotacao_id, p.vr_bruto_pi,
                        p.periodo_inicio, p.periodo_fim,
+                       cli.nome_fantasia AS cliente_nome,
+                       ag.nome_fantasia AS agencia_nome,
                        ss.display AS sub_status_descricao
                   FROM cadu_pi p
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                  LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
-                 WHERE p.id_cliente = %s
+                 WHERE p.id_cliente = %s OR p.id_agencia = %s
                  ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
                  LIMIT %s
                 """,
-                (cliente_id, max(1, min(int(limite or 8), 20))),
+                (cliente_id, cliente_id, max(1, min(int(limite or 8), 20))),
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -165,23 +177,26 @@ class PiOperacaoRepository:
                        p.id_cliente, p.cotacao_id, p.vr_bruto_pi,
                        p.id_sub_status_pi, p.periodo_inicio, p.periodo_fim,
                        cli.nome_fantasia AS cliente_nome,
+                       ag.nome_fantasia AS agencia_nome,
                        ss.display AS sub_status_descricao,
                        resp.nome_completo AS responsavel_comercial_nome,
                        resp.foto_url AS responsavel_comercial_foto_url
                   FROM cadu_pi p
                   LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                  LEFT JOIN tbl_cliente ag ON ag.id_cliente = p.id_agencia
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
                   LEFT JOIN tbl_contato_cliente resp
                          ON resp.id_contato_cliente = p.id_resp_comercial
-                 WHERE CAST(p.id_pi AS TEXT) ILIKE %s
-                    OR COALESCE(p.codigo_pi_cc, '') ILIKE %s
-                    OR COALESCE(p.codigo_pi_ag, '') ILIKE %s
-                    OR COALESCE(p.titulo_pi, '') ILIKE %s
-                    OR COALESCE(cli.nome_fantasia, '') ILIKE %s
+                 WHERE unaccent(CAST(p.id_pi AS TEXT)) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(p.codigo_pi_cc, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(p.codigo_pi_ag, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(p.titulo_pi, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(cli.nome_fantasia, '')) ILIKE unaccent(%s)
+                    OR unaccent(COALESCE(ag.nome_fantasia, '')) ILIKE unaccent(%s)
                  ORDER BY p.updated_at DESC NULLS LAST, p.id_pi DESC
                  LIMIT %s
                 """,
-                tuple([f"%{termo}%"] * 5)
+                tuple([f"%{termo}%"] * 6)
                 + (max(1, min(int(limite or 8), 20)),),
             )
             return [dict(row) for row in cursor.fetchall()]
@@ -212,11 +227,11 @@ class PiOperacaoRepository:
                   LEFT JOIN tbl_contato_cliente resp
                          ON resp.id_contato_cliente = c.id_responsavel_operacao
                  WHERE CAST(c.id_campanha AS TEXT) ILIKE %s
-                    OR COALESCE(c.nome_campanha, '') ILIKE %s
+                    OR unaccent(COALESCE(c.nome_campanha, '')) ILIKE unaccent(%s)
                     OR CAST(c.id_pi AS TEXT) ILIKE %s
                     OR COALESCE(p.codigo_pi_cc, '') ILIKE %s
                     OR COALESCE(p.codigo_pi_ag, '') ILIKE %s
-                    OR COALESCE(cli.nome_fantasia, '') ILIKE %s
+                    OR unaccent(COALESCE(cli.nome_fantasia, '')) ILIKE unaccent(%s)
                  ORDER BY c.updated_at DESC NULLS LAST, c.id_campanha DESC
                  LIMIT %s
                 """,
@@ -232,7 +247,7 @@ class PiOperacaoRepository:
                 SELECT p.id_sub_status_pi,
                        COALESCE(ss.display, 'Sem status') AS status_descricao,
                        COUNT(*) AS total_pis,
-                       COALESCE(SUM(p.vr_bruto_pi), 0) AS valor_bruto
+                       """ + _brl_sum_sql("p.vr_bruto_pi") + """ AS valor_bruto
                   FROM cadu_pi p
                   LEFT JOIN cadu_pi_sub_status ss ON ss.key = p.id_sub_status_pi
                  GROUP BY p.id_sub_status_pi, ss.display
@@ -244,10 +259,10 @@ class PiOperacaoRepository:
                 """
                 SELECT COALESCE(st.descricao, 'Sem status') AS status_descricao,
                        COUNT(*) AS total_campanhas,
-                       COALESCE(SUM(c.obj_contratados), 0) AS objetivo_contratado,
-                       COALESCE(SUM(c.totalizador_atingido), 0) AS objetivo_atingido,
-                       COALESCE(SUM(c.totalizador_gasto), 0) AS total_gasto,
-                       COALESCE(SUM(c.custo_midia_orcado), 0) AS custo_orcado
+                       """ + _brl_sum_sql("c.obj_contratados") + """ AS objetivo_contratado,
+                       """ + _brl_sum_sql("c.totalizador_atingido") + """ AS objetivo_atingido,
+                       """ + _brl_sum_sql("c.totalizador_gasto") + """ AS total_gasto,
+                       """ + _brl_sum_sql("c.custo_midia_orcado") + """ AS custo_orcado
                   FROM cadu_pi_campanha c
                   LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
                  GROUP BY c.id_status, st.descricao
@@ -272,6 +287,51 @@ class PiOperacaoRepository:
             "campanhas_por_status": campanha_status,
             "campanhas_por_plataforma": plataformas,
         }
+
+    def listar_notas_fiscais(self, pi_id=None, cliente_id=None, limite=8):
+        clauses = ["TRUE"]
+        params = []
+        if pi_id:
+            clauses.append("nf.id_pi = %s")
+            params.append(int(pi_id))
+        if cliente_id:
+            clauses.append("(p.id_cliente = %s OR p.id_agencia = %s)")
+            params.extend([int(cliente_id), int(cliente_id)])
+        params.append(max(1, min(int(limite or 8), 20)))
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT nf.id, nf.numero_nota, nf.valor, nf.valor_liquido,
+                       nf.data_emissao, nf.data_pag_prevista, nf.data_pag_realizado,
+                       nf.mes_ref_comp, nf.cnpj_tomador, nf.status,
+                       st.descricao AS status_descricao,
+                       p.id_pi, p.codigo_pi_cc, p.titulo_pi,
+                       cli.nome_fantasia AS cliente_nome
+                  FROM cadu_pi_nota_fiscal nf
+                  LEFT JOIN cadu_pi_nota_fiscal_status st ON st.id = nf.status
+                  LEFT JOIN cadu_pi p ON p.id_pi = nf.id_pi
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                 WHERE {' AND '.join(clauses)}
+                 ORDER BY nf.data_emissao DESC NULLS LAST, nf.id DESC
+                 LIMIT %s
+                """,
+                tuple(params),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def resumo_notas_fiscais(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COALESCE(st.descricao, 'Sem status') AS status_descricao,
+                       COUNT(*) AS total
+                  FROM cadu_pi_nota_fiscal nf
+                  LEFT JOIN cadu_pi_nota_fiscal_status st ON st.id = nf.status
+                 GROUP BY nf.status, st.descricao
+                 ORDER BY nf.status
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def validar_campanhas(self, id_pi, ids_campanha):
         ids = sorted({int(item) for item in ids_campanha})

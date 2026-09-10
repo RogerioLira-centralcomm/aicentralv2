@@ -110,11 +110,18 @@ class ErpNavbarTestCase(unittest.TestCase):
         self.assertIn('class="cx-agent-trigger-icon"', self.base_template)
         self.assertIn("filename='images/agent-centralx.png', v=2", self.base_template)
         self.assertIn('aria-label="Abrir Agente CentralX"', self.base_template)
-        self.assertIn("@media (max-width: 899px)", self.enterprise_css)
+        self.assertIn("@media (max-width: 1279px)", self.enterprise_css)
         self.assertIn(".erp-topbar .cx-agent-trigger-icon", self.enterprise_css)
         self.assertIn("width: 1.125rem", self.enterprise_css)
         self.assertIn("height: 1.125rem", self.enterprise_css)
         self.assertIn("flex: 0 0 2.25rem", self.enterprise_css)
+
+    def test_navbar_nao_tem_campo_pesquisar(self):
+        self.assertNotIn("nav-busca-pi-input", self.base_template)
+        self.assertNotIn("class=\"erp-search", self.base_template)
+        self.assertNotIn("erp-mobile-search", self.base_template)
+        html = self._render_base()
+        self.assertNotIn("Buscar PI por código ou título", html)
 
 
 if __name__ == "__main__":

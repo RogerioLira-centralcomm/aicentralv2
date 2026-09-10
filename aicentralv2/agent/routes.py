@@ -169,14 +169,18 @@ def _conversation_payload(row):
     }
 
 
+def _has_global_read():
+    return "commercial.read.global" in public_capabilities()
+
+
 def _requested_global_scope():
-    return (
-        str(request.args.get("scope") or "").casefold() == "all"
-        and has_global_commercial_access()
-    )
+    if not _has_global_read():
+        return False
+    return str(request.args.get("scope") or "all").casefold() != "mine"
 
 
 def _client_allowed(client):
+    """Escrita: dono do registro ou admin."""
     return bool(
         client
         and (
@@ -196,13 +200,33 @@ def _quote_allowed(quote):
     )
 
 
+def _client_visible(client):
+    return bool(
+        client
+        and (
+            _has_global_read()
+            or str(client.get("executivo_id") or "") == str(session["user_id"])
+        )
+    )
+
+
+def _quote_visible(quote):
+    return bool(
+        quote
+        and (
+            _has_global_read()
+            or str(quote.get("executivo_id") or "") == str(session["user_id"])
+        )
+    )
+
+
 def _commercial_client_payload(store, client):
     client_id = str(client["id"])
     contacts = store.list_contatos(client_id) or []
     activities = store.list_atividades(client_id) or []
     quotes = store.list_cotacoes(client_id, include_vinculados=False) or []
-    if not has_global_commercial_access():
-        quotes = [quote for quote in quotes if _quote_allowed(quote)]
+    if not _has_global_read():
+        quotes = [quote for quote in quotes if _quote_visible(quote)]
     context = {
         "module": "crm",
         "screen": "cliente_detalhe",
@@ -217,7 +241,7 @@ def _commercial_client_payload(store, client):
         "activities": activities[:5],
         "quotes": quotes[:8],
         "insights": build_insights(context),
-        "can_edit": True,
+        "can_edit": _client_allowed(client),
         "url": f"/crm-v3/#cliente={client_id}",
     }
 
@@ -249,10 +273,10 @@ def _authorized_insights(context):
         return build_insights(context)
     store = get_store()
     if entity_type in {"cliente", "client"} and entity_id:
-        if not _client_allowed(store.get_cliente(entity_id)):
+        if not _client_visible(store.get_cliente(entity_id)):
             return {"entity": None, "alerts": [], "prompts": _suggestions({})}
     if entity_type in {"cotacao", "quote"} and entity_id:
-        if not _quote_allowed(store.get_cotacao(entity_id)):
+        if not _quote_visible(store.get_cotacao(entity_id)):
             return {"entity": None, "alerts": [], "prompts": _suggestions({})}
     return build_insights(context)
 
@@ -486,10 +510,14 @@ def commercial_search():
     if len(query) < 2:
         return jsonify({
             "success": True,
-            "data": {"clients": [], "quotes": [], "scope": "mine"},
+            "data": {
+                "clients": [], "quotes": [], "contacts": [],
+                "pis": [], "campaigns": [], "channels": [], "audiences": [],
+                "scope": "mine",
+            },
         })
     kind = str(request.args.get("kind") or "all").casefold()
-    if kind not in {"all", "clients", "contacts", "quotes", "pis", "campaigns"}:
+    if kind not in {"all", "clients", "contacts", "quotes", "pis", "campaigns", "channels", "audiences"}:
         return jsonify({"success": False, "error": "Tipo de busca inválido."}), 400
     limit = max(1, min(request.args.get("limit", 8, type=int) or 8, 20))
     global_scope = _requested_global_scope()
@@ -528,6 +556,34 @@ def commercial_search():
             lambda: search_operational_records(query, limit=limit),
             {"pis": [], "campaigns": []},
         ) or {"pis": [], "campaigns": []}
+    channels = []
+    audiences = []
+    if kind in {"all", "channels"}:
+        channels = _safe_search(
+            "canais",
+            lambda: [
+                {
+                    "id": item.get("id"),
+                    "nome": item.get("nome"),
+                    "canais": item.get("canais") or "",
+                    "total_audiencias": item.get("total_audiencias") or 0,
+                }
+                for item in (db.buscar_canais_plataformas(query, limit) or [])
+            ],
+        )
+    if kind in {"all", "audiences"}:
+        audiences = _safe_search(
+            "audiencias",
+            lambda: [
+                {
+                    "id": item.get("id"),
+                    "nome": item.get("nome"),
+                    "plataforma_nome": item.get("plataforma_nome") or item.get("fonte") or "",
+                    "perfil": item.get("perfil_socioeconomico") or "",
+                }
+                for item in (db.buscar_audiencias(query, limit) or [])
+            ],
+        )
     return jsonify({
         "success": True,
         "data": {
@@ -536,6 +592,8 @@ def commercial_search():
             "quotes": quotes,
             "pis": operational["pis"] if kind in {"all", "pis"} else [],
             "campaigns": operational["campaigns"] if kind in {"all", "campaigns"} else [],
+            "channels": channels,
+            "audiences": audiences,
             "scope": "all" if global_scope else "mine",
         },
     })
@@ -549,8 +607,8 @@ def context_record(entity_type, entity_id):
             entity_type,
             entity_id,
             get_store(),
-            _client_allowed,
-            _quote_allowed,
+            _client_visible,
+            _quote_visible,
             PiOperacaoRepository(),
         )
     except ContextRecordError as exc:

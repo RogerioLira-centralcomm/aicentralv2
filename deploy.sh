@@ -178,6 +178,7 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
 "$VENV_PYTHON" migrations/run_add_system_integration_credentials.py
 "$VENV_PYTHON" migrations/run_add_openrouter_integration_credential.py
+"$VENV_PYTHON" migrations/run_add_openrouter_gpt_image_2.py
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
 echo "  > OK"
 

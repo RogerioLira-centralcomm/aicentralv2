@@ -69,6 +69,10 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertTrue(summary["configured"])
         self.assertTrue(summary["has_secret"])
         self.assertEqual(summary["public_config"]["default_model"], "openai/gpt-4o-mini")
+        self.app.config["CREATIVE_IMAGE_MODEL"] = "openai/gpt-image-2"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("openrouter")
+        self.assertEqual(summary["public_config"]["image_model"], "openai/gpt-image-2")
         self.assertNotIn("or-env-key", str(summary))
 
     def test_empty_secret_preserves_existing_database_value(self):
@@ -159,6 +163,10 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("OpenRouter", template)
         self.assertIn('data-integration-form="openrouter"', template)
         self.assertIn("run_add_openrouter_integration_credential.py", deploy)
+        self.assertIn("run_add_openrouter_gpt_image_2.py", deploy)
+        image_sql = (ROOT / "migrations/add_openrouter_gpt_image_2.sql").read_text()
+        self.assertIn("openai/gpt-image-2", image_sql)
+        self.assertIn('name="image_model"', template)
         self.assertIn("D4Sign", template)
         self.assertIn("assinaturas.mesa", menu)
         self.assertIn("run_add_d4sign_assinaturas.py", deploy)

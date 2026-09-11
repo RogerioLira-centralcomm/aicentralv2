@@ -89,6 +89,21 @@ def resolve_chat_model(explicit=None) -> str:
     return os.getenv("AGENT_OPENROUTER_MODEL", DEFAULT_CHAT_MODEL) or "openai/gpt-4o-mini"
 
 
+def resolve_image_model(explicit=None) -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    try:
+        from . import integration_credentials
+
+        config = integration_credentials.get_configuration("openrouter")
+        model = str(config.get("image_model") or "").strip()
+        if model:
+            return model
+    except Exception:
+        pass
+    return os.getenv("CREATIVE_IMAGE_MODEL", DEFAULT_IMAGE_MODEL) or "openai/gpt-image-2"
+
+
 def _api_key() -> str:
     key = resolve_api_key()
     if not key:
@@ -203,7 +218,7 @@ def generate_image(
     timeout: int = 180,
 ) -> Dict[str, Any]:
     """Gera imagem no GPT Image 2 via OpenRouter (`/api/v1/images`)."""
-    image_model = (model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
+    image_model = resolve_image_model(model)
     payload = {
         "model": image_model,
         "prompt": prompt,

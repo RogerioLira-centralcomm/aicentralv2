@@ -10,12 +10,10 @@ import re
 
 from flask import current_app, has_app_context
 
-from ..services.openrouter_service import generate_image
+from ..services.openrouter_service import generate_image, resolve_image_model
 from .helpers import as_dict, as_list, text
 
 logger = logging.getLogger(__name__)
-
-IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 
 
 def apply_sheet_art(plan: dict, force: bool = False) -> dict:
@@ -30,14 +28,14 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     if force or _needs_exclusive_bg(theme):
         prompt = text(theme.get("bg_prompt")) or _default_bg_prompt(theme, meta)
         theme["bg_url"] = _render(prompt, f"{slug}-bg", aspect_ratio="16:9")
-        theme["bg_model"] = IMAGE_MODEL
+        theme["bg_model"] = resolve_image_model()
         plan["theme"] = theme
     creative = _creative_card(plan)
     if creative and (force or not text(creative.get("image_url"))):
         prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
         ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
         creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio)
-        creative["image_model"] = IMAGE_MODEL
+        creative["image_model"] = resolve_image_model()
     return plan
 
 
@@ -83,7 +81,7 @@ def _render(prompt: str, stem: str, aspect_ratio: str) -> str:
         quality="high",
         output_format="png",
         resolution="2K",
-        model=IMAGE_MODEL,
+        model=resolve_image_model(),
     )
     raw = base64.b64decode(result["b64_json"])
     digest = hashlib.sha1(raw).hexdigest()[:8]
@@ -92,7 +90,11 @@ def _render(prompt: str, stem: str, aspect_ratio: str) -> str:
     path = os.path.join(dest_dir, filename)
     with open(path, "wb") as handle:
         handle.write(raw)
-    logger.info("Arte da página única gravada: %s (%s)", filename, result.get("model") or IMAGE_MODEL)
+    logger.info(
+        "Arte da página única gravada: %s (%s)",
+        filename,
+        result.get("model") or resolve_image_model(),
+    )
     return f"/static/images/smart_planner/generated/{filename}"
 
 

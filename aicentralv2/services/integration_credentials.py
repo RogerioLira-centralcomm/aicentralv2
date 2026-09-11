@@ -23,7 +23,7 @@ PROVIDERS = {
     },
     "openrouter": {
         "label": "OpenRouter",
-        "public_fields": ("default_model",),
+        "public_fields": ("default_model", "image_model"),
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
@@ -48,6 +48,7 @@ ENV_FIELDS = {
     },
     "openrouter": {
         "default_model": "AGENT_OPENROUTER_MODEL",
+        "image_model": "CREATIVE_IMAGE_MODEL",
         "api_key": "OPENROUTER_API_KEY",
     },
     "d4sign": {},
@@ -167,6 +168,8 @@ def save_configuration(provider, payload, updated_by):
         }
     except Exception:
         existing_secrets = {}
+    if provider == "openrouter" and not public.get("image_model"):
+        public["image_model"] = "openai/gpt-image-2"
     if provider == "d4sign" and not public.get("ambiente"):
         public["ambiente"] = "producao"
     if submitted_secrets:

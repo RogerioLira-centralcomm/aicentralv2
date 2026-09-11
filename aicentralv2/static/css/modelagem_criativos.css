@@ -186,7 +186,30 @@
   overflow: visible;
 }
 
-.mc-header,
+.mc-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  height: 64px;
+  max-height: 64px;
+  min-width: 0;
+}
+
+.mc-header {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #1a2330;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mc-header:hover {
+  color: #0f172a;
+}
+
 .mc-workspace-head,
 .mc-pane-title,
 .mc-form-footer,
@@ -195,13 +218,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.mc-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
 }
 
 .mc-header p,
@@ -3683,7 +3699,6 @@
   .mc-brand-analyze-button {
     width: 100%;
   }
-  .mc-header,
   .mc-workspace-head,
   .mc-library-head,
   .mc-history-head,
@@ -5733,10 +5748,15 @@
 
 .mc-desk-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 0.15rem;
-  margin: 0 0 1rem;
+  min-width: 0;
+  height: 40px;
+  max-height: 40px;
+  margin: 0;
   padding: 0.15rem;
+  overflow-x: auto;
   border: 1px solid var(--cx-border, #dbe1ea);
   border-radius: 0.7rem;
   background: #fff;
@@ -5791,6 +5811,16 @@
 .mc-desk-drop-menu button {
   display: block;
   width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.45rem;
+  color: #1a2330;
+  text-align: left;
+  text-decoration: none;
+}
+
+.mc-desk-drop-menu a:hover,
+.mc-desk-drop-menu a.is-current {
+  background: #f1f5f9;
 }
 
 .mc-desk-drop-menu.is-formats {

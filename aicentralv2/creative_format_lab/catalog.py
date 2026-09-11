@@ -268,6 +268,9 @@ FORMAT_ALIASES = {
     "ctv-video-linear-30": "video-linear-15",
     "ctv-video-cta": "video-cta-15",
     "ctv-video-qr": "video-qr-15",
+    "iab-banner": "iab-medium",
+    "iab-half-page": "iab-halfpage",
+    "iab-medium-rectangle": "iab-medium",
 }
 
 ADAPTERS = {

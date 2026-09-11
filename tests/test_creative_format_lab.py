@@ -130,6 +130,26 @@ class CreativeFormatLabTest(unittest.TestCase):
                 "format": "ctv-video-linear-30",
                 "scenes": [],
             })
+        echoed = parse_format_spec(
+            {
+                "intent": "create",
+                "format": "iab-banner",
+                "kind": "banner",
+                "size_label": "300×250",
+                "orientation": "horizontal",
+                "adapter": "iab_box",
+                "scenes": [
+                    {"id": "scene_01", "purpose": "hook", "role": "gancho"},
+                    {"id": "scene_02", "purpose": "benefit"},
+                    {"id": "scene_03", "purpose": "proof"},
+                    {"id": "scene_04", "purpose": "cta"},
+                ],
+            },
+            expected_format="iab-halfpage",
+        )
+        self.assertEqual(echoed.format, "iab-halfpage")
+        self.assertEqual(echoed.canvas.height, 600)
+        self.assertEqual(echoed.scenes[0].purpose, "hook")
 
     def test_layer_export_nas_quatro_cenas_generic(self):
         for name in ("scene-01.html", "scene-02.html", "scene-03.html", "scene-04.html"):
@@ -683,7 +703,11 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-desk-drop", shell)
-        self.assertIn("Lab 15s", shell)
+        self.assertIn("mc-chrome", shell)
+        self.assertIn("'Lab'", shell)
+        self.assertIn("'Fluxo'", shell)
+        self.assertIn("'Páginas'", shell)
+        self.assertNotIn("Início", shell)
         self.assertIn("mcFormatDrop", shell)
         self.assertIn("mcFormatMenu", shell)
         self.assertIn("modelagem_mesa", shell)
@@ -737,6 +761,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("function renderOps", js)
         self.assertIn("function currentOp", js)
         self.assertIn("function applyStage", js)
+        self.assertIn("state.mounting", js)
         self.assertIn("function currentFormat", js)
         self.assertIn("mcFormatMenu", js)
         self.assertIn("format_groups", js)

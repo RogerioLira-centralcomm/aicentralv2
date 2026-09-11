@@ -99,7 +99,7 @@ def build_spec(
     )
     raw = _call_engineer(system, bundle["texts"]["format"], user, images, text_callable)
     try:
-        spec = parse_format_spec(raw)
+        spec = parse_format_spec(raw, expected_format=route["format"])
     except (ValidationError, ValueError) as exc:
         raise ValueError("O provedor devolveu um conceito inválido.") from exc
     if len(spec.scenes) != knobs["scene_count"]:
@@ -143,7 +143,7 @@ def refine_spec(
     )
     raw = _call_engineer(system, bundle["texts"]["format"], user, images, text_callable)
     try:
-        refined = parse_format_spec(raw)
+        refined = parse_format_spec(raw, expected_format=route["format"])
     except (ValidationError, ValueError) as exc:
         raise ValueError("O provedor devolveu um conceito inválido.") from exc
     if len(refined.scenes) != knobs["scene_count"]:

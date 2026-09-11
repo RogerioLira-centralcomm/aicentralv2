@@ -30,6 +30,7 @@
     campaignSlug: '',
     campaign: null,
     sessionId: '',
+    mounting: false,
     session: null,
     storyboard: [],
     sceneId: 'scene_01',
@@ -659,6 +660,8 @@
   }
 
   async function mountConcept() {
+    if (state.mounting) return;
+    state.mounting = true;
     try {
       $('mcMesaAnalyze').disabled = true;
       renderOps('concept');
@@ -696,6 +699,8 @@
       setStatus(error.message);
       $('mcMesaAnalyze').disabled = !state.clientId;
       renderOps();
+    } finally {
+      state.mounting = false;
     }
   }
 

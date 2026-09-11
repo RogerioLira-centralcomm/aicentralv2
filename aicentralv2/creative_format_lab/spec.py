@@ -22,7 +22,7 @@ def _reject_html(value):
 
 
 class CanvasSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     width: int = 1920
     height: int = 1080
 
@@ -36,7 +36,7 @@ class CanvasSpec(BaseModel):
 
 
 class SceneSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     id: str
     duration: float = 3.0
     purpose: str = "hook"
@@ -69,14 +69,14 @@ class SceneSpec(BaseModel):
 
 
 class OutputSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     type: Literal["html"] = "html"
     layers: bool = True
     animation_ready: bool = True
 
 
 class CreativeFormatSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     intent: Intent = "create"
     format: str
     variant: VariantKey = "A"
@@ -152,10 +152,25 @@ class VisualQaReport(BaseModel):
         return [str(item)[:200] for item in (value or [])[:12]]
 
 
-def parse_format_spec(payload):
+def parse_format_spec(payload, expected_format=None):
     if isinstance(payload, CreativeFormatSpec):
-        return payload
-    return CreativeFormatSpec.model_validate(payload or {})
+        spec = payload
+    else:
+        data = dict(payload or {})
+        key = resolve_format_key(data.get("format"))
+        if not format_entry(key):
+            data["format"] = expected_format or "video-linear-15"
+        spec = CreativeFormatSpec.model_validate(data)
+    wanted = resolve_format_key(expected_format) if expected_format else ""
+    entry = format_entry(wanted) if wanted else None
+    if entry:
+        spec.format = entry["key"]
+        spec.adapter = entry.get("adapter") or spec.adapter
+        spec.platform_label = entry.get("platform_label") or spec.platform_label
+        canvas = entry.get("canvas")
+        if canvas:
+            spec.canvas = CanvasSpec.model_validate(canvas)
+    return spec
 
 
 def parse_qa_report(payload, attempt=1):

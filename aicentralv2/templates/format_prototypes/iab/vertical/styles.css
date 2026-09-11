@@ -1,0 +1,101 @@
+:root{
+  --void:#16181d;
+  --plate:#16181d;
+  --hair:#2a2d33;
+  --paper:#f3f1ec;
+  --ink:var(--brand-ink,#f3f1ec);
+  --muted:var(--brand-muted,#8b8680);
+  --brand-ink:#f3f1ec;
+  --brand-accent:#c4a574;
+  --brand-muted:#8b8680;
+  --brand-paper:#f3f1ec;
+  --logo:none;
+  --brand-face:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --stage-ratio:1 / 2;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#d5dce4;color:#1a2330;font-family:Arial,Helvetica,sans-serif}
+body{padding:24px}
+.wrap{max-width:420px;margin:0 auto}
+.header{margin-bottom:14px}
+.header h1{margin:0;font-size:16px}
+.header p{margin:6px 0 0;color:#5c6b7a;font-size:12px}
+.stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:var(--stage-ratio,1 / 2);
+  background:var(--void);
+  overflow:hidden;
+  border:1px solid var(--hair);
+}
+.layer{position:absolute}
+.safe{inset:6%;border:1px solid rgba(243,241,236,.1);pointer-events:none}
+.brand{
+  top:6%;
+  left:8%;
+  right:8%;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  z-index:12;
+  font-size:13px;
+  color:var(--brand-paper);
+  font-family:var(--brand-face);
+}
+.brand-mark{width:28px;height:2px;background:var(--brand-accent)}
+.brand-mark.has-logo{
+  width:40px;
+  height:40px;
+  background-color:transparent;
+  background-image:var(--logo);
+  background-size:contain;
+  background-repeat:no-repeat;
+}
+.platform{top:6%;right:8%;z-index:12;font-size:9px;color:var(--muted)}
+.copy{left:8%;right:8%;top:16%;z-index:12}
+.copy h2{
+  margin:0 0 10px;
+  font-size:clamp(22px,6vw,36px);
+  line-height:.95;
+  font-weight:500;
+  color:var(--brand-paper);
+  font-family:var(--brand-face);
+}
+.copy p{margin:0;color:var(--paper);font-size:13px;line-height:1.35;opacity:.86}
+.key-visual{
+  left:8%;
+  right:8%;
+  top:42%;
+  height:36%;
+  z-index:3;
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+}
+.cta{
+  left:8%;
+  right:8%;
+  bottom:10%;
+  text-align:center;
+  border-bottom:1px solid var(--brand-accent);
+  color:var(--brand-ink);
+  font-size:14px;
+  z-index:13;
+  font-family:var(--brand-face);
+}
+.beat{left:8%;right:8%;bottom:5%;height:3px;z-index:8}
+.beat .bar{position:relative;height:100%;background:#2a2d33}
+.beat .bar span{position:absolute;left:0;top:0;bottom:0;background:var(--brand-accent)}
+.stage.plate-hero .key-visual{inset:0;width:100%;height:100%;left:0;right:0;top:0;background-size:cover}
+.stage.plate-hero .copy{top:18%}
+.stage.plate-center .brand{justify-content:center;text-align:center}
+.stage.plate-center .copy{top:22%;text-align:center}
+.stage.plate-center .key-visual{top:52%;height:22%}
+.stage.is-tall .copy h2{font-size:clamp(20px,7vw,32px)}
+.note,.layers{margin-top:12px;background:#fff;border:1px solid #d5dce4;padding:12px 14px;font-size:13px}
+.layers-grid{display:grid;gap:8px}
+.badge{display:inline-block;margin-right:6px;font-size:10px;color:#64748b}
+body.render{padding:0;background:#111}
+body.render .header,body.render .note,body.render .layers{display:none}
+body.render .wrap{max-width:none}
+body.render .stage{border:0}

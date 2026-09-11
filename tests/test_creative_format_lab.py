@@ -9,7 +9,13 @@ from pydantic import ValidationError
 
 from aicentralv2.creative_format_lab.campaign_models import list_campaign_models, load_campaign_model
 from aicentralv2.creative_format_lab.engineer import build_spec
-from aicentralv2.creative_format_lab.catalog import is_end_card, logo_visible_for, plate_for
+from aicentralv2.creative_format_lab.catalog import (
+    FORMAT_GROUPS,
+    FORMATS,
+    is_end_card,
+    logo_visible_for,
+    plate_for,
+)
 from aicentralv2.creative_format_lab.mockup import scene_logo_visible
 from aicentralv2.creative_format_lab.stack import build_stack
 from aicentralv2.creative_format_lab.html_builder import build_scene_html, prototype_dir
@@ -81,10 +87,16 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertNotIn("layer-qr", linear)
         self.assertIn("ctv-video-qr", qr)
         self.assertIn("layer-qr", qr)
+        banner = load_format_skill("iab-billboard")
+        self.assertIn("IAB banner", banner)
+        self.assertIn("layer-headline", banner)
         self.assertIn("video-linear-15", FORMAT_SKILL_KEYS)
         self.assertIn("ctv-video-linear-30", FORMAT_SKILL_KEYS)
+        self.assertIn("iab-billboard", FORMAT_SKILL_KEYS)
         with self.assertRaises(ValueError):
             load_format_skill("mobile-carousel")
+        pack = resolve_pack("create", "iab-halfpage")
+        self.assertEqual(pack["format_skill"], "iab-banner")
 
     def test_router_mapeia_qr_no_final(self):
         routed = route_format("QR no final do filme de 15s")
@@ -156,6 +168,47 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(plate_for("proof"), "hero")
         self.assertEqual(plate_for("cta"), "center")
         self.assertTrue((prototype_dir("generic_ctv") / "scene-01.html").is_file())
+        self.assertTrue((prototype_dir("iab_horizontal") / "scene-01.html").is_file())
+        self.assertTrue((prototype_dir("iab_vertical") / "styles.css").is_file())
+        banner = build_spec(
+            route={
+                "format": "iab-halfpage",
+                "adapter": "iab_vertical",
+                "platform_label": "300×600",
+            },
+            brand_name="Tim",
+        )
+        self.assertEqual(banner.canvas.width, 300)
+        self.assertEqual(banner.canvas.height, 600)
+        half = build_scene_html(banner, banner.scenes[0])
+        self.assertIn("layer-headline", half)
+        self.assertIn("--stage-ratio:300 / 600", half)
+        self.assertIn("is-tall", half)
+        self.assertIn("is-banner", half)
+        keys = {item["key"] for item in FORMATS}
+        self.assertIn("iab-billboard", keys)
+        self.assertIn("iab-leaderboard", keys)
+        self.assertIn("iab-medium", keys)
+        self.assertIn("iab-skyscraper", keys)
+        self.assertEqual(
+            {item["key"] for item in FORMAT_GROUPS},
+            {"15s", "horizontal", "vertical", "retangulo", "social"},
+        )
+        lead = build_spec(
+            route={
+                "format": "iab-leaderboard",
+                "adapter": "iab_horizontal",
+                "platform_label": "728×90",
+            },
+            brand_name="Tim",
+        )
+        self.assertEqual(lead.canvas.width, 728)
+        self.assertEqual(lead.canvas.height, 90)
+        board = build_scene_html(lead, lead.scenes[0])
+        self.assertIn("is-thin", board)
+        self.assertIn("is-wide", board)
+        self.assertIn("is-banner", board)
+        self.assertIn("layer-headline", board)
 
     def test_qa_loop_para_no_terceiro_patch(self):
         spec = build_spec(
@@ -312,6 +365,66 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(story["passes"], 2)
         self.assertEqual(scene["scene_versions"], 3)
         self.assertGreater(full["cost_usd"], story["cost_usd"])
+
+    def test_conceito_nao_cai_em_fallback_quando_o_provedor_falha(self):
+        from aicentralv2.creative_modeling_generation import OpenRouterError
+
+        def boom(*_a, **_k):
+            raise OpenRouterError("Não foi possível consultar o provedor de IA.")
+
+        with self.assertRaises(OpenRouterError):
+            build_storyboard(
+                {"campaign_slug": "tim-controle-ctv", "scene_count": 4},
+                client={"id": 11, "name": "Tim"},
+                text_callable=boom,
+            )
+
+    def test_engenheiro_chama_o_provedor_sem_papel_developer(self):
+        called = {}
+
+        def fake(messages, **_kwargs):
+            called["roles"] = [item["role"] for item in messages]
+            content = messages[-1]["content"]
+            called["urls"] = []
+            if isinstance(content, list):
+                for block in content:
+                    url = ((block or {}).get("image_url") or {}).get("url")
+                    if url:
+                        called["urls"].append(url)
+            return {
+                "message": {
+                    "content": {
+                        "intent": "create",
+                        "format": "video-linear-15",
+                        "variant": "A",
+                        "adapter": "generic_ctv",
+                        "platform_label": "CTV",
+                        "brand_name": "Tim",
+                        "scenes": [
+                            {"id": "scene_01", "headline": "A", "purpose": "hook"},
+                            {"id": "scene_02", "headline": "B", "purpose": "context"},
+                            {"id": "scene_03", "headline": "C", "purpose": "benefit"},
+                            {"id": "scene_04", "headline": "D", "purpose": "cta", "cta": "Monte o seu"},
+                        ],
+                    }
+                }
+            }
+
+        board = build_storyboard(
+            {
+                "campaign_slug": "tim-controle-ctv",
+                "scene_count": 4,
+                "images": [
+                    "/static/uploads/client_logos/tim.png",
+                    "https://cdn.example/ok.jpg",
+                ],
+            },
+            client={"id": 11, "name": "Tim"},
+            text_callable=fake,
+        )
+        self.assertEqual(called["roles"], ["system", "user"])
+        self.assertEqual(called["urls"], ["https://cdn.example/ok.jpg"])
+        self.assertEqual(len(board["storyboard"]), 4)
 
     def test_storyboard_cobrado_no_ledger(self):
         repository = FakeRepository()
@@ -566,15 +679,20 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertEqual(MC_DESKS["trocar"]["page_js"], "js/mc-trocar.js")
         self.assertEqual(MC_DESKS["mesa"]["panel"], "parametros/_mc_mesa.html")
         self.assertEqual(MC_DESKS["mesa"]["page_js"], "js/mc-mesa.js")
+        self.assertEqual(MC_DESKS["placas"]["page_js"], "js/mc-placas.js")
         root = Path(__file__).resolve().parents[1]
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-desk-drop", shell)
         self.assertIn("Lab 15s", shell)
+        self.assertIn("mcFormatDrop", shell)
+        self.assertIn("mcFormatMenu", shell)
         self.assertIn("modelagem_mesa", shell)
         self.assertIn("modelagem_placas", shell)
         self.assertIn("modelagem_trocar", shell)
         html = (root / "aicentralv2" / "templates" / "parametros" / "_mc_mesa.html").read_text(encoding="utf-8")
         self.assertIn("mc-mesa-stage", html)
+        self.assertIn("mcMesaStage", html)
+        self.assertIn("Solte a foto no quadro", html)
         self.assertIn("Montar conceito", html)
         self.assertIn("Montar cena 1", html)
         self.assertIn("mcMesaSkills", html)
@@ -587,6 +705,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcMesaVersions", html)
         self.assertIn("mcMesaOffer", html)
         self.assertIn("mcMesaTrace", html)
+        self.assertIn("mcMesaOps", html)
+        self.assertIn("Ordem do 15s", html)
+        self.assertIn("Duas passagens no roteiro de 15s", html)
         self.assertIn("mcMesaStrip", html)
         self.assertIn("Abrir Marcas", html)
         js = (root / "aicentralv2" / "static" / "js" / "mc-mesa.js").read_text(encoding="utf-8")
@@ -613,6 +734,16 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("closeScene", js)
         self.assertIn("/mockup", js)
         self.assertIn("logo_visible", js)
+        self.assertIn("function renderOps", js)
+        self.assertIn("function currentOp", js)
+        self.assertIn("function applyStage", js)
+        self.assertIn("function currentFormat", js)
+        self.assertIn("mcFormatMenu", js)
+        self.assertIn("format_groups", js)
+        self.assertIn("formatTouched", js)
+        self.assertIn("--mc-stage-ratio", js)
+        self.assertIn("frame.style.transform = ''", js)
+        self.assertNotIn("1920px", js)
         trocar = (root / "aicentralv2" / "templates" / "parametros" / "_mc_trocar.html").read_text(encoding="utf-8")
         self.assertIn("mcSwapOut", trocar)
         self.assertIn("9:16", trocar)
@@ -621,6 +752,60 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
         self.assertIn("aspect_ratio", swap_js)
         self.assertIn("logo_used", swap_js)
+        placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
+        self.assertIn("mcPlacasWall", placas)
+        self.assertIn("Montar placas", placas)
+        placas_js = (root / "aicentralv2" / "static" / "js" / "mc-placas.js").read_text(encoding="utf-8")
+        self.assertIn("/parametros/api/format-lab/plates", placas_js)
+        self.assertIn("/parametros/api/format-lab/plates/bind", placas_js)
+        self.assertIn("selected_channels", placas_js)
+
+
+class CreativeFormatLabPlatesTest(unittest.TestCase):
+    def test_kit_da_marca_monta_html_e_canais(self):
+        from aicentralv2.creative_format_lab.catalog import plate_kit_formats
+        from aicentralv2.creative_format_lab.plates import build_plate_kit, normalize_bindings, starter_copy
+
+        keys = {item["key"] for item in plate_kit_formats()}
+        self.assertIn("iab-leaderboard", keys)
+        self.assertIn("feed-1x1", keys)
+        self.assertIn("story-9x16", keys)
+        self.assertIn("video-linear-15", keys)
+        copy = starter_copy({
+            "name": "Vivara",
+            "products_services": ["Joias"],
+            "campaign_opportunities": ["O presente que marca o momento"],
+            "brand_summary": "Joia como memória.",
+        })
+        self.assertEqual(copy["brand_name"], "Vivara")
+        self.assertIn("presente", copy["headline"].lower())
+        kit = build_plate_kit({
+            "id": 9,
+            "name": "Vivara",
+            "brand_profile": {
+                "brand_summary": "Joia como memória.",
+                "products_services": ["Joias"],
+                "plate_channels": {"feed-1x1": ["instagram"]},
+            },
+        })
+        self.assertGreaterEqual(len(kit["plates"]), 10)
+        feed = next(item for item in kit["plates"] if item["key"] == "feed-1x1")
+        self.assertIn("layer-headline", feed["html"])
+        self.assertIn("1080×1080", feed["size_label"])
+        self.assertTrue(any(channel["key"] == "instagram" for channel in feed["channels"]))
+        self.assertIn("instagram", feed["selected_channels"])
+        self.assertTrue(feed["checked"])
+        thin = next(item for item in kit["plates"] if item["key"] == "iab-mobile")
+        self.assertEqual(thin["canvas"]["height"], 50)
+        self.assertIn("is-thin", thin["html"])
+        bound = normalize_bindings({
+            "bindings": {
+                "feed-1x1": ["instagram", "portal", "instagram"],
+                "missing": ["ctv"],
+            }
+        })
+        self.assertEqual(bound["feed-1x1"], ["instagram"])
+        self.assertNotIn("missing", bound)
 
 
 class CreativeFormatLabCloseTest(unittest.TestCase):

@@ -15,7 +15,7 @@
   <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
   <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
   <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
-  <details class="mc-desk-drop"{% if mc_page in mc_lab_pages %} open{% endif %}>
+  <details class="mc-desk-drop">
     <summary{% if mc_page in mc_lab_pages %} class="is-current"{% endif %}>Lab 15s</summary>
     <div class="mc-desk-drop-menu">
       <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
@@ -23,6 +23,12 @@
       <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
     </div>
   </details>
+  {% if mc_page == 'mesa' %}
+  <details class="mc-desk-drop" id="mcFormatDrop">
+    <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
+    <div class="mc-desk-drop-menu is-formats" id="mcFormatMenu"></div>
+  </details>
+  {% endif %}
   <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} class="is-current" aria-current="page"{% endif %}>Bancada 2.0</a>
   <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
   <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>

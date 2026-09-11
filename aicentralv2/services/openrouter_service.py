@@ -33,6 +33,29 @@ class OpenRouterError(RuntimeError):
     """Erro seguro e recuperável do provedor."""
 
 
+def _chat_error_message(response):
+    status = getattr(response, "status_code", None)
+    detail = ""
+    try:
+        payload = response.json() if response is not None else {}
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        detail = error.get("message") if isinstance(error, dict) else str(error or "")
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    detail = str(detail or "").strip()
+    if status in (401, 403):
+        return "A credencial OpenRouter não foi aceita."
+    if status == 402:
+        return "O saldo da conta OpenRouter é insuficiente."
+    if status == 429:
+        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "O provedor de IA está indisponível no momento."
+    if detail:
+        return f"O provedor recusou a consulta: {detail[:180]}"
+    return "Não foi possível consultar o provedor de IA."
+
+
 def _api_key() -> str:
     key = os.getenv("OPENROUTER_API_KEY", "").strip()
     if not key:
@@ -87,12 +110,14 @@ def chat_completion(
         "X-Title": "Agente CentralX",
     }
     last_error = None
+    last_response = None
     for attempt in range(2):
         try:
             response = requests.post(
                 OPENROUTER_URL, headers=headers, json=payload,
                 timeout=max(5, min(int(timeout), 90)),
             )
+            last_response = response
             response.raise_for_status()
             result = response.json()
             message = result["choices"][0]["message"]
@@ -103,10 +128,11 @@ def chat_completion(
             }
         except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
             last_error = exc
+            last_response = getattr(exc, "response", None) or last_response
             if attempt == 0 and isinstance(exc, requests.RequestException):
                 continue
             break
-    raise OpenRouterError("Não foi possível consultar o provedor de IA.") from last_error
+    raise OpenRouterError(_chat_error_message(last_response)) from last_error
 
 # Prompt otimizado para transformar texto em FAQ estruturado
 ANALYSIS_PROMPT = {

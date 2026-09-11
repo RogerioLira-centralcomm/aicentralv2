@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 
-from ..creative_modeling_generation import _json_content
+from pydantic import ValidationError
+
+from ..creative_modeling_generation import OpenRouterError, _json_content
 from ..creative_skills.loader import combined_system_prompt, load_bundle
 from ..creative_skills.visual import load_visual_brief, normalize_selected_skills
 from .catalog import (
@@ -23,6 +26,8 @@ from .catalog import (
 from .spec import CreativeFormatSpec, parse_format_spec
 
 ENGINEER_MODEL = os.getenv("CREATIVE_FORMAT_ENGINEER_MODEL", "openai/gpt-5.4")
+logger = logging.getLogger(__name__)
+_MAX_DATA_IMAGE = 2_500_000
 
 
 def normalize_knobs(payload=None, campaign=None):
@@ -95,11 +100,11 @@ def build_spec(
     raw = _call_engineer(system, bundle["texts"]["format"], user, images, text_callable)
     try:
         spec = parse_format_spec(raw)
-        if len(spec.scenes) != knobs["scene_count"]:
-            return apply_copy_locks(fallback, payload_locks(campaign, knobs))
-        return apply_copy_locks(spec, payload_locks(campaign, knobs))
-    except Exception:
-        return apply_copy_locks(fallback, payload_locks(campaign, knobs))
+    except (ValidationError, ValueError) as exc:
+        raise ValueError("O provedor devolveu um conceito inválido.") from exc
+    if len(spec.scenes) != knobs["scene_count"]:
+        raise ValueError("O conceito não veio com o número certo de cenas.")
+    return apply_copy_locks(spec, payload_locks(campaign, knobs))
 
 
 def refine_spec(
@@ -122,7 +127,7 @@ def refine_spec(
         {
             "task": "Pass 2: best 15s concept for this brand and these knobs.",
             "draft": spec.model_dump() if hasattr(spec, "model_dump") else spec,
-            "brand": brand_context or {},
+            "brand": _slim_brand(brand_context),
             "campaign": campaign or {},
             "knobs": knobs,
             "rules": [
@@ -139,11 +144,11 @@ def refine_spec(
     raw = _call_engineer(system, bundle["texts"]["format"], user, images, text_callable)
     try:
         refined = parse_format_spec(raw)
-        if len(refined.scenes) != knobs["scene_count"]:
-            return apply_copy_locks(spec, payload_locks(campaign, knobs))
-        return apply_copy_locks(refined, payload_locks(campaign, knobs))
-    except Exception:
-        return apply_copy_locks(spec, payload_locks(campaign, knobs))
+    except (ValidationError, ValueError) as exc:
+        raise ValueError("O provedor devolveu um conceito inválido.") from exc
+    if len(refined.scenes) != knobs["scene_count"]:
+        raise ValueError("O conceito refinado não veio com o número certo de cenas.")
+    return apply_copy_locks(refined, payload_locks(campaign, knobs))
 
 
 def _fallback_spec(route, intent, variant, brand_name, campaign=None, brand_context=None, knobs=None):
@@ -186,7 +191,8 @@ def _fallback_spec(route, intent, variant, brand_name, campaign=None, brand_cont
         "adapter": route["adapter"],
         "platform_label": route["platform_label"],
         "brand_name": name,
-        "canvas": {"width": 1920, "height": 1080},
+        "canvas": (format_entry(route["format"]) or {}).get("canvas")
+        or {"width": 1920, "height": 1080},
         "scenes": scenes,
         "output": {"type": "html", "layers": True, "animation_ready": True},
     })
@@ -206,8 +212,12 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
             "brand_name": brand_name,
             "user_message": user_message,
             "format_label": entry.get("label"),
+            "canvas": entry.get("canvas") or {"width": 1920, "height": 1080},
+            "size_label": entry.get("size_label") or route.get("platform_label"),
+            "orientation": entry.get("orientation") or "horizontal",
+            "kind": entry.get("kind") or "video",
             "knobs": knobs,
-            "brand": brand_context or {},
+            "brand": _slim_brand(brand_context),
             "campaign": campaign or {},
             "brand_dna": {
                 "id": dna.get("id"),
@@ -222,6 +232,8 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
                 "Duration is 15 seconds. Do not write a 30s film.",
                 "Do not return HTML.",
                 "Do not draw player chrome.",
+                f"Write for canvas {entry.get('size_label') or route.get('platform_label') or '1920×1080'}.",
+                "Banner units keep the same 4 or 5 beats. Horizontal reads left to right. Vertical reads top to bottom.",
                 "Use Marcas payload for tone, forbidden, palette and logo.",
                 "Keep the brand alive in every frame (color, type, tone) even when the logo is off.",
                 "Set logo_visible per scene. The last scene (CTA) always has the logo on, centered.",
@@ -288,24 +300,71 @@ def _key_visual_map(payload):
     return mapping
 
 
+def _usable_image_url(url):
+    if not isinstance(url, str):
+        return False
+    if url.startswith("data:image/") and 32 < len(url) < _MAX_DATA_IMAGE:
+        return True
+    if url.startswith("https://"):
+        return True
+    if url.startswith("http://") and "localhost" not in url and "127.0.0.1" not in url:
+        return True
+    return False
+
+
+def _slim_brand(brand):
+    brand = brand if isinstance(brand, dict) else {}
+    assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
+    line = brand.get("creative_line") if isinstance(brand.get("creative_line"), dict) else {}
+    return {
+        "name": brand.get("name") or "",
+        "sector": brand.get("sector") or "",
+        "tone_of_voice": brand.get("tone_of_voice") or "",
+        "primary_color": brand.get("primary_color") or "",
+        "secondary_color": brand.get("secondary_color") or "",
+        "palette": list(brand.get("palette") or [])[:8],
+        "forbidden_elements": list(brand.get("forbidden_elements") or [])[:8],
+        "mandatory_elements": list(brand.get("mandatory_elements") or [])[:8],
+        "visual_motifs": list(brand.get("visual_motifs") or [])[:8],
+        "products_services": list(brand.get("products_services") or [])[:8],
+        "creative_guidelines": str(brand.get("creative_guidelines") or "")[:400],
+        "brand_summary": str(brand.get("brand_summary") or "")[:400],
+        "logo_url": brand.get("logo_url") if _usable_image_url(brand.get("logo_url")) else "",
+        "creative_line": {
+            "signature_summary": str(line.get("signature_summary") or "")[:240],
+            "copy_patterns": list(line.get("copy_patterns") or [])[:6],
+            "composition_rules": list(line.get("composition_rules") or [])[:6],
+        },
+        "assets": {
+            "logo": [url for url in (assets.get("logo") or []) if _usable_image_url(url)][:2],
+            "references": [url for url in (assets.get("references") or []) if _usable_image_url(url)][:4],
+        },
+    }
+
+
 def _call_engineer(system, format_skill, user, images, text_callable):
+    if text_callable is None:
+        return None
     content = user
-    if images:
-        blocks = [{"type": "text", "text": user}]
-        for url in images or []:
-            if url:
-                blocks.append({"type": "image_url", "image_url": {"url": url}})
-        content = blocks
-    response = text_callable(
-        [
-            {"role": "system", "content": system},
-            {"role": "developer", "content": format_skill},
-            {"role": "user", "content": content},
-        ],
-        model=ENGINEER_MODEL,
-        max_tokens=1800,
-        temperature=0.15,
-    )
+    usable = [url for url in (images or []) if _usable_image_url(url)][:4]
+    if usable:
+        content = [{"type": "text", "text": user}]
+        content.extend({"type": "image_url", "image_url": {"url": url}} for url in usable)
+    try:
+        response = text_callable(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": content},
+            ],
+            model=ENGINEER_MODEL,
+            max_tokens=1800,
+            temperature=0.15,
+        )
+    except OpenRouterError:
+        raise
+    except Exception as exc:
+        logger.exception("Engenheiro do lab não consultou o provedor")
+        raise OpenRouterError("Não foi possível consultar o provedor de IA.") from exc
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if isinstance(raw, dict):
         return raw
@@ -314,4 +373,10 @@ def _call_engineer(system, format_skill, user, images, text_callable):
     try:
         return _json_content(raw)
     except Exception:
-        return json.loads(raw)
+        try:
+            parsed = json.loads(raw)
+        except Exception as exc:
+            raise OpenRouterError("O provedor não devolveu o conceito em JSON.") from exc
+        if not isinstance(parsed, dict):
+            raise OpenRouterError("O provedor não devolveu o conceito em JSON.")
+        return parsed

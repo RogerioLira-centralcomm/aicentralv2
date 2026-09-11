@@ -120,7 +120,7 @@ MC_DESKS = {
     },
     "mesa": {
         "title": "Mesa de Conceito",
-        "lead": "15 segundos. A marca viva no quadro. O filme fica para depois.",
+        "lead": "Conceito, base, cena, fecha e aprova — nesta ordem.",
         "panel": "parametros/_mc_mesa.html",
         "studio": False,
         "page_js": "js/mc-mesa.js",
@@ -132,10 +132,11 @@ MC_DESKS = {
         "studio": False,
     },
     "placas": {
-        "title": "Placas do 15s",
-        "lead": "Três composições. A marca preenche. O canal não entra.",
+        "title": "Placas da marca",
+        "lead": "A marca entra. Os retângulos aparecem juntos. Você liga cada um ao canal.",
         "panel": "parametros/_mc_placas.html",
         "studio": False,
+        "page_js": "js/mc-placas.js",
     },
     "trocar": {
         "title": "Trocar anúncio",
@@ -248,6 +249,20 @@ def api_format_lab_patch(session_id):
                 session_id, _json(), session.get("user_id")
             )
         )
+    )
+
+
+@admin_required_api
+def api_format_lab_plates():
+    return _execute(
+        lambda: _ok(_service().format_lab_plates(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_plates_bind():
+    return _execute(
+        lambda: _ok(_service().bind_format_lab_plates(_json(), session.get("user_id")))
     )
 
 
@@ -1025,6 +1040,18 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-lab/sessions/<session_id>",
         endpoint="creative_format_lab_session",
         view_func=api_format_lab_session,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/plates",
+        endpoint="creative_format_lab_plates",
+        view_func=api_format_lab_plates,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/plates/bind",
+        endpoint="creative_format_lab_plates_bind",
+        view_func=api_format_lab_plates_bind,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/swap",

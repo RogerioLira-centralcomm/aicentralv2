@@ -14,10 +14,12 @@
 
   const state = {
     formats: [],
+    formatGroups: [],
     models: [],
     clients: [],
     clientId: '',
     formatKey: 'video-linear-15',
+    formatTouched: false,
     variant: 'A',
     sceneCount: 4,
     objective: 'Reconhecimento',
@@ -74,6 +76,7 @@
         fetch(API.clients, { credentials: 'same-origin' }).then(readJson),
       ]);
       state.formats = catalog.formats || [];
+      state.formatGroups = catalog.format_groups || [];
       state.models = catalog.campaigns || [];
       state.clients = clients || [];
       state.quote = catalog.quote || null;
@@ -88,6 +91,7 @@
       renderSkills();
       renderCost();
       autofillVivara();
+      renderOps();
       fitStage();
     } catch (error) {
       setStatus(error.message);
@@ -182,6 +186,14 @@
       renderLayers();
     });
     window.addEventListener('resize', fitStage);
+    document.querySelectorAll('.mc-desk-nav details').forEach((item) => {
+      item.addEventListener('toggle', () => {
+        if (!item.open) return;
+        document.querySelectorAll('.mc-desk-nav details').forEach((other) => {
+          if (other !== item) other.removeAttribute('open');
+        });
+      });
+    });
   }
 
   function knobs() {
@@ -225,7 +237,7 @@
     if (match) {
       state.campaignSlug = match.slug;
       state.campaign = state.models.find((item) => item.slug === match.slug) || null;
-      if (state.campaign?.format) state.formatKey = state.campaign.format;
+      if (!state.formatTouched && state.campaign?.format) state.formatKey = state.campaign.format;
     } else {
       state.campaignSlug = '';
       state.campaign = null;
@@ -255,7 +267,7 @@
       const select = $('mcMesaClient');
       if (select) select.value = state.clientId;
     }
-    if (state.campaign?.format) state.formatKey = state.campaign.format;
+    if (!state.formatTouched && state.campaign?.format) state.formatKey = state.campaign.format;
     if (state.campaign?.variant) state.variant = state.campaign.variant;
     if (state.campaign?.offer || state.campaign?.title) {
       state.offer = state.campaign.offer || state.campaign.title;
@@ -298,18 +310,73 @@
     }).join('');
   }
 
+  function currentFormat() {
+    return (state.formats || []).find((item) => item.key === state.formatKey) || {
+      key: 'video-linear-15',
+      label: 'Video 15s',
+      size_label: '1920×1080',
+      aspect_ratio: '16:9',
+      orientation: 'horizontal',
+      group: '15s',
+      kind: 'video',
+    };
+  }
+
+  function applyStage() {
+    const format = currentFormat();
+    const viewport = $('mcMesaViewport');
+    const [width, height] = String(format.aspect_ratio || '16:9').split(':').map(Number);
+    if (viewport && width && height) {
+      viewport.style.setProperty('--mc-stage-ratio', `${width} / ${height}`);
+      viewport.classList.toggle('is-vertical', height > width);
+      viewport.classList.toggle('is-wide', width / height >= 3);
+    }
+    const summary = $('mcFormatSummary');
+    if (summary) {
+      summary.textContent = `${format.label} · ${format.size_label || format.platform_label || format.aspect_ratio}`;
+    }
+    const stage = $('mcMesaStage');
+    if (stage) {
+      stage.setAttribute('aria-label', `Palco ${format.size_label || format.aspect_ratio}`);
+    }
+    const title = document.querySelector('#mcMesaDrop .mc-mesa-plate strong');
+    const drop = document.querySelector('#mcMesaDrop .mc-mesa-plate span');
+    if (title) {
+      title.textContent = format.kind === 'banner'
+        ? `Monte o banner ${format.size_label}`
+        : 'Escolha o key visual e monte o 15s';
+    }
+    if (drop) {
+      drop.textContent = format.kind === 'banner'
+        ? `Quatro ou cinco cenas no retângulo ${format.size_label}.`
+        : 'Solte a foto no quadro. O still fica 16:9.';
+    }
+  }
+
   function renderFormats() {
-    const list = $('mcMesaFormats');
-    if (!list) return;
-    list.innerHTML = state.formats.map((item) => (
-      `<button type="button" data-format="${item.key}" class="${item.key === state.formatKey ? 'is-current' : ''}">${item.label}</button>`
-    )).join('');
-    list.querySelectorAll('[data-format]').forEach((button) => {
-      button.addEventListener('click', () => {
-        state.formatKey = button.getAttribute('data-format');
-        renderFormats();
+    const groups = state.formatGroups || [];
+    const menu = $('mcFormatMenu');
+    if (menu) {
+      const order = groups.length
+        ? groups
+        : [{ key: '15s', label: '15s na TV' }];
+      menu.innerHTML = order.map((group) => {
+        const items = (state.formats || []).filter((item) => (item.group || '15s') === group.key);
+        if (!items.length) return '';
+        return `<p class="mc-format-group">${group.label}</p>` + items.map((item) => (
+          `<button type="button" data-format="${item.key}" class="${item.key === state.formatKey ? 'is-current' : ''}">${item.label} · ${item.size_label || ''}</button>`
+        )).join('');
+      }).join('');
+      menu.querySelectorAll('[data-format]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.formatKey = button.getAttribute('data-format');
+          state.formatTouched = true;
+          $('mcFormatDrop')?.removeAttribute('open');
+          renderFormats();
+        });
       });
-    });
+    }
+    applyStage();
   }
 
   function renderObjectives() {
@@ -508,12 +575,40 @@
     }).join('');
   }
 
+  function currentOp() {
+    if (state.session?.qa?.passed || state.session?.closed?.png_data_url) return 'approve';
+    const sceneReady = (state.session?.scenes || []).some(
+      (item) => item.id === state.sceneId && (item.html || item.stack)
+    );
+    if (sceneReady) return 'close';
+    if (state.session?.base_html) return 'scene';
+    if (state.storyboard.length) return 'base';
+    return 'concept';
+  }
+
+  function renderOps(busy) {
+    const root = $('mcMesaOps');
+    if (!root) return;
+    const order = ['concept', 'base', 'scene', 'close', 'approve'];
+    const active = currentOp();
+    const idx = order.indexOf(active);
+    root.querySelectorAll('[data-op]').forEach((item) => {
+      const op = item.getAttribute('data-op');
+      const position = order.indexOf(op);
+      item.classList.toggle('is-current', op === active);
+      item.classList.toggle('is-done', position > -1 && position < idx);
+      item.classList.toggle('is-waiting', position > idx);
+      item.classList.toggle('is-busy', Boolean(busy) && op === busy);
+    });
+  }
+
   function renderTrace(steps) {
     const list = $('mcMesaTrace');
     if (!list) return;
     list.innerHTML = (steps || []).map((item) => (
       `<li data-status="${item.status || 'queued'}"><strong>${item.label || item.id}</strong></li>`
     )).join('');
+    renderOps();
   }
 
   function renderLayers() {
@@ -566,11 +661,12 @@
   async function mountConcept() {
     try {
       $('mcMesaAnalyze').disabled = true;
+      renderOps('concept');
       renderTrace([
         { id: 'create', label: 'Conceito', status: 'running' },
         { id: 'refine', label: 'Melhor roteiro', status: 'queued' },
       ]);
-      setStatus('Duas passagens no roteiro de 15s.');
+      setStatus('Passo 1: duas passagens no roteiro de 15s.');
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/storyboard`, {
         method: 'POST',
@@ -593,23 +689,26 @@
       renderEdit();
       const first = state.storyboard[0];
       $('mcMesaCaption').textContent = first?.headline || '';
-      setStatus('Conceito pronto. Monte a cena 1 em HTML — o QA visual entra em seguida.');
+      setStatus('Conceito pronto. Passo 2: modele a base em HTML.');
       revealStrip();
+      renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaAnalyze').disabled = !state.clientId;
+      renderOps();
     }
   }
 
   async function modelBase() {
     try {
       $('mcMesaMockup').disabled = true;
+      renderOps('base');
       renderTrace([
         { id: 'm1', label: 'Mockup v1', status: 'running' },
         { id: 'm2', label: 'v2 · 4o-mini', status: 'queued' },
         { id: 'm3', label: 'v3 · 4o-mini', status: 'queued' },
       ]);
-      setStatus('Modelando o HTML preto com a marca — até 3 passes baratos.');
+      setStatus('Passo 2: modelando o HTML da marca — até 3 passes.');
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/mockup`, {
         method: 'POST',
@@ -625,10 +724,12 @@
       $('mcMesaGenerate').disabled = !data.base_html;
       $('mcMesaMockup').disabled = false;
       labelGenerate();
-      setStatus('Base modelada. Gere a cena 1 em cima deste HTML. O QA visual compara 3 versões.');
+      setStatus('Base pronta. Passo 3: gere a cena — o QA compara 3 versões.');
+      renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaMockup').disabled = !state.storyboard.length;
+      renderOps();
     }
   }
 
@@ -639,12 +740,13 @@
         if (!state.session?.base_html) return;
       }
       $('mcMesaGenerate').disabled = true;
+      renderOps('scene');
       renderTrace([
         { id: 'v1', label: `${state.sceneId} v1`, status: 'running' },
         { id: 'v2', label: 'v2', status: 'queued' },
         { id: 'v3', label: 'v3', status: 'queued' },
       ]);
-      setStatus(`Gerando ${state.sceneId} — loop de 3 versões.`);
+      setStatus(`Passo 3: gerando ${state.sceneId} — loop de 3 versões.`);
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/run`, {
         method: 'POST',
@@ -665,10 +767,12 @@
       $('mcMesaClose').disabled = !data.scenes?.some((item) => item.id === state.sceneId && item.html);
       $('mcMesaGenerate').disabled = !state.clientId;
       labelGenerate();
+      renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaGenerate').disabled = !state.clientId;
       labelGenerate();
+      renderOps();
     }
   }
 
@@ -726,7 +830,8 @@
   async function closeScene() {
     try {
       $('mcMesaClose').disabled = true;
-      setStatus('Fechando o still: fundo, camadas e margem segura.');
+      renderOps('close');
+      setStatus('Passo 4: fechando o still — fundo, camadas e margem segura.');
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/close`, {
         method: 'POST',
@@ -743,12 +848,14 @@
       const report = data.closed?.guidelines || {};
       setStatus(
         report.passed
-          ? 'Still fechado no 1920×1080. Margem e guidelines ok. Pronto para animar depois.'
+          ? 'Still fechado no 1920×1080. Passo 5: aprove para a Bancada.'
           : (report.defects || []).join(' ') || 'Still fechado. Revise a margem.'
       );
+      renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaClose').disabled = false;
+      renderOps();
     }
   }
 
@@ -774,6 +881,7 @@
     }
     renderStrip();
     renderTrace(data.trace?.steps || data.passes || []);
+    renderOps();
     renderLayers();
     renderCost();
     const defects = $('mcMesaDefects');
@@ -838,16 +946,12 @@
   }
 
   function fitStage() {
-    const viewport = $('mcMesaViewport');
     const frame = $('mcMesaFrameWrap');
-    if (!viewport || !frame) return;
-    const width = viewport.clientWidth - 24;
-    const height = viewport.clientHeight - 24;
-    const zoom = Math.min(width / 1920, height / 1080, 1);
-    state.zoom = zoom > 0 ? zoom : 1;
-    frame.style.width = '1920px';
-    frame.style.height = '1080px';
-    frame.style.transform = `scale(${state.zoom})`;
+    if (!frame) return;
+    frame.style.width = '';
+    frame.style.height = '';
+    frame.style.transform = '';
+    state.zoom = 1;
   }
 
   function revealStrip() {

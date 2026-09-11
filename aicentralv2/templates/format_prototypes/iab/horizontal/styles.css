@@ -1,0 +1,103 @@
+:root{
+  --void:#16181d;
+  --plate:#16181d;
+  --hair:#2a2d33;
+  --paper:#f3f1ec;
+  --ink:var(--brand-ink,#f3f1ec);
+  --muted:var(--brand-muted,#8b8680);
+  --brand-ink:#f3f1ec;
+  --brand-accent:#c4a574;
+  --brand-muted:#8b8680;
+  --brand-paper:#f3f1ec;
+  --logo:none;
+  --brand-face:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --stage-ratio:97 / 25;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#d5dce4;color:#1a2330;font-family:Arial,Helvetica,sans-serif}
+body{padding:24px}
+.wrap{max-width:1100px;margin:0 auto}
+.header{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:14px}
+.header h1{margin:0;font-size:16px}
+.header p{margin:0;color:#5c6b7a;font-size:12px}
+.stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:var(--stage-ratio,97 / 25);
+  background:var(--void);
+  overflow:hidden;
+  border:1px solid var(--hair);
+}
+.layer{position:absolute}
+.safe{inset:8%;border:1px solid rgba(243,241,236,.1);pointer-events:none}
+.brand{
+  top:12%;
+  left:4%;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  z-index:12;
+  font-size:14px;
+  color:var(--brand-paper);
+  font-family:var(--brand-face);
+}
+.brand-mark{width:28px;height:2px;background:var(--brand-accent)}
+.brand-mark.has-logo{
+  width:36px;
+  height:36px;
+  background-color:transparent;
+  background-image:var(--logo);
+  background-size:contain;
+  background-repeat:no-repeat;
+}
+.platform{top:12%;right:4%;z-index:12;font-size:10px;color:var(--muted)}
+.copy{left:4%;top:36%;width:42%;z-index:12}
+.copy h2{
+  margin:0 0 8px;
+  font-size:clamp(18px,3.6vw,42px);
+  line-height:.95;
+  font-weight:500;
+  color:var(--brand-paper);
+  font-family:var(--brand-face);
+}
+.copy p{margin:0;max-width:28ch;color:var(--paper);font-size:13px;line-height:1.3;opacity:.86}
+.cta{
+  left:4%;
+  bottom:14%;
+  border-bottom:1px solid var(--brand-accent);
+  color:var(--brand-ink);
+  font-size:13px;
+  z-index:13;
+  font-family:var(--brand-face);
+}
+.beat{left:4%;right:4%;bottom:6%;height:3px;z-index:8}
+.beat .bar{position:relative;height:100%;background:#2a2d33}
+.beat .bar span{position:absolute;left:0;top:0;bottom:0;background:var(--brand-accent)}
+.key-visual{
+  left:48%;
+  top:8%;
+  width:50%;
+  height:84%;
+  z-index:3;
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center right;
+}
+.stage.plate-hero .key-visual{inset:0;width:100%;height:100%;background-size:cover;background-position:center}
+.stage.plate-hero .copy{width:46%}
+.stage.plate-center .brand{left:50%;transform:translateX(-50%)}
+.stage.plate-center .copy{left:8%;width:84%;text-align:center;top:28%}
+.stage.plate-center .cta{left:50%;transform:translateX(-50%);bottom:16%}
+.stage.is-thin .copy{top:22%;width:58%}
+.stage.is-thin .copy h2{font-size:18px;margin:0}
+.stage.is-thin .copy p{display:none}
+.stage.is-thin .brand{top:18%}
+.stage.is-thin .cta{bottom:18%}
+.stage.is-thin .key-visual{left:62%;width:34%;height:70%;top:15%}
+.note,.layers{margin-top:12px;background:#fff;border:1px solid #d5dce4;padding:12px 14px;font-size:13px}
+.layers-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.badge{display:inline-block;margin-right:6px;font-size:10px;color:#64748b}
+body.render{padding:0;background:#111}
+body.render .header,body.render .note,body.render .layers{display:none}
+body.render .wrap{display:block;max-width:none}
+body.render .stage{border:0}

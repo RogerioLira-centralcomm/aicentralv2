@@ -10,6 +10,7 @@ from .catalog import (
     ADAPTERS,
     CTA_DEFAULTS,
     SCENE_FILES,
+    format_entry,
     is_cta_format,
     is_end_card,
     is_qr_format,
@@ -19,7 +20,7 @@ from .catalog import (
 from .spec import CreativeFormatSpec
 
 PROTOTYPE_ROOT = (
-    Path(__file__).resolve().parent.parent / "templates" / "format_prototypes" / "ctv"
+    Path(__file__).resolve().parent.parent / "templates" / "format_prototypes"
 )
 _BODY_RE = re.compile(r"<body([^>]*)>", re.IGNORECASE)
 _LINK_CSS = '<link rel="stylesheet" href="styles.css">'
@@ -27,12 +28,12 @@ _LINK_CSS = '<link rel="stylesheet" href="styles.css">'
 
 def prototype_dir(adapter):
     name = str(adapter or "generic_ctv")
-    if name not in ADAPTERS:
-        name = "generic_ctv"
-    path = PROTOTYPE_ROOT / name
+    entry = ADAPTERS.get(name) or ADAPTERS["generic_ctv"]
+    relative = entry.get("prototype") or f"ctv/{name}"
+    path = PROTOTYPE_ROOT / relative
     if path.is_dir():
         return path
-    return PROTOTYPE_ROOT / "generic_ctv"
+    return PROTOTYPE_ROOT / "ctv" / "generic_ctv"
 
 
 def load_prototype_html(adapter, scene_id, brand_prototypes=None):
@@ -69,9 +70,10 @@ def build_scene_html(
     inherited = brand_style_from_base(base_html) if base_html and not mockup else ""
     html_text = html_text.replace(
         _LINK_CSS,
-        f"<style>\n{css}\n{extras}\n{inherited}\n</style>",
+        f"<style>\n{css}\n{_canvas_css(spec)}\n{extras}\n{inherited}\n</style>",
     )
     html_text = ensure_system_layers(html_text, qr=is_qr_format(spec.format))
+    html_text = apply_stage_shape(html_text, spec)
     if render:
         html_text = _BODY_RE.sub(lambda match: _body_tag(match.group(1)), html_text, count=1)
     html_text = _replace_text(html_text, "layer-platform", spec.platform_label)
@@ -154,6 +156,38 @@ def _brand_override(brand_prototypes, adapter, scene_id):
 
 def _css_url(url):
     return str(url or "").replace("\\", "\\\\").replace("'", "%27")
+
+
+def _canvas_css(spec):
+    width = int(getattr(spec.canvas, "width", 1920) or 1920)
+    height = int(getattr(spec.canvas, "height", 1080) or 1080)
+    return f":root{{--stage-ratio:{width} / {height};--stage-w:{width}px;--stage-h:{height}px}}"
+
+
+def apply_stage_shape(html_text, spec):
+    width = int(getattr(spec.canvas, "width", 1920) or 1920)
+    height = int(getattr(spec.canvas, "height", 1080) or 1080)
+    extras = []
+    if height <= 100:
+        extras.append("is-thin")
+    if width / max(height, 1) >= 3:
+        extras.append("is-wide")
+    if height > width:
+        extras.append("is-tall")
+    entry = format_entry(spec.format) or {}
+    if entry.get("kind") == "banner":
+        extras.append("is-banner")
+    if not extras:
+        return html_text
+
+    def _swap(match):
+        classes = match.group(1)
+        for name in extras:
+            if name not in classes.split():
+                classes = f"{classes} {name}"
+        return f'class="{classes}"'
+
+    return re.sub(r'class="(stage[^"]*)"', _swap, str(html_text or ""), count=1)
 
 
 def apply_plate_layout(html_text, layout):

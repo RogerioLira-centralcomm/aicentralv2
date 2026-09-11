@@ -9,6 +9,20 @@ FORMAT_SKILL_KEYS = (
     "video-qr-15",
     "ctv-video-linear-30",
     "ctv-video-qr",
+    "iab-banner",
+    "iab-billboard",
+    "iab-leaderboard",
+    "iab-medium",
+    "iab-halfpage",
+    "iab-skyscraper",
+    "iab-mobile",
+    "feed-1x1",
+    "feed-4x5",
+    "story-9x16",
+    "reels-9x16",
+    "shorts-9x16",
+    "linkedin-landscape",
+    "youtube-infeed",
 )
 
 PACK_BY_INTENT = {
@@ -30,6 +44,20 @@ FORMAT_SKILL_PATHS = {
     "video-qr-15": "formats/ctv-qr/SKILL.md",
     "ctv-video-qr": "formats/ctv-qr/SKILL.md",
     "ctv-qr": "formats/ctv-qr/SKILL.md",
+    "iab-billboard": "formats/iab-banner/SKILL.md",
+    "iab-leaderboard": "formats/iab-banner/SKILL.md",
+    "iab-medium": "formats/iab-banner/SKILL.md",
+    "iab-halfpage": "formats/iab-banner/SKILL.md",
+    "iab-skyscraper": "formats/iab-banner/SKILL.md",
+    "iab-mobile": "formats/iab-banner/SKILL.md",
+    "iab-banner": "formats/iab-banner/SKILL.md",
+    "feed-1x1": "formats/iab-banner/SKILL.md",
+    "feed-4x5": "formats/iab-banner/SKILL.md",
+    "story-9x16": "formats/iab-banner/SKILL.md",
+    "reels-9x16": "formats/iab-banner/SKILL.md",
+    "shorts-9x16": "formats/iab-banner/SKILL.md",
+    "linkedin-landscape": "formats/iab-banner/SKILL.md",
+    "youtube-infeed": "formats/video-15/SKILL.md",
 }
 
 _LEGACY_FORMAT_FILES = {
@@ -90,7 +118,12 @@ def resolve_pack(intent, format_key, has_reference=False):
     if key == "reconstruct" and not has_reference:
         key = "create"
     packs = list(PACK_BY_INTENT[key])
-    format_id = "ctv-qr" if str(format_key or "").endswith("qr") or str(format_key or "").endswith("qr-15") else "video-15"
+    if str(format_key or "").endswith("qr") or str(format_key or "").endswith("qr-15"):
+        format_id = "ctv-qr"
+    elif str(format_key or "").startswith(("iab-", "feed-", "story-", "reels-", "shorts-", "linkedin-")):
+        format_id = "iab-banner"
+    else:
+        format_id = "video-15"
     skills = [
         {"id": "orchestrator", "kind": "orchestrator", "label": "Orquestrador", "path": "orchestrator/SKILL.md"},
     ]

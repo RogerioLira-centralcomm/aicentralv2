@@ -9,6 +9,7 @@ from .catalog import catalog_payload
 from .close import close_scene
 from .pipeline import apply_manual_patch, new_session_id, run_session
 from .swap import quote_swap, read_swap_reference, swap_reference
+from .plates import build_plate_kit, normalize_bindings
 from .storyboard import build_storyboard, quote_concept
 
 
@@ -56,6 +57,33 @@ class FormatLabService:
 
     def list_campaigns(self):
         return _serialize(list_campaign_models())
+
+    def build_plates(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = _integer(payload.get("client_id"), "Cliente")
+        client = self._client(client_id)
+        kit = build_plate_kit(
+            client,
+            text_callable=self._text_callable(payload),
+        )
+        kit["client_id"] = client_id
+        return _serialize(kit)
+
+    def bind_plates(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = _integer(payload.get("client_id"), "Cliente")
+        client = self._client(client_id)
+        bindings = normalize_bindings(payload)
+        profile = dict(client.get("brand_profile") or {})
+        profile["plate_channels"] = bindings
+        updater = getattr(self.repository, "update_client_brand_profile", None)
+        if callable(updater):
+            updater(client_id, profile)
+        elif hasattr(self.modeling, "repository") and hasattr(self.modeling.repository, "update_client_brand_profile"):
+            self.modeling.repository.update_client_brand_profile(client_id, profile)
+        kit = build_plate_kit( {**client, "brand_profile": profile}, bindings=bindings)
+        kit["client_id"] = client_id
+        return _serialize(kit)
 
     def get_campaign_model(self, slug):
         model = load_campaign_model(slug)

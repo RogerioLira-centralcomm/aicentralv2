@@ -7,17 +7,9 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .catalog import resolve_format_key
+from .catalog import format_entry, resolve_format_key
 
 Intent = Literal["reconstruct", "create", "adapt", "refine", "vary", "html"]
-FormatKey = Literal[
-    "video-linear-15",
-    "video-cta-15",
-    "video-qr-15",
-    "ctv-video-linear-30",
-    "ctv-video-cta",
-    "ctv-video-qr",
-]
 VariantKey = Literal["A", "B", "C", "D"]
 _HTML_MARK = re.compile(r"<!doctype\s+html|<html[\s>]|</html>", re.IGNORECASE)
 
@@ -38,7 +30,7 @@ class CanvasSpec(BaseModel):
     @classmethod
     def _size(cls, value):
         number = int(value)
-        if number < 320 or number > 3840:
+        if number < 40 or number > 3840:
             raise ValueError("Canvas fora do intervalo.")
         return number
 
@@ -86,7 +78,7 @@ class OutputSpec(BaseModel):
 class CreativeFormatSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     intent: Intent = "create"
-    format: FormatKey
+    format: str
     variant: VariantKey = "A"
     adapter: str = "generic_ctv"
     platform_label: str = "16:9"
@@ -98,7 +90,10 @@ class CreativeFormatSpec(BaseModel):
     @field_validator("format")
     @classmethod
     def _format(cls, value):
-        return resolve_format_key(value)
+        key = resolve_format_key(value)
+        if not format_entry(key):
+            raise ValueError("Formato inválido.")
+        return key
 
     @field_validator("brand_name", "platform_label", "adapter")
     @classmethod

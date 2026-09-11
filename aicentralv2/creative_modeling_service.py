@@ -1065,6 +1065,12 @@ class CreativeModelingService:
     def format_lab_campaign(self, slug):
         return self._format_lab().get_campaign_model(slug)
 
+    def format_lab_plates(self, payload, user_id=None):
+        return self._format_lab().build_plates(payload, user_id=user_id)
+
+    def bind_format_lab_plates(self, payload, user_id=None):
+        return self._format_lab().bind_plates(payload, user_id=user_id)
+
     def storyboard_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().storyboard(session_id, payload, user_id=user_id)
 

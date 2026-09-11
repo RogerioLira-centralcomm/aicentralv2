@@ -1,4 +1,4 @@
-"""Catálogo do experimento 15s — formatos, adapters e composições 4|5."""
+"""Catálogo 15s: CTV e banners IAB, adapters e composições 4|5."""
 
 from ..creative_skills.visual import list_visual_skills
 
@@ -13,6 +13,11 @@ FORMATS = (
         "adapter": "generic_ctv",
         "platform_label": "16:9",
         "canvas": {"width": 1920, "height": 1080},
+        "aspect_ratio": "16:9",
+        "orientation": "horizontal",
+        "size_label": "1920×1080",
+        "group": "15s",
+        "kind": "video",
         "duration": 15,
         "has_qr": False,
         "has_cta_scene": True,
@@ -24,6 +29,11 @@ FORMATS = (
         "adapter": "generic_ctv",
         "platform_label": "16:9",
         "canvas": {"width": 1920, "height": 1080},
+        "aspect_ratio": "16:9",
+        "orientation": "horizontal",
+        "size_label": "1920×1080",
+        "group": "15s",
+        "kind": "video",
         "duration": 15,
         "has_qr": False,
         "has_cta_scene": True,
@@ -35,8 +45,221 @@ FORMATS = (
         "adapter": "youtube_ctv",
         "platform_label": "16:9",
         "canvas": {"width": 1920, "height": 1080},
+        "aspect_ratio": "16:9",
+        "orientation": "horizontal",
+        "size_label": "1920×1080",
+        "group": "15s",
+        "kind": "video",
         "duration": 15,
         "has_qr": True,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-billboard",
+        "family": "iab-horizontal",
+        "label": "Billboard",
+        "adapter": "iab_horizontal",
+        "platform_label": "970×250",
+        "canvas": {"width": 970, "height": 250},
+        "aspect_ratio": "97:25",
+        "orientation": "horizontal",
+        "size_label": "970×250",
+        "group": "horizontal",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-leaderboard",
+        "family": "iab-horizontal",
+        "label": "Leaderboard",
+        "adapter": "iab_horizontal",
+        "platform_label": "728×90",
+        "canvas": {"width": 728, "height": 90},
+        "aspect_ratio": "728:90",
+        "orientation": "horizontal",
+        "size_label": "728×90",
+        "group": "horizontal",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-medium",
+        "family": "iab-box",
+        "label": "Medium rectangle",
+        "adapter": "iab_box",
+        "platform_label": "300×250",
+        "canvas": {"width": 300, "height": 250},
+        "aspect_ratio": "6:5",
+        "orientation": "horizontal",
+        "size_label": "300×250",
+        "group": "retangulo",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-halfpage",
+        "family": "iab-vertical",
+        "label": "Half page",
+        "adapter": "iab_vertical",
+        "platform_label": "300×600",
+        "canvas": {"width": 300, "height": 600},
+        "aspect_ratio": "1:2",
+        "orientation": "vertical",
+        "size_label": "300×600",
+        "group": "vertical",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-skyscraper",
+        "family": "iab-vertical",
+        "label": "Skyscraper",
+        "adapter": "iab_vertical",
+        "platform_label": "160×600",
+        "canvas": {"width": 160, "height": 600},
+        "aspect_ratio": "4:15",
+        "orientation": "vertical",
+        "size_label": "160×600",
+        "group": "vertical",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "iab-mobile",
+        "family": "iab-horizontal",
+        "label": "Mobile banner",
+        "adapter": "iab_horizontal",
+        "platform_label": "320×50",
+        "canvas": {"width": 320, "height": 50},
+        "aspect_ratio": "32:5",
+        "orientation": "horizontal",
+        "size_label": "320×50",
+        "group": "horizontal",
+        "kind": "banner",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "feed-1x1",
+        "family": "social-square",
+        "label": "Feed 1:1",
+        "adapter": "iab_box",
+        "platform_label": "1080×1080",
+        "canvas": {"width": 1080, "height": 1080},
+        "aspect_ratio": "1:1",
+        "orientation": "square",
+        "size_label": "1080×1080",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "feed-4x5",
+        "family": "social-portrait",
+        "label": "Feed 4:5",
+        "adapter": "iab_box",
+        "platform_label": "1080×1350",
+        "canvas": {"width": 1080, "height": 1350},
+        "aspect_ratio": "4:5",
+        "orientation": "vertical",
+        "size_label": "1080×1350",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "story-9x16",
+        "family": "social-story",
+        "label": "Stories",
+        "adapter": "iab_vertical",
+        "platform_label": "1080×1920",
+        "canvas": {"width": 1080, "height": 1920},
+        "aspect_ratio": "9:16",
+        "orientation": "vertical",
+        "size_label": "1080×1920",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "reels-9x16",
+        "family": "social-story",
+        "label": "Reels",
+        "adapter": "iab_vertical",
+        "platform_label": "1080×1920",
+        "canvas": {"width": 1080, "height": 1920},
+        "aspect_ratio": "9:16",
+        "orientation": "vertical",
+        "size_label": "1080×1920",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "shorts-9x16",
+        "family": "social-story",
+        "label": "Shorts",
+        "adapter": "iab_vertical",
+        "platform_label": "1080×1920",
+        "canvas": {"width": 1080, "height": 1920},
+        "aspect_ratio": "9:16",
+        "orientation": "vertical",
+        "size_label": "1080×1920",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "linkedin-landscape",
+        "family": "social-landscape",
+        "label": "LinkedIn",
+        "adapter": "iab_horizontal",
+        "platform_label": "1200×627",
+        "canvas": {"width": 1200, "height": 627},
+        "aspect_ratio": "1200:627",
+        "orientation": "horizontal",
+        "size_label": "1200×627",
+        "group": "social",
+        "kind": "social",
+        "duration": 15,
+        "has_qr": False,
+        "has_cta_scene": True,
+    },
+    {
+        "key": "youtube-infeed",
+        "family": "horizontal-15",
+        "label": "In-feed 16:9",
+        "adapter": "generic_ctv",
+        "platform_label": "1920×1080",
+        "canvas": {"width": 1920, "height": 1080},
+        "aspect_ratio": "16:9",
+        "orientation": "horizontal",
+        "size_label": "1920×1080",
+        "group": "15s",
+        "kind": "video",
+        "duration": 15,
+        "has_qr": False,
         "has_cta_scene": True,
     },
 )
@@ -48,10 +271,92 @@ FORMAT_ALIASES = {
 }
 
 ADAPTERS = {
-    "generic_ctv": {"label": "Generic CTV", "platform_label": "16:9"},
-    "netflix": {"label": "Netflix", "platform_label": "NETFLIX"},
-    "youtube_ctv": {"label": "YouTube CTV", "platform_label": "YOUTUBE CTV"},
+    "generic_ctv": {
+        "label": "Generic CTV",
+        "platform_label": "16:9",
+        "prototype": "ctv/generic_ctv",
+    },
+    "netflix": {
+        "label": "Netflix",
+        "platform_label": "NETFLIX",
+        "prototype": "ctv/netflix",
+    },
+    "youtube_ctv": {
+        "label": "YouTube CTV",
+        "platform_label": "YOUTUBE CTV",
+        "prototype": "ctv/youtube_ctv",
+    },
+    "iab_horizontal": {
+        "label": "IAB horizontal",
+        "platform_label": "IAB",
+        "prototype": "iab/horizontal",
+    },
+    "iab_vertical": {
+        "label": "IAB vertical",
+        "platform_label": "IAB",
+        "prototype": "iab/vertical",
+    },
+    "iab_box": {
+        "label": "IAB retângulo",
+        "platform_label": "IAB",
+        "prototype": "iab/box",
+    },
 }
+
+FORMAT_GROUPS = (
+    {"key": "15s", "label": "15s na TV"},
+    {"key": "horizontal", "label": "Faixa horizontal"},
+    {"key": "vertical", "label": "Coluna vertical"},
+    {"key": "retangulo", "label": "Retângulo"},
+    {"key": "social", "label": "Social"},
+)
+
+CHANNELS = (
+    {"key": "ctv", "label": "CTV"},
+    {"key": "youtube", "label": "YouTube"},
+    {"key": "programmatic", "label": "Programática"},
+    {"key": "portal", "label": "Portal"},
+    {"key": "instagram", "label": "Instagram"},
+    {"key": "facebook", "label": "Facebook"},
+    {"key": "tiktok", "label": "TikTok"},
+    {"key": "linkedin", "label": "LinkedIn"},
+)
+
+FORMAT_CHANNELS = {
+    "video-linear-15": ("ctv", "youtube"),
+    "video-cta-15": ("ctv", "youtube"),
+    "video-qr-15": ("youtube",),
+    "youtube-infeed": ("youtube",),
+    "iab-billboard": ("portal", "programmatic"),
+    "iab-leaderboard": ("portal", "programmatic"),
+    "iab-mobile": ("portal", "programmatic"),
+    "iab-medium": ("portal", "programmatic"),
+    "iab-halfpage": ("portal", "programmatic"),
+    "iab-skyscraper": ("portal", "programmatic"),
+    "feed-1x1": ("instagram", "facebook", "linkedin"),
+    "feed-4x5": ("instagram", "facebook"),
+    "story-9x16": ("instagram", "facebook"),
+    "reels-9x16": ("instagram", "tiktok", "youtube"),
+    "shorts-9x16": ("youtube", "tiktok"),
+    "linkedin-landscape": ("linkedin",),
+}
+
+PLATE_KIT_KEYS = (
+    "iab-leaderboard",
+    "iab-mobile",
+    "iab-billboard",
+    "iab-medium",
+    "feed-1x1",
+    "feed-4x5",
+    "reels-9x16",
+    "story-9x16",
+    "iab-halfpage",
+    "iab-skyscraper",
+    "linkedin-landscape",
+    "youtube-infeed",
+    "video-linear-15",
+    "shorts-9x16",
+)
 
 COMPOSITIONS = {
     "A": {
@@ -248,6 +553,19 @@ CTA_DEFAULTS = {
     "ctv-video-linear-30": "Saiba mais",
     "ctv-video-cta": "Assista agora",
     "ctv-video-qr": "Acesse agora",
+    "iab-billboard": "Saiba mais",
+    "iab-leaderboard": "Saiba mais",
+    "iab-mobile": "Saiba mais",
+    "iab-medium": "Saiba mais",
+    "iab-halfpage": "Saiba mais",
+    "iab-skyscraper": "Saiba mais",
+    "feed-1x1": "Saiba mais",
+    "feed-4x5": "Saiba mais",
+    "story-9x16": "Saiba mais",
+    "reels-9x16": "Assista",
+    "shorts-9x16": "Assista",
+    "linkedin-landscape": "Saiba mais",
+    "youtube-infeed": "Assista",
 }
 
 OBJECTIVES = (
@@ -275,8 +593,24 @@ def format_entry(format_key):
     key = resolve_format_key(format_key)
     for item in FORMATS:
         if item["key"] == key:
-            return dict(item)
+            return decorate_format(item)
     return None
+
+
+def decorate_format(item):
+    data = dict(item)
+    data["channels"] = [
+        dict(channel)
+        for channel in CHANNELS
+        if channel["key"] in FORMAT_CHANNELS.get(data["key"], ())
+    ]
+    data["channel_keys"] = list(FORMAT_CHANNELS.get(data["key"], ()))
+    data["in_plate_kit"] = data["key"] in PLATE_KIT_KEYS
+    return data
+
+
+def plate_kit_formats():
+    return [format_entry(key) for key in PLATE_KIT_KEYS if format_entry(key)]
 
 
 def is_qr_format(format_key):
@@ -315,7 +649,10 @@ def catalog_payload():
         "family": "horizontal-15",
         "duration": DURATION_SECONDS,
         "scene_counts": list(SCENE_COUNTS),
-        "formats": [dict(item) for item in FORMATS],
+        "formats": [decorate_format(item) for item in FORMATS],
+        "format_groups": [dict(item) for item in FORMAT_GROUPS],
+        "channels": [dict(item) for item in CHANNELS],
+        "plate_formats": plate_kit_formats(),
         "adapters": dict(ADAPTERS),
         "objectives": list(OBJECTIVES),
         "plates": {

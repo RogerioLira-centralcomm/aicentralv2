@@ -6,7 +6,7 @@
         <option value="">Marca</option>
       </select>
     </label>
-    <div class="mc-mesa-formats" id="mcMesaFormats"></div>
+    <div class="mc-mesa-formats" id="mcMesaFormats" hidden></div>
     <div class="mc-mesa-counts" id="mcMesaCounts" role="radiogroup" aria-label="Cenas">
       <button type="button" data-count="4" class="is-current">4</button>
       <button type="button" data-count="5">5</button>
@@ -36,13 +36,14 @@
 
   <ol class="mc-mesa-strip" id="mcMesaStrip" aria-label="Tira de 15s"></ol>
 
-  <section class="mc-mesa-stage" aria-label="Palco 16:9">
+  <section class="mc-mesa-stage" id="mcMesaStage" aria-label="Palco da peça">
     <div class="mc-mesa-viewport" id="mcMesaViewport">
       <div class="mc-mesa-frame" id="mcMesaFrameWrap">
         <div class="mc-mesa-drop" id="mcMesaDrop">
           <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
           <div class="mc-mesa-plate">
             <strong>Escolha o key visual e monte o 15s</strong>
+            <span>Solte a foto no quadro. O still fica 16:9.</span>
           </div>
         </div>
         <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
@@ -78,14 +79,61 @@
       </label>
     </form>
     <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
-    <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
+    <ol class="mc-mesa-ops" id="mcMesaOps" aria-label="Ordem do 15s">
+      <li data-op="concept" class="is-current">
+        <header>
+          <em>1</em>
+          <div>
+            <strong>Conceito</strong>
+            <span>Duas passagens no roteiro de 15s</span>
+          </div>
+        </header>
+        <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
+        <button class="cx-btn cx-btn-primary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
+      </li>
+      <li data-op="base">
+        <header>
+          <em>2</em>
+          <div>
+            <strong>Base</strong>
+            <span>HTML da marca no quadro</span>
+          </div>
+        </header>
+        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaMockup" disabled>Modelar base</button>
+      </li>
+      <li data-op="scene">
+        <header>
+          <em>3</em>
+          <div>
+            <strong>Cena</strong>
+            <span>Still e QA visual em 3 versões</span>
+          </div>
+        </header>
+        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
+      </li>
+      <li data-op="close">
+        <header>
+          <em>4</em>
+          <div>
+            <strong>Fechar</strong>
+            <span>Still 1920×1080 com margem segura</span>
+          </div>
+        </header>
+        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaClose" disabled>Fechar cena</button>
+      </li>
+      <li data-op="approve">
+        <header>
+          <em>5</em>
+          <div>
+            <strong>Aprovar</strong>
+            <span>Handoff para a Bancada</span>
+          </div>
+        </header>
+        <button class="cx-btn cx-btn-primary" type="button" id="mcMesaApprove" disabled>Aprovar</button>
+        <a class="cx-btn cx-btn-primary mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
+      </li>
+    </ol>
     <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
-    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
-    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaMockup" disabled>Modelar base</button>
-    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
-    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaClose" disabled>Fechar cena</button>
-    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaApprove" disabled>Aprovar</button>
-    <a class="cx-btn cx-btn-primary mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>
 </article>

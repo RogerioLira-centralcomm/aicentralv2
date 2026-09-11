@@ -1135,7 +1135,7 @@ class CreativeModelingRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_campaign(self, campaign_id):
+    def get_campaign(self, campaign_id, productions=True):
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -1219,6 +1219,10 @@ class CreativeModelingRepository:
         for variation in variations:
             variation["steps"] = steps_by_variation[variation["id"]]
         result["variations"] = variations
+        if not productions:
+            result["productions"] = []
+            result["production"] = None
+            return result
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -3243,22 +3247,35 @@ class CreativeModelingRepository:
             cap = max(1, min(int(limit or 12), 24))
         except (TypeError, ValueError):
             cap = 12
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id
-                  FROM cx_concept_sessions
-                 WHERE client_id = %s
-                   AND status <> 'handed_off'
-                   AND (%s IS NULL OR format_key = %s)
-                   AND (%s IS NULL OR campaign_slug IS NULL OR campaign_slug = %s)
-                 ORDER BY updated_at DESC NULLS LAST, created_at DESC
-                 LIMIT %s
-                """,
-                (client_id, format_key, format_key, slug, slug, cap),
-            )
-            rows = [item["id"] for item in cursor.fetchall()]
-        return [self.get_concept_session(session_id) for session_id in rows if session_id]
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id
+                      FROM cx_concept_sessions
+                     WHERE client_id = %s
+                       AND status <> 'handed_off'
+                       AND (%s IS NULL OR format_key = %s)
+                       AND (%s IS NULL OR campaign_slug IS NULL OR campaign_slug = %s)
+                     ORDER BY updated_at DESC NULLS LAST, created_at DESC
+                     LIMIT %s
+                    """,
+                    (client_id, format_key, format_key, slug, slug, cap),
+                )
+                rows = [item["id"] for item in cursor.fetchall()]
+        except Exception:
+            return []
+        found = []
+        for session_id in rows:
+            if not session_id:
+                continue
+            try:
+                item = self.get_concept_session(session_id)
+            except Exception:
+                continue
+            if item:
+                found.append(item)
+        return found
 
     def record_concept_pass(
         self,

@@ -101,6 +101,36 @@ def _history_entry(session):
     }
 
 
+def _desk_session(session):
+    if not isinstance(session, dict):
+        return None
+    data = _preview_lab_result(dict(session))
+    return {
+        "id": data.get("id"),
+        "campaign_id": data.get("campaign_id"),
+        "client_id": data.get("client_id"),
+        "status": data.get("status") or "draft",
+        "stage": _session_stage(data),
+        "format": data.get("format") or data.get("format_key") or "",
+        "format_key": data.get("format_key") or data.get("format") or "",
+        "variant": data.get("variant") or "A",
+        "campaign_slug": data.get("campaign_slug") or "",
+        "storyboard": data.get("storyboard") or [],
+        "scenes": data.get("scenes") or [],
+        "base_html": data.get("base_html") or "",
+        "mockup": data.get("mockup") if isinstance(data.get("mockup"), dict) else {},
+        "spec": data.get("spec") if isinstance(data.get("spec"), dict) else {},
+        "qa": data.get("qa") if isinstance(data.get("qa"), dict) else {},
+        "cost": data.get("cost") or data.get("quote") or {},
+        "quote": data.get("quote") if isinstance(data.get("quote"), dict) else {},
+        "versions": data.get("versions") or [],
+        "passes": data.get("passes") or [],
+        "brand_name": data.get("brand_name") or "",
+        "offer": data.get("offer") or "",
+        "scene_count": data.get("scene_count") or len(data.get("storyboard") or []),
+    }
+
+
 def _session_summary(session):
     entry = _history_entry(session) or {}
     return {
@@ -440,30 +470,31 @@ class FormatLabService:
         return _serialize(data)
 
     def list_sessions(self, payload=None):
+        empty = {"sessions": [], "active": None, "history": []}
         payload = payload if isinstance(payload, dict) else {}
         client_id = payload.get("client_id")
         if client_id in (None, ""):
-            return _serialize({"sessions": [], "active": None, "history": []})
-        client_id = _integer(client_id, "Cliente")
-        listed = self._list_open_sessions(
-            client_id,
-            payload.get("format") or payload.get("format_key"),
-            payload.get("campaign_slug"),
-        )
-        active = listed[0] if listed else None
-        if isinstance(active, dict):
-            active = dict(active)
-            active["stage"] = _session_stage(active)
-        history = []
-        if active and active.get("campaign_id"):
-            campaign = self.repository.get_campaign(active["campaign_id"])
-            _brief, lab, _sessions = self._lab(campaign)
-            history = [item for item in (lab.get("history") or []) if isinstance(item, dict)]
-        return _serialize({
-            "sessions": [_session_summary(item) for item in listed],
-            "active": active,
-            "history": history,
-        })
+            return _serialize(empty)
+        try:
+            client_id = _integer(client_id, "Cliente")
+            listed = self._list_open_sessions(
+                client_id,
+                payload.get("format") or payload.get("format_key"),
+                payload.get("campaign_slug"),
+            )
+            active = _desk_session(listed[0]) if listed else None
+            history = [
+                item for item in (_history_entry(row) for row in listed or [])
+                if item
+            ]
+            return _serialize({
+                "sessions": [_session_summary(item) for item in listed],
+                "active": active,
+                "history": history,
+            })
+        except Exception:
+            logger.exception("Não listou as sessões da Mesa")
+            return _serialize(empty)
 
     def run(self, session_id, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
@@ -689,7 +720,10 @@ class FormatLabService:
 
     def _write_session(self, campaign_id, session, active=False):
         session = _slim_lab_session(dict(session or {}))
-        campaign = self.repository.get_campaign(campaign_id)
+        try:
+            campaign = self.repository.get_campaign(campaign_id, productions=False)
+        except TypeError:
+            campaign = self.repository.get_campaign(campaign_id)
         session["campaign_id"] = campaign_id
         client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
         if not session.get("client_id"):
@@ -733,12 +767,14 @@ class FormatLabService:
     def _list_open_sessions(self, client_id, format_key=None, campaign_slug=None):
         finder = getattr(self.repository, "list_concept_sessions", None)
         if callable(finder):
-            found = [
-                item for item in (finder(client_id, format_key, campaign_slug) or [])
-                if isinstance(item, dict) and item.get("id")
-            ]
-            if found:
-                return found
+            try:
+                return [
+                    item for item in (finder(client_id, format_key, campaign_slug) or [])
+                    if isinstance(item, dict) and item.get("id")
+                ]
+            except Exception:
+                logger.exception("Não leu as sessões de conceito da Mesa")
+                return []
         stored = getattr(self.repository, "concept_sessions", None)
         if isinstance(stored, dict):
             slug = str(campaign_slug or "").strip()

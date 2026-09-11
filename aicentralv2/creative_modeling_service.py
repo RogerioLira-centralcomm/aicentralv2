@@ -288,10 +288,14 @@ def _serialize(value):
         return value.isoformat()
     if isinstance(value, Decimal):
         return float(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return ""
     if isinstance(value, list):
         return [_serialize(item) for item in value]
+    if isinstance(value, tuple):
+        return [_serialize(item) for item in value]
     if isinstance(value, dict):
-        return {key: _serialize(item) for key, item in value.items()}
+        return {str(key): _serialize(item) for key, item in value.items()}
     return value
 
 

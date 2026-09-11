@@ -579,6 +579,53 @@ class CreativeFormatLabTest(unittest.TestCase):
         })
         self.assertNotEqual(fresh["id"], first["id"])
 
+    def test_lista_sessoes_nao_derruba_a_mesa_se_o_banco_falha(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("undefined table")
+
+        repository.list_concept_sessions = boom
+        listed = lab.list_sessions({
+            "client_id": 10,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(listed["sessions"], [])
+        self.assertIsNone(listed["active"])
+        self.assertEqual(listed["history"], [])
+
+    def test_lista_sessoes_usa_as_abertas_se_a_campanha_sumiu(self):
+        from aicentralv2.creative_modeling_repository import CreativeNotFoundError
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        first = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        lab.storyboard(first["id"], {
+            "campaign_slug": "vivara-presente-ctv",
+            "scene_count": 4,
+        })
+
+        def missing(_campaign_id):
+            raise CreativeNotFoundError("Campanha não encontrada.")
+
+        repository.get_campaign = missing
+        listed = lab.list_sessions({
+            "client_id": 10,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(listed["active"]["id"], first["id"])
+        self.assertEqual(listed["history"][0]["session_id"], first["id"])
+
     def test_storyboard_cobrado_no_ledger(self):
         repository = FakeRepository()
         modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
@@ -976,6 +1023,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("paintRunStill", js)
         self.assertIn("startRunProgress", js)
         self.assertIn("resumeDesk", js)
+        self.assertIn("renderHistory([])", js)
         self.assertIn("renderHistory", js)
         self.assertIn("openSavedSession", js)
         self.assertIn("showBasePreview", js)
@@ -1413,6 +1461,21 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
             )
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(listed.get_json()["data"]["history"][0]["stage"], "concept")
+
+    def test_listar_sessoes_nao_devolve_500(self):
+        service = Mock()
+        service.list_format_lab_sessions.side_effect = RuntimeError("undefined table")
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            listed = self.client.get(
+                "/parametros/api/format-lab/sessions?client_id=4&format=video-linear-15"
+                "&campaign_slug=vivara-presente-ctv"
+            )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.get_json()["data"]["sessions"], [])
+        self.assertIsNone(listed.get_json()["data"]["active"])
 
     def test_ler_referencia_do_trocar(self):
         service = Mock()

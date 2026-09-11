@@ -191,15 +191,20 @@ def api_format_lab_campaign(slug):
 @admin_required_api
 def api_format_lab_sessions():
     if request.method == "GET":
-        return _execute(
-            lambda: _ok(
-                _service().list_format_lab_sessions({
-                    "client_id": request.args.get("client_id"),
-                    "format": request.args.get("format") or request.args.get("format_key"),
-                    "campaign_slug": request.args.get("campaign_slug"),
-                })
-            )
-        )
+        def _list_sessions():
+            try:
+                return _ok(
+                    _service().list_format_lab_sessions({
+                        "client_id": request.args.get("client_id"),
+                        "format": request.args.get("format") or request.args.get("format_key"),
+                        "campaign_slug": request.args.get("campaign_slug"),
+                    })
+                )
+            except Exception:
+                logger.exception("GET format-lab/sessions falhou")
+                return _ok({"sessions": [], "active": None, "history": []})
+
+        return _execute(_list_sessions)
     return _execute(
         lambda: _ok(
             _service().create_format_lab_session(_json(), session.get("user_id")),

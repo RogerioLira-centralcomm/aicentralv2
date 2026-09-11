@@ -378,17 +378,22 @@
       format: state.formatKey || '',
       campaign_slug: state.campaignSlug || '',
     });
-    const data = await fetch(`${API.sessions}?${params}`, { credentials: 'same-origin' }).then(readJson);
-    renderHistory(data.history?.length ? data.history : data.sessions || []);
-    if (data.active?.storyboard?.length || data.active?.base_html) {
-      applySession(data.active);
-      setStatus(
-        data.active.base_html
-          ? 'Base desta campanha retomada. Siga para a cena.'
-          : 'Conceito desta campanha retomado. Monte a base.'
-      );
+    try {
+      const data = await fetch(`${API.sessions}?${params}`, { credentials: 'same-origin' }).then(readJson);
+      renderHistory(data.history?.length ? data.history : data.sessions || []);
+      if (data.active?.storyboard?.length || data.active?.base_html) {
+        applySession(data.active);
+        setStatus(
+          data.active.base_html
+            ? 'Base desta campanha retomada. Siga para a cena.'
+            : 'Conceito desta campanha retomado. Monte a base.'
+        );
+      }
+      return data.active || null;
+    } catch (_error) {
+      renderHistory([]);
+      return null;
     }
-    return data.active || null;
   }
 
   async function openSavedSession(sessionId) {

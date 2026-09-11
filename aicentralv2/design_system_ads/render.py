@@ -138,17 +138,10 @@ def render_specimen(system, *, standalone=True, stack=None, highlight=None):
     copy = parsed.ad_copy or {}
     logo = escape(parsed.logo_url or "")
     name = escape(parsed.name or "Design System Ads")
-    headline = escape(copy.get("headline") or "A peça na tinta certa")
+    headline = escape(copy.get("headline") or name)
     support = escape(copy.get("support") or "")
-    cta = escape(copy.get("cta") or "Ver o sistema")
+    cta = escape(copy.get("cta") or "Saiba mais")
     legal = escape(copy.get("legal") or name)
-    display = escape(str(parsed.tokens.get("font-display") or "Inter"))
-    body = escape(str(parsed.tokens.get("font-body") or display))
-    kicker = display if display == body else f"{display} · {body}"
-    contrast = parsed.contrast or {}
-    pairs = contrast.get("pairs") or {}
-    ink_paper = pairs.get("ink_on_paper", 0)
-    cta_accent = pairs.get("cta_on_accent", 0)
     logo_html = (
         f"<img class='dsa-logo' src='{logo}' alt='{name}'>"
         if parsed.logo_url
@@ -157,17 +150,12 @@ def render_specimen(system, *, standalone=True, stack=None, highlight=None):
     sheet = f"""
 <section class="dsa-sheet bg-dsa-paper text-dsa-ink font-dsa-body" style="{_sheet_style(parsed)}">
   <header class="dsa-lockup">{logo_html}<span>{name}</span></header>
-  <p class="dsa-kicker">{escape(kicker)}</p>
   <h1 class="dsa-headline font-dsa-display text-dsa-headline">{headline}</h1>
   <p class="dsa-support text-dsa-muted text-dsa-support">{support}</p>
   <p>
-    <a class="dsa-cta bg-dsa-accent text-dsa-cta-ink rounded-dsa-cta text-dsa-cta" href="#sistema">{cta}</a>
+    <a class="dsa-cta bg-dsa-accent text-dsa-cta-ink rounded-dsa-cta text-dsa-cta" href="#peca">{cta}</a>
   </p>
   <p class="dsa-legal text-dsa-legal">{legal}</p>
-  <dl class="dsa-pairs">
-    <div><dt>ink / paper</dt><dd>{ink_paper}:1</dd></div>
-    <div><dt>cta / accent</dt><dd>{cta_accent}:1</dd></div>
-  </dl>
 </section>
 """
     if not standalone:
@@ -209,7 +197,6 @@ def _standalone_document(system, body, title="", stage=False):
       margin-bottom: 2.5rem;
     }}
     .dsa-logo {{ height: 48px; width: auto; display: block; }}
-    .dsa-kicker {{ margin: 0 0 0.75rem; color: var(--dsa-muted); }}
     .dsa-headline {{
       margin: 0 0 1rem;
       font-family: var(--dsa-font-display), Inter, sans-serif;
@@ -238,14 +225,6 @@ def _standalone_document(system, body, title="", stage=False):
     }}
     .dsa-cta:focus-visible {{ outline: 3px solid var(--dsa-highlight); outline-offset: 3px; }}
     .dsa-legal {{ margin: 2.5rem 0 0; font-size: var(--dsa-type-legal); color: var(--dsa-muted); }}
-    .dsa-pairs {{
-      display: flex;
-      gap: 2rem;
-      margin: 3rem 0 0;
-      padding: 0;
-    }}
-    .dsa-pairs dt {{ color: var(--dsa-muted); font-size: var(--dsa-type-legal); }}
-    .dsa-pairs dd {{ margin: 0.2rem 0 0; font-size: var(--dsa-type-support); }}
     .dsa-ad {{
       min-height: 100vh;
       box-sizing: border-box;

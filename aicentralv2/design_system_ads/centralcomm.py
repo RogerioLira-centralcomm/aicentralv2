@@ -65,10 +65,10 @@ def centralcomm_preset(*, client_id=None, status="draft"):
             },
             "archetype": "brand",
             "ad_copy": {
-                "headline": "A peça na tinta certa",
-                "support": "O anúncio herda o tema Tailwind da CentralComm.",
-                "cta": "Ver o sistema",
-                "legal": "CentralComm Ads · Design System Ads",
+                "headline": "A campanha chega inteira",
+                "support": "Do cliente à tela, sem perder cor nem prazo.",
+                "cta": "Começar agora",
+                "legal": "CentralComm",
             },
         }
     )

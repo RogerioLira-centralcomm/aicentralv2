@@ -138,13 +138,15 @@ def patch_system(system, tokens=None, ad_copy=None, dna=None, archetype=None):
         )
         parsed = DesignSystemAds.model_validate(data)
     if isinstance(ad_copy, dict):
-        copy = dict(parsed.ad_copy or {})
+        from .copy import clean_ad_copy
+
+        merged = dict(parsed.ad_copy or {})
         for key in COPY_KEYS:
             if ad_copy.get(key) is None:
                 continue
-            copy[key] = str(ad_copy.get(key) or "").strip()[:180]
+            merged[key] = str(ad_copy.get(key) or "").strip()[:180]
         data = dump_system(parsed)
-        data["ad_copy"] = copy
+        data["ad_copy"] = clean_ad_copy(merged, parsed.name)
         parsed = DesignSystemAds.model_validate(data)
     return parsed, applied
 
@@ -275,11 +277,12 @@ def apply_compose(system, raw):
         data["archetype"] = archetype
     data["rules"] = compile_rules(data.get("dna"), data.get("archetype"))
     if isinstance(payload.get("ad_copy"), dict):
-        copy = dict(data.get("ad_copy") or {})
-        for key in COPY_KEYS:
-            if payload["ad_copy"].get(key):
-                copy[key] = str(payload["ad_copy"][key]).strip()[:180]
-        data["ad_copy"] = copy
+        from .copy import clean_ad_copy
+
+        data["ad_copy"] = clean_ad_copy(
+            payload["ad_copy"],
+            (data.get("dna") or {}).get("name") or data.get("name"),
+        )
     parsed = DesignSystemAds.model_validate(data)
     parsed, applied = apply_token_patches(parsed, payload.get("patches") or [])
     parsed, _ = heal_contrast(parsed)
@@ -302,12 +305,12 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
         raise ValueError("OpenRouter não está configurado para montar o sistema.")
     brief = advertising_brief(parsed)
     brief["ask"] = (
-        "Compose the best Advertising Design System for this brand. "
-        "Return JSON: dna{name,personality[],must[],avoid[]}, archetype, "
-        "ad_copy{headline,support,cta,legal}, patches[{token_id,css,reason}], "
-        "tracks[{id,prompt}] for packshot,kv,lifestyle,wash, notes[]. "
-        "Track prompts must name ink/paper hex and leave space for type. "
-        "Patches only when a token is wrong for ads."
+        "Escreva o Advertising OS desta marca em português. "
+        "JSON: dna{name,personality[3-5 traços concretos],must[],avoid[]}, archetype, "
+        "ad_copy{headline,support,cta,legal} como linha de anúncio (o que a marca vende, para quem), "
+        "patches[{token_id,css,reason}], tracks[{id,prompt}] packshot,kv,lifestyle,wash, notes[]. "
+        "Proibido na copy: design system, tinta certa, herda o tema, Tailwind, ver o sistema. "
+        "Prompts de trilha citam hex de ink/paper e deixam espaço para tipo."
     )
     content = [{"type": "text", "text": json.dumps(brief, ensure_ascii=False)}]
     for url in [item for item in (reference_urls or []) if item][:4]:
@@ -317,9 +320,9 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
             {
                 "role": "system",
                 "content": (
-                    "You are the advertising design director for this brand. "
-                    "Build an Advertising Operating System, not a website theme. "
-                    "Fidelity to the brand pixels first. JSON only."
+                    "Você é o diretor de arte desta marca. "
+                    "Copy de anúncio em português, fiel aos pixels. "
+                    "Nunca escreva sobre o laboratório ou o design system. JSON only."
                 ),
             },
             {"role": "user", "content": content},
@@ -341,11 +344,13 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
 
 
 def seed_local_compose(system):
+    from .copy import brand_ad_copy
+
     parsed = parse_system(system)
     dna = dict(parsed.dna or {})
-    name = dna.get("name") or parsed.name or "a marca"
+    name = dna.get("name") or parsed.name or "A marca"
     if not dna.get("personality"):
-        dna["personality"] = ["clara", "de mídia", "reconhecível"]
+        dna["personality"] = ["reconhecível", "direta", "de marca"]
     if not dna.get("must"):
         dna["must"] = ["logo reconhecível", "headline curta", "CTA com 4.5:1"]
     if not dna.get("avoid"):
@@ -356,7 +361,8 @@ def seed_local_compose(system):
         {
             "dna": dna,
             "archetype": parsed.archetype or "brand",
-            "notes": ["DNA assentado no loop local."],
+            "ad_copy": brand_ad_copy(name),
+            "notes": ["Linha da marca assentada no loop."],
         },
     )
 

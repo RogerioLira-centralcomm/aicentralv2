@@ -115,7 +115,7 @@ def ensure_brand_design_system(client=None, *, existing=None):
         or client.get("logo_url")
         or ""
     )
-    name = _text(client.get("name"), default="Design System Ads", limit=80)
+    name = _text(client.get("name"), default="A marca", limit=80)
     client_id = client.get("id") or "marca"
     tokens = {
         "paper": "#FFFFFF",
@@ -143,7 +143,7 @@ def ensure_brand_design_system(client=None, *, existing=None):
         {
             "id": f"dsa-{client_id}-v1",
             "scope": "brand",
-            "name": f"{name} Ads" if name != "Design System Ads" else name,
+            "name": f"{name} Ads" if name not in {"Design System Ads", "A marca"} else name,
             "source": source,
             "status": "draft",
             "client_id": client_id,
@@ -152,18 +152,16 @@ def ensure_brand_design_system(client=None, *, existing=None):
             "evidence": evidence,
             "dna": {
                 "name": name,
-                "personality": ["reconhecível", "de mídia"],
+                "personality": ["reconhecível", "direta", "de marca"],
                 "must": ["logo reconhecível", "headline curta", "CTA com 4.5:1"],
                 "avoid": ["resize cego", "copy longa", "card SaaS"],
             },
             "archetype": "brand",
             "ad_copy": {
-                "headline": "A peça na tinta certa",
-                "support": f"O anúncio herda o Design System Ads de {name}."
-                if name != "Design System Ads"
-                else "O anúncio herda o Design System Ads da marca.",
-                "cta": "Ver o sistema",
-                "legal": f"{name} · Design System Ads",
+                "headline": f"{name} no primeiro olhar",
+                "support": f"O que {name} promete, no tamanho do anúncio.",
+                "cta": "Saiba mais",
+                "legal": name,
             },
         }
     )

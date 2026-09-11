@@ -1,4 +1,4 @@
-<article class="mc-dsa" id="mcDsa" data-mode="sistema">
+<article class="mc-dsa" id="mcDsa">
   <header class="mc-dsa-top">
     <div class="mc-dsa-brand">
       <label class="cx-field">
@@ -6,49 +6,20 @@
           <option value="centralcomm">CentralComm Ads</option>
         </select>
       </label>
-      <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem Design System Ads.</p>
+      <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem linha de anúncio.</p>
     </div>
-    <nav class="mc-dsa-modes" role="tablist" aria-label="Bancada">
-      <button type="button" class="is-active" data-mode="sistema" aria-selected="true">Sistema</button>
-      <button type="button" data-mode="melhorar" aria-selected="false">Melhorar</button>
-      <button type="button" data-mode="peca" aria-selected="false">Peça</button>
-    </nav>
     <div class="mc-dsa-actions">
-      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Criar sistema</button>
+      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Montar</button>
       <button class="cx-btn" type="button" id="mcDsaApprove" disabled>Aprovar</button>
-      <a class="cx-btn cx-btn-outline" id="mcDsaOpen" href="/lab/design-system/marca/centralcomm" target="_blank" rel="noreferrer">Folha</a>
     </div>
   </header>
   <p class="mc-dsa-status" id="mcDsaStatus"></p>
-
-  <div class="mc-dsa-pane is-catalog" data-pane="sistema">
-    <div class="mc-dsa-catalog" id="mcDsaCatalog"></div>
-  </div>
-
-  <div class="mc-dsa-pane" data-pane="melhorar" hidden>
-    <section class="mc-dsa-preview is-sheet" aria-label="Folha depois da melhoria">
-      <iframe class="mc-dsa-frame" id="mcDsaImproveSheet" title="Specimen após melhorar" src="/lab/design-system/marca/centralcomm"></iframe>
-    </section>
-    <aside class="mc-dsa-side" aria-label="Loop do sistema">
-      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaLoop">Continuar loop</button>
-      <button class="cx-btn" type="button" id="mcDsaCompose">Montar sistema</button>
-      <ol class="mc-dsa-flow" id="mcDsaFlow"></ol>
-      <p class="mc-dsa-stack-lead" id="mcDsaLoopLead">Um eixo por vez. O loop fecha DNA, contraste, trilhas e regras.</p>
-      <div class="mc-dsa-intents" id="mcDsaIntents"></div>
-      <ol class="mc-dsa-passes" id="mcDsaPasses"></ol>
-      <div class="mc-dsa-tracks" id="mcDsaTracks" aria-label="Trilhas do sistema"></div>
-      <details class="mc-dsa-model">
-        <summary>Refino com modelo</summary>
-        <button class="cx-btn" type="button" id="mcDsaRefine" disabled>Pedir ao modelo</button>
-      </details>
-    </aside>
-  </div>
-
-  <div class="mc-dsa-pane" data-pane="peca" hidden>
-    <section class="mc-dsa-preview" aria-label="Peça IAB">
-      <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Specimen do formato" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
+  <div class="mc-dsa-catalog" id="mcDsaCatalog"></div>
+  <section class="mc-dsa-stage" id="mcDsaStage" hidden>
+    <div class="mc-dsa-preview" aria-label="Peça IAB">
+      <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Peça IAB" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
       <p class="mc-dsa-pass" id="mcDsaPass"></p>
-    </section>
+    </div>
     <aside class="mc-dsa-side" aria-label="Montagem IAB">
       <label class="cx-field">
         <span>Campanha</span>
@@ -58,13 +29,12 @@
         </select>
       </label>
       <div class="mc-dsa-archetypes" id="mcDsaArchetypes" aria-label="Arquétipo"></div>
-      <div class="mc-dsa-formats" id="mcDsaFormats" role="listbox" aria-label="Formato IAB"></div>
       <label class="cx-field mc-dsa-layers">
         <span id="mcDsaLayerLabel">4 camadas</span>
         <input id="mcDsaLayerCount" type="range" min="4" max="40" value="4" aria-valuemin="4" aria-valuemax="40">
       </label>
-      <p class="mc-dsa-stack-lead">Clique para marcar na peça. Setas trocam a caixa.</p>
+      <p class="mc-dsa-stack-lead">Clique para marcar na peça.</p>
       <ol class="mc-dsa-layers-list" id="mcDsaLayerList"></ol>
     </aside>
-  </div>
+  </section>
 </article>

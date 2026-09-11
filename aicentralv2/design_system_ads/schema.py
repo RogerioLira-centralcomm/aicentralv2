@@ -194,13 +194,9 @@ class DesignSystemAds(BaseModel):
             from .tracks import default_tracks
 
             self.tracks = default_tracks()
-        if not self.ad_copy:
-            self.ad_copy = {
-                "headline": "A peça na tinta certa",
-                "support": "O anúncio herda o Design System Ads da marca.",
-                "cta": "Ver o sistema",
-                "legal": f"{self.name} · Design System Ads",
-            }
+        from .copy import clean_ad_copy
+
+        self.ad_copy = clean_ad_copy(self.ad_copy, self.name)
         return self
 
 

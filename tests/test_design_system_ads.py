@@ -223,7 +223,9 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertTrue(seeded.dna.get("personality"))
         self.assertIn(info["action"], {"contrast", "track", "ready", "rules"})
         local, _report = seed_local_compose(empty)
-        self.assertIn("clara", local.dna.get("personality") or [])
+        self.assertIn("reconhecível", local.dna.get("personality") or [])
+        self.assertTrue(local.ad_copy.get("headline"))
+        self.assertNotIn("tinta certa", (local.ad_copy.get("headline") or "").lower())
 
     def test_heal_e_patch(self):
         weak = ensure_brand_design_system(
@@ -279,10 +281,38 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         html = render_specimen(read_preset(), standalone=True)
         self.assertIn("cdn.tailwindcss.com", html)
         self.assertIn("--dsa-ink", html)
-        self.assertIn("A peça na tinta certa", html)
+        self.assertIn("A campanha chega inteira", html)
+        self.assertNotIn("A peça na tinta certa", html)
+        self.assertNotIn("ink / paper", html)
+        self.assertNotIn("dsa-kicker", html)
         self.assertIn("/static/images/cc_logo.png", html)
         payload = payload_for(centralcomm_preset())
         self.assertIn("/lab/design-system/marca/", payload["specimen_url"])
+
+    def test_copy_de_anuncio_nao_e_meta(self):
+        from aicentralv2.design_system_ads.copy import (
+            brand_ad_copy,
+            clean_ad_copy,
+            is_meta_copy,
+        )
+
+        house = brand_ad_copy("CentralComm")
+        self.assertEqual(house["headline"], "A campanha chega inteira")
+        self.assertFalse(is_meta_copy(house))
+        self.assertTrue(is_meta_copy({"headline": "A peça na tinta certa"}))
+        cleaned = clean_ad_copy(
+            {
+                "headline": "A peça na tinta certa",
+                "support": "O anúncio herda o tema Tailwind da CentralComm.",
+                "cta": "Ver o sistema",
+            },
+            "CentralComm",
+        )
+        self.assertEqual(cleaned["cta"], "Começar agora")
+        self.assertNotIn("design system", " ".join(cleaned.values()).lower())
+        brand = brand_ad_copy("Clara")
+        self.assertIn("Clara", brand["headline"])
+        self.assertEqual(brand["cta"], "Saiba mais")
 
     def test_brand_context_expoe_ds(self):
         context = build_brand_context(
@@ -324,16 +354,16 @@ class DesignSystemAdsContractTest(unittest.TestCase):
             )
         desk = Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html"
         html = desk.read_text(encoding="utf-8")
-        self.assertIn('data-mode="sistema"', html)
-        self.assertIn('data-mode="melhorar"', html)
-        self.assertIn('data-mode="peca"', html)
-        self.assertIn("mcDsaIntents", html)
+        self.assertNotIn("data-mode", html)
+        self.assertIn("Montar", html)
+        self.assertIn("Aprovar", html)
         self.assertIn("mcDsaCatalog", html)
-        self.assertIn("mcDsaLoop", html)
+        self.assertIn("mcDsaStage", html)
         self.assertIn("mcDsaArchetypes", html)
-        self.assertIn("mcDsaTracks", html)
-        self.assertIn("mcDsaCompose", html)
-        self.assertIn("Continuar loop", html)
+        self.assertNotIn("mcDsaIntents", html)
+        self.assertNotIn("mcDsaLoop", html)
+        self.assertNotIn("mcDsaCompose", html)
+        self.assertNotIn("Continuar loop", html)
         self.assertIn(
             "/parametros/api/design-system/brand/<client_id>/compose",
             [rule.rule for rule in app.url_map.iter_rules()],

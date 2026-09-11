@@ -136,7 +136,7 @@ def _tagline(parsed):
     traits = ", ".join((dna.get("personality") or [])[:3])
     if traits:
         return f"{dna.get('name') or parsed.name}. {traits}."
-    return f"{parsed.name}. Design once, IAB everywhere."
+    return f"{parsed.name}."
 
 
 def _token_roles(tokens, copy):

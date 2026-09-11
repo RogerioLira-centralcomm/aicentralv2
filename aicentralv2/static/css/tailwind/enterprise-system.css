@@ -2279,14 +2279,18 @@ body.cx-drawer-open {
   gap: 4px;
 }
 .cx-atividade-ia-topics,
-.cx-atividade-ia-products {
+.cx-atividade-ia-products,
+.cx-atividade-ia-refine {
   margin: 0 0 12px;
 }
 .cx-atividade-ia-topics summary,
-.cx-atividade-ia-products summary {
+.cx-atividade-ia-products summary,
+.cx-atividade-ia-refine > summary,
+.cx-atividade-ia-history > summary {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   cursor: pointer;
   color: #173c3e;
   font-size: 12.5px;
@@ -2294,13 +2298,32 @@ body.cx-drawer-open {
   list-style: none;
 }
 .cx-atividade-ia-topics summary::-webkit-details-marker,
-.cx-atividade-ia-products summary::-webkit-details-marker { display: none; }
+.cx-atividade-ia-products summary::-webkit-details-marker,
+.cx-atividade-ia-refine > summary::-webkit-details-marker,
+.cx-atividade-ia-history > summary::-webkit-details-marker { display: none; }
 .cx-atividade-ia-topics summary em,
-.cx-atividade-ia-products summary em {
+.cx-atividade-ia-products summary em,
+.cx-atividade-ia-refine > summary em,
+.cx-atividade-ia-history > summary em {
   font-size: 11px;
   font-style: normal;
   font-weight: 600;
   color: var(--cx-text-muted);
+}
+.cx-atividade-ia-topics summary > i,
+.cx-atividade-ia-products summary > i,
+.cx-atividade-ia-refine > summary > i,
+.cx-atividade-ia-history > summary > i {
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: var(--cx-text-muted);
+  transition: transform .15s ease;
+}
+.cx-atividade-ia-topics[open] > summary > i,
+.cx-atividade-ia-products[open] > summary > i,
+.cx-atividade-ia-refine[open] > summary > i,
+.cx-atividade-ia-history[open] > summary > i {
+  transform: rotate(180deg);
 }
 .cx-atividade-ia-topics-hint {
   margin: 6px 0 8px;
@@ -2391,6 +2414,13 @@ body.cx-drawer-open {
   align-items: center;
   gap: 8px 12px;
   margin: 0 0 10px;
+}
+.cx-atividade-ia-refine {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.cx-atividade-ia-refine .cx-atividade-ia-note {
+  margin-top: 8px;
 }
 .cx-atividade-ia-note {
   flex: 1 1 12rem;
@@ -2637,7 +2667,8 @@ body.cx-drawer-open {
   font-size: 12.5px;
   font-weight: 700;
 }
-.cx-atividade-ia-history-title { margin-bottom: 7px; }
+.cx-atividade-ia-history-title { margin-bottom: 0; }
+.cx-atividade-ia-history[open] > summary { margin-bottom: 7px; }
 .cx-atividade-ia-history-item {
   display: grid;
   gap: 6px;
@@ -6282,7 +6313,9 @@ dialog.cx-modal-shell::backdrop {
   cursor: pointer;
 }
 .cx-atividade-canal-suggest {
-  margin: 0 0 10px;
+  margin: 0 0 16px;
+  padding: 0 0 0 14px;
+  border-left: 3px solid #c5d4c8;
   color: #243833;
   font-size: 12.5px;
   line-height: 1.4;

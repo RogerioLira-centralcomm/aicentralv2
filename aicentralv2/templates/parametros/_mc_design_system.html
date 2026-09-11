@@ -1,0 +1,44 @@
+<article class="mc-dsa" id="mcDsa">
+  <header class="mc-dsa-rail">
+    <label class="cx-field">
+      <select class="cx-select" id="mcDsaClient" aria-label="Marca">
+        <option value="centralcomm">CentralComm Ads</option>
+      </select>
+    </label>
+    <label class="cx-field">
+      <select class="cx-select" id="mcDsaCampaign" aria-label="Campanha">
+        <option value="">Marca</option>
+        <option value="centralcomm-verao">Verao · CentralComm</option>
+      </select>
+    </label>
+    <label class="cx-field">
+      <select class="cx-select" id="mcDsaFormat" aria-label="Formato IAB"></select>
+    </label>
+    <label class="cx-field mc-dsa-layers">
+      <span id="mcDsaLayerLabel">4 camadas</span>
+      <input id="mcDsaLayerCount" type="range" min="4" max="40" value="4" aria-valuemin="4" aria-valuemax="40">
+    </label>
+    <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem Design System Ads. Criar a partir do logo e da paleta.</p>
+    <div class="mc-dsa-actions">
+      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Criar sistema</button>
+      <button class="cx-btn" type="button" id="mcDsaRefine" disabled>Refinar</button>
+      <button class="cx-btn" type="button" id="mcDsaApprove" disabled>Aprovar</button>
+      <a class="cx-btn cx-btn-outline" id="mcDsaOpen" href="/lab/design-system/marca/centralcomm" target="_blank" rel="noreferrer">Abrir specimen</a>
+    </div>
+  </header>
+  <p class="mc-dsa-status" id="mcDsaStatus"></p>
+  <div class="mc-dsa-studio">
+    <section class="mc-dsa-side" aria-label="Tokens e camadas">
+      <div id="mcDsaTable"></div>
+      <div class="mc-dsa-stack">
+        <p class="mc-dsa-stack-lead">Camadas. Escolha duas e troque a posição.</p>
+        <ol class="mc-dsa-layers-list" id="mcDsaLayerList"></ol>
+        <button class="cx-btn" type="button" id="mcDsaSwap" disabled>Trocar posição</button>
+      </div>
+    </section>
+    <section class="mc-dsa-preview" aria-label="Mesa do formato">
+      <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Specimen do formato" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
+      <p class="mc-dsa-pass" id="mcDsaPass">Passe 0/4</p>
+    </section>
+  </div>
+</article>

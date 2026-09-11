@@ -1,0 +1,38 @@
+<section class="mc-trocr-canvas" id="mcSwapStage">
+  <header class="mc-trocr-canvas-bar">
+    <div class="mc-trocr-tabs" role="tablist">
+      <button type="button" class="is-active" data-view="view" id="mcTrocrViewBtn">Visualização</button>
+      <button type="button" data-view="compare" id="mcTrocrCompareBtn">Comparar</button>
+    </div>
+    <div class="mc-trocr-canvas-tools">
+      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrZoomOut" aria-label="Diminuir zoom">−</button>
+      <span id="mcTrocrZoomLabel">100%</span>
+      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrZoomIn" aria-label="Aumentar zoom">+</button>
+      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrDownload">Download</button>
+      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrFullscreen">Tela cheia</button>
+    </div>
+  </header>
+  <p class="mc-trocr-base-meta" id="mcTrocrBaseMeta">Nenhuma versão selecionada</p>
+  <div class="mc-swap-stage mc-trocr-stage" id="mcTrocrViewport" data-presentation="final">
+    <div class="mc-swap-drop" id="mcSwapDrop">
+      <input id="mcSwapFile" type="file" accept="image/*" hidden>
+      <strong>Solte a referência.</strong>
+      <p>Ao enviar uma nova imagem, o OCR é executado automaticamente.</p>
+    </div>
+    <figure class="mc-swap-preview" id="mcSwapPreview" hidden>
+      <div class="mc-trocr-frame" data-mockup="final">
+        <img id="mcSwapImage" alt="Still do anúncio">
+      </div>
+    </figure>
+    <div class="mc-trocr-compare" id="mcTrocrCompare" hidden>
+      <figure>
+        <figcaption id="mcTrocrCompareALabel">Original</figcaption>
+        <img id="mcTrocrCompareA" alt="Versão A">
+      </figure>
+      <figure>
+        <figcaption id="mcTrocrCompareBLabel">Atual</figcaption>
+        <img id="mcTrocrCompareB" alt="Versão B">
+      </figure>
+    </div>
+  </div>
+</section>

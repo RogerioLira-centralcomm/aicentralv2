@@ -3372,6 +3372,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_lab.html",
             "_mc_placas.html",
             "_mc_trocar.html",
+            "_mc_design_system.html",
         ]
         for name in names:
             source = (template_dir / name).read_text(encoding="utf-8")
@@ -3400,6 +3401,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         for tab in (
             "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
             "marcas", "historico", "extrair", "revisao", "mesa", "lab", "placas", "trocar",
+            "design-system",
         ):
             self.assertIn(tab, page)
         self.assertNotIn("Variações A/B", page)

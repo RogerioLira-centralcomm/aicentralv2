@@ -139,11 +139,18 @@ MC_DESKS = {
         "page_js": "js/mc-placas.js",
     },
     "trocar": {
-        "title": "Trocar anúncio",
-        "lead": "Uma referência. A gente lê o que dá para editar. Você escolhe a saída.",
+        "title": "Editar criativo com IA",
+        "lead": "Envie um criativo, ajuste o que deseja alterar e gere novas versões sem perder as anteriores.",
         "panel": "parametros/_mc_trocar.html",
         "studio": False,
         "page_js": "js/mc-trocar.js",
+    },
+    "design-system": {
+        "title": "Design System Ads",
+        "lead": "Tabela de tokens, tema Tailwind e specimen da marca.",
+        "panel": "parametros/_mc_design_system.html",
+        "studio": False,
+        "page_js": "js/mc-design-system.js",
     },
 }
 
@@ -312,6 +319,13 @@ def api_format_lab_swap_read():
 
 
 @admin_required_api
+def api_format_lab_swap_prompt():
+    return _execute(
+        lambda: _ok(_service().preview_format_lab_swap(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
 def api_format_lab_close(session_id):
     return _execute(
         lambda: _ok(
@@ -419,6 +433,68 @@ def api_clients():
     if request.method == "POST":
         return _execute(lambda: _ok(_service().create_client(_json()), 201))
     return _execute(lambda: _ok(_service().list_clients()))
+
+
+@admin_required_api
+def api_brand_design_system(client_id):
+    if request.method == "POST":
+        return _execute(lambda: _ok(_service().ensure_brand_design_system(client_id)))
+    return _execute(lambda: _ok(_service().get_brand_design_system(client_id)))
+
+
+@admin_required_api
+def api_refine_brand_design_system(client_id):
+    payload = _json(optional=True)
+    return _execute(
+        lambda: _ok(
+            _service().refine_brand_design_system(
+                client_id,
+                payload.get("attempts") or 4,
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_approve_brand_design_system(client_id):
+    return _execute(lambda: _ok(_service().approve_brand_design_system(client_id)))
+
+
+@admin_required_api
+def api_adapt_brand_design_system(client_id):
+    payload = _json(optional=True)
+    format_key = payload.get("format") or request.args.get("format")
+    layers = payload.get("layers") or request.args.get("layers")
+    swaps = payload.get("swaps") if isinstance(payload.get("swaps"), list) else None
+    return _execute(
+        lambda: _ok(
+            _service().adapt_brand_design_system(
+                client_id, format_key, layers, swaps=swaps
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_campaign_design_system(campaign_id):
+    if request.method == "POST":
+        return _execute(lambda: _ok(_service().ensure_campaign_design_system(campaign_id)))
+    return _execute(lambda: _ok(_service().get_campaign_design_system(campaign_id)))
+
+
+@admin_required_api
+def api_adapt_campaign_design_system(campaign_id):
+    payload = _json(optional=True)
+    format_key = payload.get("format") or request.args.get("format")
+    layers = payload.get("layers") or request.args.get("layers")
+    swaps = payload.get("swaps") if isinstance(payload.get("swaps"), list) else None
+    return _execute(
+        lambda: _ok(
+            _service().adapt_campaign_design_system(
+                campaign_id, format_key, layers, swaps=swaps
+            )
+        )
+    )
 
 
 @admin_required_api
@@ -1108,6 +1184,12 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/format-lab/swap/prompt",
+        endpoint="creative_format_lab_swap_prompt",
+        view_func=api_format_lab_swap_prompt,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/format-lab/quote",
         endpoint="creative_format_lab_quote",
         view_func=api_format_lab_quote,
@@ -1154,6 +1236,42 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_agent_run",
         view_func=api_creative_agent,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>",
+        endpoint="creative_design_system_brand",
+        view_func=api_brand_design_system,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/refine",
+        endpoint="creative_design_system_brand_refine",
+        view_func=api_refine_brand_design_system,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/approve",
+        endpoint="creative_design_system_brand_approve",
+        view_func=api_approve_brand_design_system,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/adapt",
+        endpoint="creative_design_system_brand_adapt",
+        view_func=api_adapt_brand_design_system,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/campaign/<campaign_id>",
+        endpoint="creative_design_system_campaign",
+        view_func=api_campaign_design_system,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/campaign/<campaign_id>/adapt",
+        endpoint="creative_design_system_campaign_adapt",
+        view_func=api_adapt_campaign_design_system,
+        methods=["GET", "POST"],
     )
     blueprint.add_url_rule(
         "/api/formats", endpoint="creative_formats", view_func=api_formats
@@ -1535,13 +1653,63 @@ def modeling_ux_states():
     return render_template("parametros/mesa/states.html")
 
 
+@admin_required
+def trocr_ux_states():
+    return render_template("parametros/trocr/states.html")
+
+
+@admin_required
+def design_system_brand_specimen(client_id):
+    try:
+        html = _service().render_brand_design_system(
+            client_id,
+            request.args.get("format"),
+            request.args.get("layers"),
+        )
+    except CreativeNotFoundError:
+        abort(404)
+    except ValueError:
+        abort(400)
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@admin_required
+def design_system_campaign_specimen(campaign_id):
+    try:
+        html = _service().render_campaign_design_system(
+            campaign_id,
+            request.args.get("format"),
+            request.args.get("layers"),
+        )
+    except CreativeNotFoundError:
+        abort(404)
+    except ValueError:
+        abort(400)
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
 def register_modeling_ux_lab(app):
-    """Rota de validação visual — fora de MC_DESKS para não entrar no nav."""
+    """Rotas de validação visual — fora de MC_DESKS para não entrar no nav."""
     if getattr(app, "_modeling_ux_lab_registered", False):
         return
     app.add_url_rule(
         "/lab/modelagem/states",
         endpoint="modeling_ux_states",
         view_func=modeling_ux_states,
+    )
+    app.add_url_rule(
+        "/lab/trocr/states",
+        endpoint="trocr_ux_states",
+        view_func=trocr_ux_states,
+    )
+    app.add_url_rule(
+        "/lab/design-system/marca/<client_id>",
+        endpoint="design_system_brand_specimen",
+        view_func=design_system_brand_specimen,
+    )
+    app.add_url_rule(
+        "/lab/design-system/campanha/<campaign_id>",
+        endpoint="design_system_campaign_specimen",
+        view_func=design_system_campaign_specimen,
     )
     app._modeling_ux_lab_registered = True

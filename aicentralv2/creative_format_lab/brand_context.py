@@ -90,6 +90,7 @@ def build_brand_context(client=None, extra_assets=None):
             "gpt_image_instruction": line.get("gpt_image_instruction") or "",
         },
         "brand_dna": dna,
+        "design_system_ads": profile.get("design_system_ads") if isinstance(profile.get("design_system_ads"), dict) else {},
         "analysis_metadata": client.get("analysis_metadata") or {},
         "assets": {
             "logo": [_asset_url(item) for item in logos if _asset_url(item)][:3],

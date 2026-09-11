@@ -1,0 +1,45 @@
+<aside class="mc-trocr-inspector mc-swap-side" id="mcTrocrInspector">
+  <header class="mc-trocr-inspector-head">
+    <h2>Configurações do criativo</h2>
+    <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrResetPanel">Reiniciar</button>
+  </header>
+
+  <section class="mc-trocr-section">
+    <label class="cx-field">
+      <span class="cx-label">Marca</span>
+      <select class="cx-select" id="mcSwapClient">
+        <option value="">Marca da mesa</option>
+      </select>
+    </label>
+    <label class="mc-trocr-toggle">
+      <input type="checkbox" id="mcTrocrBrandContext" checked>
+      <span>
+        <strong>Usar contexto da marca</strong>
+        <small>Considera diretrizes, tom de voz e histórico da marca.</small>
+      </span>
+    </label>
+  </section>
+
+  <section class="mc-trocr-section">
+    <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
+      <legend>Formato de saída</legend>
+      <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
+      <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
+      <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
+      <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
+    </fieldset>
+    <fieldset class="mc-trocr-chips">
+      <legend>Tipo de apresentação</legend>
+      <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>
+      <label><input type="radio" name="mcTrocrPresent" value="mobile"> Mockup mobile</label>
+      <label><input type="radio" name="mcTrocrPresent" value="portal"> Mockup portal</label>
+      <label><input type="radio" name="mcTrocrPresent" value="ctv"> Mockup CTV</label>
+    </fieldset>
+  </section>
+
+  {% include "parametros/trocr/_ocr_fields.html" %}
+  {% include "parametros/trocr/_analysis.html" %}
+  {% include "parametros/trocr/_preserve_alter.html" %}
+  {% include "parametros/trocr/_prompt.html" %}
+  {% include "parametros/trocr/_generate.html" %}
+</aside>

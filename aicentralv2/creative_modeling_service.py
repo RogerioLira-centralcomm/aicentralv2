@@ -1134,6 +1134,9 @@ class CreativeModelingService:
     def read_format_lab_swap(self, payload, user_id=None):
         return self._format_lab().read_swap(payload, user_id=user_id)
 
+    def preview_format_lab_swap(self, payload, user_id=None):
+        return self._format_lab().preview_swap(payload, user_id=user_id)
+
     def close_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().close(session_id, payload, user_id=user_id)
 
@@ -1248,6 +1251,355 @@ class CreativeModelingService:
         if hasattr(self.repository, "list_client_brand_assets"):
             client["brand_assets"] = self.repository.list_client_brand_assets(client_id)
         return _serialize(client)
+
+    def get_brand_design_system(self, client_id):
+        from .design_system_ads.service import is_preset_id, payload_for, read_preset
+
+        if is_preset_id(client_id):
+            return _serialize({**read_preset(), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        stored = self._stored_brand_design_system(client)
+        if stored:
+            return _serialize({**payload_for(stored), "exists": True, "preset": False})
+        from .design_system_ads.materialize import ensure_brand_design_system
+
+        suggested = ensure_brand_design_system(client)
+        return _serialize(
+            {
+                **payload_for(suggested),
+                "exists": False,
+                "preset": False,
+                "client_id": client.get("id"),
+                "status": "missing",
+            }
+        )
+
+    def ensure_brand_design_system(self, client_id):
+        from .design_system_ads.service import is_preset_id, payload_for, read_preset
+
+        if is_preset_id(client_id):
+            return _serialize({**read_preset(), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        persisted = self._persist_brand_design_system(client, system)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def refine_brand_design_system(self, client_id, attempts=4):
+        from .design_system_ads.refine import clamp_passes
+        from .design_system_ads.service import (
+            is_preset_id,
+            payload_for,
+            read_preset,
+            run_refine,
+        )
+
+        if is_preset_id(client_id):
+            current = read_preset()
+            refined, _reports = run_refine(current, attempts=clamp_passes(attempts))
+            return _serialize({**payload_for(refined), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        references = []
+        for asset in client.get("brand_assets") or []:
+            url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
+            if url:
+                references.append(url)
+        if client.get("logo_upload_path"):
+            references.insert(0, client["logo_upload_path"])
+        refined, _reports = run_refine(
+            system,
+            attempts=clamp_passes(attempts),
+            text_callable=self._design_system_text_callable(),
+            reference_urls=references[:4],
+        )
+        persisted = self._persist_brand_design_system(client, refined)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def approve_brand_design_system(self, client_id):
+        from .design_system_ads.service import (
+            is_preset_id,
+            mark_approved,
+            payload_for,
+            read_preset,
+        )
+
+        if is_preset_id(client_id):
+            approved = mark_approved(read_preset())
+            return _serialize({**payload_for(approved), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
+        persisted = self._persist_brand_design_system(client, mark_approved(system))
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def adapt_brand_design_system(
+        self, client_id, format_key=None, layer_count=None, swaps=None
+    ):
+        from .design_system_ads.service import is_preset_id, payload_for, read_preset
+
+        if is_preset_id(client_id):
+            return _serialize(
+                {
+                    **payload_for(
+                        read_preset(),
+                        format_key=format_key or "iab-billboard",
+                        layer_count=layer_count,
+                        swaps=swaps,
+                    ),
+                    "exists": True,
+                    "preset": True,
+                }
+            )
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        return _serialize(
+            {
+                **payload_for(
+                    system,
+                    format_key=format_key or "iab-billboard",
+                    layer_count=layer_count,
+                    swaps=swaps,
+                ),
+                "exists": True,
+                "preset": False,
+            }
+        )
+
+    def render_brand_design_system(
+        self, client_id, format_key=None, layer_count=None, swaps=None
+    ):
+        from .design_system_ads.adapt import adapt_system
+        from .design_system_ads.render import render_specimen
+        from .design_system_ads.service import is_preset_id, read_preset
+
+        if is_preset_id(client_id):
+            system = read_preset()
+        else:
+            system = self.get_brand_design_system(client_id)
+        stack = None
+        if format_key:
+            system, stack = adapt_system(system, format_key, layer_count, swaps=swaps)
+        return render_specimen(system, standalone=True, stack=stack)
+
+    def get_campaign_design_system(self, campaign_id):
+        from .design_system_ads.campaign import (
+            ensure_campaign_design_system,
+            is_campaign_preset_id,
+        )
+        from .design_system_ads.service import payload_for, read_campaign_preset
+
+        if is_campaign_preset_id(campaign_id):
+            return _serialize({**read_campaign_preset(), "exists": True, "preset": True})
+        campaign = self.repository.get_campaign(
+            _integer(campaign_id, "Campanha"), productions=False
+        )
+        stored = self._stored_campaign_design_system(campaign)
+        if stored:
+            return _serialize({**payload_for(stored), "exists": True, "preset": False})
+        brand = self._brand_system_for_campaign(campaign, create=False)
+        suggested, items = ensure_campaign_design_system(
+            brand, campaign, self._campaign_elements(campaign)
+        )
+        return _serialize(
+            {
+                **payload_for(suggested),
+                "exists": False,
+                "preset": False,
+                "elements": items,
+                "status": "missing",
+            }
+        )
+
+    def ensure_campaign_design_system(self, campaign_id):
+        from .design_system_ads.campaign import (
+            ensure_campaign_design_system,
+            is_campaign_preset_id,
+        )
+        from .design_system_ads.service import payload_for, read_campaign_preset
+
+        if is_campaign_preset_id(campaign_id):
+            return _serialize({**read_campaign_preset(), "exists": True, "preset": True})
+        campaign = self.repository.get_campaign(
+            _integer(campaign_id, "Campanha"), productions=False
+        )
+        brand = self._brand_system_for_campaign(campaign, create=True)
+        system, _items = ensure_campaign_design_system(
+            brand, campaign, self._campaign_elements(campaign)
+        )
+        persisted = self._persist_campaign_design_system(campaign, system)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def adapt_campaign_design_system(
+        self, campaign_id, format_key=None, layer_count=None, swaps=None
+    ):
+        from .design_system_ads.campaign import (
+            ensure_campaign_design_system,
+            is_campaign_preset_id,
+        )
+        from .design_system_ads.service import payload_for, read_campaign_preset
+
+        if is_campaign_preset_id(campaign_id):
+            current = read_campaign_preset()
+            return _serialize(
+                {
+                    **payload_for(
+                        current,
+                        format_key=format_key or "iab-billboard",
+                        layer_count=layer_count,
+                        swaps=swaps,
+                    ),
+                    "exists": True,
+                    "preset": True,
+                }
+            )
+        campaign = self.repository.get_campaign(
+            _integer(campaign_id, "Campanha"), productions=False
+        )
+        system = self._stored_campaign_design_system(campaign)
+        if system is None:
+            brand = self._brand_system_for_campaign(campaign, create=False)
+            system, _items = ensure_campaign_design_system(
+                brand, campaign, self._campaign_elements(campaign)
+            )
+        return _serialize(
+            {
+                **payload_for(
+                    system,
+                    format_key=format_key or "iab-billboard",
+                    layer_count=layer_count,
+                    swaps=swaps,
+                ),
+                "exists": True,
+                "preset": False,
+            }
+        )
+
+    def render_campaign_design_system(
+        self, campaign_id, format_key=None, layer_count=None, swaps=None
+    ):
+        from .design_system_ads.adapt import adapt_system
+        from .design_system_ads.campaign import is_campaign_preset_id
+        from .design_system_ads.render import render_specimen
+        from .design_system_ads.service import read_campaign_preset
+
+        if is_campaign_preset_id(campaign_id):
+            system = read_campaign_preset()
+        else:
+            system = self.get_campaign_design_system(campaign_id)
+        stack = None
+        if format_key:
+            system, stack = adapt_system(system, format_key, layer_count, swaps=swaps)
+        return render_specimen(system, standalone=True, stack=stack)
+
+    def _brand_system_for_campaign(self, campaign, create=False):
+        from .design_system_ads.materialize import ensure_brand_design_system
+
+        client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+        stored = self._stored_brand_design_system(client)
+        if stored:
+            return stored
+        system = ensure_brand_design_system(client)
+        if create and client.get("id"):
+            return self._persist_brand_design_system(client, system)
+        return system
+
+    def _campaign_elements(self, campaign):
+        from .design_system_ads.campaign import collect_campaign_elements
+
+        record = dict(campaign or {})
+        assets = []
+        getter = getattr(self.repository, "list_campaign_assets", None)
+        if callable(getter) and record.get("id"):
+            try:
+                assets = getter(record["id"])
+            except Exception:
+                assets = []
+        record["assets"] = assets
+        return collect_campaign_elements(record)
+
+    def _stored_campaign_design_system(self, campaign):
+        from .design_system_ads.schema import FRAMEWORK, parse_system
+
+        brief = campaign.get("creative_brief") if isinstance(campaign.get("creative_brief"), dict) else {}
+        stored = brief.get("design_system_ads")
+        if isinstance(stored, dict) and (stored.get("framework") == FRAMEWORK or stored.get("tokens")):
+            return parse_system(stored)
+        return None
+
+    def _persist_campaign_design_system(self, campaign, system):
+        from .design_system_ads.schema import dump_system, parse_system
+
+        brief = campaign.get("creative_brief") if isinstance(campaign.get("creative_brief"), dict) else {}
+        brief = dict(brief)
+        brief["design_system_ads"] = dump_system(system)
+        self.repository.update_campaign_bancada(campaign["id"], brief)
+        return parse_system(brief["design_system_ads"])
+
+    def _maybe_generate_campaign_design_system(self, campaign):
+        if not isinstance(campaign, dict) or campaign.get("id") in (None, ""):
+            return
+        client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+        if not self._stored_brand_design_system(client):
+            return
+        try:
+            self.ensure_campaign_design_system(campaign["id"])
+        except Exception:
+            return
+
+    def _stored_brand_design_system(self, client):
+        from .design_system_ads.schema import FRAMEWORK, parse_system
+
+        profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
+        stored = profile.get("design_system_ads")
+        if isinstance(stored, dict) and (stored.get("framework") == FRAMEWORK or stored.get("tokens")):
+            return parse_system(stored)
+        getter = getattr(self.repository, "get_design_system_ads", None)
+        if not callable(getter):
+            return None
+        try:
+            row = getter(client.get("id"))
+        except Exception:
+            return None
+        tokens = (row or {}).get("tokens") if isinstance(row, dict) else None
+        if isinstance(tokens, dict) and (tokens.get("framework") == FRAMEWORK or tokens.get("tokens")):
+            return parse_system(tokens)
+        return None
+
+    def _persist_brand_design_system(self, client, system):
+        from .design_system_ads.schema import dump_system
+
+        data = dump_system(system)
+        data["client_id"] = client.get("id")
+        profile = dict(client.get("brand_profile") or {})
+        profile["design_system_ads"] = data
+        client["brand_profile"] = profile
+        writer = getattr(self.repository, "update_client_brand_profile", None)
+        if callable(writer):
+            writer(client["id"], profile)
+        upsert = getattr(self.repository, "upsert_design_system_ads", None)
+        if callable(upsert):
+            upsert(client["id"], data)
+        return data
+
+    def _design_system_text_callable(self):
+        from .services.openrouter_service import chat_completion, resolve_api_key
+
+        if not resolve_api_key():
+            return None
+        return chat_completion
 
     def _client_write_data(self, payload, include_crm=True):
         payload = payload if isinstance(payload, dict) else {}
@@ -1937,6 +2289,8 @@ class CreativeModelingService:
                     "O próximo deploy aplica a migration e libera 6 e 8 batidas."
                 ) from exc
             raise
+        campaign = self.repository.get_campaign(created["id"])
+        self._maybe_generate_campaign_design_system(campaign)
         return _serialize(
             {
                 "campaign": self.repository.get_campaign(created["id"]),
@@ -2859,6 +3213,7 @@ class CreativeModelingService:
             production = campaign.get("production")
             if production and production.get("scenes"):
                 campaign["created_scene_id"] = production["scenes"][0]["id"]
+            self._maybe_generate_campaign_design_system(campaign)
             return campaign
         show_price = payload.get("show_price", False)
         if not isinstance(show_price, bool):
@@ -2912,6 +3267,7 @@ class CreativeModelingService:
         created = self.repository.create_campaign_with_variation_a(data)
         campaign = self.repository.get_campaign(created["id"])
         campaign["created_step_id"] = created["step_id"]
+        self._maybe_generate_campaign_design_system(campaign)
         return _serialize(campaign)
 
     def campaign_detail(self, campaign_id):

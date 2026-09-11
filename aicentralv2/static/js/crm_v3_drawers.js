@@ -1245,6 +1245,7 @@
             var list = wrapper.querySelector('[data-ia-history]');
             var section = wrapper.querySelector('[data-ia-history-section]');
             if (section && list && !list.children.length) section.hidden = true;
+            syncHistoryCount(wrapper);
         }
         if (!item.historyId) {
             drop();
@@ -1305,6 +1306,7 @@
         row.appendChild(copy);
         appendHistoryActions(row, item, form, wrapper);
         list.insertBefore(row, list.firstChild);
+        syncHistoryCount(wrapper);
     }
 
     function loadIaHistory(wrapper, form, clienteId, atividadeId) {
@@ -1853,6 +1855,7 @@
     }
 
     function renderAssistantResult(output, data, channel, form, wrapper) {
+        if (form) syncAssistantCollapses(wrapper, form, { collapseOptional: true });
         output.replaceChildren();
         output.classList.add('is-visible', 'is-result');
         output.dataset.historyId = data.history_id || '';
@@ -2146,6 +2149,7 @@
         renderCanalFicha(wrapper, val);
         renderCanalSuggest(wrapper, form);
         syncAssistantBriefing(wrapper, form);
+        syncAssistantCollapses(wrapper, form, val ? { openProducts: true } : {});
     }
 
     function markCanalChips(wrapper, val) {
@@ -2165,16 +2169,20 @@
         var filter = wrapper.querySelector('[data-canal-filter]');
         if (!host || !chips) return;
 
-        host.addEventListener('click', function (ev) {
+        function onCanalAction(ev) {
             var apply = ev.target && ev.target.closest ? ev.target.closest('[data-canal-apply]') : null;
             if (apply) {
                 setCanalProduto(form, wrapper, apply.getAttribute('data-canal-apply') || '', 'title');
-                return;
+                return true;
             }
             if (ev.target && ev.target.closest && ev.target.closest('[data-canal-clear]')) {
                 setCanalProduto(form, wrapper, '', 'clear');
-                return;
+                return true;
             }
+            return false;
+        }
+        host.addEventListener('click', function (ev) {
+            if (onCanalAction(ev)) return;
             var chip = ev.target && ev.target.closest ? ev.target.closest('.cx-drawer-chip') : null;
             if (!chip || !chips.contains(chip)) return;
             var val = chip.getAttribute('data-value') || '';
@@ -2184,6 +2192,10 @@
             }
             setCanalProduto(form, wrapper, val, 'pick');
         });
+        var suggestBox = wrapper.querySelector('[data-canal-suggest]');
+        if (suggestBox && !host.contains(suggestBox)) {
+            suggestBox.addEventListener('click', onCanalAction);
+        }
 
         if (filter) {
             filter.addEventListener('input', function () {
@@ -2208,6 +2220,7 @@
             renderCanalFicha(wrapper, hidden && hidden.value);
             renderCanalSuggest(wrapper, form);
             syncAssistantBriefing(wrapper, form);
+            syncAssistantCollapses(wrapper, form, { initial: true });
         });
     }
 
@@ -2283,6 +2296,7 @@
     function wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor) {
         wrapper._assistenteClienteId = clienteId;
         syncAssistantBriefing(wrapper, form);
+        syncAssistantCollapses(wrapper, form, { initial: true });
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
                 var val = chip.getAttribute('data-value');
@@ -2334,6 +2348,58 @@
             apresentar_empresa: 'apresentar a CentralComm',
             entender_necessidades: 'entender necessidades'
         })[foco] || '';
+    }
+
+    function syncHistoryCount(wrapper) {
+        var section = wrapper && wrapper.querySelector('[data-ia-history-section]');
+        var list = wrapper && wrapper.querySelector('[data-ia-history]');
+        var count = wrapper && wrapper.querySelector('[data-ia-history-count]');
+        if (!list) return;
+        var n = list.children.length;
+        if (count) count.textContent = n ? String(n) : '';
+        if (section && !n) section.hidden = true;
+    }
+
+    function syncAssistantCollapses(wrapper, form, opts) {
+        opts = opts || {};
+        if (!wrapper || !form) return;
+        var topics = wrapper.querySelector('[data-ia-topics]');
+        var products = wrapper.querySelector('[data-canal-produtos]');
+        var refine = wrapper.querySelector('[data-ia-refine]');
+        var foco = String((form.querySelector('[data-field="foco"]') || {}).value || '').trim();
+        var tom = String((form.querySelector('[data-field="tom"]') || {}).value || 'consultivo').trim();
+        var canal = String((form.querySelector('[data-field="canal_produto"]') || {}).value || '').trim();
+        var ajuste = String((wrapper.querySelector('[data-ia-field="instrucoes"]') || {}).value || '').trim();
+        var rumo = rumoLabel(foco, canal);
+        var tomLabel = tom ? tom.charAt(0).toUpperCase() + tom.slice(1) : 'Consultivo';
+        var topicsState = topics && topics.querySelector('[data-collapse-state]');
+        var productsState = products && products.querySelector('[data-collapse-state]');
+        var refineState = refine && refine.querySelector('[data-collapse-state]');
+        if (topicsState) {
+            topicsState.textContent = rumo
+                ? (rumo + ' · ' + tomLabel)
+                : (tom && tom !== 'consultivo' ? tomLabel : 'opcional');
+        }
+        if (productsState) productsState.textContent = canal || 'opcional';
+        if (refineState) {
+            refineState.textContent = ajuste
+                ? (ajuste.length > 28 ? ajuste.slice(0, 25) + '…' : ajuste)
+                : 'opcional';
+        }
+        if (opts.collapseOptional) {
+            if (topics) topics.open = false;
+            if (products) products.open = false;
+            if (refine) refine.open = false;
+            return;
+        }
+        if (opts.initial) {
+            if (topics && foco) topics.open = true;
+            if (products && canal) products.open = true;
+            if (refine && ajuste) refine.open = true;
+        }
+        if (opts.openProducts && products) products.open = true;
+        if (opts.openTopics && topics) topics.open = true;
+        if (opts.openRefine && refine) refine.open = true;
     }
 
     function syncAssistantChannelLabel(wrapper, form, value) {
@@ -2395,6 +2461,7 @@
             return '<div class="cx-atividade-brief-row"><span>' + escapeHtml(row[0]) +
                 '</span><b>' + escapeHtml(row[1]) + '</b></div>';
         }).join('');
+        syncAssistantCollapses(wrapper, form);
     }
 
     function runIA(btn, form, output, clienteId, wrapper) {
@@ -2616,6 +2683,7 @@
             output.removeAttribute('aria-busy');
             if (iaPanel) iaPanel.removeAttribute('aria-busy');
             stopAssistantProgress(wrapper);
+            syncAssistantCollapses(wrapper, form, { collapseOptional: true });
         });
     }
 

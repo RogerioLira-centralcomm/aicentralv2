@@ -2835,6 +2835,65 @@ class CreativeModelingRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def get_design_system_ads(self, client_id):
+        try:
+            rows = self.list_brand_visual_systems(client_id)
+        except Exception:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            return None
+        for row in rows:
+            if str(row.get("client_id") or "") != str(client_id or ""):
+                continue
+            tokens = row.get("tokens") if isinstance(row.get("tokens"), dict) else {}
+            if tokens.get("framework") == "design-system-ads":
+                return row
+            if row.get("name") in {"Design System Ads", "CentralComm Ads"}:
+                return row
+        return None
+
+    def upsert_design_system_ads(self, client_id, system):
+        payload = system if isinstance(system, dict) else {}
+        name = str(payload.get("name") or "Design System Ads")[:160]
+        status = str(payload.get("status") or "draft")
+        if status not in {"draft", "approved", "archived"}:
+            status = "draft"
+        existing = self.get_design_system_ads(client_id)
+        try:
+            with self._write() as cursor:
+                if existing:
+                    cursor.execute(
+                        """
+                        UPDATE cx_brand_visual_systems
+                           SET name = %s,
+                               tokens = %s,
+                               status = %s,
+                               updated_at = NOW()
+                         WHERE id = %s
+                        RETURNING id
+                        """,
+                        (name, Json(payload), status, existing["id"]),
+                    )
+                    row = cursor.fetchone()
+                    return row["id"] if row else existing["id"]
+                cursor.execute(
+                    """
+                    INSERT INTO cx_brand_visual_systems (client_id, name, tokens, status)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (client_id, name, Json(payload), status),
+                )
+                return cursor.fetchone()["id"]
+        except Exception:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            return None
+
     def list_compose_templates(self, family=None):
         with self.conn.cursor() as cursor:
             cursor.execute(

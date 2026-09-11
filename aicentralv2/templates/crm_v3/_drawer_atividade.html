@@ -193,6 +193,7 @@
             <p class="cx-atividade-brief-lead" data-ia-brief-lead>O título e o registro à esquerda viram o assunto do texto.</p>
             <div class="cx-atividade-brief-lines" data-ia-brief-lines></div>
           </div>
+          <p class="cx-atividade-canal-suggest" data-canal-suggest hidden></p>
           <p class="sr-only" data-ia-channel-label></p>
 
           <div class="cx-atividade-ia-progress" data-ia-progress hidden>
@@ -203,8 +204,14 @@
             <span data-ia-progress-pct>0%</span>
           </div>
 
-          <section class="cx-atividade-ia-topics" data-ia-topics>
-            <h3 id="cx-atividade-ia-topics-title">Rumo e tom <em>opcional</em></h3>
+          <details class="cx-atividade-ia-topics" data-ia-topics>
+            <summary>
+              <span>
+                <strong id="cx-atividade-ia-topics-title">Rumo e tom</strong>
+                <em data-collapse-state>opcional</em>
+              </span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
             <p class="cx-atividade-ia-topics-hint">Sem rumo, o gerador segue o título e o registro. O kit do canal não troca esse assunto.</p>
             <div class="cx-atividade-ia-toolbar" role="group" aria-label="Rumo e tom opcionais">
               <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
@@ -225,18 +232,23 @@
                 <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Informal</button>
               </div>
             </div>
-          </section>
+          </details>
 
-          <section class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
+          <details class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
+            <summary>
+              <span>
+                <strong id="cx-atividade-ia-canais-title">Kit do canal</strong>
+                <em data-collapse-state>opcional</em>
+              </span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
             <div class="cx-atividade-ia-canais-head">
-              <h3 id="cx-atividade-ia-canais-title">Kit do canal <em>opcional</em></h3>
+              <p class="cx-atividade-ia-topics-hint">O kit entra com 1 a 3 números. O assunto continua sendo o título e o registro.</p>
               <button type="button" class="cx-atividade-canal-catalog" data-open-canais>
                 Ver ficha
               </button>
             </div>
-            <p class="cx-atividade-ia-topics-hint">O kit entra com 1 a 3 números. O assunto continua sendo o título e o registro.</p>
             <div class="cx-atividade-canal-ficha" data-canal-ficha hidden></div>
-            <p class="cx-atividade-canal-suggest" data-canal-suggest hidden></p>
             <input type="search" class="cx-atividade-canal-filter" data-canal-filter
                    placeholder="Buscar canal — Netflix, Serasa, Interativos…" autocomplete="off" />
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
@@ -247,14 +259,23 @@
               <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Serasa" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">S</span>Serasa</button>
               <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Interativos" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">I</span>Interativos</button>
             </div>
-          </section>
+          </details>
 
           <div class="cx-atividade-ia-meta">
-            <label class="cx-atividade-ia-note" for="cx-ativ-ia-instrucoes">
-              <span>Ajuste fino</span>
-              <textarea id="cx-ativ-ia-instrucoes" data-ia-field="instrucoes" rows="3"
-                        placeholder="Objeção, corte, prazo ou o que a mensagem precisa carregar — ex.: imóveis RJ, score 500+, mínimo R$ 10 mil, sem falar de follow-up."></textarea>
-            </label>
+            <details class="cx-atividade-ia-refine" data-ia-refine>
+              <summary>
+                <span>
+                  <strong>Ajuste fino</strong>
+                  <em data-collapse-state>opcional</em>
+                </span>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </summary>
+              <label class="cx-atividade-ia-note" for="cx-ativ-ia-instrucoes">
+                <span class="sr-only">Ajuste fino</span>
+                <textarea id="cx-ativ-ia-instrucoes" data-ia-field="instrucoes" rows="3"
+                          placeholder="Objeção, corte, prazo ou o que a mensagem precisa carregar — ex.: imóveis RJ, score 500+, mínimo R$ 10 mil, sem falar de follow-up."></textarea>
+              </label>
+            </details>
             <p class="cx-atividade-ia-legend">
               <button type="button" data-ia-action="melhorar-texto">Revisar</button>
               o texto já escrito
@@ -280,13 +301,17 @@
           </div>
         </section>
 
-        <section class="cx-atividade-ia-history" data-ia-history-section hidden>
-          <div class="cx-atividade-ia-history-title">
-            <i class="fa-regular fa-clock" aria-hidden="true"></i>
-            Histórico
-          </div>
+        <details class="cx-atividade-ia-history" data-ia-history-section hidden>
+          <summary class="cx-atividade-ia-history-title">
+            <span>
+              <i class="fa-regular fa-clock" aria-hidden="true"></i>
+              Histórico
+              <em data-ia-history-count></em>
+            </span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
           <div data-ia-history></div>
-        </section>
+        </details>
       </aside>
     </div>
   </form>

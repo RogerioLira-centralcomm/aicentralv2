@@ -26,6 +26,7 @@
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
       <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_mesa') }}">Lab 15s</a>
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a>
       <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_bancada') }}">Bancada 2.0</a>
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">Revisar</a>
       <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
@@ -53,7 +54,9 @@
       lab: "lab",
       placas: "placas",
       conceito: "mesa",
-      trocar: "trocar"
+      trocar: "trocar",
+      ads: "design-system",
+      "design-system": "design-system"
     };
     var key = (location.hash || "").replace("#", "");
     if (map[key]) location.replace("/parametros/modelagem-criativos/" + map[key]);

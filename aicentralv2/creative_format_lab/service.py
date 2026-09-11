@@ -12,7 +12,7 @@ from .campaign_models import list_campaign_models, load_campaign_model
 from .catalog import catalog_payload
 from .close import close_scene
 from .pipeline import apply_manual_patch, new_session_id, run_session
-from .swap import quote_swap, read_swap_reference, swap_reference
+from .swap import preview_swap_prompt, quote_swap, read_swap_reference, swap_reference
 from .plates import (
     apply_bindings,
     build_plate_kit,
@@ -161,7 +161,7 @@ class FormatLabService:
     def quote(self, payload=None):
         payload = payload if isinstance(payload, dict) else {}
         if str(payload.get("kind") or "") == "swap":
-            return _serialize(quote_swap())
+            return _serialize(quote_swap(payload))
         return _serialize(quote_concept(payload))
 
     def read_swap(self, payload, user_id=None):
@@ -175,9 +175,14 @@ class FormatLabService:
             raise CreativeConflictError(str(exc)) from exc
         return _serialize(result)
 
+    def preview_swap(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
+        return _serialize(preview_swap_prompt(payload, brand))
+
     def swap(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
-        brand = self._swap_brand(payload)
+        brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
         try:
             result = swap_reference(
                 payload,

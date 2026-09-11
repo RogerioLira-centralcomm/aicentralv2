@@ -46,6 +46,19 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
             self.assertIn(field, ids)
 
     def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
+        self.assertIn('<details class="cx-atividade-ia-topics"', self.template)
+        self.assertIn('<details class="cx-atividade-ia-products"', self.template)
+        self.assertIn('<details class="cx-atividade-ia-refine"', self.template)
+        self.assertIn('<details class="cx-atividade-ia-history"', self.template)
+        self.assertNotIn('<section class="cx-atividade-ia-topics"', self.template)
+        self.assertNotIn('<section class="cx-atividade-ia-products"', self.template)
+        self.assertLess(
+            self.template.index("data-canal-suggest"),
+            self.template.index("data-ia-topics"),
+        )
+        self.assertIn("data-collapse-state", self.template)
+        self.assertIn("function syncAssistantCollapses", self.js)
+        self.assertIn("collapseOptional", self.js)
         self.assertIn("cx-atividade-ia-toolbar", self.template)
         self.assertIn("Rumo e tom", self.template)
         self.assertIn("data-chip-optional", self.template)

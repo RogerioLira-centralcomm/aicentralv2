@@ -1,0 +1,31 @@
+<section class="mc-trocr-section">
+  <fieldset class="mc-trocr-quality">
+    <legend>Modo de qualidade</legend>
+    <label>
+      <input type="radio" name="mcTrocrQuality" value="draft">
+      <span>
+        <strong>Rascunho</strong>
+        <small>Mais rápido, menor custo, preview de validação.</small>
+      </span>
+    </label>
+    <label>
+      <input type="radio" name="mcTrocrQuality" value="production" checked>
+      <span>
+        <strong>Produção</strong>
+        <small>Alta resolução, pronto para uso, maior fidelidade.</small>
+      </span>
+    </label>
+  </fieldset>
+  <p class="mc-trocr-cost" id="mcSwapCost">R$ 1,20</p>
+  <p class="mc-trocr-status" id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
+  <div class="mc-trocr-actions">
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrDraft" disabled>Gerar rascunho</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Gerar produção</button>
+  </div>
+  <ol class="mc-run-load" id="mcTrocrGenSteps" hidden>
+    <li data-gen="analysis">Análise</li>
+    <li data-gen="prompt">Montagem do prompt</li>
+    <li data-gen="generate">Geração</li>
+    <li data-gen="finish">Finalização</li>
+  </ol>
+</section>

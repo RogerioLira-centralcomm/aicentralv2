@@ -4,7 +4,7 @@
 {% block title %}Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -16,7 +16,7 @@
         {% if total_user %}
           {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário.
         {% else %}
-          Briefing vira quadro de mídia — página única ou plano completo.
+          Briefing vira uma folha de decisão — página única ou plano completo.
         {% endif %}
       </p>
     </div>
@@ -35,7 +35,11 @@
     {% for row in rows %}
     <li class="sp-plan {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}" data-id="{{ row.id }}">
       <div class="sp-plan-main">
+        {% if row.href %}
+        <h2><a href="{{ row.href }}">{{ row.titulo }}</a></h2>
+        {% else %}
         <h2>{{ row.titulo }}</h2>
+        {% endif %}
         <p class="sp-plan-client">{{ row.cliente or "Cliente a definir" }}</p>
         {% if row.objetivo %}<p class="sp-plan-goal">{{ row.objetivo }}</p>{% endif %}
         {% if row.canais %}
@@ -59,6 +63,10 @@
           <dd>{{ row.praca or "—" }}</dd>
         </div>
         <div>
+          <dt>Período</dt>
+          <dd>{{ row.periodo or "—" }}</dd>
+        </div>
+        <div>
           <dt>Atualizado</dt>
           <dd>{{ row.quando or "—" }}</dd>
         </div>
@@ -66,7 +74,12 @@
       <div class="sp-plan-aside">
         <span class="sp-mode {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}">{{ row.plan_mode_label }}</span>
         <div class="sp-plan-actions">
-          <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ url_for('smart_planner.' + row.resume_step, token=row.session_token) }}">{{ row.resume_action }}</a>
+          {% if row.href %}
+          <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>
+          {% endif %}
+          {% if row.tem_quadro and row.canvas_href and row.resume_step != 'canvas' %}
+          <a class="cx-btn cx-btn-sm cx-btn-ghost" href="{{ row.canvas_href }}">Abrir quadro</a>
+          {% endif %}
           <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost js-sp-delete" data-id="{{ row.id }}">Excluir</button>
         </div>
       </div>
@@ -74,7 +87,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <div class="sp-empty">
+  <div class="sp-empty" id="sp-empty">
     <h2>Nenhuma campanha neste usuário</h2>
     <p>Comece pelo briefing. O CentralX monta a página única ou o plano completo no quadro.</p>
     <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">Nova campanha</a>
@@ -84,5 +97,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/index.js') }}"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/index.js') }}?v=2"></script>
 {% endblock %}

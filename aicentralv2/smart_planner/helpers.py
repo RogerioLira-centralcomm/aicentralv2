@@ -35,6 +35,8 @@ def as_list(value: Any) -> list:
 def text(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, dict):
+        return ""
     if isinstance(value, (list, tuple)):
         return ", ".join(str(item).strip() for item in value if str(item).strip())
     return str(value).strip()
@@ -112,8 +114,23 @@ def plan_mode_of(dados: dict, fallback: str = "completo") -> str:
 
 
 def session_title(row: dict, dados: dict) -> str:
-    campanha = text(row.get("nome_campanha") or dados.get("nome_campanha") or dados.get("campanha"))
-    if isinstance(dados.get("campanha"), dict):
-        campanha = campanha or text(dados.get("nome_campanha"))
+    raw_name = row.get("nome_campanha") or dados.get("nome_campanha")
+    if not raw_name and not isinstance(dados.get("campanha"), dict):
+        raw_name = dados.get("campanha")
+    campanha = text(raw_name)
     cliente = text(row.get("cliente") or dados.get("cliente") or dados.get("anunciante"))
     return campanha or cliente or "Campanha sem nome"
+
+
+def plan_href(token: str, step: str) -> str:
+    token = text(token)
+    if not token:
+        return "/smart-planner/"
+    suffix = {
+        "briefing": "briefing",
+        "revisao": "revisao",
+        "canais": "canais",
+        "gerar": "gerar",
+        "canvas": "canvas",
+    }.get(text(step), "briefing")
+    return f"/smart-planner/{token}/{suffix}"

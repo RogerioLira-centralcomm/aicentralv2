@@ -1,16 +1,16 @@
 /* Smart Planner — mesa de mídia no Comercial do CentralX */
 
 .sp-desk {
-  --sp-ink: #0f2f31;
-  --sp-paper: #f3f6f5;
-  --sp-rule: #c8d2ce;
-  --sp-signal: #1e4d4f;
-  --sp-budget: #8a3f16;
-  --sp-fog: #5c6d6a;
-  --sp-sheet: #fbfcfb;
+  --sp-ink: var(--cx-text, #0f172a);
+  --sp-paper: var(--cx-surface-muted, #f8fafc);
+  --sp-rule: var(--cx-border, #e2e8f0);
+  --sp-signal: var(--cx-brand, #1e4d4f);
+  --sp-budget: var(--cx-brand, #1e4d4f);
+  --sp-fog: var(--cx-text-muted, #64748b);
+  --sp-sheet: var(--cx-surface, #ffffff);
   width: min(100%, 86rem);
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 3rem;
+  padding: 1.25rem 1.25rem 3rem;
   color: var(--sp-ink);
 }
 
@@ -83,11 +83,10 @@
   grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.8fr) auto;
   gap: 1.25rem;
   align-items: start;
-  padding: 1.1rem 1.2rem 1.1rem 1rem;
-  background: #fff;
+  padding: 1.1rem 1.2rem;
+  background: var(--cx-surface, #fff);
   border: 1px solid var(--sp-rule);
-  border-left: 4px solid var(--sp-signal);
-  box-shadow: 0 1px 0 rgba(15, 47, 49, 0.04);
+  border-radius: var(--cx-radius-md, 0.5rem);
 }
 
 .sp-plan.is-sheet {
@@ -98,6 +97,17 @@
   margin: 0;
   font-size: 1.125rem;
   font-weight: 700;
+}
+
+.sp-plan-main h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sp-plan-main h2 a:hover,
+.sp-plan-main h2 a:focus-visible {
+  color: var(--sp-signal);
+  text-decoration: underline;
 }
 
 .sp-plan-client,
@@ -130,6 +140,15 @@
   margin: 0;
 }
 
+.sp-facts.is-strip {
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.85rem 1.25rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--sp-rule);
+  border-bottom: 1px solid var(--sp-rule);
+}
+
 .sp-facts dt {
   color: var(--sp-fog);
   font-size: 0.75rem;
@@ -160,9 +179,9 @@
 }
 
 .sp-mode.is-sheet {
-  border-color: #e4c4ad;
-  background: #f8efe8;
-  color: var(--sp-budget);
+  border-color: var(--cx-brand, #1e4d4f);
+  background: var(--cx-brand-soft, #e8f1f1);
+  color: var(--sp-signal);
 }
 
 .sp-plan-actions {
@@ -201,17 +220,17 @@
   gap: 0.85rem;
   padding: 1.4rem 1.35rem 1.25rem;
   text-align: left;
-  background: #fff;
+  background: var(--cx-surface, #fff);
   border: 1px solid var(--sp-rule);
+  border-radius: var(--cx-radius-md, 0.5rem);
   cursor: pointer;
   font: inherit;
   color: inherit;
 }
 
 .sp-format.is-priority {
-  background: var(--sp-sheet);
+  background: var(--cx-surface, #fff);
   border-color: var(--sp-signal);
-  box-shadow: inset 0 3px 0 var(--sp-signal);
 }
 
 .sp-format h2 {
@@ -259,62 +278,50 @@
   outline-offset: 3px;
 }
 
-.sp-wizard {
-  display: grid;
-  grid-template-columns: 14.5rem minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
-}
-
-.sp-rail {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sp-rail-item {
+.sp-steps {
   display: flex;
-  gap: 0.65rem;
-  align-items: flex-start;
-  padding: 0.55rem 0.35rem;
-  color: var(--sp-fog);
+  flex-wrap: wrap;
+  gap: 0.35rem 0;
+  margin: 0 0 1.25rem;
+  padding: 0 0 1rem;
+  list-style: none;
+  border-bottom: 1px solid var(--sp-rule);
 }
 
-.sp-rail-item small {
-  display: block;
-  font-size: 0.75rem;
-}
-
-.sp-rail-num {
-  width: 1.4rem;
-  height: 1.4rem;
-  flex: 0 0 auto;
-  display: inline-flex;
+.sp-steps-item {
+  position: relative;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid var(--sp-rule);
-  background: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
+  color: var(--sp-fog);
+  font-size: 0.875rem;
 }
 
-.sp-rail-item.is-current {
+.sp-steps-item + .sp-steps-item::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  margin: 0 0.65rem;
+  background: var(--sp-rule);
+}
+
+.sp-steps-item.is-current {
   color: var(--sp-ink);
+  font-weight: 600;
 }
 
-.sp-rail-item.is-current .sp-rail-num,
-.sp-rail-item.is-done .sp-rail-num {
-  background: var(--sp-signal);
-  border-color: var(--sp-signal);
-  color: #fff;
+.sp-steps-item.is-done {
+  color: var(--sp-signal);
+}
+
+.sp-wizard-main {
+  min-width: 0;
 }
 
 .sp-panel {
   padding: 1.25rem;
-  background: #fff;
+  background: var(--cx-surface, #fff);
   border: 1px solid var(--sp-rule);
+  border-radius: var(--cx-radius-md, 0.5rem);
 }
 
 .sp-panel h2 {
@@ -330,7 +337,13 @@
 }
 
 .sp-revisao {
-  grid-template-columns: minmax(0, 1.1fr) minmax(16rem, 0.9fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  align-items: start;
+}
+
+.sp-revisao-side {
+  display: grid;
+  gap: 1rem;
 }
 
 .sp-split {
@@ -351,7 +364,7 @@
 }
 
 .sp-narrative {
-  min-height: 28rem;
+  min-height: 22rem;
 }
 
 .sp-channels {
@@ -426,25 +439,62 @@
 }
 
 .sp-board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-  align-items: start;
+  display: block;
 }
 
-.sp-board.is-sheet {
-  display: block;
+.sp-board.is-exec {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.5rem;
+  align-items: start;
+  padding: 0 1.4rem 1.4rem;
 }
 
 .sp-sheet {
   background: var(--sp-sheet);
   border: 1px solid var(--sp-rule);
-  box-shadow: 0 18px 40px rgba(15, 47, 49, 0.08);
 }
 
-.sp-sheet-band {
-  height: 7px;
-  background: var(--sp-accent, var(--sp-signal));
+.sp-sheet.is-exec {
+  background: #fff;
+}
+
+.sp-exec-reco {
+  padding: 0 1.4rem 0.4rem;
+}
+
+.sp-exec-reco .sp-card {
+  padding: 0;
+}
+
+.sp-exec-reco p,
+.sp-exec-reco textarea {
+  font-size: 1.2rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.sp-exec-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.65rem 1rem;
+  margin: 0.75rem 0 0;
+}
+
+.sp-exec-facts dt {
+  color: var(--sp-fog);
+  font-size: 0.75rem;
+}
+
+.sp-exec-facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.sp-sheet.is-full .sp-sheet-lead {
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--sp-rule);
+  margin-bottom: 0.4rem;
 }
 
 .sp-sheet-head {
@@ -503,9 +553,15 @@
 
 .sp-board-section > h2 {
   margin: 0;
+  color: var(--sp-ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sp-card-items {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
   color: var(--sp-fog);
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 .sp-card-type {
@@ -748,7 +804,8 @@
 .sp-public {
   margin: 0;
   min-height: 100vh;
-  background: #111;
+  background: #0f2f31;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .sp-public .sp-desk {
@@ -757,16 +814,17 @@
 
 .sp-public .sp-kicker,
 .sp-public .sp-head h1 {
-  color: #f6f1ea;
+  color: #e8eef0;
 }
 
 .sp-public .cx-btn {
   display: inline-flex;
   align-items: center;
   padding: 0.45rem 0.8rem;
-  border: 1px solid #d4c4b0;
-  background: #f6ede3;
-  color: #1a1210;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: #1e4d4f;
+  color: #fff;
   font: inherit;
   cursor: pointer;
 }
@@ -920,9 +978,8 @@
 
   .sp-plan,
   .sp-formats,
-  .sp-wizard,
   .sp-revisao,
-  .sp-board,
+  .sp-board.is-exec,
   .sp-split,
   .sp-split.is-3 {
     grid-template-columns: 1fr;

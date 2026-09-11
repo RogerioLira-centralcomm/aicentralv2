@@ -71,7 +71,7 @@
     });
   }
 
-  function fieldBlock(card, sectionIndex, cardIndex, label, extraFields) {
+  function fieldBlock(card, sectionIndex, cardIndex, label, extraFields, hideTitle) {
     var extras = (extraFields || [])
       .map(function (field) {
         return (
@@ -86,9 +86,14 @@
     var body = readonly
       ? "<p>" + escapeHtml(card.body || "") + "</p>"
       : '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
-    var title = readonly
-      ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
-      : '<input value="' + escapeHtml(card.title || "") + '" data-field="title">';
+    var title = "";
+    if (!hideTitle) {
+      title = readonly
+        ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
+        : '<input value="' + escapeHtml(card.title || "") + '" data-field="title">';
+    } else if (!readonly) {
+      title = '<input type="hidden" data-field="title" value="' + escapeHtml(card.title || label) + '">';
+    }
     return (
       '<article class="sp-card" data-section="' +
       sectionIndex +
@@ -97,13 +102,31 @@
       '" data-type="' +
       escapeHtml(card.type) +
       '">' +
-      '<span class="sp-card-type">' +
-      escapeHtml(label) +
-      "</span>" +
       title +
       body +
       extras +
       "</article>"
+    );
+  }
+
+  function factsStrip(meta) {
+    var items = [
+      ["Verba", meta.budget],
+      ["Praça", meta.market],
+      ["Período", meta.period],
+      ["Objetivo", meta.objective],
+    ].filter(function (item) {
+      return item[1];
+    });
+    if (!items.length) return "";
+    return (
+      '<dl class="sp-exec-facts">' +
+      items
+        .map(function (item) {
+          return "<div><dt>" + escapeHtml(item[0]) + "</dt><dd>" + escapeHtml(item[1]) + "</dd></div>";
+        })
+        .join("") +
+      "</dl>"
     );
   }
 
@@ -254,10 +277,9 @@
           : "";
     applyTheme(theme);
     return (
-      '<article class="sp-sheet is-pitch" data-market="' +
+      '<article class="sp-sheet is-pitch is-exec" data-market="' +
       escapeHtml(theme.id || "") +
       '">' +
-      '<div class="sp-sheet-band" aria-hidden="true"></div>' +
       '<header class="sp-sheet-brands">' +
       logoBox(branding.client, "client") +
       logoBox(branding.agency, "agency") +
@@ -268,8 +290,13 @@
       escapeHtml(meta.client || hero.name || meta.title || "Página única") +
       "</h2>" +
       (meta.agency ? "<p>" + escapeHtml(meta.agency) + "</p>" : "") +
+      factsStrip(meta) +
       "</div>" +
-      (strategyIdx >= 0 ? fieldBlock(strategy, sectionIndex, strategyIdx, "Estratégia") : "") +
+      (strategyIdx >= 0
+        ? '<section class="sp-exec-reco">' +
+          fieldBlock(strategy, sectionIndex, strategyIdx, "Recomendação", null, true) +
+          "</section>"
+        : "") +
       '<div class="sp-sheet-main">' +
       (creativeIdx >= 0
         ? '<div class="sp-hero">' +
@@ -289,7 +316,7 @@
           '</p><p class="sp-stat-label">' +
           escapeHtml(market.stat_label || "") +
           "</p>" +
-          fieldBlock(market, sectionIndex, marketIdx, "Mercado", ["stat", "stat_label"]) +
+          fieldBlock(market, sectionIndex, marketIdx, "Mercado", ["stat", "stat_label"], true) +
           "</div>"
         : "") +
       densityChart(theme) +
@@ -302,9 +329,29 @@
     );
   }
 
+  function cardItems(card) {
+    var items = card.items || [];
+    if (!items.length) return "";
+    return (
+      "<ul class=\"sp-card-items\">" +
+      items
+        .map(function (item) {
+          return "<li>" + escapeHtml(item) + "</li>";
+        })
+        .join("") +
+      "</ul>"
+    );
+  }
+
   function cardMarkup(card, sectionIndex, cardIndex, extraClass, labelOverride) {
     var type = card.type || "summary";
     var label = labelOverride || TYPE_LABELS[type] || card.title || "Bloco";
+    var title = readonly
+      ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
+      : '<input value="' + escapeHtml(card.title) + '" data-field="title">';
+    var body = readonly
+      ? "<p>" + escapeHtml(card.body || "") + "</p>"
+      : '<textarea data-field="body">' + escapeHtml(card.body) + "</textarea>";
     return (
       '<article class="sp-card' +
       (extraClass ? " " + extraClass : "") +
@@ -315,15 +362,10 @@
       '" data-type="' +
       escapeHtml(type) +
       '">' +
-      '<span class="sp-card-type">' +
-      escapeHtml(label) +
-      "</span>" +
-      '<input value="' +
-      escapeHtml(card.title) +
-      '" data-field="title">' +
-      '<textarea data-field="body">' +
-      escapeHtml(card.body) +
-      "</textarea></article>"
+      title +
+      body +
+      cardItems(card) +
+      "</article>"
     );
   }
 
@@ -352,7 +394,8 @@
   }
 
   function renderBoard() {
-    return (plan.sections || [])
+    var meta = plan.meta || {};
+    var sections = (plan.sections || [])
       .map(function (section, sectionIndex) {
         var cards = (section.cards || [])
           .map(function (card, cardIndex) {
@@ -368,6 +411,18 @@
         );
       })
       .join("");
+    return (
+      '<article class="sp-sheet is-exec is-full">' +
+      '<div class="sp-sheet-lead"><h2>' +
+      escapeHtml(meta.client || meta.title || "Plano de mídia") +
+      "</h2>" +
+      (meta.campaign && meta.campaign !== meta.client ? "<p>" + escapeHtml(meta.campaign) + "</p>" : "") +
+      factsStrip(meta) +
+      "</div>" +
+      '<div class="sp-board is-exec">' +
+      sections +
+      "</div></article>"
+    );
   }
 
   function isPitchSheet(section) {

@@ -173,9 +173,10 @@ Devolva APENAS JSON:
 
 Regras:
 - Foco no anunciante. Se o material for de agência, escolha um cliente final citado.
+- strategy.body é a recomendação executiva em até duas frases: o que fazer e o peso do mix.
 - O criativo precisa parecer inserido no canal (TV, portal, app), não um banner solto.
-- Um dado de mercado simples. Sem inventar percentual sem rotular como premissa.
-- Defesa curta: por que aquele canal interessa a esse anunciante.
+- market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
+- defense.body fecha a reunião: por que este mix, agora, para este anunciante.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 """
 
@@ -275,6 +276,10 @@ def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share:
             "client": meta.get("client"),
             "agency": meta.get("agency"),
             "campaign": meta.get("campaign"),
+            "budget": meta.get("budget"),
+            "period": meta.get("period"),
+            "market": meta.get("market"),
+            "objective": meta.get("objective"),
             "presenter": (resolved.get("presenter") or {}).get("id") or "centralcomm",
             "createdAt": now,
             "updatedAt": now,
@@ -323,7 +328,11 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
     if isinstance(payload, dict):
         incoming_meta = as_dict(payload.get("meta"))
         plan["meta"].update(
-            {key: incoming_meta[key] for key in ("title", "client", "agency", "campaign") if incoming_meta.get(key)}
+            {
+                key: incoming_meta[key]
+                for key in ("title", "client", "agency", "campaign", "budget", "period", "market", "objective")
+                if incoming_meta.get(key)
+            }
         )
     return plan
 

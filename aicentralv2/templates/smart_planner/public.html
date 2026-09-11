@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ titulo }} · Quadro CentralX</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
 </head>
 <body class="sp-public">
   <div class="sp-desk is-sheet" id="sp-canvas"
@@ -14,7 +15,7 @@
        data-readonly="1">
     <header class="sp-head is-public">
       <div>
-        <p class="sp-kicker">Quadro completo</p>
+        <p class="sp-kicker">Quadro CentralX</p>
         <h1>{{ titulo }}</h1>
       </div>
       <div class="sp-actions">
@@ -25,7 +26,7 @@
       <div id="sp-canvas-board" class="sp-board is-sheet" aria-live="polite"></div>
     </div>
   </div>
-  <script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=2"></script>
   <script>
     document.getElementById("sp-print")?.addEventListener("click", function () {
       window.print();

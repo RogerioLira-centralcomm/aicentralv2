@@ -86,18 +86,17 @@ CHANNEL_GROUPS = {
 }
 
 WIZARD_STEPS = (
-    {"id": "briefing", "title": "Briefing", "hint": "Texto, link ou PDF"},
-    {"id": "revisao", "title": "Revisar", "hint": "Narrativa e campos"},
-    {"id": "canais", "title": "Canais e verba", "hint": "Mix, praça e período"},
-    {"id": "gerar", "title": "Gerar", "hint": "Montar o plano"},
-    {"id": "canvas", "title": "Quadro", "hint": "Editar e salvar"},
+    {"id": "briefing", "title": "Briefing", "hint": "Cole o material da campanha"},
+    {"id": "revisao", "title": "Revisar", "hint": "Confira anunciante e investimento"},
+    {"id": "canais", "title": "Mix", "hint": "Canais, praça e período"},
+    {"id": "gerar", "title": "Quadro", "hint": "Montar a folha de decisão"},
 )
 
 RESUME_ACTIONS = {
-    "briefing": "Continuar",
-    "revisao": "Continuar",
-    "canais": "Continuar",
-    "gerar": "Gerar plano",
+    "briefing": "Continuar briefing",
+    "revisao": "Revisar dados",
+    "canais": "Definir mix",
+    "gerar": "Montar quadro",
     "canvas": "Abrir quadro",
 }
 

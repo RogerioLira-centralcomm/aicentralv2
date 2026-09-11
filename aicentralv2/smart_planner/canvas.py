@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from ..services.openrouter_service import OpenRouterError
 from . import one_page
 from .ai import chat_json
+from .catalog import PRACA_OPTIONS, objetivo_label
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
 from .images import apply_sheet_art
 from .repository import get_by_token, merge_dados, update_session
@@ -47,8 +48,9 @@ Devolva APENAS JSON válido no formato:
 
 Regras:
 - Não invente verba, canal ou KPI que o material não trouxe.
-- body objetivo, sem jargão de agência.
-- plan_mode=completo: as 4 seções, 2 a 4 cards por seção.
+- body de decisão: o que fazer, com que peso e por quê. Sem jargão de agência.
+- plan_mode=completo: as 4 seções, 2 a 3 cards por seção.
+- O primeiro card de strategy deve ser a recomendação em uma frase.
 """
 
 
@@ -68,6 +70,10 @@ def empty_plan(meta: dict, mode: str, branding: dict | None = None) -> dict:
             "title": meta.get("title") or "Novo Plano",
             "client": meta.get("client"),
             "campaign": meta.get("campaign"),
+            "budget": meta.get("budget"),
+            "period": meta.get("period"),
+            "market": meta.get("market"),
+            "objective": meta.get("objective"),
             "createdAt": now,
             "updatedAt": now,
         },
@@ -99,7 +105,11 @@ def normalize_plan(payload: dict, mode: str, meta: dict, branding: dict | None =
         ][:6]
     if isinstance(payload, dict):
         incoming_meta = as_dict(payload.get("meta"))
-        plan["meta"].update({k: incoming_meta[k] for k in ("title", "client", "campaign") if incoming_meta.get(k)})
+        plan["meta"].update({
+            k: incoming_meta[k]
+            for k in ("title", "client", "campaign", "budget", "period", "market", "objective")
+            if incoming_meta.get(k)
+        })
     return plan
 
 
@@ -112,11 +122,16 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
     briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
     planejamento = text(dados.get("planejamento"))
     campanha = as_dict(dados.get("campanha"))
+    praca_key = text(campanha.get("praca") or dados.get("praca"))
     meta = {
         "title": session_title(row, dados),
         "client": text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente")),
         "agency": text(dados.get("agencia") or campanha.get("agencia")),
         "campaign": text(row.get("nome_campanha") or dados.get("nome_campanha")),
+        "budget": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
+        "period": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
+        "market": PRACA_OPTIONS.get(praca_key, {}).get("label", praca_key),
+        "objective": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
     }
     if mode != "one_page" and not planejamento and not briefing:
         raise ValueError("Gere o planejamento antes de abrir o canvas.")

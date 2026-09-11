@@ -125,7 +125,8 @@
 
   var generateBtn = document.getElementById("sp-generate-btn");
   if (generateBtn && step === "gerar") {
-    generateBtn.addEventListener("click", async function () {
+    async function runGenerate() {
+      if (generateBtn.disabled) return;
       setLoading(generateBtn, true);
       var items = document.querySelectorAll("#sp-generate-status li");
       items.forEach(function (item, index) {
@@ -140,6 +141,8 @@
         toast(error.message, "error");
         setLoading(generateBtn, false);
       }
-    });
+    }
+    generateBtn.addEventListener("click", runGenerate);
+    runGenerate();
   }
 })();

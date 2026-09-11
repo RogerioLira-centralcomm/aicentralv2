@@ -4,7 +4,7 @@
 {% block title %}{{ plan_mode_label }} · {{ titulo }}{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -18,9 +18,9 @@
       <h1>{{ titulo }}</h1>
       <p>
         {% if plan_mode == 'one_page' %}
-          Folha do anunciante: criativo no canal, densidade do mix e o quadro público com QR.
+          Folha de decisão: recomendação, criativo no canal e a defesa com QR.
         {% else %}
-          Edite os blocos das quatro seções e salve o quadro.
+          Quadro executivo nas quatro seções. Edite e salve.
         {% endif %}
       </p>
     </div>
@@ -40,6 +40,15 @@
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
   </header>
+  {% if facts and (facts.cliente or facts.verba or facts.praca) %}
+  <dl class="sp-facts is-strip">
+    <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
+    <div><dt>Verba</dt><dd>{{ facts.verba or "—" }}</dd></div>
+    <div><dt>Praça</dt><dd>{{ facts.praca or "—" }}</dd></div>
+    <div><dt>Período</dt><dd>{{ facts.periodo or "—" }}</dd></div>
+    {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
+  </dl>
+  {% endif %}
   <div class="sp-stage" id="sp-stage">
     <div id="sp-canvas-board"
          class="sp-board {% if plan_mode == 'one_page' %}is-sheet{% endif %}"
@@ -49,5 +58,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=2"></script>
 {% endblock %}

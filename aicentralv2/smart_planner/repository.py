@@ -10,7 +10,7 @@ from psycopg.types.json import Json
 
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action
-from .helpers import as_dict, as_list, campaign_from_campos, format_when, plan_mode_of, session_title, text
+from .helpers import as_dict, as_list, campaign_from_campos, format_when, plan_href, plan_mode_of, session_title, text
 
 logger = logging.getLogger(__name__)
 
@@ -144,22 +144,62 @@ def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list
             conn.rollback()
             cur.execute(fallback, params)
             rows = cur.fetchall() or []
-    return [serialize_list_row(row) for row in rows]
+    out = []
+    for row in rows:
+        try:
+            out.append(serialize_list_row(row))
+        except Exception:
+            logger.exception("Falha ao serializar planejamento %s", (row or {}).get("id"))
+            token = text((row or {}).get("session_token"))
+            out.append({
+                "id": (row or {}).get("id"),
+                "session_token": token,
+                "titulo": session_title(row or {}, {}),
+                "cliente": "",
+                "objetivo": "",
+                "verba": "",
+                "praca": "",
+                "periodo": "",
+                "canais": [],
+                "plan_mode": "completo",
+                "plan_mode_label": plan_mode_label("completo"),
+                "tem_planejamento": False,
+                "tem_quadro": False,
+                "tem_briefing": False,
+                "quando": "",
+                "updated_at": None,
+                "resume_step": "briefing",
+                "resume_action": resume_action("briefing"),
+                "href": plan_href(token, "briefing"),
+                "canvas_href": plan_href(token, "canvas") if token else "",
+            })
+    return out
 
 
 def serialize_list_row(row: dict) -> dict:
     dados = as_dict(row.get("dados_detectados"))
     campanha = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
-    canais_keys = as_list(campanha.get("canais") or dados.get("canais"))
+    canais_keys = [key for key in as_list(campanha.get("canais") or dados.get("canais")) if text(key)]
     canais = [CHANNEL_CATALOG.get(key, {}).get("label", key) for key in canais_keys]
     praca_key = text(campanha.get("praca") or dados.get("praca"))
-    has_plan = bool(text(dados.get("planejamento")) or as_dict(row.get("plan_content")))
+    plan = as_dict(row.get("plan_content"))
+    has_canvas = bool(as_list(plan.get("sections")))
+    has_plan_text = bool(text(dados.get("planejamento")))
     has_briefing = bool(text(row.get("briefing_melhorado") or row.get("briefing_compilado")))
+    has_mix = bool(canais_keys or text(row.get("budget") or campanha.get("verba") or dados.get("verba")))
     mode = plan_mode_of(dados)
-    resume = "canvas" if has_plan else ("revisao" if has_briefing else "briefing")
+    token = text(row.get("session_token"))
+    if has_canvas:
+        resume = "canvas"
+    elif has_plan_text or (has_briefing and has_mix):
+        resume = "gerar"
+    elif has_briefing:
+        resume = "revisao"
+    else:
+        resume = "briefing"
     return {
         "id": row.get("id"),
-        "session_token": row.get("session_token"),
+        "session_token": token,
         "titulo": session_title(row, dados),
         "cliente": text(row.get("cliente") or dados.get("cliente")),
         "objetivo": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
@@ -169,12 +209,15 @@ def serialize_list_row(row: dict) -> dict:
         "canais": canais,
         "plan_mode": mode,
         "plan_mode_label": plan_mode_label(mode),
-        "tem_planejamento": has_plan,
+        "tem_planejamento": has_plan_text or has_canvas,
+        "tem_quadro": has_canvas,
         "tem_briefing": has_briefing,
         "quando": format_when(row.get("updated_at") or row.get("created_at")),
         "updated_at": row.get("updated_at"),
         "resume_step": resume,
         "resume_action": resume_action(resume),
+        "href": plan_href(token, resume),
+        "canvas_href": plan_href(token, "canvas") if token else "",
     }
 
 
@@ -274,16 +317,29 @@ def save_campos(token: str, campos: dict, briefing_text: str | None = None) -> d
 
 
 def soft_delete(session_id: int, user_email: str) -> bool:
+    email = (user_email or "").strip().lower()
     conn = get_db()
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE cadu_smart_planner_sessions
-               SET deleted_at = CURRENT_TIMESTAMP, public_token_active = FALSE
-             WHERE id = %s AND LOWER(user_email) = %s AND deleted_at IS NULL
-            """,
-            (session_id, (user_email or "").strip().lower()),
-        )
-        deleted = cur.rowcount > 0
+        try:
+            cur.execute(
+                """
+                UPDATE cadu_smart_planner_sessions
+                   SET deleted_at = CURRENT_TIMESTAMP, public_token_active = FALSE
+                 WHERE id = %s AND LOWER(user_email) = %s AND deleted_at IS NULL
+                """,
+                (session_id, email),
+            )
+            deleted = cur.rowcount > 0
+        except Exception:
+            conn.rollback()
+            cur.execute(
+                """
+                UPDATE cadu_smart_planner_sessions
+                   SET deleted_at = CURRENT_TIMESTAMP
+                 WHERE id = %s AND LOWER(user_email) = %s AND deleted_at IS NULL
+                """,
+                (session_id, email),
+            )
+            deleted = cur.rowcount > 0
     conn.commit()
     return deleted

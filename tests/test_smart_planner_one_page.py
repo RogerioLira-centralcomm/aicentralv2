@@ -46,6 +46,7 @@ def test_normalize_keeps_branding():
                 ],
             }],
             "branding": {"presenter": {"id": "amazon", "name": "Amazon", "role": "principal"}},
+            "meta": {"budget": "R$ 80 mil"},
         },
         {"title": "Montana", "client": "Montana Grill"},
         {"presenter": {"id": "amazon", "name": "Amazon", "role": "principal"}},
@@ -53,6 +54,7 @@ def test_normalize_keeps_branding():
     assert plan["schemaVersion"] == 3
     assert plan["branding"]["presenter"]["id"] == "amazon"
     assert plan["sections"][0]["cards"][0]["type"] == "strategy"
+    assert plan["meta"]["budget"] == "R$ 80 mil"
 
 
 def test_principal_brand_removes_centralcomm_from_copy(monkeypatch):

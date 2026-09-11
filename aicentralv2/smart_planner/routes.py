@@ -70,12 +70,19 @@ def _page_ctx(**extra):
 @bp.route("/")
 @login_required
 def index():
-    payload = history_payload()
+    try:
+        payload = history_payload()
+        flash_error = None
+    except Exception:
+        logger.exception("Falha ao carregar histórico do Smart Planner")
+        payload = {"rows": [], "total_user": 0, "total_base": 0}
+        flash_error = "Não foi possível carregar o histórico."
     return render_template(
         "smart_planner/index.html",
         rows=payload["rows"],
         total_user=payload["total_user"],
         total_base=payload["total_base"],
+        flash_error=flash_error,
         **_page_ctx(),
     )
 
@@ -343,4 +350,15 @@ def api_excluir(session_id):
 def _handle_not_found(exc):
     if request.path.startswith("/smart-planner/api/"):
         return _error(exc, 404)
-    return render_template("smart_planner/index.html", rows=[], total_user=0, total_base=0, flash_error=str(exc), **_page_ctx()), 404
+    try:
+        payload = history_payload()
+    except Exception:
+        payload = {"rows": [], "total_user": 0, "total_base": 0}
+    return render_template(
+        "smart_planner/index.html",
+        rows=payload["rows"],
+        total_user=payload["total_user"],
+        total_base=payload["total_base"],
+        flash_error=str(exc),
+        **_page_ctx(),
+    ), 404

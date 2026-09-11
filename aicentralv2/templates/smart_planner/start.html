@@ -4,15 +4,15 @@
 {% block title %}Novo planejamento · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
 <div class="sp-desk">
   <header class="sp-head">
     <div>
-      <h1>Qual formato o cliente vai ver?</h1>
-      <p>O briefing é o mesmo. Muda o quadro: uma folha executiva ou as quatro seções do plano.</p>
+      <h1>O que o anunciante precisa assinar?</h1>
+      <p>O briefing é o mesmo. Muda a folha: uma decisão em uma página ou o plano com as quatro seções.</p>
     </div>
     <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar aos planejamentos</a>
   </header>
@@ -20,12 +20,12 @@
   <div class="sp-formats">
     <button type="button" class="sp-format is-priority js-sp-start" data-mode="one_page">
       <span class="sp-format-mark">Página única</span>
-      <h2>Uma folha para alinhar</h2>
-      <p>Folha do anunciante: criativo no canal, um dado de mercado e a defesa. Logos do cliente e da agência entram se existirem no CentralX.</p>
+      <h2>Uma folha para decidir</h2>
+      <p>Recomendação, criativo no canal, um dado de mercado e a defesa. Cabe em uma reunião.</p>
       <ol class="sp-format-slots">
-        <li>Estratégia</li>
+        <li>Recomendação</li>
         <li>Criativo no canal</li>
-        <li>Dado de mercado</li>
+        <li>Dado</li>
         <li>Defesa</li>
       </ol>
       <span class="cx-btn cx-btn-primary">Montar página única</span>
@@ -47,5 +47,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=2"></script>
 {% endblock %}

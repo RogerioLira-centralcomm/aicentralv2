@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from flask import session
 
-from .catalog import PLAN_MODES, WIZARD_STEPS, plan_mode_label
+from .catalog import PLAN_MODES, PRACA_OPTIONS, WIZARD_STEPS, objetivo_label, plan_mode_label
 from .logos import presenter_options
-from .helpers import as_dict, plan_mode_of, session_title, text
+from .helpers import as_dict, as_list, plan_mode_of, session_title, text
 from .repository import (
     SessionNotFound,
     count_sessions,
@@ -66,19 +66,27 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "praca_detalhe": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
         "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
         "periodo": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
-        "canais": campanha.get("canais") or dados.get("canais") or [],
+        "canais": as_list(campanha.get("canais") or dados.get("canais")),
         "criativos": text(dados.get("criativos")),
-        "dispositivos": campanha.get("dispositivos") or dados.get("dispositivos") or [],
+        "dispositivos": as_list(campanha.get("dispositivos") or dados.get("dispositivos")),
         "kpis": dados.get("kpis") or [],
         "observacoes": text(dados.get("observacoes")),
     }
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
+    praca_label = PRACA_OPTIONS.get(campos["praca"], {}).get("label", campos["praca"])
     return {
         "row": row,
         "dados": dados,
         "campanha": campanha,
         "campos": campos,
+        "facts": {
+            "cliente": campos["cliente"],
+            "verba": campos["verba"],
+            "periodo": campos["periodo"],
+            "praca": praca_label,
+            "objetivo": objetivo_label(campos["objetivo"]) or campos["objetivo_texto"],
+        },
         "plan_mode": plan_mode_of(dados),
         "plan_mode_label": plan_mode_label(plan_mode_of(dados)),
         "presenter_brand": text(dados.get("presenter_brand")) or "centralcomm",
@@ -86,6 +94,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "titulo": session_title(row, dados),
         "briefing": text(row.get("briefing_melhorado") or row.get("briefing_compilado")),
         "planejamento": text(dados.get("planejamento")),
+        "tem_quadro": bool(as_list(as_dict(row.get("plan_content")).get("sections"))),
         "steps": WIZARD_STEPS,
         "step_id": step_id,
         "step_index": index,

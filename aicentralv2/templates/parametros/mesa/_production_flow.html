@@ -1,0 +1,53 @@
+<ol class="mc-mesa-ops" id="mcMesaOps" aria-label="Ordem do 15s">
+  <li data-op="concept" class="is-current">
+    <header>
+      <em>1</em>
+      <div>
+        <strong>Conceito</strong>
+        <span>Define a direção da cena</span>
+      </div>
+    </header>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
+  </li>
+  <li data-op="base">
+    <header>
+      <em>2</em>
+      <div>
+        <strong>Base</strong>
+        <span>HTML da marca no quadro</span>
+      </div>
+    </header>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaMockup" disabled>Modelar base</button>
+  </li>
+  <li data-op="scene">
+    <header>
+      <em>3</em>
+      <div>
+        <strong>Cena</strong>
+        <span>Still e QA visual em 3 versões</span>
+      </div>
+    </header>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
+  </li>
+  <li data-op="close">
+    <header>
+      <em>4</em>
+      <div>
+        <strong>Fechar</strong>
+        <span>Still 1920×1080 com margem segura</span>
+      </div>
+    </header>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaClose" disabled>Fechar cena</button>
+  </li>
+  <li data-op="approve">
+    <header>
+      <em>5</em>
+      <div>
+        <strong>Aprovar</strong>
+        <span>Handoff para a Bancada</span>
+      </div>
+    </header>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaApprove" disabled>Aprovar</button>
+    <a class="cx-btn cx-btn-primary mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
+  </li>
+</ol>

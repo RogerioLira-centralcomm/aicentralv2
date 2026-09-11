@@ -1,0 +1,58 @@
+<dialog class="cx-modal mc-base-dialog" id="mcMesaBaseDialog" data-state="idle">
+  <form method="dialog" class="mc-run-top">
+    <p class="mc-run-mark" id="mcMesaRunMark">15s</p>
+    <span class="mc-run-badge" id="mcMesaRunBadge">Rascunho</span>
+    <button class="mc-run-x" value="cancel" aria-label="Fechar">Fechar</button>
+  </form>
+  <div class="mc-run-body">
+    <figure class="mc-base-plate" id="mcMesaBasePlate">
+      <iframe id="mcMesaBaseFrame" class="mc-base-html" title="HTML da base" sandbox="allow-same-origin" hidden></iframe>
+      <img id="mcMesaBaseStill" alt="Still do 15s" hidden>
+      <img id="mcMesaBaseKey" alt="Key visual" hidden>
+      <div class="mc-base-void" id="mcMesaBaseVoid">
+        <strong>O quadro está vazio</strong>
+        <span>A sequência devolve o still aqui, batida a batida.</span>
+      </div>
+      {% include "parametros/mesa/_modal_loading.html" %}
+    </figure>
+    <aside class="mc-run-rail">
+      <p class="mc-run-now" id="mcMesaRunNow">Conceito</p>
+      <p class="mc-run-lead" id="mcMesaRunLead">Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
+      <ol class="mc-run-seq" id="mcMesaRunSeq" aria-label="Sequência do 15s">
+        <li data-op="concept"><button type="button">Conceito</button></li>
+        <li data-op="base"><button type="button">Base</button></li>
+        <li data-op="scene"><button type="button">Cena</button></li>
+        <li data-op="close"><button type="button">Fechar</button></li>
+        <li data-op="approve"><button type="button">Aprovar</button></li>
+      </ol>
+      <figure class="mc-run-key" id="mcMesaRunKey" hidden>
+        <img id="mcMesaRunKeyImg" alt="Key visual da marca">
+        <figcaption>Key visual</figcaption>
+      </figure>
+      <div class="mc-run-return">
+        <p id="mcMesaBaseNote">Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
+        {% include "parametros/mesa/_modal_success.html" %}
+        {% include "parametros/mesa/_modal_error.html" %}
+        <div class="mc-run-state is-warning" id="mcMesaWarning" hidden>
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <strong id="mcMesaWarningTitle">Revise antes de seguir</strong>
+          <p id="mcMesaWarningText">Há um ponto de atenção no still. Ajuste e continue.</p>
+        </div>
+        <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
+        <ol class="mc-run-beats" id="mcMesaRunBeats" hidden></ol>
+        <ol class="mc-run-takes" id="mcMesaRunTakes" hidden></ol>
+      </div>
+    </aside>
+  </div>
+  <footer class="mc-run-foot">
+    <div>
+      <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaBaseCancel">Voltar à mesa</button>
+      <p class="mc-run-credit">Ação do CentralX</p>
+    </div>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaBaseRun">
+      <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+      Montar a base
+    </button>
+  </footer>
+</dialog>
+{% include "parametros/mesa/_modal_confirm.html" %}

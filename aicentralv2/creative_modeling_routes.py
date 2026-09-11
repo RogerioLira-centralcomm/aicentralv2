@@ -1528,3 +1528,20 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint._creative_modeling_registered = True
+
+
+@admin_required
+def modeling_ux_states():
+    return render_template("parametros/mesa/states.html")
+
+
+def register_modeling_ux_lab(app):
+    """Rota de validação visual — fora de MC_DESKS para não entrar no nav."""
+    if getattr(app, "_modeling_ux_lab_registered", False):
+        return
+    app.add_url_rule(
+        "/lab/modelagem/states",
+        endpoint="modeling_ux_states",
+        view_func=modeling_ux_states,
+    )
+    app._modeling_ux_lab_registered = True

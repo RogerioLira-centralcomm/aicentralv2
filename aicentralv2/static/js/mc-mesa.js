@@ -68,6 +68,155 @@
     setBaseNote(text);
   }
 
+  function mesaToast(message, type) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(message, type || 'success', 2800);
+    }
+  }
+
+  function setModalState(next, extra) {
+    const dialog = $('mcMesaBaseDialog');
+    if (!dialog) return;
+    const payload = extra || {};
+    dialog.dataset.state = next;
+    dialog.classList.toggle('is-busy', next === 'loading');
+    const badge = $('mcMesaRunBadge');
+    if (badge) {
+      badge.textContent = (
+        next === 'loading' ? 'Em revisão'
+          : next === 'success' ? 'Pronto'
+            : next === 'warning' ? 'Em revisão'
+              : next === 'error' ? 'Erro'
+                : 'Rascunho'
+      );
+    }
+    const wait = $('mcMesaBaseWait');
+    if (wait) wait.hidden = next !== 'loading';
+    if (next === 'loading') {
+      if (payload.label && $('mcMesaBaseWaitLabel')) {
+        $('mcMesaBaseWaitLabel').textContent = payload.label;
+      }
+      if (payload.hint && $('mcMesaBaseWaitHint')) {
+        $('mcMesaBaseWaitHint').textContent = payload.hint;
+      }
+      paintLoadSteps(payload.load || state.runOp || currentOp());
+    }
+    const success = $('mcMesaSuccess');
+    const errorBox = $('mcMesaError');
+    const warning = $('mcMesaWarning');
+    if (success) {
+      success.hidden = next !== 'success';
+      if (payload.title && $('mcMesaSuccessTitle')) $('mcMesaSuccessTitle').textContent = payload.title;
+      if (payload.text && $('mcMesaSuccessText')) $('mcMesaSuccessText').textContent = payload.text;
+    }
+    if (errorBox) {
+      errorBox.hidden = next !== 'error';
+      if (payload.title && $('mcMesaErrorTitle')) $('mcMesaErrorTitle').textContent = payload.title;
+      if (payload.text && $('mcMesaErrorText')) $('mcMesaErrorText').textContent = payload.text;
+      const tech = $('mcMesaErrorTech');
+      if (tech) {
+        tech.hidden = true;
+        tech.textContent = payload.detail || '';
+      }
+    }
+    if (warning) {
+      warning.hidden = next !== 'warning';
+      if (payload.title && $('mcMesaWarningTitle')) $('mcMesaWarningTitle').textContent = payload.title;
+      if (payload.text && $('mcMesaWarningText')) $('mcMesaWarningText').textContent = payload.text;
+    }
+    const run = $('mcMesaBaseRun');
+    if (run && next === 'loading') run.disabled = true;
+    if (run && next !== 'loading') labelRunButton();
+  }
+
+  function paintLoadSteps(op) {
+    const order = ['analyze', 'concept', 'finish'];
+    const current = (
+      op === 'concept' ? 'analyze'
+        : op === 'base' ? 'concept'
+          : 'finish'
+    );
+    const idx = order.indexOf(current);
+    document.querySelectorAll('#mcMesaLoadSteps [data-load]').forEach((item) => {
+      const key = item.getAttribute('data-load');
+      const position = order.indexOf(key);
+      item.classList.toggle('is-current', key === current);
+      item.classList.toggle('is-done', position > -1 && position < idx);
+    });
+  }
+
+  function showInspectorTab(name) {
+    document.querySelectorAll('[data-insp]').forEach((button) => {
+      const current = button.getAttribute('data-insp') === name;
+      button.setAttribute('aria-selected', current ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-insp-panel]').forEach((panel) => {
+      panel.hidden = panel.getAttribute('data-insp-panel') !== name;
+    });
+  }
+
+  function paintFieldHints() {
+    const headline = $('mcMesaHeadline');
+    const support = $('mcMesaSupport');
+    const hHint = $('mcMesaHeadlineHint');
+    const sHint = $('mcMesaSupportHint');
+    if (headline && hHint) {
+      const count = headline.value.length;
+      hHint.textContent = count > 55
+        ? `${count} caracteres — a TV lê melhor até 55.`
+        : 'Até 55 caracteres na TV.';
+      hHint.classList.toggle('is-warn', count > 55);
+    }
+    if (support && sHint) {
+      const count = support.value.length;
+      sHint.textContent = count > 90
+        ? `${count} caracteres — o apoio cabe em 90.`
+        : 'Até 90 caracteres de apoio.';
+      sHint.classList.toggle('is-warn', count > 90);
+    }
+  }
+
+  function askConfirm({ title, body, confirmLabel }) {
+    return new Promise((resolve) => {
+      const dialog = $('mcMesaConfirm');
+      if (!dialog) {
+        resolve(true);
+        return;
+      }
+      if (title && $('mcMesaConfirmTitle')) $('mcMesaConfirmTitle').textContent = title;
+      if (body && $('mcMesaConfirmText')) $('mcMesaConfirmText').textContent = body;
+      if (confirmLabel && $('mcMesaConfirmOk')) $('mcMesaConfirmOk').textContent = confirmLabel;
+      const finish = (ok) => {
+        if (dialog.open) dialog.close();
+        resolve(Boolean(ok));
+      };
+      $('mcMesaConfirmOk')?.addEventListener('click', () => finish(true), { once: true });
+      $('mcMesaConfirmCancel')?.addEventListener('click', () => finish(false), { once: true });
+      dialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        finish(false);
+      }, { once: true });
+      dialog.showModal();
+    });
+  }
+
+  function pickKeyVisual(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    showInspectorTab('assets');
+    if (brandVisuals().length) {
+      $('mcMesaKeys')?.querySelector('[data-visual]')?.focus();
+      return;
+    }
+    $('mcMesaFiles')?.click();
+  }
+
+  function toggleHistory(forceOpen) {
+    const drawer = $('mcMesaDrawer');
+    if (!drawer) return;
+    drawer.hidden = forceOpen == null ? !drawer.hidden : !forceOpen;
+  }
+
   async function readJson(response) {
     const payload = await response.json();
     if (!response.ok || payload.success === false) {
@@ -102,6 +251,7 @@
       renderSkills();
       renderCost();
       autofillVivara();
+      renderDna();
       await resumeDesk();
       renderOps();
       fitStage();
@@ -164,13 +314,45 @@
       takeFiles(event.dataTransfer?.files);
     });
     input?.addEventListener('change', () => takeFiles(input.files));
+    document.querySelectorAll('[data-insp]').forEach((button) => {
+      button.addEventListener('click', () => showInspectorTab(button.getAttribute('data-insp')));
+    });
+    $('mcMesaPickKey')?.addEventListener('click', pickKeyVisual);
+    $('mcMesaGuide')?.addEventListener('click', () => {
+      setStatus('Guia: margem segura de 8%, headline no terço superior, logo só no fechamento.');
+    });
+    $('mcMesaHistoryToggle')?.addEventListener('click', () => toggleHistory());
+    $('mcMesaDrawerClose')?.addEventListener('click', () => toggleHistory(false));
     $('mcMesaAnalyze')?.addEventListener('click', () => {
       openBaseDialog('concept');
       mountConcept();
     });
     $('mcMesaMockup')?.addEventListener('click', () => openBaseDialog('base'));
     $('mcMesaBaseRun')?.addEventListener('click', () => runCurrentBeat());
-    $('mcMesaBaseCancel')?.addEventListener('click', () => $('mcMesaBaseDialog')?.close());
+    $('mcMesaBaseCancel')?.addEventListener('click', () => leaveBaseDialog());
+    $('mcMesaBaseDialog')?.addEventListener('cancel', (event) => {
+      if ($('mcMesaBaseDialog')?.classList.contains('is-busy') || $('mcMesaBaseDialog')?.dataset.state === 'loading') {
+        event.preventDefault();
+      }
+    });
+    $('mcMesaBaseDialog')?.querySelector('.mc-run-top')?.addEventListener('submit', (event) => {
+      if ($('mcMesaBaseDialog')?.classList.contains('is-busy') || $('mcMesaBaseDialog')?.dataset.state === 'loading') {
+        event.preventDefault();
+      }
+    });
+    $('mcMesaErrorRetry')?.addEventListener('click', () => runCurrentBeat());
+    $('mcMesaErrorKv')?.addEventListener('click', () => {
+      $('mcMesaBaseDialog')?.close();
+      pickKeyVisual();
+    });
+    $('mcMesaErrorSkip')?.addEventListener('click', () => {
+      $('mcMesaBaseDialog')?.close();
+      setStatus('Cena pulada. Siga para a próxima da tira.');
+    });
+    $('mcMesaErrorDetails')?.addEventListener('click', () => {
+      const tech = $('mcMesaErrorTech');
+      if (tech) tech.hidden = !tech.hidden;
+    });
     $('mcMesaRunSeq')?.addEventListener('click', (event) => {
       if ($('mcMesaBaseDialog')?.classList.contains('is-busy')) return;
       const button = event.target.closest('[data-op]');
@@ -205,8 +387,14 @@
     $('mcMesaOffer')?.addEventListener('input', (event) => {
       state.offer = event.target.value;
     });
-    $('mcMesaHeadline')?.addEventListener('input', (event) => lockSceneField('headline', event.target.value));
-    $('mcMesaSupport')?.addEventListener('input', (event) => lockSceneField('support', event.target.value));
+    $('mcMesaHeadline')?.addEventListener('input', (event) => {
+      lockSceneField('headline', event.target.value);
+      paintFieldHints();
+    });
+    $('mcMesaSupport')?.addEventListener('input', (event) => {
+      lockSceneField('support', event.target.value);
+      paintFieldHints();
+    });
     $('mcMesaKeys')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-visual]');
       if (!button) return;
@@ -217,6 +405,7 @@
       if (!button) return;
       state.versionAttempt = Number(button.getAttribute('data-attempt'));
       showScene();
+      mesaToast(`Versão v${state.versionAttempt} no quadro.`);
     });
     $('mcMesaStrip')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-scene]');
@@ -460,7 +649,11 @@
     if (drop) {
       drop.textContent = format.kind === 'banner'
         ? `Quatro ou cinco cenas no retângulo ${format.size_label}.`
-        : 'Solte a foto no quadro. O still fica 16:9.';
+        : 'Selecione um asset da campanha ou envie uma nova imagem.';
+    }
+    const meta = $('mcMesaStageMeta');
+    if (meta) {
+      meta.textContent = `${format.aspect_ratio || '16:9'} · ${format.size_label || '1920 × 1080'}`;
     }
   }
 
@@ -509,18 +702,35 @@
   function renderDna() {
     const box = $('mcMesaDna');
     const client = currentClient();
-    if (!box) return;
+    const name = $('mcMesaBrandName');
+    const tag = $('mcMesaBrandTag');
+    const logo = $('mcMesaBrandLogo');
     if (!client) {
-      box.innerHTML = '<p>Selecione uma marca. O payload entra no quadro, não só ao lado.</p>';
+      if (name) name.textContent = 'Marca';
+      if (tag) tag.textContent = 'Selecione uma marca para ver o sistema.';
+      if (logo) {
+        logo.removeAttribute('src');
+        logo.hidden = true;
+      }
+      if (box) box.innerHTML = '<p>Selecione uma marca. O payload entra no quadro, não só ao lado.</p>';
       return;
     }
     const profile = client.brand_profile || {};
     const colors = (profile.color_palette || []).map((item) => item.hex || item).filter(Boolean);
     if (client.primary_color) colors.unshift(client.primary_color);
     const line = profile.creative_line || {};
+    const summary = profile.brand_summary || line.signature_summary || client.tone_of_voice || '';
+    if (name) name.textContent = client.name || 'Marca';
+    if (tag) tag.textContent = profile.tagline || line.tagline || summary || 'Sistema da marca.';
+    const logoUrl = client.logo_url || client.logo || profile.logo_url || '';
+    if (logo) {
+      if (logoUrl) logo.src = logoUrl;
+      else logo.removeAttribute('src');
+      logo.hidden = !logoUrl;
+    }
+    if (!box) return;
     box.innerHTML = `
-      <strong>${client.name || 'Marca'}</strong>
-      <p>${profile.brand_summary || line.signature_summary || client.tone_of_voice || ''}</p>
+      <p>${summary}</p>
       <ul>${colors.slice(0, 5).map((hex) => `<li style="background:${hex}"></li>`).join('')}</ul>
     `;
   }
@@ -557,6 +767,7 @@
     const card = state.storyboard.find((item) => item.id === state.sceneId);
     if (card) card.key_visual = url;
     setStatus('Key visual desta cena saiu da marca.');
+    mesaToast('Key visual atualizado.');
   }
 
   function lockSceneField(field, value) {
@@ -614,6 +825,7 @@
           : 'Logomarca nesta cena';
       }
     }
+    paintFieldHints();
   }
 
   function plateLabel(purposeOrId) {
@@ -677,7 +889,15 @@
       const id = item.id || `scene_0${index + 1}`;
       const current = id === state.sceneId;
       const plate = plateLabel(item.purpose || id);
-      return `<li>
+      const scene = (state.session?.scenes || []).find((row) => row.id === id);
+      const done = Boolean(scene?.html || scene?.stack || (item.headline && !current));
+      const errored = item.status === 'error' || scene?.status === 'error';
+      const classes = [
+        current ? 'is-current' : '',
+        done && !current && !errored ? 'is-done' : '',
+        errored ? 'is-error' : '',
+      ].filter(Boolean).join(' ');
+      return `<li class="${classes}">
         <button type="button" data-scene="${id}" class="${current ? 'is-current' : ''}">
           <em>${String(index + 1).padStart(2, '0')}</em>
           <span>${item.headline || plate}</span>
@@ -775,6 +995,14 @@
 
   async function mountConcept() {
     if (state.mounting) return;
+    if (state.session?.qa?.passed) {
+      const ok = await askConfirm({
+        title: 'Regenerar o conceito aprovado?',
+        body: 'O 15s aprovado será substituído.',
+        confirmLabel: 'Regenerar conceito',
+      });
+      if (!ok) return;
+    }
     state.mounting = true;
     const dialog = $('mcMesaBaseDialog');
     if (dialog && !dialog.open) openBaseDialog('concept');
@@ -787,7 +1015,7 @@
         { id: 'create', label: 'Conceito', status: 'running' },
         { id: 'refine', label: 'Melhor roteiro', status: 'queued' },
       ], 'Montando o conceito', 'Sessão → roteiro → tira');
-      setStatus('Duas passagens no roteiro de 15s. O retorno entra neste quadro.');
+      setStatus('Define a direção da cena. O retorno entra neste quadro.');
       const sessionId = await ensureSession();
       markRunProgress('create', 'done');
       markRunProgress('refine', 'running');
@@ -822,11 +1050,21 @@
       paintRunStill();
       paintRunSeq();
       renderOps();
+      setModalState('success', {
+        title: 'Conceito pronto',
+        text: 'O roteiro está na tira. Siga para a base.',
+      });
+      mesaToast('Conceito salvo.');
     } catch (error) {
       setStatus(error.message);
       $('mcMesaAnalyze').disabled = !state.clientId;
       paintRunSeq();
       renderOps();
+      setModalState('error', {
+        title: 'Não foi possível montar o conceito',
+        text: error.message,
+        detail: error.stack || error.message,
+      });
     } finally {
       state.mounting = false;
       setRunBusy(false);
@@ -843,7 +1081,24 @@
     paintRunSeq();
     paintRunStill();
     labelRunButton();
+    if (dialog.dataset.state !== 'loading') setModalState('idle');
     if (!dialog.open) dialog.showModal();
+  }
+
+  async function leaveBaseDialog() {
+    const dialog = $('mcMesaBaseDialog');
+    if (!dialog) return;
+    if (dialog.classList.contains('is-busy') || dialog.dataset.state === 'loading') return;
+    const dirty = Boolean(state.storyboard.length && !state.session?.qa?.passed && dialog.dataset.state === 'warning');
+    if (dirty) {
+      const ok = await askConfirm({
+        title: 'Voltar e perder esta passagem?',
+        body: 'Há revisão pendente neste quadro.',
+        confirmLabel: 'Voltar à mesa',
+      });
+      if (!ok) return;
+    }
+    dialog.close();
   }
 
   function runCurrentBeat() {
@@ -871,22 +1126,19 @@
   }
 
   function setRunBusy(busy, label, hint) {
-    $('mcMesaBaseDialog')?.classList.toggle('is-busy', Boolean(busy));
-    const wait = $('mcMesaBaseWait');
-    if (wait) {
-      wait.hidden = !busy;
-      if (busy && label && $('mcMesaBaseWaitLabel')) {
-        $('mcMesaBaseWaitLabel').textContent = label;
-      }
-      if (busy && hint && $('mcMesaBaseWaitHint')) {
-        $('mcMesaBaseWaitHint').textContent = hint;
-      }
-    }
-    const node = $('mcMesaBaseRun');
-    if (busy && node) {
-      node.disabled = true;
+    if (busy) {
+      setModalState('loading', {
+        label,
+        hint,
+        load: state.runOp || currentOp(),
+      });
+      const node = $('mcMesaBaseRun');
+      if (node) node.disabled = true;
       return;
     }
+    const wait = $('mcMesaBaseWait');
+    if (wait) wait.hidden = true;
+    $('mcMesaBaseDialog')?.classList.remove('is-busy');
     labelRunButton();
   }
 
@@ -924,7 +1176,7 @@
     const node = $('mcMesaBaseRun');
     if (!node) return;
     const beat = RUN_BEATS.find((item) => item.id === (state.runOp || currentOp())) || RUN_BEATS[1];
-    node.textContent = beat.run;
+    node.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${beat.run}`;
     node.disabled = beat.id === 'concept' || beat.id === 'base'
       ? !state.clientId
       : beat.id === 'approve'
@@ -1029,6 +1281,14 @@
   }
 
   async function modelBase() {
+    if (state.session?.base_html) {
+      const ok = await askConfirm({
+        title: 'Substituir o HTML da base?',
+        body: 'A base atual sai do quadro.',
+        confirmLabel: 'Substituir HTML',
+      });
+      if (!ok) return;
+    }
     const run = $('mcMesaBaseRun');
     const dialog = $('mcMesaBaseDialog');
     if (dialog && !dialog.open) openBaseDialog('base');
@@ -1077,16 +1337,33 @@
       paintRunStill();
       paintRunSeq();
       renderOps();
+      setModalState('success', {
+        title: 'Base pronta',
+        text: 'O HTML da marca está no quadro. Siga para a cena.',
+      });
     } catch (error) {
       setStatus(error.message);
       $('mcMesaMockup').disabled = !state.storyboard.length;
       renderOps();
+      setModalState('error', {
+        title: 'Não foi possível modelar a base',
+        text: error.message,
+        detail: error.stack || error.message,
+      });
     } finally {
       setRunBusy(false);
     }
   }
 
   async function generateScene() {
+    if (sceneVersions(state.sceneId).length) {
+      const ok = await askConfirm({
+        title: 'Substituir esta cena?',
+        body: 'Os takes atuais saem do quadro.',
+        confirmLabel: 'Substituir cena',
+      });
+      if (!ok) return;
+    }
     const dialog = $('mcMesaBaseDialog');
     if (dialog && !dialog.open) openBaseDialog('scene');
     try {
@@ -1128,12 +1405,21 @@
       paintRunStill();
       paintRunSeq();
       renderOps();
+      setModalState('success', {
+        title: 'Cena pronta',
+        text: 'Compare os takes e feche o still.',
+      });
     } catch (error) {
       setStatus(error.message);
       $('mcMesaGenerate').disabled = !state.clientId;
       labelGenerate();
       paintRunSeq();
       renderOps();
+      setModalState('error', {
+        title: 'Não foi possível montar a cena',
+        text: error.message,
+        detail: error.stack || error.message,
+      });
     } finally {
       setRunBusy(false);
     }
@@ -1219,6 +1505,17 @@
           ? 'Still fechado no 1920×1080. O quadro está pronto para a Bancada.'
           : (report.defects || []).join(' ') || 'Still fechado. Revise a margem.'
       );
+      if (report.passed) {
+        setModalState('success', {
+          title: 'Still fechado',
+          text: 'O quadro está pronto para a Bancada.',
+        });
+      } else {
+        setModalState('warning', {
+          title: 'Revise antes de seguir',
+          text: (report.defects || []).join(' ') || 'Ajuste a margem e feche de novo.',
+        });
+      }
       state.runOp = 'approve';
       paintRunStill();
       paintRunSeq();
@@ -1228,6 +1525,11 @@
       $('mcMesaClose').disabled = false;
       paintRunSeq();
       renderOps();
+      setModalState('error', {
+        title: 'Não foi possível fechar a cena',
+        text: error.message,
+        detail: error.stack || error.message,
+      });
     } finally {
       setRunBusy(false);
     }
@@ -1382,6 +1684,11 @@
       window.location.href = `/parametros/modelagem-criativos/bancada?campaign=${encodeURIComponent(data.campaign_id || '')}`;
     } catch (error) {
       setStatus(error.message);
+      setModalState('error', {
+        title: 'Não foi possível aprovar',
+        text: error.message,
+        detail: error.stack || error.message,
+      });
     } finally {
       setRunBusy(false);
     }

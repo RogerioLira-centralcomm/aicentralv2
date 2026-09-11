@@ -38,7 +38,10 @@ from aicentralv2.creative_format_lab.swap import (
 from aicentralv2.creative_format_lab.guidelines import check_stack, protect_box
 from aicentralv2.creative_format_lab.visual_qa import run_qa_loop
 from aicentralv2.creative_modeling_repository import CreativeConflictError
-from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
+from aicentralv2.creative_modeling_routes import (
+    register_creative_modeling_routes,
+    register_modeling_ux_lab,
+)
 from aicentralv2.creative_modeling_service import CreativeModelingService
 from aicentralv2.creative_skills.loader import FORMAT_SKILL_KEYS, load_format_skill, load_skill, resolve_pack
 from tests.test_modelagem_criativos import FakeGenerator, FakeRepository
@@ -960,6 +963,13 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertEqual(MC_DESKS["mesa"]["page_js"], "js/mc-mesa.js")
         self.assertEqual(MC_DESKS["placas"]["page_js"], "js/mc-placas.js")
         root = Path(__file__).resolve().parents[1]
+        self.assertNotIn("states", MC_DESKS)
+        docs = (root / "docs" / "modeling-ux-refactor.md").read_text(encoding="utf-8")
+        self.assertIn("--cx-mesa-teal", docs)
+        self.assertIn("/lab/modelagem/states", docs)
+        app = Flask(__name__)
+        register_modeling_ux_lab(app)
+        self.assertIn("/lab/modelagem/states", [rule.rule for rule in app.url_map.iter_rules()])
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-desk-nav-flow", shell)
         self.assertIn("mc-desk-nav-lab", shell)
@@ -973,10 +983,17 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_mesa", shell)
         self.assertIn("modelagem_placas", shell)
         self.assertIn("modelagem_trocar", shell)
-        html = (root / "aicentralv2" / "templates" / "parametros" / "_mc_mesa.html").read_text(encoding="utf-8")
+        desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
+        self.assertIn("modelagem_criativos.css') }}?v=75", desk)
+        self.assertIn("mc_page_js) }}?v=24", desk)
+        mesa_dir = root / "aicentralv2" / "templates" / "parametros"
+        html = (mesa_dir / "_mc_mesa.html").read_text(encoding="utf-8")
+        for path in sorted((mesa_dir / "mesa").glob("*.html")):
+            html += path.read_text(encoding="utf-8")
         self.assertIn("mc-mesa-stage", html)
         self.assertIn("mcMesaStage", html)
-        self.assertIn("Solte a foto no quadro", html)
+        self.assertIn("Selecionar key visual", html)
+        self.assertIn("Selecione um asset da campanha ou envie uma nova imagem.", html)
         self.assertIn("Montar conceito", html)
         self.assertIn("Montar cena 1", html)
         self.assertIn("mcMesaSkills", html)
@@ -1002,9 +1019,21 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcMesaTrace", html)
         self.assertIn("mcMesaOps", html)
         self.assertIn("Ordem do 15s", html)
-        self.assertIn("Duas passagens no roteiro de 15s", html)
+        self.assertIn("Define a direção da cena", html)
         self.assertIn("mcMesaStrip", html)
         self.assertIn("Abrir Marcas", html)
+        self.assertIn("data-state", html)
+        self.assertIn("mcMesaConfirm", html)
+        self.assertNotIn("states", MC_DESKS)
+        states = (mesa_dir / "mesa" / "states.html").read_text(encoding="utf-8")
+        self.assertIn("Canvas vazio", states)
+        self.assertIn("Conceito idle", states)
+        self.assertIn("Loading", states)
+        self.assertIn("Sucesso", states)
+        self.assertIn("Warning", states)
+        self.assertIn("Erro", states)
+        self.assertIn("Confirmação", states)
+        self.assertIn("Toast e inline", states)
         js = (root / "aicentralv2" / "static" / "js" / "mc-mesa.js").read_text(encoding="utf-8")
         self.assertIn("/parametros/api/format-lab/sessions", js)
         self.assertIn("storyboard", js)
@@ -1019,6 +1048,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("key_visuals", js)
         self.assertIn("/mockup", js)
         self.assertIn("openBaseDialog", js)
+        self.assertIn("setModalState", js)
+        self.assertIn("askConfirm", js)
         self.assertIn("runCurrentBeat", js)
         self.assertIn("paintRunStill", js)
         self.assertIn("startRunProgress", js)

@@ -1,37 +1,45 @@
 <article class="mc-mesa" id="mcMesa">
   <header class="mc-mesa-rail" id="mcMesaRail">
-    <div class="mc-mesa-brands" id="mcMesaBrands"></div>
-    <label class="cx-field">
-      <select class="cx-select" id="mcMesaClient" aria-label="Marca">
-        <option value="">Marca</option>
-      </select>
-    </label>
-    <div class="mc-mesa-formats" id="mcMesaFormats" hidden></div>
-    <div class="mc-mesa-counts" id="mcMesaCounts" role="radiogroup" aria-label="Cenas">
-      <button type="button" data-count="4" class="is-current">4</button>
-      <button type="button" data-count="5">5</button>
+    <div class="mc-mesa-cluster" data-cluster="brand">
+      <div class="mc-mesa-brands" id="mcMesaBrands"></div>
+      <label class="cx-field">
+        <select class="cx-select" id="mcMesaClient" aria-label="Marca">
+          <option value="">Marca</option>
+        </select>
+      </label>
     </div>
-    <div class="mc-mesa-objectives" id="mcMesaObjectives"></div>
-    <label class="mc-mesa-slider">
-      <span>Densidade</span>
-      <input id="mcMesaDensity" type="range" min="0" max="1" step="1" value="1">
-    </label>
-    <label class="mc-mesa-slider">
-      <span>Gancho</span>
-      <input id="mcMesaTension" type="range" min="0" max="100" value="55">
-    </label>
-    <label class="mc-mesa-toggle">
-      <input id="mcMesaCastLock" type="checkbox" checked>
-      <span>Mesmas pessoas</span>
-    </label>
-    <label class="mc-mesa-toggle">
-      <input id="mcMesaProductLock" type="checkbox" checked>
-      <span>Mesmo produto</span>
-    </label>
-    <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
-    <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
+    <div class="mc-mesa-cluster" data-cluster="campaign">
+      <div class="mc-mesa-formats" id="mcMesaFormats" hidden></div>
+      <div class="mc-mesa-counts" id="mcMesaCounts" role="radiogroup" aria-label="Cenas">
+        <button type="button" data-count="4" class="is-current">4</button>
+        <button type="button" data-count="5">5</button>
+      </div>
+      <div class="mc-mesa-objectives" id="mcMesaObjectives"></div>
+    </div>
+    <div class="mc-mesa-cluster" data-cluster="locks">
+      <label class="mc-mesa-slider">
+        <span>Densidade</span>
+        <input id="mcMesaDensity" type="range" min="0" max="1" step="1" value="1">
+      </label>
+      <label class="mc-mesa-slider">
+        <span>Gancho</span>
+        <input id="mcMesaTension" type="range" min="0" max="100" value="55">
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaCastLock" type="checkbox" checked>
+        <span>Mesmas pessoas</span>
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaProductLock" type="checkbox" checked>
+        <span>Mesmo produto</span>
+      </label>
+    </div>
+    <div class="mc-mesa-cluster" data-cluster="mode">
+      <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
+      <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
+    </div>
     <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
-    <ol class="mc-mesa-history" id="mcMesaHistory" hidden aria-label="Histórico desta campanha"></ol>
+    <button class="mc-mesa-history-toggle" type="button" id="mcMesaHistoryToggle">Histórico</button>
     <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
   </header>
 
@@ -43,8 +51,10 @@
         <div class="mc-mesa-drop" id="mcMesaDrop">
           <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
           <div class="mc-mesa-plate">
+            <span class="mc-mesa-plate-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
             <strong>Escolha o key visual e monte o 15s</strong>
-            <span>Solte a foto no quadro. O still fica 16:9.</span>
+            <span>Selecione um asset da campanha ou envie uma nova imagem.</span>
+            <button class="mc-mesa-pick" type="button" id="mcMesaPickKey">Selecionar key visual</button>
           </div>
         </div>
         <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
@@ -52,135 +62,22 @@
         </figure>
       </div>
     </div>
+    <div class="mc-mesa-stage-meta">
+      <span id="mcMesaStageMeta">16:9 · 1920 × 1080</span>
+      <button class="mc-mesa-guide" type="button" id="mcMesaGuide">Ver guia de composição</button>
+    </div>
     <p class="mc-mesa-caption" id="mcMesaCaption"></p>
     <ol class="mc-mesa-versions" id="mcMesaVersions" hidden></ol>
   </section>
 
   <aside class="mc-mesa-side">
-    <div class="mc-mesa-dna" id="mcMesaDna">
-      <p>Vivara, presente. O key visual sai das imagens da marca.</p>
-    </div>
-    <div class="mc-mesa-keys" id="mcMesaKeys"></div>
-    <form class="mc-mesa-edit" id="mcMesaEdit">
-      <label>
-        <span>Oferta</span>
-        <input id="mcMesaOffer" type="text" maxlength="160" placeholder="O presente que marca o momento">
-      </label>
-      <label>
-        <span>Headline da cena</span>
-        <input id="mcMesaHeadline" type="text" maxlength="80" placeholder="Escreva a linha desta cena">
-      </label>
-      <label>
-        <span>Apoio</span>
-        <textarea id="mcMesaSupport" rows="2" maxlength="160" placeholder="O que a TV precisa ler em 3 segundos"></textarea>
-      </label>
-      <label class="mc-mesa-toggle">
-        <input id="mcMesaLogo" type="checkbox">
-        <span>Logomarca nesta cena</span>
-      </label>
-    </form>
-    <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
-    <ol class="mc-mesa-ops" id="mcMesaOps" aria-label="Ordem do 15s">
-      <li data-op="concept" class="is-current">
-        <header>
-          <em>1</em>
-          <div>
-            <strong>Conceito</strong>
-            <span>Duas passagens no roteiro de 15s</span>
-          </div>
-        </header>
-        <button class="cx-btn cx-btn-primary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
-      </li>
-      <li data-op="base">
-        <header>
-          <em>2</em>
-          <div>
-            <strong>Base</strong>
-            <span>HTML da marca no quadro</span>
-          </div>
-        </header>
-        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaMockup" disabled>Modelar base</button>
-      </li>
-      <li data-op="scene">
-        <header>
-          <em>3</em>
-          <div>
-            <strong>Cena</strong>
-            <span>Still e QA visual em 3 versões</span>
-          </div>
-        </header>
-        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
-      </li>
-      <li data-op="close">
-        <header>
-          <em>4</em>
-          <div>
-            <strong>Fechar</strong>
-            <span>Still 1920×1080 com margem segura</span>
-          </div>
-        </header>
-        <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaClose" disabled>Fechar cena</button>
-      </li>
-      <li data-op="approve">
-        <header>
-          <em>5</em>
-          <div>
-            <strong>Aprovar</strong>
-            <span>Handoff para a Bancada</span>
-          </div>
-        </header>
-        <button class="cx-btn cx-btn-primary" type="button" id="mcMesaApprove" disabled>Aprovar</button>
-        <a class="cx-btn cx-btn-primary mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
-      </li>
-    </ol>
+    {% include "parametros/mesa/_inspector_tabs.html" %}
+    {% include "parametros/mesa/_production_flow.html" %}
     <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>
 </article>
 
-<dialog class="cx-modal mc-base-dialog" id="mcMesaBaseDialog">
-  <form method="dialog" class="mc-run-top">
-    <p class="mc-run-mark" id="mcMesaRunMark">15s</p>
-    <button class="mc-run-x" value="cancel" aria-label="Fechar">Fechar</button>
-  </form>
-  <div class="mc-run-body">
-    <figure class="mc-base-plate" id="mcMesaBasePlate">
-      <iframe id="mcMesaBaseFrame" class="mc-base-html" title="HTML da base" sandbox="allow-same-origin" hidden></iframe>
-      <img id="mcMesaBaseStill" alt="Still do 15s" hidden>
-      <img id="mcMesaBaseKey" alt="Key visual" hidden>
-      <div class="mc-base-void" id="mcMesaBaseVoid">
-        <strong>O quadro está vazio</strong>
-        <span>A sequência devolve o still aqui, batida a batida.</span>
-      </div>
-      <div class="mc-base-wait" id="mcMesaBaseWait" hidden>
-        <em></em>
-        <strong id="mcMesaBaseWaitLabel">Montando a base</strong>
-        <span id="mcMesaBaseWaitHint">Sessão → HTML → camadas → still</span>
-      </div>
-    </figure>
-    <aside class="mc-run-rail">
-      <p class="mc-run-now" id="mcMesaRunNow">Conceito</p>
-      <ol class="mc-run-seq" id="mcMesaRunSeq" aria-label="Sequência do 15s">
-        <li data-op="concept"><button type="button">Conceito</button></li>
-        <li data-op="base"><button type="button">Base</button></li>
-        <li data-op="scene"><button type="button">Cena</button></li>
-        <li data-op="close"><button type="button">Fechar</button></li>
-        <li data-op="approve"><button type="button">Aprovar</button></li>
-      </ol>
-      <figure class="mc-run-key" id="mcMesaRunKey" hidden>
-        <img id="mcMesaRunKeyImg" alt="Key visual da marca">
-        <figcaption>Key visual</figcaption>
-      </figure>
-      <div class="mc-run-return">
-        <p id="mcMesaBaseNote">Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
-        <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
-        <ol class="mc-run-beats" id="mcMesaRunBeats" hidden></ol>
-        <ol class="mc-run-takes" id="mcMesaRunTakes" hidden></ol>
-      </div>
-    </aside>
-  </div>
-  <footer class="mc-run-foot">
-    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaBaseCancel">Voltar à mesa</button>
-    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaBaseRun">Montar a base</button>
-  </footer>
-</dialog>
+{% include "parametros/mesa/_history_drawer.html" %}
+{% include "parametros/mesa/_toast.html" %}
+{% include "parametros/mesa/_modal_shell.html" %}

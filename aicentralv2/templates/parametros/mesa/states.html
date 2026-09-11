@@ -1,0 +1,96 @@
+{% extends "base_erp.html" %}
+{% block title %}Estados da Mesa — Modelagem{% endblock %}
+{% block page_label %}Lab{% endblock %}
+{% block page_subtitle %}Estados visuais da Mesa de Conceito{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=75">
+{% endblock %}
+
+{% block content %}
+<main class="mc-states-lab">
+  <header>
+    <h1>Estados da Mesa</h1>
+    <p>Mocks lado a lado. Sem OpenRouter, sem sessão.</p>
+  </header>
+  <section class="mc-states-grid">
+    <article class="mc-states-card" data-state="empty">
+      <h2>Canvas vazio</h2>
+      <div class="mc-states-mini">
+        <strong>Escolha o key visual e monte o 15s</strong>
+        <p>Selecione um asset da campanha ou envie uma nova imagem.</p>
+        <button class="mc-mesa-pick" type="button">Selecionar key visual</button>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="idle">
+      <h2>Conceito idle</h2>
+      <div class="mc-states-mini is-paper">
+        <span class="mc-run-badge">Rascunho</span>
+        <strong>Conceito</strong>
+        <p>Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
+        <button class="cx-btn cx-btn-primary" type="button">Montar conceito</button>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="loading">
+      <h2>Loading</h2>
+      <div class="mc-states-mini">
+        <strong>Montando o conceito</strong>
+        <p>Análise → Conceito → Finalização</p>
+        <ol class="mc-run-load">
+          <li class="is-done">Análise</li>
+          <li class="is-current">Conceito</li>
+          <li>Finalização</li>
+        </ol>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="success">
+      <h2>Sucesso</h2>
+      <div class="mc-states-mini is-paper">
+        <div class="mc-run-state is-success">
+          <strong>Conceito pronto</strong>
+          <p>O roteiro está na tira. Siga para a base.</p>
+          <button class="cx-btn cx-btn-primary" type="button">Aprovar conceito</button>
+        </div>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="warning">
+      <h2>Warning</h2>
+      <div class="mc-states-mini is-paper">
+        <div class="mc-run-state is-warning">
+          <strong>Revise antes de seguir</strong>
+          <p>Há um ponto de atenção no still. Ajuste e continue.</p>
+        </div>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="error">
+      <h2>Erro</h2>
+      <div class="mc-states-mini is-paper">
+        <div class="mc-run-state is-error">
+          <strong>Não foi possível concluir</strong>
+          <p>Tente de novo ou escolha outro key visual.</p>
+          <button class="cx-btn cx-btn-primary" type="button">Tentar novamente</button>
+          <button class="cx-btn cx-btn-ghost" type="button">Ver detalhes técnicos</button>
+        </div>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="confirm">
+      <h2>Confirmação</h2>
+      <div class="mc-states-mini is-paper">
+        <strong>Substituir o que já está na mesa?</strong>
+        <p>Essa ação troca a versão ativa. O que está no quadro some.</p>
+        <button class="cx-btn cx-btn-secondary" type="button">Manter</button>
+        <button class="cx-btn cx-btn-primary" type="button">Substituir</button>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="toast">
+      <h2>Toast e inline</h2>
+      <div class="mc-states-mini is-paper">
+        <p>Conceito salvo.</p>
+        <p class="mc-inline">Até 55 caracteres na TV.</p>
+        <p class="mc-inline is-warn">62 caracteres — a TV lê melhor até 55.</p>
+        <p class="mc-inline is-error">Escolha um key visual antes de gerar.</p>
+      </div>
+    </article>
+  </section>
+</main>
+{% endblock %}

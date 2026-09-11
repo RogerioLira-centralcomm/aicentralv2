@@ -3364,6 +3364,11 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_desdobrar.html",
             "_mc_bancada.html",
             "_mc_mesa.html",
+            "mesa/_inspector_tabs.html",
+            "mesa/_production_flow.html",
+            "mesa/_modal_shell.html",
+            "mesa/_history_drawer.html",
+            "mesa/states.html",
             "_mc_lab.html",
             "_mc_placas.html",
             "_mc_trocar.html",
@@ -4127,7 +4132,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=23", desk)
+        self.assertIn("mc_page_js) }}?v=24", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

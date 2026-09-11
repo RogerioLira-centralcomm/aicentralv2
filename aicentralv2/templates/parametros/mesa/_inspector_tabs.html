@@ -1,0 +1,56 @@
+<div class="mc-insp">
+  <nav class="mc-insp-tabs" role="tablist" aria-label="Inspetor da marca">
+    <button type="button" role="tab" id="mcMesaTabBrand" data-insp="brand" aria-selected="true" aria-controls="mcMesaPanelBrand">Marca</button>
+    <button type="button" role="tab" id="mcMesaTabBrief" data-insp="brief" aria-selected="false" aria-controls="mcMesaPanelBrief">Brief</button>
+    <button type="button" role="tab" id="mcMesaTabAssets" data-insp="assets" aria-selected="false" aria-controls="mcMesaPanelAssets">Assets</button>
+  </nav>
+
+  <div class="mc-insp-panel" id="mcMesaPanelBrand" data-insp-panel="brand" role="tabpanel">
+    <header class="mc-insp-brand">
+      <img id="mcMesaBrandLogo" alt="" hidden>
+      <div>
+        <strong id="mcMesaBrandName">Marca</strong>
+        <p id="mcMesaBrandTag">Selecione uma marca para ver o sistema.</p>
+      </div>
+      <a class="mc-insp-open" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir marca</a>
+    </header>
+    <div class="mc-mesa-dna" id="mcMesaDna">
+      <p>Vivara, presente. O key visual sai das imagens da marca.</p>
+    </div>
+  </div>
+
+  <div class="mc-insp-panel" id="mcMesaPanelBrief" data-insp-panel="brief" role="tabpanel" hidden>
+    <form class="mc-mesa-edit" id="mcMesaEdit">
+      <label>
+        <span>Oferta</span>
+        <input id="mcMesaOffer" type="text" maxlength="160" placeholder="O presente que marca o momento">
+        {% with id='mcMesaOfferHint', text='A oferta entra em todas as cenas.' %}
+        {% include "parametros/mesa/_inline_message.html" %}
+        {% endwith %}
+      </label>
+      <label>
+        <span>Headline da cena</span>
+        <input id="mcMesaHeadline" type="text" maxlength="80" placeholder="Escreva a linha desta cena">
+        {% with id='mcMesaHeadlineHint', text='Até 55 caracteres na TV.' %}
+        {% include "parametros/mesa/_inline_message.html" %}
+        {% endwith %}
+      </label>
+      <label>
+        <span>Apoio</span>
+        <textarea id="mcMesaSupport" rows="2" maxlength="160" placeholder="O que a TV precisa ler em 3 segundos"></textarea>
+        {% with id='mcMesaSupportHint', text='Até 90 caracteres de apoio.' %}
+        {% include "parametros/mesa/_inline_message.html" %}
+        {% endwith %}
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaLogo" type="checkbox">
+        <span>Logomarca nesta cena</span>
+      </label>
+    </form>
+  </div>
+
+  <div class="mc-insp-panel" id="mcMesaPanelAssets" data-insp-panel="assets" role="tabpanel" hidden>
+    <div class="mc-mesa-keys" id="mcMesaKeys"></div>
+    <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
+  </div>
+</div>

@@ -24,7 +24,16 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
+            cursor.execute(
+                """
+                SELECT pg_get_constraintdef(oid) AS definition
+                  FROM pg_constraint
+                 WHERE conname = 'system_integration_credentials_provider_check'
+                """
+            )
+            current = ((cursor.fetchone() or {}).get("definition") or "")
+            if "openrouter" not in current:
+                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
             cursor.execute(
                 """
                 SELECT pg_get_constraintdef(oid) AS definition

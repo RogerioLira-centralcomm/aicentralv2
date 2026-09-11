@@ -175,6 +175,7 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
             ROOT / "migrations/add_openrouter_integration_credential.sql"
         ).read_text()
         self.assertIn("openrouter", openrouter_sql)
+        self.assertIn("d4sign", openrouter_sql)
 
 
 if __name__ == "__main__":

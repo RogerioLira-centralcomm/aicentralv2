@@ -1522,3 +1522,95 @@ def lookup_document_refs(hints):
         summary="Documento identificado. Dados encontrados no CentralX.",
         focus=_focus(item.get("type"), item.get("id"), item.get("title"), "operacao" if item.get("type") == "pi" else "comercial", item.get("type")),
     )
+
+
+OPERACAO_CAMPANHA_FIELDS = (
+    "obj_contratados",
+    "totalizador_atingido",
+    "totalizador_gasto",
+)
+
+
+def _format_operacao_valor(field, value):
+    from ...campanha_pi_metrics import format_brl_ptbr, parse_brl_float, parse_volume_float
+
+    if value in (None, ""):
+        return None
+    if field == "totalizador_gasto":
+        parsed = parse_brl_float(value)
+        return format_brl_ptbr(parsed) if parsed is not None else None
+    parsed = parse_volume_float(value)
+    if parsed is None:
+        return None
+    if parsed == int(parsed):
+        return str(int(parsed))
+    return str(parsed).replace(".", ",")
+
+
+def preparar_atualizacao_operacao_campanha(
+    campanha_id,
+    obj_contratados=None,
+    totalizador_atingido=None,
+    totalizador_gasto=None,
+    **_,
+):
+    """Prepara ajuste operacional; não grava e não mexe em dados financeiros comerciais."""
+    try:
+        raw = PiOperacaoRepository().obter_campanha(str(campanha_id))
+    except LookupError:
+        return _error("Campanha não encontrada ou indisponível.")
+    proposed = {
+        "obj_contratados": obj_contratados,
+        "totalizador_atingido": totalizador_atingido,
+        "totalizador_gasto": totalizador_gasto,
+    }
+    changes = {}
+    before = {}
+    for field in OPERACAO_CAMPANHA_FIELDS:
+        if proposed[field] is None:
+            continue
+        formatted = _format_operacao_valor(field, proposed[field])
+        if formatted is None:
+            return _error(
+                "Valor operacional inválido. Informe número de objetivo/resultado ou valor em reais da mídia.",
+                "invalid_operation_value",
+            )
+        current = raw.get(field)
+        if field == "totalizador_gasto":
+            current = _format_operacao_valor(field, current) or (current or "")
+        else:
+            current = "" if current in (None, "") else str(current)
+        if str(current) == formatted:
+            continue
+        changes[field] = formatted
+        before[field] = current or "Não informado"
+    if not changes:
+        return _error("Nenhuma alteração operacional para confirmar.", "no_operation_change")
+    confirmation = {
+        "kind": "campaign_operation",
+        "operation": "update_campaign_operation",
+        "campanha_id": str(raw.get("id_campanha") or campanha_id),
+        "pi_id": str(raw.get("id_pi") or ""),
+        "campaign_label": raw.get("nome_campanha") or f"Campanha {campanha_id}",
+        "before": before,
+        "changes": changes,
+        "confirms_media": "totalizador_gasto" in changes,
+        "title": "Confirmar números da operação",
+    }
+    preview = {
+        "id": confirmation["campanha_id"],
+        "title": confirmation["campaign_label"],
+        "subtitle": "Objetivo, resultado e mídia realizada",
+        "confirms_media": confirmation["confirms_media"],
+    }
+    return _ok(
+        preview,
+        confirmation["title"],
+        [preview],
+        confirmation=confirmation,
+        summary=(
+            "Revise a mídia realizada: este é o valor que o financeiro vai compilar."
+            if confirmation["confirms_media"]
+            else "Revise objetivo e resultado antes de gravar na operação."
+        ),
+    )

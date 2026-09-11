@@ -604,7 +604,8 @@ def _pi_context(store, pi_repo, pi):
     ]
     primary = [
         {"kind": "open", "label": "Abrir PI", "url": url},
-        {"kind": "prompt", "label": "Ver campanhas", "prompt": "Liste as campanhas deste PI."},
+        {"kind": "prompt", "label": "Ver campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega e mídia realizada."},
+        {"kind": "prompt", "label": "Analisar pacing", "prompt": "Analise o pacing e o ritmo de mídia deste PI."},
     ]
     drive = _drive_action(folders)
     if drive:
@@ -617,15 +618,39 @@ def _pi_context(store, pi_repo, pi):
         primary.append({"kind": "dashboard", "label": "Dashboards", "items": dashboards})
     secondary = _secondary_actions(
         {"kind": "copy", "label": "Copiar link", "value": url},
-        {"kind": "prompt", "label": "Ver faturamento", "prompt": "Mostre o faturamento deste PI."},
-        {"kind": "prompt", "label": "Ver histórico", "prompt": "Mostre o histórico operacional deste PI."},
+        {"kind": "prompt", "label": "Atualizar números", "prompt": "Prepare a atualização de objetivo, resultado ou mídia realizada das campanhas deste PI."},
+        {"kind": "prompt", "label": "Estratégia da proposta", "prompt": "Com base no briefing e nos itens contratados da proposta, sugira o uso de mídia deste PI."},
     )
+    from ..campanha_pi_metrics import custo_midia_previsto_campanha, parse_brl_float
+
+    midia_prev = sum((custo_midia_previsto_campanha(item) or 0) for item in campaigns)
+    midia_gasto = sum((parse_brl_float(item.get("totalizador_gasto")) or 0) for item in campaigns)
+    quote_id = str(pi.get("cotacao_id") or "")
+    quote = None
+    quote_details = {}
+    if quote_id:
+        try:
+            from ..crm_v3_repository import get_store
+            quote = get_store().get_cotacao(quote_id)
+            if quote:
+                quote_details = load_quote_details(quote)
+                relations.append({
+                    "key": "quote", "title": "Proposta", "count": 1,
+                    "items": [_entity("cotacao", quote_id, quote.get("titulo") or quote.get("numero_cotacao") or f"Cotação {quote_id}",
+                                      "", f"/cotacoes/{quote_id}/detalhes")],
+                })
+        except Exception:
+            quote = None
+    totals = quote_details.get("totals") or {}
     payload = _base(
         "pi", pi, context, title, code, url,
         _facts(
             _fact("Status", status),
-            _money_fact("Valor líquido", pi.get("vr_liquido_pi") or pi.get("valor_liquido")),
-            _money_fact("Valor bruto", pi.get("vr_bruto_pi")),
+            _money_fact("Orçamento de mídia", midia_prev or None),
+            _money_fact("Mídia realizada", midia_gasto or None),
+            _fact("% da mídia", f"{round((midia_gasto / midia_prev) * 100)}%" if midia_prev else None),
+            _money_fact("Custo de mídia da proposta", totals.get("total_custo_midia")),
+            _fact("Margem de mídia", quote_details.get("margin")),
             _fact("Início", format_date_br(pi.get("periodo_inicio"))),
             _fact("Término previsto", format_date_br(pi.get("periodo_fim"))),
             _fact("Código CentralComm", pi.get("codigo_pi_cc"), True),
@@ -647,9 +672,11 @@ def _pi_context(store, pi_repo, pi):
         "campaigns": [_campaign_row(item) for item in campaigns],
         "drive_folders": folders,
         "dashboards": dashboards,
+        "quote_items": (quote_details.get("items") or [])[:12],
         "actions_secondary": secondary,
         "sections": [
             {"key": "campaigns", "title": "Campanhas", "count": len(campaigns), "collapsed": True},
+            {"key": "items", "title": "Itens contratados", "count": len(quote_details.get("items") or []), "collapsed": True},
         ],
     })
     return payload
@@ -700,7 +727,8 @@ def _campaign_context(store, pi_repo, campaign):
     primary = [
         {"kind": "open", "label": "Abrir campanha", "url": url},
         {"kind": "prompt", "label": "Ver PI", "prompt": "Abra o PI desta campanha."} if pi else None,
-        {"kind": "prompt", "label": "Ver entrega", "prompt": "Mostre a entrega desta campanha."},
+        {"kind": "prompt", "label": "Ver entrega", "prompt": "Mostre objetivo, entrega e mídia realizada desta campanha."},
+        {"kind": "prompt", "label": "Atualizar números", "prompt": "Prepare a atualização de objetivo, resultado ou mídia realizada desta campanha."},
     ]
     drive = _drive_action(folders)
     if drive:
@@ -711,7 +739,7 @@ def _campaign_context(store, pi_repo, campaign):
     secondary = _secondary_actions(
         {"kind": "copy", "label": "Copiar link", "value": url},
         {"kind": "copy", "label": "Copiar dashboard", "value": dash["url"]} if dash else None,
-        {"kind": "prompt", "label": "Ver faturamento", "prompt": "Mostre o faturamento desta campanha."},
+        {"kind": "prompt", "label": "Confirmar mídia", "prompt": "Prepare a confirmação da mídia realizada desta campanha para o financeiro."},
     )
     payload = _base(
         "campanha", campaign, context, title, campaign.get("plataforma_nome") or "", url,

@@ -315,11 +315,29 @@ def bootstrap():
     requested_id = request.args.get("conversation_id", type=int)
     active = None
     try:
+        entity_type = context.get("entity_type")
+        entity_id = context.get("entity_id")
         if requested_id:
             found = storage.get_conversation(requested_id, session["user_id"])
             if found:
-                active = _conversation_payload(found["conversation"])
-        if not active:
+                conv = found["conversation"]
+                same_entity = (
+                    not entity_id
+                    or (
+                        str(conv.get("context_entity_id") or "") == entity_id
+                        and canonical_type(conv.get("context_entity_type"))
+                        == canonical_type(entity_type)
+                    )
+                )
+                if same_entity:
+                    active = _conversation_payload(conv)
+        if not active and entity_id:
+            match = storage.find_conversation_for_entity(
+                session["user_id"], entity_type, entity_id
+            )
+            if match:
+                active = _conversation_payload(match)
+        elif not active:
             conversations = storage.list_conversations(session["user_id"], limit=1)
             if conversations:
                 active = _conversation_payload(conversations[0])
@@ -633,6 +651,68 @@ def commercial_record(entity_type, entity_id):
     if canonical_type(entity_type) not in {"cliente", "cotacao"}:
         return jsonify({"success": False, "error": "Tipo de registro inválido."}), 400
     return context_record(entity_type, entity_id)
+
+
+CAMPAIGN_OPERATION_FIELDS = {
+    "obj_contratados",
+    "totalizador_atingido",
+    "totalizador_gasto",
+}
+
+
+@bp.post("/context/campaign-operation-changes")
+@agent_internal_required_api
+@agent_csrf_required
+def apply_campaign_operation_change():
+    raw = request.get_json(silent=True)
+    if not isinstance(raw, dict) or raw.get("confirmed") is not True:
+        return jsonify({"success": False, "error": "Confirme a alteração antes de salvar."}), 400
+    if str(raw.get("operation") or "") != "update_campaign_operation":
+        return jsonify({"success": False, "error": "Operação inválida."}), 400
+    campaign_id = str(raw.get("campanha_id") or "").strip()
+    changes = raw.get("changes")
+    if not campaign_id or not isinstance(changes, dict):
+        return jsonify({"success": False, "error": "Dados da campanha inválidos."}), 400
+    from ..campanha_pi_metrics import format_brl_ptbr, parse_brl_float, parse_volume_float
+
+    clean = {}
+    for key, value in changes.items():
+        if key not in CAMPAIGN_OPERATION_FIELDS:
+            continue
+        if key == "totalizador_gasto":
+            parsed = parse_brl_float(value)
+            if parsed is None:
+                return jsonify({"success": False, "error": "Gasto de mídia inválido."}), 400
+            clean[key] = format_brl_ptbr(parsed)
+        else:
+            parsed = parse_volume_float(value)
+            if parsed is None:
+                return jsonify({"success": False, "error": "Objetivo ou resultado inválido."}), 400
+            clean[key] = str(int(parsed)) if parsed == int(parsed) else str(parsed)
+    if not clean:
+        return jsonify({"success": False, "error": "Nenhum indicador operacional para salvar."}), 400
+    try:
+        campaign = PiOperacaoRepository().obter_campanha(campaign_id)
+    except LookupError:
+        return jsonify({"success": False, "error": "Campanha não encontrada."}), 404
+    if not db.atualizar_campanha_pi_indicadores(campaign_id, clean):
+        return jsonify({"success": False, "error": "Não foi possível salvar os números da operação."}), 400
+    title = campaign.get("nome_campanha") or f"Campanha {campaign_id}"
+    return jsonify({
+        "success": True,
+        "data": {
+            "campaign_id": campaign_id,
+            "changes": clean,
+            "confirms_media": "totalizador_gasto" in clean,
+            "context": {
+                "module": "operacao",
+                "screen": "campanha",
+                "entity_type": "campanha",
+                "entity_id": campaign_id,
+                "entity_label": title,
+            },
+        },
+    })
 
 
 @bp.post("/context/contact-changes")

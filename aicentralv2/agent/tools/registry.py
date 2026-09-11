@@ -214,6 +214,18 @@ TOOLS = {
             commercial.resumir_financeiro, {}, (),
         ),
         Tool(
+            "preparar_atualizacao_operacao_campanha",
+            "Prepara ajuste de objetivo, resultado (atingido) ou mídia realizada de uma campanha. Não altera valor bruto, comissões nem DRE. Não salva até o usuário confirmar. Use após ler print da plataforma ou quando o usuário informar os números.",
+            commercial.preparar_atualizacao_operacao_campanha,
+            {
+                "campanha_id": ID,
+                "obj_contratados": {"type": "string", "minLength": 1, "maxLength": 40},
+                "totalizador_atingido": {"type": "string", "minLength": 1, "maxLength": 40},
+                "totalizador_gasto": {"type": "string", "minLength": 1, "maxLength": 40},
+            },
+            ("campanha_id",),
+        ),
+        Tool(
             "preparar_alteracao_contato",
             "Prepara criação ou atualização de contato para revisão humana; não salva dados.",
             commercial.preparar_alteracao_contato,
@@ -261,6 +273,10 @@ def validate_arguments(tool, arguments):
         schema = tool.properties[field]
         expected = schema["type"]
         if expected == "string":
+            if isinstance(value, bool):
+                raise ToolValidationError(f"{field} deve ser texto.")
+            if isinstance(value, (int, float)):
+                value = str(value)
             if not isinstance(value, str):
                 raise ToolValidationError(f"{field} deve ser texto.")
             value = value.strip()

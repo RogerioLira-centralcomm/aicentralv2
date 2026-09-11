@@ -16068,6 +16068,34 @@ def obter_meses_ref_campanha_pi_acompanhamento():
         raise e
 
 
+def atualizar_campanha_pi_indicadores(id_campanha, data):
+    """Atualiza só objetivo, resultado e mídia realizada — sem campos comerciais."""
+    allowed = {}
+    for key in ("obj_contratados", "totalizador_atingido", "totalizador_gasto"):
+        if key in data:
+            allowed[key] = data.get(key)
+    if not id_campanha or not allowed:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            assignments = ", ".join(f"{key} = %s" for key in allowed)
+            cursor.execute(
+                f"""
+                UPDATE cadu_pi_campanha
+                SET {assignments},
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id_campanha = %s
+                """,
+                (*allowed.values(), id_campanha),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def atualizar_campanhas_massa(updates):
     """Atualiza totalizador_atingido e totalizador_gasto em batch.
     updates: list of dicts com id_campanha, totalizador_atingido, totalizador_gasto"""

@@ -1359,9 +1359,13 @@
 
   function ensureConversation() {
     if (state.conversationId) return Promise.resolve(state.conversationId);
+    var ctx = outgoingContext();
     return api('/api/agent/conversations', {
       method: 'POST',
-      body: JSON.stringify({ context: outgoingContext() })
+      body: JSON.stringify({
+        context: ctx,
+        title: ctx.entity_label || 'Nova conversa'
+      })
     }).then(function (payload) {
       state.conversationId = String(payload.data.id);
       sessionStorage.setItem('centralx_agent_conversation_id', state.conversationId);
@@ -2029,6 +2033,74 @@
       });
   }
 
+  function renderCampaignOperationConfirmation(confirmation) {
+    var labels = {
+      obj_contratados: 'Objetivo',
+      totalizador_atingido: 'Resultado atingido',
+      totalizador_gasto: 'Mídia realizada'
+    };
+    var changes = confirmation.changes || {};
+    var before = confirmation.before || {};
+    var rows = Object.keys(changes).map(function (key) {
+      return '<div><span>' + escapeHtml(labels[key] || key) + '</span><del>' +
+        escapeHtml(before[key] || 'Não informado') + '</del><strong>' +
+        escapeHtml(changes[key] || 'Remover') + '</strong></div>';
+    }).join('');
+    var mediaNote = confirmation.confirms_media
+      ? '<p class="cx-agent-confirmation-note">A mídia realizada é o valor que o financeiro vai compilar neste PI. Confirme antes de gravar.</p>'
+      : '<p>Confira os números da operação. Isso não altera valor bruto, comissões nem DRE.</p>';
+    state.pendingConfirmation = confirmation;
+    els.recordTitle.textContent = confirmation.title || 'Confirmar números da operação';
+    els.recordOpen.hidden = true;
+    els.recordBody.innerHTML =
+      '<section class="cx-agent-confirmation' + (confirmation.confirms_media ? ' is-media' : '') + '">' +
+        '<header><i class="fa-solid fa-chart-line"></i><div><strong>' +
+        escapeHtml(confirmation.title || 'Confirmar números da operação') + '</strong><span>' +
+        escapeHtml(confirmation.campaign_label || '') + '</span></div></header>' +
+        mediaNote +
+        '<div class="cx-agent-confirmation-diff">' + rows + '</div>' +
+        '<footer><button type="button" data-operation-cancel>Cancelar</button>' +
+        '<button type="button" data-operation-confirm><i class="fa-solid fa-check"></i> Confirmar e gravar</button></footer>' +
+      '</section>';
+    state.contextWallOpen = true;
+    dock.dataset.contextWall = 'open';
+    els.record.setAttribute('aria-hidden', 'false');
+    syncWorkspaceView('record');
+  }
+
+  function applyCampaignOperationConfirmation() {
+    var confirmation = state.pendingConfirmation;
+    if (!confirmation) return;
+    var button = els.recordBody.querySelector('[data-operation-confirm]');
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Gravando';
+    }
+    api('/api/agent/context/campaign-operation-changes', {
+      method: 'POST',
+      body: JSON.stringify({
+        confirmed: true,
+        operation: confirmation.operation,
+        campanha_id: confirmation.campanha_id,
+        changes: confirmation.changes
+      })
+    }).then(function (payload) {
+      state.pendingConfirmation = null;
+      if (window.recarregarCampanhasPi) window.recarregarCampanhasPi();
+      showComposerFeedback(payload.data && payload.data.confirms_media
+        ? 'Mídia realizada confirmada. O financeiro vai compilar este valor.'
+        : 'Números da operação gravados.');
+      if (payload.data && payload.data.context) setAgentContext(payload.data.context, true);
+      openContextWall();
+    }).catch(function (error) {
+      showComposerFeedback(error.message, true);
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = '<i class="fa-solid fa-check"></i> Confirmar e gravar';
+      }
+    });
+  }
+
   function renderContactConfirmation(confirmation) {
     var labels = {
       nome: 'Nome',
@@ -2101,7 +2173,10 @@
       setAgentContext(ui.context_focus, true, 'agent');
       openContextWall();
     }
-    if (ui.confirmation) renderContactConfirmation(ui.confirmation);
+    if (ui.confirmation) {
+      if (ui.confirmation.kind === 'campaign_operation') renderCampaignOperationConfirmation(ui.confirmation);
+      else renderContactConfirmation(ui.confirmation);
+    }
   }
 
   function dayLabel(iso) {
@@ -2507,11 +2582,15 @@
       });
       return;
     }
+    if (event.target.closest('[data-operation-confirm]')) {
+      applyCampaignOperationConfirmation();
+      return;
+    }
     if (event.target.closest('[data-contact-confirm]')) {
       applyContactConfirmation();
       return;
     }
-    if (event.target.closest('[data-contact-cancel]')) {
+    if (event.target.closest('[data-operation-cancel]') || event.target.closest('[data-contact-cancel]')) {
       state.pendingConfirmation = null;
       if (state.record) renderCommercialRecord(state.record);
       else closeContextWall();

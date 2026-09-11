@@ -199,6 +199,32 @@ def list_conversations(user_id, limit=30, page=1):
         return cur.fetchall() or []
 
 
+def find_conversation_for_entity(user_id, entity_type, entity_id):
+    """Conversa mais recente deste usuário sobre o registro da tela."""
+    entity_type = str(entity_type or "").strip()
+    entity_id = str(entity_id or "").strip()
+    if not user_id or not entity_type or not entity_id:
+        return None
+    _ensure_tables()
+    conn = db.get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, title, context_module, context_screen, context_entity_type,
+                   context_entity_id, context_entity_label, context_entity_subtype,
+                   created_at, updated_at
+            FROM agent_conversations
+            WHERE user_id = %s
+              AND context_entity_type = %s
+              AND context_entity_id = %s
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """,
+            (user_id, entity_type[:50], entity_id[:80]),
+        )
+        return cur.fetchone()
+
+
 def create_conversation(user_id, context=None, title=None):
     _ensure_tables()
     context = context or {}

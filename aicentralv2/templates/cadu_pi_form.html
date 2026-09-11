@@ -4,7 +4,7 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=18">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=19">
 {% endblock %}
 
 {% block content %}
@@ -1181,6 +1181,35 @@
     }
   }
 
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function fillMeters(root) {
+    if (!root) return;
+    var bars = root.querySelectorAll('[data-fill]');
+    bars.forEach(function(el) {
+      var width = el.getAttribute('data-fill') || '0%';
+      if (prefersReducedMotion()) {
+        el.style.width = width;
+        return;
+      }
+      el.style.width = '0%';
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          el.style.width = width;
+        });
+      });
+    });
+  }
+
+  function flashUpdated(el) {
+    if (!el) return;
+    el.classList.remove('is-updated');
+    void el.offsetWidth;
+    el.classList.add('is-updated');
+  }
+
   function renderPacingPanel(pacing) {
     var el = document.getElementById('pi-period-pacing');
     if (!el) return;
@@ -1216,9 +1245,10 @@
         '<div><span>Pacing atual</span><b>' + (pacing.pacing_atual_dia != null ? formatBRL(pacing.pacing_atual_dia) + '/dia' : '—') + '</b></div>' +
       '</div>' +
       '<div class="pi-period-ops__compare">' +
-        '<div><span>Tempo</span><i><b style="width:' + tempoPct + '%"></b></i></div>' +
-        '<div><span>Gasto</span><i><b class="' + ((pacing.pct_gasto || 0) > tempoPct ? 'is-over' : '') + '" style="width:' + gastoPct + '%"></b></i></div>' +
+        '<div><span>Tempo</span><i><b data-fill="' + tempoPct + '%"></b></i></div>' +
+        '<div><span>Gasto</span><i><b class="' + ((pacing.pct_gasto || 0) > tempoPct ? 'is-over' : '') + '" data-fill="' + gastoPct + '%"></b></i></div>' +
       '</div>';
+    fillMeters(el);
   }
 
   function renderMidiaBlocos(camps, totalGasto, totalPrev) {
@@ -1240,7 +1270,7 @@
             '<strong>' + escapeHtmlPi(c.nome_campanha || 'Campanha') + '</strong>' +
             '<em>' + escapeHtmlPi(c.plataforma_nome || '') + '</em>' +
           '</div>' +
-          '<div class="pi-midia-bloco__bar" aria-hidden="true"><span style="width:' + Math.min(Math.max(pct, 0), 100) + '%"></span></div>' +
+          '<div class="pi-midia-bloco__bar" aria-hidden="true"><span data-fill="' + Math.min(Math.max(pct, 0), 100) + '%"></span></div>' +
           '<div class="pi-midia-bloco__vals">' +
             '<b>' + pct + '%</b>' +
             '<small>' + formatBRL(gasto) + ' de ' + formatBRL(prev) + '</small>' +
@@ -1248,6 +1278,7 @@
         '</div>';
     });
     el.innerHTML = html;
+    fillMeters(el);
   }
 
   window.atualizarOperacaoMidia = function(camps) {
@@ -1266,15 +1297,18 @@
     var bar = document.getElementById('pi-midia-bar');
     var barWrap = document.getElementById('pi-midia-bar-wrap');
     var pct = totalPrev > 0 ? Math.round((totalGasto / totalPrev) * 100) : null;
+    var nextGasto = formatBRL(totalGasto);
+    var gastoChanged = gastoEl && gastoEl.textContent !== nextGasto;
     if (orcadoEl) orcadoEl.textContent = totalPrev > 0 ? formatBRL(totalPrev) : '—';
     if (gastoEl) {
-      gastoEl.textContent = formatBRL(totalGasto);
+      gastoEl.textContent = nextGasto;
       gastoEl.classList.toggle('is-over', totalPrev > 0 && totalGasto > totalPrev);
     }
     if (pctEl) {
       pctEl.textContent = pct != null ? pct + '%' : '—';
       pctEl.classList.toggle('is-over', totalPrev > 0 && totalGasto > totalPrev);
     }
+    if (gastoChanged && gastoEl && gastoEl.parentElement) flashUpdated(gastoEl.parentElement);
     if (bar) bar.style.width = Math.min(pct == null ? 0 : pct, 100) + '%';
     if (barWrap) {
       barWrap.setAttribute('aria-valuenow', pct == null ? 0 : Math.min(pct, 100));

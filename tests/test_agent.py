@@ -42,7 +42,7 @@ class AgentContractsTest(unittest.TestCase):
             validate_arguments(tool, {"query": "COPASA", "limit": 21})
 
     def test_registry_contains_only_allowlisted_read_tools(self):
-        self.assertEqual(len(TOOLS), 26)
+        self.assertEqual(len(TOOLS), 27)
         self.assertIn("buscar_cotacao", TOOLS)
         self.assertIn("consultar_contato", TOOLS)
         self.assertIn("consultar_atividade", TOOLS)
@@ -56,6 +56,7 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("listar_notas_fiscais", TOOLS)
         self.assertIn("listar_reembolsos", TOOLS)
         self.assertIn("resumir_financeiro", TOOLS)
+        self.assertIn("preparar_atualizacao_operacao_campanha", TOOLS)
         self.assertIn("preparar_alteracao_contato", TOOLS)
         self.assertIn("listar_canais_plataformas", TOOLS)
         self.assertIn("buscar_audiencias", TOOLS)
@@ -72,6 +73,38 @@ class AgentContractsTest(unittest.TestCase):
         self.assertIn("Não simule raciocínio interno", SYSTEM_POLICY)
         self.assertIn("prazo=hoje|semana|atrasadas", SYSTEM_POLICY)
         self.assertIn("consultar_atividade", SYSTEM_POLICY)
+        self.assertIn("preparar_atualizacao_operacao_campanha", SYSTEM_POLICY)
+        self.assertIn("mídia realizada", SYSTEM_POLICY)
+
+    def test_operation_tool_accepts_numeric_values_and_prepares_media_confirm(self):
+        tool = get_tool("preparar_atualizacao_operacao_campanha")
+        clean = validate_arguments(tool, {
+            "campanha_id": "88",
+            "totalizador_gasto": 1500.5,
+            "totalizador_atingido": 12000,
+        })
+        self.assertEqual(clean["totalizador_gasto"], "1500.5")
+        self.assertEqual(clean["totalizador_atingido"], "12000")
+        with patch("aicentralv2.agent.tools.commercial.PiOperacaoRepository") as mock_repo:
+            mock_repo.return_value.obter_campanha.return_value = {
+                "id_campanha": "88",
+                "id_pi": "151",
+                "nome_campanha": "BH AIRPORT",
+                "obj_contratados": "10000",
+                "totalizador_atingido": "8000",
+                "totalizador_gasto": "R$ 1.000,00",
+            }
+            result = commercial.preparar_atualizacao_operacao_campanha(
+                campanha_id="88",
+                totalizador_gasto="1500",
+                totalizador_atingido="12000",
+            )
+        self.assertTrue(result["success"])
+        confirmation = result["confirmation"]
+        self.assertEqual(confirmation["kind"], "campaign_operation")
+        self.assertTrue(confirmation["confirms_media"])
+        self.assertIn("totalizador_gasto", confirmation["changes"])
+        self.assertNotIn("valor_bruto", confirmation["changes"])
 
     def test_context_completes_agency_alias_as_cliente_id(self):
         args = _contextual_arguments(
@@ -583,8 +616,9 @@ class AgentContractsTest(unittest.TestCase):
     @patch("aicentralv2.agent.routes.storage.rollback_failed_transaction")
     @patch("aicentralv2.agent.routes.db.obter_usuario_por_id", return_value={})
     @patch("aicentralv2.agent.routes.get_store")
+    @patch("aicentralv2.agent.routes.storage.find_conversation_for_entity", return_value=None)
     @patch("aicentralv2.agent.routes.storage.list_conversations", side_effect=RuntimeError("db down"))
-    def test_bootstrap_stays_online_when_history_fails(self, _mock_list, mock_store, _mock_user, _rollback):
+    def test_bootstrap_stays_online_when_history_fails(self, _mock_list, _mock_find, mock_store, _mock_user, _rollback):
         mock_store.side_effect = StoreUnavailable("crm down")
         with self.client.session_transaction() as session:
             session.update(user_id=10, is_centralcomm=True, user_type="client")
@@ -789,6 +823,47 @@ class AgentContractsTest(unittest.TestCase):
         self.assertNotIn("campo_perigoso", sent)
         self.assertEqual(sent["telefone"], "(31) 99999-0000")
 
+    @patch("aicentralv2.agent.routes.db.atualizar_campanha_pi_indicadores", return_value=True)
+    @patch("aicentralv2.agent.routes.PiOperacaoRepository")
+    def test_campaign_operation_change_requires_confirmation(self, mock_repo, mock_update):
+        mock_repo.return_value.obter_campanha.return_value = {
+            "id_campanha": "88",
+            "id_pi": "151",
+            "nome_campanha": "BH AIRPORT",
+            "totalizador_gasto": "R$ 1.000,00",
+        }
+        with self.client.session_transaction() as session:
+            session.update(
+                user_id=10, is_centralcomm=True, user_type="client",
+                agent_csrf_token="token",
+            )
+        denied = self.client.post(
+            "/api/agent/context/campaign-operation-changes",
+            json={"confirmed": False, "operation": "update_campaign_operation"},
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(denied.status_code, 400)
+        saved = self.client.post(
+            "/api/agent/context/campaign-operation-changes",
+            json={
+                "confirmed": True,
+                "operation": "update_campaign_operation",
+                "campanha_id": "88",
+                "changes": {
+                    "totalizador_gasto": "R$ 1.500,00",
+                    "valor_bruto": "999",
+                },
+            },
+            headers={"X-Agent-CSRF-Token": "token"},
+        )
+        self.assertEqual(saved.status_code, 200)
+        payload = saved.get_json()["data"]
+        self.assertTrue(payload["confirms_media"])
+        self.assertNotIn("valor_bruto", payload["changes"])
+        mock_update.assert_called_once()
+        self.assertEqual(mock_update.call_args.args[0], "88")
+        self.assertEqual(set(mock_update.call_args.args[1]), {"totalizador_gasto"})
+
     @patch("aicentralv2.agent.routes.build_insights")
     @patch("aicentralv2.agent.routes.storage.list_conversations", return_value=[])
     def test_insights_endpoint_requires_internal_user(self, _mock_list, mock_insights):
@@ -831,6 +906,11 @@ class AgentInsightsTest(unittest.TestCase):
 
     def test_agency_suggestions_differ_from_final_client(self):
         from aicentralv2.agent.insights import suggestion_prompts
+        pi = {item["label"] for item in suggestion_prompts({
+            "entity_type": "pi", "entity_id": "151"
+        })}
+        self.assertIn("Pacing e ritmo", pi)
+        self.assertIn("Atualizar números", pi)
         agency = {item["label"] for item in suggestion_prompts({
             "entity_type": "cliente", "entity_id": "42", "entity_subtype": "agencia",
         })}
@@ -1012,6 +1092,10 @@ class AgentWorkspaceContractTest(unittest.TestCase):
         self.assertIn("dock.dataset.contextWall", agent_js)
         self.assertIn("mailto:", agent_js)
         self.assertIn("data-contact-confirm", agent_js)
+        self.assertIn("campaign-operation-changes", agent_js)
+        self.assertIn("data-operation-confirm", agent_js)
+        self.assertIn("kind === 'campaign_operation'", agent_js)
+        self.assertIn("is-media", agent_js)
         self.assertIn("cx-agent-more-menu", shell)
         self.assertIn("cx-agent-composer-suggestions", shell)
         self.assertNotIn("data-agent-tab=\"actions\"", shell)

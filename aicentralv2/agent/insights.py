@@ -42,17 +42,18 @@ def suggestion_prompts(context):
         ]
     if entity_type == "pi":
         return [
-            {"label": "Resumo do PI", "prompt": "Consulte este PI e resuma status, valor, período e responsável.", "icon": "fa-receipt"},
-            {"label": "Campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega, gasto e orçamento.", "icon": "fa-bullhorn"},
-            {"label": "Faturamento", "prompt": "Resuma o faturamento e a situação operacional deste PI.", "icon": "fa-chart-line"},
-            {"label": "Histórico", "prompt": "Analise a situação operacional deste PI e destaque riscos nos números das campanhas.", "icon": "fa-clock"},
+            {"label": "Pacing e ritmo", "prompt": "Consulte a operação deste PI e analise o pacing: tempo restante, ritmo previsto e ritmo atual de mídia e de entrega.", "icon": "fa-gauge-high"},
+            {"label": "Campanhas", "prompt": "Liste as campanhas deste PI com objetivo, entrega, mídia realizada e orçamento de mídia.", "icon": "fa-bullhorn"},
+            {"label": "Atualizar números", "prompt": "Quero atualizar objetivo, resultado atingido ou mídia realizada das campanhas deste PI. Peça os valores e prepare a confirmação operacional, sem alterar dados financeiros comerciais.", "icon": "fa-pen-to-square"},
+            {"label": "Ler print", "prompt": "Vou anexar um print da plataforma. Extraia entrega e gasto de mídia e prepare a atualização operacional para eu confirmar.", "icon": "fa-image"},
+            {"label": "Estratégia", "prompt": "Com base no briefing e nos itens contratados da proposta, sugira ajustes de ritmo e uso de mídia deste PI.", "icon": "fa-lightbulb"},
         ]
     if entity_type in {"campanha", "campaign"}:
         return [
-            {"label": "Consultar campanha", "prompt": "Consulte esta campanha e resuma seus indicadores operacionais.", "icon": "fa-bullhorn"},
-            {"label": "Analisar entrega", "prompt": "Compare objetivo, entrega, gasto e orçamento desta campanha.", "icon": "fa-chart-line"},
-            {"label": "Consultar o PI", "prompt": "Consulte o PI relacionado a esta campanha.", "icon": "fa-receipt"},
-            {"label": "Histórico", "prompt": "Resuma o histórico operacional desta campanha.", "icon": "fa-clock"},
+            {"label": "Pacing", "prompt": "Analise o pacing desta campanha: tempo restante, entrega versus objetivo e mídia realizada versus orçamento.", "icon": "fa-gauge-high"},
+            {"label": "Atualizar números", "prompt": "Prepare a atualização de objetivo, resultado atingido ou mídia realizada desta campanha para eu confirmar. Não altere dados financeiros comerciais.", "icon": "fa-pen-to-square"},
+            {"label": "Ler print", "prompt": "Vou anexar um print da plataforma desta campanha. Extraia entrega e gasto e prepare a confirmação operacional.", "icon": "fa-image"},
+            {"label": "Consultar o PI", "prompt": "Consulte o PI relacionado a esta campanha e o contexto da proposta contratada.", "icon": "fa-receipt"},
         ]
     if entity_type in {"cotacao", "quote"} or screen == "pipeline":
         return [
@@ -163,6 +164,11 @@ def build_insights(context):
             })
         return {"entity": entity, "alerts": alerts, "prompts": prompts}
 
+    if entity_type == "pi":
+        return _pi_insights(entity_id, label, prompts)
+    if entity_type in {"campanha", "campaign"}:
+        return _campaign_insights(entity_id, label, prompts)
+
     if entity_type not in {"cliente", "client"}:
         return empty
 
@@ -253,4 +259,131 @@ def build_insights(context):
             "prompt": "Liste as cotações abertas deste cliente.",
         })
 
+    return {"entity": entity, "alerts": alerts, "prompts": prompts}
+
+
+def _pi_insights(entity_id, label, prompts):
+    from ..campanha_pi_metrics import (
+        calcular_pacing_midia,
+        campanha_esta_encerrada,
+        custo_midia_previsto_campanha,
+        parse_brl_float,
+        parse_volume_float,
+    )
+    from ..pi_operacao_repository import PiNaoEncontradoError, PiOperacaoRepository
+
+    try:
+        repo = PiOperacaoRepository()
+        pi = repo.obter_pi(entity_id)
+        campaigns = repo.listar_campanhas(entity_id)
+    except (PiNaoEncontradoError, Exception):
+        return {"entity": None, "alerts": [], "prompts": prompts}
+    entity = {
+        "id": str(pi.get("id_pi") or entity_id),
+        "label": pi.get("titulo_pi") or pi.get("codigo_pi_cc") or label or "PI",
+        "type": "pi",
+        "url": f"/cadu_pi/editar/{entity_id}",
+    }
+    alerts = []
+    total_prev = 0.0
+    total_gasto = 0.0
+    missing_results = 0
+    for camp in campaigns or []:
+        total_prev += custo_midia_previsto_campanha(camp) or 0
+        total_gasto += parse_brl_float(camp.get("totalizador_gasto")) or 0
+        if parse_volume_float(camp.get("obj_contratados")) and not parse_volume_float(
+            camp.get("totalizador_atingido")
+        ):
+            missing_results += 1
+        if campanha_esta_encerrada(
+            camp.get("status_descricao") or camp.get("status_nome"),
+            camp.get("periodo_fim"),
+            pi_sub_status=pi.get("id_sub_status_pi"),
+        ):
+            continue
+        pacing = calcular_pacing_midia(
+            custo_midia_previsto_campanha(camp),
+            camp.get("totalizador_gasto"),
+            camp.get("periodo_inicio"),
+            camp.get("periodo_fim"),
+        )
+        if (
+            pacing.get("modo") == "pacing"
+            and pacing.get("pct_gasto") is not None
+            and pacing.get("periodo_pct_elapsed") is not None
+            and pacing["pct_gasto"] > pacing["periodo_pct_elapsed"] + 15
+        ):
+            alerts.append({
+                "id": f"pacing_{camp.get('id_campanha')}",
+                "tone": "warn",
+                "icon": "fa-gauge-high",
+                "title": "Ritmo de mídia adiantado.",
+                "body": f"{camp.get('nome_campanha') or 'Campanha'} está gastando acima do tempo decorrido.",
+                "prompt": "Analise o pacing desta campanha e sugira um ajuste de ritmo sem estourar o orçamento de mídia.",
+            })
+    if total_prev > 0 and total_gasto > total_prev:
+        alerts.append({
+            "id": "media_overspend",
+            "tone": "danger",
+            "icon": "fa-coins",
+            "title": "Mídia acima do orçamento.",
+            "body": "Confirme a mídia realizada antes de o financeiro compilar este PI.",
+            "prompt": "Mostre o orçamento e a mídia realizada das campanhas e prepare a confirmação do gasto extra.",
+        })
+    if missing_results:
+        alerts.append({
+            "id": "missing_results",
+            "tone": "warn",
+            "icon": "fa-bullseye",
+            "title": "Resultado sem atualização.",
+            "body": "Há campanha com objetivo e sem entrega lançada.",
+            "prompt": "Peça os números de resultado das campanhas e prepare a atualização operacional.",
+        })
+    return {"entity": entity, "alerts": alerts[:3], "prompts": prompts}
+
+
+def _campaign_insights(entity_id, label, prompts):
+    from ..campanha_pi_metrics import calcular_pacing_midia, custo_midia_previsto_campanha
+    from ..pi_operacao_repository import PiOperacaoRepository
+
+    try:
+        camp = PiOperacaoRepository().obter_campanha(entity_id)
+    except Exception:
+        return {"entity": None, "alerts": [], "prompts": prompts}
+    entity = {
+        "id": str(camp.get("id_campanha") or entity_id),
+        "label": camp.get("nome_campanha") or label or "Campanha",
+        "type": "campanha",
+        "url": f"/campanhas-pi/{entity_id}",
+    }
+    alerts = []
+    pacing = calcular_pacing_midia(
+        custo_midia_previsto_campanha(camp),
+        camp.get("totalizador_gasto"),
+        camp.get("periodo_inicio"),
+        camp.get("periodo_fim"),
+    )
+    if pacing.get("resultado") == "acima":
+        alerts.append({
+            "id": "campaign_overspend",
+            "tone": "danger",
+            "icon": "fa-coins",
+            "title": "Mídia acima do orçado.",
+            "body": "Confirme o realizado. Este valor vai para o financeiro.",
+            "prompt": "Prepare a confirmação da mídia realizada desta campanha.",
+        })
+    elif (
+        pacing.get("modo") == "pacing"
+        and pacing.get("pct_gasto") is not None
+        and pacing.get("periodo_pct_elapsed") is not None
+        and pacing["pct_gasto"] + 15 < pacing["periodo_pct_elapsed"]
+    ):
+        alerts.append({
+            "id": "campaign_underpace",
+            "tone": "warn",
+            "icon": "fa-gauge-high",
+            "title": "Entrega de mídia atrasada.",
+            "body": "O gasto está atrás do tempo da campanha.",
+            "prompt": "Sugira um ajuste de ritmo para recuperar o pacing desta campanha.",
+        })
     return {"entity": entity, "alerts": alerts, "prompts": prompts}

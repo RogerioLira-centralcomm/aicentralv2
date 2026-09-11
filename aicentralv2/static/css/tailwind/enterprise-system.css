@@ -4149,6 +4149,9 @@ body.cx-drawer-open {
   color: #526567;
   font-size: 0.625rem;
 }
+.cx-agent-composer-feedback:not([hidden]) {
+  animation: cx-agent-feedback-in 180ms ease-out;
+}
 .cx-agent-composer-feedback.is-error { color: #b42318; }
 .cx-agent-composer-feedback[hidden] { display: none; }
 .cx-agent-workspace {
@@ -5400,6 +5403,11 @@ dialog.cx-modal-shell::backdrop {
   border-radius: 0.75rem;
   background: #fff;
   padding: 1rem;
+  animation: cx-agent-confirm-in 180ms ease-out;
+}
+.cx-agent-confirmation.is-media {
+  border-color: #e4c9a8;
+  background: #fffdf9;
 }
 .cx-agent-confirmation > header {
   display: flex;
@@ -5429,7 +5437,10 @@ dialog.cx-modal-shell::backdrop {
 }
 .cx-agent-confirmation-diff span { color: #687a7b; }
 .cx-agent-confirmation-diff del { color: #9a5650; }
-.cx-agent-confirmation-diff strong { color: #15704d; }
+.cx-agent-confirmation-diff strong {
+  color: #15704d;
+  animation: cx-agent-value-in 220ms ease-out;
+}
 .cx-agent-confirmation footer {
   display: flex;
   justify-content: flex-end;
@@ -5446,11 +5457,39 @@ dialog.cx-modal-shell::backdrop {
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .12s ease, opacity .15s ease;
 }
-.cx-agent-confirmation footer [data-contact-confirm] {
+.cx-agent-confirmation footer button:hover:not(:disabled) {
+  border-color: #b7c6c5;
+  background: #f4f8f7;
+}
+.cx-agent-confirmation footer button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.cx-agent-confirmation footer button:disabled {
+  opacity: .72;
+  cursor: wait;
+}
+.cx-agent-confirmation footer [data-contact-confirm],
+.cx-agent-confirmation footer [data-operation-confirm] {
   border-color: var(--agent-teal);
   background: var(--agent-teal);
   color: #fff;
+}
+.cx-agent-confirmation footer [data-contact-confirm]:hover:not(:disabled),
+.cx-agent-confirmation footer [data-operation-confirm]:hover:not(:disabled) {
+  border-color: #14685a;
+  background: #14685a;
+}
+.cx-agent-confirmation-note {
+  margin: 0.55rem 0 0;
+  border: 1px solid #ead2b4;
+  border-radius: 0.55rem;
+  background: #fff6ea;
+  padding: 0.55rem 0.7rem;
+  color: #8a4b1f;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .cx-agent-result-contact {
@@ -5474,8 +5513,25 @@ dialog.cx-modal-shell::backdrop {
   .cx-agent-confirmation footer { flex-direction: column-reverse; }
 }
 
+@keyframes cx-agent-confirm-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cx-agent-value-in {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+@keyframes cx-agent-feedback-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cx-agent-dock:not(.is-minimized) { transition: none; }
+  .cx-agent-confirmation,
+  .cx-agent-confirmation-diff strong,
+  .cx-agent-composer-feedback:not([hidden]) { animation: none; }
+  .cx-agent-confirmation footer button { transition: none; }
 }
 
 /* Agente CentralX — conversa contínua, comandos contextuais e menu compacto */

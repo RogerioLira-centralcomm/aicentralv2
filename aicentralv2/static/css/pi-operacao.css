@@ -262,7 +262,14 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   background: #e7eeee;
   font-style: normal;
 }
-.pi-period-ops__compare b { display: block; height: 100%; border-radius: inherit; background: #7aa3a0; }
+.pi-period-ops__compare b {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #7aa3a0;
+  transition: width .45s ease, background .2s ease;
+}
 .pi-period-ops__compare b.is-over { background: #e07a6e; }
 .pi-period-ops__justify { grid-column: 1 / -1; }
 .pi-period-ops__justify label { display: block; margin-bottom: 6px; color: #526568; }
@@ -290,13 +297,22 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-midia-ops__kpis span { display: block; color: #7a8b8d; font-size: 10px; font-weight: 750; text-transform: uppercase; }
 .pi-midia-ops__kpis strong { display: block; margin-top: 4px; color: #173c3e; font-size: 16px; font-weight: 780; letter-spacing: -.02em; }
 .pi-midia-ops__kpis strong.is-over { color: #b4473c; }
+.pi-midia-ops__kpis > div.is-updated {
+  animation: pi-midia-kpi-in 480ms ease-out;
+}
 .pi-midia-ops__bar {
   height: 8px;
   overflow: hidden;
   border-radius: 99px;
   background: #e7eeee;
 }
-.pi-midia-ops__bar > span { display: block; height: 100%; border-radius: inherit; background: #3d8f7a; }
+.pi-midia-ops__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3d8f7a;
+  transition: width .45s ease, background .2s ease;
+}
 .pi-midia-ops__bar.is-over > span { background: #d4675b; }
 .pi-midia-ops__blocos { display: grid; gap: 10px; min-width: 0; }
 .pi-midia-ops__blocos > h3 { margin: 0; color: #355255; font-size: 11px; font-weight: 750; }
@@ -310,7 +326,14 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-midia-bloco__meta strong { display: block; overflow: hidden; color: #294749; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .pi-midia-bloco__meta em { display: block; color: #7a8b8d; font-size: 10px; font-style: normal; }
 .pi-midia-bloco__bar { height: 7px; overflow: hidden; border-radius: 99px; background: #e7eeee; }
-.pi-midia-bloco__bar > span { display: block; height: 100%; border-radius: inherit; background: #5b9a8d; }
+.pi-midia-bloco__bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #5b9a8d;
+  transition: width .45s ease;
+}
 .pi-midia-bloco__vals { text-align: right; }
 .pi-midia-bloco__vals b { display: block; color: #173c3e; font-size: 12px; }
 .pi-midia-bloco__vals small { display: block; color: #6b7f81; font-size: 10px; }
@@ -327,10 +350,20 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
+  transition: border-color .15s ease, background .15s ease;
 }
 .pi-op-finance-link:hover { border-color: #b7cfc8; background: #eaf4f0; }
 .pi-op-finance-link > span { flex: 1 1 auto; }
-.pi-op-finance-link > i:last-child { color: #5f8a7c; font-size: 10px; }
+.pi-op-finance-link > i:last-child {
+  color: #5f8a7c;
+  font-size: 10px;
+  transition: transform .15s ease;
+}
+.pi-op-finance-link:hover > i:last-child { transform: translateX(2px); }
+#pi-edit-comercial .pi-edit-card,
+#pi-edit-comercial .pi-edit-section {
+  box-shadow: none;
+}
 .pi-edit-campaigns .pi-edit-card__head { margin: 0; }
 .pi-edit-campaigns #pi_campanhas_container { padding: 14px 16px; }
 .pi-campaign-state { display: flex; min-height: 72px; align-items: center; justify-content: center; gap: 8px; color: #718184; }
@@ -969,9 +1002,17 @@ body.pi-op-lock { overflow: hidden; }
   .pi-email-modal__footer > div .pi-op-btn { flex: 1 1 140px; }
   .pi-drive-dialog { width: 100vw; height: 100vh; border-radius: 0; }
 }
+@keyframes pi-midia-kpi-in {
+  from { background: #fff4e5; }
+  to { background: #f8fafa; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pi-op-sidebar, .pi-op-btn, .pi-op-icon-btn, .pi-op-progress__track span,
-  .pi-op-campaign-checklist__count i { transition: none; }
+  .pi-op-campaign-checklist__count i,
+  .pi-midia-ops__bar > span, .pi-midia-bloco__bar > span,
+  .pi-period-ops__compare b, .pi-op-finance-link, .pi-op-finance-link > i:last-child { transition: none; }
+  .pi-midia-ops__kpis > div.is-updated { animation: none; }
 }
 
 /* Detalhe operacional da campanha */

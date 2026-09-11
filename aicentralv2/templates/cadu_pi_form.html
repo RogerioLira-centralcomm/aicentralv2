@@ -4,7 +4,7 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=19">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=20">
 {% endblock %}
 
 {% block content %}
@@ -169,139 +169,275 @@
       </div>
       {% endif %}
 
-      <!-- LINHA 1: Dados Principais -->
-      <section class="pi-edit-section" id="pi-edit-data">
-        <div class="pi-edit-section__head"><div><h2>Dados do PI</h2><p>Identificação comercial e responsáveis pela autorização.</p></div></div>
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
-          <div class="col-span-1 md:col-span-2">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Código PI <span class="text-red-500">*</span></label>
-            <input type="text" name="codigo_pi_cc" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}" required>
-          </div>
-          <div class="col-span-1 md:col-span-2">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Tipo PI <span class="text-red-500">*</span></label>
-            <select name="id_pi_tipo" id="sel_id_pi_tipo" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
-              <option value="">Selecione...</option>
-              {% for t in tipos_pi %}
-                <option value="{{ t.id }}" {% if pi and pi.id_pi_tipo == t.id %}selected{% endif %}>{{ t.descricao }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-span-1 md:col-span-3">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas <span class="text-red-500">*</span></label>
-            <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()" required>
-              <option value="">Selecione...</option>
-              {% for v in vendedores %}
-                <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-span-2 md:col-span-5">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Título do PI <span class="text-red-500">*</span></label>
-            <input type="text" name="titulo_pi" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ">
-          </div>
-        </div>
-      </section>
-
       {% set vinculos_cotacao_bloqueados = modo == 'editar' and pi and pi.cotacao_id %}
-      <details id="details_contatos" class="pi-edit-disclosure pi-edit-parties-disclosure"{% if not vinculos_cotacao_bloqueados %} open{% endif %}>
-        <summary>
-          <span class="ml-1">Cliente e contatos</span>
-          {% if vinculos_cotacao_bloqueados %}
-          <small>Vínculos definidos pela cotação de origem</small>
-          {% endif %}
-        </summary>
-        <div class="pi-edit-parties-body">
-      <!-- Cliente + Agência + Parceiro -->
-      <section class="pi-edit-parties{% if vinculos_cotacao_bloqueados %} is-locked{% endif %}">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <div class="relative">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Cliente <span class="text-red-500">*</span></label>
-            <div class="flex gap-1">
-              <input type="text" id="input_cliente_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
-              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('cliente')" class="pi-party-add" title="Cadastrar cliente" aria-label="Cadastrar cliente">
-                <i class="fas fa-plus"></i>
-              </button>{% endif %}
-            </div>
-            <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
-            <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-          </div>
-          <div class="relative">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Agência</label>
-            <div class="flex gap-1">
-              <input type="text" id="input_agencia_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
-              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('agencia')" class="pi-party-add" title="Cadastrar agência" aria-label="Cadastrar agência">
-                <i class="fas fa-plus"></i>
-              </button>{% endif %}
-            </div>
-            <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
-            <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-          </div>
-          <div class="relative">
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Parceiro Regional</label>
-            <div class="flex gap-1">
-              <input type="text" id="input_parceiro_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off" {% if vinculos_cotacao_bloqueados %}disabled{% endif %}>
-              {% if not vinculos_cotacao_bloqueados %}<button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="pi-party-add" title="Cadastrar parceiro regional" aria-label="Cadastrar parceiro regional">
-                <i class="fas fa-plus"></i>
-              </button>{% endif %}
-            </div>
-            <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
-            <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-          </div>
-        </div>
-      </section>
+      {% set rec = namespace(tipo='', exec='') %}
+      {% for t in tipos_pi %}
+        {% if pi and pi.id_pi_tipo == t.id %}{% set rec.tipo = t.descricao %}{% endif %}
+      {% endfor %}
+      {% for v in vendedores %}
+        {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}{% set rec.exec = v.nome_completo %}{% endif %}
+      {% endfor %}
+      {% set record_composer = modo == 'novo' or not pi %}
+      {% set record_locked = somente_leitura %}
+      {% set party_cliente_locked = user_is_executivo or vinculos_cotacao_bloqueados or somente_leitura %}
+      {% set party_agencia_locked = user_is_executivo or vinculos_cotacao_bloqueados or somente_leitura %}
+      {% set party_parceiro_locked = vinculos_cotacao_bloqueados or somente_leitura %}
 
-      <!-- Contatos dos vínculos -->
-        <div class="pi-edit-contacts">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="space-y-1.5">
-              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia</label>
-                <select name="contato_midia_cliente" id="sel_contato_midia_cliente" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione o cliente primeiro</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro</label>
-                <select name="contato_fin_cliente" id="sel_contato_fin_cliente" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione o cliente primeiro</option>
-                </select>
-              </div>
+      <section class="pi-edit-card pi-record" id="pi-edit-data">
+        <div class="pi-edit-card__head">
+          <div>
+            <h2>Dados do PI</h2>
+            <p>{% if record_locked %}Registro da operação.{% elif vinculos_cotacao_bloqueados %}Toque no valor para editar. Contas vêm da cotação.{% else %}Toque no valor para editar. O cálculo roda ao mudar o que depende dele.{% endif %}</p>
+          </div>
+        </div>
+
+        <div class="pi-record-highlight">
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="—">
+            <span class="pi-inline__label">Código <i>*</i></span>
+            {% if record_locked %}
+            <p class="pi-inline__static"><strong data-inline-text>{{ pi.codigo_pi_cc or '—' }}</strong></p>
+            {% else %}
+            <button type="button" class="pi-inline__display" data-inline-open>
+              <strong data-inline-text>{{ pi.codigo_pi_cc or '—' }}</strong>
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            {% endif %}
+            <div class="pi-inline__edit">
+              <input type="text" name="codigo_pi_cc" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}" required {% if record_locked %}readonly{% endif %}>
             </div>
-            <div class="space-y-1.5">
-              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Agência</p>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia <span class="text-red-500 contato-req-ag hidden">*</span></label>
-                <select name="contato_midia_agencia" id="sel_contato_midia_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione a agência primeiro</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro <span class="text-red-500 contato-req-ag hidden">*</span></label>
-                <select name="contato_fin_agencia" id="sel_contato_fin_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione a agência primeiro</option>
-                </select>
-              </div>
+          </div>
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="Selecione">
+            <span class="pi-inline__label">Tipo <i>*</i></span>
+            {% if record_locked %}
+            <p class="pi-inline__static"><strong data-inline-text>{{ rec.tipo or '—' }}</strong></p>
+            {% else %}
+            <button type="button" class="pi-inline__display" data-inline-open>
+              <strong data-inline-text>{{ rec.tipo or 'Selecione' }}</strong>
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            {% endif %}
+            <div class="pi-inline__edit">
+              <select name="id_pi_tipo" id="sel_id_pi_tipo" required {% if record_locked %}disabled{% endif %}>
+                <option value="">Selecione...</option>
+                {% for t in tipos_pi %}
+                  <option value="{{ t.id }}" {% if pi and pi.id_pi_tipo == t.id %}selected{% endif %}>{{ t.descricao }}</option>
+                {% endfor %}
+              </select>
             </div>
-            <div class="space-y-1.5">
-              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Parceiro</p>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia <span class="text-red-500 contato-req-parc hidden">*</span></label>
-                <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione o parceiro primeiro</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro <span class="text-red-500 contato-req-parc hidden">*</span></label>
-                <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
-                  <option value="">Selecione o parceiro primeiro</option>
-                </select>
-              </div>
+          </div>
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="Selecione">
+            <span class="pi-inline__label">Executivo <i>*</i></span>
+            {% if record_locked %}
+            <p class="pi-inline__static"><strong data-inline-text>{{ rec.exec or '—' }}</strong></p>
+            {% else %}
+            <button type="button" class="pi-inline__display" data-inline-open>
+              <strong data-inline-text>{{ rec.exec or 'Selecione' }}</strong>
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            {% endif %}
+            <div class="pi-inline__edit">
+              <select name="resp_comercial" id="sel_resp_comercial" onchange="onExecutivoChange()" required {% if record_locked %}disabled{% endif %}>
+                <option value="">Selecione...</option>
+                {% for v in vendedores %}
+                  <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="pi-inline pi-inline--title{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="—">
+            <span class="pi-inline__label">Título <i>*</i></span>
+            {% if record_locked %}
+            <p class="pi-inline__static"><strong data-inline-text>{{ pi.titulo_pi or '—' }}</strong></p>
+            {% else %}
+            <button type="button" class="pi-inline__display" data-inline-open>
+              <strong data-inline-text>{{ pi.titulo_pi or '—' }}</strong>
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            {% endif %}
+            <div class="pi-inline__edit">
+              <input type="text" name="titulo_pi" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ" {% if record_locked %}readonly{% endif %}>
             </div>
           </div>
         </div>
-        </div>
-      </details>
+
+        <details id="details_contatos" class="pi-record-related" open>
+          <summary>
+            <span>Cliente e contatos</span>
+            {% if vinculos_cotacao_bloqueados %}
+            <small>Vínculos definidos pela cotação de origem</small>
+            {% endif %}
+          </summary>
+          <div class="pi-edit-parties pi-record-accounts{% if vinculos_cotacao_bloqueados %} is-locked{% endif %}">
+            <article class="pi-account">
+              <header>
+                <span>Cliente <i>*</i></span>
+                {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
+              </header>
+              <div class="pi-inline pi-inline--account{% if party_cliente_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar cliente">
+                {% if party_cliente_locked %}
+                <p class="pi-inline__static"><strong data-inline-text>{{ pi.cliente_nome if pi and pi.cliente_nome else '—' }}</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit relative">
+                  <div class="pi-account-search">
+                    <input type="text" id="input_cliente_busca" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
+                    {% if not vinculos_cotacao_bloqueados %}
+                    <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="pi-party-add" title="Cadastrar cliente" aria-label="Cadastrar cliente">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                  <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
+                  <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. de mídia</span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_midia_cliente" id="sel_contato_midia_cliente" disabled>
+                    <option value="">Selecione o cliente primeiro</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. financeiro</span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_fin_cliente" id="sel_contato_fin_cliente" disabled>
+                    <option value="">Selecione o cliente primeiro</option>
+                  </select>
+                </div>
+              </div>
+            </article>
+
+            <article class="pi-account{% if not pi or not pi.id_agencia %} is-vacant{% endif %}">
+              <header>
+                <span>Agência</span>
+                {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
+              </header>
+              <div class="pi-inline pi-inline--account{% if party_agencia_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar agência">
+                {% if party_agencia_locked %}
+                <p class="pi-inline__static"><strong data-inline-text>{{ pi.agencia_nome if pi and pi.agencia_nome else 'Não informado' }}</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit relative">
+                  <div class="pi-account-search">
+                    <input type="text" id="input_agencia_busca" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
+                    {% if not vinculos_cotacao_bloqueados %}
+                    <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="pi-party-add" title="Cadastrar agência" aria-label="Cadastrar agência">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                  <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
+                  <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. de mídia <span class="contato-req-ag hidden">*</span></span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_midia_agencia" id="sel_contato_midia_agencia" disabled>
+                    <option value="">Selecione a agência primeiro</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. financeiro <span class="contato-req-ag hidden">*</span></span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_fin_agencia" id="sel_contato_fin_agencia" disabled>
+                    <option value="">Selecione a agência primeiro</option>
+                  </select>
+                </div>
+              </div>
+            </article>
+
+            <article class="pi-account{% if not pi or not pi.id_parceiro %} is-vacant{% endif %}">
+              <header>
+                <span>Parceiro regional</span>
+                {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
+              </header>
+              <div class="pi-inline pi-inline--account{% if party_parceiro_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar parceiro">
+                {% if party_parceiro_locked %}
+                <p class="pi-inline__static"><strong data-inline-text>{{ pi.parceiro_nome if pi and pi.parceiro_nome else 'Não informado' }}</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit relative">
+                  <div class="pi-account-search">
+                    <input type="text" id="input_parceiro_busca" placeholder="Buscar parceiro..." autocomplete="off" {% if vinculos_cotacao_bloqueados %}disabled{% endif %}>
+                    {% if not vinculos_cotacao_bloqueados %}
+                    <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="pi-party-add" title="Cadastrar parceiro regional" aria-label="Cadastrar parceiro regional">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                  <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
+                  <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. de mídia <span class="contato-req-parc hidden">*</span></span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" disabled>
+                    <option value="">Selecione o parceiro primeiro</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
+                <span class="pi-inline__label">Resp. financeiro <span class="contato-req-parc hidden">*</span></span>
+                {% if not record_locked %}
+                <button type="button" class="pi-inline__display" data-inline-open>
+                  <strong data-inline-text>Sem responsável</strong>
+                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                </button>
+                {% else %}
+                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
+                {% endif %}
+                <div class="pi-inline__edit">
+                  <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" disabled>
+                    <option value="">Selecione o parceiro primeiro</option>
+                  </select>
+                </div>
+              </div>
+            </article>
+          </div>
+        </details>
+      </section>
 
       <!-- Período resumido + pacing -->
       <section class="pi-edit-card" id="pi-edit-period">
@@ -1436,6 +1572,83 @@
     } catch (err) { console.error('Erro ao buscar parceiros:', err); }
   }
 
+  function selectedInlineLabel(control) {
+    if (!control) return '';
+    if (control.tagName === 'SELECT') {
+      var opt = control.options[control.selectedIndex];
+      if (!opt || !opt.value) return '';
+      return (opt.textContent || '').trim();
+    }
+    return (control.value || '').trim();
+  }
+
+  function syncPiInlineField(field) {
+    if (!field) return;
+    var display = field.querySelector('[data-inline-text]');
+    var control = field.querySelector('input:not([type="hidden"]), select');
+    if (!display || !control) return;
+    var value = selectedInlineLabel(control);
+    display.textContent = value || field.getAttribute('data-empty') || '—';
+    field.classList.toggle('is-empty', !value);
+  }
+
+  function syncPiInlineFields(root) {
+    (root || document).querySelectorAll('.pi-inline[data-inline]').forEach(syncPiInlineField);
+  }
+
+  function closePiInline(field) {
+    if (!field || field.classList.contains('is-composer')) return;
+    field.classList.remove('is-editing');
+    syncPiInlineField(field);
+  }
+
+  function openPiInline(field) {
+    if (!field || field.classList.contains('is-locked')) return;
+    document.querySelectorAll('.pi-inline.is-editing').forEach(function(open) {
+      if (open !== field) closePiInline(open);
+    });
+    field.classList.add('is-editing');
+    var control = field.querySelector('input:not([type="hidden"]), select');
+    if (control && !control.disabled) {
+      control.focus();
+      if (control.select && control.tagName === 'INPUT') control.select();
+    }
+  }
+
+  function initPiInlineFields() {
+    document.querySelectorAll('.pi-inline[data-inline]').forEach(function(field) {
+      syncPiInlineField(field);
+      var opener = field.querySelector('[data-inline-open]');
+      var control = field.querySelector('input:not([type="hidden"]), select');
+      if (opener) {
+        opener.addEventListener('click', function() { openPiInline(field); });
+      }
+      if (!control) return;
+      control.addEventListener('change', function() {
+        syncPiInlineField(field);
+        if (field.dataset.calc && typeof window.recalcCalculadora === 'function') {
+          window.recalcCalculadora();
+        }
+        if (typeof window.calcValores === 'function' && field.dataset.calc) {
+          window.calcValores();
+        }
+      });
+      control.addEventListener('blur', function() {
+        setTimeout(function() {
+          if (!field.contains(document.activeElement)) closePiInline(field);
+        }, 140);
+      });
+      control.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter' && control.tagName !== 'TEXTAREA') {
+          ev.preventDefault();
+          control.blur();
+        }
+        if (ev.key === 'Escape') closePiInline(field);
+      });
+    });
+    window.syncPiInlineFields = syncPiInlineFields;
+  }
+
   async function carregarContatos(clienteId, tipo, preselecaoMidia, preselecaoFin) {
     try {
       const resp = await fetch('/api/clientes/' + clienteId + '/todos-contatos');
@@ -1455,6 +1668,7 @@
       fin.disabled = false;
       if (preselecaoMidia) midia.value = preselecaoMidia;
       if (preselecaoFin) fin.value = preselecaoFin;
+      syncPiInlineFields();
     } catch (err) { console.error('Erro ao carregar contatos (' + tipo + '):', err); }
   }
 
@@ -1473,6 +1687,8 @@
       var alvo = (!midia.value) ? midia : (!fin.value) ? fin : null;
       if (!alvo) return;
 
+      var field = alvo.closest('.pi-inline');
+      if (field) openPiInline(field);
       alvo.classList.add('border-blue-400', 'ring-2', 'ring-blue-200');
       alvo.focus();
       if (window.scrollIntoViewSuave) {
@@ -1674,7 +1890,7 @@
     if (execId || !USER_IS_EXECUTIVO) {
       els.clienteBusca().disabled = false;
       els.agenciaBusca().disabled = false;
-    }
+      }
     }
 
     if (els.percComissaoAg() && els.percComissaoAg().value) maskPercent(els.percComissaoAg());
@@ -1756,6 +1972,7 @@
     }
 
     atualizarAsteriscosContatos();
+    initPiInlineFields();
   });
 })();
 </script>

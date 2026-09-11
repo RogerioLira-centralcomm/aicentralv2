@@ -161,6 +161,8 @@ class CreativeAgentsContractTest(unittest.TestCase):
         })
         self.assertEqual(result["saved_variation"]["id"], 77)
         self.assertEqual(result["family"], "square_1x1")
+        self.assertEqual(result["saved_variation"]["template_id"], 9)
+        self.assertEqual(result["saved_variation"]["template_slug"], "square-feed-v1")
         repo.create_compose_variation.assert_called_once()
 
     def test_desdobrar_nao_e_agente(self):

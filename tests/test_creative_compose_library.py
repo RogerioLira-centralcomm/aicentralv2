@@ -1,16 +1,20 @@
 """Biblioteca viva do Estúdio: schema, promoção e loop de aprovação."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import Mock
 
 from aicentralv2.creative_compose_library import (
     apply_script_params,
+    catalog_templates,
     clamp_params,
     LAYOUT_SQUARE_SCHEMA,
     next_variation_status,
     normalize_compose_choice,
     propose_variation_adjust,
     SCRIPT_SEQUENCE_SCHEMA,
+    suggest_compose_template,
+    suggest_template_kind,
     suggest_variation,
     tokens_from_brand_profile,
 )
@@ -279,6 +283,45 @@ class CreativeComposeLibraryTest(unittest.TestCase):
         })
         self.assertEqual(choice["params"]["headline_font_size"], 22)
         self.assertEqual(choice["params"]["photo_side"], "left")
+
+    def test_templates_editoriais_e_sugestao_pela_referencia(self):
+        slugs = {item["slug"] for item in catalog_templates()}
+        self.assertIn("editorial-still-portrait-4x5", slugs)
+        self.assertIn("product-hero-story-9x16", slugs)
+        self.assertIn("ugc-face-story-9x16", slugs)
+        self.assertIn("offer-stack-square-1x1", slugs)
+        self.assertEqual(
+            suggest_template_kind("portrait_4x5", [
+                {"tipo": "foto_produto"}, {"tipo": "headline"}, {"tipo": "legal"},
+            ]),
+            "editorial-still",
+        )
+        self.assertEqual(
+            suggest_template_kind("story_9x16", [{"tipo": "foto_pessoa"}]),
+            "ugc-face",
+        )
+        picked = suggest_compose_template(
+            catalog_templates("portrait_4x5"),
+            "portrait_4x5",
+            [{"tipo": "foto_produto"}, {"tipo": "fundo"}],
+        )
+        self.assertTrue(picked["slug"].startswith("editorial-still"))
+        self.assertEqual(picked["html_key"], "editorial_still.html")
+        compose_sql = (
+            Path(__file__).resolve().parents[1]
+            / "migrations" / "add_creative_compose_library.sql"
+        ).read_text(encoding="utf-8")
+        for slug in (
+            "editorial-still-4x5", "product-hero-story",
+            "ugc-face-story", "offer-stack-1x1",
+        ):
+            self.assertIn(slug, compose_sql)
+        templates = Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "creative_compose"
+        for name in (
+            "editorial_still.html", "product_hero.html",
+            "ugc_face.html", "offer_stack.html",
+        ):
+            self.assertTrue((templates / name).is_file())
 
 
 if __name__ == "__main__":

@@ -90,6 +90,66 @@ CTV
   acabamento premium.
 - Logo: PNG oficial retornado pelo `branding`, salvo como `hbo-max.png`.
 
+## Redes sociais
+
+Os shells sociais são aparelhos, não galeria de cards. O anúncio preenche o
+poço (`data-ad-well`) no pixel do formato. Disclaimer igual aos portais.
+
+```text
+Instagram / Facebook / TikTok / Shorts
+┌ status / logo ────────────────────────────────────────────┐
+│ header do post (avatar, nome, patrocinado)                │
+│ ┌ poço da mídia (1:1, 4:5 ou 9:16) ─────────────────────┐ │
+│ │ criativo                                                │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ ações / caption / rail — chrome da rede, sem afiliação    │
+└───────────────────────────────────────────────────────────┘
+
+LinkedIn desktop / YouTube watch
+┌ barra da rede ────────────────────────────────────────────┐
+│ card ou player                                            │
+│ ┌ poço 1.91:1 ou 16:9 ──────────────────────────────────┐ │
+│ │ criativo                                                │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────┘
+```
+
+### Instagram
+
+- Fonte: <https://www.instagram.com/>
+- Observado: fundo `#FAFAFA`, tinta `#262626`, acento magenta/laranja no
+  avatar, post com header, poço e ações em linha.
+- Inferido: telefone 390×844; feed 1:1 e 4:5 sem letterbox; Story/Reels em
+  full-bleed com faixa de progresso e caption na safe area inferior.
+- Logo: marca geométrica local em `instagram.svg`.
+
+### LinkedIn
+
+- Fonte: <https://www.linkedin.com/>
+- Observado: canvas `#F3F2EF`, azul `#0A66C2`, card branco, tipografia
+  profissional.
+- Inferido: desktop para Share 1.91:1; compactação mobile para quadrado e
+  retrato 4:5. O anúncio preenche o card, sem barra de reações inventada
+  por cima da peça.
+- Logo: marca local em `linkedin.svg`.
+
+### TikTok
+
+- Fonte: <https://www.tiktok.com/>
+- Observado: canvas preto, acentos ciano `#25F4EE` e rosa `#FE2C55`, rail
+  direito e caption inferior.
+- Inferido: full-bleed 9:16 no telefone; copy e CTA dentro da safe area,
+  longe do rail.
+- Logo: marca local em `tiktok.svg`.
+
+### YouTube
+
+- Fonte: <https://www.youtube.com/>
+- Observado: player 16:9, chrome de watch escuro, vermelho `#FF0000`.
+- Inferido: In-feed preenche o player; Shorts no telefone, mesmo gesto do
+  vertical com caption e rail.
+- Logo: marca local em `youtube.svg`.
+
 ## Uso e licenciamento
 
 As marcas pertencem aos respectivos titulares. Os arquivos foram obtidos das

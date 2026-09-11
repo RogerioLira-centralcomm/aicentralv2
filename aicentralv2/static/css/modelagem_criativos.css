@@ -5877,3 +5877,325 @@
 @media (prefers-reduced-motion: reduce) {
   .mc-demo-card { transition: none; }
 }
+
+.mc-library-type {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 0.85rem;
+}
+
+.mc-library-type h3 {
+  margin: 0;
+  color: #183436;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.mc-library-network {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mc-library-network header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mc-library-network header img {
+  width: 1.05rem;
+  height: 1.05rem;
+  object-fit: contain;
+}
+
+.mc-library-network header strong {
+  font-size: 0.72rem;
+  color: #334155;
+}
+
+.mc-library-network-formats {
+  display: grid;
+}
+
+.mc-library-extract {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0 0 0.8rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px dashed #d8e3e2;
+  border-radius: 0.65rem;
+  background: #eef4f3;
+  cursor: pointer;
+}
+
+.mc-library-extract.is-dragging {
+  border-color: #1e4d4f;
+  background: #e2eceb;
+}
+
+.mc-library-extract strong {
+  font-size: 0.78rem;
+}
+
+.mc-library-extract small {
+  color: #5f7476;
+  font-size: 0.68rem;
+}
+
+.mc-device-frame.is-social {
+  border-color: #183436;
+  background: #111;
+}
+
+.mc-device-frame.is-social .mc-viewer-shell {
+  background: #000;
+}
+
+.mc-social {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  min-height: 100%;
+}
+
+.mc-ad-well {
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+
+.mc-ad-slot.is-social-well {
+  position: absolute !important;
+  inset: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.mc-well-region {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  padding: 0.2rem;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 0.55rem;
+  font-style: normal;
+  pointer-events: none;
+}
+
+.mc-social-status,
+.mc-ig-head,
+.mc-ig-caption,
+.mc-ig-actions,
+.mc-fb-actions,
+.mc-li-bar,
+.mc-li-actions,
+.mc-yt-bar,
+.mc-yt-meta,
+.mc-tt-caption {
+  color: inherit;
+}
+
+.mc-social.is-instagram.is-feed,
+.mc-social.is-facebook {
+  grid-template-rows: auto 1fr;
+  background: #fafafa;
+  color: #262626;
+  font-family: Avenir Next, Segoe UI, sans-serif;
+}
+
+.mc-social-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.62rem;
+}
+
+.mc-social-status img {
+  height: 0.85rem;
+  width: auto;
+}
+
+.mc-ig-post,
+.mc-fb-post,
+.mc-li-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  min-height: 0;
+  background: #fff;
+}
+
+.mc-ig-head {
+  display: grid;
+  grid-template-columns: 1.3rem minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.62rem;
+}
+
+.mc-ig-avatar {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f58529, #dd2a7b);
+}
+
+.mc-social.is-instagram .mc-ad-well {
+  aspect-ratio: 1;
+  min-height: 8rem;
+}
+
+.mc-ig-actions,
+.mc-fb-actions,
+.mc-li-actions {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.58rem;
+  color: #6b7280;
+}
+
+.mc-ig-actions span,
+.mc-ig-actions i {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1.5px solid #262626;
+  border-radius: 999px;
+}
+
+.mc-ig-actions i {
+  margin-left: auto;
+  border-radius: 0.15rem;
+}
+
+.mc-ig-caption {
+  margin: 0;
+  padding: 0 0.55rem 0.55rem;
+  font-size: 0.6rem;
+}
+
+.mc-social.is-story,
+.mc-social.is-tiktok,
+.mc-social.is-shorts {
+  background: #000;
+  color: #fff;
+}
+
+.mc-social.is-story .mc-ad-well,
+.mc-social.is-tiktok .mc-ad-well,
+.mc-social.is-shorts .mc-ad-well {
+  position: absolute;
+  inset: 0;
+}
+
+.mc-ig-story-chrome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.45rem 0.5rem 0.7rem;
+  pointer-events: none;
+}
+
+.mc-ig-progress {
+  height: 0.12rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mc-social.is-tiktok .mc-tt-rail,
+.mc-social.is-shorts .mc-tt-rail {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 4.2rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.mc-tt-rail i,
+.mc-tt-rail img {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.mc-tt-caption {
+  position: absolute;
+  left: 0.55rem;
+  right: 3rem;
+  bottom: 0.7rem;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.62rem;
+}
+
+.mc-social.is-linkedin {
+  background: #f3f2ef;
+  color: #191919;
+  font-family: Segoe UI, Arial, sans-serif;
+}
+
+.mc-li-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 0.7rem;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.62rem;
+}
+
+.mc-li-bar img {
+  height: 0.9rem;
+  width: auto;
+}
+
+.mc-social.is-linkedin .mc-ad-well {
+  min-height: 7rem;
+  background: #eceae6;
+}
+
+.mc-social.is-linkedin.is-desktop .mc-ad-well {
+  aspect-ratio: 1.91 / 1;
+}
+
+.mc-social.is-youtube.is-watch {
+  grid-template-rows: auto 1fr auto;
+  background: #0f0f0f;
+  color: #fff;
+  font-family: Roboto, Arial, sans-serif;
+}
+
+.mc-yt-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.62rem;
+}
+
+.mc-yt-bar img {
+  height: 0.85rem;
+  width: auto;
+}
+
+.mc-yt-player {
+  position: relative;
+  margin: 0 0.6rem;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.mc-yt-player .mc-ad-well {
+  position: absolute;
+  inset: 0;
+}
+
+.mc-yt-meta {
+  padding: 0.45rem 0.7rem 0.7rem;
+  font-size: 0.62rem;
+}

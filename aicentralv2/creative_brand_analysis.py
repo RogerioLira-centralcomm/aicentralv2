@@ -100,6 +100,13 @@ GPT Image 2. Analise o conjunto como uma família, não como peças isoladas.
 Separe constantes da marca de escolhas específicas de uma campanha. Não copie
 claims, ofertas ou personagens como regra permanente.
 
+Use todas as informações capturadas da marca: resumo, tom, público, paleta,
+fontes, motivos, obrigatórios e proibidos. A logomarca oficial, quando anexada
+ou descrita, é constante de identidade: lockup, proporção, cores e respiro do
+símbolo vencem qualquer variação promocional dos criativos. Se uma peça
+conflitar com o logo oficial ou com a identidade capturada, preserve a
+identidade e trate o desvio como escolha de campanha.
+
 Retorne apenas JSON válido:
 {
   "signature_summary":"assinatura visual em até 700 caracteres",
@@ -782,6 +789,44 @@ def _visual_evidence_parts(evidence):
     ]
 
 
+def _creative_line_context(client, logo_attached=False):
+    client = client if isinstance(client, dict) else {}
+    profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
+    return {
+        "brand": client.get("name"),
+        "sector": client.get("sector"),
+        "website_url": client.get("website_url"),
+        "tone_of_voice": client.get("tone_of_voice"),
+        "official_logo": {
+            "attached": bool(logo_attached),
+            "upload_path": client.get("logo_upload_path"),
+            "url": client.get("logo_url"),
+        },
+        "known_identity": {
+            "primary_color": client.get("primary_color"),
+            "secondary_color": client.get("secondary_color"),
+            "color_palette": profile.get("color_palette"),
+            "fonts": profile.get("fonts"),
+            "brand_summary": profile.get("brand_summary"),
+            "target_audience": profile.get("target_audience"),
+            "ad_segments": profile.get("ad_segments"),
+            "creative_guidelines": profile.get("creative_guidelines"),
+            "campaign_opportunities": profile.get("campaign_opportunities"),
+            "products_services": profile.get("products_services"),
+            "differentiators": profile.get("differentiators"),
+            "proof_points": profile.get("proof_points"),
+            "visual_motifs": profile.get("visual_motifs"),
+            "mandatory_elements": profile.get("mandatory_elements"),
+            "forbidden_elements": profile.get("forbidden_elements"),
+        },
+        "task": (
+            "Considere toda a identidade capturada e a logomarca oficial "
+            "como constantes. Aprenda nos criativos apenas padrões "
+            "recorrentes de campanha."
+        ),
+    }
+
+
 class CreativeBrandAnalyzer:
     def __init__(self, llm=None, model=None, visual_model=None):
         self.llm = llm or chat_completion
@@ -965,7 +1010,7 @@ class CreativeBrandAnalyzer:
             },
         }
 
-    def analyze_creative_line(self, image_data_urls, client):
+    def analyze_creative_line(self, image_data_urls, client, logo_data_url=None):
         images = [
             {
                 "type": "image_url",
@@ -974,42 +1019,46 @@ class CreativeBrandAnalyzer:
             for data_url in list(image_data_urls or [])[:6]
             if str(data_url).startswith("data:image/")
         ]
+        logo = None
+        if str(logo_data_url or "").startswith("data:image/"):
+            logo = {
+                "type": "image_url",
+                "image_url": {"url": str(logo_data_url)},
+            }
         if not images:
             raise ValueError(
                 "Adicione ao menos um criativo real antes de analisar a linha."
             )
-        profile = client.get("brand_profile") or {}
+        content = [
+            {
+                "type": "text",
+                "text": json.dumps(
+                    _creative_line_context(client, logo_attached=bool(logo)),
+                    ensure_ascii=False,
+                ),
+            }
+        ]
+        if logo:
+            content.append({
+                "type": "text",
+                "text": (
+                    "Logo oficial da marca. Esta é a logomarca institucional; "
+                    "preserve lockup, cores, proporção e respiro."
+                ),
+            })
+            content.append(logo)
+        content.append({
+            "type": "text",
+            "text": (
+                "Criativos de campanha. Aprenda composição e linguagem "
+                "publicitária sem substituir a identidade capturada."
+            ),
+        })
+        content.extend(images)
         response = self.llm(
             [
                 {"role": "system", "content": CREATIVE_LINE_SYSTEM},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(
-                                {
-                                    "brand": client.get("name"),
-                                    "sector": client.get("sector"),
-                                    "known_identity": {
-                                        "primary_color": client.get("primary_color"),
-                                        "secondary_color": client.get("secondary_color"),
-                                        "color_palette": profile.get("color_palette"),
-                                        "creative_guidelines": profile.get(
-                                            "creative_guidelines"
-                                        ),
-                                    },
-                                    "task": (
-                                        "Aprender apenas os padrões recorrentes "
-                                        "dos criativos anexados."
-                                    ),
-                                },
-                                ensure_ascii=False,
-                            ),
-                        },
-                        *images,
-                    ],
-                },
+                {"role": "user", "content": content},
             ],
             model=self.visual_model,
             max_tokens=2400,
@@ -1063,4 +1112,5 @@ class CreativeBrandAnalyzer:
             "model": response.get("model") or self.visual_model,
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
             "source_count": len(images),
+            "logo_included": bool(logo),
         }

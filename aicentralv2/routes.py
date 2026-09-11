@@ -415,9 +415,12 @@ def login_required(f):
                 flash('Acesso restrito apenas para usuários CENTRALCOMM.', 'error')
                 return redirect(url_for('login'))
         except Exception:
-            session.clear()
-            flash('Erro de autenticação.', 'error')
-            return redirect(url_for('login'))
+            current_app.logger.exception("Falha ao revalidar sessão CENTRALCOMM")
+            return (
+                "Não foi possível validar o acesso agora. Recarregue a página.",
+                503,
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
         
         return f(*args, **kwargs)
     return decorated_function
@@ -1050,11 +1053,19 @@ def init_routes(app):
         
         # POST - processar login
         if request.method == 'POST':
-            email = request.form.get('email', '').strip().lower()
+            from aicentralv2.auth import compose_login_email, persist_login_session
+
+            email = compose_login_email(
+                request.form.get('email_local') or request.form.get('email', '')
+            )
             password = request.form.get('password', '')
             
             if not email or not password:
-                flash('Preencha todos os campos.', 'error')
+                flash(
+                    'Use o email @centralcomm.media e preencha a senha.'
+                    if not email else 'Preencha todos os campos.',
+                    'error',
+                )
                 return render_template('login_tailwind.html')
             
             user = db.verificar_credenciais(email, password)
@@ -1078,6 +1089,7 @@ def init_routes(app):
                 is_centralcomm = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
 
                 session.clear()
+                persist_login_session()
                 session['user_id'] = user['id_contato_cliente']
                 session['user_name'] = user['nome_completo']
                 session['user_email'] = user['email']
@@ -1125,10 +1137,14 @@ def init_routes(app):
             return redirect(url_for('index'))
         
         if request.method == 'POST':
-            email = request.form.get('email', '').strip().lower()
+            from aicentralv2.auth import compose_login_email
+
+            email = compose_login_email(
+                request.form.get('email_local') or request.form.get('email', '')
+            )
 
             if not email:
-                flash('Email obrigatório!', 'error')
+                flash('Use o email @centralcomm.media.', 'error')
                 return render_template('forgot_password_tailwind.html')
 
             contato = db.obter_contato_por_email(email)

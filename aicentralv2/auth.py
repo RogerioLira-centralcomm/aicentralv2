@@ -1,8 +1,40 @@
 """
 AIcentralv2 - Sistema de Autenticação
 """
+import re
 from functools import wraps
 from flask import session, redirect, url_for, flash, jsonify, request
+
+LOGIN_EMAIL_DOMAIN = "centralcomm.media"
+_LOGIN_LOCAL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$", re.I)
+
+
+def login_email_local_part(value):
+    """Extrai a parte local de um email ou devolve o valor já sem domínio."""
+    raw = (value or "").strip().lower()
+    if "@" in raw:
+        return raw.split("@", 1)[0]
+    return raw
+
+
+def compose_login_email(local_or_full):
+    """Monta e aceita apenas emails @centralcomm.media. Devolve None se inválido."""
+    raw = (local_or_full or "").strip().lower()
+    if not raw:
+        return None
+    if "@" in raw:
+        local, _, domain = raw.partition("@")
+        if domain != LOGIN_EMAIL_DOMAIN:
+            return None
+        raw = local
+    if not _LOGIN_LOCAL_RE.match(raw):
+        return None
+    return f"{raw}@{LOGIN_EMAIL_DOMAIN}"
+
+
+def persist_login_session():
+    """Marca a sessão como permanente. O cookie sobrevive ao fechar o navegador."""
+    session.permanent = True
 
 def login_required(f):
     """Decorador para proteger rotas que exigem login"""

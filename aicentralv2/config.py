@@ -5,6 +5,7 @@ Todas as configurações centralizadas neste arquivo, incluindo
 configurações de terceiros (ex.: Pinecone).
 """
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +32,17 @@ class Config:
 	
 	# URL base da aplicação (para acesso externo às imagens)
 	BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
+
+	# Sessão persistente: o login permanece neste dispositivo sem checkbox.
+	SESSION_LIFETIME_DAYS = int(os.getenv('SESSION_LIFETIME_DAYS', '365'))
+	PERMANENT_SESSION_LIFETIME = timedelta(days=SESSION_LIFETIME_DAYS)
+	SESSION_REFRESH_EACH_REQUEST = True
+	SESSION_COOKIE_HTTPONLY = True
+	SESSION_COOKIE_SAMESITE = 'Lax'
+	SESSION_COOKIE_SECURE = os.getenv(
+		'SESSION_COOKIE_SECURE',
+		'true' if BASE_URL.startswith('https') else 'false',
+	).lower() in ('true', '1', 'yes')
     
 	# Projeto
 	PROJECT_NAME = 'AIcentralv2'
@@ -175,6 +187,7 @@ class ProductionConfig(Config):
 	DEBUG = False
 	TESTING = False
 	USE_CSS_CDN = False
+	SESSION_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):
@@ -182,6 +195,7 @@ class TestingConfig(Config):
 	DEBUG = True
 	TESTING = True
 	DB_NAME = os.getenv('DB_NAME_TEST', 'aicentralv2_test')
+	SESSION_COOKIE_SECURE = False
 
 
 # Dicionário de configurações

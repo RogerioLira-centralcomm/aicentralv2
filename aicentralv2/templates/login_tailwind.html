@@ -5,30 +5,37 @@
 {% block scene_message %}Organize a operação. Enxergue a próxima decisão.{% endblock %}
 
 {% block content %}
+{% set submitted_email = request.form.get('email_local') or request.form.get('email') or '' %}
+{% set email_local = submitted_email.split('@')[0] %}
 <header class="auth-header">
   <h1>Acesse o CentralX</h1>
-  <p>Entre com seu email corporativo para continuar.</p>
+  <p>Entre com o email da CentralComm para continuar.</p>
 </header>
 
 <form action="{{ url_for('login') }}" method="POST" class="auth-form" id="loginForm" data-auth-form>
   <div class="auth-field">
-    <label class="auth-label" for="email">Email</label>
-    <div class="auth-input-wrap">
+    <label class="auth-label" for="email_local">Email</label>
+    <div class="auth-email-lock" data-email-lock>
       <i class="auth-input-icon fa-regular fa-envelope" aria-hidden="true"></i>
       <input
-        class="auth-input"
-        type="email"
-        id="email"
-        name="email"
-        value="{{ request.form.get('email') or '' }}"
-        placeholder="nome@empresa.com"
+        class="auth-input auth-email-local"
+        type="text"
+        id="email_local"
+        name="email_local"
+        value="{{ email_local }}"
+        placeholder="seu.nome"
         autocomplete="username"
         autocapitalize="none"
         spellcheck="false"
         inputmode="email"
+        pattern="[A-Za-z0-9](?:[A-Za-z0-9._+-]*[A-Za-z0-9])?"
+        title="Use apenas a parte antes de @centralcomm.media"
         required
       >
+      <span class="auth-email-domain" aria-hidden="true">@centralcomm.media</span>
     </div>
+    <input type="hidden" name="email" id="email" value="">
+    <p class="auth-error" id="emailDomainError" hidden>Use apenas o email @centralcomm.media.</p>
   </div>
 
   <div class="auth-field">
@@ -58,11 +65,6 @@
       </button>
     </div>
   </div>
-
-  <label class="auth-check" for="remember">
-    <input type="checkbox" id="remember" name="remember">
-    <span>Manter acesso neste dispositivo</span>
-  </label>
 
   <button type="submit" class="auth-submit">
     <span class="auth-spinner" aria-hidden="true"></span>

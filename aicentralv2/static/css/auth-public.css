@@ -201,6 +201,7 @@ body[data-auth-page="subscription-checkout"] .auth-layout {
 .auth-submit:focus-visible,
 .auth-button:focus-visible,
 .auth-password-toggle:focus-visible,
+.auth-email-local:focus-visible,
 .auth-plan:focus-visible,
 .auth-flash button:focus-visible {
   outline: 3px solid rgba(243, 183, 27, 0.72);
@@ -302,6 +303,68 @@ body[data-auth-page="reset-password"] .auth-page-content {
 
 .auth-input-wrap .auth-input.has-action {
   padding-right: 2.75rem;
+}
+
+.auth-email-lock {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid #c9d4d0;
+  border-radius: var(--auth-radius);
+  background: #fff;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.auth-email-lock:focus-within {
+  border-color: var(--auth-brand);
+  box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.14);
+}
+
+.auth-email-lock.is-invalid {
+  border-color: var(--auth-danger);
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.1);
+}
+
+.auth-email-lock .auth-input-icon {
+  z-index: 1;
+}
+
+.auth-email-local {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.auth-email-local:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.auth-email-domain {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: stretch;
+  max-width: 52%;
+  border-left: 1px solid var(--auth-line);
+  background: var(--auth-brand-soft);
+  padding: 0 0.85rem;
+  color: var(--auth-brand-deep);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.auth-email-lock.is-invalid .auth-email-domain {
+  border-left-color: #efc4bf;
+  background: #fdf2f0;
+  color: #7d1d15;
 }
 
 .auth-input::placeholder {
@@ -832,6 +895,12 @@ body[data-auth-page="reset-password"] .auth-page-content {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.35rem;
+  }
+
+  .auth-email-domain {
+    max-width: 48%;
+    padding: 0 0.6rem;
+    font-size: 12px;
   }
 }
 

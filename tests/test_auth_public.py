@@ -16,7 +16,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("interactive-widget=overlays-content", base)
         self.assertIn('class="auth-root"', base)
         self.assertIn("auth-public.css", base)
-        self.assertIn("?v=2", base)
+        self.assertIn("?v=3", base)
         self.assertIn("visualViewport", js)
         self.assertIn("is-keyboard-open", js)
         self.assertIn("--vvh", css)
@@ -33,7 +33,23 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertNotIn("autofocus", forgot)
         self.assertNotIn("autofocus", reset)
         self.assertIn('inputmode="email"', login)
+        self.assertIn('name="email_local"', login)
+        self.assertIn("@centralcomm.media", login)
+        self.assertNotIn('name="remember"', login)
+        self.assertNotIn("Manter acesso neste dispositivo", login)
         self.assertIn("{% extends \"base_auth_public.html\" %}", login)
+
+    def test_login_e_recuperacao_usam_dominio_centralcomm(self):
+        login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")
+        forgot = (TEMPLATES / "forgot_password_tailwind.html").read_text(encoding="utf-8")
+        css = (STATIC / "css" / "auth-public.css").read_text(encoding="utf-8")
+        js = (STATIC / "js" / "auth-public.js").read_text(encoding="utf-8")
+
+        self.assertIn("auth-email-lock", login)
+        self.assertIn("auth-email-lock", forgot)
+        self.assertIn("auth-email-domain", css)
+        self.assertIn("setupCorporateEmail", js)
+        self.assertIn("centralcomm.media", js)
 
     def test_convite_usa_shell_publico(self):
         invite = (TEMPLATES / "aceitar_convite.html").read_text(encoding="utf-8")

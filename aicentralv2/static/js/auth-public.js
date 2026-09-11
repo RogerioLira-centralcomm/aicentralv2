@@ -107,6 +107,68 @@
     form.addEventListener('submit', validateMatch);
   }
 
+  var LOGIN_EMAIL_DOMAIN = 'centralcomm.media';
+  var LOGIN_LOCAL_RE = /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/i;
+
+  function setupCorporateEmail() {
+    document.querySelectorAll('[data-email-lock]').forEach(function (lock) {
+      var form = lock.closest('form');
+      var local = lock.querySelector('.auth-email-local');
+      var hidden = form ? form.querySelector('input[name="email"]') : null;
+      var error = form ? form.querySelector('#emailDomainError') : null;
+      if (!local) return;
+
+      function showError(message) {
+        lock.classList.toggle('is-invalid', Boolean(message));
+        local.setCustomValidity(message || '');
+        local.setAttribute('aria-invalid', message ? 'true' : 'false');
+        if (error) {
+          error.hidden = !message;
+          if (message) error.textContent = message;
+        }
+      }
+
+      function compose() {
+        var value = local.value.trim().toLowerCase();
+        if (value.indexOf('@') !== -1) {
+          var parts = value.split('@');
+          var domain = parts.slice(1).join('@');
+          if (domain && domain !== LOGIN_EMAIL_DOMAIN) {
+            if (hidden) hidden.value = '';
+            showError('Use apenas o email @' + LOGIN_EMAIL_DOMAIN + '.');
+            return '';
+          }
+          value = parts[0];
+          if (local.value !== value) local.value = value;
+        }
+
+        if (!value) {
+          if (hidden) hidden.value = '';
+          showError('');
+          return '';
+        }
+
+        if (!LOGIN_LOCAL_RE.test(value)) {
+          if (hidden) hidden.value = '';
+          showError('Informe só o nome do email, sem espaços ou símbolos extras.');
+          return '';
+        }
+
+        var email = value + '@' + LOGIN_EMAIL_DOMAIN;
+        if (hidden) hidden.value = email;
+        showError('');
+        return email;
+      }
+
+      local.addEventListener('input', compose);
+      local.addEventListener('blur', compose);
+      local.addEventListener('paste', function () {
+        window.setTimeout(compose, 0);
+      });
+      compose();
+    });
+  }
+
   function setupForms() {
     document.querySelectorAll('[data-auth-form]').forEach(function (form) {
       form.addEventListener('submit', function (event) {
@@ -184,6 +246,7 @@
     setupPasswordToggles();
     setupPasswordStrength();
     setupMatchingPasswords();
+    setupCorporateEmail();
     setupForms();
     setupFlashMessages();
   });

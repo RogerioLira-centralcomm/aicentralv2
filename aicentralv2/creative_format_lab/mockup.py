@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import os
 
-from ..creative_modeling_generation import _json_content
+from ..creative_modeling_generation import OpenRouterError, _json_content
+from ..services.openrouter_service import resolve_chat_model
 from ..creative_skills.visual import load_visual_brief
 from .catalog import is_end_card, logo_visible_for
 from .html_builder import (
@@ -37,7 +38,10 @@ def build_base_mockup(
     brand = brand if isinstance(brand, dict) else {}
     campaign = campaign if isinstance(campaign, dict) else {}
     knobs = knobs if isinstance(knobs, dict) else {}
-    images = [url for url in (images or []) if url][:6]
+    images = [
+        url for url in (images or [])
+        if isinstance(url, str) and url.startswith("https://")
+    ][:4]
     attempts = clamp_renders(passes or knobs.get("mockup_passes") or MOCKUP_PASSES)
     scene = spec.scenes[0]
     html_text = build_scene_html(
@@ -55,18 +59,24 @@ def build_base_mockup(
     reports = []
     current = html_text
     best = {"score": 0.55, "html": current, "attempt": 1}
+    provider = "plate"
+    model = resolve_chat_model(MOCKUP_MODEL) or MOCKUP_MODEL
     for attempt in range(1, attempts + 1):
         if text_callable is not None:
-            current = _refine_mockup(
-                current,
-                spec=spec,
-                brand=brand,
-                campaign=campaign,
-                knobs=knobs,
-                images=images,
-                attempt=attempt,
-                text_callable=text_callable,
-            )
+            try:
+                current = _refine_mockup(
+                    current,
+                    spec=spec,
+                    brand=brand,
+                    campaign=campaign,
+                    knobs=knobs,
+                    images=images,
+                    attempt=attempt,
+                    text_callable=text_callable,
+                )
+                provider = "llm"
+            except (OpenRouterError, ValueError, TypeError, KeyError):
+                pass
         current = ensure_system_layers(current)
         current = apply_logo_visibility(current, True)
         png = render_png(current, spec.canvas.width, spec.canvas.height, screenshot)
@@ -80,11 +90,11 @@ def build_base_mockup(
             "score": score,
             "passed": attempt == attempts,
             "discarded": True,
-            "model": MOCKUP_MODEL,
+            "model": model if provider == "llm" else "plate",
         })
         reports.append({
             "attempt": attempt,
-            "model": MOCKUP_MODEL,
+            "model": model if provider == "llm" else "plate",
             "score": score,
         })
         if score >= best["score"]:
@@ -104,6 +114,7 @@ def build_base_mockup(
         "attempts": reports,
         "passes": len(versions),
         "model": MOCKUP_MODEL,
+        "provider": provider,
         "layer_plan": plan,
         "status": "ready",
     }
@@ -202,7 +213,8 @@ def _refine_mockup(
     }
     content = [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]
     for url in images:
-        content.append({"type": "image_url", "image_url": {"url": url}})
+        if isinstance(url, str) and url.startswith("https://"):
+            content.append({"type": "image_url", "image_url": {"url": url}})
     response = text_callable(
         [
             {
@@ -211,7 +223,7 @@ def _refine_mockup(
             },
             {"role": "user", "content": content},
         ],
-        model=MOCKUP_MODEL,
+        model=resolve_chat_model(MOCKUP_MODEL),
         max_tokens=900,
         temperature=0.15,
     )

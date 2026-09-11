@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 
+from ..creative_modeling_generation import OpenRouterError
 from ..creative_skills.loader import load_bundle
 from .brand_context import build_brand_context, reference_images, scene_photos
 from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model
@@ -82,20 +83,37 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
         except Exception:
             spec = None
     if spec is None:
-        spec = build_spec(
-            route=route,
-            intent=bundle["intent"],
-            variant=variant,
-            user_message=user_message or (campaign or {}).get("title") or "",
-            brand_name=brand_name,
-            dna=brand.get("brand_dna"),
-            brand_context=brand,
-            campaign=campaign,
-            images=images,
-            knobs=knobs,
-            text_callable=text_callable,
-            bundle=bundle,
-        )
+        llm = None if str(payload.get("stage") or "") == "mockup" else text_callable
+        try:
+            spec = build_spec(
+                route=route,
+                intent=bundle["intent"],
+                variant=variant,
+                user_message=user_message or (campaign or {}).get("title") or "",
+                brand_name=brand_name,
+                dna=brand.get("brand_dna"),
+                brand_context=brand,
+                campaign=campaign,
+                images=images,
+                knobs=knobs,
+                text_callable=llm,
+                bundle=bundle,
+            )
+        except (OpenRouterError, ValueError):
+            spec = build_spec(
+                route=route,
+                intent=bundle["intent"],
+                variant=variant,
+                user_message=user_message or (campaign or {}).get("title") or "",
+                brand_name=brand_name,
+                dna=brand.get("brand_dna"),
+                brand_context=brand,
+                campaign=campaign,
+                images=images,
+                knobs=knobs,
+                text_callable=None,
+                bundle=bundle,
+            )
     spec = apply_copy_locks(spec, knobs.get("storyboard"))
     _mark(steps, "create", "done", "spec")
     _mark(steps, "reconstruct", "done", "spec")

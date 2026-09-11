@@ -88,7 +88,6 @@
             <span>Duas passagens no roteiro de 15s</span>
           </div>
         </header>
-        <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
         <button class="cx-btn cx-btn-primary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
       </li>
       <li data-op="base">
@@ -137,3 +136,39 @@
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>
 </article>
+
+<dialog class="cx-modal mc-base-dialog" id="mcMesaBaseDialog">
+  <form method="dialog" class="mc-run-top">
+    <p class="mc-run-mark" id="mcMesaRunMark">15s</p>
+    <button class="mc-run-x" value="cancel" aria-label="Fechar">Fechar</button>
+  </form>
+  <div class="mc-run-body">
+    <figure class="mc-base-plate" id="mcMesaBasePlate">
+      <img id="mcMesaBaseStill" alt="Still do 15s" hidden>
+      <div class="mc-base-void" id="mcMesaBaseVoid">
+        <strong>O quadro está vazio</strong>
+        <span>A sequência devolve o still aqui, batida a batida.</span>
+      </div>
+    </figure>
+    <aside class="mc-run-rail">
+      <p class="mc-run-now" id="mcMesaRunNow">Conceito</p>
+      <ol class="mc-run-seq" id="mcMesaRunSeq" aria-label="Sequência do 15s">
+        <li data-op="concept"><button type="button">Conceito</button></li>
+        <li data-op="base"><button type="button">Base</button></li>
+        <li data-op="scene"><button type="button">Cena</button></li>
+        <li data-op="close"><button type="button">Fechar</button></li>
+        <li data-op="approve"><button type="button">Aprovar</button></li>
+      </ol>
+      <div class="mc-run-return">
+        <p id="mcMesaBaseNote">Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
+        <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
+        <ol class="mc-run-beats" id="mcMesaRunBeats" hidden></ol>
+        <ol class="mc-run-takes" id="mcMesaRunTakes" hidden></ol>
+      </div>
+    </aside>
+  </div>
+  <footer class="mc-run-foot">
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaBaseCancel">Voltar à mesa</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaBaseRun">Montar a base</button>
+  </footer>
+</dialog>

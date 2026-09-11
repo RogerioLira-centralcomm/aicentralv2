@@ -723,6 +723,27 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertLess(cheap["cost_usd"], quote_concept({"kind": "storyboard"})["cost_usd"])
         self.assertIn("mockup_passes", full)
 
+    def test_mockup_entrega_html_se_o_provedor_falha(self):
+        from aicentralv2.creative_modeling_generation import OpenRouterError
+
+        def boom(*_args, **_kwargs):
+            raise OpenRouterError("Provider returned error")
+
+        base = run_session(
+            {
+                "campaign_slug": "vivara-presente-ctv",
+                "stage": "mockup",
+                "mockup_passes": 2,
+            },
+            client={"id": 22, "name": "Vivara"},
+            text_callable=boom,
+            screenshot=_shot,
+        )
+        self.assertTrue(base["base_html"])
+        self.assertIn("layer-key-visual", base["base_html"])
+        self.assertEqual(base["mockup"]["provider"], "plate")
+        self.assertEqual(len(base["mockup"]["versions"]), 2)
+
     def test_logo_opcional_no_gancho_e_obrigatoria_no_fechamento(self):
         self.assertFalse(is_end_card("proof", "scene_04", 5))
         self.assertTrue(is_end_card("proof", "scene_04", 4))
@@ -805,6 +826,12 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("Fechar cena", html)
         self.assertIn("Modelar base", html)
         self.assertIn("mcMesaMockup", html)
+        self.assertIn("mcMesaBaseDialog", html)
+        self.assertIn("Montar a base", html)
+        self.assertIn("mcMesaRunSeq", html)
+        self.assertIn("mcMesaRunTakes", html)
+        self.assertIn("mcMesaRunBeats", html)
+        self.assertIn("mcMesaBaseNote", html)
         self.assertIn("mcMesaLogo", html)
         self.assertIn("mcMesaKeys", html)
         self.assertIn("mcMesaVersions", html)
@@ -828,6 +855,10 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("vivara-presente-ctv", js)
         self.assertIn("key_visuals", js)
         self.assertIn("/mockup", js)
+        self.assertIn("openBaseDialog", js)
+        self.assertIn("runCurrentBeat", js)
+        self.assertIn("paintRunStill", js)
+        self.assertIn("mcMesaBaseDialog", js)
         self.assertIn("logo_visible", js)
         self.assertIn("isLastScene", js)
         self.assertIn("plateLabel", js)

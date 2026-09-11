@@ -47,7 +47,16 @@
     ],
     visualSkills: [],
     selectedSkills: ['imagegen-frontend-web'],
+    runOp: 'concept',
   };
+
+  const RUN_BEATS = [
+    { id: 'concept', title: 'Conceito', run: 'Montar o conceito' },
+    { id: 'base', title: 'Base', run: 'Montar a base' },
+    { id: 'scene', title: 'Cena', run: 'Montar a cena' },
+    { id: 'close', title: 'Fechar', run: 'Fechar o still' },
+    { id: 'approve', title: 'Aprovar', run: 'Mandar à Bancada' },
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -56,6 +65,7 @@
   function setStatus(text) {
     const node = $('mcMesaStatus');
     if (node) node.textContent = text;
+    setBaseNote(text);
   }
 
   async function readJson(response) {
@@ -148,17 +158,44 @@
       takeFiles(event.dataTransfer?.files);
     });
     input?.addEventListener('change', () => takeFiles(input.files));
-    $('mcMesaAnalyze')?.addEventListener('click', () => mountConcept());
-    $('mcMesaMockup')?.addEventListener('click', () => modelBase());
-    $('mcMesaGenerate')?.addEventListener('click', () => assembleSceneOne());
+    $('mcMesaAnalyze')?.addEventListener('click', () => {
+      openBaseDialog('concept');
+      mountConcept();
+    });
+    $('mcMesaMockup')?.addEventListener('click', () => openBaseDialog('base'));
+    $('mcMesaBaseRun')?.addEventListener('click', () => runCurrentBeat());
+    $('mcMesaBaseCancel')?.addEventListener('click', () => $('mcMesaBaseDialog')?.close());
+    $('mcMesaRunSeq')?.addEventListener('click', (event) => {
+      if ($('mcMesaBaseDialog')?.classList.contains('is-busy')) return;
+      const button = event.target.closest('[data-op]');
+      if (!button) return;
+      openBaseDialog(button.getAttribute('data-op'));
+    });
+    $('mcMesaGenerate')?.addEventListener('click', () => {
+      openBaseDialog('scene');
+      assembleSceneOne();
+    });
+    $('mcMesaClose')?.addEventListener('click', () => {
+      openBaseDialog('close');
+      closeScene();
+    });
+    $('mcMesaApprove')?.addEventListener('click', (event) => {
+      openBaseDialog('approve');
+      handoff(event);
+    });
+    $('mcMesaRunTakes')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-attempt]');
+      if (!button) return;
+      state.versionAttempt = Number(button.getAttribute('data-attempt'));
+      showScene();
+      paintRunStill();
+    });
     $('mcMesaSkills')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-skill]');
       if (!button) return;
       toggleSkill(button.getAttribute('data-skill'));
     });
-    $('mcMesaClose')?.addEventListener('click', () => closeScene());
     $('mcMesaLogo')?.addEventListener('change', (event) => lockSceneField('logo_visible', event.target.checked));
-    $('mcMesaApprove')?.addEventListener('click', handoff);
     $('mcMesaOffer')?.addEventListener('input', (event) => {
       state.offer = event.target.value;
     });
@@ -665,14 +702,19 @@
   async function mountConcept() {
     if (state.mounting) return;
     state.mounting = true;
+    const dialog = $('mcMesaBaseDialog');
+    if (dialog && !dialog.open) openBaseDialog('concept');
     try {
       $('mcMesaAnalyze').disabled = true;
       renderOps('concept');
+      state.runOp = 'concept';
+      setRunBusy(true);
+      paintRunSeq();
       renderTrace([
         { id: 'create', label: 'Conceito', status: 'running' },
         { id: 'refine', label: 'Melhor roteiro', status: 'queued' },
       ]);
-      setStatus('Passo 1: duas passagens no roteiro de 15s.');
+      setStatus('Duas passagens no roteiro de 15s. O retorno entra neste quadro.');
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/storyboard`, {
         method: 'POST',
@@ -698,30 +740,179 @@
       setStatus(
         data.provider === 'campaign'
           ? 'Roteiro da campanha na mesa. O provedor não respondeu; o conceito-base entrou.'
-          : 'Conceito pronto. Passo 2: modele a base em HTML.'
+          : 'Conceito pronto. O retorno do roteiro está na tira. Siga para a base.'
       );
       revealStrip();
+      state.runOp = 'base';
+      paintRunStill();
+      paintRunSeq();
       renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaAnalyze').disabled = !state.clientId;
+      paintRunSeq();
       renderOps();
     } finally {
       state.mounting = false;
+      setRunBusy(false);
     }
   }
 
+  function openBaseDialog(op) {
+    const dialog = $('mcMesaBaseDialog');
+    if (!dialog) {
+      if (op === 'base') modelBase();
+      return;
+    }
+    state.runOp = op || currentOp();
+    paintRunSeq();
+    paintRunStill();
+    labelRunButton();
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function runCurrentBeat() {
+    const op = state.runOp || currentOp();
+    if (op === 'concept') return mountConcept();
+    if (op === 'base') return modelBase();
+    if (op === 'scene') {
+      if (!state.storyboard.length) {
+        state.runOp = 'concept';
+        paintRunSeq();
+        setStatus('O roteiro ainda não está na mesa. Monte o conceito.');
+        return null;
+      }
+      if (!state.session?.base_html) {
+        state.runOp = 'base';
+        paintRunSeq();
+        setStatus('A base ainda não está no quadro. Monte a base.');
+        return null;
+      }
+      return generateScene();
+    }
+    if (op === 'close') return closeScene();
+    if (op === 'approve') return handoff();
+    return null;
+  }
+
+  function setRunBusy(busy) {
+    $('mcMesaBaseDialog')?.classList.toggle('is-busy', Boolean(busy));
+    const node = $('mcMesaBaseRun');
+    if (busy && node) {
+      node.disabled = true;
+      return;
+    }
+    labelRunButton();
+  }
+
+  function paintRunSeq() {
+    const active = state.runOp || currentOp();
+    const order = RUN_BEATS.map((item) => item.id);
+    const ready = currentOp();
+    const readyIdx = order.indexOf(ready);
+    const now = RUN_BEATS.find((item) => item.id === active);
+    if ($('mcMesaRunNow') && now) $('mcMesaRunNow').textContent = now.title;
+    if ($('mcMesaRunMark')) {
+      const client = currentClient();
+      $('mcMesaRunMark').textContent = client?.name ? `15s · ${client.name}` : '15s';
+    }
+    document.querySelectorAll('#mcMesaRunSeq [data-op]').forEach((item) => {
+      const op = item.getAttribute('data-op');
+      const position = order.indexOf(op);
+      item.classList.toggle('is-current', op === active);
+      item.classList.toggle('is-done', readyIdx > -1 && position < readyIdx);
+    });
+    labelRunButton();
+  }
+
+  function labelRunButton() {
+    const node = $('mcMesaBaseRun');
+    if (!node) return;
+    const beat = RUN_BEATS.find((item) => item.id === (state.runOp || currentOp())) || RUN_BEATS[1];
+    node.textContent = beat.run;
+    node.disabled = beat.id === 'concept' || beat.id === 'base'
+      ? !state.clientId
+      : beat.id === 'approve'
+        ? !state.session?.qa?.passed
+        : !state.storyboard.length;
+  }
+
+  function setBaseNote(text) {
+    const node = $('mcMesaBaseNote');
+    if (node && text) node.textContent = text;
+  }
+
+  function showBaseStill(url) {
+    const still = $('mcMesaBaseStill');
+    const voidBox = $('mcMesaBaseVoid');
+    if (!still || !voidBox) return;
+    if (url) {
+      still.src = url;
+      still.hidden = false;
+      voidBox.hidden = true;
+      return;
+    }
+    still.removeAttribute('src');
+    still.hidden = true;
+    voidBox.hidden = false;
+  }
+
+  function paintRunStill() {
+    const versions = sceneVersions(state.sceneId);
+    const mockupVersions = (state.session?.mockup?.versions || []).filter((item) => item.png_data_url);
+    const chosen = versions.find((item) => item.attempt === state.versionAttempt)
+      || versions.find((item) => item.chosen)
+      || versions[versions.length - 1]
+      || mockupVersions.find((item) => item.chosen)
+      || (state.session?.mockup && { png_data_url: state.session.mockup.render_url });
+    showBaseStill(chosen?.png_data_url || '');
+    paintConceptBeats();
+    paintRunTakes(versions.length ? versions : mockupVersions, chosen);
+  }
+
+  function paintConceptBeats() {
+    const list = $('mcMesaRunBeats');
+    if (!list) return;
+    const hasStill = Boolean(
+      sceneVersions(state.sceneId).length || state.session?.mockup?.render_url
+    );
+    list.hidden = hasStill || !state.storyboard.length;
+    list.innerHTML = state.storyboard.map((item, index) => (
+      `<li><strong>${index + 1}</strong><span>${item.headline || item.purpose || `Cena ${index + 1}`}</span></li>`
+    )).join('');
+  }
+
+  function paintRunTakes(versions, chosen) {
+    const list = $('mcMesaRunTakes');
+    if (!list) return;
+    const frames = (versions || []).filter((item) => item.png_data_url);
+    list.hidden = !frames.length;
+    list.innerHTML = frames.map((item) => {
+      const current = chosen && item.attempt === chosen.attempt;
+      const label = item.discarded ? `v${item.attempt} fora` : `v${item.attempt}`;
+      return `<li>
+        <button type="button" data-attempt="${item.attempt}" class="${current ? 'is-current' : ''} ${item.discarded ? 'is-discarded' : ''}">
+          <img src="${item.png_data_url}" alt="${label}">
+          <em>${label}</em>
+        </button>
+      </li>`;
+    }).join('');
+  }
+
   async function modelBase() {
+    const run = $('mcMesaBaseRun');
+    const dialog = $('mcMesaBaseDialog');
+    if (dialog && !dialog.open) openBaseDialog('base');
     try {
       $('mcMesaMockup').disabled = true;
+      if (run) run.disabled = true;
       renderOps('base');
-      renderTrace([
-        { id: 'm1', label: 'Mockup v1', status: 'running' },
-        { id: 'm2', label: 'v2 · 4o-mini', status: 'queued' },
-        { id: 'm3', label: 'v3 · 4o-mini', status: 'queued' },
-      ]);
-      setStatus('Passo 2: modelando o HTML da marca — até 3 passes.');
+      state.runOp = 'base';
+      setRunBusy(true);
+      paintRunSeq();
+      setStatus('Montando o HTML da marca no quadro 16:9.');
       const sessionId = await ensureSession();
+      setStatus('Ajustando as camadas. Se o provedor falhar, a placa entra do mesmo jeito.');
       const data = await fetch(`${API.sessions}/${sessionId}/mockup`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -733,19 +924,31 @@
         }),
       }).then(readJson);
       applySession(data);
+      const plateOnly = data.mockup?.provider === 'plate';
+      setStatus(
+        plateOnly
+          ? 'Base no quadro. O provedor não refinou; o HTML da marca entrou.'
+          : 'Base no quadro. As camadas passaram pelo provedor.'
+      );
       $('mcMesaGenerate').disabled = !data.base_html;
       $('mcMesaMockup').disabled = false;
       labelGenerate();
-      setStatus('Base pronta. Passo 3: gere a cena — o QA compara 3 versões.');
+      state.runOp = 'scene';
+      paintRunStill();
+      paintRunSeq();
       renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaMockup').disabled = !state.storyboard.length;
       renderOps();
+    } finally {
+      setRunBusy(false);
     }
   }
 
   async function generateScene() {
+    const dialog = $('mcMesaBaseDialog');
+    if (dialog && !dialog.open) openBaseDialog('scene');
     try {
       if (!state.session?.base_html) {
         await modelBase();
@@ -753,12 +956,15 @@
       }
       $('mcMesaGenerate').disabled = true;
       renderOps('scene');
+      state.runOp = 'scene';
+      setRunBusy(true);
+      paintRunSeq();
       renderTrace([
         { id: 'v1', label: `${state.sceneId} v1`, status: 'running' },
         { id: 'v2', label: 'v2', status: 'queued' },
         { id: 'v3', label: 'v3', status: 'queued' },
       ]);
-      setStatus(`Passo 3: gerando ${state.sceneId} — loop de 3 versões.`);
+      setStatus(`Gerando ${state.sceneId}. Três takes voltam para o quadro.`);
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/run`, {
         method: 'POST',
@@ -779,12 +985,18 @@
       $('mcMesaClose').disabled = !data.scenes?.some((item) => item.id === state.sceneId && item.html);
       $('mcMesaGenerate').disabled = !state.clientId;
       labelGenerate();
+      state.runOp = 'close';
+      paintRunStill();
+      paintRunSeq();
       renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaGenerate').disabled = !state.clientId;
       labelGenerate();
+      paintRunSeq();
       renderOps();
+    } finally {
+      setRunBusy(false);
     }
   }
 
@@ -840,10 +1052,15 @@
   }
 
   async function closeScene() {
+    const dialog = $('mcMesaBaseDialog');
+    if (dialog && !dialog.open) openBaseDialog('close');
     try {
       $('mcMesaClose').disabled = true;
       renderOps('close');
-      setStatus('Passo 4: fechando o still — fundo, camadas e margem segura.');
+      state.runOp = 'close';
+      setRunBusy(true);
+      paintRunSeq();
+      setStatus('Fechando o still 1920×1080 com margem segura.');
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/close`, {
         method: 'POST',
@@ -860,14 +1077,20 @@
       const report = data.closed?.guidelines || {};
       setStatus(
         report.passed
-          ? 'Still fechado no 1920×1080. Passo 5: aprove para a Bancada.'
+          ? 'Still fechado no 1920×1080. O quadro está pronto para a Bancada.'
           : (report.defects || []).join(' ') || 'Still fechado. Revise a margem.'
       );
+      state.runOp = 'approve';
+      paintRunStill();
+      paintRunSeq();
       renderOps();
     } catch (error) {
       setStatus(error.message);
       $('mcMesaClose').disabled = false;
+      paintRunSeq();
       renderOps();
+    } finally {
+      setRunBusy(false);
     }
   }
 
@@ -907,12 +1130,17 @@
     labelGenerate();
     const versions = sceneVersions(state.sceneId);
     const discarded = versions.filter((item) => item.discarded).length;
-    setStatus(
-      data.qa?.passed
-        ? `QA passou nesta cena. ${discarded ? `${discarded} versão(ões) ficaram no trilho.` : ''}`.trim()
-        : 'Cena na mesa. Compare as versões descartadas ou ajuste a linha.'
-    );
+    const hasScene = (data.scenes || []).some((item) => item.html);
+    if (hasScene) {
+      setStatus(
+        data.qa?.passed
+          ? `QA passou nesta cena. ${discarded ? `${discarded} take(s) ficaram de fora.` : ''}`.trim()
+          : 'Cena no quadro. Compare os takes ou ajuste a linha.'
+      );
+    }
     showScene();
+    paintRunStill();
+    paintRunSeq();
   }
 
   function sceneVersions(sceneId) {
@@ -994,7 +1222,11 @@
 
   async function handoff(event) {
     event?.preventDefault();
+    const dialog = $('mcMesaBaseDialog');
+    if (dialog && !dialog.open) openBaseDialog('approve');
     try {
+      setRunBusy(true);
+      setStatus('Mandando o 15s para a Bancada.');
       const data = await fetch(`${API.sessions}/${state.sessionId}/handoff`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -1002,6 +1234,8 @@
       window.location.href = `/parametros/modelagem-criativos/bancada?campaign=${encodeURIComponent(data.campaign_id || '')}`;
     } catch (error) {
       setStatus(error.message);
+    } finally {
+      setRunBusy(false);
     }
   }
 

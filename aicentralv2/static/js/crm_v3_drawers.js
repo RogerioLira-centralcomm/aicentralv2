@@ -2033,15 +2033,40 @@
     var _canaisCatalogo = null;
     var _canaisCatalogoPromise = null;
 
+    function sortCanaisAlfabetico(canais) {
+        return (canais || []).slice().sort(function (a, b) {
+            return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+        });
+    }
+
+    function fillCanalSelect(select, canais, atual) {
+        if (!select) return;
+        var lista = sortCanaisAlfabetico(canais);
+        var selected = atual || '';
+        select.innerHTML = '<option value="">Nenhum</option>' + lista.map(function (canal) {
+            return '<option value="' + escapeHtml(canal.nome) + '">' +
+                escapeHtml(canal.nome) + '</option>';
+        }).join('');
+        if (selected) {
+            if (!$$('option', select).some(function (opt) { return opt.value === selected; })) {
+                var extra = document.createElement('option');
+                extra.value = selected;
+                extra.textContent = selected;
+                select.appendChild(extra);
+            }
+            select.value = selected;
+        }
+    }
+
     function loadCanaisCatalogo() {
         if (_canaisCatalogo) return Promise.resolve(_canaisCatalogo);
         if (_canaisCatalogoPromise) return _canaisCatalogoPromise;
         _canaisCatalogoPromise = apiFetch('/canais').then(function (res) {
             var data = res.data || res;
-            _canaisCatalogo = data.canais || (Array.isArray(data) ? data : []) || [];
+            _canaisCatalogo = sortCanaisAlfabetico(data.canais || (Array.isArray(data) ? data : []) || []);
             return _canaisCatalogo;
         }).catch(function () {
-            _canaisCatalogo = _canaisCatalogo || [];
+            _canaisCatalogo = sortCanaisAlfabetico(_canaisCatalogo || []);
             return _canaisCatalogo;
         });
         return _canaisCatalogoPromise;
@@ -2210,12 +2235,7 @@
 
         loadCanaisCatalogo().then(function (canais) {
             if (select && canais.length) {
-                var atual = hidden ? hidden.value : '';
-                select.innerHTML = '<option value="">Nenhum</option>' + canais.map(function (canal) {
-                    return '<option value="' + escapeHtml(canal.nome) + '">' +
-                        escapeHtml(canal.nome) + '</option>';
-                }).join('');
-                if (atual) select.value = atual;
+                fillCanalSelect(select, canais, hidden ? hidden.value : '');
             }
             renderCanalFicha(wrapper, hidden && hidden.value);
             renderCanalSuggest(wrapper, form);
@@ -4040,6 +4060,7 @@
 
         function paint(canais, ativo) {
             if (!list) return;
+            canais = sortCanaisAlfabetico(canais);
             list.innerHTML = canais.map(function (canal) {
                 var on = ativo && canal.slug === ativo.slug ? ' is-active' : '';
                 return '<button type="button" class="cx-canais-item' + on + '" data-canal-slug="' +

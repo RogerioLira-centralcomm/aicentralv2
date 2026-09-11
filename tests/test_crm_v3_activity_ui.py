@@ -86,6 +86,23 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("_canalCleared", self.js)
         self.assertIn("Spotify", self.template)
         self.assertIn("Interativos", self.template)
+        self.assertIn("Amazon Music", self.template)
+        self.assertLess(
+            self.template.index('value="Amazon Music"'),
+            self.template.index('value="Netflix"'),
+        )
+        self.assertLess(
+            self.template.index('value="Deezer"'),
+            self.template.index('value="Spotify"'),
+        )
+        kit_opts = re.findall(
+            r'<select id="cx-ativ-kit"[^>]*>(.*?)</select>',
+            self.template,
+            re.S,
+        )[0]
+        nomes = re.findall(r'<option value="([^"]+)">', kit_opts)
+        self.assertEqual(nomes, sorted(nomes, key=str.casefold))
+        self.assertIn("function fillCanalSelect", self.js)
         self.assertIn("data-canal-ficha", self.template)
         self.assertIn("data-open-canais", self.template)
         self.assertIn("cx-btn cx-btn-primary cx-atividade-ia-generate", self.template)

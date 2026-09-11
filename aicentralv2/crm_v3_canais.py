@@ -344,7 +344,8 @@ def _eh_serasa(canal: Dict[str, Any]) -> bool:
 
 
 def listar_canais() -> List[Dict[str, Any]]:
-    return _query_db_canais() or _fallback_canais()
+    canais = _query_db_canais() or _fallback_canais()
+    return sorted(canais, key=lambda item: (item.get("nome") or "").casefold())
 
 
 def nomes_canais() -> List[str]:

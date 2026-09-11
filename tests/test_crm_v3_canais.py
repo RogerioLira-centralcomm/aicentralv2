@@ -39,6 +39,18 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
             source,
         )
 
+    def test_catalogo_vem_em_ordem_alfabetica(self):
+        nomes = [item["nome"] for item in listar_canais()]
+        self.assertEqual(nomes, sorted(nomes, key=str.casefold))
+        self.assertLess(nomes.index("Amazon Music"), nomes.index("Netflix"))
+        self.assertLess(nomes.index("Deezer"), nomes.index("Spotify"))
+
+    def test_sidebar_ordena_canais_alfabeticamente(self):
+        js = (ROOT / "aicentralv2/static/js/crm_v3_drawers.js").read_text()
+        self.assertIn("function sortCanaisAlfabetico", js)
+        self.assertIn("localeCompare", js)
+        self.assertIn("canais = sortCanaisAlfabetico(canais)", js)
+
     def test_sidebar_canais_esta_no_crm(self):
         page = (ROOT / "aicentralv2/templates/crm_v3.html").read_text()
         drawer = (ROOT / "aicentralv2/templates/crm_v3/_drawer_canais.html").read_text()

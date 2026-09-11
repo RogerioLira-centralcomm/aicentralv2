@@ -6476,8 +6476,8 @@
 .mc-bench-layer {
   position: absolute;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(24, 52, 54, 0.16);
+  background: transparent;
+  box-shadow: none;
   transform: translateZ(0);
   transition: transform 0.45s ease;
 }
@@ -6503,7 +6503,7 @@
   display: grid;
   align-content: center;
   padding: 6%;
-  background: rgba(255, 255, 255, 0.94);
+  background: transparent;
 }
 
 .mc-bench-layer[data-tipo="overlay"],
@@ -6674,7 +6674,9 @@
   overflow: hidden;
 }
 
-.mc-bench-thumbs img {
+.mc-bench-thumbs img,
+.mc-bench-thumbs i {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -6905,6 +6907,17 @@
   border: 1px dashed var(--mc-line);
   color: #4a5c5b;
   font-size: 0.78rem;
+}
+
+.mc-bench-violations {
+  margin: 0 0 0.8rem;
+  padding-left: 1.1rem;
+  color: var(--mc-pine);
+  font-size: 0.8rem;
+}
+
+.mc-bench-violations li + li {
+  margin-top: 0.35rem;
 }
 
 .mc-panel:has(.mc-bench) {

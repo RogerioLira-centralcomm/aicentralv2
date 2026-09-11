@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..creative_compose_library import clamp_params, schema_for_family
 
@@ -38,16 +38,19 @@ class QaReport(BaseModel):
 
 
 class RegionBox(BaseModel):
+    model_config = ConfigDict(extra="allow")
     tipo: str
     x: float
     y: float
     w: float
     h: float
+    content: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PieceContract(BaseModel):
     brand_id: str = ""
     campaign_id: str = ""
+    brand_dna_id: str = ""
     template_id: str = ""
     template_variation: str = ""
     family: str = ""
@@ -55,7 +58,10 @@ class PieceContract(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict)
     instance_data: Dict[str, str] = Field(default_factory=dict)
     tokens: Dict[str, Any] = Field(default_factory=dict)
+    brand_dna: Dict[str, Any] = Field(default_factory=dict)
     regions: List[RegionBox] = Field(default_factory=list)
+    target_layer_id: str = ""
+    target_tipo: str = ""
     status: ContractStatus = "rascunho"
     qa: Optional[QaReport] = None
 

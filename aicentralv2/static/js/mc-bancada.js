@@ -38,7 +38,7 @@
     layers: [],
     selectedId: null,
     tool: 'select',
-    exploded: true,
+    exploded: false,
     zoom: 100,
     tab: 'mesa',
     dock: 'variacoes',
@@ -104,23 +104,116 @@
     return client().brand_profile || {};
   }
 
-  function brandFonts() {
+  function brandDna() {
+    const saved = brief().bancada?.brand_dna || state.campaign?.brand_dna || brandProfile().brand_dna || {};
     const fonts = brandProfile().fonts || [];
-    const display = fonts.find((item) => /display|head/i.test(item.role || '')) || fonts[0];
+    const display = fonts.find((item) => /display|head|primary/i.test(item.role || '')) || fonts[0];
     const body = fonts.find((item) => item !== display) || display;
+    const line = brandProfile().creative_line || {};
+    const palette = (saved.colors?.palette || line.color_palette || brandProfile().color_palette || [])
+      .map((item) => (typeof item === 'string' ? item : item?.hex))
+      .filter(Boolean);
+    if (client().primary_color) palette.unshift(client().primary_color);
+    if (client().secondary_color) palette.push(client().secondary_color);
+    const colors = [...new Set(palette)].slice(0, 8);
     return {
-      display: display?.family || 'Georgia',
-      body: body?.family || 'Inter',
+      id: saved.id || `dna-${client().id || 'marca'}-v1`,
+      fonts: {
+        primary: saved.fonts?.primary || display?.family || 'Manrope',
+        fallback: saved.fonts?.fallback || body?.family || display?.family || 'Manrope',
+      },
+      colors: {
+        palette: colors.length ? colors : ['#183436', '#1E4D4F'],
+        accent: saved.colors?.accent || colors[1] || colors[0] || '#1E4D4F',
+      },
+      logo: {
+        asset_url: saved.logo?.asset_url || client().logo_upload_path || client().logo_url || '',
+        min_clear_space: saved.logo?.min_clear_space || 8,
+        allowed_positions: saved.logo?.allowed_positions || ['top-right', 'top-left'],
+      },
+      voice_tone: saved.voice_tone || client().tone_of_voice || '',
+      text_limits: {
+        headline_max_chars: Number(saved.text_limits?.headline_max_chars) || 42,
+        subhead_max_chars: Number(saved.text_limits?.subhead_max_chars) || 72,
+      },
     };
   }
 
+  function brandFonts() {
+    const dna = brandDna();
+    return { display: dna.fonts.primary, body: dna.fonts.fallback };
+  }
+
   function brandColors() {
-    const line = brandProfile().creative_line || {};
-    const palette = line.color_palette || brandProfile().color_palette || [];
-    const colors = palette.map((item) => (typeof item === 'string' ? item : item?.hex)).filter(Boolean);
-    if (client().primary_color) colors.unshift(client().primary_color);
-    if (client().secondary_color) colors.push(client().secondary_color);
-    return [...new Set(colors)].slice(0, 6);
+    return brandDna().colors.palette;
+  }
+
+  function clampCopy(text, maxChars) {
+    const value = String(text || '').trim();
+    const limit = Math.max(1, Number(maxChars) || 42);
+    if (value.length <= limit) return value;
+    const clipped = value.slice(0, limit).trim();
+    if (clipped.includes(' ') && limit > 8) return clipped.slice(0, clipped.lastIndexOf(' '));
+    return clipped;
+  }
+
+  function applyDnaToLayers(layers) {
+    const dna = brandDna();
+    return (layers || []).map((layer) => {
+      const next = { ...layer, content: { ...(layer.content || {}) }, brand_dna_id: dna.id };
+      if (next.tipo === 'texto' || next.tipo === 'anotacao') {
+        next.content.font = dna.fonts.primary;
+        if (next.content.text) next.content.text = clampCopy(next.content.text, dna.text_limits.headline_max_chars);
+      }
+      if (next.tipo === 'cta' || next.tipo === 'overlay') {
+        next.content.font = dna.fonts.fallback;
+        if (next.content.text) next.content.text = clampCopy(next.content.text, dna.text_limits.subhead_max_chars);
+      }
+      if (next.tipo === 'logo' && dna.logo.asset_url) next.content.src = dna.logo.asset_url;
+      return next;
+    });
+  }
+
+  function checkBrandDna(layers) {
+    const dna = brandDna();
+    const fonts = [dna.fonts.primary, dna.fonts.fallback].map((item) => String(item || '').toLowerCase()).filter(Boolean);
+    const palette = [...dna.colors.palette, dna.colors.accent].map((item) => String(item || '').toUpperCase());
+    const violations = [];
+    (layers || state.layers).forEach((layer) => {
+      const content = layer.content || {};
+      const label = layer.id || layer.tipo;
+      if (['texto', 'cta', 'overlay', 'anotacao'].includes(layer.tipo)) {
+        const used = String(content.font || '').trim();
+        if (used && !fonts.includes(used.toLowerCase())) {
+          violations.push(`${label}: fonte ${used} não é ${dna.fonts.primary}.`);
+        }
+        const limit = layer.tipo === 'texto' || layer.tipo === 'anotacao'
+          ? dna.text_limits.headline_max_chars
+          : dna.text_limits.subhead_max_chars;
+        if (String(content.text || '').length > limit) {
+          violations.push(`${label}: texto ultrapassa ${limit} caracteres.`);
+        }
+      }
+      if (layer.tipo === 'logo' && dna.logo.asset_url && content.src && content.src !== dna.logo.asset_url) {
+        violations.push(`${label}: logo não é o asset do DNA.`);
+      }
+      const color = content.color || content.fill;
+      const safe = ['#FFF', '#FFFFFF', '#000', '#000000'];
+      if (
+        color
+        && ['texto', 'cta', 'overlay', 'forma'].includes(layer.tipo)
+        && !palette.includes(String(color).toUpperCase())
+        && !safe.includes(String(color).toUpperCase())
+      ) {
+        violations.push(`${label}: cor ${color} fora da paleta.`);
+      }
+      const right = Number(layer.x) + Number(layer.w);
+      const bottom = Number(layer.y) + Number(layer.h);
+      if (layer.x < -0.5 || layer.y < -0.5 || right > 100.5 || bottom > 100.5) {
+        violations.push(`${label}: bounding box fora do retângulo do formato.`);
+      }
+    });
+    return { passed: !violations.length, violations, brand_dna_id: dna.id };
   }
 
   function brandAssets(role) {
@@ -213,8 +306,9 @@
       }, index));
     }
     const photo = assetUrl(sceneAsset(activeScene()));
-    const logo = client().logo_upload_path || client().logo_url || '';
-    const colors = brandColors();
+    const dna = brandDna();
+    const logo = dna.logo.asset_url;
+    const colors = dna.colors.palette;
     const fonts = brandFonts();
     const extracted = pack();
     const fundoSrc = assetSrc(brandAssets('background')[0]);
@@ -232,7 +326,7 @@
       normalizeLayer({
         id: 'texto', tipo: 'texto', x: 8, y: 6, w: 70, h: 16, z: 2,
         content: {
-          text: extracted.headline || state.campaign?.name || 'Headline',
+          text: clampCopy(extracted.headline || state.campaign?.name || 'Headline', dna.text_limits.headline_max_chars),
           font: fonts.display,
           color: '#ffffff',
         },
@@ -246,7 +340,7 @@
       layers.push(normalizeLayer({
         id: 'cta', tipo: 'cta', x: 8, y: 78, w: 84, h: 12, z: 5,
         content: {
-          text: extracted.cta || state.campaign?.cta_text || 'Saiba mais',
+          text: clampCopy(extracted.cta || state.campaign?.cta_text || 'Saiba mais', dna.text_limits.subhead_max_chars),
           font: fonts.body,
           color: '#ffffff',
           fill: colors[0] || '#1E4D4F',
@@ -284,26 +378,43 @@
 
   function defaultBenchScenes() {
     const saved = brief().bancada?.scenes || brief().bancada?.cards;
+    const dna = brandDna();
+    const roles = ['gancho', 'contexto', 'beneficio', 'fechamento'];
     if (Array.isArray(saved) && saved.length) {
       return saved.map((item, index) => ({
         id: String(item.id || `cena-${index + 1}`),
         label: item.label || `Cena ${index + 1}`,
         duration: Number(item.duration) || 2,
         scene_id: item.scene_id || null,
-        layers: Array.isArray(item.layers) && item.layers.length
+        brand_dna_id: item.brand_dna_id || dna.id,
+        role: item.role || roles[index] || (index === saved.length - 1 ? 'fechamento' : 'prova'),
+        regenerate: Array.isArray(item.regenerate) ? item.regenerate : [],
+        layers: applyDnaToLayers(Array.isArray(item.layers) && item.layers.length
           ? item.layers.map((layer, layerIndex) => normalizeLayer(layer, layerIndex))
-          : [],
+          : []),
       }));
     }
     const list = scenes();
     if (!list.length) {
-      return [{ id: 'cena-1', label: 'Cena 1', duration: 2, scene_id: null, layers: defaultLayers() }];
+      return [{
+        id: 'cena-1',
+        label: 'Cena 1',
+        duration: 2,
+        scene_id: null,
+        brand_dna_id: dna.id,
+        role: 'unico',
+        regenerate: [],
+        layers: applyDnaToLayers(defaultLayers()),
+      }];
     }
     return list.map((scene, index) => ({
       id: `cena-${scene.id}`,
       scene_id: scene.id,
       label: `Cena ${index + 1}`,
       duration: 2,
+      brand_dna_id: dna.id,
+      role: roles[index] || (index === list.length - 1 ? 'fechamento' : 'prova'),
+      regenerate: [],
       layers: [],
     }));
   }
@@ -325,7 +436,7 @@
     const item = benchScene();
     if (item?.scene_id) state.sceneId = item.scene_id;
     const layers = item?.layers?.length ? item.layers : defaultLayers();
-    state.layers = layers.map((layer, index) => normalizeLayer(layer, index));
+    state.layers = applyDnaToLayers(layers.map((layer, index) => normalizeLayer(layer, index)));
     if (item) item.layers = cloneLayers(state.layers);
     state.selectedId = state.layers[1]?.id || state.layers[0]?.id || null;
     state.undo = [];
@@ -333,13 +444,28 @@
   }
 
   function addBenchScene() {
+    duplicateBenchScene();
+  }
+
+  function duplicateBenchScene() {
     syncActiveScene();
+    const source = benchScene();
+    const dna = brandDna();
+    const roles = ['gancho', 'contexto', 'beneficio', 'fechamento'];
+    const copied = applyDnaToLayers(cloneLayers(source?.layers?.length ? source.layers : defaultLayers()))
+      .map((layer) => ({
+        ...layer,
+        locked: layer.tipo === 'texto' || layer.tipo === 'cta' || layer.tipo === 'logo' || layer.locked,
+      }));
     const next = {
       id: uid('cena'),
       label: `Cena ${state.benchScenes.length + 1}`,
-      duration: 2,
+      duration: Number(source?.duration) || 2,
       scene_id: null,
-      layers: defaultLayers(),
+      brand_dna_id: source?.brand_dna_id || dna.id,
+      role: roles[state.benchScenes.length] || 'prova',
+      regenerate: ['fundo'],
+      layers: copied,
     };
     state.benchScenes.push(next);
     openBenchScene(next.id);
@@ -387,7 +513,13 @@
     if (tab === 'elementos') renderElements();
     if (tab === 'variacoes') renderVariationsPanel();
     if (tab === 'roteiro') renderScript();
-    if (tab === 'aprovacao') renderReview();
+    if (tab === 'aprovacao') {
+      state.exploded = false;
+      state.layers = applyDnaToLayers(state.layers);
+      state.brandCheck = checkBrandDna(state.layers);
+      renderWell();
+      renderReview();
+    }
   }
 
   function renderCampaignOptions() {
@@ -443,6 +575,17 @@
     }
   }
 
+  function fitWellScale() {
+    const canvas = $('mcBenchCanvas');
+    const size = formatSize();
+    if (!canvas) return state.zoom / 100;
+    const pad = 56;
+    const availW = Math.max(96, canvas.clientWidth - pad);
+    const availH = Math.max(96, canvas.clientHeight - pad);
+    const contain = Math.min(availW / size.w, availH / size.h);
+    return contain * (state.zoom / 100);
+  }
+
   function renderWell() {
     const canvas = $('mcBenchCanvas');
     const well = $('mcBenchWell');
@@ -450,7 +593,8 @@
     const size = formatSize();
     well.style.width = `${size.w}px`;
     well.style.height = `${size.h}px`;
-    canvas.style.setProperty('--bench-zoom', String(state.zoom / 100));
+    well.dataset.formatSize = size.label;
+    canvas.style.setProperty('--bench-zoom', String(fitWellScale()));
     canvas.classList.toggle('is-exploded', state.exploded);
     canvas.classList.toggle('is-playing', state.playing);
     const toggle = $('mcBench3dToggle');
@@ -462,8 +606,8 @@
     const meta = $('mcBenchWellMeta');
     if (meta) {
       meta.textContent = state.playing
-        ? 'Play no tamanho real. Texto, CTA e ícone ficam em HTML.'
-        : 'O retângulo é o tamanho real. Fundo, texto, CTA e ícone entram em HTML.';
+        ? 'Play no retângulo do formato. Texto, CTA e ícone ficam em HTML.'
+        : 'O retângulo guarda a proporção do formato. Fundo, texto, CTA e ícone entram em HTML.';
     }
     const visible = state.layers.filter((item) => item.visible !== false);
     well.innerHTML = visible.map((layer, index) => layerMarkup(layer, index, visible.length)).join('');
@@ -476,11 +620,15 @@
       ? ` is-motion-${escapeHtml(layer.motion.preset)}`
       : '';
     const selected = layer.id === state.selectedId ? ' is-selected' : '';
+    const fill = layer.tipo === 'fundo' && !layer.content.src
+      ? (layer.content.fill || brandColors()[0] || '#183436')
+      : (layer.content.fill || '');
+    const bg = fill ? `background:${escapeHtml(fill)};` : '';
     return `
       <div class="mc-bench-layer${selected}${motion}${layer.visible === false ? ' is-hidden' : ''}"
            data-layer-id="${escapeHtml(layer.id)}"
            data-tipo="${escapeHtml(layer.tipo)}"
-           style="left:${layer.x}%;top:${layer.y}%;width:${layer.w}%;height:${layer.h}%;z-index:${layer.z + 1};--spread-z:${depth}px;background:${escapeHtml(layer.content.fill || '')};color:${escapeHtml(layer.content.color || '#183436')};font-family:${escapeHtml(layer.content.font || 'inherit')};opacity:${layer.content.opacity != null ? layer.content.opacity / 100 : 1};border-radius:${layer.content.radius || 0}px;">
+           style="left:${layer.x}%;top:${layer.y}%;width:${layer.w}%;height:${layer.h}%;z-index:${layer.z + 1};--spread-z:${depth}px;${bg}color:${escapeHtml(layer.content.color || '#183436')};font-family:${escapeHtml(layer.content.font || brandFonts().display)};opacity:${layer.content.opacity != null ? layer.content.opacity / 100 : 1};border-radius:${layer.content.radius || 0}px;">
         ${layerInner(layer)}
         <small class="mc-bench-layer-label">${escapeHtml(meta.group)} · Camada ${index + 1}</small>
         ${layer.id === state.selectedId && !layer.locked ? '<i class="mc-bench-handle" data-resize="1"></i>' : ''}
@@ -514,10 +662,17 @@
     const root = $('mcBenchThumbs');
     if (!root) return;
     root.innerHTML = state.benchScenes.map((item) => {
-      const photo = (item.layers || []).find((layer) => layer.tipo === 'imagem')?.content?.src
+      const photo = (item.layers || []).find((layer) => layer.tipo === 'imagem' && layer.content?.src)?.content?.src
+        || (item.layers || []).find((layer) => layer.tipo === 'fundo' && layer.content?.src)?.content?.src
         || assetUrl(sceneAsset(scenes().find((scene) => String(scene.id) === String(item.scene_id))));
-      return `<button type="button" data-bench-scene="${escapeHtml(item.id)}" class="${String(item.id) === String(state.benchSceneId) ? 'is-current' : ''}">${photo ? `<img src="${escapeHtml(photo)}" alt="">` : escapeHtml(item.label || '+')}</button>`;
-    }).join('') + '<button type="button" data-bench-act="add-scene" title="Nova cena">+</button>';
+      const fill = (item.layers || []).find((layer) => layer.tipo === 'fundo')?.content?.fill
+        || brandColors()[0]
+        || '#183436';
+      const inner = photo
+        ? `<img src="${escapeHtml(photo)}" alt="">`
+        : `<i style="background:${escapeHtml(fill)}"></i>`;
+      return `<button type="button" data-bench-scene="${escapeHtml(item.id)}" class="${String(item.id) === String(state.benchSceneId) ? 'is-current' : ''}" title="${escapeHtml(item.label || '')}">${inner}</button>`;
+    }).join('') + '<button type="button" data-bench-act="add-scene" title="Duplicar cena">+</button>';
   }
 
   function renderLayerList() {
@@ -644,30 +799,48 @@
   function renderScript() {
     const root = $('mcBenchScript');
     if (!root) return;
-    const items = scenes();
+    const roleLabel = {
+      gancho: 'Gancho',
+      contexto: 'Contexto',
+      beneficio: 'Benefício',
+      fechamento: 'Fechamento',
+      prova: 'Prova',
+      unico: 'Peça única',
+    };
+    const items = state.benchScenes.length ? state.benchScenes : scenes();
     root.innerHTML = items.length
-      ? items.map((scene, index) => (
-        `<li><strong>Batida ${index + 1}</strong><p>${escapeHtml(scene.description || scene.prompt || 'Sem texto nesta batida.')}</p></li>`
-      )).join('')
-      : '<li>Peça um roteiro ao agente para preencher as batidas.</li>';
+      ? items.map((scene, index) => {
+        const role = scene.role || (items.length <= 1 ? 'unico' : ['gancho', 'contexto', 'beneficio', 'fechamento'][index] || 'prova');
+        const copy = (scene.layers || []).find((layer) => layer.tipo === 'texto')?.content?.text
+          || scene.description
+          || scene.prompt
+          || 'Sem texto nesta batida.';
+        return `<li><strong>${escapeHtml(roleLabel[role] || role)} · Cena ${index + 1}</strong><p>${escapeHtml(copy)}</p></li>`;
+      }).join('')
+      : '<li>Peça um roteiro ao agente para ordenar gancho, contexto, benefício e fechamento.</li>';
   }
 
   function renderReview() {
     const root = $('mcBenchReview');
     if (!root) return;
-    const fitted = !state.exploded;
+    const report = state.brandCheck || checkBrandDna(state.layers);
+    state.brandCheck = report;
+    const list = report.violations.length
+      ? `<ul class="mc-bench-violations">${report.violations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : '<p>Brand Checker automático: a peça passou no DNA da marca.</p>';
     root.innerHTML = `
-      <p>${fitted ? 'A peça está encaixada no retângulo. O Brand Checker lê este fechamento.' : 'Encaixe a peça no 3D para o canal entrar.'}</p>
-      <button class="cx-btn cx-btn-primary" type="button" data-bench-act="review">Rodar Brand Checker</button>
-      ${fitted ? '<div class="mc-bench-channel" id="mcBenchChannel">Canal vestido só no fechamento. Sem YouTube ou Instagram no miolo da Mesa.</div>' : ''}
+      ${list}
+      <button class="cx-btn cx-btn-primary" type="button" data-bench-act="review" ${report.passed ? '' : 'disabled'}>${report.passed ? 'Liberar aprovação' : 'Corrija as violações'}</button>
+      ${report.passed ? '<div class="mc-bench-channel" id="mcBenchChannel">Canal vestido só no fechamento. Sem YouTube ou Instagram no miolo da Mesa.</div>' : ''}
     `;
   }
 
   function renderBrand() {
     const root = $('mcBenchBrandBody');
     if (!root) return;
-    const logo = client().logo_upload_path || client().logo_url || '';
-    const colors = brandColors();
+    const dna = brandDna();
+    const logo = dna.logo.asset_url;
+    const colors = dna.colors.palette;
     const fonts = brandFonts();
     const size = formatSize();
     const fundo = brandAssets('background')[0];
@@ -678,7 +851,7 @@
       ${logo ? `<img src="${escapeHtml(logo)}" alt="Logo da marca">` : '<span>Sem logo</span>'}
       <div class="mc-bench-swatches">${colors.map((hex) => `<i style="background:${escapeHtml(hex)}" title="${escapeHtml(hex)}"></i>`).join('')}</div>
       <small>${escapeHtml(fonts.display)} / ${escapeHtml(fonts.body)}</small>
-      <p class="mc-bench-crop-note">No ${escapeHtml(size.label)} o fundo cobre o poço. Foto 2 e 3 só entram se couberem no slot.</p>
+      <p class="mc-bench-crop-note">DNA ${escapeHtml(dna.id)}. Fonte e paleta travam a geração. No ${escapeHtml(size.label)} o fundo cobre o poço.</p>
       <div class="mc-bench-brand-slots">
         ${slotThumb('Fundo', fundo)}
         ${supports.map((item, index) => slotThumb(`Foto ${index + 2}`, item)).join('')}
@@ -738,56 +911,101 @@
 
   function applyAgentResult(name, data) {
     if (!data || typeof data !== 'object') return;
+    const targetId = state.targetLayerId;
+    const target = state.layers.find((item) => item.id === targetId) || selectedLayer();
     if (name === 'motion') {
-      const layer = selectedLayer() || state.layers.find((item) => item.tipo === 'imagem') || state.layers[0];
-      if (!layer) return;
+      const layer = target || state.layers.find((item) => item.tipo === 'imagem') || state.layers[0];
+      if (!layer || layer.locked) return;
       snapshot();
       layer.motion = { preset: data.preset || 'fade', duration: 1.2 };
       return;
     }
-    if (Array.isArray(data.regions) && data.regions.length) {
-      snapshot();
-      state.layers = data.regions.map((item, index) => normalizeLayer({
+    if (name === 'reviewer') {
+      state.brandCheck = {
+        passed: data.passed !== false && !(data.notes || []).length,
+        violations: Array.isArray(data.notes) ? data.notes : (data.qa?.notes || []),
+        brand_dna_id: brandDna().id,
+      };
+      return;
+    }
+    snapshot();
+    if (Array.isArray(data.regions) && data.regions.length && !targetId) {
+      state.layers = applyDnaToLayers(data.regions.map((item, index) => normalizeLayer({
         ...item,
         content: item.content || state.layers[index]?.content || {},
-      }, index));
+      }, index)));
+    } else if (Array.isArray(data.regions) && target && !target.locked) {
+      const match = data.regions.find((item) => item.id === target.id || item.tipo === target.tipo) || data.regions[0];
+      if (match?.content) Object.assign(target.content, match.content);
     }
     const copy = data.instance_data || data.copy || {};
-    if (copy.headline) {
-      const layer = state.layers.find((item) => item.tipo === 'texto');
-      if (layer) layer.content.text = copy.headline;
+    const dna = brandDna();
+    if (copy.headline && (!targetId || target?.tipo === 'texto')) {
+      const layer = (target?.tipo === 'texto' ? target : null) || state.layers.find((item) => item.tipo === 'texto');
+      if (layer && !layer.locked) layer.content.text = clampCopy(copy.headline, dna.text_limits.headline_max_chars);
     }
-    if (copy.cta) {
-      const layer = state.layers.find((item) => item.tipo === 'cta' || item.tipo === 'overlay');
-      if (layer) layer.content.text = copy.cta;
+    if (copy.cta && (!targetId || target?.tipo === 'cta' || target?.tipo === 'overlay')) {
+      const layer = (target && (target.tipo === 'cta' || target.tipo === 'overlay') ? target : null)
+        || state.layers.find((item) => item.tipo === 'cta' || item.tipo === 'overlay');
+      if (layer && !layer.locked) layer.content.text = clampCopy(copy.cta, dna.text_limits.subhead_max_chars);
     }
-    const palette = data.tokens?.palette || data.palette;
-    if (Array.isArray(palette) && palette[0]) {
-      const text = state.layers.find((item) => item.tipo === 'texto');
-      if (text) text.content.color = palette[0];
+    if (target?.tipo === 'fundo' && (data.image_url || data.asset_url) && !target.locked) {
+      target.content.src = data.image_url || data.asset_url;
     }
+    state.layers = applyDnaToLayers(state.layers);
+  }
+
+  function agentTarget(name) {
+    const selected = selectedLayer();
+    if (name === 'extractor' || name === 'scriptwriter') {
+      return selected || state.layers.find((item) => item.tipo === 'fundo') || state.layers[0];
+    }
+    if (name === 'producer' || name === 'copywriter') {
+      return state.layers.find((item) => item.tipo === 'texto') || selected;
+    }
+    return selected;
   }
 
   async function runAgent(name, prompt) {
+    const mapped = name === 'copywriter' ? 'producer' : name;
+    const target = agentTarget(mapped);
+    state.targetLayerId = target?.id || null;
+    const layerHint = target ? `Camada ${target.tipo}` : 'peça';
     pushChat(prompt || AGENT_COPY[name] || name, 'user');
-    if (name === 'motion') {
-      applyAgentResult('motion', { preset: selectedLayer()?.tipo === 'imagem' ? 'kenburns' : 'fade' });
+    if (mapped === 'motion') {
+      applyAgentResult('motion', { preset: target?.tipo === 'imagem' || target?.tipo === 'fundo' ? 'kenburns' : 'fade' });
       renderWell();
       persist();
       pushChat(agentSummary('motion'), 'agent');
       return;
     }
-    const mapped = name === 'copywriter' ? 'producer' : name;
     try {
+      const dna = brandDna();
+      const sisters = state.benchScenes
+        .filter((item) => item.id !== state.benchSceneId)
+        .map((item) => ({
+          id: item.id,
+          role: item.role,
+          fundo: (item.layers || []).find((layer) => layer.tipo === 'fundo')?.content?.src || '',
+        }));
       const data = await api(`${API.agents}/${mapped}`, {
         method: 'POST',
         body: JSON.stringify({
           prompt: prompt || '',
           campaign_id: state.campaign?.id,
+          brand_dna: dna,
+          layers: state.layers,
+          target_layer_id: target?.id || '',
+          target_tipo: target?.tipo || '',
+          sister_scenes: target?.tipo === 'fundo' ? sisters : [],
           contract: {
+            brand_dna: dna,
+            brand_dna_id: dna.id,
+            target_layer_id: target?.id || '',
+            target_tipo: target?.tipo || '',
             regions: state.layers,
             params: { regions: state.layers },
-            tokens: { palette: brandColors(), fonts: brandFonts() },
+            tokens: { palette: dna.colors.palette, fonts: dna.fonts },
             instance_data: {
               headline: state.layers.find((item) => item.tipo === 'texto')?.content.text,
               cta: state.layers.find((item) => item.tipo === 'cta' || item.tipo === 'overlay')?.content.text,
@@ -796,9 +1014,10 @@
         }),
       });
       applyAgentResult(mapped, data);
+      state.brandCheck = checkBrandDna(state.layers);
       renderAll();
       persist();
-      pushChat(agentSummary(mapped, data), 'agent');
+      pushChat(`${layerHint}. ${agentSummary(mapped, data)}`, 'agent');
     } catch (error) {
       pushChat(error.message, 'agent');
     }
@@ -819,6 +1038,8 @@
           zoom: state.zoom,
           active_layer_id: state.selectedId,
           active_scene_id: state.sceneId,
+          brand_dna: brandDna(),
+          brand_dna_id: brandDna().id,
           scenes: state.benchScenes,
           cards: state.benchScenes,
         }),
@@ -829,6 +1050,8 @@
           ...(state.campaign.creative_brief.bancada || {}),
           layers: cloneLayers(state.layers),
           scenes: cloneLayers(state.benchScenes),
+          brand_dna: brandDna(),
+          brand_dna_id: brandDna().id,
         };
       }
       renderHead();
@@ -856,7 +1079,7 @@
       layer.x = 0;
       layer.y = 0;
     }
-    state.layers.push(layer);
+    state.layers.push(applyDnaToLayers([layer])[0]);
     state.selectedId = layer.id;
     renderWell();
     persist();
@@ -975,8 +1198,14 @@
       }
     }
     state.sceneId = brief().bancada?.active_scene_id || scenes()[0]?.id || null;
-    state.exploded = brief().bancada?.exploded !== false;
-    state.zoom = brief().bancada?.zoom || 100;
+    state.exploded = Boolean(brief().bancada?.exploded);
+    state.zoom = Number(brief().bancada?.zoom) || 100;
+    if (state.zoom < 60) state.zoom = 100;
+    if (state.campaign.brand_dna) {
+      const current = brief();
+      current.bancada = { ...(current.bancada || {}), brand_dna: state.campaign.brand_dna, brand_dna_id: state.campaign.brand_dna.id };
+      state.campaign.creative_brief = current;
+    }
     state.benchScenes = defaultBenchScenes();
     state.benchSceneId = brief().bancada?.active_layer_id
       ? state.benchScenes.find((item) => item.layers?.some((layer) => layer.id === brief().bancada.active_layer_id))?.id
@@ -1132,6 +1361,11 @@
       }
     });
     const canvas = $('mcBenchCanvas');
+    if (canvas && window.ResizeObserver) {
+      new ResizeObserver(() => {
+        if (state.campaign) renderWell();
+      }).observe(canvas);
+    }
     canvas?.addEventListener('pointerdown', startDrag);
     window.addEventListener('pointermove', moveDrag);
     window.addEventListener('pointerup', endDrag);
@@ -1238,9 +1472,32 @@
     });
     document.querySelector('.mc-bench-shortcuts')?.addEventListener('click', (event) => {
       const kind = event.target.closest('[data-bench-shortcut]')?.getAttribute('data-bench-shortcut');
-      if (kind === 'variacoes') runAgent('scriptwriter', 'Gere variações desta peça.');
+      if (kind === 'variacoes') {
+        const layer = selectedLayer();
+        runAgent(
+          layer?.tipo === 'texto' || layer?.tipo === 'cta' ? 'producer'
+            : layer?.tipo === 'fundo' || layer?.tipo === 'imagem' || layer?.tipo === 'icone' ? 'extractor'
+              : 'scriptwriter',
+          layer
+            ? `Gere variação só da camada ${layer.tipo}, sem alterar as outras.`
+            : 'Gere variações desta peça.',
+        );
+      }
       if (kind === 'texto') runAgent('producer', 'Ajuste headline e CTA nas camadas de texto.');
-      if (kind === 'imagem') runAgent('extractor', 'Sugira um recorte melhor para a imagem principal.');
+      if (kind === 'imagem') {
+        const layer = ['fundo', 'imagem', 'icone'].includes(selectedLayer()?.tipo)
+          ? selectedLayer()
+          : state.layers.find((item) => item.tipo === 'fundo') || selectedLayer();
+        if (layer) state.selectedId = layer.id;
+        runAgent(
+          'extractor',
+          layer?.tipo === 'icone'
+            ? 'Crie ou escolha um ícone sem texto embutido.'
+            : layer?.tipo === 'fundo'
+              ? 'Gere só o fundo, sem texto, logo ou talento com marca.'
+              : 'Sugira um recorte melhor para a imagem principal.',
+        );
+      }
       if (kind === 'layout') runAgent('dna', 'Sugira layout com a paleta e as fontes da marca.');
     });
     $('mcBenchTags')?.addEventListener('click', (event) => {

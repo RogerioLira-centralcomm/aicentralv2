@@ -66,6 +66,12 @@ from .creative_image_fidelity import (
     quote_image_publish,
     resolve_image_tier,
 )
+from .creative_brand_dna import (
+    apply_brand_dna_to_layers,
+    attach_brand_dna_to_scenes,
+    check_brand_dna,
+    materialize_brand_dna,
+)
 from .creative_compose_library import (
     LIBRARY_FAMILIES,
     apply_script_params,
@@ -1006,6 +1012,28 @@ class CreativeModelingService:
         callable_llm = payload.pop("text_callable", None)
         if callable_llm is None:
             callable_llm = getattr(self.generator, "text_callable", None)
+        campaign_id = payload.get("campaign_id")
+        if campaign_id not in (None, "") and hasattr(self.repository, "get_campaign"):
+            try:
+                campaign = self.repository.get_campaign(int(campaign_id))
+            except (TypeError, ValueError, Exception):
+                campaign = None
+            if isinstance(campaign, dict):
+                client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+                brief = campaign.get("creative_brief") if isinstance(campaign.get("creative_brief"), dict) else {}
+                bancada = brief.get("bancada") if isinstance(brief.get("bancada"), dict) else {}
+                dna = materialize_brand_dna(
+                    client,
+                    client.get("brand_profile"),
+                    payload.get("brand_dna") or bancada.get("brand_dna"),
+                )
+                payload["brand_dna"] = dna
+                contract = payload.get("contract")
+                if isinstance(contract, dict):
+                    contract = dict(contract)
+                    contract["brand_dna"] = dna
+                    contract["brand_dna_id"] = dna["id"]
+                    payload["contract"] = contract
         result = run_agent(
             name,
             payload,
@@ -2798,6 +2826,14 @@ class CreativeModelingService:
         campaign = self.repository.get_campaign(_integer(campaign_id, "Campanha"))
         data = annotate_cost(campaign, campaign.get("spent_usd"))
         data["flow_kind"] = _flow_kind(data)
+        client = data.get("client") if isinstance(data.get("client"), dict) else {}
+        brief = data.get("creative_brief") if isinstance(data.get("creative_brief"), dict) else {}
+        bancada = brief.get("bancada") if isinstance(brief.get("bancada"), dict) else {}
+        data["brand_dna"] = materialize_brand_dna(
+            client,
+            client.get("brand_profile"),
+            bancada.get("brand_dna") or (client.get("brand_profile") or {}).get("brand_dna"),
+        )
         return _serialize(data)
 
     def save_bancada_document(self, campaign_id, payload):
@@ -2807,7 +2843,19 @@ class CreativeModelingService:
         campaign = self.repository.get_campaign(campaign_id)
         brief = campaign.get("creative_brief")
         brief = dict(brief) if isinstance(brief, dict) else {}
-        layers = sanitize_compose_regions(payload.get("layers") or payload.get("regions"))
+        client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+        profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
+        dna = materialize_brand_dna(
+            client,
+            profile,
+            payload.get("brand_dna")
+            or (brief.get("bancada") or {}).get("brand_dna")
+            or profile.get("brand_dna"),
+        )
+        layers = apply_brand_dna_to_layers(
+            sanitize_compose_regions(payload.get("layers") or payload.get("regions")),
+            dna,
+        )
         tags = []
         for item in payload.get("tags") or []:
             label = str(item or "").strip()
@@ -2844,25 +2892,39 @@ class CreativeModelingService:
                     card_scene = str(card_scene)[:64]
             else:
                 card_scene = None
+            role = str(item.get("role") or "")[:32]
+            regenerate = [
+                str(name)[:32]
+                for name in (item.get("regenerate") or [])
+                if str(name).strip()
+            ][:8]
             cards.append({
                 "id": str(item.get("id") or "")[:64],
                 "label": str(item.get("label") or "")[:80],
                 "duration": duration,
                 "layers": sanitize_compose_regions(item.get("layers") or []),
                 "scene_id": card_scene,
+                "role": role,
+                "regenerate": regenerate,
+                "brand_dna_id": str(item.get("brand_dna_id") or dna["id"])[:80],
             })
             if len(cards) >= 8:
                 break
+        cards = attach_brand_dna_to_scenes(cards, dna)
+        report = check_brand_dna(layers, dna)
         bancada = {
             "layers": layers,
             "scenes": cards,
             "cards": cards,
             "tags": tags,
             "title": title,
-            "exploded": bool(payload.get("exploded", True)),
+            "exploded": bool(payload.get("exploded")),
             "zoom": zoom,
             "active_layer_id": str(payload.get("active_layer_id") or "")[:64],
             "active_scene_id": scene_id,
+            "brand_dna_id": dna["id"],
+            "brand_dna": dna,
+            "brand_check": report,
         }
         brief["bancada"] = bancada
         if layers:

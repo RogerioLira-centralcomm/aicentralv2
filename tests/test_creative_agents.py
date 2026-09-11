@@ -169,6 +169,34 @@ class CreativeAgentsContractTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_agent("unfold", {})
 
+    def test_copywriter_na_bancada_respeita_limite_do_dna(self):
+        result = producer.run(
+            PieceContract(
+                brand_dna={"fonts": {"primary": "Manrope", "fallback": "Manrope"}, "text_limits": {"headline_max_chars": 12, "subhead_max_chars": 8}},
+                regions=[{"tipo": "texto", "x": 8, "y": 6, "w": 70, "h": 16}],
+            ),
+            headline="Headline longo demais para o slot",
+            cta="Comprar agora já",
+        )
+        self.assertLessEqual(len(result.instance_data["headline"]), 12)
+        self.assertLessEqual(len(result.instance_data["cta"]), 8)
+        self.assertEqual(result.brand_dna["fonts"]["primary"], "Manrope")
+
+    def test_brand_checker_bloqueia_fonte_errada(self):
+        result = reviewer.run(
+            PieceContract(
+                brand_dna={"fonts": {"primary": "Manrope", "fallback": "Manrope"}},
+                regions=[{
+                    "tipo": "texto",
+                    "x": 8, "y": 6, "w": 70, "h": 16,
+                    "content": {"text": "Pai", "font": "Impact"},
+                }],
+            ),
+        )
+        self.assertFalse(result.qa.passed)
+        self.assertEqual(result.status, "reprovado")
+        self.assertTrue(any("fonte" in note for note in result.qa.notes))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
+from aicentralv2.creative_brand_dna import (
+    apply_brand_dna_to_layers,
+    check_brand_dna,
+    clamp_copy,
+    materialize_brand_dna,
+)
 from aicentralv2.creative_compose_library import (
     apply_script_params,
     catalog_templates,
@@ -151,6 +157,9 @@ class CreativeComposeLibraryTest(unittest.TestCase):
         self.assertEqual(brief["bancada"]["scenes"][0]["id"], "cena-1")
         self.assertEqual(brief["bancada"]["scenes"][0]["layers"][1]["content"]["text"], "Headline")
         self.assertEqual(brief["bancada"]["cards"], brief["bancada"]["scenes"])
+        self.assertTrue(brief["bancada"]["brand_dna_id"])
+        self.assertTrue(all(scene.get("brand_dna_id") for scene in brief["bancada"]["scenes"]))
+        self.assertFalse(brief["bancada"]["exploded"])
 
     def test_promocao_e_arquivo_pelos_cliques(self):
         self.assertEqual(next_variation_status(3, 0, "experimental"), "approved")
@@ -422,6 +431,47 @@ class CreativeComposeLibraryTest(unittest.TestCase):
             "ugc_face.html", "offer_stack.html",
         ):
             self.assertTrue((templates / name).is_file())
+
+    def test_dna_trava_fonte_e_rejeita_texto_longo(self):
+        dna = materialize_brand_dna(
+            {"id": 4, "name": "Reserva", "tone_of_voice": "seco"},
+            {"fonts": [{"family": "Manrope", "role": "display"}]},
+        )
+        self.assertEqual(dna["fonts"]["primary"], "Manrope")
+        self.assertEqual(dna["text_limits"]["headline_max_chars"], 42)
+        layers = apply_brand_dna_to_layers(
+            [{
+                "id": "texto",
+                "tipo": "texto",
+                "x": 8, "y": 6, "w": 70, "h": 16,
+                "content": {
+                    "text": "Um headline longo demais para o slot do Dia dos Pais na Reserva",
+                    "font": "Comic Sans",
+                    "color": "#ffffff",
+                },
+            }],
+            dna,
+        )
+        self.assertEqual(layers[0]["content"]["font"], "Manrope")
+        self.assertLessEqual(len(layers[0]["content"]["text"]), 42)
+        self.assertEqual(clamp_copy("abc def ghi", 7), "abc def")
+        bad = check_brand_dna(
+            [{
+                "id": "texto",
+                "tipo": "texto",
+                "x": 8, "y": 6, "w": 70, "h": 16,
+                "content": {"text": "Ok", "font": "Papyrus", "color": "#ffffff"},
+            }],
+            dna,
+        )
+        self.assertFalse(bad["passed"])
+        self.assertTrue(any("fonte" in item for item in bad["violations"]))
+        outside = check_brand_dna(
+            [{"id": "cta", "tipo": "cta", "x": 90, "y": 90, "w": 20, "h": 20, "content": {"text": "Ok", "font": "Manrope"}}],
+            dna,
+        )
+        self.assertFalse(outside["passed"])
+        self.assertTrue(any("bounding box" in item for item in outside["violations"]))
 
 
 if __name__ == "__main__":

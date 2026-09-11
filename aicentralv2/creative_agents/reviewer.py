@@ -6,6 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from ..creative_brand_dna import check_brand_dna, materialize_brand_dna
 from .contract import PieceContract, QaReport, parse_contract
 from .runtime import call_agent_llm
 
@@ -62,6 +63,16 @@ class ReviewerAgent:
         checks, notes = _deterministic_checks(
             incoming, data.expected_headline or incoming.instance_data.get("headline", "")
         )
+        dna = materialize_brand_dna(existing=incoming.brand_dna or payload.get("brand_dna"))
+        layers = payload.get("layers") or [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in incoming.regions
+        ]
+        report = check_brand_dna(layers, dna)
+        if report["passed"]:
+            checks.append("brand_dna")
+        else:
+            notes.extend(report["violations"])
         if data.image_url and text_callable is not None:
             raw = call_agent_llm(
                 self.name,

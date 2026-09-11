@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 
+from ..services.openrouter_service import OpenRouterError
 from . import one_page
 from .ai import chat_json
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
+from .images import apply_sheet_art
 from .repository import get_by_token, merge_dados, update_session
 
 SECTIONS = (
@@ -16,6 +19,8 @@ SECTIONS = (
     {"id": "media", "title": "Plano de Mídia", "order": 3},
     {"id": "execution", "title": "Execução", "order": 4},
 )
+
+logger = logging.getLogger(__name__)
 
 ONE_PAGE_TYPES = one_page.ONE_PAGE_TYPES + one_page.LEGACY_ONE_PAGE_TYPES
 
@@ -119,8 +124,22 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
     if mode == "one_page":
-        plan = one_page.build_one_page(meta, briefing, planejamento, campanha, chosen)
-        merge_dados(token, {"presenter_brand": plan["meta"]["presenter"]})
+        plan = one_page.build_one_page(
+            meta,
+            briefing,
+            planejamento,
+            campanha,
+            chosen,
+            text(dados.get("public_token")),
+        )
+        try:
+            apply_sheet_art(plan, force=True)
+        except OpenRouterError:
+            logger.exception("GPT Image 2 indisponível; a folha usa o fundo da família.")
+        merge_dados(token, {
+            "presenter_brand": plan["meta"]["presenter"],
+            "public_token": plan["share"]["public_token"],
+        })
         row = update_session(token, {
             "plan_content": plan,
             "schema_version": 3,

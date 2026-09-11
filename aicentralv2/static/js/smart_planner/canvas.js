@@ -3,9 +3,12 @@
   if (!root) return;
   var token = root.getAttribute("data-token");
   var mode = root.getAttribute("data-mode");
+  var readonly = root.getAttribute("data-readonly") === "1";
+  var isPublic = root.getAttribute("data-public") === "1";
   var board = document.getElementById("sp-canvas-board");
+  var stage = document.getElementById("sp-stage");
   var presenterSelect = document.getElementById("sp-presenter");
-  var plan = { sections: [], branding: {}, meta: {} };
+  var plan = { sections: [], branding: {}, meta: {}, theme: {}, share: {} };
 
   var TYPE_LABELS = {
     strategy: "Estratégia",
@@ -80,6 +83,12 @@
         );
       })
       .join("");
+    var body = readonly
+      ? "<p>" + escapeHtml(card.body || "") + "</p>"
+      : '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
+    var title = readonly
+      ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
+      : '<input value="' + escapeHtml(card.title || "") + '" data-field="title">';
     return (
       '<article class="sp-card" data-section="' +
       sectionIndex +
@@ -91,22 +100,34 @@
       '<span class="sp-card-type">' +
       escapeHtml(label) +
       "</span>" +
-      '<input value="' +
-      escapeHtml(card.title) +
-      '" data-field="title">' +
-      '<textarea data-field="body">' +
-      escapeHtml(card.body) +
-      "</textarea>" +
+      title +
+      body +
       extras +
       "</article>"
     );
   }
 
-  function mockup(card) {
+  function brandChip(party) {
+    if (!party || !(party.name || party.logo_url)) return "";
+    var mark = party.logo_url
+      ? '<img src="' + escapeHtml(party.logo_url) + '" alt="">'
+      : '<span>' + escapeHtml((party.name || "?").slice(0, 2)) + "</span>";
+    return (
+      '<div class="sp-ad-mark is-' +
+      escapeHtml(party.source || "client") +
+      '">' +
+      mark +
+      "<em>" +
+      escapeHtml(party.name || "") +
+      "</em></div>"
+    );
+  }
+
+  function mockup(card, party) {
     var surface = card.surface || "display";
     var image = card.image_url
       ? '<img src="' + escapeHtml(card.image_url) + '" alt="">'
-      : '<p>' + escapeHtml(card.body || "Criativo no canal") + "</p>";
+      : "<p>" + escapeHtml(card.body || "Criativo no canal") + "</p>";
     return (
       '<div class="sp-mockup is-' +
       escapeHtml(surface) +
@@ -115,16 +136,83 @@
       '<div class="sp-mockup-screen">' +
       image +
       "</div>" +
+      brandChip(party) +
       (surface === "ctv" ? '<span class="sp-mockup-qr" aria-hidden="true"></span>' : "") +
       "</div>"
     );
+  }
+
+  function densityChart(theme) {
+    var bars = (theme.density || [])
+      .map(function (item) {
+        var value = Math.max(0, Math.min(100, Number(item.value) || 0));
+        return (
+          '<div class="sp-density-row"><span>' +
+          escapeHtml(item.label || "") +
+          "</span><i><b style=\"width:" +
+          value +
+          '%"></b></i><em>' +
+          value +
+          "</em></div>"
+        );
+      })
+      .join("");
+    if (!bars) return "";
+    return (
+      '<div class="sp-density"><p>' +
+      escapeHtml(theme.density_caption || "Peso do mix") +
+      "</p>" +
+      bars +
+      "</div>"
+    );
+  }
+
+  function shareBlock(share) {
+    var url = share.url || share.path || "";
+    if (!url) return "";
+    var qrSrc = share.public_token
+      ? "/smart-planner/api/p/" + encodeURIComponent(share.public_token) + "/qr.svg"
+      : "";
+    var qr = qrSrc
+      ? '<img class="sp-qr" src="' +
+        qrSrc +
+        '" alt="QR do quadro completo" width="96" height="96">'
+      : "";
+    return (
+      '<div class="sp-share">' +
+      qr +
+      '<div><a href="' +
+      escapeHtml(url) +
+      '" target="_blank" rel="noopener">' +
+      escapeHtml(share.label || "Quadro completo") +
+      "</a><button type=\"button\" class=\"sp-pdf\" data-print=\"1\">" +
+      escapeHtml(share.pdf_label || "Salvar PDF") +
+      "</button><small>" +
+      escapeHtml(url) +
+      "</small></div></div>"
+    );
+  }
+
+  function applyTheme(theme) {
+    var host = stage || root;
+    if (!theme || !host) return;
+    host.setAttribute("data-market", theme.id || "");
+    ["ink", "paper", "accent", "fog", "rule"].forEach(function (key) {
+      if (theme[key]) host.style.setProperty("--sp-" + key, theme[key]);
+    });
+    if (theme.bg_url) {
+      host.style.setProperty("--sp-bg", "url('" + theme.bg_url + "')");
+    }
   }
 
   function renderPitchSheet(section, sectionIndex) {
     var cards = section.cards || [];
     var branding = plan.branding || {};
     var meta = plan.meta || {};
+    var theme = plan.theme || {};
+    var share = plan.share || {};
     var presenter = branding.presenter || {};
+    var hero = branding.hero || {};
     var strategyIdx = findCard(cards, "strategy");
     var creativeIdx = findCard(cards, "creative");
     var marketIdx = findCard(cards, "market");
@@ -135,16 +223,18 @@
     var defense = cards[defenseIdx] || {};
     var partners = (branding.partners || [])
       .map(function (partner) {
-        if (!partner.logo_url) return "";
-        return (
-          '<img src="' +
-          escapeHtml(partner.logo_url) +
-          '" alt="' +
-          escapeHtml(partner.label || "") +
-          '" title="' +
-          escapeHtml(partner.label || "") +
-          '">'
-        );
+        if (partner.logo_url) {
+          return (
+            '<img src="' +
+            escapeHtml(partner.logo_url) +
+            '" alt="' +
+            escapeHtml(partner.label || "") +
+            '" title="' +
+            escapeHtml(partner.label || "") +
+            '">'
+          );
+        }
+        return partner.label ? "<span>" + escapeHtml(partner.label) + "</span>" : "";
       })
       .join("");
     var footer =
@@ -154,8 +244,7 @@
           escapeHtml(presenter.logo_url) +
           '" alt="' +
           escapeHtml(presenter.name || "") +
-          '">' +
-          "<span>com " +
+          '"><span>com ' +
           escapeHtml(presenter.name || "CentralComm") +
           "</span></footer>"
         : presenter.role === "principal"
@@ -163,8 +252,11 @@
             escapeHtml(presenter.name || "") +
             "</span></footer>"
           : "";
+    applyTheme(theme);
     return (
-      '<article class="sp-sheet is-pitch">' +
+      '<article class="sp-sheet is-pitch" data-market="' +
+      escapeHtml(theme.id || "") +
+      '">' +
       '<div class="sp-sheet-band" aria-hidden="true"></div>' +
       '<header class="sp-sheet-brands">' +
       logoBox(branding.client, "client") +
@@ -173,16 +265,15 @@
       "</header>" +
       '<div class="sp-sheet-lead">' +
       "<h2>" +
-      escapeHtml(meta.client || meta.title || "Página única") +
+      escapeHtml(meta.client || hero.name || meta.title || "Página única") +
       "</h2>" +
       (meta.agency ? "<p>" + escapeHtml(meta.agency) + "</p>" : "") +
       "</div>" +
-      (strategyIdx >= 0
-        ? fieldBlock(strategy, sectionIndex, strategyIdx, "Estratégia")
-        : "") +
+      (strategyIdx >= 0 ? fieldBlock(strategy, sectionIndex, strategyIdx, "Estratégia") : "") +
+      '<div class="sp-sheet-main">' +
       (creativeIdx >= 0
-        ? '<div class="sp-creative">' +
-          mockup(creative) +
+        ? '<div class="sp-hero">' +
+          mockup(creative, hero) +
           fieldBlock(creative, sectionIndex, creativeIdx, "Criativo no canal", [
             "channel",
             "surface",
@@ -191,20 +282,20 @@
           ]) +
           "</div>"
         : "") +
+      '<aside class="sp-aside">' +
       (marketIdx >= 0
-        ? '<div class="sp-market">' +
-          '<p class="sp-stat">' +
+        ? '<div class="sp-market"><p class="sp-stat">' +
           escapeHtml(market.stat || "") +
-          "</p>" +
-          '<p class="sp-stat-label">' +
+          '</p><p class="sp-stat-label">' +
           escapeHtml(market.stat_label || "") +
           "</p>" +
           fieldBlock(market, sectionIndex, marketIdx, "Mercado", ["stat", "stat_label"]) +
           "</div>"
         : "") +
-      (defenseIdx >= 0
-        ? fieldBlock(defense, sectionIndex, defenseIdx, "Defesa")
-        : "") +
+      densityChart(theme) +
+      (defenseIdx >= 0 ? fieldBlock(defense, sectionIndex, defenseIdx, "Defesa") : "") +
+      "</aside></div>" +
+      shareBlock(share) +
       (partners ? '<div class="sp-partners">' + partners + "</div>" : "") +
       footer +
       "</article>"
@@ -320,7 +411,10 @@
   }
 
   async function load() {
-    var response = await fetch("/smart-planner/api/" + token + "/canvas", {
+    var endpoint = isPublic
+      ? "/smart-planner/api/p/" + token
+      : "/smart-planner/api/" + token + "/canvas";
+    var response = await fetch(endpoint, {
       credentials: "same-origin",
     });
     var payload = await response.json();
@@ -361,7 +455,12 @@
   document.getElementById("sp-canvas-regen")?.addEventListener("click", async function () {
     try {
       await regenerate();
-      toast(mode === "one_page" ? "Página única gerada de novo." : "Quadro gerado de novo.", "success");
+      toast(
+        mode === "one_page"
+          ? "Página única e arte geradas no GPT Image 2."
+          : "Quadro gerado de novo.",
+        "success"
+      );
     } catch (error) {
       toast(error.message, "error");
     }
@@ -378,6 +477,12 @@
       );
     } catch (error) {
       toast(error.message, "error");
+    }
+  });
+
+  board?.addEventListener("click", function (event) {
+    if (event.target && event.target.getAttribute("data-print") === "1") {
+      window.print();
     }
   });
 

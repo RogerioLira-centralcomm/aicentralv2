@@ -67,6 +67,38 @@ def get_by_token(token: str) -> Optional[dict]:
             return cur.fetchone()
 
 
+def get_by_public_token(public_token: str) -> Optional[dict]:
+    token = (public_token or "").strip()
+    if not token:
+        return None
+    conn = get_db()
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                """
+                SELECT *
+                FROM cadu_smart_planner_sessions
+                WHERE deleted_at IS NULL
+                  AND dados_detectados->>'public_token' = %s
+                LIMIT 1
+                """,
+                (token,),
+            )
+            return cur.fetchone()
+        except Exception:
+            conn.rollback()
+            cur.execute(
+                """
+                SELECT *
+                FROM cadu_smart_planner_sessions
+                WHERE dados_detectados->>'public_token' = %s
+                LIMIT 1
+                """,
+                (token,),
+            )
+            return cur.fetchone()
+
+
 def get_owned(token: str, user_email: str, user_id: Any) -> dict:
     row = get_by_token(token)
     if not row:

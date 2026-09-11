@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from .ai import chat_json
 from .helpers import as_dict, as_list, text
 from .logos import resolve_branding
+from .share import share_payload
+from .theme import compose_theme, hero_party
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,8 @@ STARTER_PITCHES = (
         "id": "montana-grill",
         "client": "Montana Grill",
         "agency": "Desafio",
+        "market_id": "food",
+        "bg_url": "/static/images/smart_planner/bg-montana-food.png",
         "aliases": ("montana", "desafio"),
         "partners": ("prime_video",),
         "strategy": (
@@ -53,6 +57,8 @@ STARTER_PITCHES = (
         "id": "bh-airport",
         "client": "BH Airport",
         "agency": "Filadélfia",
+        "market_id": "travel",
+        "bg_url": "/static/images/smart_planner/bg-bh-travel.png",
         "aliases": ("confins", "bh airport", "aeroporto", "filadélfia", "filadelfia"),
         "partners": ("logan",),
         "strategy": (
@@ -84,6 +90,8 @@ STARTER_PITCHES = (
         "id": "bdmg",
         "client": "BDMG",
         "agency": "Perfil 252",
+        "market_id": "finance",
+        "bg_url": "/static/images/smart_planner/bg-bdmg-finance.png",
         "aliases": ("bdmg", "perfil 252"),
         "partners": ("serasa", "meta", "linkedin", "tiktok"),
         "strategy": (
@@ -116,6 +124,8 @@ STARTER_PITCHES = (
         "id": "minas-maquinas",
         "client": "Minas Máquinas",
         "agency": "StaloIn",
+        "market_id": "agro",
+        "bg_url": "/static/images/smart_planner/bg-minas-agro.png",
         "aliases": ("minas máquinas", "minas maquinas", "staloin"),
         "partners": ("serasa",),
         "strategy": (
@@ -253,8 +263,10 @@ def cards_from_ai(payload: dict) -> list[dict]:
     ]
 
 
-def empty_one_page(meta: dict, branding: dict) -> dict:
+def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share: dict | None = None) -> dict:
     now = datetime.now(timezone.utc).isoformat()
+    resolved = dict(branding or {})
+    resolved["hero"] = hero_party(resolved)
     return {
         "schemaVersion": 3,
         "planMode": "one_page",
@@ -263,11 +275,13 @@ def empty_one_page(meta: dict, branding: dict) -> dict:
             "client": meta.get("client"),
             "agency": meta.get("agency"),
             "campaign": meta.get("campaign"),
-            "presenter": (branding.get("presenter") or {}).get("id") or "centralcomm",
+            "presenter": (resolved.get("presenter") or {}).get("id") or "centralcomm",
             "createdAt": now,
             "updatedAt": now,
         },
-        "branding": branding,
+        "branding": resolved,
+        "theme": theme or {},
+        "share": share or {},
         "sections": [{"id": "one_page", "type": "one_page", "title": "Página única", "order": 1, "cards": []}],
     }
 
@@ -287,8 +301,14 @@ def _normalize_card(card: dict, index: int) -> dict:
 
 
 def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
-    plan = empty_one_page(meta, branding)
-    incoming = as_list(payload.get("sections")) if isinstance(payload, dict) else []
+    incoming_plan = payload if isinstance(payload, dict) else {}
+    plan = empty_one_page(
+        meta,
+        branding or as_dict(incoming_plan.get("branding")),
+        as_dict(incoming_plan.get("theme")),
+        as_dict(incoming_plan.get("share")),
+    )
+    incoming = as_list(incoming_plan.get("sections"))
     source = {}
     for section in incoming:
         if isinstance(section, dict) and text(section.get("id")) in {"one_page", ""}:
@@ -308,7 +328,14 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
     return plan
 
 
-def build_one_page(meta: dict, briefing: str, planejamento: str, campanha: dict, presenter_id: str) -> dict:
+def build_one_page(
+    meta: dict,
+    briefing: str,
+    planejamento: str,
+    campanha: dict,
+    presenter_id: str,
+    public_token: str = "",
+) -> dict:
     client = text(meta.get("client") or campanha.get("cliente"))
     agency = text(meta.get("agency") or campanha.get("agencia"))
     pitch = match_pitch(client, agency, briefing)
@@ -340,13 +367,17 @@ def build_one_page(meta: dict, briefing: str, planejamento: str, campanha: dict,
             temperature=0.25,
         )
         cards = cards_from_ai(parsed if isinstance(parsed, dict) else {})
+    client = client or branding["client"]["name"]
+    agency = agency or branding["agency"]["name"]
     meta = {
         **meta,
-        "client": client or branding["client"]["name"],
-        "agency": agency or branding["agency"]["name"],
+        "client": client,
+        "agency": agency,
         "presenter": presenter["id"],
     }
-    plan = empty_one_page(meta, branding)
+    theme = compose_theme(client, agency, briefing, pitch)
+    share = share_payload(public_token, client)
+    plan = empty_one_page(meta, branding, theme, share)
     plan["sections"][0]["cards"] = cards
     if presenter["id"] != "centralcomm":
         _apply_principal_voice(plan, presenter)

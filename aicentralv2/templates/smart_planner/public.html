@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo }} · Quadro CentralX</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+</head>
+<body class="sp-public">
+  <div class="sp-desk is-sheet" id="sp-canvas"
+       data-token="{{ token }}"
+       data-mode="one_page"
+       data-public="1"
+       data-readonly="1">
+    <header class="sp-head is-public">
+      <div>
+        <p class="sp-kicker">Quadro completo</p>
+        <h1>{{ titulo }}</h1>
+      </div>
+      <div class="sp-actions">
+        <button type="button" class="cx-btn cx-btn-primary" id="sp-print">Salvar PDF</button>
+      </div>
+    </header>
+    <div class="sp-stage" id="sp-stage">
+      <div id="sp-canvas-board" class="sp-board is-sheet" aria-live="polite"></div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}"></script>
+  <script>
+    document.getElementById("sp-print")?.addEventListener("click", function () {
+      window.print();
+    });
+  </script>
+</body>
+</html>

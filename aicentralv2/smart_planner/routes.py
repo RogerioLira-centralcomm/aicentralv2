@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, Response, current_app, jsonify, render_template, request
 
 from ..auth import login_required, login_required_api
 from ..services.openrouter_service import OpenRouterError
@@ -13,6 +13,7 @@ from . import canvas as canvas_mod
 from . import planner
 from . import processor
 from .logos import presenter_options
+from .share import public_sheet_url, qr_svg
 from .catalog import (
     CHANNEL_CATALOG,
     CHANNEL_GROUPS,
@@ -25,7 +26,7 @@ from .catalog import (
 )
 from .helpers import as_dict
 from .materials import extract_pdf, save_upload, scrape_url
-from .repository import SessionNotFound, SmartPlannerError
+from .repository import SessionNotFound, SmartPlannerError, get_by_public_token
 from .service import (
     delete_plan,
     history_payload,
@@ -111,6 +112,54 @@ def canais(token):
 def gerar(token):
     row = load_owned(token)
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "gerar")))
+
+
+@bp.route("/p/<public_token>")
+def publico(public_token):
+    row = get_by_public_token(public_token)
+    if not row:
+        raise SessionNotFound("Quadro público não encontrado.")
+    plan = as_dict(row.get("plan_content"))
+    if not plan.get("sections"):
+        generated = canvas_mod.generate_canvas(row["session_token"])
+        plan = generated["plan"]
+    share = as_dict(plan.get("share"))
+    share["url"] = share.get("url") or public_sheet_url(public_token)
+    plan["share"] = share
+    return render_template(
+        "smart_planner/public.html",
+        plan=plan,
+        token=public_token,
+        titulo=share.get("title") or (plan.get("meta") or {}).get("client") or "Página única",
+        plan_mode="one_page",
+        readonly=True,
+    )
+
+
+@bp.route("/api/p/<public_token>")
+def api_publico(public_token):
+    row = get_by_public_token(public_token)
+    if not row:
+        return _error("Quadro público não encontrado.", 404)
+    plan = as_dict(row.get("plan_content"))
+    if not plan.get("sections"):
+        generated = canvas_mod.generate_canvas(row["session_token"])
+        plan = generated["plan"]
+    share = as_dict(plan.get("share"))
+    share["url"] = share.get("url") or public_sheet_url(public_token)
+    plan["share"] = share
+    return _ok({"plan": plan})
+
+
+@bp.route("/api/p/<public_token>/qr.svg")
+def api_publico_qr(public_token):
+    row = get_by_public_token(public_token)
+    if not row:
+        return _error("Quadro público não encontrado.", 404)
+    svg = qr_svg(public_sheet_url(public_token))
+    if not svg:
+        return _error("QR indisponível.", 503)
+    return Response(svg, mimetype="image/svg+xml")
 
 
 @bp.route("/<token>/canvas")

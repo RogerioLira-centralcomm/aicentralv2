@@ -9,7 +9,13 @@ from .catalog import catalog_payload
 from .close import close_scene
 from .pipeline import apply_manual_patch, new_session_id, run_session
 from .swap import quote_swap, read_swap_reference, swap_reference
-from .plates import build_plate_kit, normalize_bindings
+from .plates import (
+    apply_bindings,
+    build_plate_kit,
+    kit_summary,
+    normalize_bindings,
+    patch_plate_kit,
+)
 from .storyboard import build_storyboard, quote_concept
 
 
@@ -65,9 +71,64 @@ class FormatLabService:
         kit = build_plate_kit(
             client,
             text_callable=self._text_callable(payload),
+            image_callable=self._image_callable({**payload, "generate": True})
+            if payload.get("product")
+            else None,
+            product=payload.get("product"),
+            refine=payload.get("refine") is not False,
+            passes=payload.get("passes"),
         )
         kit["client_id"] = client_id
+        bindings = {
+            item["key"]: list(item.get("selected_channels") or [])
+            for item in kit.get("plates") or []
+        }
+        stored = self._persist_plate_kit(kit, bindings, user_id)
+        if stored:
+            kit = stored
         return _serialize(kit)
+
+    def list_plates(self, client_id):
+        client_id = _integer(client_id, "Cliente")
+        self._client(client_id)
+        listing = getattr(self.repository, "list_plate_kits", None)
+        if not callable(listing):
+            return _serialize([])
+        return _serialize([kit_summary(item) for item in listing(client_id)])
+
+    def get_plates(self, kit_id):
+        kit_id = _integer(kit_id, "Geração")
+        getter = getattr(self.repository, "get_plate_kit", None)
+        if not callable(getter):
+            raise CreativeNotFoundError("Geração de placas não encontrada.")
+        return _serialize(getter(kit_id))
+
+    def patch_plates(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        kit_id = _integer(payload.get("kit_id") or payload.get("id"), "Geração")
+        getter = getattr(self.repository, "get_plate_kit", None)
+        if not callable(getter):
+            raise CreativeNotFoundError("Geração de placas não encontrada.")
+        kit = getter(kit_id)
+        updated = patch_plate_kit(
+            kit,
+            payload,
+            text_callable=self._text_callable(payload) if payload.get("refine") else None,
+        )
+        updater = getattr(self.repository, "update_plate_kit", None)
+        if callable(updater):
+            updated = updater(kit_id, {
+                "campaign": updated.get("campaign"),
+                "product": updated.get("product") or kit.get("product"),
+                "product_assets": updated.get("product_assets"),
+                "plates": updated.get("plates"),
+                "bindings": {
+                    item["key"]: list(item.get("selected_channels") or [])
+                    for item in updated.get("plates") or []
+                },
+                "passes": updated.get("passes"),
+            })
+        return _serialize(updated)
 
     def bind_plates(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
@@ -79,11 +140,58 @@ class FormatLabService:
         updater = getattr(self.repository, "update_client_brand_profile", None)
         if callable(updater):
             updater(client_id, profile)
-        elif hasattr(self.modeling, "repository") and hasattr(self.modeling.repository, "update_client_brand_profile"):
-            self.modeling.repository.update_client_brand_profile(client_id, profile)
-        kit = build_plate_kit( {**client, "brand_profile": profile}, bindings=bindings)
+        kit_id = payload.get("kit_id") or payload.get("id")
+        if kit_id not in (None, ""):
+            getter = getattr(self.repository, "get_plate_kit", None)
+            store = getattr(self.repository, "update_plate_kit", None)
+            if callable(getter) and callable(store):
+                kit = apply_bindings(getter(_integer(kit_id, "Geração")), bindings)
+                return _serialize(store(_integer(kit_id, "Geração"), {
+                    "plates": kit.get("plates"),
+                    "bindings": bindings,
+                    "campaign": kit.get("campaign"),
+                    "product": kit.get("product"),
+                    "product_assets": kit.get("product_assets"),
+                    "passes": kit.get("passes"),
+                }))
+        kit = build_plate_kit(
+            {**client, "brand_profile": profile},
+            bindings=bindings,
+            refine=False,
+        )
         kit["client_id"] = client_id
         return _serialize(kit)
+
+    def _persist_plate_kit(self, kit, bindings, user_id=None):
+        create = getattr(self.repository, "create_plate_kit", None)
+        if not callable(create):
+            return None
+        payload = {
+            "client_id": kit.get("client_id"),
+            "name": kit.get("name"),
+            "product": kit.get("product") or "",
+            "campaign": kit.get("campaign") or {},
+            "product_assets": kit.get("product_assets") or {},
+            "plates": kit.get("plates") or [],
+            "bindings": bindings,
+            "passes": kit.get("passes") or [],
+        }
+        try:
+            stored = create(payload, created_by=user_id)
+        except Exception:
+            try:
+                stored = create(payload, created_by=None)
+            except Exception:
+                return None
+        if not isinstance(stored, dict):
+            return None
+        kit = dict(kit)
+        kit.update({
+            "id": stored.get("id"),
+            "name": stored.get("name") or kit.get("name"),
+            "created_at": stored.get("created_at"),
+        })
+        return kit
 
     def get_campaign_model(self, slug):
         model = load_campaign_model(slug)

@@ -1068,6 +1068,15 @@ class CreativeModelingService:
     def format_lab_plates(self, payload, user_id=None):
         return self._format_lab().build_plates(payload, user_id=user_id)
 
+    def list_format_lab_plates(self, client_id):
+        return self._format_lab().list_plates(client_id)
+
+    def get_format_lab_plates(self, kit_id):
+        return self._format_lab().get_plates(kit_id)
+
+    def patch_format_lab_plates(self, payload, user_id=None):
+        return self._format_lab().patch_plates(payload, user_id=user_id)
+
     def bind_format_lab_plates(self, payload, user_id=None):
         return self._format_lab().bind_plates(payload, user_id=user_id)
 

@@ -600,6 +600,36 @@ def format_entry(format_key):
     return None
 
 
+FAMILY_BY_ADAPTER = {
+    "iab_horizontal": "horizontal",
+    "generic_ctv": "horizontal",
+    "youtube_ctv": "horizontal",
+    "netflix": "horizontal",
+    "iab_box": "box",
+    "iab_vertical": "vertical",
+}
+
+FAMILY_CANONICAL = {
+    "horizontal": "iab-billboard",
+    "box": "iab-medium",
+    "vertical": "iab-halfpage",
+}
+
+
+def plate_family_of(entry):
+    item = entry if isinstance(entry, dict) else {}
+    adapter = str(item.get("adapter") or "")
+    mapped = FAMILY_BY_ADAPTER.get(adapter)
+    if mapped:
+        return mapped
+    orientation = str(item.get("orientation") or "")
+    if orientation == "vertical":
+        return "vertical"
+    if orientation == "square":
+        return "box"
+    return "horizontal"
+
+
 def decorate_format(item):
     data = dict(item)
     data["channels"] = [
@@ -609,6 +639,7 @@ def decorate_format(item):
     ]
     data["channel_keys"] = list(FORMAT_CHANNELS.get(data["key"], ()))
     data["in_plate_kit"] = data["key"] in PLATE_KIT_KEYS
+    data["plate_family"] = plate_family_of(data)
     return data
 
 

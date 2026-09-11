@@ -254,8 +254,24 @@ def api_format_lab_patch(session_id):
 
 @admin_required_api
 def api_format_lab_plates():
+    if request.method == "GET":
+        return _execute(
+            lambda: _ok(_service().list_format_lab_plates(request.args.get("client_id")))
+        )
     return _execute(
         lambda: _ok(_service().format_lab_plates(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_plates_item(kit_id):
+    return _execute(lambda: _ok(_service().get_format_lab_plates(kit_id)))
+
+
+@admin_required_api
+def api_format_lab_plates_patch():
+    return _execute(
+        lambda: _ok(_service().patch_format_lab_plates(_json(), session.get("user_id")))
     )
 
 
@@ -1045,13 +1061,24 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-lab/plates",
         endpoint="creative_format_lab_plates",
         view_func=api_format_lab_plates,
-        methods=["POST"],
+        methods=["GET", "POST"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/plates/bind",
         endpoint="creative_format_lab_plates_bind",
         view_func=api_format_lab_plates_bind,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/plates/patch",
+        endpoint="creative_format_lab_plates_patch",
+        view_func=api_format_lab_plates_patch,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/plates/<int:kit_id>",
+        endpoint="creative_format_lab_plates_item",
+        view_func=api_format_lab_plates_item,
     )
     blueprint.add_url_rule(
         "/api/format-lab/swap",

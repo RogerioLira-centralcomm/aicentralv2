@@ -68,9 +68,10 @@ def build_scene_html(
     if mockup:
         extras += _mockup_css()
     inherited = brand_style_from_base(base_html) if base_html and not mockup else ""
+    imports, extra_rules = _split_imports(f"{extras}\n{inherited}")
     html_text = html_text.replace(
         _LINK_CSS,
-        f"<style>\n{css}\n{_canvas_css(spec)}\n{extras}\n{inherited}\n</style>",
+        f"<style>\n{imports}{css}\n{_canvas_css(spec)}\n{extra_rules}\n</style>",
     )
     html_text = ensure_system_layers(html_text, qr=is_qr_format(spec.format))
     html_text = apply_stage_shape(html_text, spec)
@@ -114,8 +115,13 @@ def build_scene_html(
             'id="layer-qr" class="layer qr has-asset"',
             1,
         )
-        html_text = html_text.replace("<style>", f"<style>\n.qr.has-asset{{--qr:url('{_css_url(qr_url)}');}}\n", 1)
+        html_text = html_text.replace(
+            "</style>",
+            f".qr.has-asset{{--qr:url('{_css_url(qr_url)}');}}\n</style>",
+            1,
+        )
     html_text = _apply_scene_photo(html_text, (assets or {}).get("scene_image"))
+    html_text = apply_product_layer(html_text, (assets or {}).get("product_url"))
     html_text = apply_plate_layout(html_text, plate_for(scene.purpose))
     return html_text
 
@@ -203,6 +209,92 @@ def apply_plate_layout(html_text, layout):
     return re.sub(r'class="(stage[^"]*)"', _swap, str(html_text or ""), count=1)
 
 
+ALLOWED_CSS_VARS = {
+    "--brand-ink",
+    "--brand-accent",
+    "--brand-muted",
+    "--brand-paper",
+    "--logo",
+    "--brand-face",
+    "--product-scale",
+    "--product-x",
+    "--product-y",
+}
+
+_SYSTEM_FACES = {
+    "arial",
+    "helvetica",
+    "georgia",
+    "times",
+    "times new roman",
+    "palatino",
+    "palatino linotype",
+    "iowan old style",
+    "courier",
+    "courier new",
+    "verdana",
+    "tahoma",
+    "trebuchet ms",
+    "impact",
+    "comic sans ms",
+    "system-ui",
+    "sans-serif",
+    "serif",
+    "monospace",
+}
+
+
+def apply_css_vars(html_text, css_vars):
+    declarations = []
+    for key, value in (css_vars or {}).items():
+        name = str(key)
+        if not name.startswith("--"):
+            name = f"--{name}"
+        if name not in ALLOWED_CSS_VARS or not value:
+            continue
+        declarations.append(f"{name}:{value}")
+    if not declarations:
+        return html_text
+    block = ":root{" + ";".join(declarations) + "}"
+    text = str(html_text or "")
+    if "</style>" in text:
+        return text.replace("</style>", f"{block}\n</style>", 1)
+    return text
+
+
+def apply_copy_layers(html_text, copy):
+    copy = copy if isinstance(copy, dict) else {}
+    text = str(html_text or "")
+    if copy.get("headline"):
+        text = _replace_inner(text, "layer-headline", _headline_html(copy["headline"]))
+    if "support" in copy:
+        text = _replace_inner(text, "layer-support", html.escape(str(copy.get("support") or "")))
+    if copy.get("cta"):
+        text = _replace_text(text, "layer-cta", copy["cta"])
+        text = apply_cta_visibility(text, True)
+    return text
+
+
+def apply_product_layer(html_text, url):
+    if not url:
+        return html_text
+    html_text = ensure_system_layers(html_text)
+    css = (
+        f"#layer-key-visual{{background-image:url('{_css_url(url)}');"
+        "background-size:contain;background-repeat:no-repeat;}"
+        ".stage.has-product #layer-key-visual{opacity:1}"
+    )
+    html_text = html_text.replace("</style>", f"{css}\n</style>", 1)
+    if not re.search(r'class="stage[^"]*has-product', html_text):
+        html_text = re.sub(
+            r'class="(stage[^"]*)"',
+            lambda match: f'class="{match.group(1)} has-product"',
+            html_text,
+            count=1,
+        )
+    return html_text
+
+
 def _apply_scene_photo(html_text, url):
     if not url:
         return html_text
@@ -214,7 +306,7 @@ def _apply_scene_photo(html_text, url):
         ".stage.has-photo .sofa,.stage.has-photo .screen-box,"
         ".stage.has-photo .silhouette-person,.stage.has-photo .plant{opacity:.12}"
     )
-    html_text = html_text.replace("<style>", f"<style>\n{css}\n", 1)
+    html_text = html_text.replace("</style>", f"{css}\n</style>", 1)
     if not re.search(r'class="stage[^"]*has-photo', html_text):
         html_text = re.sub(r'class="stage"', 'class="stage has-photo"', html_text, count=1)
     return html_text
@@ -314,6 +406,63 @@ def _mockup_css():
     )
 
 
+def _brand_face(dna):
+    dna = dna if isinstance(dna, dict) else {}
+    fonts = dna.get("fonts")
+    family = ""
+    fallback_family = ""
+    if isinstance(fonts, dict):
+        family = str(
+            fonts.get("primary")
+            or fonts.get("headline")
+            or fonts.get("family")
+            or ""
+        ).strip()
+        fallback_family = str(fonts.get("fallback") or "").strip()
+    elif isinstance(fonts, list) and fonts:
+        first = fonts[0]
+        family = str(first.get("family") if isinstance(first, dict) else first).strip()
+        if len(fonts) > 1:
+            second = fonts[1]
+            fallback_family = str(
+                second.get("family") if isinstance(second, dict) else second
+            ).strip()
+    stack = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif'
+    if fallback_family and fallback_family.lower() != family.lower():
+        stack = f"'{fallback_family}', {stack}"
+    face = f"'{family}', {stack}" if family else stack
+    return family, face
+
+
+def _split_imports(css_text):
+    imports = []
+    rules = []
+    for line in str(css_text or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("@import"):
+            imports.append(stripped)
+        else:
+            rules.append(line)
+    prefix = "\n".join(imports)
+    if prefix:
+        prefix += "\n"
+    return prefix, "\n".join(rules)
+
+
+def _google_font_import(family):
+    name = str(family or "").strip()
+    if not name or name.lower() in _SYSTEM_FACES:
+        return ""
+    slug = re.sub(r"\s+", "+", name)
+    slug = re.sub(r"[^A-Za-z0-9+\-]", "", slug)
+    if not slug:
+        return ""
+    return (
+        f"@import url('https://fonts.googleapis.com/css2?family={slug}"
+        ":wght@400;500;600;700&display=swap');"
+    )
+
+
 def _brand_css(dna, assets):
     dna = dna if isinstance(dna, dict) else {}
     colors = dna.get("colors") if isinstance(dna.get("colors"), dict) else {}
@@ -327,18 +476,19 @@ def _brand_css(dna, assets):
     logo_url = (assets or {}).get("logo_url") or logo_data.get("asset_url")
     if logo_url:
         logo = f"url('{_css_url(logo_url)}')"
-    fonts = dna.get("fonts") if isinstance(dna.get("fonts"), dict) else {}
-    family = fonts.get("headline") or fonts.get("family") or ""
-    if not family and isinstance(dna.get("fonts"), list) and dna["fonts"]:
-        first = dna["fonts"][0]
-        family = first.get("family") if isinstance(first, dict) else str(first)
-    fallback = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif'
-    face = f"'{family}', {fallback}" if family else fallback
+    family, face = _brand_face(dna)
+    webfont = _google_font_import(family)
     muted = "#8A8174"
     return (
+        f"{webfont}\n" if webfont else ""
+    ) + (
         f":root{{--brand-ink:{ink};--brand-accent:{accent};--brand-paper:#EDE6D6;"
-        f"--brand-muted:{muted};--logo:{logo or 'none'};--brand-face:{face};}}"
-        f"body.render,.copy h2{{font-family:var(--brand-face);}}"
+        f"--brand-muted:{muted};--logo:{logo or 'none'};--brand-face:{face};"
+        "--product-scale:1;--product-x:0;--product-y:0;}}"
+        "body.render,.copy,.copy h2,.copy p,.cta,.brand,"
+        "body.render .stage{font-family:var(--brand-face);}"
+        "#layer-key-visual{transform:translate(var(--product-x,0),var(--product-y,0))"
+        " scale(var(--product-scale,1));transform-origin:center;}"
         f"body.render .stage:not(.has-photo){{background:"
         f"radial-gradient(120% 80% at 72% 38%,{accent}40,#0E0D0C)}}"
     )

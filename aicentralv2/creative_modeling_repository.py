@@ -3417,3 +3417,115 @@ class CreativeModelingRepository:
                     item["position"],
                 ),
             )
+
+    def create_plate_kit(self, data, created_by=None):
+        payload = data if isinstance(data, dict) else {}
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_plate_kits (
+                    client_id, name, product, copy, product_assets,
+                    plates, bindings, passes, created_by
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, client_id, name, product, copy, product_assets,
+                          plates, bindings, passes, created_by, created_at, updated_at
+                """,
+                (
+                    payload.get("client_id"),
+                    payload.get("name") or "IAB base",
+                    payload.get("product") or "",
+                    Json(payload.get("campaign") or payload.get("copy") or {}),
+                    Json(payload.get("product_assets") or {}),
+                    Json(payload.get("plates") or []),
+                    Json(payload.get("bindings") or {}),
+                    Json(payload.get("passes") or []),
+                    created_by or payload.get("created_by"),
+                ),
+            )
+            return dict(cursor.fetchone())
+
+    def list_plate_kits(self, client_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, client_id, name, product, copy, created_at, updated_at,
+                       jsonb_array_length(COALESCE(passes, '[]'::jsonb)) AS pass_count
+                  FROM cx_plate_kits
+                 WHERE client_id = %s
+                 ORDER BY created_at DESC, id DESC
+                """,
+                (client_id,),
+            )
+            rows = []
+            for row in cursor.fetchall():
+                item = dict(row)
+                copy = item.get("copy") if isinstance(item.get("copy"), dict) else {}
+                item["headline"] = copy.get("headline") or ""
+                item["pass_count"] = int(item.get("pass_count") or 0)
+                rows.append(item)
+            return rows
+
+    def get_plate_kit(self, kit_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, client_id, name, product, copy, product_assets,
+                       plates, bindings, passes, created_by, created_at, updated_at
+                  FROM cx_plate_kits
+                 WHERE id = %s
+                """,
+                (kit_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Geração de placas não encontrada.")
+        return self._plate_kit_row(row)
+
+    def update_plate_kit(self, kit_id, data):
+        payload = data if isinstance(data, dict) else {}
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_plate_kits
+                   SET name = COALESCE(%s, name),
+                       product = COALESCE(%s, product),
+                       copy = COALESCE(%s, copy),
+                       product_assets = COALESCE(%s, product_assets),
+                       plates = COALESCE(%s, plates),
+                       bindings = COALESCE(%s, bindings),
+                       passes = COALESCE(%s, passes),
+                       updated_at = NOW()
+                 WHERE id = %s
+                RETURNING id, client_id, name, product, copy, product_assets,
+                          plates, bindings, passes, created_by, created_at, updated_at
+                """,
+                (
+                    payload.get("name"),
+                    payload.get("product"),
+                    Json(payload["campaign"]) if "campaign" in payload or "copy" in payload else None,
+                    Json(payload["product_assets"]) if "product_assets" in payload else None,
+                    Json(payload["plates"]) if "plates" in payload else None,
+                    Json(payload["bindings"]) if "bindings" in payload else None,
+                    Json(payload["passes"]) if "passes" in payload else None,
+                    kit_id,
+                ),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Geração de placas não encontrada.")
+        return self._plate_kit_row(row)
+
+    def _plate_kit_row(self, row):
+        item = dict(row)
+        item["campaign"] = item.get("copy") if isinstance(item.get("copy"), dict) else {}
+        item["pass_count"] = len(item.get("passes") or [])
+        bindings = item.get("bindings") if isinstance(item.get("bindings"), dict) else {}
+        for plate in item.get("plates") or []:
+            if not isinstance(plate, dict):
+                continue
+            selected = bindings.get(plate.get("key"))
+            if isinstance(selected, list):
+                plate["selected_channels"] = selected
+                plate["checked"] = bool(selected)
+        return item

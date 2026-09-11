@@ -63,15 +63,19 @@ body{padding:24px}
 }
 .copy p{margin:0;color:var(--paper);font-size:13px;line-height:1.35;opacity:.86}
 .key-visual{
-  left:8%;
-  right:8%;
-  top:42%;
-  height:36%;
+  left:18%;
+  right:18%;
+  top:50%;
+  height:26%;
   z-index:3;
   background-size:contain;
   background-repeat:no-repeat;
   background-position:center;
 }
+.stage.has-product .key-visual{max-height:28%}
+.stage.is-tall .copy{top:14%}
+.stage.is-tall .copy h2{font-size:clamp(18px,6.4vw,30px)}
+.stage.is-tall .key-visual{top:52%;height:24%}
 .cta{
   left:8%;
   right:8%;

@@ -46,7 +46,10 @@ from aicentralv2.creative_modeling_prompts import (
     unfold_ab_instruction,
     unfold_image_lock,
 )
-from aicentralv2.creative_modeling_repository import scene_count_for_format
+from aicentralv2.creative_modeling_repository import (
+    CreativeNotFoundError,
+    scene_count_for_format,
+)
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
 from aicentralv2.creative_image_fidelity import (
     apply_publish_upgrade,
@@ -94,6 +97,7 @@ class FakeRepository:
             for index in range(1, 5)
         ]
         self.format_jobs = []
+        self.plate_kits = []
         self.format_data = {
             "id": 7,
             "name_pt": "Leaderboard",
@@ -166,6 +170,44 @@ class FakeRepository:
             "secondary_color": "#FEDCBA",
             "brand_assets": list(getattr(self, "client_brand_assets", []) or []),
         }
+
+    def create_plate_kit(self, data, created_by=None):
+        item = dict(data or {})
+        item["id"] = len(self.plate_kits) + 1
+        item["created_by"] = created_by
+        item["created_at"] = "2026-09-11T08:59:00"
+        item["copy"] = item.get("campaign") or {}
+        item["pass_count"] = len(item.get("passes") or [])
+        self.plate_kits.append(item)
+        return dict(item)
+
+    def list_plate_kits(self, client_id):
+        return [
+            dict(item)
+            for item in self.plate_kits
+            if item.get("client_id") == client_id
+        ]
+
+    def get_plate_kit(self, kit_id):
+        for item in self.plate_kits:
+            if item.get("id") == kit_id:
+                row = dict(item)
+                row["campaign"] = row.get("campaign") or row.get("copy") or {}
+                return row
+        raise CreativeNotFoundError("Geração de placas não encontrada.")
+
+    def update_plate_kit(self, kit_id, data):
+        for item in self.plate_kits:
+            if item.get("id") != kit_id:
+                continue
+            item.update({key: value for key, value in (data or {}).items() if value is not None})
+            if "campaign" in (data or {}):
+                item["copy"] = data["campaign"]
+            item["pass_count"] = len(item.get("passes") or [])
+            row = dict(item)
+            row["campaign"] = row.get("campaign") or row.get("copy") or {}
+            return row
+        raise CreativeNotFoundError("Geração de placas não encontrada.")
 
     def list_client_brand_assets(self, client_id, approved_only=True):
         return list(getattr(self, "client_brand_assets", []) or [])

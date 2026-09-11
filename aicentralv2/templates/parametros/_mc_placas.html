@@ -5,7 +5,20 @@
         <option value="">Marca</option>
       </select>
     </label>
-    <button class="cx-btn cx-btn-primary" type="button" id="mcPlacasBuild" disabled>Montar placas</button>
+    <label class="cx-field">
+      <select class="cx-select" id="mcPlacasProduct" aria-label="Produto" disabled>
+        <option value="">Produto</option>
+      </select>
+    </label>
+    <label class="cx-field mc-placas-product-custom" hidden>
+      <input class="cx-input" id="mcPlacasProductCustom" type="text" placeholder="Produto ou serviço">
+    </label>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcPlacasBuild" disabled>Montar IAB base</button>
+    <label class="cx-field">
+      <select class="cx-select" id="mcPlacasKits" aria-label="Gerações" disabled>
+        <option value="">Gerações</option>
+      </select>
+    </label>
     <p class="mc-placas-offer" id="mcPlacasOffer">Escolha a marca. O kit nasce no retângulo de cada formato.</p>
     <a class="mc-placas-marcas" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
   </header>
@@ -16,5 +29,50 @@
     <p>A placa é o anúncio. Sem marca, o lote fica em branco.</p>
   </section>
 
-  <div class="mc-placas-wall" id="mcPlacasWall" hidden></div>
+  <div class="mc-placas-studio" id="mcPlacasStudio" hidden>
+    <nav class="mc-placas-list" id="mcPlacasList" aria-label="Formatos"></nav>
+    <section class="mc-placas-preview" aria-label="Peça">
+      <div class="mc-placa-stage" id="mcPlacasStage"></div>
+      <p class="mc-placas-caption" id="mcPlacasCaption"></p>
+    </section>
+    <aside class="mc-placas-side" id="mcPlacasSide">
+      <form class="mc-placas-edit" id="mcPlacasEdit">
+        <label class="cx-field">
+          <span>Headline</span>
+          <input class="cx-input" id="mcPlacasHeadline" name="headline" maxlength="80">
+        </label>
+        <label class="cx-field">
+          <span>Apoio</span>
+          <input class="cx-input" id="mcPlacasSupport" name="support" maxlength="160">
+        </label>
+        <label class="cx-field">
+          <span>CTA</span>
+          <input class="cx-input" id="mcPlacasCta" name="cta" maxlength="40">
+        </label>
+        <label class="cx-field">
+          <span>Escala do produto</span>
+          <input id="mcPlacasScale" name="product_scale" type="range" min="0.4" max="1.1" step="0.05" value="1">
+        </label>
+        <label class="cx-field">
+          <span>Deslocar X</span>
+          <input id="mcPlacasOffsetX" name="product_x" type="range" min="-20" max="20" step="1" value="0">
+        </label>
+        <label class="cx-field">
+          <span>Deslocar Y</span>
+          <input id="mcPlacasOffsetY" name="product_y" type="range" min="-20" max="20" step="1" value="0">
+        </label>
+        <fieldset class="mc-placas-channels" id="mcPlacasChannels">
+          <legend>Canais</legend>
+        </fieldset>
+        <label class="mc-placas-toggle">
+          <input type="checkbox" id="mcPlacasApplyAll">
+          Aplicar em todos
+        </label>
+        <div class="mc-placas-actions">
+          <button class="cx-btn cx-btn-primary" type="submit">Ajustar</button>
+          <button class="cx-btn" type="button" id="mcPlacasRefine">Passar de novo</button>
+        </div>
+      </form>
+    </aside>
+  </div>
 </article>

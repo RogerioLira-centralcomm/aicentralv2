@@ -62,15 +62,18 @@ body{padding:24px}
 }
 .copy p{margin:0;font-size:12px;line-height:1.3;color:var(--paper);opacity:.86}
 .key-visual{
-  left:52%;
-  top:18%;
-  width:42%;
-  height:62%;
+  left:56%;
+  top:26%;
+  width:36%;
+  height:48%;
   z-index:3;
   background-size:contain;
   background-repeat:no-repeat;
   background-position:center;
 }
+.stage.has-product .key-visual{max-width:40%;max-height:52%}
+.stage.is-tall .copy{width:84%;right:8%}
+.stage.is-tall .key-visual{left:16%;right:16%;width:auto;top:50%;height:30%;max-width:none}
 .cta{
   left:7%;
   bottom:10%;

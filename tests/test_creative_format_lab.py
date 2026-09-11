@@ -778,18 +778,27 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("aspect_ratio", swap_js)
         self.assertIn("logo_used", swap_js)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
-        self.assertIn("mcPlacasWall", placas)
-        self.assertIn("Montar placas", placas)
+        self.assertIn("mcPlacasStudio", placas)
+        self.assertIn("mcPlacasList", placas)
+        self.assertIn("Montar IAB base", placas)
         placas_js = (root / "aicentralv2" / "static" / "js" / "mc-placas.js").read_text(encoding="utf-8")
         self.assertIn("/parametros/api/format-lab/plates", placas_js)
         self.assertIn("/parametros/api/format-lab/plates/bind", placas_js)
+        self.assertIn("/parametros/api/format-lab/plates/patch", placas_js)
+        self.assertIn("apply_to_all", placas_js)
         self.assertIn("selected_channels", placas_js)
 
 
 class CreativeFormatLabPlatesTest(unittest.TestCase):
     def test_kit_da_marca_monta_html_e_canais(self):
         from aicentralv2.creative_format_lab.catalog import plate_kit_formats
-        from aicentralv2.creative_format_lab.plates import build_plate_kit, normalize_bindings, starter_copy
+        from aicentralv2.creative_format_lab.plates import (
+            build_plate_kit,
+            kit_auto_name,
+            normalize_bindings,
+            patch_plate_kit,
+            starter_copy,
+        )
 
         keys = {item["key"] for item in plate_kit_formats()}
         self.assertIn("iab-leaderboard", keys)
@@ -810,12 +819,22 @@ class CreativeFormatLabPlatesTest(unittest.TestCase):
             "brand_profile": {
                 "brand_summary": "Joia como memória.",
                 "products_services": ["Joias"],
+                "fonts": [{"family": "Playfair Display", "role": "display"}],
+                "brand_dna": {
+                    "fonts": {"primary": "Playfair Display", "fallback": "Georgia"},
+                },
                 "plate_channels": {"feed-1x1": ["instagram"]},
             },
-        })
+        }, refine=False)
         self.assertGreaterEqual(len(kit["plates"]), 10)
+        self.assertTrue(all(item["scene_id"] == "scene_01" for item in kit["plates"]))
+        self.assertIn("IAB base", kit["name"])
+        self.assertRegex(kit["name"], r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
+        self.assertIn("Vivara", kit_auto_name("Vivara"))
         feed = next(item for item in kit["plates"] if item["key"] == "feed-1x1")
         self.assertIn("layer-headline", feed["html"])
+        self.assertIn("Playfair Display", feed["html"])
+        self.assertIn("fonts.googleapis.com", feed["html"])
         self.assertIn("1080×1080", feed["size_label"])
         self.assertTrue(any(channel["key"] == "instagram" for channel in feed["channels"]))
         self.assertIn("instagram", feed["selected_channels"])
@@ -831,6 +850,79 @@ class CreativeFormatLabPlatesTest(unittest.TestCase):
         })
         self.assertEqual(bound["feed-1x1"], ["instagram"])
         self.assertNotIn("missing", bound)
+
+    def test_kit_passa_texto_produto_e_tres_refinos_por_familia(self):
+        from aicentralv2.creative_format_lab.plates import build_plate_kit, patch_plate_kit
+
+        calls = []
+
+        def fake_text(messages, **kwargs):
+            calls.append(messages)
+            blob = str(messages)
+            if "campanha-piloto" in blob:
+                return {
+                    "message": {
+                        "content": {
+                            "offer": "Joia de presente",
+                            "headline": "Linha nova da marca",
+                            "support": "Qualidade em cada peça",
+                            "cta": "Veja agora",
+                        }
+                    }
+                }
+            return {
+                "message": {
+                    "content": {
+                        "patches": [{"layer_id": "layer-cta", "text": "Veja agora"}],
+                        "css_vars": {"--brand-accent": "#C4A574"},
+                    }
+                }
+            }
+
+        kit = build_plate_kit(
+            {
+                "id": 9,
+                "name": "Vivara",
+                "brand_profile": {
+                    "brand_summary": "Joia como memória.",
+                    "products_services": ["Anel Solitário"],
+                },
+            },
+            text_callable=fake_text,
+            image_callable=lambda *args, **kwargs: TINY_PNG,
+            product="Anel Solitário",
+        )
+        self.assertEqual(kit["campaign"]["headline"], "Linha nova da marca")
+        self.assertEqual(kit["product"], "Anel Solitário")
+        self.assertTrue(kit["product_assets"]["horizontal"].startswith("data:image/png"))
+        self.assertTrue(kit["product_assets"]["vertical"].startswith("data:image/png"))
+        self.assertEqual({item["family"] for item in kit["passes"]}, {"horizontal", "box", "vertical"})
+        self.assertEqual(len(kit["passes"]), 9)
+        story = next(item for item in kit["plates"] if item["key"] == "story-9x16")
+        self.assertIn("has-product", story["html"])
+        self.assertIn("layer-key-visual", story["html"])
+        patched = patch_plate_kit(kit, {"headline": "Título único", "apply_to_all": True})
+        self.assertTrue(all("Título único" in item["html"] for item in patched["plates"]))
+
+    def test_servico_grava_kit_por_marca(self):
+        from tests.test_modelagem_criativos import FakeGenerator, FakeRepository
+
+        repository = FakeRepository()
+        service = FormatLabService(CreativeModelingService(repository, FakeGenerator()))
+        kit = service.build_plates({"client_id": 10, "refine": False})
+        self.assertEqual(kit["client_id"], 10)
+        self.assertTrue(kit["id"])
+        self.assertIn("IAB base", kit["name"])
+        listed = service.list_plates(10)
+        self.assertEqual(listed[0]["id"], kit["id"])
+        opened = service.get_plates(kit["id"])
+        self.assertEqual(opened["id"], kit["id"])
+        patched = service.patch_plates({
+            "kit_id": kit["id"],
+            "headline": "Ajuste da mesa",
+            "apply_to_all": True,
+        })
+        self.assertTrue(all("Ajuste da mesa" in item["html"] for item in patched["plates"]))
 
 
 class CreativeFormatLabCloseTest(unittest.TestCase):

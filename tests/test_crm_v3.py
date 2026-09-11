@@ -173,10 +173,10 @@ class CrmTestHelpersTest(unittest.TestCase):
         import aicentralv2.crm_v3_routes as routes
 
         regras = routes._regras_texto_externo()
-        self.assertIn("Se o assistente escolheu um canal ou produto, use esse case", regras)
+        self.assertIn("Se o kit do canal estiver escolhido", regras)
         self.assertNotIn("só entra se estiver no registro, no título ou no foco", regras)
         ancora = routes._bloco_ancora({"canal": "Netflix", "titulo": "Apresentar formatos"})
-        self.assertIn("Canal ou produto escolhido (usar neste item): Netflix", ancora)
+        self.assertIn("Kit do canal (amunir o assunto, não substituí-lo): Netflix", ancora)
 
         captured = {}
         original_available = routes._openrouter_available
@@ -210,9 +210,11 @@ class CrmTestHelpersTest(unittest.TestCase):
         finally:
             routes._openrouter_available = original_available
             routes._call_openrouter = original_call
-        self.assertIn("Canal de referência obrigatório neste item: Netflix", captured["user"])
+        self.assertIn("Kit do canal nesta geração: Netflix", captured["user"])
+        self.assertIn("PESO DO PROMPT", captured["user"])
         self.assertIn("Netflix", captured["user"])
         self.assertIn("Formatos interativos", captured["user"])
+        self.assertIn("FICHA TÉCNICA", captured["user"])
         self.assertIn("Abertura:", out["texto"])
 
     def test_comunicacao_linkedin_tem_prompt_proprio(self):
@@ -225,6 +227,19 @@ class CrmTestHelpersTest(unittest.TestCase):
         self.assertIn("LinkedIn", prompt)
         self.assertIn("InMail", prompt)
         self.assertNotIn("Para WhatsApp, use até 3 parágrafos", prompt)
+        email_prompt = routes._system_prompt_comunicacao("email", {})
+        self.assertIn("90 a 130 palavras", email_prompt)
+        regras = routes._regras_texto_externo()
+        self.assertIn("FICHA TÉCNICA", regras)
+        self.assertIn("não escreva métrica", regras.lower())
+
+    def test_refine_preserva_ficha_e_ajuste(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        prompt = routes._system_prompt_refine()
+        self.assertIn("Não recomece do zero", prompt)
+        self.assertIn("FICHA TÉCNICA", prompt)
+        self.assertIn("Preserve nomes, números", prompt)
 
 
 class CrmTestApiTest(unittest.TestCase):
@@ -901,6 +916,42 @@ class CrmTestApiTest(unittest.TestCase):
             json={"cliente_id": "auto-shopping", "titulo": "Somente título"},
         )
         self.assertEqual(res.status_code, 400)
+
+    def test_melhorar_texto_envia_ficha_e_ajuste(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        captured = {}
+        original_available = routes._openrouter_available
+        original_call = routes._call_openrouter
+        routes._openrouter_available = lambda: True
+
+        def fake_call(system, user, **kwargs):
+            captured["system"] = system
+            captured["user"] = user
+            return json.dumps({
+                "texto": "Claudia, Hot Spots 3-6% para lançamentos. Combinamos amanhã?",
+                "alteracoes": ["Recolocou taxa da ficha"],
+            })
+
+        routes._call_openrouter = fake_call
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/melhorar-texto",
+                json={
+                    "titulo": "Apresentar formatos interativos",
+                    "tipo": "email",
+                    "canal_produto": "Interativos",
+                    "descricao": "Oi, tudo bem? Queria compartilhar algumas ideias.",
+                    "instrucoes": "imóveis RJ, score 500+",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+            routes._call_openrouter = original_call
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("FICHA TÉCNICA", captured["user"])
+        self.assertIn("imóveis RJ, score 500+", captured["user"])
+        self.assertIn("Não recomece do zero", captured["system"])
 
     def test_comunicacao_preserva_canal_e_contato_escolhido(self):
         import aicentralv2.crm_v3_routes as routes

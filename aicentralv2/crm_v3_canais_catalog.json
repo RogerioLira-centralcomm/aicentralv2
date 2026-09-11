@@ -1,0 +1,817 @@
+[
+  {
+    "slug": "spotify",
+    "nome": "Spotify",
+    "categoria": "Streaming de Áudio",
+    "tipo": "audio",
+    "alcance": "+50M ouvintes",
+    "viewability": 98,
+    "investimento_minimo": "R$ 15.000",
+    "beneficios": [
+      "Audio Ads 15s/30s",
+      "Sponsored Playlist",
+      "Video Takeover",
+      "Podcast Ads",
+      "Sponsored Sessions"
+    ],
+    "diferenciais": [
+      "Único player com acesso a playlists patrocinadas no Brasil",
+      "Segmentação por momento do dia (workout, relax, focus)",
+      "Dados exclusivos de humor e atividade do usuário",
+      "Audio ads não skipáveis com 95%+ completion rate"
+    ],
+    "logo_path": "/assets_images/logos/spotify.png",
+    "descricao": "A maior plataforma de streaming de áudio do mundo, com mais de 50 milhões de ouvintes no Brasil. Ideal para campanhas de awareness e branding com alta taxa de completion.",
+    "cor": "#1DB954"
+  },
+  {
+    "slug": "deezer",
+    "nome": "Deezer",
+    "categoria": "Streaming de Áudio",
+    "tipo": "audio",
+    "alcance": "+16M ouvintes",
+    "viewability": 96,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Audio Ads 15s/30s",
+      "Display Ads",
+      "Sponsored Sessions",
+      "Podcast Ads"
+    ],
+    "diferenciais": [
+      "Parceria exclusiva com Vivo, Tim e Claro",
+      "Audiência com alto poder aquisitivo",
+      "Flow - algoritmo de recomendação proprietário",
+      "Forte presença em podcasts brasileiros"
+    ],
+    "logo_path": "/assets_images/logos/deezer.svg",
+    "descricao": "Plataforma de streaming musical com forte presença no Brasil e América Latina. Parceria exclusiva com operadoras de telecom.",
+    "cor": "#A238FF"
+  },
+  {
+    "slug": "amazon-music",
+    "nome": "Amazon Music",
+    "categoria": "Streaming de Áudio",
+    "tipo": "audio",
+    "alcance": "+8M ouvintes",
+    "viewability": 97,
+    "investimento_minimo": "R$ 20.000",
+    "beneficios": [
+      "Audio Ads",
+      "Display Ads",
+      "Alexa Interactive Ads"
+    ],
+    "diferenciais": [
+      "Integração com dados de compra Amazon",
+      "Ads interativos via Alexa",
+      "Audiência Prime com alto ticket médio",
+      "Cross-device com Echo e Fire TV"
+    ],
+    "logo_path": "/assets_images/logos/amazon-music.svg",
+    "descricao": "Serviço de streaming da Amazon com integração ao ecossistema Prime e dispositivos Alexa.",
+    "cor": "#FF9900"
+  },
+  {
+    "slug": "netflix",
+    "nome": "Netflix",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+20M assinantes BR",
+    "viewability": 99,
+    "investimento_minimo": "R$ 50.000",
+    "beneficios": [
+      "Video Ads 15s/30s",
+      "Pre-roll",
+      "Mid-roll"
+    ],
+    "diferenciais": [
+      "Ambiente 100% brand safe - conteúdo curado",
+      "Audiência premium e engajada",
+      "Sem skip - completion rate de 97%",
+      "Targeting por títulos populares (Top 10)"
+    ],
+    "logo_path": "/assets_images/logos/netflix.png",
+    "descricao": "A maior plataforma de streaming de vídeo do mundo. Plano com anúncios oferece acesso a audiência premium em ambiente brand safe.",
+    "cor": "#E50914"
+  },
+  {
+    "slug": "globoplay",
+    "nome": "Globoplay",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+25M assinantes",
+    "viewability": 98,
+    "investimento_minimo": "R$ 30.000",
+    "beneficios": [
+      "Video Ads 15s/30s",
+      "Pre-roll",
+      "Mid-roll",
+      "Pause Ads",
+      "Branded Content"
+    ],
+    "diferenciais": [
+      "Conteúdo exclusivo brasileiro (novelas, BBB, séries)",
+      "Transmissão ao vivo de eventos",
+      "Integração com TV Globo",
+      "Audiência feminina forte (58%)"
+    ],
+    "logo_path": "/assets_images/logos/globoplay.png",
+    "descricao": "Principal plataforma de streaming brasileira com conteúdo exclusivo Globo, novelas, séries e jornalismo.",
+    "cor": "#F7941D"
+  },
+  {
+    "slug": "paramount-plus",
+    "nome": "Paramount+",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+8M assinantes BR",
+    "viewability": 97,
+    "investimento_minimo": "R$ 25.000",
+    "beneficios": [
+      "Video Ads",
+      "Pre-roll",
+      "Pause Ads",
+      "Branded Content"
+    ],
+    "diferenciais": [
+      "Conteúdo infantil premium (Nickelodeon)",
+      "Público jovem via MTV",
+      "Filmes em lançamento",
+      "Futebol - Champions League"
+    ],
+    "logo_path": "/assets_images/logos/paramount.svg",
+    "descricao": "Streaming premium com conteúdo exclusivo da Paramount, MTV, Nickelodeon, Comedy Central e mais.",
+    "cor": "#0064FF"
+  },
+  {
+    "slug": "samsung-tv-plus",
+    "nome": "Samsung TV Plus",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+20M Smart TVs BR",
+    "viewability": 97,
+    "investimento_minimo": "R$ 20.000",
+    "beneficios": [
+      "Video Ads (Pre/Mid-roll)",
+      "Home Screen Ads",
+      "First Screen Takeover",
+      "Masthead",
+      "Native Ads"
+    ],
+    "diferenciais": [
+      "Acesso à tela inicial — primeiro ponto de contato ao ligar a TV",
+      "Audiência premium: 68% classe A/B",
+      "Dados exclusivos de ACR",
+      "Sem necessidade de app ou login"
+    ],
+    "logo_path": "/assets_images/logos/samsung-tv.svg",
+    "descricao": "Streaming gratuito pré-instalado em mais de 20 milhões de Smart TVs Samsung no Brasil. Acesso direto à tela inicial — sem app, sem login.",
+    "cor": "#1428A0"
+  },
+  {
+    "slug": "disney-plus",
+    "nome": "Disney+",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+15M assinantes BR",
+    "viewability": 98,
+    "investimento_minimo": "R$ 40.000",
+    "beneficios": [
+      "Video Ads 15s/30s",
+      "Pre-roll",
+      "Mid-roll"
+    ],
+    "diferenciais": [
+      "Conteúdo premium familiar",
+      "Franquias icônicas (Marvel, Star Wars)",
+      "Ambiente 100% brand safe",
+      "Audiência premium engajada"
+    ],
+    "logo_path": "/assets_images/logos/disney.png",
+    "descricao": "Streaming premium da Disney com conteúdo Marvel, Star Wars, Pixar, National Geographic e Star.",
+    "cor": "#1A6DFF"
+  },
+  {
+    "slug": "prime-video",
+    "nome": "Prime Video",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+12M assinantes BR",
+    "viewability": 97,
+    "investimento_minimo": "R$ 35.000",
+    "beneficios": [
+      "Video Ads 15s/30s",
+      "Pre-roll",
+      "Pause Ads"
+    ],
+    "diferenciais": [
+      "Dados de compra Amazon integrados",
+      "Audiência Prime alto ticket",
+      "Thursday Night Football",
+      "Cross-device com Fire TV"
+    ],
+    "logo_path": "/assets_images/logos/prime.png",
+    "descricao": "Streaming da Amazon com conteúdo original, filmes e séries. Integração com ecossistema Amazon.",
+    "cor": "#00A8E1"
+  },
+  {
+    "slug": "hbo-max",
+    "nome": "Max (HBO)",
+    "categoria": "CTV / Streaming",
+    "tipo": "ctv",
+    "alcance": "+10M assinantes BR",
+    "viewability": 98,
+    "investimento_minimo": "R$ 45.000",
+    "beneficios": [
+      "Video Ads 15s/30s",
+      "Pre-roll",
+      "Mid-roll"
+    ],
+    "diferenciais": [
+      "Séries premium (House of the Dragon, The Last of Us)",
+      "Conteúdo HBO aclamado pela crítica",
+      "Audiência premium e engajada",
+      "Ambiente brand safe"
+    ],
+    "logo_path": "/assets_images/logos/hbo-max.png",
+    "descricao": "Streaming premium com conteúdo HBO, Warner Bros, DC e Discovery. Séries aclamadas e filmes blockbuster.",
+    "cor": "#5822B4"
+  },
+  {
+    "slug": "g1-globo",
+    "nome": "G1 / Globo.com",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+150M pageviews/mês",
+    "viewability": 72,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Video Ads",
+      "Rich Media",
+      "Takeover",
+      "Branded Content"
+    ],
+    "diferenciais": [
+      "Maior audiência de notícias do Brasil",
+      "Cobertura regional em todos os estados",
+      "Credibilidade jornalística",
+      "Formatos de alto impacto (Takeover)"
+    ],
+    "logo_path": "/assets_images/logos/g1.png",
+    "descricao": "O maior portal de notícias do Brasil, com cobertura nacional e regional. Referência em jornalismo digital.",
+    "cor": "#C4170C"
+  },
+  {
+    "slug": "r7",
+    "nome": "R7",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+80M pageviews/mês",
+    "viewability": 68,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Video Ads",
+      "Rich Media",
+      "Takeover"
+    ],
+    "diferenciais": [
+      "Forte audiência em entretenimento",
+      "Integração com conteúdo Record TV",
+      "Bom custo-benefício",
+      "Audiência classe C expressiva"
+    ],
+    "logo_path": "/assets_images/logos/r7.png",
+    "descricao": "Portal de notícias do Grupo Record com grande audiência nacional. Forte em entretenimento e notícias.",
+    "cor": "#0055A5"
+  },
+  {
+    "slug": "uol",
+    "nome": "UOL",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+100M pageviews/mês",
+    "viewability": 70,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Video Ads",
+      "Branded Content",
+      "Newsletter",
+      "Podcast"
+    ],
+    "diferenciais": [
+      "Diversidade de verticais e públicos",
+      "UOL Tab - newsletter premium",
+      "Forte em economia e finanças",
+      "Branded content de qualidade"
+    ],
+    "logo_path": "/assets_images/logos/uol.png",
+    "descricao": "Um dos maiores portais de conteúdo do Brasil com diversas verticais: notícias, esportes, economia, entretenimento.",
+    "cor": "#FFCC00"
+  },
+  {
+    "slug": "cnn-brasil",
+    "nome": "CNN Brasil",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+40M pageviews/mês",
+    "viewability": 72,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Ads",
+      "Video Ads",
+      "Native Ads",
+      "Branded Content"
+    ],
+    "diferenciais": [
+      "Credibilidade jornalística internacional",
+      "Audiência classe AB (65%)",
+      "Cobertura 24h de notícias",
+      "Integração TV + Digital"
+    ],
+    "logo_path": "/assets_images/logos/cnn.svg",
+    "descricao": "Portal de notícias da CNN Brasil com cobertura 24h. Jornalismo de qualidade e credibilidade.",
+    "cor": "#CC0000"
+  },
+  {
+    "slug": "sbt",
+    "nome": "SBT",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+60M pageviews/mês",
+    "viewability": 72,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Ads",
+      "Video Ads",
+      "Native Ads",
+      "Pre-roll",
+      "Branded Content",
+      "Copa do Mundo 2026"
+    ],
+    "diferenciais": [
+      "Copa do Mundo 2026: 32 jogos na TV aberta + digital",
+      "Streaming gratuito +SBT: sem barreira de assinatura",
+      "SBT News 24h: 162M views/mês no YouTube",
+      "Audiência massiva migrada da TV aberta"
+    ],
+    "logo_path": "/assets_images/logos/logo-sbt.png",
+    "descricao": "Segunda maior emissora do Brasil com portal digital, streaming gratuito (+SBT) e SBT News 24h. Transmitirá 32 jogos da Copa do Mundo 2026.",
+    "cor": "#FFD700"
+  },
+  {
+    "slug": "experian-portal",
+    "nome": "Serasa",
+    "categoria": "Portais Premium",
+    "tipo": "portal",
+    "alcance": "+35M visitas/mês",
+    "viewability": 85,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display Portal Serasa",
+      "Display App Serasa",
+      "Patrocínio Feirão Limpa Nome",
+      "Branded Content Portal",
+      "Push Notification App",
+      "E-mail Marketing Segmentado",
+      "LP de Conversão Especial"
+    ],
+    "diferenciais": [
+      "Portal Serasa: +35M visitas/mês com audiência financeiramente engajada",
+      "App Serasa: +30M downloads, push segmentado por score",
+      "Feirão Limpa Nome: maior evento de renegociação do Brasil",
+      "LP de conversão co-branded com alta taxa de conversão"
+    ],
+    "logo_path": "/assets_images/logos/serasa.png",
+    "descricao": "Inventário de mídia premium no ecossistema Serasa: portal com +35M de visitas/mês, app com +30M de downloads, Feirão Limpa Nome e landing pages co-branded.",
+    "cor": "#E91E63"
+  },
+  {
+    "slug": "experian-dmp",
+    "nome": "Serasa Data (DMP)",
+    "categoria": "Data Partners",
+    "tipo": "data",
+    "alcance": "+200M perfis",
+    "viewability": null,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Audiências 3rd Party (DMP)",
+      "Lookalike Financeiro",
+      "Custom Segments por Score/Renda",
+      "Data Enrichment (CRM Match)"
+    ],
+    "diferenciais": [
+      "Maior base de dados financeiros do Brasil (+200M perfis)",
+      "Score de crédito exclusivo para segmentação",
+      "Segmentação por momento financeiro",
+      "Dados first-party exclusivos não disponíveis em nenhuma outra DMP"
+    ],
+    "logo_path": "/assets_images/logos/serasa.png",
+    "descricao": "A maior base de dados financeiros do Brasil com +200M de perfis. Audiências first-party exclusivas para ativação em qualquer DSP.",
+    "cor": "#E91E63"
+  },
+  {
+    "slug": "tudogostoso",
+    "nome": "TudoGostoso",
+    "categoria": "Portais de Nicho",
+    "tipo": "portal",
+    "alcance": "+30M pageviews/mês",
+    "viewability": 75,
+    "investimento_minimo": "R$ 8.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Branded Recipes",
+      "Video Ads",
+      "Newsletter"
+    ],
+    "diferenciais": [
+      "Audiência 75% feminina - decisoras de compra",
+      "Alto tempo de permanência (12 min)",
+      "Branded recipes com integração de produto",
+      "Contexto perfeito para alimentos e bebidas"
+    ],
+    "logo_path": "/assets_images/logos/tudogostoso.svg",
+    "descricao": "O maior site de receitas do Brasil, com audiência altamente engajada em culinária e gastronomia.",
+    "cor": "#E94E1B"
+  },
+  {
+    "slug": "techtudo",
+    "nome": "TechTudo",
+    "categoria": "Portais de Nicho",
+    "tipo": "portal",
+    "alcance": "+25M pageviews/mês",
+    "viewability": 70,
+    "investimento_minimo": "R$ 12.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Branded Content",
+      "Reviews patrocinados",
+      "Video"
+    ],
+    "diferenciais": [
+      "Audiência tech-savvy e early adopters",
+      "Reviews com alta credibilidade",
+      "Público masculino 68%",
+      "Alto poder aquisitivo"
+    ],
+    "logo_path": "/assets_images/logos/techtudo.svg",
+    "descricao": "Portal de tecnologia do Grupo Globo, referência em reviews, tutoriais e notícias tech.",
+    "cor": "#00BFFF"
+  },
+  {
+    "slug": "ge-globo-esporte",
+    "nome": "GE (Globo Esporte)",
+    "categoria": "Portais de Nicho",
+    "tipo": "portal",
+    "alcance": "+120M pageviews/mês",
+    "viewability": 74,
+    "investimento_minimo": "R$ 25.000",
+    "beneficios": [
+      "Display Ads",
+      "Video Ads",
+      "Takeover",
+      "Patrocínio de seções",
+      "Live Ads"
+    ],
+    "diferenciais": [
+      "Maior audiência esportiva do Brasil",
+      "Cobertura de todos os campeonatos",
+      "Picos de audiência em jogos ao vivo",
+      "Segmentação por time de futebol"
+    ],
+    "logo_path": "/assets_images/logos/ge-globo.svg",
+    "descricao": "O maior portal de esportes do Brasil, cobrindo futebol, olimpíadas, automobilismo e mais.",
+    "cor": "#00A859"
+  },
+  {
+    "slug": "infomoney",
+    "nome": "InfoMoney",
+    "categoria": "Portais de Nicho",
+    "tipo": "portal",
+    "alcance": "+40M pageviews/mês",
+    "viewability": 72,
+    "investimento_minimo": "R$ 15.000",
+    "beneficios": [
+      "Display Ads",
+      "Native Ads",
+      "Branded Content",
+      "Newsletter",
+      "Webinars"
+    ],
+    "diferenciais": [
+      "Audiência 78% classe AB",
+      "Investidores e decisores financeiros",
+      "Alto ticket médio de produtos",
+      "Webinars com alta conversão"
+    ],
+    "logo_path": "/assets_images/logos/infomoney.svg",
+    "descricao": "Principal portal de finanças e investimentos do Brasil. Conteúdo para investidores e profissionais.",
+    "cor": "#00875A"
+  },
+  {
+    "slug": "youtube",
+    "nome": "YouTube",
+    "categoria": "Redes Sociais",
+    "tipo": "video",
+    "alcance": "+140M usuários BR",
+    "viewability": 95,
+    "investimento_minimo": "R$ 5.000",
+    "beneficios": [
+      "TrueView In-Stream",
+      "Bumper Ads 6s",
+      "Discovery Ads",
+      "Masthead",
+      "Shorts Ads"
+    ],
+    "diferenciais": [
+      "Maior alcance de vídeo do Brasil",
+      "Segmentação por intenção de compra",
+      "YouTube Shorts para público jovem",
+      "Integração com Google Ads"
+    ],
+    "logo_path": "/assets_images/logos/youtube.png",
+    "descricao": "A maior plataforma de vídeos do mundo. Alcance massivo com formatos de vídeo, display e discovery.",
+    "cor": "#FF0000"
+  },
+  {
+    "slug": "instagram",
+    "nome": "Instagram",
+    "categoria": "Redes Sociais",
+    "tipo": "social",
+    "alcance": "+120M usuários BR",
+    "viewability": 92,
+    "investimento_minimo": "R$ 3.000",
+    "beneficios": [
+      "Feed Ads",
+      "Stories Ads",
+      "Reels Ads",
+      "Explore Ads",
+      "Shopping Ads"
+    ],
+    "diferenciais": [
+      "Maior engajamento entre redes sociais",
+      "Reels para alcance orgânico amplificado",
+      "Shopping integrado para e-commerce",
+      "Audiência feminina forte (58%)"
+    ],
+    "logo_path": "/assets_images/logos/instagram.png",
+    "descricao": "Plataforma visual líder em engajamento. Ideal para branding, awareness e conversão com formatos diversos.",
+    "cor": "#E4405F"
+  },
+  {
+    "slug": "tiktok",
+    "nome": "TikTok",
+    "categoria": "Redes Sociais",
+    "tipo": "social",
+    "alcance": "+85M usuários BR",
+    "viewability": 94,
+    "investimento_minimo": "R$ 5.000",
+    "beneficios": [
+      "In-Feed Ads",
+      "TopView",
+      "Branded Hashtag",
+      "Branded Effects",
+      "Spark Ads"
+    ],
+    "diferenciais": [
+      "Maior tempo de uso diário (95 min)",
+      "Algoritmo de descoberta poderoso",
+      "Spark Ads - impulsionar conteúdo orgânico",
+      "Público Gen Z altamente engajado"
+    ],
+    "logo_path": "/assets_images/logos/tiktok.svg",
+    "descricao": "Plataforma de vídeos curtos com maior crescimento. Ideal para alcançar público jovem com conteúdo autêntico.",
+    "cor": "#000000"
+  },
+  {
+    "slug": "linkedin",
+    "nome": "LinkedIn",
+    "categoria": "Redes Sociais",
+    "tipo": "social",
+    "alcance": "+65M usuários BR",
+    "viewability": 88,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Sponsored Content",
+      "Message Ads",
+      "Dynamic Ads",
+      "Text Ads",
+      "Video Ads"
+    ],
+    "diferenciais": [
+      "Segmentação B2B mais precisa do mercado",
+      "Audiência de decisores (78% classe AB)",
+      "Lead Gen Forms nativos",
+      "Account-Based Marketing"
+    ],
+    "logo_path": "/assets_images/logos/linkedin.svg",
+    "descricao": "A maior rede profissional do mundo. Ideal para B2B, recrutamento e thought leadership.",
+    "cor": "#0A66C2"
+  },
+  {
+    "slug": "eletromidia",
+    "nome": "Eletromidia",
+    "categoria": "DOOH",
+    "tipo": "ooh",
+    "alcance": "+30M impactos/dia",
+    "viewability": 95,
+    "investimento_minimo": "R$ 15.000",
+    "beneficios": [
+      "Telas de Elevador",
+      "Metrô (Linha Amarela e outras)",
+      "Aeroportos",
+      "Shoppings",
+      "Mobiliário Urbano",
+      "Relógios de Rua"
+    ],
+    "diferenciais": [
+      "Maior inventário DOOH do Brasil",
+      "Presente em 25+ cidades",
+      "Audiência premium em elevadores classe AB",
+      "Integração programática com DSPs"
+    ],
+    "logo_path": "/assets_images/logos/eletromidia.png",
+    "descricao": "Maior empresa de mídia OOH digital do Brasil. Presente em elevadores, metrôs, aeroportos, shoppings e mobiliário urbano.",
+    "cor": "#FF6B00"
+  },
+  {
+    "slug": "google-dv360",
+    "nome": "Google DV360",
+    "categoria": "Programática",
+    "tipo": "programatica",
+    "alcance": "+90% web BR",
+    "viewability": 68,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Display",
+      "Video (Pre/Mid/Post)",
+      "Native",
+      "Audio",
+      "CTV",
+      "DOOH"
+    ],
+    "diferenciais": [
+      "Maior inventário programático do mercado",
+      "Integração nativa com Google Analytics/GA4",
+      "Acesso a inventário premium PMP",
+      "Machine learning para otimização"
+    ],
+    "logo_path": "/assets_images/logos/dv360.svg",
+    "descricao": "Principal DSP do mercado para mídia programática. Acesso a inventário premium de display, vídeo, áudio, CTV e DOOH.",
+    "cor": "#4285F4"
+  },
+  {
+    "slug": "the-trade-desk",
+    "nome": "The Trade Desk",
+    "categoria": "Programática",
+    "tipo": "programatica",
+    "alcance": "+80% web BR",
+    "viewability": 70,
+    "investimento_minimo": "R$ 15.000",
+    "beneficios": [
+      "Display",
+      "Video",
+      "Native",
+      "Audio",
+      "CTV",
+      "DOOH"
+    ],
+    "diferenciais": [
+      "DSP independente - sem conflito de interesse",
+      "Forte em CTV (Samsung, LG, Roku)",
+      "UID2 - alternativa ao cookie",
+      "Kokai AI para otimização"
+    ],
+    "logo_path": "/assets_images/logos/ttd.svg",
+    "descricao": "DSP independente líder com foco em CTV, audio e data-driven advertising. Forte em transparency e measurement.",
+    "cor": "#00B140"
+  },
+  {
+    "slug": "twitch",
+    "nome": "Twitch",
+    "categoria": "Gaming / Live",
+    "tipo": "gaming",
+    "alcance": "+15M usuários BR",
+    "viewability": 90,
+    "investimento_minimo": "R$ 15.000",
+    "beneficios": [
+      "Pre-roll Video",
+      "Mid-roll Video",
+      "Display Ads",
+      "Premium Video",
+      "Homepage Carousel",
+      "Branded Content"
+    ],
+    "diferenciais": [
+      "Comunidade mais engajada da internet",
+      "95 min de sessão média",
+      "Público jovem difícil de alcançar em outros canais",
+      "Chat interaction em tempo real"
+    ],
+    "logo_path": "/assets_images/logos/twitch.svg",
+    "descricao": "Maior plataforma de live streaming do mundo. Comunidade engajada de gamers e criadores de conteúdo.",
+    "cor": "#9146FF"
+  },
+  {
+    "slug": "podcast-ads",
+    "nome": "Podcast Ads (Rede)",
+    "categoria": "Áudio Digital",
+    "tipo": "audio",
+    "alcance": "+40M ouvintes BR",
+    "viewability": 95,
+    "investimento_minimo": "R$ 10.000",
+    "beneficios": [
+      "Host-read Ads",
+      "Pre-recorded Ads",
+      "Dynamic Ad Insertion",
+      "Branded Podcast",
+      "Sponsorship"
+    ],
+    "diferenciais": [
+      "Host-read ads com alta credibilidade",
+      "92% completion rate",
+      "Audiência premium (68% classe AB)",
+      "Contexto temático preciso"
+    ],
+    "logo_path": "/assets_images/logos/podcast.svg",
+    "descricao": "Publicidade em podcasts brasileiros via redes de podcast (Spotify, iHeartMedia, Podtag, etc.).",
+    "cor": "#8B5CF6"
+  },
+  {
+    "slug": "waze",
+    "nome": "Waze",
+    "categoria": "Mobilidade",
+    "tipo": "mobile",
+    "alcance": "+25M motoristas BR",
+    "viewability": 85,
+    "investimento_minimo": "R$ 8.000",
+    "beneficios": [
+      "Pins (alfinetes no mapa)",
+      "Takeover (tela cheia em parada)",
+      "Arrow (seta direcional)",
+      "Search Ads"
+    ],
+    "diferenciais": [
+      "Único canal que alcança motoristas no momento de decisão",
+      "Ads em zero-speed (parados no semáforo)",
+      "Drive-to-store com navegação direta",
+      "Dados de mobilidade exclusivos"
+    ],
+    "logo_path": "/assets_images/logos/waze.png",
+    "descricao": "App de navegação com maior base no Brasil. Ideal para drive-to-store com formatos nativos no mapa.",
+    "cor": "#33CCFF"
+  },
+  {
+    "slug": "kwai",
+    "nome": "Kwai",
+    "categoria": "Redes Sociais",
+    "tipo": "social",
+    "alcance": "+60M usuários BR",
+    "viewability": 90,
+    "investimento_minimo": "R$ 5.000",
+    "beneficios": [
+      "In-Feed Video Ads",
+      "Splash Screen (TopView)",
+      "Branded Hashtag",
+      "Discovery Ads"
+    ],
+    "diferenciais": [
+      "Forte penetração classe C e D",
+      "Audiência complementar ao TikTok",
+      "Custo por impressão mais acessível",
+      "60M de usuários no Brasil"
+    ],
+    "logo_path": "/assets_images/logos/kwai.svg",
+    "descricao": "Plataforma de vídeos curtos com forte penetração na classe C brasileira. Audiência complementar ao TikTok.",
+    "cor": "#FF4906"
+  },
+  {
+    "slug": "telegram",
+    "nome": "Telegram",
+    "categoria": "Messaging",
+    "tipo": "messaging",
+    "alcance": "+65M usuários BR",
+    "viewability": 92,
+    "investimento_minimo": "R$ 5.000",
+    "beneficios": [
+      "Sponsored Messages",
+      "Telegram Ads (em canais públicos)"
+    ],
+    "diferenciais": [
+      "Audiência tech-savvy e early adopters",
+      "Mensagens patrocinadas discretas e nativas",
+      "Sem cookies - baseado em contexto",
+      "Forte em cripto, finanças e tecnologia"
+    ],
+    "logo_path": "/assets_images/logos/telegram.svg",
+    "descricao": "App de mensagens com audiência crescente no Brasil. Telegram Ads permite anúncios em canais públicos.",
+    "cor": "#0088CC"
+  }
+]

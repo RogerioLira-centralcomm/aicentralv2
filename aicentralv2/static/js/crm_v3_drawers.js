@@ -804,7 +804,7 @@
     function wireChipGroups(wrapper, form) {
         $$('.cx-drawer-chip-group', wrapper).forEach(function (group) {
             var field = group.getAttribute('data-chip-group');
-            if (!field) return;
+            if (!field || group.hasAttribute('data-canal-chips')) return;
             var hidden = form.querySelector('[data-field="' + field + '"]');
             var chips = $$('.cx-drawer-chip', group);
 
@@ -1634,6 +1634,7 @@
         // Conecta os chip-groups (Tipo, Formato) à respectiva hidden.
         // Precisa vir DEPOIS do fillForm para pegar o valor inicial.
         wireChipGroups(wrapper, form);
+        wireCanalPicker(wrapper, form);
         wireRegistroCounter(form);
         wireStyleModel(wrapper);
         loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
@@ -2026,14 +2027,188 @@
             .split(' — ')[0].trim();
     }
 
+    var _canaisCatalogo = null;
+    var _canaisCatalogoPromise = null;
+
+    function loadCanaisCatalogo() {
+        if (_canaisCatalogo) return Promise.resolve(_canaisCatalogo);
+        if (_canaisCatalogoPromise) return _canaisCatalogoPromise;
+        _canaisCatalogoPromise = apiFetch('/canais').then(function (res) {
+            var data = res.data || res;
+            _canaisCatalogo = data.canais || (Array.isArray(data) ? data : []) || [];
+            return _canaisCatalogo;
+        }).catch(function () {
+            _canaisCatalogo = _canaisCatalogo || [];
+            return _canaisCatalogo;
+        });
+        return _canaisCatalogoPromise;
+    }
+
     function inferCanalProduto(titulo, atual) {
         if (atual) return atual;
-        var canais = ['Netflix', 'Spotify', 'Serasa', 'Disney', 'HBO', 'Amazon', 'iFood', 'Uber', '99', 'Logan'];
         var lower = String(titulo || '').toLowerCase();
+        if (lower.indexOf('interativ') !== -1) return 'Interativos';
+        var canais = (_canaisCatalogo || []).map(function (item) { return item.nome; })
+            .concat(['Netflix', 'Spotify', 'Serasa', 'Disney', 'HBO', 'Amazon', 'iFood', 'Uber', '99', 'Logan', 'Interativos']);
         for (var i = 0; i < canais.length; i++) {
-            if (lower.indexOf(canais[i].toLowerCase()) !== -1) return canais[i];
+            if (canais[i] && lower.indexOf(String(canais[i]).toLowerCase()) !== -1) return canais[i];
         }
         return '';
+    }
+
+    function findCanalByName(nome) {
+        var alvo = String(nome || '').toLowerCase();
+        return (_canaisCatalogo || []).find(function (item) {
+            return String(item.nome || '').toLowerCase() === alvo;
+        }) || null;
+    }
+
+    function formatosParaRegistro(canal, registro) {
+        var formatos = (canal && canal.formatos) || [];
+        if (!formatos.length) return [];
+        var texto = String(registro || '').toLowerCase();
+        if (/imob|lançament|lancament/.test(texto)) {
+            var ordem = ['hot spots', '360', 'countdown', 'cube', 'scratch'];
+            return formatos.slice().sort(function (a, b) {
+                var ia = ordem.findIndex(function (chave) {
+                    return String(a.nome || '').toLowerCase().indexOf(chave) !== -1;
+                });
+                var ib = ordem.findIndex(function (chave) {
+                    return String(b.nome || '').toLowerCase().indexOf(chave) !== -1;
+                });
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+            });
+        }
+        return formatos;
+    }
+
+    function canalChipHtml(canal) {
+        var nome = escapeHtml(canal.nome || '');
+        return '<button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="' + nome + '" role="radio" aria-checked="false">' +
+            '<span class="cx-atividade-brand" aria-hidden="true">' + canalMarkHtml(canal) + '</span>' + nome +
+            '</button>';
+    }
+
+    function renderCanalFicha(wrapper, nome) {
+        var box = wrapper.querySelector('[data-canal-ficha]');
+        if (!box) return;
+        var canal = findCanalByName(nome);
+        if (!canal) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+        var facts = [];
+        if (canal.alcance) facts.push(canal.alcance);
+        if (canal.viewability != null) facts.push('Viewability ' + canal.viewability + '%');
+        if (canal.investimento_minimo) facts.push('Mínimo ' + canal.investimento_minimo);
+        var registro = ((wrapper.querySelector('[data-field="descricao"]') || {}).value || '');
+        var formatos = formatosParaRegistro(canal, registro);
+        if (formatos[0]) {
+            facts.push(formatos[0].nome + (formatos[0].taxa ? ' ' + formatos[0].taxa : ''));
+        }
+        box.hidden = false;
+        box.innerHTML = '<strong>' + escapeHtml(canal.nome) + '</strong>' +
+            '<em>' + escapeHtml(canal.categoria || 'Kit do canal') + '</em>' +
+            facts.map(function (fact) {
+                return '<span>' + escapeHtml(fact) + '</span>';
+            }).join('') +
+            '<button type="button" data-canal-clear>Tirar do briefing</button>';
+    }
+
+    function renderCanalSuggest(wrapper, form) {
+        var box = wrapper.querySelector('[data-canal-suggest]');
+        if (!box) return;
+        var hidden = form.querySelector('[data-field="canal_produto"]');
+        var titulo = (form.querySelector('[data-field="titulo"]') || {}).value || '';
+        var atual = hidden ? hidden.value : '';
+        var suggested = inferCanalProduto(titulo, '');
+        if (!suggested || suggested === atual) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+        box.hidden = false;
+        box.innerHTML = 'O título cita <strong>' + escapeHtml(suggested) +
+            '</strong>. <button type="button" data-canal-apply="' + escapeHtml(suggested) +
+            '">Usar este kit</button>';
+    }
+
+    function setCanalProduto(form, wrapper, val, source) {
+        var hidden = form.querySelector('[data-field="canal_produto"]');
+        if (hidden) {
+            hidden.value = val || '';
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        form._canalCleared = !val;
+        if (source === 'title') form._canalSugerido = val || '';
+        markCanalChips(wrapper, val);
+        renderCanalFicha(wrapper, val);
+        renderCanalSuggest(wrapper, form);
+        syncAssistantBriefing(wrapper, form);
+    }
+
+    function markCanalChips(wrapper, val) {
+        var chips = wrapper.querySelector('[data-canal-chips]');
+        if (!chips) return;
+        $$('.cx-drawer-chip', chips).forEach(function (chip) {
+            var active = chip.getAttribute('data-value') === val;
+            chip.classList.toggle('is-active', active);
+            chip.setAttribute('aria-checked', active ? 'true' : 'false');
+        });
+    }
+
+    function wireCanalPicker(wrapper, form) {
+        var host = wrapper.querySelector('[data-canal-produtos]');
+        var chips = wrapper.querySelector('[data-canal-chips]');
+        var hidden = form.querySelector('[data-field="canal_produto"]');
+        var filter = wrapper.querySelector('[data-canal-filter]');
+        if (!host || !chips) return;
+
+        host.addEventListener('click', function (ev) {
+            var apply = ev.target && ev.target.closest ? ev.target.closest('[data-canal-apply]') : null;
+            if (apply) {
+                setCanalProduto(form, wrapper, apply.getAttribute('data-canal-apply') || '', 'title');
+                return;
+            }
+            if (ev.target && ev.target.closest && ev.target.closest('[data-canal-clear]')) {
+                setCanalProduto(form, wrapper, '', 'clear');
+                return;
+            }
+            var chip = ev.target && ev.target.closest ? ev.target.closest('.cx-drawer-chip') : null;
+            if (!chip || !chips.contains(chip)) return;
+            var val = chip.getAttribute('data-value') || '';
+            if (hidden && hidden.value === val) {
+                setCanalProduto(form, wrapper, '', 'clear');
+                return;
+            }
+            setCanalProduto(form, wrapper, val, 'pick');
+        });
+
+        if (filter) {
+            filter.addEventListener('input', function () {
+                var q = String(filter.value || '').toLowerCase();
+                $$('.cx-drawer-chip', chips).forEach(function (chip) {
+                    var nome = String(chip.getAttribute('data-value') || '').toLowerCase();
+                    chip.hidden = !!(q && nome.indexOf(q) === -1);
+                });
+            });
+        }
+
+        var openCatalog = host.querySelector('[data-open-canais]');
+        if (openCatalog) {
+            openCatalog.addEventListener('click', function () {
+                openDrawerCanais(hidden && hidden.value);
+            });
+        }
+
+        loadCanaisCatalogo().then(function (canais) {
+            if (canais.length) chips.innerHTML = canais.map(canalChipHtml).join('');
+            markCanalChips(wrapper, hidden && hidden.value);
+            renderCanalFicha(wrapper, hidden && hidden.value);
+            renderCanalSuggest(wrapper, form);
+            syncAssistantBriefing(wrapper, form);
+        });
     }
 
     function enrichAtividadeIaPayload(payload, form, clienteId) {
@@ -2051,7 +2226,11 @@
         payload.clientes_agencia = (cliente.clientes_finais || []).map(function (item) {
             return item.nome || item.nome_fantasia || '';
         }).filter(Boolean).slice(0, 12);
-        payload.canal_produto = inferCanalProduto(payload.titulo, payload.canal_produto);
+        if (form && form._canalCleared && !payload.canal_produto) {
+            payload.canal_produto = '';
+        } else {
+            payload.canal_produto = inferCanalProduto(payload.titulo, payload.canal_produto);
+        }
         return payload;
     }
 
@@ -2069,10 +2248,11 @@
 
     function startAssistantProgress(wrapper) {
         stopAssistantProgress(wrapper, true);
+        var kit = wrapper._briefKitNome;
         var steps = [
-            { pct: 28, label: 'Lendo registro, cliente, contato, canal e histórico...' },
-            { pct: 58, label: 'Montando contexto da conversa...' },
-            { pct: 82, label: 'Gerando texto...' }
+            { pct: 28, label: 'Lendo título, registro, contato e empresa...' },
+            { pct: 58, label: kit ? ('Encaixando o kit ' + kit + ' no assunto...') : 'Montando o briefing sem kit de canal...' },
+            { pct: 82, label: 'Escrevendo o texto...' }
         ];
         var index = 0;
         setAssistantProgress(wrapper, steps[0].pct, steps[0].label);
@@ -2101,13 +2281,26 @@
     }
 
     function wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor) {
-        syncAssistantChannelLabel(wrapper, form, (form.querySelector('[data-field="tipo"]') || {}).value);
+        wrapper._assistenteClienteId = clienteId;
+        syncAssistantBriefing(wrapper, form);
         $$('[data-chip-group="tipo"] .cx-drawer-chip', wrapper).forEach(function (chip) {
             chip.addEventListener('click', function () {
                 var val = chip.getAttribute('data-value');
-                syncAssistantChannelLabel(wrapper, form, val);
                 if (meetingEditor) meetingEditor.toggle(val);
+                syncAssistantBriefing(wrapper, form);
             });
+        });
+        form.addEventListener('input', function () {
+            var canal = ((form.querySelector('[data-field="canal_produto"]') || {}).value || '');
+            renderCanalFicha(wrapper, canal);
+            renderCanalSuggest(wrapper, form);
+            syncAssistantBriefing(wrapper, form);
+        });
+        form.addEventListener('change', function () {
+            var canal = ((form.querySelector('[data-field="canal_produto"]') || {}).value || '');
+            renderCanalFicha(wrapper, canal);
+            renderCanalSuggest(wrapper, form);
+            syncAssistantBriefing(wrapper, form);
         });
         $$('[data-ia-action]', wrapper).forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -2118,18 +2311,90 @@
         });
     }
 
+    function tipoGeracaoLabel(tipo) {
+        return ({
+            email: 'e-mail',
+            whatsapp: 'WhatsApp',
+            linkedin: 'LinkedIn',
+            ligacao: 'roteiro',
+            reuniao: 'pauta',
+            planejamento: 'defesa',
+            doc: 'documento',
+            atividade: 'registro'
+        })[tipo] || 'texto';
+    }
+
+    function rumoLabel(foco, canal) {
+        return ({
+            apresentar_solucao: 'apresentar a solução',
+            estudar: 'estudar o cliente',
+            follow_up: 'follow-up',
+            falar_sobre_canal: canal ? ('falar do kit ' + canal) : 'falar do canal',
+            apresentar_proposta: 'apresentar proposta',
+            apresentar_empresa: 'apresentar a CentralComm',
+            entender_necessidades: 'entender necessidades'
+        })[foco] || '';
+    }
+
     function syncAssistantChannelLabel(wrapper, form, value) {
+        syncAssistantBriefing(wrapper, form, value);
+    }
+
+    function syncAssistantBriefing(wrapper, form, tipoOverride) {
+        if (!wrapper || !form) return;
+        var tipo = String(tipoOverride || (form.querySelector('[data-field="tipo"]') || {}).value || 'email').toLowerCase();
         var fmt = form.querySelector('[data-field="formato"]');
-        var label = wrapper.querySelector('[data-ia-channel-label]');
+        if (fmt) fmt.value = (tipo === 'email' || tipo === 'whatsapp' || tipo === 'linkedin') ? tipo : 'roteiro';
         var generate = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
-        var channel = value === 'email' || value === 'whatsapp' || value === 'linkedin' ? value : 'roteiro';
-        if (fmt) fmt.value = channel;
-        if (label) {
-            label.textContent = 'Use o contexto do CRM para gerar conteúdos, sugestões e próximos passos.';
+        if (generate) generate.textContent = 'Gerar ' + tipoGeracaoLabel(tipo);
+        var hiddenLabel = wrapper.querySelector('[data-ia-channel-label]');
+        if (hiddenLabel) hiddenLabel.textContent = 'Gera ' + tipoGeracaoLabel(tipo) + ' a partir do briefing.';
+
+        var clienteId = wrapper._assistenteClienteId;
+        var state = window.crmV3 && window.crmV3.state;
+        var cliente = (state && String(state.clienteId) === String(clienteId) && state.cliente) || {};
+        var contato = selectedOptionLabel(form.querySelector('[data-field="contato_id"]'));
+        var clienteNome = cliente.nome || (wrapper.querySelector('[data-atividade-cliente]') || {}).textContent || '';
+        var titulo = String((form.querySelector('[data-field="titulo"]') || {}).value || '').trim();
+        var registro = String((form.querySelector('[data-field="descricao"]') || {}).value || '').trim();
+        var canal = String((form.querySelector('[data-field="canal_produto"]') || {}).value || '').trim();
+        var foco = String((form.querySelector('[data-field="foco"]') || {}).value || '').trim();
+        var tom = String((form.querySelector('[data-field="tom"]') || {}).value || 'consultivo').trim();
+        var ajuste = String((wrapper.querySelector('[data-ia-field="instrucoes"]') || {}).value || '').trim();
+        var canalInfo = findCanalByName(canal);
+        wrapper._briefKitNome = canal || '';
+
+        var quem = contato || (clienteNome ? ('equipe de ' + clienteNome) : 'o cliente');
+        var lead = wrapper.querySelector('[data-ia-brief-lead]');
+        if (lead) {
+            lead.textContent = titulo
+                ? (tipoGeracaoLabel(tipo).charAt(0).toUpperCase() + tipoGeracaoLabel(tipo).slice(1) + ' para ' + quem)
+                : 'O título e o registro à esquerda viram o assunto do texto.';
         }
-        if (generate) {
-            generate.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gerar';
+        var lines = wrapper.querySelector('[data-ia-brief-lines]');
+        if (!lines) return;
+        var rows = [];
+        if (titulo) rows.push(['Assunto', titulo]);
+        if (registro) rows.push(['Registro', registro.length > 110 ? registro.slice(0, 107) + '…' : registro]);
+        if (canalInfo) {
+            var kitBits = [canalInfo.nome];
+            var formatos = formatosParaRegistro(canalInfo, registro);
+            if (formatos[0]) {
+                kitBits.push(formatos[0].nome + (formatos[0].taxa ? ' ' + formatos[0].taxa : ''));
+            } else if (canalInfo.alcance) {
+                kitBits.push(canalInfo.alcance);
+            }
+            rows.push(['Kit', kitBits.join(' — ')]);
+        } else {
+            rows.push(['Kit', 'Nenhum. O texto sai só do título e do registro.']);
         }
+        var rumo = rumoLabel(foco, canal);
+        rows.push(['Tom', (rumo ? rumo + ', ' : '') + (tom || 'consultivo')]);
+        if (ajuste) rows.push(['Ajuste', ajuste.length > 80 ? ajuste.slice(0, 77) + '…' : ajuste]);
+        lines.innerHTML = rows.map(function (row) {
+            return '<div class="cx-atividade-brief-row"><span>' + escapeHtml(row[0]) +
+                '</span><b>' + escapeHtml(row[1]) + '</b></div>';
+        }).join('');
     }
 
     function runIA(btn, form, output, clienteId, wrapper) {
@@ -3660,6 +3925,122 @@
        Expose e integração
        ----------------------------------------------------------- */
 
+    function canalMarkHtml(canal) {
+        var inicial = escapeHtml(canal.inicial || (canal.nome || '?').slice(0, 1));
+        if (!canal.logo) return inicial;
+        return '<img src="' + escapeHtml(canal.logo) + '" alt="" data-inicial="' + inicial +
+            '" onerror="this.replaceWith(document.createTextNode(this.getAttribute(\'data-inicial\')||\'?\'))">';
+    }
+
+    function renderCanalStage(stage, canal) {
+        if (!stage || !canal) return;
+        var stats = [
+            ['Alcance', canal.alcance || '—'],
+            ['Viewability', canal.viewability != null ? canal.viewability + '%' : '—'],
+            ['Investimento mínimo', canal.investimento_minimo || 'Sob consulta']
+        ].map(function (row) {
+            return '<div><b>' + escapeHtml(row[1]) + '</b><span>' + escapeHtml(row[0]) + '</span></div>';
+        }).join('');
+        function lista(items) {
+            if (!items || !items.length) return '';
+            return '<ul>' + items.map(function (item) {
+                return '<li>' + escapeHtml(item) + '</li>';
+            }).join('') + '</ul>';
+        }
+        function bloco(titulo, html) {
+            if (!html) return '';
+            return '<div><h3>' + escapeHtml(titulo) + '</h3>' + html + '</div>';
+        }
+        var arquivos = (canal.arquivos || []).map(function (arq) {
+            return '<a class="cx-canais-file" href="' + escapeHtml(arq.url || '#') +
+                '" target="_blank" rel="noopener">' +
+                '<span>' + escapeHtml(arq.titulo || 'Material') + '</span>' +
+                '<small>' + escapeHtml(arq.tipo || 'arquivo') + '</small></a>';
+        }).join('');
+        var formatos = (canal.formatos || []).map(function (fmt) {
+            var linha = fmt.nome || '';
+            if (fmt.taxa) linha += ' ' + fmt.taxa;
+            if (fmt.tempo) linha += ' / ' + fmt.tempo;
+            if (fmt.melhor_para) linha += ' — ' + fmt.melhor_para;
+            return linha;
+        }).filter(Boolean);
+        var lead = canal.descricao
+            ? '<p class="cx-canais-lead">' + escapeHtml(canal.descricao) + '</p>'
+            : '';
+        var cols = bloco('O que oferece', lista(canal.beneficios)) +
+            bloco('Diferenciais', lista(canal.diferenciais));
+        var extras = bloco('Formatos', lista(formatos));
+        stage.innerHTML =
+            '<p class="cx-canais-kicker">' + escapeHtml(canal.categoria || canal.tipo || 'Canal') + '</p>' +
+            '<h2>' + escapeHtml(canal.nome || '') + '</h2>' +
+            lead +
+            '<div class="cx-canais-stats">' + stats + '</div>' +
+            (cols ? '<div class="cx-canais-cols">' + cols + '</div>' : '') +
+            (extras ? '<div class="cx-canais-files">' + extras + '</div>' : '') +
+            (arquivos
+                ? '<div class="cx-canais-files"><h3>Materiais</h3>' + arquivos + '</div>'
+                : '');
+    }
+
+    function openDrawerCanais(slug) {
+        var frag = cloneTpl('cx-drawer-canais-tpl');
+        if (!frag) return null;
+        var wrapper = document.createElement('div');
+        wrapper.appendChild(frag);
+        var list = wrapper.querySelector('[data-canais-list]');
+        var stage = wrapper.querySelector('[data-canais-stage]');
+        var busca = wrapper.querySelector('[data-canais-busca]');
+
+        function paint(canais, ativo) {
+            if (!list) return;
+            list.innerHTML = canais.map(function (canal) {
+                var on = ativo && canal.slug === ativo.slug ? ' is-active' : '';
+                return '<button type="button" class="cx-canais-item' + on + '" data-canal-slug="' +
+                    escapeHtml(canal.slug) + '">' +
+                    '<span class="cx-canais-mark">' +
+                    canalMarkHtml(canal) + '</span>' +
+                    '<span><b>' + escapeHtml(canal.nome) + '</b><small>' +
+                    escapeHtml(canal.categoria || '') + '</small></span></button>';
+            }).join('');
+        }
+
+        loadCanaisCatalogo().then(function (canais) {
+            var atual = (slug && canais.filter(function (item) {
+                return item.slug === slug || item.nome === slug;
+            })[0]) || canais[0] || null;
+            paint(canais, atual);
+            if (atual) renderCanalStage(stage, atual);
+            if (list) {
+                list.addEventListener('click', function (ev) {
+                    var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canal-slug]') : null;
+                    if (!btn) return;
+                    var found = canais.filter(function (item) {
+                        return item.slug === btn.getAttribute('data-canal-slug');
+                    })[0];
+                    if (!found) return;
+                    paint(canais, found);
+                    renderCanalStage(stage, found);
+                });
+            }
+            if (busca) {
+                busca.addEventListener('input', function () {
+                    var q = String(busca.value || '').toLowerCase();
+                    $$('.cx-canais-item', list).forEach(function (item) {
+                        item.hidden = !!(q && String(item.textContent || '').toLowerCase().indexOf(q) === -1);
+                    });
+                });
+            }
+        });
+
+        return cxDrawer.open({
+            title: 'Canais e materiais',
+            size: 'editor',
+            contentEl: wrapper,
+            split: false,
+            actions: [{ label: 'Fechar', variant: 'ghost', close: true }]
+        });
+    }
+
     window.crmV3Drawer = Object.assign(window.crmV3Drawer || {}, {
         openCliente: openDrawerCliente,
         openAtividade: openDrawerAtividade,
@@ -3667,6 +4048,7 @@
         openCotacao: openDrawerCotacao,
         openCotacaoResumo: openDrawerCotacaoResumo,
         openSugestoes: openDrawerSugestoes,
+        openCanais: openDrawerCanais,
     });
 
     // Redireciona os botões existentes para usar drawer no lugar dos modais grandes.
@@ -3716,6 +4098,13 @@
                 var cid = window.crmV3 && window.crmV3.state && window.crmV3.state.clienteId;
                 if (!cid) { toast('Selecione um cliente', true); return; }
                 openDrawerCotacao(null, cid);
+                return;
+            }
+
+            if (el.id === 'crm-v3-btn-canais' || (el.closest && el.closest('#crm-v3-btn-canais'))) {
+                ev.stopImmediatePropagation();
+                ev.preventDefault();
+                openDrawerCanais();
                 return;
             }
 

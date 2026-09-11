@@ -9,6 +9,14 @@ from flask import Blueprint, current_app, g, jsonify, render_template, request, 
 
 from .auth import admin_required_api, login_required, login_required_api
 from .cotacao_tipos import normalizar_tipo_comercial
+from .crm_v3_canais import (
+    canal_publico,
+    ficha_canal_texto,
+    inferir_canal,
+    listar_canais,
+    nomes_canais,
+    resolver_canal,
+)
 from .crm_v3_helpers import normalizar_telefone, parse_texto_contatos, texto_sem_markdown
 from .crm_v3_repository import StoreUnavailable, get_store, store_diagnostic
 
@@ -280,6 +288,22 @@ def api_lookups():
     # Achata tudo no root do body (`body.tipos_cliente`, etc). O JS
     # lê direto sem indireção — vale para todos os drawers/modais.
     return _ok(**data)
+
+
+@bp.route("/api/canais")
+@login_required_api
+def api_canais():
+    canais = [canal_publico(item) for item in listar_canais()]
+    return _ok(canais, canais=canais)
+
+
+@bp.route("/api/canais/<slug>")
+@login_required_api
+def api_canal_detalhe(slug):
+    canal = resolver_canal(slug)
+    if not canal:
+        return _err("Canal não encontrado", 404)
+    return _ok(canal_publico(canal), canal=canal_publico(canal))
 
 
 @bp.route("/api/agencias")
@@ -1023,7 +1047,7 @@ def api_web_info_refresh(cliente_id):
 import os
 from datetime import date, timedelta
 
-CRM_V3_ACTIVITY_MODEL = os.getenv("CRM_V3_ACTIVITY_MODEL", "openai/gpt-4o-mini")
+CRM_V3_ACTIVITY_MODEL = os.getenv("CRM_V3_ACTIVITY_MODEL", "openai/gpt-4o")
 
 
 def _openrouter_available() -> bool:
@@ -1209,11 +1233,6 @@ def _nome_executivo_sessao() -> str:
         return ""
 
 
-CANAIS_MIDIA = (
-    "Netflix", "Spotify", "Serasa", "Disney", "HBO", "Amazon", "iFood", "Uber", "99", "Logan",
-)
-
-
 def _nome_destinatario(data: dict, cliente=None, contato=None):
     """Destinatário da conversa: contato do cliente ou equipe/empresa. Nunca o logado."""
     cliente = cliente or {}
@@ -1275,8 +1294,20 @@ def _ancora_conversa(data: dict, cliente=None, contato=None) -> dict:
         "clientes_agencia": clientes_agencia or [
             item for item in (data.get("clientes_agencia") or []) if str(item).strip()
         ][:12],
-        "canal": texto_sem_markdown(data.get("canal_produto") or "").strip(),
+        "canal": _canal_da_atividade(data),
     }
+
+
+def _bloco_peso_prompt() -> str:
+    return (
+        "PESO DO PROMPT, nesta ordem:\n"
+        "1) Título e registro do executivo — este é o assunto da conversa.\n"
+        "2) Destinatário real (contato, cliente, agência).\n"
+        "3) Kit do canal, se escolhido — 1 a 3 números da ficha, amarrados ao assunto. "
+        "O kit amune; não substitui o título.\n"
+        "4) Rumo e tom, se o executivo marcou.\n"
+        "5) Ajuste fino — obedece sem trocar o assunto.\n"
+    )
 
 
 def _regras_texto_externo() -> str:
@@ -1291,8 +1322,13 @@ def _regras_texto_externo() -> str:
         "salvo se o foco for explicitamente esse.\n"
         "Ancore cerca de 75% do texto no título, no registro e nos nomes reais "
         "(contato, executivo, cliente, agência e clientes da agência).\n"
-        "Se o assistente escolheu um canal ou produto, use esse case no item gerado "
-        "sem abandonar o título e o registro. Se nenhum canal foi escolhido, não invente um.\n"
+        "Se o kit do canal estiver escolhido, use 1 a 3 números da ficha "
+        "amarrados ao título e ao registro. Sem kit, não invente canal.\n"
+        "Se houver FICHA TÉCNICA, use 1 a 3 números dela. Sem número na ficha, "
+        "não escreva métrica, engajamento ou alcance.\n"
+        "Proibido: 'espero que esteja bem', 'soluções inovadoras', 'compartilhar "
+        "algumas ideias', 'entender o comportamento do público'.\n"
+        "Seja técnico e curto. Um gancho, uma oferta, um CTA.\n"
         "A CentralComm como casa só entra quando o foco for apresentar a empresa.\n"
         "O responsável interno (usuário logado) nunca é o destinatário da saudação."
     )
@@ -1330,11 +1366,28 @@ def _bloco_ancora(ancora: dict) -> str:
         linhas.append("Clientes da agência: " + ", ".join(ancora["clientes_agencia"]))
     if ancora.get("canal"):
         linhas.append(
-            f"Canal ou produto escolhido (usar neste item): {ancora['canal']}"
+            f"Kit do canal (amunir o assunto, não substituí-lo): {ancora['canal']}"
         )
     if ancora.get("registro"):
         linhas.append(f"Registro do executivo:\n{ancora['registro']}")
     return "\n".join(linhas) + "\n"
+
+
+def _canal_da_atividade(data: dict) -> str:
+    titulo = texto_sem_markdown(data.get("titulo") or "").strip()
+    escolhido = texto_sem_markdown(data.get("canal_produto") or "").strip()
+    return inferir_canal(titulo, escolhido)
+
+
+def _bloco_ficha_canal(data: dict) -> str:
+    canal = _canal_da_atividade(data)
+    if not canal:
+        return ""
+    registro = texto_sem_markdown(
+        data.get("notas_executivo") or data.get("descricao") or ""
+    ).strip()
+    ficha = ficha_canal_texto(canal, registro)
+    return f"\n{ficha}\n" if ficha else ""
 
 
 def _generalizar_modelo_estilo(texto, nomes) -> str:
@@ -1582,6 +1635,7 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
             "Você é o copiloto comercial da CentralComm.\n"
             "O título já está no formulário. Escreva o REGISTRO da atividade: "
             "o que fazer, com quem e o próximo passo, para o executivo executar. "
+            "Máximo 80 palavras. Inclua um número da ficha se houver. "
             "Não repita o título. Não escreva roteiro de ligação nem mensagem pronta. "
             "Se já houver registro, aprofunde esse texto.\n"
             + comum
@@ -1592,11 +1646,11 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
     if tipo == "reuniao":
         return (
             "Você é o copiloto comercial da CentralComm.\n"
-            "Crie uma PAUTA de reunião (objetivo, pontos e fechamento), "
-            "não um script de telefone.\n"
+            "Crie uma PAUTA de reunião. 4 pontos. Cada ponto com um fato da ficha "
+            "ou do registro. Não é script de telefone.\n"
             + comum
             + "Retorne APENAS JSON válido no formato "
-            '{"abertura":"como abrir a reunião",'
+            '{"abertura":"como abrir a reunião em uma frase com um número",'
             '"objetivo":"resultado esperado",'
             '"perguntas":["ponto da pauta"],'
             '"objecoes_a_explorar":["risco a tratar"],'
@@ -1604,12 +1658,13 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
             '"fechamento":"próximo passo",'
             '"motivo":"por que esta pauta é adequada",'
             '"contexto_utilizado":["dado verificável"]}. '
-            "Crie de 4 a 6 pontos. Sem markdown."
+            "Crie 4 pontos. Sem markdown."
         ), ("abertura", "perguntas", "fechamento", "motivo")
     if tipo == "doc":
         return (
             "Você é o copiloto comercial da CentralComm.\n"
-            "Estruture um DOCUMENTO comercial: objetivo, seções e o que anexar ou enviar.\n"
+            "Estruture um DOCUMENTO comercial curto: objetivo, seções e o que anexar. "
+            "Se a ficha tiver material de venda, cite o arquivo pelo nome.\n"
             + comum
             + "Retorne APENAS JSON válido no formato "
             '{"abertura":"objetivo do documento",'
@@ -1649,7 +1704,9 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
         ), ("abertura", "perguntas", "fechamento", "motivo")
     return (
         "Você é o copiloto comercial da CentralComm, especialista em venda de mídia.\n"
-        "Crie um guia prático para ligação, não uma mensagem pronta.\n"
+        "Crie um guia prático para ligação, não uma mensagem pronta. "
+        "Abertura de 15 segundos com um número da ficha. 3 perguntas, "
+        "cada uma amarrada a um fato. Fechamento com data.\n"
         + comum
         + "Retorne APENAS JSON válido no formato "
         '{"abertura":"abertura curta e natural",'
@@ -1660,7 +1717,7 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
         '"fechamento":"próximo passo objetivo",'
         '"motivo":"por que este roteiro é adequado agora",'
         '"contexto_utilizado":["dado verificável 1","dado verificável 2"]}. '
-        "Crie de 4 a 6 perguntas. Sem markdown."
+        "Crie 3 a 4 perguntas. Sem markdown."
     ), ("abertura", "perguntas", "fechamento", "motivo")
 
 
@@ -1672,7 +1729,7 @@ def _montar_roteiro(data: dict) -> dict:
     foco = (data.get("foco") or "").strip().lower()
     tom = (data.get("tom") or "").strip().lower()
     instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
-    canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
+    canal_produto = _canal_da_atividade(data)
     registro_atual = texto_sem_markdown(
         data.get("descricao") or data.get("notas_executivo") or ""
     ).strip()
@@ -1701,6 +1758,7 @@ def _montar_roteiro(data: dict) -> dict:
     if _openrouter_available():
         try:
             user = (
+                f"{_bloco_peso_prompt()}\n"
                 f"{_bloco_ancora(ancora)}\n"
                 f"{_bloco_modelo_estilo(ancora)}"
                 "APOIO COMERCIAL (usar só se confirmar o registro):\n"
@@ -1713,11 +1771,12 @@ def _montar_roteiro(data: dict) -> dict:
             if registro_atual and tipo == "atividade":
                 user += f"Registro atual (aprofundar, não recomeçar):\n{registro_atual[:3000]}\n"
             if canal_produto:
-                user += f"Canal de referência obrigatório neste item: {canal_produto}\n"
+                user += f"Kit do canal nesta geração: {canal_produto}\n"
+            user += _bloco_ficha_canal(data)
             if instrucoes:
                 user += f"Ajuste do executivo:\n{instrucoes}\n"
             parsed = _parse_ia_json(
-                _call_openrouter(system_prompt, user, max_tokens=650, temperature=0.35),
+                _call_openrouter(system_prompt, user, max_tokens=650, temperature=0.25),
                 required=required,
             )
             if tipo == "atividade":
@@ -1799,6 +1858,21 @@ def _montar_roteiro(data: dict) -> dict:
     }
 
 
+def _system_prompt_refine() -> str:
+    return (
+        "Você refina um texto comercial já escrito. Não recomece do zero.\n"
+        f"{_regras_texto_externo()}\n"
+        "Preserve nomes, números, cortes, formatos e o CTA. "
+        "Corte floreio, clichê e descoberta genérica. "
+        "O título e o registro continuam sendo o assunto. O kit só amune. "
+        "Se houver FICHA TÉCNICA, mantenha ou recoloque 1 a 3 números dela. "
+        "Se o executivo pediu um ajuste, obedeça sem abandonar o assunto. "
+        "Não transforme e-mail em roteiro nem roteiro em e-mail. "
+        "Retorne APENAS JSON: "
+        '{"texto":"versão refinada em texto puro","alteracoes":["mudança objetiva"]}.'
+    )
+
+
 @bp.route("/api/ia/melhorar-texto", methods=["POST"])
 @login_required_api
 def api_ia_melhorar_texto():
@@ -1808,17 +1882,22 @@ def api_ia_melhorar_texto():
         return _err("Informe o texto que deseja revisar", 400)
     if _openrouter_available():
         try:
+            cliente_id = data.get("cliente_id") or ""
+            cliente = store.get_cliente(cliente_id) if cliente_id else None
+            contato, _ = _contato_para_ia(data, cliente_id)
+            ancora = _ancora_conversa(data, cliente, contato)
+            instrucoes = texto_sem_markdown(data.get("instrucoes") or "").strip()[:500]
             prompt = (
+                f"{_bloco_peso_prompt()}\n"
+                f"{_bloco_ancora(ancora)}\n"
+                f"{_bloco_ficha_canal(data)}"
                 f"CONTEXTO COMERCIAL:\n{_contexto_ia_json(data, 'roteiro')}\n\n"
                 f"TEXTO ORIGINAL:\n{texto[:4000]}\n\n"
-                "Preserve fatos e intenção. Corrija clareza, concisão, gramática e orientação "
-                "ao próximo passo. Não transforme a mensagem em roteiro."
+                "Refine o texto original. Não invente canal, número ou nome."
             )
-            system_prompt = (
-                "Você revisa textos comerciais em português sem inventar informações. "
-                "Retorne APENAS JSON: "
-                '{"texto":"versão revisada em texto puro","alteracoes":["mudança objetiva"]}.'
-            )
+            if instrucoes:
+                prompt += f"\nAjuste do executivo:\n{instrucoes}\n"
+            system_prompt = _system_prompt_refine()
             parsed = _parse_ia_json(
                 _call_openrouter(system_prompt, prompt, max_tokens=900, temperature=0.25),
                 required=("texto",),
@@ -1979,7 +2058,7 @@ def api_ia_sugerir_atividade():
     if _openrouter_available() and cliente:
         try:
             contexto = _contexto_ia_json(data, "next_action")
-            canais = ", ".join(CANAIS_MIDIA)
+            canais = ", ".join(nomes_canais())
             system_prompt = (
                 "Você é o copiloto comercial da CENTRALCOMM, especialista em mídia digital.\n"
                 "Escolha UMA próxima melhor ação. Prefira um canal de mídia ainda não "
@@ -2007,8 +2086,8 @@ def api_ia_sugerir_atividade():
             sugestao["descricao"] = _texto_ia_limpo(sugestao.get("descricao"))
             sugestao["motivo"] = _texto_ia_limpo(sugestao.get("motivo"))
             canal = _texto_ia_limpo(sugestao.get("canal_produto"))
-            if canal not in CANAIS_MIDIA:
-                canal = next((item for item in CANAIS_MIDIA if item.lower() in sugestao["titulo"].lower()), "")
+            if canal not in nomes_canais():
+                canal = inferir_canal(sugestao.get("titulo") or "", canal)
             sugestao["canal_produto"] = canal
             sugestao["source"] = "openrouter"
             return _ok(_registrar_saida_ia(data, "sugerir-atividade", sugestao))
@@ -2185,25 +2264,38 @@ def _system_prompt_comunicacao(tipo: str, ancora) -> str:
         "Você redige comunicação comercial da CENTRALCOMM, especialista em mídia digital. "
         f"{_regras_texto_externo()} "
         f"{_regras_destinatario(ancora)} "
-        "A mensagem deve usar apenas fatos do contexto e exigir revisão humana. "
+        "A mensagem deve usar apenas fatos do contexto e da ficha técnica. "
+        "Exige revisão humana. "
     )
     if tipo == "linkedin":
         return (
             comum
             + "Canal: LinkedIn (InMail ou mensagem direta). "
             "Tom profissional e humano. Sem gíria de WhatsApp, sem emojis, sem assinatura de e-mail. "
-            "1 a 3 parágrafos curtos. Um único CTA concreto. "
+            "80 a 120 palavras. Um número da ficha no primeiro bloco. Um único CTA. "
             "Não invente cargo, empresa ou case. Não peça conexão genérica se já houver conversa. "
             "assunto fica vazio no DM; se for InMail, use uma linha de gancho. "
             "Retorne APENAS JSON: "
             '{"assunto":"gancho curto ou vazio","mensagem":"texto puro",'
             '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
         )
+    if tipo == "whatsapp":
+        return (
+            comum
+            + "WhatsApp: 4 a 8 linhas. Primeira linha com um número da ficha. "
+            "Sem 'oi, tudo bem?'. Um CTA. assunto vazio. "
+            "Retorne APENAS JSON: "
+            '{"assunto":"","mensagem":"texto puro",'
+            '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
+        )
     return (
         comum
-        + "Para WhatsApp, use até 3 parágrafos curtos. Para e-mail, inclua assunto separado. "
+        + "E-mail: assunto específico, sem a palavra Follow-up. "
+        "90 a 130 palavras. Primeiro parágrafo com um número da ficha. "
+        "Segundo parágrafo: oferta concreta (formato, corte ou kit). "
+        "Terceiro: um CTA com data. Sem assinatura institucional longa. "
         "Retorne APENAS JSON: "
-        '{"assunto":"vazio para WhatsApp","mensagem":"texto puro",'
+        '{"assunto":"assunto curto","mensagem":"texto puro",'
         '"motivo":"por que esta abordagem","contexto_utilizado":["..."]}.'
     )
 
@@ -2231,17 +2323,19 @@ def api_ia_gerar_comunicacao():
             ancora = _ancora_conversa(data, cliente, contato_principal)
             system_prompt = _system_prompt_comunicacao(tipo, ancora)
             user_prompt = (
+                f"{_bloco_peso_prompt()}\n"
                 f"{_bloco_ancora(ancora)}\n"
                 f"{_bloco_modelo_estilo(ancora)}"
                 f"Canal: {tipo}\nTamanho: {tamanho}\nObjetivo: {objetivo}\n"
                 f"Destinatário: {destinatario}\nAssinatura: {responsavel}\n"
                 f"Apoio comercial:\n{contexto}"
             )
-            canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
+            canal_produto = _canal_da_atividade(data)
             if canal_produto:
-                user_prompt += f"\nCanal de referência obrigatório neste item: {canal_produto}"
+                user_prompt += f"\nKit do canal nesta geração: {canal_produto}"
+            user_prompt += _bloco_ficha_canal(data)
             parsed = _parse_ia_json(
-                _call_openrouter(system_prompt, user_prompt, max_tokens=1000, temperature=0.4),
+                _call_openrouter(system_prompt, user_prompt, max_tokens=700, temperature=0.25),
                 required=("mensagem",),
             )
             assunto = _texto_ia_limpo(parsed.get("assunto"))
@@ -2265,41 +2359,46 @@ def api_ia_gerar_comunicacao():
     nome_cliente = (cliente or {}).get("nome") or "cliente"
     responsavel = _nome_responsavel_interno(data, cliente)
     destinatario, tem_contato = _nome_destinatario(data, cliente, contato_principal)
-    assunto = "" if tipo == "linkedin" else f"Follow-up comercial — {nome_cliente}"
+    canal_produto = _canal_da_atividade(data)
+    assunto = "" if tipo == "linkedin" else (
+        objetivo[:80] if objetivo else f"Conversa comercial — {nome_cliente}"
+    )
     contexto_atividade = objetivo or "retomar o relacionamento comercial"
-    canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
     if canal_produto:
         contexto_atividade = (
             f"{contexto_atividade}, usando {canal_produto} como referência"
         )
+    ficha = ficha_canal_texto(canal_produto, objetivo) if canal_produto else ""
+    fato = ""
+    if canal_produto:
+        canal_info = resolver_canal(canal_produto) or {}
+        fato = (canal_info.get("alcance") or canal_produto).strip()
     saudacao = destinatario if tem_contato else destinatario
     if tipo == "whatsapp":
         mensagem = (
-            f"Oi {saudacao}, aqui é {responsavel} da CentralComm.\n\n"
-            f"Queria falar sobre {contexto_atividade}. "
-            f"Preparei este contato considerando o momento da {nome_cliente} "
-            "e gostaria de alinhar o próximo passo.\n\n"
-            "Faz sentido conversarmos rapidamente esta semana?"
+            f"Oi {saudacao}, {responsavel} na CentralComm.\n\n"
+            f"{contexto_atividade}"
+            + (f" — {fato}." if fato else ".")
+            + "\n\nCombinamos um horário esta semana?"
         )
     elif tipo == "linkedin":
         mensagem = (
-            f"Olá {saudacao}, aqui é {responsavel} da CentralComm.\n\n"
-            f"Acompanho o momento da {nome_cliente} e gostaria de trocar uma ideia "
-            f"sobre {contexto_atividade}.\n\n"
-            "Se fizer sentido, me confirma um horário breve nesta semana."
+            f"Olá {saudacao}, {responsavel} na CentralComm.\n\n"
+            f"{contexto_atividade}"
+            + (f" ({fato})" if fato else "")
+            + ".\n\nSe fizer sentido, me confirma um horário breve."
         )
     else:
         mensagem = (
             f"Olá, {destinatario}.\n\n"
-            f"Aqui é {responsavel}, da CentralComm.\n\n"
-            f"Estou entrando em contato para tratar de {contexto_atividade}. "
-            f"Considerei o momento comercial da {nome_cliente} e organizei os pontos "
-            "principais para avançarmos com clareza.\n\n"
-            "Gostaria de entender sua disponibilidade e combinar o próximo passo. "
-            "Podemos reservar uma conversa breve nesta semana?\n\n"
-            "Abraço,\n"
-            f"{responsavel}\nCentralComm"
+            f"{responsavel}, CentralComm.\n\n"
+            f"{contexto_atividade}"
+            + (f" Referência: {fato}." if fato else ".")
+            + "\n\nPosso te mandar a ficha e combinamos o próximo passo esta semana?\n\n"
+            f"{responsavel}"
         )
+    if ficha:
+        mensagem += "\n"
     return _ok(_registrar_saida_ia(data, "gerar-comunicacao", {
         "assunto": assunto,
         "mensagem": mensagem,

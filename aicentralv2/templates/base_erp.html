@@ -430,19 +430,29 @@
         .erp-backdrop.is-open { display: block; }
         #toast-container {
             position: fixed !important;
-            top: 1rem !important;
-            right: 1rem !important;
-            z-index: 2147483647 !important;
-            display: flex !important;
+            inset: 1rem 1rem auto auto !important;
+            width: max-content !important;
+            height: max-content !important;
             max-width: min(100vw - 2rem, 28rem);
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            z-index: 2147483647 !important;
+            display: none !important;
             flex-direction: column;
             gap: 0.5rem;
             pointer-events: none;
         }
-        #toast-container:popover-open {
-            position: fixed !important;
-            inset: 1rem 1rem auto auto !important;
-            margin: 0 !important;
+        /* popover fechado: UA [popover] { inset:0; margin:auto; background:Canvas } vira um quadrado branco no centro se display for forçado. */
+        #toast-container[popover]:not(:popover-open) {
+            display: none !important;
+        }
+        #toast-container:popover-open,
+        #toast-container:not([popover]) {
+            display: flex !important;
         }
         dialog.toast-stack-modal {
             width: 100vw !important;

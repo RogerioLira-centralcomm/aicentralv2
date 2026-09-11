@@ -152,6 +152,17 @@ class ErpNavbarTestCase(unittest.TestCase):
         self.assertNotIn(".erp-icon-button", css)
         self.assertNotIn(".erp-nav-group::after", css)
 
+    def test_toast_popover_fechado_nao_forca_display_flex(self):
+        css = self.base_template
+        start = css.find("#toast-container {")
+        self.assertGreater(start, -1)
+        block = css[start:css.find("#toast-container:popover-open", start)]
+        self.assertIn("display: none !important", block)
+        self.assertIn("background: transparent !important", block)
+        self.assertNotIn("display: flex !important", block)
+        self.assertIn("#toast-container[popover]:not(:popover-open)", css)
+        self.assertIn("popover=\"manual\"", css)
+
 
 if __name__ == "__main__":
     unittest.main()

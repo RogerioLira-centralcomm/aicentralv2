@@ -255,14 +255,16 @@
         /* Toast: no body, fora de qualquer <dialog>. Com popover=manual sobe à top layer (acima de modal nativo). */
         #toast-container {
             position: fixed !important;
-            top: 1rem !important;
-            right: 1rem !important;
+            inset: 1rem 1rem auto auto !important;
+            width: max-content !important;
+            height: max-content !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
             background: transparent !important;
             box-shadow: none !important;
-            display: flex !important;
+            overflow: visible !important;
+            display: none !important;
             flex-direction: column;
             gap: 0.5rem;
             align-items: flex-end;
@@ -270,7 +272,12 @@
             pointer-events: none;
             z-index: 2147483647 !important;
         }
-        #toast-container:popover-open {
+        #toast-container[popover]:not(:popover-open) {
+            display: none !important;
+        }
+        #toast-container:popover-open,
+        #toast-container:not([popover]) {
+            display: flex !important;
             position: fixed !important;
             inset: 1rem 1rem auto auto !important;
         }

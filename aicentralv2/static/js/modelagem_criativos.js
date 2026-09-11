@@ -3250,6 +3250,43 @@
       </article>`;
   }
 
+  async function extractLibraryReference(file) {
+    const format = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+    if (!file || !file.type.startsWith('image/') || !format) return;
+    const status = $('#mcLibraryExtractDrop small');
+    const imageUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Não li a referência.'));
+      reader.readAsDataURL(file);
+    });
+    if (status) status.textContent = 'Lendo o mapa do template…';
+    try {
+      const payload = await api('/parametros/api/agents/extractor', {
+        method: 'POST',
+        body: JSON.stringify({
+          image_url: imageUrl,
+          family: format.iab_family || 'square_1x1',
+        }),
+      });
+      const saved = payload?.saved_variation;
+      await loadComposeLibrary();
+      if (saved?.id) {
+        state.selectedLibraryTemplateSlug = saved.template_slug || state.selectedLibraryTemplateSlug;
+        state.selectedLibraryVariationId = saved.id;
+      }
+      renderLibraryVariations();
+      renderFormatStage(format, true);
+      if (status) {
+        status.textContent = saved?.id
+          ? `Variação ${saved.id} gravada neste template.`
+          : 'Mapa lido, mas a variação não gravou.';
+      }
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    }
+  }
+
   function renderLibraryDetail(format) {
     const refs = format.references || [];
     $('#mcLibraryDetail').innerHTML = `
@@ -3696,7 +3733,12 @@
     await withLock('creative-line', button, async () => {
       const body = new FormData();
       state.creativeLineFiles.forEach((file) => body.append('creatives', file));
-      $('#mcCreativeLineStatus').textContent = 'Comparando composição, paleta e fotografia…';
+      if (state.primaryBrandFileIndex >= 0) {
+        body.append('logo', state.brandFiles[state.primaryBrandFileIndex]);
+      } else if (state.primaryBrandAssetUrl) {
+        body.append('logo_url', state.primaryBrandAssetUrl);
+      }
+      $('#mcCreativeLineStatus').textContent = 'Cruzando logo oficial, identidade capturada e criativos…';
       try {
         const result = await api(
           `${API.clients}/${client.id}/creative-line/analyze`,
@@ -5119,6 +5161,23 @@
       await sceneAction(sceneActionButton.dataset.sceneAction, sceneActionButton);
       return;
     }
+    const libraryTemplate = event.target.closest('[data-library-template]');
+    if (libraryTemplate) {
+      state.selectedLibraryTemplateSlug = libraryTemplate.dataset.libraryTemplate;
+      state.selectedLibraryVariationId = null;
+      renderLibraryVariations();
+      const current = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+      if (current) renderFormatStage(current, true);
+      return;
+    }
+    const libraryVariation = event.target.closest('[data-library-variation]');
+    if (libraryVariation) {
+      state.selectedLibraryVariationId = libraryVariation.dataset.libraryVariation;
+      renderLibraryVariations();
+      const current = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+      if (current) renderFormatStage(current, true);
+      return;
+    }
     const composeVariation = event.target.closest('[data-compose-variation]');
     if (composeVariation) {
       state.selectedVariationId = composeVariation.dataset.composeVariation;
@@ -5754,6 +5813,25 @@
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
     bind('#mcLibrarySearch', 'input', renderLibrary);
     bind('#mcLibraryCategory', 'change', renderLibrary);
+    document.addEventListener('change', (event) => {
+      if (event.target?.id !== 'mcLibraryExtractFile') return;
+      extractLibraryReference(event.target.files?.[0]);
+    });
+    document.addEventListener('dragover', (event) => {
+      if (!event.target.closest?.('#mcLibraryExtractDrop')) return;
+      event.preventDefault();
+      event.target.closest('#mcLibraryExtractDrop').classList.add('is-dragging');
+    });
+    document.addEventListener('dragleave', (event) => {
+      event.target.closest?.('#mcLibraryExtractDrop')?.classList.remove('is-dragging');
+    });
+    document.addEventListener('drop', (event) => {
+      const drop = event.target.closest?.('#mcLibraryExtractDrop');
+      if (!drop) return;
+      event.preventDefault();
+      drop.classList.remove('is-dragging');
+      extractLibraryReference(event.dataTransfer?.files?.[0]);
+    });
     bind('#mcUnfoldClient', 'change', () => {
       renderUnfoldBrand();
       syncUnfoldProgress();

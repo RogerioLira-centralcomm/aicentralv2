@@ -479,6 +479,11 @@ class FakeStorage:
     def reference_as_data_url(self, path, mime):
         return "data:image/png;base64,aW1hZ2U="
 
+    def public_as_data_url(self, path, mime_type=None):
+        if str(path or "").startswith("/static/uploads/client_logos/"):
+            return f"data:{mime_type or 'image/png'};base64,bG9nbw=="
+        raise ValueError("Imagem oficial não encontrada.")
+
     def save_generated_base64(self, encoded, output_format):
         return "/generated.png"
 
@@ -717,6 +722,63 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertEqual(result["copy_system"]["cta"]["confidence"], "observed")
         self.assertEqual(result["copy_system"]["typography"]["family"], "Gotham")
 
+    def test_linha_criativa_usa_logo_oficial_e_perfil_capturado(self):
+        captured = {}
+
+        def llm(messages, **kwargs):
+            captured["messages"] = messages
+            return {
+                "message": {
+                    "content": json.dumps({
+                        "signature_summary": "Identidade azul com logo oficial.",
+                        "confidence": 0.8,
+                        "gpt_image_instruction": "Keep the official logo lockup.",
+                    })
+                },
+                "model": kwargs["model"],
+            }
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze_creative_line(
+            ["data:image/png;base64,cGVjYQ=="],
+            {
+                "name": "TIM",
+                "sector": "Telecom",
+                "tone_of_voice": "Direto e claro",
+                "primary_color": "#082C9C",
+                "logo_upload_path": "/static/uploads/client_logos/tim.png",
+                "logo_url": "https://marca.com/logo.png",
+                "brand_profile": {
+                    "brand_summary": "Telecom azul.",
+                    "target_audience": "Jovens urbanos",
+                    "fonts": [{"family": "TIM Sans", "role": "display"}],
+                    "mandatory_elements": ["Logomarca oficial"],
+                    "forbidden_elements": ["Paletas quentes"],
+                    "visual_motifs": ["Números grandes"],
+                    "products_services": ["Chip pré-pago"],
+                    "creative_guidelines": "Azul profundo e respiro.",
+                },
+            },
+            logo_data_url="data:image/png;base64,bG9nbw==",
+        )
+
+        payload = captured["messages"][1]["content"]
+        texts = " ".join(
+            part["text"] for part in payload if part.get("type") == "text"
+        )
+        images = [
+            part["image_url"]["url"]
+            for part in payload
+            if part.get("type") == "image_url"
+        ]
+        self.assertIn("Logomarca oficial", texts)
+        self.assertIn("TIM Sans", texts)
+        self.assertIn("logo oficial", texts.lower())
+        self.assertIn("logomarca institucional", texts.lower())
+        self.assertEqual(images[0], "data:image/png;base64,bG9nbw==")
+        self.assertEqual(images[1], "data:image/png;base64,cGVjYQ==")
+        self.assertEqual(result["source_count"], 1)
+        self.assertTrue(result["logo_included"])
+
     def test_coleta_paginas_e_imagens_do_dominio_oficial(self):
         from aicentralv2 import creative_brand_analysis as analysis
 
@@ -914,6 +976,59 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(
             updated["profile"]["brand_summary"],
             "Produto central com muito respiro.",
+        )
+
+    def test_aprendizado_envia_logo_oficial_com_os_criativos(self):
+        self.repo.get_client = lambda client_id: {
+            "id": client_id,
+            "name": "Marca Exemplo",
+            "sector": "Imobiliário",
+            "tone_of_voice": "Seguro",
+            "logo_upload_path": "/static/uploads/client_logos/logo.png",
+            "primary_color": "#123ABC",
+            "secondary_color": "#FEDCBA",
+            "brand_profile": {
+                "brand_summary": "Imóveis com confiança.",
+                "mandatory_elements": ["Logo oficial"],
+            },
+        }
+        self.repo.list_client_brand_assets = lambda _client_id: [
+            {
+                "id": 7,
+                "role": "logo",
+                "is_primary": True,
+                "asset_path": "/static/uploads/client_logos/logo.png",
+                "mime_type": "image/png",
+            },
+            {
+                "id": 41,
+                "role": "creative",
+                "asset_path": "/static/uploads/creative_references/campanha.png",
+                "mime_type": "image/png",
+            },
+        ]
+        self.repo.update_client_brand_profile = lambda *_args: None
+        captured = {}
+        self.service.brand_analyzer = Mock()
+        self.service.brand_analyzer.analyze_creative_line.side_effect = (
+            lambda images, client, logo_data_url=None: captured.update({
+                "images": images,
+                "client": client,
+                "logo": logo_data_url,
+            }) or {
+                "signature_summary": "Linha com logo oficial.",
+                "source_count": 1,
+                "gpt_image_instruction": "Keep the official logo.",
+            }
+        )
+
+        self.service.learn_client_creative_line(10, [])
+
+        self.assertEqual(captured["logo"], "data:image/png;base64,bG9nbw==")
+        self.assertEqual(captured["images"], ["data:image/png;base64,aW1hZ2U="])
+        self.assertEqual(
+            captured["client"]["brand_profile"]["mandatory_elements"],
+            ["Logo oficial"],
         )
 
     def test_import_aceita_criativo_como_referencia_da_linha(self):
@@ -3041,15 +3156,19 @@ class CreativeRoutesTest(unittest.TestCase):
                         (BytesIO(b"image-one"), "campanha-1.png"),
                         (BytesIO(b"image-two"), "campanha-2.png"),
                     ],
+                    "logo": (BytesIO(b"logo-data"), "logo-oficial.png"),
+                    "logo_url": "https://marca.com/logo.png",
                 },
                 content_type="multipart/form-data",
             )
         self.assertEqual(response.status_code, 200)
-        files = service.learn_client_creative_line.call_args.args[1]
-        self.assertEqual([item.filename for item in files], [
+        args = service.learn_client_creative_line.call_args.args
+        self.assertEqual([item.filename for item in args[1]], [
             "campanha-1.png",
             "campanha-2.png",
         ])
+        self.assertEqual(args[2].filename, "logo-oficial.png")
+        self.assertEqual(args[3], "https://marca.com/logo.png")
 
 
 class CreativeFilesContractTest(unittest.TestCase):
@@ -3078,7 +3197,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-hub-desks", page)
         self.assertIn("Bancadas", page)
         self.assertIn("modelagem_biblioteca", page)
-        self.assertIn("modelagem_criativos.css') }}?v=55", page)
+        self.assertIn("modelagem_criativos.css') }}?v=56", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -3210,6 +3329,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mcFormatStage", library)
         self.assertIn("mcAdSlot", library)
         self.assertIn("O anúncio entra na zona do portal no tamanho IAB", library)
+        self.assertIn('id="mcStageFootNote"', library)
+        self.assertIn('value="social"', library)
+        self.assertIn("Redes sociais", library)
         self.assertIn("mcLibraryDetail", library)
         self.assertIn('id="mcLibraryVariations"', library)
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
@@ -3295,6 +3417,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("creative-line/analyze", production_js)
         self.assertIn("syncCreativeLineFromBrandFiles()", production_js)
         self.assertIn("append('role', 'creative')", production_js)
+        self.assertIn("body.append('logo'", production_js)
+        self.assertIn("body.append('logo_url'", production_js)
+        self.assertIn("Cruzando logo oficial, identidade capturada e criativos", production_js)
         self.assertIn("brandCandidateRole(asset)", production_js)
         self.assertIn("selectBrand(clientId, { keepDraft: true })", production_js)
         production_css = (
@@ -3435,6 +3560,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('spec["placement_zone"] = zone', layout_seed)
         self.assertIn('"leaderboard"', layout_seed)
         self.assertIn('"in_feed"', layout_seed)
+        self.assertIn("SOCIAL_CHANNELS", layout_seed)
+        self.assertIn('return "social"', layout_seed)
         viewer_migration = (
             root / "migrations" / "add_creative_viewer_profiles.sql"
         ).read_text(encoding="utf-8")
@@ -3444,10 +3571,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn("default_viewer_profile_id", viewer_migration)
         self.assertIn("viewer_profile_id", viewer_migration)
+        self.assertIn("'portal', 'tv', 'social'", viewer_migration)
         viewer_seed = (
             root / "scripts" / "seed_creative_viewer_profiles.py"
         ).read_text(encoding="utf-8")
-        for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max", "prime-video"):
+        for slug in (
+            "g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus",
+            "hbo-max", "prime-video", "instagram", "linkedin", "tiktok",
+            "youtube", "facebook",
+        ):
             self.assertIn(f'"slug": "{slug}"', viewer_seed)
         self.assertIn('"layout": "ranked_portrait"', viewer_seed)
         self.assertIn('"layout": "premium_layers"', viewer_seed)
@@ -3632,6 +3764,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function formatDirection", frontend)
         self.assertIn("function renderFormatSlotMap", frontend)
         self.assertIn("function groupedGeneratorFormats", frontend)
+        self.assertIn("function groupedCatalogFormats", frontend)
+        self.assertIn("function socialShellHtml", frontend)
+        self.assertIn("data-ad-well", frontend)
+        self.assertIn("context: 'social'", frontend)
         self.assertIn("function formatOrientationKey", frontend)
         self.assertIn("mc-format-group", frontend)
         self.assertIn("mc-orient is-${orientation}", frontend)
@@ -3710,11 +3846,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("2. Ler regiões", extract_html)
         self.assertIn("3. Abrir no Preparar", extract_html)
         self.assertIn('id="mcExtractFamily"', extract_html)
+        self.assertIn('value="portrait_4x5"', extract_html)
         self.assertIn('class="mc-extract-file"', extract_html)
         desk = (
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.js') }}?v=55", desk)
+        self.assertIn("modelagem_criativos.js') }}?v=56", desk)
         self.assertIn("mc_page_js) }}?v=4", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
@@ -3933,12 +4070,17 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertEqual(story["family"], "story_9x16")
         self.assertEqual(share["family"], "landscape_social")
         self.assertEqual(SOCIAL_PAINT_FAMILIES, {
-            "square_1x1", "story_9x16", "landscape_social",
+            "square_1x1", "story_9x16", "landscape_social", "portrait_4x5",
         })
         self.assertEqual(SOCIAL_FORMAT_SLUGS, {
-            "instagram-feed", "instagram-story", "tiktok-vertical",
-            "facebook-feed", "linkedin-share",
+            "instagram-feed", "instagram-feed-4x5", "instagram-story",
+            "instagram-reels", "tiktok-vertical", "facebook-feed",
+            "linkedin-share", "linkedin-feed", "linkedin-portrait",
+            "youtube-infeed", "youtube-shorts",
         })
+        self.assertEqual(format_family_spec("instagram-feed-4x5", "1080x1350")["family"], "portrait_4x5")
+        self.assertEqual(format_family_spec("youtube-infeed", "1920x1080")["family"], "landscape_social")
+        self.assertEqual(format_family_spec("youtube-shorts", "1080x1920")["family"], "story_9x16")
         self.assertEqual(default_render_mode("square_1x1"), "native")
         self.assertEqual(default_render_mode("sequence_16x9"), "native")
         self.assertFalse(should_compose("square_1x1", "native"))
@@ -3972,6 +4114,7 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             / "scripts" / "seed_creative_formats.py"
         ).read_text(encoding="utf-8")
         self.assertIn('("social", "Redes sociais")', seed)
+        self.assertIn("youtube_social", seed)
         for slug in SOCIAL_FORMAT_SLUGS:
             self.assertIn(f'"{slug}"', seed)
             self.assertEqual(scene_count_for_format({

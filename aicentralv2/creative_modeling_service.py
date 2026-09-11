@@ -1346,31 +1346,85 @@ class CreativeModelingService:
             saved.append(data)
         return _serialize(saved)
 
-    def learn_client_creative_line(self, client_id, files):
-        client_id = _integer(client_id, "Cliente")
-        client = self.repository.get_client(client_id)
-        new_assets = []
-        if files:
-            new_assets = self.upload_client_brand_assets(
-                client_id, files, role="creative"
-            )
+    def _asset_as_data_url(self, asset):
+        path = asset.get("asset_path") if isinstance(asset, dict) else asset
+        mime = asset.get("mime_type") if isinstance(asset, dict) else None
+        if not path:
+            return None
+        if hasattr(self.storage, "public_as_data_url"):
+            try:
+                return self.storage.public_as_data_url(path, mime)
+            except ValueError:
+                pass
+        try:
+            return self.storage.reference_as_data_url(path, mime)
+        except ValueError:
+            return None
+
+    def _official_logo_data_url(self, client):
         assets = [
             asset
-            for asset in self.repository.list_client_brand_assets(client_id)
-            if asset.get("role") == "creative" and asset.get("asset_path")
+            for asset in (client.get("brand_assets") or [])
+            if asset.get("role") == "logo" and asset.get("asset_path")
         ]
-        data_urls = []
-        for asset in assets[:6]:
-            try:
-                data_urls.append(
-                    self.storage.reference_as_data_url(
-                        asset["asset_path"], asset.get("mime_type")
-                    )
-                )
-            except ValueError:
+        assets.sort(key=lambda item: (not item.get("is_primary"), -(item.get("score") or 0)))
+        if client.get("logo_upload_path"):
+            assets.append({
+                "asset_path": client.get("logo_upload_path"),
+                "mime_type": None,
+            })
+        for asset in assets:
+            data_url = self._asset_as_data_url(asset)
+            if data_url:
+                return data_url
+        return None
+
+    def _brand_role_data_urls(self, client, role, limit=6):
+        urls = []
+        for asset in client.get("brand_assets") or []:
+            if asset.get("role") != role or not asset.get("asset_path"):
                 continue
+            data_url = self._asset_as_data_url(asset)
+            if not data_url:
+                continue
+            urls.append(data_url)
+            if len(urls) >= limit:
+                break
+        return urls
+
+    def learn_client_creative_line(self, client_id, files, logo=None, logo_url=None):
+        client_id = _integer(client_id, "Cliente")
+        self.repository.get_client(client_id)
+        new_assets = []
+        if logo:
+            new_assets.extend(
+                self.upload_client_brand_assets(
+                    client_id, [logo], primary_logo=True, role="reference"
+                )
+            )
+        elif logo_url:
+            new_assets.extend(
+                self._import_candidate_brand_assets(client_id, {
+                    "brand_assets": [{
+                        "role": "logo",
+                        "source_url": logo_url,
+                        "is_primary": True,
+                        "category": "Logo",
+                    }]
+                })
+            )
+        if files:
+            new_assets.extend(
+                self.upload_client_brand_assets(
+                    client_id, files, role="creative"
+                )
+            )
+        client = self.get_client(client_id)
+        data_urls = self._brand_role_data_urls(client, "creative", limit=6)
         creative_line = self.brand_analyzer.analyze_creative_line(
-            data_urls, client
+            data_urls,
+            client,
+            logo_data_url=self._official_logo_data_url(client),
         )
         profile = dict(client.get("brand_profile") or {})
         profile["creative_line"] = creative_line

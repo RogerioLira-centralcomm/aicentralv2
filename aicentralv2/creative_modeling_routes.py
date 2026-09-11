@@ -320,7 +320,10 @@ def api_learn_client_creative_line(cid):
     return _execute(
         lambda: _ok(
             _service().learn_client_creative_line(
-                cid, request.files.getlist("creatives")
+                cid,
+                request.files.getlist("creatives"),
+                request.files.get("logo"),
+                request.form.get("logo_url"),
             )
         )
     )

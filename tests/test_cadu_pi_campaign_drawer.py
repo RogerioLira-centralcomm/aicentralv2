@@ -82,10 +82,14 @@ class CaduPiCampaignDrawerUiTest(unittest.TestCase):
             '<div class="pi-edit-card__head"><div><h2>Período</h2>',
             self.form,
         )
+        self.assertIn('id="pi-edit-midia"', self.form)
+        self.assertIn("Orçamento de mídia", self.form)
         self.assertIn("Configuração do cálculo", self.form)
         self.assertIn("Composição percentual", self.form)
         self.assertIn("Composição calculada", self.form)
         self.assertIn(".pi-finance-gross", self.css)
+        self.assertIn(".pi-period-ops", self.css)
+        self.assertIn(".pi-midia-ops", self.css)
 
     def test_email_operacional_usa_marca_centralcomm(self):
         self.assertIn("logo_centralcomm_url", self.email)

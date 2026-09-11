@@ -1034,10 +1034,14 @@ class CreativeModelingService:
                     contract["brand_dna"] = dna
                     contract["brand_dna_id"] = dna["id"]
                     payload["contract"] = contract
+        image_callable = payload.pop("image_callable", None)
+        if image_callable is None and payload.get("decompose"):
+            image_callable = self._agent_image_callable()
         result = run_agent(
             name,
             payload,
             text_callable=callable_llm,
+            image_callable=image_callable,
             repository=self.repository,
         )
         data = _serialize(result.model_dump())
@@ -1047,6 +1051,25 @@ class CreativeModelingService:
             except Exception:
                 data["saved_variation"] = None
         return data
+
+    def _agent_image_callable(self):
+        generate = getattr(getattr(self, "generator", None), "generate_image", None)
+        if not callable(generate):
+            return None
+
+        def _run(prompt, aspect_ratio="1:1", background="transparent", input_references=None, **_extra):
+            result = generate(
+                prompt,
+                input_references=input_references,
+                aspect_ratio=aspect_ratio,
+                background=background,
+                output_format="png",
+            )
+            if isinstance(result, dict):
+                return result.get("b64_json") or result.get("url") or ""
+            return result
+
+        return _run
 
     def _format_lab(self):
         from .creative_format_lab.service import FormatLabService

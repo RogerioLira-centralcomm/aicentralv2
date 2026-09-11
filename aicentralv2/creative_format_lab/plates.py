@@ -46,6 +46,7 @@ def build_plate_kit(
     product=None,
     refine=True,
     passes=None,
+    assets=None,
 ):
     brand = build_brand_context(client)
     chosen = str(product or "").strip()
@@ -70,6 +71,7 @@ def build_plate_kit(
         )
         scene = spec.scenes[0]
         product_url = product_url_for(entry, cutouts)
+        extra = assets if isinstance(assets, dict) else {}
         html = build_scene_html(
             spec,
             scene,
@@ -77,6 +79,12 @@ def build_plate_kit(
             assets={
                 "logo_url": brand.get("logo_url") or "",
                 "product_url": product_url,
+                "cast_url": extra.get("cast_url") or "",
+                "ground_url": extra.get("ground_url") or "",
+                "field": extra.get("field") or "",
+                "chips": extra.get("chips"),
+                "meta": extra.get("meta") or "",
+                "lockup": extra.get("lockup") or "",
             },
             render=True,
             logo_visible=True,

@@ -16,7 +16,9 @@
     <p>Cena 1 — Abertura · IAB</p>
   </div>
   <main class="stage">
+    <div class="layer ground" id="layer-ground"></div>
     <div class="layer safe" id="layer-safe"></div>
+    <div class="layer cast" id="layer-cast"></div>
     <div class="layer key-visual" id="layer-key-visual"></div>
     <div class="layer brand" id="layer-brand"><span class="brand-mark" id="layer-brand-mark"></span>SUA MARCA</div>
     <div class="layer platform" id="layer-platform">IAB</div>
@@ -24,17 +26,21 @@
       <h2 id="layer-headline">A linha<br>principal</h2>
       <p id="layer-support">Apoio da abertura.</p>
     </div>
+    <div class="layer meta" id="layer-meta" hidden></div>
+    <div class="layer chips" id="layer-chips" hidden></div>
+    <div class="layer lockup" id="layer-lockup" hidden></div>
     <div class="layer beat" id="layer-timeline"><div class="bar"><span style="width:8%"></span></div></div>
   </main>
-  <div class="note">Camadas independentes: marca, tipo, key visual e CTA.</div>
+  <div class="note">Campo e elenco separados. Tipo, datas e nomes no HTML.</div>
   <section class="layers">
     <h3>Camadas desta cena</h3>
     <div class="layers-grid">
-      <div><span class="badge">layer</span>brand</div>
-      <div><span class="badge">layer</span>key visual</div>
+      <div><span class="badge">layer</span>ground</div>
+      <div><span class="badge">layer</span>cast</div>
       <div><span class="badge">layer</span>headline</div>
-      <div><span class="badge">layer</span>support</div>
-      <div><span class="badge">layer</span>cta</div>
+      <div><span class="badge">layer</span>meta</div>
+      <div><span class="badge">layer</span>chips</div>
+      <div><span class="badge">layer</span>lockup</div>
     </div>
   </section>
 </div>

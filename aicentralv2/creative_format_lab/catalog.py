@@ -447,6 +447,10 @@ PLATE_LAYOUTS = {
         "label": "Cartão final",
         "note": "Marca e produto no eixo. Um verbo embaixo. É o still de fechamento.",
     },
+    "cast": {
+        "label": "Cartaz de elenco",
+        "note": "Campo + bandeirinhas em CSS. Pessoas em PNG transparente. Tipo, datas e nomes no HTML.",
+    },
 }
 
 PURPOSE_PLATES = {

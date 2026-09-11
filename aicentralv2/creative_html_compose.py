@@ -53,7 +53,7 @@ _browser = None
 
 
 PHOTO_REGION_TYPES = frozenset({
-    "foto_pessoa", "foto_produto", "visual", "foto", "imagem", "video",
+    "foto_pessoa", "foto_produto", "visual", "foto", "imagem", "video", "elenco",
 })
 BACKGROUND_REGION_TYPES = frozenset({"fundo", "background"})
 ICON_REGION_TYPES = frozenset({"icone", "icon"})
@@ -65,6 +65,9 @@ TEXT_REGION_TYPES = {
     "preco": "price",
     "beneficios": "legal",
     "legal": "legal",
+    "meta": "meta",
+    "chip": "chip",
+    "lockup": "lockup",
 }
 
 
@@ -183,13 +186,17 @@ def render_compose_html(
     mapped = region_slots(params)
     if not mapped and family not in HTML_COMPOSE_TEMPLATES:
         mapped = layout_slots(family, (width, height))
-    background_url = background_url or str(copy.get("background_url") or "")
+    background_url = (
+        background_url
+        or str(copy.get("ground_url") or copy.get("background_url") or "")
+    )
     icon_url = icon_url or str(copy.get("icon_url") or "")
+    still_url = still_url or str(copy.get("cast_url") or copy.get("still_url") or "")
     return _env.get_template(template).render(
         family=family,
         width=width,
         height=height,
-        brand_color=copy.get("brand_color") or "#1E4D4F",
+        brand_color=copy.get("field") or copy.get("brand_color") or "#1E4D4F",
         still_url=still_url or "",
         logo_url=logo_url or "",
         background_url=background_url,

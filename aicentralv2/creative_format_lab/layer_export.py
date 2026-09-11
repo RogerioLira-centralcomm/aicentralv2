@@ -8,6 +8,11 @@ from ..creative_compose_library import sanitize_compose_regions
 
 LAYER_BOXES = {
     "layer-safe": ("overlay", 5, 5, 90, 90, 1),
+    "layer-ground": ("fundo", 0, 0, 100, 100, 1),
+    "layer-cast": ("elenco", 10, 34, 80, 50, 4),
+    "layer-meta": ("texto", 66, 8, 28, 16, 12),
+    "layer-chips": ("texto", 5, 74, 90, 10, 13),
+    "layer-lockup": ("logo", 5, 88, 90, 8, 13),
     "layer-key-visual": ("fundo", 42, 8, 56, 84, 3),
     "layer-visual-mountain-1": ("fundo", 0, 78, 100, 22, 2),
     "layer-visual-mountain-2": ("fundo", 0, 86, 100, 14, 2),

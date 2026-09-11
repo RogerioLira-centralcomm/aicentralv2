@@ -17,7 +17,9 @@
   </div>
 
   <main class="stage">
+    <div class="layer ground" id="layer-ground"></div>
     <div class="layer safe" id="layer-safe"></div>
+    <div class="layer cast" id="layer-cast"></div>
     <div class="layer key-visual" id="layer-key-visual"></div>
     <div class="layer brand" id="layer-brand"><span class="brand-mark" id="layer-brand-mark"></span>SUA MARCA</div>
     <div class="layer platform" id="layer-platform">16:9</div>
@@ -31,6 +33,9 @@
       <h2 id="layer-headline">A linha<br>principal</h2>
       <p id="layer-support">Apoio da abertura.</p>
     </div>
+    <div class="layer meta" id="layer-meta" hidden></div>
+    <div class="layer chips" id="layer-chips" hidden></div>
+    <div class="layer lockup" id="layer-lockup" hidden></div>
 
     <div class="layer timeline" id="layer-timeline">
       <div class="play"></div>
@@ -40,17 +45,18 @@
   </main>
 
   <div class="note">
-    Placa preta 16:9. Camadas independentes para troca de marca, tipo e key visual.
+    Placa 16:9. Campo e elenco separados; tipo, datas e nomes no HTML.
   </div>
 
   <section class="layers">
     <h3>Camadas desta cena</h3>
     <div class="layers-grid">
-      <div><span class="badge">layer</span>brand</div>
-      <div><span class="badge">layer</span>key visual</div>
+      <div><span class="badge">layer</span>ground</div>
+      <div><span class="badge">layer</span>cast</div>
       <div><span class="badge">layer</span>headline</div>
-      <div><span class="badge">layer</span>support</div>
-      <div><span class="badge">layer</span>planes</div>
+      <div><span class="badge">layer</span>meta</div>
+      <div><span class="badge">layer</span>chips</div>
+      <div><span class="badge">layer</span>lockup</div>
     </div>
   </section>
 </div>

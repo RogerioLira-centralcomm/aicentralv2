@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..creative_modeling_generation import OpenRouterError
 from ..creative_modeling_repository import CreativeConflictError, CreativeNotFoundError
 from ..creative_modeling_service import _integer, _serialize
 from .campaign_models import list_campaign_models, load_campaign_model
@@ -77,6 +78,7 @@ class FormatLabService:
             product=payload.get("product"),
             refine=payload.get("refine") is not False,
             passes=payload.get("passes"),
+            assets=payload.get("assets"),
         )
         kit["client_id"] = client_id
         bindings = {
@@ -240,11 +242,18 @@ class FormatLabService:
             "session_id": session_id,
             "client_id": session.get("client_id") or client.get("id"),
         }
-        result = build_storyboard(
-            merged,
-            client=client,
-            text_callable=self._text_callable(payload),
-        )
+        try:
+            result = build_storyboard(
+                merged,
+                client=client,
+                text_callable=self._text_callable(payload),
+            )
+        except (ValueError, OpenRouterError):
+            result = build_storyboard(
+                merged,
+                client=client,
+                text_callable=None,
+            )
         result["id"] = session_id
         result["client_id"] = session.get("client_id") or client.get("id")
         result["campaign_id"] = campaign["id"]

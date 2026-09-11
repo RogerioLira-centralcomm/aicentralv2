@@ -18,6 +18,7 @@ from aicentralv2.creative_format_lab.catalog import (
 )
 from aicentralv2.creative_format_lab.mockup import scene_logo_visible
 from aicentralv2.creative_format_lab.stack import build_stack
+from aicentralv2.creative_format_lab.decompose import decompose_creative
 from aicentralv2.creative_format_lab.html_builder import build_scene_html, prototype_dir
 from aicentralv2.creative_format_lab.layer_export import export_layers
 from aicentralv2.creative_format_lab.pipeline import run_session
@@ -230,6 +231,70 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertIn("is-banner", board)
         self.assertIn("layer-headline", board)
 
+    def test_cartaz_separa_elenco_e_fundo_no_html(self):
+        from aicentralv2.creative_format_lab.stack import build_stack
+
+        spec = build_spec(
+            route={
+                "format": "ctv-video-linear-30",
+                "adapter": "generic_ctv",
+                "platform_label": "16:9",
+            },
+            brand_name="Belotur",
+        )
+        html = build_scene_html(
+            spec,
+            spec.scenes[0],
+            dna={"colors": {"accent": "#7c4dff"}},
+            assets={
+                "cast_url": "https://cdn.example/elenco.png",
+                "ground_url": "https://cdn.example/campo.png",
+                "field": "#7c4dff",
+            },
+        )
+        self.assertIn("plate-cast", html)
+        self.assertIn("layer-cast", html)
+        self.assertIn("layer-ground", html)
+        self.assertIn("--cast-image:url('https://cdn.example/elenco.png')", html)
+        self.assertIn("--field:#7c4dff", html)
+        self.assertIn("--pennant", html)
+        html = build_scene_html(
+            spec,
+            spec.scenes[0],
+            dna={"colors": {"accent": "#7c4dff"}},
+            assets={
+                "cast_url": "https://cdn.example/elenco.png",
+                "field": "#7c4dff",
+                "chips": ["Zé Vaqueiro", "Mumuzinho"],
+                "meta": "24, 25 e 26 julho",
+                "lockup": "Belotur",
+            },
+        )
+        self.assertIn('class="chip"', html)
+        self.assertIn("Zé Vaqueiro", html)
+        self.assertIn("24, 25 e 26 julho", html)
+        self.assertIn("Belotur", html)
+        stack = build_stack(
+            spec.scenes[0],
+            brand={"name": "Belotur", "primary_color": "#7c4dff"},
+            assets={"cast_url": "https://cdn.example/elenco.png"},
+        )
+        self.assertEqual(stack["plate"], "cast")
+        self.assertEqual(stack["background"]["kind"], "field")
+        self.assertTrue(any(item["role"] == "cast" for item in stack["layers"]))
+        empty = decompose_creative("https://cdn.example/ref.png")
+        self.assertEqual(empty["cast_url"], "")
+        calls = []
+
+        def fake(prompt, **kwargs):
+            calls.append((prompt, kwargs.get("background")))
+            return b"png"
+
+        parts = decompose_creative("https://cdn.example/ref.png", fake)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][1], "transparent")
+        self.assertTrue(parts["cast_url"].startswith("data:image/png;base64,"))
+
     def test_qa_loop_para_no_terceiro_patch(self):
         spec = build_spec(
             route={
@@ -386,18 +451,33 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(scene["scene_versions"], 3)
         self.assertGreater(full["cost_usd"], story["cost_usd"])
 
-    def test_conceito_nao_cai_em_fallback_quando_o_provedor_falha(self):
+    def test_conceito_usa_campanha_quando_o_provedor_falha(self):
         from aicentralv2.creative_modeling_generation import OpenRouterError
 
         def boom(*_a, **_k):
             raise OpenRouterError("Não foi possível consultar o provedor de IA.")
 
-        with self.assertRaises(OpenRouterError):
-            build_storyboard(
-                {"campaign_slug": "tim-controle-ctv", "scene_count": 4},
-                client={"id": 11, "name": "Tim"},
-                text_callable=boom,
-            )
+        board = build_storyboard(
+            {"campaign_slug": "tim-controle-ctv", "scene_count": 4},
+            client={"id": 11, "name": "Tim"},
+            text_callable=boom,
+        )
+        self.assertEqual(len(board["storyboard"]), 4)
+        self.assertEqual(board["provider"], "campaign")
+        self.assertTrue(board["storyboard"][0]["headline"])
+
+    def test_conceito_usa_campanha_quando_o_json_do_provedor_e_invalido(self):
+        def bad(*_a, **_k):
+            return {"message": {"content": {"format": "video-linear-15", "scenes": []}}}
+
+        board = build_storyboard(
+            {"campaign_slug": "vivara-presente-ctv", "scene_count": 4},
+            client={"id": 4, "name": "Vivara"},
+            text_callable=bad,
+        )
+        self.assertEqual(len(board["storyboard"]), 4)
+        self.assertEqual(board["provider"], "campaign")
+        self.assertIn("momentos", board["storyboard"][0]["headline"].lower())
 
     def test_engenheiro_chama_o_provedor_sem_papel_developer(self):
         called = {}
@@ -702,11 +782,12 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertEqual(MC_DESKS["placas"]["page_js"], "js/mc-placas.js")
         root = Path(__file__).resolve().parents[1]
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
-        self.assertIn("mc-desk-drop", shell)
+        self.assertIn("mc-desk-nav-flow", shell)
+        self.assertIn("mc-desk-nav-lab", shell)
         self.assertIn("mc-chrome", shell)
-        self.assertIn("'Lab'", shell)
-        self.assertIn("'Fluxo'", shell)
-        self.assertIn("'Páginas'", shell)
+        self.assertIn("mc-desk-drop", shell)
+        self.assertNotIn("'Fluxo'", shell)
+        self.assertNotIn("'Páginas'", shell)
         self.assertNotIn("Início", shell)
         self.assertIn("mcFormatDrop", shell)
         self.assertIn("mcFormatMenu", shell)

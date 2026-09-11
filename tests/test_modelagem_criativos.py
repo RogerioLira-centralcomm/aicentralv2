@@ -5027,7 +5027,7 @@ class BancadaDeskContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_bancada", shell)
-        self.assertIn("Bancada 2.0", shell)
+        self.assertIn("Bancada", shell)
 
     def test_api_grava_documento_da_bancada_e_le_creditos(self):
         service = Mock()

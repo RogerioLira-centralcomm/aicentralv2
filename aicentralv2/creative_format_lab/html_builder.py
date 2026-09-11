@@ -63,7 +63,7 @@ def build_scene_html(
     spec = spec if isinstance(spec, CreativeFormatSpec) else CreativeFormatSpec.model_validate(spec)
     source_id = "scene_01" if mockup else scene.id
     html_text = load_prototype_html(spec.adapter, source_id, brand_prototypes)
-    css = (prototype_dir(spec.adapter) / "styles.css").read_text(encoding="utf-8")
+    css = _family_css(spec.adapter)
     extras = _brand_css(dna, assets)
     if mockup:
         extras += _mockup_css()
@@ -120,9 +120,20 @@ def build_scene_html(
             f".qr.has-asset{{--qr:url('{_css_url(qr_url)}');}}\n</style>",
             1,
         )
-    html_text = _apply_scene_photo(html_text, (assets or {}).get("scene_image"))
-    html_text = apply_product_layer(html_text, (assets or {}).get("product_url"))
-    html_text = apply_plate_layout(html_text, plate_for(scene.purpose))
+    assets = assets if isinstance(assets, dict) else {}
+    html_text = _apply_scene_photo(html_text, assets.get("scene_image"))
+    html_text = apply_product_layer(html_text, assets.get("product_url"))
+    if assets.get("cast_url"):
+        html_text = apply_cast_layer(html_text, assets.get("cast_url"))
+        html_text = apply_ground_layer(
+            html_text,
+            assets.get("ground_url"),
+            assets.get("field") or _field_from_dna(dna),
+        )
+        html_text = apply_plate_layout(html_text, "cast")
+    else:
+        html_text = apply_plate_layout(html_text, plate_for(scene.purpose))
+    html_text = apply_poster_copy(html_text, assets)
     return html_text
 
 
@@ -198,12 +209,12 @@ def apply_stage_shape(html_text, spec):
 
 def apply_plate_layout(html_text, layout):
     name = str(layout or "split").strip().lower()
-    if name not in {"split", "hero", "center"}:
+    if name not in {"split", "hero", "center", "cast"}:
         name = "split"
     cls = f"plate-{name}"
 
     def _swap(match):
-        classes = re.sub(r"\s*plate-(?:split|hero|center)", "", match.group(1))
+        classes = re.sub(r"\s*plate-(?:split|hero|center|cast)", "", match.group(1))
         return f'class="{classes} {cls}"'
 
     return re.sub(r'class="(stage[^"]*)"', _swap, str(html_text or ""), count=1)
@@ -219,6 +230,10 @@ ALLOWED_CSS_VARS = {
     "--product-scale",
     "--product-x",
     "--product-y",
+    "--void",
+    "--field",
+    "--ground-image",
+    "--cast-image",
 }
 
 _SYSTEM_FACES = {
@@ -272,7 +287,90 @@ def apply_copy_layers(html_text, copy):
     if copy.get("cta"):
         text = _replace_text(text, "layer-cta", copy["cta"])
         text = apply_cta_visibility(text, True)
+    return apply_poster_copy(text, copy)
+
+
+def _family_css(adapter):
+    family = (prototype_dir(adapter) / "styles.css").read_text(encoding="utf-8")
+    shared = PROTOTYPE_ROOT / "shared" / "poster.css"
+    poster = shared.read_text(encoding="utf-8") if shared.is_file() else ""
+    return f"{poster}\n{family}" if poster else family
+
+
+def _field_from_dna(dna):
+    dna = dna if isinstance(dna, dict) else {}
+    colors = dna.get("colors") if isinstance(dna.get("colors"), dict) else {}
+    palette = colors.get("palette") or []
+    return str(
+        colors.get("accent")
+        or colors.get("primary")
+        or (palette[0] if palette else "")
+        or ""
+    )
+
+
+def apply_cast_layer(html_text, url):
+    if not url:
+        return html_text
+    html_text = ensure_system_layers(html_text)
+    css = (
+        f":root{{--cast-image:url('{_css_url(url)}')}}"
+        "#layer-cast{opacity:1}"
+    )
+    return html_text.replace("</style>", f"{css}\n</style>", 1)
+
+
+def apply_ground_layer(html_text, url=None, field=""):
+    html_text = ensure_system_layers(html_text)
+    rules = []
+    if field:
+        rules.append(f":root{{--field:{field};--void:{field}}}")
+    if url:
+        rules.append(f":root{{--ground-image:url('{_css_url(url)}')}}")
+        html_text = html_text.replace(
+            'class="layer ground"',
+            'class="layer ground has-photo"',
+            1,
+        )
+    if not rules:
+        return html_text
+    return html_text.replace("</style>", "\n".join(rules) + "\n</style>", 1)
+
+
+def apply_poster_copy(html_text, assets):
+    assets = assets if isinstance(assets, dict) else {}
+    text = str(html_text or "")
+    meta = assets.get("meta")
+    if meta:
+        text = _fill_block(text, "layer-meta", html.escape(str(meta)).replace("\n", "<br>"))
+    chips = assets.get("chips")
+    if isinstance(chips, str):
+        chips = [part.strip() for part in chips.split(",") if part.strip()]
+    if isinstance(chips, (list, tuple)) and chips:
+        inner = "".join(
+            f'<span class="chip">{html.escape(str(name))}</span>'
+            for name in chips
+            if str(name).strip()
+        )
+        if inner:
+            text = _fill_block(text, "layer-chips", inner)
+    lockup = assets.get("lockup")
+    if lockup:
+        text = _fill_block(text, "layer-lockup", html.escape(str(lockup)).replace("\n", "<br>"))
     return text
+
+
+def _fill_block(html_text, layer_id, inner):
+    text = str(html_text or "")
+    text = ensure_system_layers(text)
+    text = text.replace(f'id="{layer_id}" hidden', f'id="{layer_id}"')
+    pattern = re.compile(
+        rf'(id="{re.escape(layer_id)}"[^>]*>)([\s\S]*?)(</div>)',
+        re.IGNORECASE,
+    )
+    if not pattern.search(text):
+        return text
+    return pattern.sub(rf"\g<1>{inner}\g<3>", text, count=1)
 
 
 def apply_product_layer(html_text, url):
@@ -323,7 +421,7 @@ def brand_style_from_base(base_html):
         block = chunk.strip()
         if not block:
             continue
-        if any(token in block for token in ("--brand-", "--logo", "layer-key-visual", "is-mockup", "body.render .stage")):
+        if any(token in block for token in ("--brand-", "--logo", "--field", "--cast-image", "--ground-image", "layer-key-visual", "layer-cast", "is-mockup", "body.render .stage")):
             keep.append(block + "}")
     return "\n".join(keep)
 
@@ -336,24 +434,38 @@ def ensure_system_layers(html_text, qr=False):
             '<div class="layer cta" id="layer-cta" hidden>CTA</div>\n  </main>',
             1,
         )
+    prefixes = []
+    if 'id="layer-ground"' not in text:
+        prefixes.append('<div class="layer ground" id="layer-ground"></div>')
+    if 'id="layer-cast"' not in text:
+        prefixes.append('<div class="layer cast" id="layer-cast"></div>')
     if 'id="layer-key-visual"' not in text:
-        text = text.replace(
-            '<main class="stage">',
-            '<main class="stage">\n    <div class="layer key-visual" id="layer-key-visual"></div>',
-            1,
+        prefixes.append('<div class="layer key-visual" id="layer-key-visual"></div>')
+    if prefixes:
+        block = "".join(f"\n    {item}" for item in prefixes)
+        updated = re.sub(
+            r'(<main class="stage"[^>]*>)',
+            rf"\1{block}",
+            text,
+            count=1,
         )
-        if 'id="layer-key-visual"' not in text:
+        if updated != text:
+            text = updated
+        elif 'id="layer-key-visual"' not in text:
             text = text.replace(
-                'class="stage"',
-                'class="stage"',
+                '<main class="stage">',
+                '<main class="stage">\n    <div class="layer key-visual" id="layer-key-visual"></div>',
                 1,
             )
-            text = re.sub(
-                r'(<main class="stage"[^>]*>)',
-                r'\1<div class="layer key-visual" id="layer-key-visual"></div>',
-                text,
-                count=1,
-            )
+    extras = []
+    if 'id="layer-meta"' not in text:
+        extras.append('<div class="layer meta" id="layer-meta" hidden></div>')
+    if 'id="layer-chips"' not in text:
+        extras.append('<div class="layer chips" id="layer-chips" hidden></div>')
+    if 'id="layer-lockup"' not in text:
+        extras.append('<div class="layer lockup" id="layer-lockup" hidden></div>')
+    if extras:
+        text = text.replace("</main>", "\n    ".join(extras) + "\n  </main>", 1)
     if qr and 'id="layer-qr"' not in text:
         text = text.replace(
             "</main>",
@@ -489,7 +601,7 @@ def _brand_css(dna, assets):
         "body.render .stage{font-family:var(--brand-face);}"
         "#layer-key-visual{transform:translate(var(--product-x,0),var(--product-y,0))"
         " scale(var(--product-scale,1));transform-origin:center;}"
-        f"body.render .stage:not(.has-photo){{background:"
+        f"body.render .stage:not(.has-photo):not(.plate-cast){{background:"
         f"radial-gradient(120% 80% at 72% 38%,{accent}40,#0E0D0C)}}"
     )
 

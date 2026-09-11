@@ -27,6 +27,15 @@ PLATE_BOXES = {
         "support": (22, 80, 56, 6, False),
         "cta": (38, 88, 24, 7, False),
     },
+    "cast": {
+        "ground": (0, 0, 100, 100, True),
+        "cast": (10, 34, 80, 50, True),
+        "logo": (5, 88, 28, 8, False),
+        "headline": (5, 10, 56, 22, False),
+        "meta": (66, 8, 28, 16, False),
+        "support": (5, 28, 40, 8, False),
+        "cta": (5, 80, 24, 6, False),
+    },
 }
 
 
@@ -36,6 +45,8 @@ def build_stack(scene, *, brand=None, assets=None, plate=None):
     assets = assets if isinstance(assets, dict) else {}
     purpose = str(scene.get("purpose") or "hook")
     layout = plate or plate_for(purpose)
+    if assets.get("cast_url"):
+        layout = "cast"
     boxes = PLATE_BOXES.get(layout) or PLATE_BOXES["split"]
     color = _brand_color(brand)
     photo = assets.get("scene_image") or scene.get("key_visual") or ""
@@ -51,10 +62,15 @@ def build_stack(scene, *, brand=None, assets=None, plate=None):
     product_url = assets.get("product_url") or (photo if layout != "hero" else "")
     if layout == "hero":
         product_url = ""
+    if layout == "cast":
+        product_url = ""
     plan = (
-        ("product", "product", product_url, "", True),
+        ("ground", "fundo", assets.get("ground_url") or "", "", layout == "cast"),
+        ("cast", "elenco", assets.get("cast_url") or "", "", layout == "cast"),
+        ("product", "product", product_url, "", layout != "cast"),
         ("logo", "logo", assets.get("logo_url") or brand.get("logo_url"), "", logo_on),
         ("headline", "texto", "", scene.get("headline") or "", True),
+        ("meta", "texto", "", scene.get("set_note") or "", layout == "cast"),
         ("support", "texto", "", scene.get("support") or "", bool(scene.get("support"))),
         ("cta", "cta", "", scene.get("cta") or "", show_cta),
     )
@@ -71,7 +87,7 @@ def build_stack(scene, *, brand=None, assets=None, plate=None):
             "y": y,
             "w": w,
             "h": h,
-            "z": 3 if role == "product" else 12,
+            "z": 1 if role == "ground" else 4 if role in {"product", "cast"} else 12,
             "visible": True,
             "bleed": bleed,
             "fit": "cover" if role == "product" and layout == "hero" else "contain",
@@ -118,6 +134,8 @@ def _brand_color(brand):
 
 
 def _background(layout, color, photo):
+    if layout == "cast":
+        return {"kind": "field", "color": color or "#7c4dff", "image_url": "", "effect": "pennant"}
     if layout == "hero" and photo:
         return {"kind": "image", "color": color, "image_url": photo, "effect": "veil-left"}
     if photo:
@@ -128,6 +146,16 @@ def _background(layout, color, photo):
 def _layer_prompt(role, scene, brand):
     name = brand.get("name") or "the brand"
     headline = scene.get("headline") or ""
+    if role == "cast":
+        return (
+            f"Group cutout of the people in this {name} poster, {headline}. "
+            "Transparent PNG. No background, no type, no flags, no logos."
+        )
+    if role == "ground":
+        return (
+            f"Empty field of the {name} poster: flat color and pennant bunting only. "
+            "No people, no type, no logos."
+        )
     if role == "product":
         return (
             f"Isolated product cutout for {name}, {headline}. "

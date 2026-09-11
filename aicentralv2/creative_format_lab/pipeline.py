@@ -150,10 +150,17 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
             }
             scenes.append(kept)
             continue
+        poster = payload.get("assets") if isinstance(payload.get("assets"), dict) else {}
         assets = {
             "logo_url": brand.get("logo_url") if _logo_on(scene, knobs) else "",
             "qr_url": payload.get("qr_url"),
             "scene_image": visual,
+            "cast_url": payload.get("cast_url") or poster.get("cast_url"),
+            "ground_url": payload.get("ground_url") or poster.get("ground_url"),
+            "field": payload.get("field") or poster.get("field"),
+            "chips": payload.get("chips") or poster.get("chips"),
+            "meta": payload.get("meta") or poster.get("meta"),
+            "lockup": payload.get("lockup") or poster.get("lockup"),
         }
         html_text = build_scene_html(
             spec,
@@ -182,7 +189,7 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
             "key_visual": visual,
             "logo_visible": _logo_on(scene, knobs),
             "layers": export_layers(html_text, scene.id),
-            "stack": _scene_stack(scene, purpose, brand, visual, knobs),
+            "stack": _scene_stack(scene, purpose, brand, visual, knobs, assets),
         }
         scenes.append(built)
         pending.append(scene.id)
@@ -304,8 +311,9 @@ def _logo_on(scene, knobs):
     )
 
 
-def _scene_stack(scene, purpose, brand, visual, knobs):
+def _scene_stack(scene, purpose, brand, visual, knobs, assets=None):
     knobs = knobs if isinstance(knobs, dict) else {}
+    extras = assets if isinstance(assets, dict) else {}
     stack = build_stack(
         {
             "id": scene.id,
@@ -318,7 +326,13 @@ def _scene_stack(scene, purpose, brand, visual, knobs):
             "key_visual": visual,
         },
         brand=brand,
-        assets={"scene_image": visual, "logo_url": brand.get("logo_url")},
+        assets={
+            "scene_image": visual,
+            "logo_url": brand.get("logo_url"),
+            "cast_url": extras.get("cast_url"),
+            "ground_url": extras.get("ground_url"),
+            "field": extras.get("field"),
+        },
     )
     stack["guidelines"] = check_stack(stack)
     return stack

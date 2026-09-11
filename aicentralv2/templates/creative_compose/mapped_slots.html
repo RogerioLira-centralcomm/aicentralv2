@@ -17,11 +17,15 @@
     display: block;
   }
   .ad.is-mapped .slot-logo img,
-  .ad.is-mapped .slot-icon img { object-fit: contain; }
+  .ad.is-mapped .slot-icon img,
+  .ad.is-mapped .slot-elenco img { object-fit: contain; }
   .ad.is-mapped .slot-headline,
   .ad.is-mapped .slot-cta,
   .ad.is-mapped .slot-price,
   .ad.is-mapped .slot-legal,
+  .ad.is-mapped .slot-meta,
+  .ad.is-mapped .slot-chip,
+  .ad.is-mapped .slot-lockup,
   .ad.is-mapped .slot-other {
     display: flex;
     align-items: flex-end;
@@ -65,6 +69,9 @@
     {% if slot.role == 'cta' %}<span class="slot-cta-btn">{{ content.text or cta }}</span>{% endif %}
     {% if slot.role == 'price' %}{{ content.text or price }}{% endif %}
     {% if slot.role == 'legal' %}{{ content.text or legal }}{% endif %}
+    {% if slot.role == 'meta' %}{{ content.text }}{% endif %}
+    {% if slot.role == 'chip' %}{{ content.text }}{% endif %}
+    {% if slot.role == 'lockup' %}{{ content.text }}{% endif %}
   </div>
   {% endfor %}
 </article>

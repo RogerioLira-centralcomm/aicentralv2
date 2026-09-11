@@ -66,9 +66,10 @@
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+            body: JSON.stringify({
             image_url: imageUrl,
             family: family?.value || 'square_1x1',
+            decompose: true,
           }),
         });
         const payload = await response.json();
@@ -92,8 +93,11 @@
           openPrepare.href = `/parametros/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
           openPrepare.classList.remove('hidden');
           setStep(3);
+          const parts = payload.data?.params || {};
           if (status) {
-            status.textContent = `Molde ${saved.id} gravado. Fundo, foto e textos estão prontos para a Bancada 2.0.`;
+            status.textContent = parts.cast_url
+              ? `Molde ${saved.id} gravado. Elenco recortado e fundo separados — abra na Bancada para desdobrar.`
+              : `Molde ${saved.id} gravado. Fundo, foto e textos estão prontos para a Bancada 2.0.`;
           }
         } else {
           openPrepare?.classList.add('hidden');

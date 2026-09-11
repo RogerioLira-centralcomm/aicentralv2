@@ -38,7 +38,8 @@ Before the first campaign still, model a black 16:9 HTML mockup (the format skil
 
 The IAB base kit on Placas is a different job: scene 1 only, native IAB canvas, three patch passes per family (horizontal / box / vertical). Same patch contract. Product cutouts are transparent PNG layers, smaller than the rectangle.
 
-Layer IDs stay: layer-brand, layer-headline, layer-support, layer-cta, layer-qr, layer-key-visual.
+Layer IDs stay: layer-brand, layer-headline, layer-support, layer-cta, layer-qr, layer-key-visual, layer-ground, layer-cast, layer-meta, layer-chips, layer-lockup.
+Event/cast posters: field + pennants in CSS, people as a transparent PNG, type as HTML. Image 2 only cuts the photograph — it does not redraw the layout.
 Brand ink, accent and typeface come from the Marcas payload.
 Logo is not mandatory on every beat: last scene always on and centered; opening scenes follow the storyboard lock.
 Do not rewrite the entire HTML during refinements — apply patches.

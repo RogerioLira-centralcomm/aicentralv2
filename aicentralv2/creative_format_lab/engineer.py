@@ -9,6 +9,7 @@ import os
 from pydantic import ValidationError
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
+from ..services.openrouter_service import resolve_chat_model
 from ..creative_skills.loader import combined_system_prompt, load_bundle
 from ..creative_skills.visual import load_visual_brief, normalize_selected_skills
 from .catalog import (
@@ -25,7 +26,7 @@ from .catalog import (
 )
 from .spec import CreativeFormatSpec, parse_format_spec
 
-ENGINEER_MODEL = os.getenv("CREATIVE_FORMAT_ENGINEER_MODEL", "openai/gpt-5.4")
+ENGINEER_MODEL = os.getenv("CREATIVE_FORMAT_ENGINEER_MODEL", "")
 logger = logging.getLogger(__name__)
 _MAX_DATA_IMAGE = 2_500_000
 
@@ -356,7 +357,7 @@ def _call_engineer(system, format_skill, user, images, text_callable):
                 {"role": "system", "content": system},
                 {"role": "user", "content": content},
             ],
-            model=ENGINEER_MODEL,
+            model=resolve_chat_model(ENGINEER_MODEL),
             max_tokens=1800,
             temperature=0.15,
         )

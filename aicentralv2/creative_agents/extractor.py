@@ -11,7 +11,7 @@ from .runtime import call_agent_llm
 
 SYSTEM_PROMPT = """Você lê um criativo de referência e devolve o mapa do template.
 Decida só: bounding boxes em % do canvas, tipo da região, tokens de design.
-Tipos válidos: foto_pessoa, foto_produto, logo, headline, preco, cta, beneficios, fundo.
+Tipos válidos: foto_pessoa, foto_produto, logo, headline, preco, cta, beneficios, fundo, icone.
 Nunca preencha headline, preço, CTA ou escolha a foto final da campanha.
 Responda JSON: {"family":"square_1x1"|"sequence_16x9","regions":[{"tipo":"logo","x":4,"y":6,"w":12,"h":10}],"tokens":{"palette":["#..."]},"params":{}}."""
 

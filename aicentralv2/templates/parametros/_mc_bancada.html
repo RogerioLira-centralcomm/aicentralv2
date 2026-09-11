@@ -1,0 +1,187 @@
+<article class="mc-bench" id="mcBench">
+  <aside class="mc-bench-rail" aria-label="Campanha na mesa">
+    <label class="cx-field">
+      <span class="cx-label">Campanha ativa</span>
+      <select class="cx-select" id="mcBenchCampaign">
+        <option value="">Escolha uma campanha</option>
+      </select>
+    </label>
+    <div class="mc-bench-campaign-card" id="mcBenchCampaignCard">
+      <p>Abra uma campanha para montar as camadas no retângulo.</p>
+    </div>
+    <div class="mc-bench-credits" id="mcBenchCredits" aria-label="Créditos de IA">
+      <span>Créditos de IA</span>
+      <strong id="mcBenchCreditsValue">0/500</strong>
+      <i id="mcBenchCreditsBar" style="--used:0"></i>
+    </div>
+  </aside>
+
+  <div class="mc-bench-main" id="mcBenchWorkspace" hidden>
+    <header class="mc-bench-head">
+      <div class="mc-bench-title-wrap">
+        <input class="mc-bench-title" id="mcBenchTitle" type="text" maxlength="180" aria-label="Nome da campanha">
+        <div class="mc-bench-tags" id="mcBenchTags"></div>
+      </div>
+      <div class="mc-bench-head-actions">
+        <span class="mc-bench-saved" id="mcBenchSaved">Ainda não gravou</span>
+        <button class="cx-btn cx-btn-secondary" id="mcBenchPlay" type="button">Play</button>
+        <button class="cx-btn cx-btn-secondary" id="mcCreatePublicLink" type="button">Compartilhar</button>
+        <a class="cx-btn cx-btn-secondary" id="mcDownloadHtml5" href="#">Baixar HTML5</a>
+        <a class="cx-btn cx-btn-secondary" id="mcDownloadAssets" href="#">Exportar imagens</a>
+      </div>
+    </header>
+
+    <nav class="mc-bench-tabs" id="mcBenchTabs" aria-label="Vistas da bancada">
+      <button type="button" data-bench-tab="mesa" class="is-current">Mesa</button>
+      <button type="button" data-bench-tab="camadas">Camadas</button>
+      <button type="button" data-bench-tab="elementos">Elementos</button>
+      <button type="button" data-bench-tab="variacoes">Variações</button>
+      <button type="button" data-bench-tab="roteiro">Roteiro</button>
+      <button type="button" data-bench-tab="aprovacao">Aprovação</button>
+    </nav>
+
+    <div class="mc-bench-toolbar">
+      <button type="button" data-bench-act="undo" title="Desfazer">↶</button>
+      <button type="button" data-bench-act="redo" title="Refazer">↷</button>
+      <span class="mc-bench-zoom">
+        <button type="button" data-bench-act="zoom-out">−</button>
+        <em id="mcBenchZoomLabel">100%</em>
+        <button type="button" data-bench-act="zoom-in">+</button>
+      </span>
+      <button type="button" data-bench-act="explode" id="mcBench3dToggle" class="is-on">3D</button>
+    </div>
+
+    <div class="mc-bench-body" data-bench-panel="mesa">
+      <nav class="mc-bench-tools" id="mcBenchTools" aria-label="Ferramentas">
+        <button type="button" data-bench-tool="select" class="is-current" title="Selecionar">
+          <i class="fa-solid fa-arrow-pointer"></i><span>Selecionar</span>
+        </button>
+        <button type="button" data-bench-tool="move" title="Mover">
+          <i class="fa-solid fa-up-down-left-right"></i><span>Mover</span>
+        </button>
+        <button type="button" data-bench-tool="texto" title="Texto">
+          <i class="fa-solid fa-font"></i><span>Texto</span>
+        </button>
+        <button type="button" data-bench-tool="imagem" title="Imagem">
+          <i class="fa-regular fa-image"></i><span>Imagem</span>
+        </button>
+        <button type="button" data-bench-tool="forma" title="Forma">
+          <i class="fa-regular fa-square"></i><span>Forma</span>
+        </button>
+        <button type="button" data-bench-tool="icone" title="Ícone">
+          <i class="fa-regular fa-star"></i><span>Ícone</span>
+        </button>
+        <button type="button" data-bench-tool="video" title="Vídeo">
+          <i class="fa-solid fa-video"></i><span>Vídeo</span>
+        </button>
+        <button type="button" data-bench-tool="fundo" title="Fundo">
+          <i class="fa-solid fa-fill-drip"></i><span>Fundo</span>
+        </button>
+        <button type="button" data-bench-tool="anotacao" title="Anotações">
+          <i class="fa-regular fa-note-sticky"></i><span>Anotações</span>
+        </button>
+      </nav>
+
+      <section class="mc-bench-stage-wrap">
+        <header>
+          <strong id="mcBenchWellLabel">Poço do formato</strong>
+          <p id="mcBenchWellMeta">O retângulo é o tamanho real. Fundo, texto, CTA e ícone entram em HTML.</p>
+        </header>
+        <div class="mc-bench-canvas is-exploded" id="mcBenchCanvas">
+          <div class="mc-bench-well" id="mcBenchWell" data-ad-well="piece"></div>
+        </div>
+      </section>
+
+      <aside class="mc-bench-thumbs" id="mcBenchThumbs" aria-label="Cenas"></aside>
+
+      <aside class="mc-bench-agent" id="mcBenchAgent" aria-label="Agente de Criação">
+        <header>
+          <strong>Agente de Criação</strong>
+          <button type="button" data-bench-act="toggle-agent">Ver assistentes</button>
+        </header>
+        <div class="mc-bench-chat" id="mcBenchChat">
+          <p class="mc-bench-chat-hello">Vamos criar o incrível? Diga o que deseja gerar, explorar ou ajustar.</p>
+        </div>
+        <form class="mc-bench-prompt" id="mcBenchPromptForm">
+          <textarea id="mcBenchPrompt" rows="2" placeholder="Peça uma variação, ajuste de texto ou nova imagem."></textarea>
+          <button class="cx-btn cx-btn-primary" type="submit">Enviar</button>
+        </form>
+        <div class="mc-bench-shortcuts">
+          <button type="button" data-bench-shortcut="variacoes">Gerar variações</button>
+          <button type="button" data-bench-shortcut="texto">Ajustar texto</button>
+          <button type="button" data-bench-shortcut="imagem">Criar imagem</button>
+          <button type="button" data-bench-shortcut="layout">Sugerir layout</button>
+        </div>
+        <div class="mc-bench-assistants" id="mcBenchAssistants">
+          <p>Assistentes especializados</p>
+          <button type="button" data-bench-agent="dna">Direção de Arte</button>
+          <button type="button" data-bench-agent="producer">Copywriter</button>
+          <button type="button" data-bench-agent="extractor">Editor de imagens</button>
+          <button type="button" data-bench-agent="motion">Motion</button>
+          <button type="button" data-bench-agent="reviewer">Brand Checker</button>
+        </div>
+        <div class="mc-bench-brand" id="mcBenchBrand">
+          <p>Referências da marca</p>
+          <div id="mcBenchBrandBody"></div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="mc-bench-panel" data-bench-panel="camadas" hidden>
+      <header>
+        <strong>Camadas</strong>
+        <p>Olho, cadeado e ordem no eixo Z.</p>
+      </header>
+      <ol class="mc-bench-layer-list" id="mcBenchLayerList"></ol>
+    </section>
+
+    <section class="mc-bench-panel" data-bench-panel="elementos" hidden>
+      <header>
+        <strong>Elementos</strong>
+        <p>Arraste logo, cor ou forma para o palco.</p>
+      </header>
+      <div class="mc-bench-elements" id="mcBenchElements"></div>
+    </section>
+
+    <section class="mc-bench-panel" data-bench-panel="variacoes" hidden>
+      <header>
+        <strong>Variações</strong>
+        <p>Versões da mesma peça no retângulo da campanha.</p>
+      </header>
+      <div class="mc-bench-cards" id="mcBenchVariationsPanel"></div>
+    </section>
+
+    <section class="mc-bench-panel" data-bench-panel="roteiro" hidden>
+      <header>
+        <strong>Roteiro</strong>
+        <p>Batidas da campanha. O copywriter preenche as camadas de texto.</p>
+      </header>
+      <ol class="mc-bench-script" id="mcBenchScript"></ol>
+    </section>
+
+    <section class="mc-bench-panel" data-bench-panel="aprovacao" hidden>
+      <header>
+        <strong>Aprovação</strong>
+        <p>O Brand Checker lê a peça encaixada. O chrome do canal entra só aqui.</p>
+      </header>
+      <div class="mc-bench-review" id="mcBenchReview"></div>
+    </section>
+
+    <footer class="mc-bench-dock" id="mcBenchDock">
+      <nav aria-label="Dock">
+        <button type="button" data-dock="variacoes" class="is-current">Variações <em id="mcDockVarCount">0</em></button>
+        <button type="button" data-dock="formatos">Formatos <em id="mcDockFmtCount">0</em></button>
+        <button type="button" data-dock="cenas">Cenas <em id="mcDockSceneCount">0</em></button>
+        <button type="button" data-dock="roteiro">Roteiro</button>
+        <button type="button" data-dock="moodboard">Moodboard</button>
+      </nav>
+      <div class="mc-bench-dock-body" id="mcBenchDockBody"></div>
+    </footer>
+  </div>
+
+  <div class="mc-bench-empty" id="mcBenchEmpty">
+    <p>Escolha uma campanha para abrir a Bancada 2.0.</p>
+  </div>
+
+  <input id="mcBenchFile" class="mc-bench-file" type="file" accept="image/*,video/*" hidden>
+</article>

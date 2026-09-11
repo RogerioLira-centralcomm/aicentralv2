@@ -104,6 +104,48 @@ class CreativeHtmlComposeTest(unittest.TestCase):
         self.assertIn("R$ 29", html)
         self.assertNotIn('data-photo-side=', html)
 
+    def test_fundo_e_icone_viram_camadas_html(self):
+        html = render_compose_html(
+            {"family": "square_1x1", "size": (1080, 1080)},
+            {
+                "headline": "Oferta",
+                "cta": "Assine",
+                "background_url": "data:image/png;base64,YmFjaw==",
+                "icon_url": "data:image/png;base64,aWNvbg==",
+                "compose_params": {
+                    "regions": [
+                        {"tipo": "fundo", "x": 0, "y": 0, "w": 100, "h": 100},
+                        {"tipo": "foto_produto", "x": 10, "y": 20, "w": 80, "h": 50},
+                        {"tipo": "cta", "x": 20, "y": 80, "w": 40, "h": 10},
+                        {"tipo": "icone", "x": 8, "y": 88, "w": 10, "h": 8},
+                    ],
+                },
+            },
+            still_url="data:image/png;base64,c3RpbGw=",
+        )
+        self.assertIn("slot-background", html)
+        self.assertIn('data-tipo="fundo"', html)
+        self.assertIn("slot-icon", html)
+        self.assertIn("slot-cta-btn", html)
+        self.assertIn("data:image/png;base64,YmFjaw==", html)
+        self.assertIn("data:image/png;base64,aWNvbg==", html)
+
+    def test_html5_zip_tem_index_e_backup(self):
+        from aicentralv2.creative_html_compose import pack_html5_zip, render_html5_player
+        import zipfile
+
+        index_html = render_html5_player(
+            {"size": (300, 250)},
+            [{"html": "<div>card</div>", "duration": 2}],
+            title="TIM",
+        )
+        memory, filename = pack_html5_zip(index_html)
+        self.assertTrue(filename.endswith(".zip"))
+        with zipfile.ZipFile(memory) as archive:
+            names = archive.namelist()
+        self.assertIn("index.html", names)
+        self.assertTrue(any(item.startswith("backup") for item in names))
+
     def test_iab_e_story_usam_geometria_do_formato(self):
         rectangle = render_compose_html(
             {"family": "rectangle", "size": (300, 250)},

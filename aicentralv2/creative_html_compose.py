@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import base64
+import io
 import os
+import re
 import threading
+import zipfile
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -49,9 +52,15 @@ _playwright = None
 _browser = None
 
 
-PHOTO_REGION_TYPES = frozenset({"foto_pessoa", "foto_produto", "visual", "foto"})
+PHOTO_REGION_TYPES = frozenset({
+    "foto_pessoa", "foto_produto", "visual", "foto", "imagem", "video",
+})
+BACKGROUND_REGION_TYPES = frozenset({"fundo", "background"})
+ICON_REGION_TYPES = frozenset({"icone", "icon"})
 TEXT_REGION_TYPES = {
     "headline": "headline",
+    "texto": "headline",
+    "overlay": "cta",
     "cta": "cta",
     "preco": "price",
     "beneficios": "legal",
@@ -100,20 +109,25 @@ def region_slots(params=None):
     slots = []
     for item in sanitize_compose_regions((params or {}).get("regions")):
         tipo = item["tipo"]
-        if tipo in PHOTO_REGION_TYPES:
+        if tipo in BACKGROUND_REGION_TYPES:
+            role = "background"
+        elif tipo in PHOTO_REGION_TYPES:
             role = "photo"
         elif tipo == "logo":
             role = "logo"
-        elif tipo == "fundo":
-            role = "background"
+        elif tipo in ICON_REGION_TYPES:
+            role = "icon"
         else:
             role = TEXT_REGION_TYPES.get(tipo, "other")
+        z_index = item.get("z")
+        z_style = f"z-index:{int(z_index)};" if z_index not in (None, "") else ""
+        hidden = "display:none;" if item.get("visible") is False else ""
         slots.append({
             **item,
             "role": role,
             "style": (
                 f"left:{item['x']}%;top:{item['y']}%;"
-                f"width:{item['w']}%;height:{item['h']}%;"
+                f"width:{item['w']}%;height:{item['h']}%;{z_style}{hidden}"
             ),
         })
     return slots
@@ -139,7 +153,15 @@ def _font_data_url():
     return ""
 
 
-def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url=""):
+def render_compose_html(
+    geometry,
+    copy=None,
+    still_url="",
+    logo_url="",
+    font_url="",
+    background_url="",
+    icon_url="",
+):
     geometry = geometry if isinstance(geometry, dict) else {}
     copy = copy if isinstance(copy, dict) else {}
     family = str(geometry.get("family") or "sequence_16x9")
@@ -161,6 +183,8 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
     mapped = region_slots(params)
     if not mapped and family not in HTML_COMPOSE_TEMPLATES:
         mapped = layout_slots(family, (width, height))
+    background_url = background_url or str(copy.get("background_url") or "")
+    icon_url = icon_url or str(copy.get("icon_url") or "")
     return _env.get_template(template).render(
         family=family,
         width=width,
@@ -168,6 +192,8 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
         brand_color=copy.get("brand_color") or "#1E4D4F",
         still_url=still_url or "",
         logo_url=logo_url or "",
+        background_url=background_url,
+        icon_url=icon_url,
         font_url=font_url or _font_data_url(),
         headline=str(copy.get("headline") or ""),
         cta=cta,
@@ -240,3 +266,76 @@ def compose_studio_result(source_bytes, geometry, copy=None, logo_bytes=None, fl
     result = compose_native_result(source_bytes, geometry, copy, logo_bytes)
     result["renderer"] = result.get("renderer") or "pillow"
     return result
+
+
+BACKUP_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+def parse_format_size(value, fallback=(300, 250)):
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        try:
+            width, height = int(value[0]), int(value[1])
+            if width > 0 and height > 0:
+                return width, height
+        except (TypeError, ValueError):
+            pass
+    text = str(value or "")
+    parts = re.split(r"[xX×]", text)
+    if len(parts) >= 2:
+        try:
+            width, height = int(parts[0].strip()), int(parts[1].strip())
+            if width > 0 and height > 0:
+                return width, height
+        except (TypeError, ValueError):
+            pass
+    return int(fallback[0]), int(fallback[1])
+
+
+def render_card_fragment(geometry, copy=None, still_url="", logo_url="", background_url="", icon_url=""):
+    copy = dict(copy or {})
+    copy["html_key"] = "card_fragment.html"
+    return render_compose_html(
+        geometry,
+        copy,
+        still_url=still_url,
+        logo_url=logo_url,
+        background_url=background_url,
+        icon_url=icon_url,
+    )
+
+
+def render_html5_player(geometry, cards, title="Criativo", click_tag="#"):
+    geometry = geometry if isinstance(geometry, dict) else {}
+    size = geometry.get("size") or (300, 250)
+    width, height = int(size[0]), int(size[1])
+    frames = []
+    for item in cards or []:
+        if not isinstance(item, dict) or not item.get("html"):
+            continue
+        try:
+            duration = max(0.4, min(12.0, float(item.get("duration") or 2)))
+        except (TypeError, ValueError):
+            duration = 2.0
+        frames.append({"html": item["html"], "duration": duration})
+    if not frames:
+        frames = [{"html": "", "duration": 2}]
+    return _env.get_template("html5_player.html").render(
+        title=title or "Criativo",
+        width=width,
+        height=height,
+        click_tag=click_tag or "#",
+        cards=frames,
+    )
+
+
+def pack_html5_zip(index_html, backup_bytes=None, filename="criativo-html5.zip"):
+    memory = io.BytesIO()
+    backup = backup_bytes or BACKUP_PNG
+    suffix = ".png" if backup[:8] == b"\x89PNG\r\n\x1a\n" else ".jpg"
+    with zipfile.ZipFile(memory, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("index.html", index_html or "")
+        archive.writestr(f"backup{suffix}", backup)
+    memory.seek(0)
+    return memory, filename

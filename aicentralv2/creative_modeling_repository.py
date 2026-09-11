@@ -1049,6 +1049,31 @@ class CreativeModelingRepository:
         )
         return result
 
+    def update_campaign_bancada(self, campaign_id, brief, name=None):
+        with self._write() as cursor:
+            if name:
+                cursor.execute(
+                    """
+                    UPDATE cx_campaigns
+                       SET creative_brief = %s, name = %s
+                     WHERE id = %s
+                    RETURNING id
+                    """,
+                    (Json(brief), name, campaign_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE cx_campaigns
+                       SET creative_brief = %s
+                     WHERE id = %s
+                    RETURNING id
+                    """,
+                    (Json(brief), campaign_id),
+                )
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Campanha não encontrada.")
+
     def create_variation(self, campaign_id, notes=None):
         labels = ("A", "B", "C", "D")
         try:

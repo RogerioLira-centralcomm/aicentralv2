@@ -52,6 +52,106 @@ class CreativeComposeLibraryTest(unittest.TestCase):
             {"tipo": "headline", "x": 0.0, "y": 10.0, "w": 40.0, "h": 12.0},
         ])
 
+    def test_clamp_mantem_content_z_e_visible_da_bancada(self):
+        params = clamp_params(
+            LAYOUT_SQUARE_SCHEMA,
+            {
+                "regions": [
+                    {
+                        "id": "texto-1",
+                        "tipo": "texto",
+                        "x": 8,
+                        "y": 10,
+                        "w": 70,
+                        "h": 12,
+                        "z": 2,
+                        "visible": True,
+                        "locked": False,
+                        "content": {"text": "Dia dos Pais", "font": "Playfair"},
+                        "motion": {"preset": "fade", "duration": 1.4},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(params["regions"][0]["id"], "texto-1")
+        self.assertEqual(params["regions"][0]["z"], 2)
+        self.assertTrue(params["regions"][0]["visible"])
+        self.assertEqual(params["regions"][0]["content"]["text"], "Dia dos Pais")
+        self.assertEqual(params["regions"][0]["motion"]["preset"], "fade")
+
+    def test_save_bancada_grava_layers_no_brief_e_nas_regions(self):
+        repository = Mock()
+        repository.get_campaign.return_value = {
+            "id": 2,
+            "name": "Dia dos Pais",
+            "creative_brief": {"compose_library": {"params": {}}},
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        saved = service.save_bancada_document(2, {
+            "layers": [
+                {
+                    "id": "texto",
+                    "tipo": "texto",
+                    "x": 8,
+                    "y": 10,
+                    "w": 70,
+                    "h": 12,
+                    "z": 2,
+                    "content": {"text": "Dia dos Pais"},
+                }
+            ],
+            "title": "Campanha dia dos pais reserva",
+            "exploded": False,
+            "zoom": 110,
+        })
+        brief = repository.update_campaign_bancada.call_args.args[1]
+        self.assertEqual(saved["campaign_id"], 2)
+        self.assertEqual(brief["bancada"]["title"], "Campanha dia dos pais reserva")
+        self.assertEqual(brief["bancada"]["layers"][0]["content"]["text"], "Dia dos Pais")
+        self.assertEqual(brief["compose_library"]["params"]["regions"][0]["tipo"], "texto")
+        self.assertFalse(brief["bancada"]["exploded"])
+
+    def test_save_bancada_grava_scenes_com_layers(self):
+        repository = Mock()
+        repository.get_campaign.return_value = {
+            "id": 2,
+            "name": "Dia dos Pais",
+            "creative_brief": {"compose_library": {"params": {}}},
+        }
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        service.save_bancada_document(2, {
+            "layers": [{"tipo": "texto", "x": 8, "y": 10, "w": 70, "h": 12}],
+            "scenes": [
+                {
+                    "id": "cena-1",
+                    "label": "Cena 1",
+                    "duration": 2,
+                    "layers": [
+                        {"tipo": "fundo", "x": 0, "y": 0, "w": 100, "h": 100},
+                        {"tipo": "texto", "x": 8, "y": 10, "w": 70, "h": 12, "content": {"text": "Headline"}},
+                    ],
+                },
+                {
+                    "id": "cena-2",
+                    "label": "Cena 2",
+                    "layers": [{"tipo": "imagem", "x": 8, "y": 16, "w": 84, "h": 52}],
+                },
+            ],
+        })
+        brief = repository.update_campaign_bancada.call_args.args[1]
+        self.assertEqual(len(brief["bancada"]["scenes"]), 2)
+        self.assertEqual(brief["bancada"]["scenes"][0]["id"], "cena-1")
+        self.assertEqual(brief["bancada"]["scenes"][0]["layers"][1]["content"]["text"], "Headline")
+        self.assertEqual(brief["bancada"]["cards"], brief["bancada"]["scenes"])
+
     def test_promocao_e_arquivo_pelos_cliques(self):
         self.assertEqual(next_variation_status(3, 0, "experimental"), "approved")
         self.assertEqual(next_variation_status(3, 2, "experimental"), "approved")

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      overflow: hidden;
+      background: #183436;
+    }
+    a.clicktag {
+      display: block;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      position: relative;
+    }
+    .card {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .card.is-on { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      .card { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="clicktag" href="{{ click_tag }}" target="_blank" rel="noopener">
+    {% for card in cards %}
+    <div class="card{% if loop.first %} is-on{% endif %}" data-duration="{{ card.duration }}" data-card="{{ loop.index0 }}">
+      {{ card.html | safe }}
+    </div>
+    {% endfor %}
+  </a>
+  <script>
+    (function () {
+      var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+      if (cards.length < 2) return;
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      var index = 0;
+      function beat() {
+        cards[index].classList.remove("is-on");
+        index = (index + 1) % cards.length;
+        cards[index].classList.add("is-on");
+        var duration = Number(cards[index].getAttribute("data-duration") || 2) * 1000;
+        window.setTimeout(beat, duration);
+      }
+      window.setTimeout(beat, Number(cards[0].getAttribute("data-duration") || 2) * 1000);
+    })();
+  </script>
+</body>
+</html>

@@ -9,6 +9,7 @@
     const status = document.getElementById('mcExtractStatus');
     const list = document.getElementById('mcExtractRegions');
     const openPrepare = document.getElementById('mcExtractOpenPrepare');
+    const openBancada = document.getElementById('mcExtractOpenBancada');
     const family = document.getElementById('mcExtractFamily');
     if (!fileInput || !drop || !run) return;
     let imageUrl = '';
@@ -37,6 +38,7 @@
         frame?.classList.remove('hidden');
         run.disabled = false;
         openPrepare?.classList.add('hidden');
+        openBancada?.classList.add('hidden');
         drawRegions([]);
         setStep(2);
         if (status) status.textContent = 'Passo 2: leia as regiões para gravar o rascunho HTML.';
@@ -81,16 +83,22 @@
         }
         drawRegions(regions);
         const saved = payload.data?.saved_variation;
+        const query = saved?.id ? `?variation=${encodeURIComponent(saved.id)}` : '';
+        if (openBancada) {
+          openBancada.href = `/parametros/modelagem-criativos/bancada${query}`;
+          openBancada.classList.remove('hidden');
+        }
         if (saved?.id && openPrepare) {
           openPrepare.href = `/parametros/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
           openPrepare.classList.remove('hidden');
           setStep(3);
           if (status) {
-            status.textContent = `Rascunho ${saved.id} na biblioteca. Passo 3: abra no Preparar para montar a campanha em cima deste HTML.`;
+            status.textContent = `Molde ${saved.id} gravado. Fundo, foto e textos estão prontos para a Bancada 2.0.`;
           }
         } else {
           openPrepare?.classList.add('hidden');
-          if (status) status.textContent = 'Mapa lido, mas o rascunho não gravou na biblioteca.';
+          if (status) status.textContent = 'Mapa lido. Abra na Bancada 2.0 para montar as camadas.';
+          if (regions.length) setStep(3);
         }
       } catch (error) {
         if (status) status.textContent = error.message;

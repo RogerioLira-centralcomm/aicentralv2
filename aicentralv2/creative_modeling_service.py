@@ -32,7 +32,13 @@ from .creative_format_compose import (
     crop_safe_area_collage,
     wipe_safe_areas,
 )
-from .creative_html_compose import compose_studio_result
+from .creative_html_compose import (
+    compose_studio_result,
+    parse_format_size,
+    pack_html5_zip,
+    render_card_fragment,
+    render_html5_player,
+)
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
@@ -69,6 +75,7 @@ from .creative_compose_library import (
     persisted_variation_id,
     propose_variation_adjust,
     resolve_variation,
+    sanitize_compose_regions,
     schema_for_family,
     suggest_compose_template,
 )
@@ -92,6 +99,16 @@ from .creative_modeling_prompts import (
     unfold_image_lock,
 )
 
+
+BRAND_ASSET_ROLES = frozenset({
+    "logo",
+    "reference",
+    "creative",
+    "background",
+    "support",
+    "icon",
+    "cta_style",
+})
 
 MOCKUPS = {
     "portal": (
@@ -1246,7 +1263,7 @@ class CreativeModelingService:
             if not isinstance(candidate, dict):
                 continue
             role = candidate.get("role")
-            if role not in {"logo", "reference", "creative"}:
+            if role not in BRAND_ASSET_ROLES:
                 continue
             source_url = _text(
                 candidate.get("source_url"), "Imagem da marca", max_length=2000
@@ -1311,7 +1328,7 @@ class CreativeModelingService:
     ):
         client_id = _integer(client_id, "Cliente")
         self.repository.get_client(client_id)
-        if role not in {"reference", "creative"}:
+        if role not in BRAND_ASSET_ROLES - {"logo"}:
             raise ValueError("Tipo de referência visual inválido.")
         saved = []
         for position, file_storage in enumerate(list(files or [])[:8]):
@@ -1847,9 +1864,13 @@ class CreativeModelingService:
         })
 
     def production_detail(self, production_id):
-        return _serialize(
+        data = _serialize(
             self.repository.get_production(_integer(production_id, "Produção"))
         )
+        data["direction"] = format_direction(
+            data, scene_count=len(data.get("scenes") or [])
+        )
+        return data
 
     @staticmethod
     def scene_role(position, total, format_row=None):
@@ -2778,6 +2799,189 @@ class CreativeModelingService:
         data = annotate_cost(campaign, campaign.get("spent_usd"))
         data["flow_kind"] = _flow_kind(data)
         return _serialize(data)
+
+    def save_bancada_document(self, campaign_id, payload):
+        if not isinstance(payload, dict):
+            raise ValueError("Corpo JSON inválido.")
+        campaign_id = _integer(campaign_id, "Campanha")
+        campaign = self.repository.get_campaign(campaign_id)
+        brief = campaign.get("creative_brief")
+        brief = dict(brief) if isinstance(brief, dict) else {}
+        layers = sanitize_compose_regions(payload.get("layers") or payload.get("regions"))
+        tags = []
+        for item in payload.get("tags") or []:
+            label = str(item or "").strip()
+            if label and label not in tags:
+                tags.append(label[:48])
+            if len(tags) >= 8:
+                break
+        title = str(payload.get("title") or campaign.get("name") or "").strip()[:180]
+        try:
+            zoom = max(25, min(300, int(payload.get("zoom") or 100)))
+        except (TypeError, ValueError):
+            zoom = 100
+        scene_id = payload.get("active_scene_id")
+        if scene_id not in (None, ""):
+            try:
+                scene_id = int(scene_id)
+            except (TypeError, ValueError):
+                scene_id = str(scene_id)[:64]
+        else:
+            scene_id = None
+        cards = []
+        for item in payload.get("cards") or payload.get("scenes") or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                duration = max(0.4, min(12.0, float(item.get("duration") or 2)))
+            except (TypeError, ValueError):
+                duration = 2.0
+            card_scene = item.get("scene_id")
+            if card_scene not in (None, ""):
+                try:
+                    card_scene = int(card_scene)
+                except (TypeError, ValueError):
+                    card_scene = str(card_scene)[:64]
+            else:
+                card_scene = None
+            cards.append({
+                "id": str(item.get("id") or "")[:64],
+                "label": str(item.get("label") or "")[:80],
+                "duration": duration,
+                "layers": sanitize_compose_regions(item.get("layers") or []),
+                "scene_id": card_scene,
+            })
+            if len(cards) >= 8:
+                break
+        bancada = {
+            "layers": layers,
+            "scenes": cards,
+            "cards": cards,
+            "tags": tags,
+            "title": title,
+            "exploded": bool(payload.get("exploded", True)),
+            "zoom": zoom,
+            "active_layer_id": str(payload.get("active_layer_id") or "")[:64],
+            "active_scene_id": scene_id,
+        }
+        brief["bancada"] = bancada
+        if layers:
+            compose = brief.get("compose_library")
+            compose = dict(compose) if isinstance(compose, dict) else {}
+            params = dict(compose.get("params") or {})
+            params["regions"] = layers
+            compose["params"] = params
+            brief["compose_library"] = compose
+        self.repository.update_campaign_bancada(
+            campaign_id,
+            brief,
+            title or None,
+        )
+        return _serialize({
+            "campaign_id": campaign_id,
+            "bancada": bancada,
+        })
+
+    def html5_package(self, campaign_id):
+        campaign = self.campaign_detail(campaign_id)
+        brief = campaign.get("creative_brief") if isinstance(campaign.get("creative_brief"), dict) else {}
+        bancada = brief.get("bancada") if isinstance(brief.get("bancada"), dict) else {}
+        production = campaign.get("production") or {}
+        geometry = resolve_format_geometry({
+            "slug": production.get("format_slug"),
+            "default_size": production.get("default_size"),
+            "aspect_ratio": production.get("aspect_ratio"),
+        }) if production else {}
+        size = parse_format_size(
+            (geometry or {}).get("size") or production.get("default_size"),
+            (300, 250),
+        )
+        family = (geometry or {}).get("family") or "rectangle"
+        client = campaign.get("client") or {}
+        copy = {
+            "headline": str(campaign.get("campaign_text") or campaign.get("name") or ""),
+            "cta": str(campaign.get("cta_text") or ""),
+            "brand_color": client.get("primary_color") or "#1E4D4F",
+            "legal": "",
+        }
+        still_url = ""
+        for scene in production.get("scenes") or []:
+            for asset in scene.get("assets") or []:
+                url = asset.get("asset_url") or asset.get("preview_url")
+                if url:
+                    still_url = url
+                    break
+            if still_url:
+                break
+        logo_url = client.get("logo_url") or ""
+        cards_spec = bancada.get("cards") or bancada.get("scenes") or []
+        if not cards_spec:
+            cards_spec = [{
+                "layers": bancada.get("layers") or [],
+                "duration": 2,
+                "label": "Card 1",
+            }]
+        frames = []
+        for card in cards_spec:
+            layers = card.get("layers") or bancada.get("layers") or []
+            card_copy = dict(copy)
+            card_copy["compose_params"] = {"regions": layers}
+            card_copy["html_key"] = "card_fragment.html"
+            html = render_card_fragment(
+                {"family": family, "size": size, "html_key": "card_fragment.html"},
+                card_copy,
+                still_url=still_url,
+                logo_url=logo_url,
+            )
+            frames.append({"html": html, "duration": card.get("duration") or 2})
+        index_html = render_html5_player(
+            {"size": size, "family": family},
+            frames,
+            title=bancada.get("title") or campaign.get("name") or "Criativo",
+        )
+        backup = None
+        try:
+            from .creative_html_compose import screenshot_html
+            backup = screenshot_html(index_html, size[0], size[1])
+        except Exception:
+            backup = None
+        memory, filename = pack_html5_zip(
+            index_html,
+            backup,
+            f"{(campaign.get('name') or 'criativo-html5').replace(' ', '-')[:40]}.zip",
+        )
+        return memory, filename
+
+    def image_credits(self, user_id=None):
+        used, monthly = 0, 500
+        try:
+            from .db import get_db
+
+            conn = get_db()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(p.image_credits_used_current_month, 0) AS used,
+                           COALESCE(
+                               pd.limit_image_generation,
+                               p.image_credits_monthly,
+                               500
+                           ) AS monthly
+                      FROM cadu_client_plans p
+                      LEFT JOIN cadu_plan_definitions pd
+                        ON p.id_plan_definition = pd.id
+                     WHERE p.plan_status IN ('active', 'trial', 'ativo')
+                     ORDER BY p.id DESC
+                     LIMIT 1
+                    """
+                )
+                row = cursor.fetchone()
+                if row:
+                    used = int(row["used"] or 0)
+                    monthly = int(row["monthly"] or 500) or 500
+        except Exception:
+            pass
+        return {"used": used, "monthly": monthly}
 
     def _campaign_kv_source(self, campaign):
         brief = campaign.get("creative_brief") if isinstance(campaign, dict) else {}

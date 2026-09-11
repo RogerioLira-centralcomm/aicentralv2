@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=56">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=57">
 {% endblock %}
 
 {% block content %}
@@ -25,6 +25,7 @@
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_extrair') }}">Extrair</a>
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_bancada') }}">Bancada 2.0</a>
       <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">Revisar</a>
       <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
       <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a>
@@ -39,6 +40,7 @@
     var map = {
       preparar: "preparar",
       produzir: "produzir",
+      bancada: "bancada",
       desdobrar: "desdobrar",
       formatos: "biblioteca",
       biblioteca: "biblioteca",

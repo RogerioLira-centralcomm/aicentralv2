@@ -73,6 +73,13 @@ MC_DESKS = {
         "panel": "parametros/_mc_variacoes.html",
         "studio": True,
     },
+    "bancada": {
+        "title": "Bancada 2.0",
+        "lead": "Camadas da peça no retângulo. O canal entra no fim.",
+        "panel": "parametros/_mc_bancada.html",
+        "studio": False,
+        "page_js": "js/mc-bancada.js",
+    },
     "desdobrar": {
         "title": "Desdobrar o KV",
         "lead": "O mesmo anúncio nos retângulos de mídia.",
@@ -448,6 +455,30 @@ def api_select_simulation_asset(production_id):
 @admin_required_api
 def api_campaign_detail(cid):
     return _execute(lambda: _ok(_service().campaign_detail(cid)))
+
+
+@admin_required_api
+def api_campaign_bancada(cid):
+    return _execute(lambda: _ok(_service().save_bancada_document(cid, _json())))
+
+
+@admin_required_api
+def api_campaign_html5(cid):
+    def execute():
+        memory, filename = _service().html5_package(cid)
+        return send_file(
+            memory,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=secure_filename(filename) or "criativo-html5.zip",
+        )
+
+    return _execute(execute)
+
+
+@admin_required_api
+def api_image_credits():
+    return _execute(lambda: _ok(_service().image_credits(session.get("user_id"))))
 
 
 @admin_required_api
@@ -1051,6 +1082,22 @@ def register_creative_modeling_routes(blueprint):
         "/api/campaigns/<int:cid>",
         endpoint="creative_campaign_detail",
         view_func=api_campaign_detail,
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/<int:cid>/bancada",
+        endpoint="creative_campaign_bancada",
+        view_func=api_campaign_bancada,
+        methods=["PATCH"],
+    )
+    blueprint.add_url_rule(
+        "/api/campaigns/<int:cid>/html5",
+        endpoint="creative_campaign_html5",
+        view_func=api_campaign_html5,
+    )
+    blueprint.add_url_rule(
+        "/api/image-credits",
+        endpoint="creative_image_credits",
+        view_func=api_image_credits,
     )
     blueprint.add_url_rule(
         "/api/campaigns/<int:cid>/variations",

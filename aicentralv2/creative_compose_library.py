@@ -393,6 +393,54 @@ def clamp_params(schema, params=None):
     return clamped
 
 
+LAYER_CONTENT_LIMITS = {
+    "text": 4000,
+    "src": 8000,
+    "fill": 32,
+    "color": 32,
+    "font": 80,
+    "weight": 24,
+    "align": 16,
+}
+MOTION_PRESETS = frozenset({"none", "fade", "kenburns", "rise", "overlay"})
+
+
+def sanitize_layer_content(raw):
+    if not isinstance(raw, dict):
+        return {}
+    content = {}
+    for key, limit in LAYER_CONTENT_LIMITS.items():
+        value = raw.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text:
+            continue
+        content[key] = text[:limit]
+    for key in ("radius", "opacity", "blur"):
+        if raw.get(key) in (None, ""):
+            continue
+        try:
+            content[key] = max(0.0, min(100.0, float(raw[key])))
+        except (TypeError, ValueError):
+            continue
+    return content
+
+
+def sanitize_layer_motion(raw):
+    if not isinstance(raw, dict):
+        return {}
+    preset = str(raw.get("preset") or "none").strip().lower()
+    if preset not in MOTION_PRESETS:
+        preset = "none"
+    motion = {"preset": preset}
+    try:
+        motion["duration"] = max(0.2, min(12.0, float(raw.get("duration") or 1.2)))
+    except (TypeError, ValueError):
+        motion["duration"] = 1.2
+    return motion
+
+
 def sanitize_compose_regions(raw):
     """Mantém o mapa extraído (x/y/w/h em %) fora do schema numérico."""
     slots = []
@@ -411,7 +459,26 @@ def sanitize_compose_regions(raw):
             continue
         if w <= 0 or h <= 0:
             continue
-        slots.append({"tipo": tipo, "x": x, "y": y, "w": w, "h": h})
+        slot = {"tipo": tipo, "x": x, "y": y, "w": w, "h": h}
+        layer_id = str(item.get("id") or "").strip()
+        if layer_id:
+            slot["id"] = layer_id[:64]
+        content = sanitize_layer_content(item.get("content"))
+        if content:
+            slot["content"] = content
+        if item.get("z") not in (None, ""):
+            try:
+                slot["z"] = int(item["z"])
+            except (TypeError, ValueError):
+                pass
+        if "visible" in item:
+            slot["visible"] = bool(item.get("visible"))
+        if "locked" in item:
+            slot["locked"] = bool(item.get("locked"))
+        motion = sanitize_layer_motion(item.get("motion")) if item.get("motion") else {}
+        if motion:
+            slot["motion"] = motion
+        slots.append(slot)
     return slots
 
 

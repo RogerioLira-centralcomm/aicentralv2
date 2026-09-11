@@ -3189,6 +3189,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_clientes.html",
             "_mc_historico.html",
             "_mc_desdobrar.html",
+            "_mc_bancada.html",
         ]
         for name in names:
             source = (template_dir / name).read_text(encoding="utf-8")
@@ -3199,7 +3200,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-hub-desks", page)
         self.assertIn("Bancadas", page)
         self.assertIn("modelagem_biblioteca", page)
-        self.assertIn("modelagem_criativos.css') }}?v=56", page)
+        self.assertIn("modelagem_criativos.css') }}?v=57", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -3211,7 +3212,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("mc-desk-rail", shell)
         self.assertNotIn("mc-masthead", shell)
         for tab in (
-            "preparar", "produzir", "desdobrar", "biblioteca",
+            "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
             "marcas", "historico", "extrair", "revisao",
         ):
             self.assertIn(tab, page)
@@ -3854,6 +3855,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("/api/agents/extractor", extract_js)
         self.assertIn("mcExtractOverlay", extract_js)
         self.assertIn("mcExtractOpenPrepare", extract_js)
+        self.assertIn("mcExtractOpenBancada", extract_js)
         self.assertIn("mcExtractFamily", extract_js)
         self.assertIn("DOMContentLoaded", extract_js)
         extract_html = (
@@ -3861,15 +3863,16 @@ class CreativeFilesContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("mc-extract-steps", extract_html)
         self.assertIn("2. Ler regiões", extract_html)
-        self.assertIn("3. Abrir no Preparar", extract_html)
+        self.assertIn("3. Abrir na Bancada 2.0", extract_html)
+        self.assertIn("Ou abrir no Preparar", extract_html)
         self.assertIn('id="mcExtractFamily"', extract_html)
         self.assertIn('value="portrait_4x5"', extract_html)
         self.assertIn('class="mc-extract-file"', extract_html)
         desk = (
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.js') }}?v=56", desk)
-        self.assertIn("mc_page_js) }}?v=4", desk)
+        self.assertIn("modelagem_criativos.js') }}?v=57", desk)
+        self.assertIn("mc_page_js) }}?v=5", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)
@@ -4766,6 +4769,101 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertFalse(metadata["composed"])
         self.assertTrue(metadata["needs_retry"])
         self.assertEqual(metadata["fidelity"], "draft")
+
+
+class BancadaDeskContractTest(unittest.TestCase):
+    def test_mesa_tem_canvas_agentes_e_dock_sem_viewer_de_canal(self):
+        root = Path(__file__).resolve().parents[1]
+        html = (
+            root / "aicentralv2" / "templates" / "parametros" / "_mc_bancada.html"
+        ).read_text(encoding="utf-8")
+        Environment().parse(html)
+        self.assertIn('id="mcBenchCanvas"', html)
+        self.assertIn('id="mcBenchTools"', html)
+        self.assertIn('id="mcBenchAgent"', html)
+        self.assertIn('id="mcBenchDock"', html)
+        self.assertIn('id="mcBenchCredits"', html)
+        self.assertIn("Agente de Criação", html)
+        self.assertIn("Brand Checker", html)
+        self.assertIn("data-bench-agent=\"reviewer\"", html)
+        self.assertIn("data-bench-agent=\"motion\"", html)
+        self.assertNotIn("mcProductionViewer", html)
+        self.assertNotIn("YouTube", html)
+        routes = (
+            root / "aicentralv2" / "creative_modeling_routes.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"bancada"', routes)
+        self.assertIn("js/mc-bancada.js", routes)
+        js = (root / "aicentralv2" / "static" / "js" / "mc-bancada.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("function persist", js)
+        self.assertIn("/bancada", js)
+        self.assertIn("is-exploded", js)
+        self.assertNotIn("spread-x", js)
+        self.assertIn("defaultBenchScenes", js)
+        self.assertIn("formatHasCta", js)
+        self.assertIn("/parametros/api/agents", js)
+        self.assertIn("reviewer", js)
+        self.assertIn("kenburns", js)
+        self.assertIn('id="mcBenchPlay"', html)
+        self.assertIn('id="mcDownloadHtml5"', html)
+        self.assertIn("Poço do formato", html)
+        self.assertIn("/html5", js)
+        self.assertIn("togglePlay", js)
+        self.assertIn("background", js)
+        shell = (
+            root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("modelagem_bancada", shell)
+        self.assertIn("Bancada 2.0", shell)
+
+    def test_api_grava_documento_da_bancada_e_le_creditos(self):
+        service = Mock()
+        service.save_bancada_document.return_value = {
+            "campaign_id": 2,
+            "bancada": {"layers": [{"tipo": "texto", "x": 8, "y": 8, "w": 70, "h": 12}]},
+        }
+        service.image_credits.return_value = {"used": 12, "monthly": 500}
+        service.html5_package.return_value = (BytesIO(b"PK\x03\x04"), "criativo-html5.zip")
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="creative-test")
+        bp = Blueprint("parametros_test_bancada", __name__, url_prefix="/parametros")
+        register_creative_modeling_routes(bp)
+        app.register_blueprint(bp)
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "admin"
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            saved = client.patch(
+                "/parametros/api/campaigns/2/bancada",
+                json={
+                    "layers": [
+                        {
+                            "tipo": "texto",
+                            "x": 8,
+                            "y": 8,
+                            "w": 70,
+                            "h": 12,
+                            "content": {"text": "Dia dos Pais"},
+                        }
+                    ]
+                },
+            )
+            credits = client.get("/parametros/api/image-credits")
+            html5 = client.get("/parametros/api/campaigns/2/html5")
+        self.assertEqual(saved.status_code, 200)
+        self.assertTrue(saved.get_json()["success"])
+        self.assertEqual(credits.status_code, 200)
+        self.assertEqual(credits.get_json()["data"]["monthly"], 500)
+        self.assertEqual(html5.status_code, 200)
+        service.save_bancada_document.assert_called_once()
+        service.image_credits.assert_called_once()
+        service.html5_package.assert_called_once()
 
 
 if __name__ == "__main__":

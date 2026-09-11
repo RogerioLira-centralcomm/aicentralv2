@@ -12,6 +12,7 @@ from aicentralv2.design_system_ads.centralcomm import (
     centralcomm_preset,
     is_centralcomm_client,
 )
+from aicentralv2.design_system_ads.ingest import ingest_extracted
 from aicentralv2.design_system_ads.materialize import ensure_brand_design_system
 from aicentralv2.design_system_ads.refine import (
     apply_token_patches,
@@ -56,6 +57,108 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertEqual(system.tokens["ink"], "#123456")
         self.assertEqual(system.tokens["font-display"], "Manrope")
         self.assertTrue(system.name.startswith("Marca Nova"))
+
+    def test_extract_normalized_vira_tokens_de_anuncio(self):
+        ingested = ingest_extracted(
+            {
+                "source": {"url": "https://acme.test"},
+                "colors": {
+                    "primary": "#0f172a",
+                    "secondary": "#64748b",
+                    "accent": "#16a34a",
+                    "background": "#ffffff",
+                    "foreground": "#0f172a",
+                    "palette": ["#0f172a", "#ffffff", "#16a34a"],
+                },
+                "typography": {"headingFont": "Geist", "bodyFont": "Geist"},
+                "radius": {"scale": ["0px", "6px", "999px"]},
+            }
+        )
+        self.assertEqual(ingested["tokens"]["paper"], "#FFFFFF")
+        self.assertEqual(ingested["tokens"]["ink"], "#0F172A")
+        self.assertEqual(ingested["tokens"]["accent"], "#0F172A")
+        self.assertEqual(ingested["tokens"]["highlight"], "#16A34A")
+        self.assertEqual(ingested["tokens"]["font-display"], "Geist")
+        self.assertEqual(ingested["tokens"]["cta-radius"], "6px")
+        self.assertEqual(ingested["source_url"], "https://acme.test")
+
+    def test_extract_ouro_nao_vira_cta(self):
+        ingested = ingest_extracted(
+            {
+                "colors": {
+                    "primary": "#F3B71B",
+                    "foreground": "#1E4D4F",
+                    "background": "#FFFFFF",
+                }
+            }
+        )
+        self.assertEqual(ingested["tokens"]["ink"], "#1E4D4F")
+        self.assertEqual(ingested["tokens"]["accent"], "#1E4D4F")
+        self.assertEqual(ingested["tokens"]["highlight"], "#F3B71B")
+
+    def test_extract_voz_de_anuncio_nao_componente(self):
+        tight = ingest_extracted(
+            {
+                "colors": {
+                    "primary": "#0f172a",
+                    "foreground": "#0f172a",
+                    "background": "#ffffff",
+                    "border": "#cbd5e1",
+                },
+                "typography": {
+                    "headingFont": "Satoshi",
+                    "styles": [
+                        {"family": "Satoshi", "weight": 800, "letterSpacing": "-0.04em"}
+                    ],
+                },
+                "spacing": {"scale": ["4px", "8px", "16px"]},
+                "shadows": {"scale": ["0 1px 2px rgba(0,0,0,0.1)"]},
+            }
+        )
+        self.assertEqual(tight["evidence"]["voice"]["density"], "compact")
+        self.assertEqual(tight["tokens"]["weight-display"], "800")
+        self.assertEqual(tight["tokens"]["tracking"], "-0.04em")
+        self.assertEqual(tight["tokens"]["cta-pad"], "0.55em 0.95em")
+        self.assertEqual(tight["tokens"]["cta-shadow"], "none")
+        self.assertEqual(tight["tokens"]["hairline"], "#CBD5E1")
+        lifted = ingest_extracted(
+            {
+                "colors": {"primary": "#111111", "background": "#ffffff", "foreground": "#111111"},
+                "spacing": {"scale": ["16px", "24px"]},
+                "shadows": {"scale": ["0 8px 16px rgba(15, 23, 42, 0.22)"]},
+            }
+        )
+        self.assertEqual(lifted["evidence"]["voice"]["density"], "airy")
+        self.assertEqual(lifted["evidence"]["voice"]["elevation"], "lifted")
+        self.assertIn("8px 16px", lifted["tokens"]["cta-shadow"])
+
+    def test_materializa_marca_com_extract(self):
+        system = ensure_brand_design_system(
+            {
+                "id": 44,
+                "name": "Acme Ads",
+                "logo_url": "/static/images/cc_logo.png",
+                "primary_color": "#123456",
+                "brand_profile": {
+                    "extracted_design_system": {
+                        "colors": {
+                            "primary": {"$value": "#0f172a"},
+                            "background": "#f8fafc",
+                            "foreground": "#0f172a",
+                            "accent": "#22c55e",
+                        },
+                        "typography": {"headingFont": "Geist", "bodyFont": "IBM Plex Sans"},
+                    }
+                },
+            }
+        )
+        self.assertEqual(system.source, "extract-design-system")
+        self.assertEqual(system.tokens["font-display"], "Geist")
+        self.assertEqual(system.tokens["font-body"], "IBM Plex Sans")
+        self.assertEqual(system.tokens["ink"], "#0F172A")
+        self.assertGreaterEqual(system.contrast["pairs"]["ink_on_paper"], MIN_CONTRAST)
+        self.assertGreaterEqual(system.contrast["pairs"]["cta_on_accent"], MIN_CONTRAST)
+        self.assertEqual(system.evidence.get("source"), "extract-design-system")
 
     def test_reusa_sistema_ja_gravado(self):
         stored = dump_system(centralcomm_preset(client_id=3))

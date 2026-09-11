@@ -28,6 +28,12 @@ TOKEN_ROWS = (
     ("type-legal", "Tamanho do legal", "--dsa-type-legal", "text-dsa-legal"),
     ("cta-radius", "Canto do CTA", "--dsa-cta-radius", "rounded-dsa-cta"),
     ("safe", "Margem segura", "--dsa-safe", ""),
+    ("weight-display", "Peso do título", "--dsa-weight-display", ""),
+    ("weight-cta", "Peso do CTA", "--dsa-weight-cta", ""),
+    ("tracking", "Tracking do título", "--dsa-tracking", ""),
+    ("cta-pad", "Miolo do CTA", "--dsa-cta-pad", ""),
+    ("cta-shadow", "Sombra do CTA", "--dsa-cta-shadow", ""),
+    ("hairline", "Filete", "--dsa-hairline", ""),
 )
 
 
@@ -112,6 +118,7 @@ class DesignSystemAds(BaseModel):
     inherits_brand_id: Optional[Any] = None
     creative_line: str = ""
     elements: List[Dict[str, Any]] = Field(default_factory=list)
+    evidence: Dict[str, Any] = Field(default_factory=dict)
     passes: List[DesignSystemPass] = Field(default_factory=list)
     specimen_html: str = ""
 
@@ -149,6 +156,12 @@ class DesignSystemAds(BaseModel):
         tokens.setdefault("type-legal", "14px")
         tokens.setdefault("cta-radius", "0.25rem")
         tokens.setdefault("safe", "6%")
+        tokens.setdefault("weight-display", "700")
+        tokens.setdefault("weight-cta", "600")
+        tokens.setdefault("tracking", "-0.015em")
+        tokens.setdefault("cta-pad", "0.7em 1.2em")
+        tokens.setdefault("cta-shadow", "none")
+        tokens.setdefault("hairline", tokens.get("muted") or "#3D4451")
         if self.logo_url and not tokens.get("logo"):
             tokens["logo"] = self.logo_url
         self.logo_url = str(tokens.get("logo") or self.logo_url or "")
@@ -206,6 +219,7 @@ def compile_tailwind_theme(tokens):
                     ],
                 },
                 "borderRadius": {"dsa-cta": "var(--dsa-cta-radius)"},
+                "boxShadow": {"dsa-cta": "var(--dsa-cta-shadow)"},
                 "fontSize": {
                     "dsa-headline": "var(--dsa-type-headline)",
                     "dsa-support": "var(--dsa-type-support)",

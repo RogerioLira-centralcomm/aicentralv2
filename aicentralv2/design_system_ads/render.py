@@ -211,6 +211,8 @@ def _standalone_document(system, body, title="", stage=False):
       margin: 0 0 1rem;
       font-family: var(--dsa-font-display), Inter, sans-serif;
       font-size: var(--dsa-type-headline);
+      font-weight: var(--dsa-weight-display, 700);
+      letter-spacing: var(--dsa-tracking, -0.015em);
       line-height: 1.05;
       max-width: 16ch;
     }}
@@ -225,8 +227,10 @@ def _standalone_document(system, body, title="", stage=False):
       background: var(--dsa-accent);
       color: var(--dsa-cta-ink);
       border-radius: var(--dsa-cta-radius);
-      padding: 0.85rem 1.4rem;
+      padding: var(--dsa-cta-pad, 0.85rem 1.4rem);
       font-size: var(--dsa-type-cta);
+      font-weight: var(--dsa-weight-cta, 600);
+      box-shadow: var(--dsa-cta-shadow, none);
       text-decoration: none;
     }}
     .dsa-cta:focus-visible {{ outline: 3px solid var(--dsa-highlight); outline-offset: 3px; }}
@@ -276,6 +280,10 @@ def _standalone_document(system, body, title="", stage=False):
     .dsa-layer[class*="is-ornament"] {{
       background: color-mix(in srgb, var(--dsa-highlight) 22%, transparent);
     }}
+    .dsa-layer.is-chip {{
+      border: 1px solid var(--dsa-hairline, color-mix(in srgb, var(--dsa-ink) 18%, transparent));
+      border-radius: var(--dsa-cta-radius);
+    }}
     .dsa-layer.is-logo {{
       display: grid;
       place-items: center;
@@ -312,7 +320,8 @@ def _standalone_document(system, body, title="", stage=False):
     }}
     .dsa-ad-headline {{
       font-size: var(--dsa-type-headline);
-      font-weight: 700;
+      font-weight: var(--dsa-weight-display, 700);
+      letter-spacing: var(--dsa-tracking, -0.015em);
       -webkit-line-clamp: 2;
     }}
     .dsa-ad.is-thin .dsa-ad-headline {{
@@ -336,12 +345,13 @@ def _standalone_document(system, body, title="", stage=False):
       height: 100%;
       width: 100%;
       box-sizing: border-box;
-      padding: 0 0.7em;
+      padding: var(--dsa-cta-pad, 0 0.7em);
       background: var(--dsa-accent);
       color: var(--dsa-cta-ink);
       border-radius: var(--dsa-cta-radius);
       font-size: var(--dsa-type-cta);
-      font-weight: 600;
+      font-weight: var(--dsa-weight-cta, 600);
+      box-shadow: var(--dsa-cta-shadow, none);
       font-family: var(--dsa-font-body), Inter, sans-serif;
       white-space: nowrap;
       overflow: hidden;

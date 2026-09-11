@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from ..creative_brand_dna import materialize_brand_dna
 from .centralcomm import centralcomm_preset, is_centralcomm_client
+from .ingest import merge_extracted_tokens
+from .refine import heal_contrast
 from .schema import FRAMEWORK, DesignSystemAds, normalize_hex, parse_system
 
 
@@ -115,26 +117,39 @@ def ensure_brand_design_system(client=None, *, existing=None):
     )
     name = _text(client.get("name"), default="Design System Ads", limit=80)
     client_id = client.get("id") or "marca"
-    return DesignSystemAds.model_validate(
+    tokens = {
+        "paper": "#FFFFFF",
+        "ink": ink,
+        "accent": ink,
+        "muted": "#3D4451",
+        "cta_ink": "#FFFFFF",
+        "highlight": highlight,
+        "logo": logo,
+        "font-display": display,
+        "font-body": body,
+    }
+    extracted = (
+        profile.get("extracted_design_system")
+        or profile.get("extract_design_system")
+        or client.get("extracted_design_system")
+    )
+    source = "brand"
+    evidence = {}
+    if extracted:
+        tokens, evidence = merge_extracted_tokens(tokens, extracted, client=client)
+        tokens["logo"] = logo or tokens.get("logo") or ""
+        source = "extract-design-system"
+    system = DesignSystemAds.model_validate(
         {
             "id": f"dsa-{client_id}-v1",
             "scope": "brand",
             "name": f"{name} Ads" if name != "Design System Ads" else name,
-            "source": "brand",
+            "source": source,
             "status": "draft",
             "client_id": client_id,
             "logo_url": logo,
-            "tokens": {
-                "paper": "#FFFFFF",
-                "ink": ink,
-                "accent": ink,
-                "muted": "#3D4451",
-                "cta_ink": "#FFFFFF",
-                "highlight": highlight,
-                "logo": logo,
-                "font-display": display,
-                "font-body": body,
-            },
+            "tokens": tokens,
+            "evidence": evidence,
             "ad_copy": {
                 "headline": "A peça na tinta certa",
                 "support": f"O anúncio herda o Design System Ads de {name}."
@@ -145,3 +160,6 @@ def ensure_brand_design_system(client=None, *, existing=None):
             },
         }
     )
+    if extracted:
+        system, _patches = heal_contrast(system)
+    return system

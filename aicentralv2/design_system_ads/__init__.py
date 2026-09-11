@@ -8,6 +8,7 @@ from .campaign import (
 )
 from .cutouts import paint_white_background, white_to_transparent
 from .centralcomm import CENTRALCOMM_SLUG, centralcomm_preset, is_centralcomm_client
+from .ingest import ingest_extracted, merge_extracted_tokens
 from .materialize import ensure_brand_design_system
 from .refine import apply_token_patches, clamp_passes, refine_design_system
 from .render import render_specimen, table_html, tailwind_theme
@@ -25,7 +26,9 @@ __all__ = (
     "dump_system",
     "ensure_brand_design_system",
     "ensure_campaign_design_system",
+    "ingest_extracted",
     "is_campaign_preset_id",
+    "merge_extracted_tokens",
     "is_centralcomm_client",
     "list_iab_formats",
     "paint_white_background",

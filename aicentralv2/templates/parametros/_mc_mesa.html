@@ -16,64 +16,49 @@
       </div>
       <div class="mc-mesa-objectives" id="mcMesaObjectives"></div>
     </div>
-    <div class="mc-mesa-cluster" data-cluster="locks">
-      <label class="mc-mesa-slider">
-        <span>Densidade</span>
-        <input id="mcMesaDensity" type="range" min="0" max="1" step="1" value="1">
-      </label>
-      <label class="mc-mesa-slider">
-        <span>Gancho</span>
-        <input id="mcMesaTension" type="range" min="0" max="100" value="55">
-      </label>
-      <label class="mc-mesa-toggle">
-        <input id="mcMesaCastLock" type="checkbox" checked>
-        <span>Mesmas pessoas</span>
-      </label>
-      <label class="mc-mesa-toggle">
-        <input id="mcMesaProductLock" type="checkbox" checked>
-        <span>Mesmo produto</span>
-      </label>
-    </div>
     <div class="mc-mesa-cluster" data-cluster="mode">
       <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
-      <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
     </div>
-    <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
-    <button class="mc-mesa-history-toggle" type="button" id="mcMesaHistoryToggle">Histórico</button>
-    <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
+    <div class="mc-mesa-cluster mc-mesa-cluster-end" data-cluster="meta">
+      <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
+      <button class="mc-mesa-history-toggle" type="button" id="mcMesaHistoryToggle">Histórico</button>
+      <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
+    </div>
   </header>
 
-  <ol class="mc-mesa-strip" id="mcMesaStrip" aria-label="Tira de 15s"></ol>
+  <div class="mc-mesa-workspace">
+    <ol class="mc-mesa-strip" id="mcMesaStrip" aria-label="Tira de 15s"></ol>
 
-  <section class="mc-mesa-stage" id="mcMesaStage" aria-label="Palco da peça">
-    <div class="mc-mesa-viewport" id="mcMesaViewport">
-      <div class="mc-mesa-frame" id="mcMesaFrameWrap">
-        <div class="mc-mesa-drop" id="mcMesaDrop">
-          <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
-          <div class="mc-mesa-plate">
-            <span class="mc-mesa-plate-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
-            <strong>Escolha o key visual e monte o 15s</strong>
-            <span>Selecione um asset da campanha ou envie uma nova imagem.</span>
-            <button class="mc-mesa-pick" type="button" id="mcMesaPickKey">Selecionar key visual</button>
+    <section class="mc-mesa-stage" id="mcMesaStage" aria-label="Palco da peça">
+      <div class="mc-mesa-viewport" id="mcMesaViewport">
+        <div class="mc-mesa-frame" id="mcMesaFrameWrap">
+          <div class="mc-mesa-drop" id="mcMesaDrop">
+            <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
+            <div class="mc-mesa-plate">
+              <span class="mc-mesa-plate-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
+              <strong>Escolha o key visual e monte o 15s</strong>
+              <p class="mc-mesa-lead">Selecione um asset da campanha ou envie uma nova imagem.</p>
+              <button class="mc-mesa-pick" type="button" id="mcMesaPickKey">Selecionar key visual</button>
+            </div>
           </div>
+          <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
+            <img id="mcMesaFrame" alt="Cena ativa">
+          </figure>
         </div>
-        <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
-          <img id="mcMesaFrame" alt="Cena ativa">
-        </figure>
       </div>
-    </div>
-    <div class="mc-mesa-stage-meta">
-      <span id="mcMesaStageMeta">16:9 · 1920 × 1080</span>
-      <button class="mc-mesa-guide" type="button" id="mcMesaGuide">Ver guia de composição</button>
-    </div>
-    <p class="mc-mesa-caption" id="mcMesaCaption"></p>
-    <ol class="mc-mesa-versions" id="mcMesaVersions" hidden></ol>
-  </section>
+      <div class="mc-mesa-stage-meta">
+        <span id="mcMesaStageMeta">16:9 · 1920 × 1080</span>
+        <button class="mc-mesa-guide" type="button" id="mcMesaGuide">Ver guia de composição</button>
+      </div>
+      <p class="mc-mesa-caption" id="mcMesaCaption"></p>
+      <ol class="mc-mesa-versions" id="mcMesaVersions" hidden></ol>
+    </section>
+  </div>
 
   <aside class="mc-mesa-side">
     {% include "parametros/mesa/_inspector_tabs.html" %}
-    {% include "parametros/mesa/_production_flow.html" %}
     <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
+    {% include "parametros/mesa/_production_flow.html" %}
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>
 </article>

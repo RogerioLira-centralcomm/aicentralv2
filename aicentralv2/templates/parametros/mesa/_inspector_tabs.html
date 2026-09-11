@@ -20,6 +20,24 @@
   </div>
 
   <div class="mc-insp-panel" id="mcMesaPanelBrief" data-insp-panel="brief" role="tabpanel" hidden>
+    <div class="mc-mesa-cluster" data-cluster="locks">
+      <label class="mc-mesa-slider">
+        <span>Densidade</span>
+        <input id="mcMesaDensity" type="range" min="0" max="1" step="1" value="1">
+      </label>
+      <label class="mc-mesa-slider">
+        <span>Gancho</span>
+        <input id="mcMesaTension" type="range" min="0" max="100" value="55">
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaCastLock" type="checkbox" checked>
+        <span>Mesmas pessoas</span>
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaProductLock" type="checkbox" checked>
+        <span>Mesmo produto</span>
+      </label>
+    </div>
     <form class="mc-mesa-edit" id="mcMesaEdit">
       <label>
         <span>Oferta</span>
@@ -50,6 +68,7 @@
   </div>
 
   <div class="mc-insp-panel" id="mcMesaPanelAssets" data-insp-panel="assets" role="tabpanel" hidden>
+    <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
     <div class="mc-mesa-keys" id="mcMesaKeys"></div>
     <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
   </div>

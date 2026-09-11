@@ -993,8 +993,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=80", desk)
-        self.assertIn("mc_page_js) }}?v=25", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=81", desk)
+        self.assertIn("mc_page_js) }}?v=26", desk)
         mesa_dir = root / "aicentralv2" / "templates" / "parametros"
         html = (mesa_dir / "_mc_mesa.html").read_text(encoding="utf-8")
         for path in sorted((mesa_dir / "mesa").glob("*.html")):

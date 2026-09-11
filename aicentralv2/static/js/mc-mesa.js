@@ -640,7 +640,7 @@
       stage.setAttribute('aria-label', `Palco ${format.size_label || format.aspect_ratio}`);
     }
     const title = document.querySelector('#mcMesaDrop .mc-mesa-plate strong');
-    const drop = document.querySelector('#mcMesaDrop .mc-mesa-plate span');
+    const drop = document.querySelector('#mcMesaDrop .mc-mesa-lead');
     if (title) {
       title.textContent = format.kind === 'banner'
         ? `Monte o banner ${format.size_label}`
@@ -721,7 +721,10 @@
     const line = profile.creative_line || {};
     const summary = profile.brand_summary || line.signature_summary || client.tone_of_voice || '';
     if (name) name.textContent = client.name || 'Marca';
-    if (tag) tag.textContent = profile.tagline || line.tagline || summary || 'Sistema da marca.';
+    if (tag) {
+      const tagline = profile.tagline || line.tagline || '';
+      tag.textContent = tagline || 'Sistema da marca';
+    }
     const logoUrl = client.logo_url || client.logo || profile.logo_url || '';
     if (logo) {
       if (logoUrl) logo.src = logoUrl;
@@ -729,8 +732,9 @@
       logo.hidden = !logoUrl;
     }
     if (!box) return;
+    const short = summary.length > 140 ? `${summary.slice(0, 137).trim()}…` : summary;
     box.innerHTML = `
-      <p>${summary}</p>
+      <p>${short}</p>
       <ul>${colors.slice(0, 5).map((hex) => `<li style="background:${hex}"></li>`).join('')}</ul>
     `;
   }

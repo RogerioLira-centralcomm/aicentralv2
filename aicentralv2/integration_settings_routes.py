@@ -66,17 +66,21 @@ def register_integration_settings_routes(blueprint):
     @admin_required_api
     def api_validate_integration(provider):
         try:
-            valid, message = integration_credentials.validate_configuration(provider)
+            result = integration_credentials.validate_configuration(provider)
+            valid, message = result[0], result[1]
+            extra = result[2] if len(result) > 2 else {}
             try:
                 db.atualizar_validacao_credencial_integracao(
                     provider, "valid" if valid else "invalid", message
                 )
             except Exception:
                 pass
-            return _ok({
+            payload = {
                 "provider": provider,
                 "valid": valid,
                 "message": message,
-            })
+            }
+            payload.update(extra or {})
+            return _ok(payload)
         except integration_credentials.IntegrationCredentialError as exc:
             return _error(str(exc))

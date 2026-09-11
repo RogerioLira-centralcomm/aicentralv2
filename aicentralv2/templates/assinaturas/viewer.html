@@ -1,0 +1,59 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}{{ documento.titulo }} — Assinatura{% endblock %}
+{% block page_label %}Operação{% endblock %}
+{% block page_subtitle %}Assinar no CentralX{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assinaturas.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="cx-sign cx-sign--viewer" data-sign-app="viewer" data-doc-id="{{ documento.id }}">
+  <header class="cx-sign-head">
+    <div>
+      <a class="cx-sign-back" href="{{ url_for('assinaturas.mesa') }}">Voltar à mesa</a>
+      <h1>{{ documento.titulo }}</h1>
+      <p>
+        {{ documento.tipo_vinculo_label }}
+        {% if documento.vinculo_nome %} · {{ documento.vinculo_nome }}{% endif %}
+      </p>
+    </div>
+    <span class="cx-sign-stamp is-{{ documento.status }}">{{ documento.status_label }}</span>
+  </header>
+
+  {% if erro %}
+  <aside class="cx-sign-alert" role="alert">{{ erro }}</aside>
+  {% endif %}
+
+  <div class="cx-sign-split">
+    <aside class="cx-sign-meta">
+      <h2>Quem assina</h2>
+      <ol>
+        {% for signer in documento.signatarios %}
+        <li class="is-{{ signer.status }}">
+          <strong>{{ signer.nome }}</strong>
+          <span>{{ signer.email }}</span>
+          <em>{{ 'Assinou' if signer.status == 'assinado' else ('Recusou' if signer.status == 'recusado' else 'Pendente') }}</em>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if documento.status in ['aguardando_assinaturas', 'parcialmente_assinado'] %}
+      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-sign-cancel>Cancelar documento</button>
+      {% endif %}
+    </aside>
+    <section class="cx-sign-embed">
+      {% if embed_url %}
+      <iframe title="Documento para assinatura" src="{{ embed_url }}" allow="clipboard-write"></iframe>
+      {% else %}
+      <p class="cx-sign-empty">O viewer da D4Sign aparece aqui quando o documento estiver pronto e o seu e-mail estiver na lista.</p>
+      {% endif %}
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/assinaturas.js') }}?v=1"></script>
+{% endblock %}

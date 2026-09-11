@@ -13,6 +13,13 @@ ENDPOINT_CONTEXT = {
     "briefing_list": ("comercial", "briefings"),
     "briefing_create": ("comercial", "briefing"),
     "briefing_edit": ("comercial", "briefing"),
+    "smart_planner.index": ("comercial", "smart_planner"),
+    "smart_planner.novo": ("comercial", "smart_planner"),
+    "smart_planner.briefing": ("comercial", "smart_planner"),
+    "smart_planner.revisao": ("comercial", "smart_planner"),
+    "smart_planner.canais": ("comercial", "smart_planner"),
+    "smart_planner.gerar": ("comercial", "smart_planner"),
+    "smart_planner.canvas": ("comercial", "smart_planner"),
     "cadu_pi_novo": ("comercial", "pi_recebido"),
     "cadu_pi_lista": ("operacao", "pedidos_insercao"),
     "campanhas_pi": ("operacao", "campanhas"),
@@ -58,6 +65,9 @@ ENDPOINT_CONTEXT = {
     "parametros.modelagem_criativos": ("parametros", "modelagem_criativos"),
     "parametros.treinamentos": ("parametros", "treinamentos"),
     "parametros.integracoes": ("parametros", "integracoes"),
+    "assinaturas.mesa": ("operacao", "assinaturas"),
+    "assinaturas.novo": ("operacao", "assinaturas"),
+    "assinaturas.viewer": ("operacao", "assinaturas"),
     "dv360_pages.diagnostico": ("parametros", "diagnostico_dv360"),
 }
 
@@ -85,10 +95,14 @@ def resolve_page_context():
         module, screen = "crm", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("crm."):
         module, screen = "comercial", endpoint.split(".", 1)[-1]
+    elif endpoint.startswith("smart_planner."):
+        module, screen = "comercial", "smart_planner"
     elif endpoint.startswith("whatsapp."):
         module, screen = "comercial", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("intelligence."):
         module, screen = "parametros", endpoint.split(".", 1)[-1]
+    elif endpoint.startswith("assinaturas."):
+        module, screen = "operacao", "assinaturas"
     return {
         "module": module,
         "screen": screen,

@@ -1,0 +1,51 @@
+{% extends "base_erp.html" %}
+{% block page_label %}Smart Planner{% endblock %}
+{% block page_subtitle %}{{ plan_mode_label }}{% endblock %}
+{% block title %}{{ plan_mode_label }} · {{ titulo }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="sp-desk {% if plan_mode == 'one_page' %}is-sheet{% endif %}" id="sp-canvas"
+     data-token="{{ token }}"
+     data-mode="{{ plan_mode }}"
+     data-presenter="{{ presenter_brand or 'centralcomm' }}">
+  <header class="sp-head">
+    <div>
+      <p class="sp-kicker">{{ plan_mode_label }}</p>
+      <h1>{{ titulo }}</h1>
+      <p>
+        {% if plan_mode == 'one_page' %}
+          Folha do anunciante: criativo no canal, um dado de mercado e a defesa. Logos vêm do CentralX quando existem.
+        {% else %}
+          Edite os blocos das quatro seções e salve o quadro.
+        {% endif %}
+      </p>
+    </div>
+    <div class="sp-actions">
+      {% if plan_mode == 'one_page' %}
+      <label class="sp-presenter">
+        <span>Marca da folha</span>
+        <select class="cx-select" id="sp-presenter">
+          {% for option in presenter_options %}
+          <option value="{{ option.id }}" {% if presenter_brand == option.id %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+      <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
+      <button type="button" class="cx-btn cx-btn-secondary" id="sp-canvas-regen">Gerar de novo</button>
+      <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
+    </div>
+  </header>
+  <div id="sp-canvas-board"
+       class="sp-board {% if plan_mode == 'one_page' %}is-sheet{% endif %}"
+       aria-live="polite"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}"></script>
+{% endblock %}

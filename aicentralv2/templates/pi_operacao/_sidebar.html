@@ -65,6 +65,17 @@
       <div id="pi-fiscal-pulse" class="pi-op-fiscal-pulse__body" aria-live="polite"></div>
     </section>
 
+    <section id="pi-signed-docs-panel" class="pi-op-panel" hidden aria-labelledby="pi-signed-docs-title">
+      <div class="pi-op-panel__title pi-op-panel__title--actions">
+        <span>
+          <i class="fa-solid fa-pen-nib" aria-hidden="true"></i>
+          <h3 id="pi-signed-docs-title">Documentos assinados</h3>
+        </span>
+        <a class="pi-op-text-btn" href="{{ url_for('assinaturas.novo') }}">Enviar</a>
+      </div>
+      <div id="pi-signed-docs-list" class="pi-op-docs-registry" aria-live="polite"></div>
+    </section>
+
     <section id="pi-docs-registry-panel" class="pi-op-panel" hidden aria-labelledby="pi-docs-registry-title">
       <div class="pi-op-panel__title pi-op-panel__title--actions">
         <span>

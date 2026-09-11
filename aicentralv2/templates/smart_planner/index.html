@@ -1,0 +1,88 @@
+{% extends "base_erp.html" %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Planejamento de mídia{% endblock %}
+{% block title %}Smart Planner{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="sp-desk">
+  <header class="sp-head">
+    <div>
+      <h1>Planejamentos</h1>
+      <p>
+        {% if total_user %}
+          {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário.
+        {% else %}
+          Briefing vira quadro de mídia — página única ou plano completo.
+        {% endif %}
+      </p>
+    </div>
+    <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
+      Nova campanha
+    </a>
+  </header>
+
+  {% if flash_error %}
+  <div class="cx-alert cx-alert-danger" role="alert">{{ flash_error }}</div>
+  {% endif %}
+
+  {% if rows %}
+  <ul class="sp-list" id="sp-history">
+    {% for row in rows %}
+    <li class="sp-plan {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}" data-id="{{ row.id }}">
+      <div class="sp-plan-main">
+        <h2>{{ row.titulo }}</h2>
+        <p class="sp-plan-client">{{ row.cliente or "Cliente a definir" }}</p>
+        {% if row.objetivo %}<p class="sp-plan-goal">{{ row.objetivo }}</p>{% endif %}
+        {% if row.canais %}
+        <ul class="sp-mix">
+          {% for canal in row.canais[:5] %}
+          <li>{{ canal }}</li>
+          {% endfor %}
+          {% if row.canais|length > 5 %}
+          <li>+{{ row.canais|length - 5 }}</li>
+          {% endif %}
+        </ul>
+        {% endif %}
+      </div>
+      <dl class="sp-facts">
+        <div>
+          <dt>Verba</dt>
+          <dd>{{ row.verba or "—" }}</dd>
+        </div>
+        <div>
+          <dt>Praça</dt>
+          <dd>{{ row.praca or "—" }}</dd>
+        </div>
+        <div>
+          <dt>Atualizado</dt>
+          <dd>{{ row.quando or "—" }}</dd>
+        </div>
+      </dl>
+      <div class="sp-plan-aside">
+        <span class="sp-mode {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}">{{ row.plan_mode_label }}</span>
+        <div class="sp-plan-actions">
+          <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ url_for('smart_planner.' + row.resume_step, token=row.session_token) }}">{{ row.resume_action }}</a>
+          <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost js-sp-delete" data-id="{{ row.id }}">Excluir</button>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="sp-empty">
+    <h2>Nenhuma campanha neste usuário</h2>
+    <p>Comece pelo briefing. O CentralX monta a página única ou o plano completo no quadro.</p>
+    <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">Nova campanha</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/smart_planner/index.js') }}"></script>
+{% endblock %}

@@ -1430,6 +1430,8 @@
   var docsRegistryPanel = document.getElementById('pi-docs-registry-panel');
   var docsRegistryTarget = document.getElementById('pi-docs-registry');
   var docsRegistryCount = document.getElementById('pi-docs-registry-count');
+  var signedDocsPanel = document.getElementById('pi-signed-docs-panel');
+  var signedDocsTarget = document.getElementById('pi-signed-docs-list');
   var fechamentoModo = String(root.dataset.fechamentoModo || '').trim();
 
   function formatDocDate(value) {
@@ -1539,6 +1541,36 @@
     if (!data) return;
     renderFiscalPulse(data.fiscal);
     renderDocumentRegistry(data);
+  }
+
+  function renderSignedDocs(items) {
+    if (!signedDocsPanel || !signedDocsTarget) return;
+    if (!items || !items.length) {
+      signedDocsPanel.hidden = true;
+      signedDocsTarget.innerHTML = '';
+      return;
+    }
+    signedDocsPanel.hidden = false;
+    signedDocsTarget.innerHTML = '<ul class="pi-op-docs-list">' + items.map(function (doc) {
+      return '<li class="pi-op-docs-item is-' + esc(doc.status || 'pendente') + '">' +
+        '<a class="pi-op-docs-item__btn" href="/assinaturas/' + esc(doc.id) + '">' +
+        '<span class="pi-op-docs-item__label">' + esc(doc.titulo) + '</span>' +
+        '<span class="pi-op-docs-item__meta">' + esc(doc.status_label || doc.status) + '</span>' +
+        '</a></li>';
+    }).join('') + '</ul>';
+  }
+
+  function loadSignedDocs() {
+    if (!piId || !signedDocsPanel) return Promise.resolve();
+    return fetch('/assinaturas/api?tipo_vinculo=pi&id_vinculo=' + encodeURIComponent(piId), {
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return response.json();
+    }).then(function (payload) {
+      renderSignedDocs(payload && payload.data ? payload.data : []);
+    }).catch(function () {
+      signedDocsPanel.hidden = true;
+    });
   }
 
   async function loadDocumentResumo(forceRefresh) {
@@ -1706,12 +1738,13 @@
     loadOperation();
     if (document.getElementById('pi-operation-communications')) loadCatalog();
     loadDocumentResumo();
+    loadSignedDocs();
   }
 
   window.piOperacao = {
     abrirCampanha: campaignPanel,
     recarregar: function () {
-      return Promise.all([loadOperation(), loadCatalog(), loadDocumentResumo()]);
+      return Promise.all([loadOperation(), loadCatalog(), loadDocumentResumo(), loadSignedDocs()]);
     },
     atualizarDocumentos: function () { return loadDocumentResumo(true); },
     atualizarDestinatarios: function (destinatarios) {

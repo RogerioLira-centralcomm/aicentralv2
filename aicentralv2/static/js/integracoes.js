@@ -39,6 +39,9 @@
       var input = form.elements[field];
       if (input) input.value = summary.public_config[field] || '';
     });
+    if (summary.provider === 'd4sign' && form.elements.ambiente && !form.elements.ambiente.value) {
+      form.elements.ambiente.value = 'producao';
+    }
     var status = form.querySelector('[data-integration-status]');
     status.textContent = summary.configured ? 'Configurado' : 'Configuração pendente';
     status.classList.toggle('is-ready', summary.configured);
@@ -101,6 +104,8 @@
         method: 'POST'
       }).then(function (result) {
         notify(result.message, !result.valid);
+        fillSafes(form, result);
+        if (result.valid) load();
       }).catch(function (error) {
         notify(error.message, true);
       }).finally(function () {
@@ -128,6 +133,18 @@
       });
     });
   });
+
+  function fillSafes(form, result) {
+    var list = form.querySelector('[data-safes-list]');
+    if (!list || !result || !result.safes) return;
+    list.innerHTML = result.safes.map(function (safe) {
+      return '<option value="' + (safe.uuid || '') + '">' + (safe.name || safe.uuid || '') + '</option>';
+    }).join('');
+    var input = form.elements.uuid_safe;
+    if (input && !input.value && result.suggested_safe) {
+      input.value = result.suggested_safe;
+    }
+  }
 
   load();
 })();

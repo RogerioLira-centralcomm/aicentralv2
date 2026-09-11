@@ -113,7 +113,9 @@
 }
 
 .cx-integration-logo.is-google { background: #f1f5f9; color: #2563eb; }
+.cx-integration-logo.is-openrouter { background: #ecfdf5; color: #0f766e; }
 .cx-integration-logo.is-higgsfield { background: #fef3c7; color: #92400e; }
+.cx-integration-logo.is-d4sign { background: #e0f2fe; color: #0c4a6e; }
 
 .cx-integration-status {
   border-radius: 999px;
@@ -156,7 +158,8 @@
   font-weight: 500;
 }
 
-.cx-integration-fields input {
+.cx-integration-fields input,
+.cx-integration-fields select {
   width: 100%;
   min-height: 38px;
   border: 1px solid #cbd5e1;
@@ -169,7 +172,8 @@
   outline: none;
 }
 
-.cx-integration-fields input:focus {
+.cx-integration-fields input:focus,
+.cx-integration-fields select:focus {
   border-color: #0f766e;
   box-shadow: 0 0 0 3px rgb(15 118 110 / 12%);
 }

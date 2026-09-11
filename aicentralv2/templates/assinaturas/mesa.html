@@ -1,0 +1,64 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Mesa de documentos — CentralX{% endblock %}
+{% block page_label %}Operação{% endblock %}
+{% block page_subtitle %}Assinaturas eletrônicas{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assinaturas.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="cx-sign" data-sign-app="mesa" data-ready="{{ '1' if integracao_pronta else '0' }}">
+  <header class="cx-sign-head">
+    <div>
+      <h1>Mesa de documentos</h1>
+      <p>Envie, acompanhe e assine no CentralX. A D4Sign fica no motor, não na tela.</p>
+    </div>
+    <a class="cx-btn cx-btn-primary" href="{{ url_for('assinaturas.novo') }}">Novo documento</a>
+  </header>
+
+  {% if not integracao_pronta %}
+  <aside class="cx-sign-alert" role="status">
+    <strong>D4Sign ainda não está conectada.</strong>
+    <span>Abra Parâmetros → Integrações, salve token e crypt key e valide o cofre.</span>
+    {% if session.get('user_type') in ['admin', 'superadmin'] %}
+    <a href="{{ url_for('parametros.integracoes') }}">Abrir integrações</a>
+    {% endif %}
+  </aside>
+  {% endif %}
+
+  <nav class="cx-sign-filters" aria-label="Filtros da mesa">
+    <div class="cx-sign-chips" role="tablist">
+      <button type="button" class="is-on" data-eixo="todos">Todos</button>
+      <button type="button" data-eixo="minhas">Minhas pendências</button>
+      <button type="button" data-eixo="enviados">Enviados por mim</button>
+    </div>
+    <label>
+      <span>Status</span>
+      <select data-filter="status">
+        <option value="">Qualquer status</option>
+        <option value="aguardando_assinaturas">Aguardando</option>
+        <option value="parcialmente_assinado">Parcial</option>
+        <option value="finalizado">Finalizado</option>
+        <option value="cancelado">Cancelado</option>
+        <option value="recusado">Recusado</option>
+      </select>
+    </label>
+    <label class="cx-sign-search">
+      <span>Buscar</span>
+      <input type="search" data-filter="q" placeholder="Título ou vínculo">
+    </label>
+  </nav>
+
+  <p class="cx-sign-feedback" data-sign-feedback hidden role="status"></p>
+  <section class="cx-sign-desk" data-sign-list aria-live="polite">
+    <p class="cx-sign-empty">Carregando a mesa…</p>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/assinaturas.js') }}?v=1"></script>
+{% endblock %}

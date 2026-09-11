@@ -1,0 +1,80 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Novo documento — CentralX{% endblock %}
+{% block page_label %}Operação{% endblock %}
+{% block page_subtitle %}Enviar para assinatura{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assinaturas.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="cx-sign cx-sign--compose" data-sign-app="novo" data-ready="{{ '1' if integracao_pronta else '0' }}">
+  <header class="cx-sign-head">
+    <div>
+      <a class="cx-sign-back" href="{{ url_for('assinaturas.mesa') }}">Voltar à mesa</a>
+      <h1>Novo documento</h1>
+      <p>PDF entra aqui, signatários são da CentralComm e a assinatura acontece no viewer interno.</p>
+    </div>
+  </header>
+
+  {% if not integracao_pronta %}
+  <aside class="cx-sign-alert" role="status">
+    <strong>Conecte a D4Sign antes de enviar.</strong>
+    {% if session.get('user_type') in ['admin', 'superadmin'] %}
+    <a href="{{ url_for('parametros.integracoes') }}">Abrir integrações</a>
+    {% endif %}
+  </aside>
+  {% endif %}
+
+  <form class="cx-sign-sheet" data-sign-form enctype="multipart/form-data">
+    <label class="cx-sign-drop" data-drop>
+      <input type="file" name="arquivo" accept="application/pdf" required>
+      <strong data-file-name>Solte o PDF ou clique para escolher</strong>
+      <span>Até 20 MB. Só PDF nesta versão.</span>
+    </label>
+
+    <label>
+      <span>Título</span>
+      <input name="titulo" type="text" required maxlength="255" placeholder="Contrato de confidencialidade">
+    </label>
+
+    <fieldset class="cx-sign-vinculo">
+      <legend>Vínculo</legend>
+      <select name="tipo_vinculo">
+        <option value="interno">Interno</option>
+        <option value="colaborador">Colaborador</option>
+        <option value="cliente">Cliente</option>
+        <option value="agencia">Agência</option>
+        <option value="parceiro">Parceiro</option>
+        <option value="pi">PI</option>
+      </select>
+      <input name="vinculo_nome" type="search" autocomplete="off" placeholder="Buscar entidade" data-vinculo-search hidden>
+      <input name="id_vinculo" type="hidden">
+      <div class="cx-sign-suggest" data-vinculo-results hidden></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Signatários CentralComm</legend>
+      <input type="search" autocomplete="off" placeholder="Nome ou e-mail" data-signer-search>
+      <div class="cx-sign-suggest" data-signer-results hidden></div>
+      <ul class="cx-sign-picks" data-signer-picks></ul>
+      <label class="cx-sign-check">
+        <input type="checkbox" name="workflow" value="1">
+        <span>Respeitar a ordem da lista</span>
+      </label>
+    </fieldset>
+
+    <p class="cx-sign-feedback" data-sign-feedback hidden role="status"></p>
+    <footer>
+      <a class="cx-btn cx-btn-ghost" href="{{ url_for('assinaturas.mesa') }}">Cancelar</a>
+      <button type="submit" class="cx-btn cx-btn-primary" {% if not integracao_pronta %}disabled{% endif %}>Enviar para assinatura</button>
+    </footer>
+  </form>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/assinaturas.js') }}?v=1"></script>
+{% endblock %}

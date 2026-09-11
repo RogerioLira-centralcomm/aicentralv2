@@ -215,6 +215,9 @@ def create_app(config_class=Config):
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)
 
+        from .smart_planner.routes import bp as smart_planner_bp
+        app.register_blueprint(smart_planner_bp)
+
         from .agent import bp as agent_bp
         app.register_blueprint(agent_bp)
 
@@ -223,6 +226,9 @@ def create_app(config_class=Config):
 
         from .pi_financeiro_routes import bp as pi_financeiro_bp
         app.register_blueprint(pi_financeiro_bp)
+
+        from .assinaturas.routes import bp as assinaturas_bp
+        app.register_blueprint(assinaturas_bp)
 
         # Painel administrativo de migrations — permite executar
         # `migrations/*.sql` e `migrations/run_*.py` pelo navegador

@@ -21,6 +21,18 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "openrouter": {
+        "label": "OpenRouter",
+        "public_fields": ("default_model",),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
+    "d4sign": {
+        "label": "D4Sign",
+        "public_fields": ("uuid_safe", "ambiente"),
+        "secret_fields": ("token_api", "crypt_key", "webhook_secret"),
+        "required": ("token_api", "crypt_key"),
+    },
 }
 
 ENV_FIELDS = {
@@ -34,6 +46,11 @@ ENV_FIELDS = {
         "default_model": "HIGGSFIELD_DEFAULT_MODEL",
         "api_key": "HIGGSFIELD_API_KEY",
     },
+    "openrouter": {
+        "default_model": "AGENT_OPENROUTER_MODEL",
+        "api_key": "OPENROUTER_API_KEY",
+    },
+    "d4sign": {},
 }
 
 
@@ -140,7 +157,24 @@ def save_configuration(provider, payload, updated_by):
         for field in schema["secret_fields"]
         if str(payload.get(field) or "").strip()
     }
-    encrypted = encrypt_secrets(submitted_secrets) if submitted_secrets else None
+    existing_secrets = {}
+    try:
+        existing = get_configuration(provider, include_secrets=True)
+        existing_secrets = {
+            field: existing.get(field, "")
+            for field in schema["secret_fields"]
+            if existing.get(field)
+        }
+    except Exception:
+        existing_secrets = {}
+    if provider == "d4sign" and not public.get("ambiente"):
+        public["ambiente"] = "producao"
+    if submitted_secrets:
+        secrets = dict(existing_secrets)
+        secrets.update(submitted_secrets)
+        encrypted = encrypt_secrets(secrets)
+    else:
+        encrypted = None
     from aicentralv2 import db
     db.salvar_credencial_integracao(
         provider,
@@ -169,8 +203,11 @@ def get_summary(provider):
     summary["public_config"] = {
         field: config.get(field, "") for field in schema["public_fields"]
     }
+    required_secrets = [
+        field for field in schema["secret_fields"] if field in schema["required"]
+    ] or list(schema["secret_fields"])
     summary["has_secret"] = all(
-        config.get(field) for field in schema["secret_fields"]
+        config.get(field) for field in required_secrets
     )
     summary["secret_mask"] = "••••••••" if summary["has_secret"] else ""
     return summary
@@ -186,13 +223,81 @@ def validate_configuration(provider):
         field for field in PROVIDERS[provider]["required"] if not config.get(field)
     ]
     if missing:
-        return False, "Campos obrigatórios ausentes: " + ", ".join(missing)
+        return False, "Campos obrigatórios ausentes: " + ", ".join(missing), {}
     _validate_public(provider, config)
+    if provider == "openrouter":
+        valid, message = _validate_openrouter(config)
+        return valid, message, {}
+    if provider == "d4sign":
+        return _validate_d4sign(config)
     return True, (
         "Credencial Google pronta para iniciar OAuth."
         if provider == "google_calendar"
         else "Credencial Higgsfield armazenada e pronta para uso."
-    )
+    ), {}
+
+
+def _validate_openrouter(config):
+    import requests
+
+    key = str(config.get("api_key") or "").strip()
+    try:
+        response = requests.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "HTTP-Referer": "https://centralcomm.media",
+                "X-OpenRouter-Title": "CentralX",
+            },
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave no OpenRouter."
+    if response.status_code in (401, 403):
+        return False, "A credencial OpenRouter não foi aceita."
+    if response.status_code == 402:
+        return False, "O saldo da conta OpenRouter é insuficiente."
+    if response.status_code >= 400:
+        return False, "O OpenRouter recusou a validação da chave."
+    return True, "Credencial OpenRouter aceita pelo provedor."
+
+
+def _validate_d4sign(config):
+    from .d4sign_client import D4SignClient, D4SignError
+
+    try:
+        safes = D4SignClient.from_config(config).list_safes()
+    except D4SignError as exc:
+        return False, str(exc), {"safes": []}
+    except Exception:
+        return False, "Não foi possível validar a credencial na D4Sign.", {"safes": []}
+    if not safes:
+        return False, "A API respondeu, mas nenhum cofre foi encontrado.", {"safes": []}
+    suggested = safes[0]["uuid"]
+    uuid_safe = str(config.get("uuid_safe") or "").strip()
+    ids = {item["uuid"] for item in safes}
+    if uuid_safe and uuid_safe not in ids:
+        return False, "O UUID do cofre não está entre os cofres desta conta.", {
+            "safes": safes,
+        }
+    if not uuid_safe:
+        try:
+            from aicentralv2 import db
+            record = db.obter_credencial_integracao("d4sign", incluir_segredo=False)
+            if record:
+                public = dict(record.get("public_config") or {})
+                public["uuid_safe"] = suggested
+                public.setdefault("ambiente", config.get("ambiente") or "producao")
+                db.salvar_credencial_integracao(
+                    "d4sign", public, None, record.get("updated_by"), status="active"
+                )
+        except Exception:
+            pass
+        return True, (
+            f"Credencial D4Sign aceita. Cofre preenchido: {safes[0]['name']}."
+        ), {"safes": safes, "suggested_safe": suggested}
+    name = next((item["name"] for item in safes if item["uuid"] == uuid_safe), uuid_safe)
+    return True, f"Credencial D4Sign aceita. Cofre: {name}.", {"safes": safes}
 
 
 def _validate_public(provider, config):

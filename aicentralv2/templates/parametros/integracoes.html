@@ -5,7 +5,7 @@
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
     <div>
       <span class="cx-integrations-eyebrow">Configuração do sistema</span>
       <h1>Integrações</h1>
-      <p>Configure os provedores usados pelo CRM e pela Modelagem de Criativos.</p>
+      <p>Configure os provedores usados pelo Agente, pelo CRM, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
     </div>
     <div class="cx-integrations-security">
       <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
@@ -66,6 +66,42 @@
       </footer>
     </form>
 
+    <form class="cx-integration-card" data-integration-form="openrouter">
+      <header>
+        <span class="cx-integration-logo is-openrouter"><i class="fa-solid fa-route" aria-hidden="true"></i></span>
+        <div>
+          <h2>OpenRouter</h2>
+          <p>Chave global do Agente, da Mesa 15s, das placas e do CRM. Mesmo endpoint do quickstart.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label class="is-wide">
+          <span>API key</span>
+          <input name="api_key" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter a chave atual">
+          <small data-secret-state>Nenhuma chave armazenada.</small>
+        </label>
+        <label class="is-wide">
+          <span>Modelo padrão <em>opcional</em></span>
+          <input name="default_model" type="text" autocomplete="off"
+                 placeholder="openai/gpt-4o-mini">
+        </label>
+      </div>
+
+      <aside>
+        <strong>Uma chave só</strong>
+        <span>A mesa deixa de depender só do .env. Se o banco não tiver chave, o ambiente continua como reserva.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar OpenRouter</button>
+      </footer>
+    </form>
+
     <form class="cx-integration-card" data-integration-form="higgsfield">
       <header>
         <span class="cx-integration-logo is-higgsfield"><i class="fa-solid fa-film" aria-hidden="true"></i></span>
@@ -105,11 +141,65 @@
         <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Higgsfield</button>
       </footer>
     </form>
+
+    <form class="cx-integration-card" data-integration-form="d4sign">
+      <header>
+        <span class="cx-integration-logo is-d4sign"><i class="fa-solid fa-file-signature" aria-hidden="true"></i></span>
+        <div>
+          <h2>D4Sign</h2>
+          <p>Motor jurídico da mesa de assinaturas em Operação. A assinatura acontece dentro do CentralX.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label class="is-wide">
+          <span>Token API</span>
+          <input name="token_api" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter o token atual">
+          <small data-secret-state>Nenhum token armazenado.</small>
+        </label>
+        <label class="is-wide">
+          <span>Crypt key</span>
+          <input name="crypt_key" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter a chave atual">
+        </label>
+        <label>
+          <span>UUID do cofre</span>
+          <input name="uuid_safe" type="text" autocomplete="off" list="d4sign-safes"
+                 placeholder="Preenchido ao validar">
+          <datalist id="d4sign-safes" data-safes-list></datalist>
+        </label>
+        <label>
+          <span>Ambiente</span>
+          <select name="ambiente">
+            <option value="producao">Produção</option>
+            <option value="sandbox">Sandbox</option>
+          </select>
+        </label>
+        <label class="is-wide">
+          <span>Webhook secret <em>opcional</em></span>
+          <input name="webhook_secret" type="password" autocomplete="new-password"
+                 placeholder="Deixe vazio para manter o segredo atual">
+        </label>
+      </div>
+
+      <aside>
+        <strong>Mesa de assinaturas</strong>
+        <span>Depois de conectar, envie e assine documentos em Operação → Mesa de documentos. O cofre é escolhido na validação.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar D4Sign</button>
+      </footer>
+    </form>
   </section>
 </main>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=3"></script>
 {% endblock %}

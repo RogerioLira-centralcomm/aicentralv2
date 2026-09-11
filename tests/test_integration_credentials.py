@@ -60,6 +60,17 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertNotIn("api_key", summary)
         self.assertNotIn("higgsfield-secret", str(summary))
 
+    def test_openrouter_summary_uses_environment_until_saved(self):
+        self.app.config["OPENROUTER_API_KEY"] = "or-env-key"
+        self.app.config["AGENT_OPENROUTER_MODEL"] = "openai/gpt-4o-mini"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("openrouter")
+        self.assertEqual(summary["source"], "environment")
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertEqual(summary["public_config"]["default_model"], "openai/gpt-4o-mini")
+        self.assertNotIn("or-env-key", str(summary))
+
     def test_empty_secret_preserves_existing_database_value(self):
         encrypted = integration_credentials.encrypt_secrets(
             {"client_secret": "existing-secret"}
@@ -145,7 +156,17 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("parametros.integracoes", menu)
         self.assertIn("Google Calendar e Meet", template)
         self.assertIn("Higgsfield", template)
+        self.assertIn("OpenRouter", template)
+        self.assertIn('data-integration-form="openrouter"', template)
+        self.assertIn("run_add_openrouter_integration_credential.py", deploy)
+        self.assertIn("D4Sign", template)
+        self.assertIn("assinaturas.mesa", menu)
+        self.assertIn("run_add_d4sign_assinaturas.py", deploy)
         self.assertNotIn("value=\"{{", template)
+        openrouter_sql = (
+            ROOT / "migrations/add_openrouter_integration_credential.sql"
+        ).read_text()
+        self.assertIn("openrouter", openrouter_sql)
 
 
 if __name__ == "__main__":

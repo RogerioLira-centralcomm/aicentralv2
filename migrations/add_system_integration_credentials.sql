@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS system_integration_credentials (
         REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CHECK (provider IN ('google_calendar', 'higgsfield'))
+    CHECK (provider IN ('google_calendar', 'higgsfield', 'openrouter'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_system_integration_credentials_status

@@ -180,6 +180,29 @@ class FechamentoServiceTest(unittest.TestCase):
         service.anexar_lista(pis)
         self.assertEqual(pis[0]["status_financeiro"], "aguardando_comprovacao")
         self.assertEqual(pis[0]["zona_label"], "—")
+        self.assertIsNone(pis[0].get("lucrativo"))
+
+    def test_anexar_lista_marca_zona_e_lucratividade(self):
+        repo = FakeFechamentoRepo()
+        repo.resultados_lote = {
+            10: {
+                "zona_lucratividade": 2,
+                "saude_pi": "saudavel",
+                "lucrativo": True,
+                "margem_cc": 1200,
+                "gasto_midia_realizado": 80,
+                "gasto_midia_previsto": 100,
+            }
+        }
+        repo.status[10] = "nf_emitida"
+        repo.listar_resultados_lote = lambda ids_pi: repo.resultados_lote
+        service = PiFechamentoService(repository=repo, operacao=FakeOperacao())
+        pis = [{"id_pi": 10}]
+        service.anexar_lista(pis)
+        self.assertEqual(pis[0]["zona_lucratividade"], 2)
+        self.assertEqual(pis[0]["zona_label"], "Lucrativa")
+        self.assertTrue(pis[0]["lucrativo"])
+        self.assertTrue(pis[0]["resultado_persistido"])
 
     def test_preview_endereca_contato_da_agencia(self):
         service = PiFechamentoService(

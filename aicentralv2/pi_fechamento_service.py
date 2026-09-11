@@ -451,6 +451,10 @@ class PiFechamentoService:
                 pi["camp_pct_midia"] = int(_pct(gasto, previsto))
                 pi["zona_lucratividade"] = zona_int
                 pi["zona_label"] = ZONA_LABELS.get(zona_int, "—") if zona_int else "—"
+                lucrativo = snap.get("lucrativo")
+                if lucrativo is None and zona_int:
+                    lucrativo = zona_int in (1, 2)
+                pi["lucrativo"] = lucrativo
                 pi["saude_pi"] = saude
                 pi["saude_label"] = SAUDE_LABELS.get(saude, "Sem dados")
                 pi["status_financeiro"] = status

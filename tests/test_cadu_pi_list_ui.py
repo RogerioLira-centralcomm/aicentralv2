@@ -37,6 +37,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "_commercial_summary.html",
             "_billing_summary.html",
             "_operation_billing_cells.html",
+            "_fiscal_row.html",
         }
         self.assertTrue(expected.issubset({path.name for path in PARTIALS.glob("*.html")}))
         for name in expected - {"_pi_row.html"}:
@@ -131,7 +132,8 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("if not origem_lista and filtros.get('id_sub_status_pi') == 4", routes)
         self.assertIn("visao_financeira", routes)
         self.assertIn("visao_financeira", (ROOT / "aicentralv2/db.py").read_text())
-        self.assertIn("Resultado financeiro", (PARTIALS / "_table.html").read_text())
+        self.assertIn("Situação", (PARTIALS / "_table.html").read_text())
+        self.assertIn("Pagamento", (PARTIALS / "_table.html").read_text())
         self.assertIn("Sem NF", header)
         self.assertIn("NF e pagamento", (PARTIALS / "_table.html").read_text())
         self.assertIn("origemEfetiva() || 'nf_emitida'", self.js)
@@ -315,7 +317,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-list-table--fiscal", self.template)
         self.assertIn("pi-col-client", self.template)
         self.assertIn("Cliente", table)
-        self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 24%; }", self.css)
+        self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 12%; }", self.css)
         self.assertIn("toggleInvoiceGroup", self.js)
 
     def test_fiscal_rows_render_campaign_count_without_missing_macro(self):
@@ -346,16 +348,77 @@ class CaduPiListUiContractTest(unittest.TestCase):
             self.assertNotIn("campaign_toggle", html)
 
     def test_invoice_actions_are_neutral_and_status_change_refreshes_groups(self):
-        fiscal_start = self.template.index('<div class="pi-nf-cell">')
-        fiscal_end = self.template.index("{% else %}", fiscal_start)
-        fiscal_markup = self.template[fiscal_start:fiscal_end]
-        self.assertIn("pi-nf-state", fiscal_markup)
-        self.assertIn("pi-nf-action", fiscal_markup)
-        self.assertIn("Registrar pagamento", fiscal_markup)
+        fiscal = (PARTIALS / "_fiscal_row.html").read_text()
+        self.assertIn("pi-nf-cell", fiscal)
+        self.assertIn("pi-nf-state", fiscal)
+        self.assertIn("pi-nf-action", fiscal)
+        self.assertIn("Registrar pagamento", fiscal)
+        self.assertIn("Zona {{ zona }}", fiscal)
+        self.assertIn("Resultado pendente", fiscal)
+        self.assertIn("Resultado preenchido", fiscal)
+        self.assertIn("pi-row-menu", fiscal)
+        self.assertIn("Ver PI", fiscal)
         for color_class in ("bg-yellow-100", "bg-blue-100", "bg-green-100"):
-            self.assertNotIn(color_class, fiscal_markup)
+            self.assertNotIn(color_class, fiscal)
         self.assertIn("document.querySelector('.pi-page--fiscal')", self.template)
         self.assertIn("window.location.reload()", self.template)
+
+    def test_fiscal_row_renders_zona_and_profitability(self):
+        env = Environment(loader=FileSystemLoader(ROOT / "aicentralv2/templates"))
+        env.filters["format_brl"] = lambda value: f"R$ {float(value or 0):,.2f}"
+        env.globals["url_for"] = lambda endpoint, **values: f"/{endpoint}/{values.get('id_pi', '')}"
+        template = env.from_string(
+            "{% import 'cadu_pi/_pi_row.html' as pi_row with context %}"
+            "{% include 'cadu_pi/_fiscal_row.html' %}"
+        )
+        filled = template.render(
+            origem_lista="faturamento",
+            nomes_meses={"9": "Set"},
+            pi={
+                "id_pi": 88,
+                "codigo_pi_cc": "85921",
+                "titulo_pi": "Arraial de Belô",
+                "cliente_nome": "Belo Horizonte",
+                "agencia_nome": "Lapis Raro",
+                "resp_comercial_nome": "João Silva",
+                "valor_liquido": 12000,
+                "resultado_persistido": True,
+                "zona_lucratividade": 2,
+                "zona_label": "Lucrativa",
+                "lucrativo": True,
+                "saude_pi": "saudavel",
+                "saude_label": "Saudável",
+                "val_margem_cc": 1500,
+                "nf_id": 1,
+                "nf_numero_nota": "92",
+                "nf_status": 1,
+                "nf_status_descricao": "NF Emitida",
+            },
+        )
+        self.assertIn("Zona 2", filled)
+        self.assertIn("Lucrativa", filled)
+        self.assertIn("Resultado preenchido", filled)
+        self.assertIn("NF 92", filled)
+        self.assertIn("Registrar pagamento", filled)
+        self.assertIn("Ver PI", filled)
+        pending = template.render(
+            origem_lista="faturamento",
+            nomes_meses={},
+            pi={
+                "id_pi": 89,
+                "codigo_pi_cc": "33102",
+                "titulo_pi": "Contagem 2025",
+                "cliente_nome": "Prefeitura",
+                "resultado_persistido": False,
+                "zona_lucratividade": 5,
+                "zona_label": "Ruptura",
+                "lucrativo": False,
+                "saude_pi": "risco",
+            },
+        )
+        self.assertIn("Resultado pendente", pending)
+        self.assertIn("Zona 5", pending)
+        self.assertIn("Ruptura", pending)
 
     def test_invoice_header_is_full_bleed_and_measures_sticky_offset(self):
         header = (PARTIALS / "_header_filters.html").read_text()

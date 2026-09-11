@@ -12255,6 +12255,7 @@ def obter_cadu_pi_lista(filtros=None):
                     p.vr_liquido_pr_pi as valor_liquido_pr,
                     p.vr_platafor_max_pi as valor_plataformas,
                     cli.nome_fantasia as cliente_nome,
+                    cli.razao_social as cliente_razao,
                     cli.cnpj as cliente_cnpj,
                     cli_ag.nome_fantasia as agencia_nome,
                     cli_parc.nome_fantasia as parceiro_nome,
@@ -12269,7 +12270,11 @@ def obter_cadu_pi_lista(filtros=None):
                     nf_sub.nf_numero_nota,
                     nf_sub.nf_valor,
                     nf_sub.nf_status,
-                    nf_sub.nf_status_descricao
+                    nf_sub.nf_status_descricao,
+                    nf_sub.nf_spedy_status,
+                    nf_sub.nf_data_pagamento_realizado,
+                    camp_sum.campanhas_plataformas,
+                    camp_sum.campanhas_nomes
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
@@ -12285,6 +12290,7 @@ def obter_cadu_pi_lista(filtros=None):
                         nf.valor as nf_valor,
                         nf.status as nf_status,
                         nf.spedy_status as nf_spedy_status,
+                        nf.data_pag_realizado as nf_data_pagamento_realizado,
                         nfs.descricao as nf_status_descricao
                     FROM cadu_pi_nota_fiscal nf
                     LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
@@ -12292,6 +12298,27 @@ def obter_cadu_pi_lista(filtros=None):
                     ORDER BY nf.created_at DESC
                     LIMIT 1
                 ) nf_sub ON true
+                LEFT JOIN LATERAL (
+                    SELECT
+                        NULLIF((
+                            SELECT string_agg(plat.descricao, ' | ' ORDER BY plat.descricao)
+                            FROM (
+                                SELECT DISTINCT plt.descricao
+                                FROM cadu_pi_campanha ca
+                                JOIN cadu_pi_camp_plataforma plt ON ca.id_plataforma = plt.id_plataforma
+                                WHERE ca.id_pi = p.id_pi AND plt.descricao IS NOT NULL
+                            ) plat
+                        ), '') AS campanhas_plataformas,
+                        NULLIF((
+                            SELECT string_agg(nomes.nome_campanha, ' · ' ORDER BY nomes.nome_campanha)
+                            FROM (
+                                SELECT DISTINCT NULLIF(TRIM(ca.nome_campanha), '') AS nome_campanha
+                                FROM cadu_pi_campanha ca
+                                WHERE ca.id_pi = p.id_pi
+                            ) nomes
+                            WHERE nomes.nome_campanha IS NOT NULL
+                        ), '') AS campanhas_nomes
+                ) camp_sum ON true
                 WHERE 1=1
             '''
             params = []

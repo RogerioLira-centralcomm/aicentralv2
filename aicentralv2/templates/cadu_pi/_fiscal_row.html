@@ -1,0 +1,190 @@
+{% set pi_info = {
+  'codPi': (pi.codigo_pi_cc or pi.codigo_pi_ag or '')|string,
+  'titulo': (pi.titulo_pi or '')|string,
+  'cliente': (pi.cliente_nome or '')|string,
+  'cnpj': (pi.cliente_cnpj or '')|string,
+  'mesRef': (pi.mes_ref_comp or '')|string,
+  'valorLiquido': (pi.valor_liquido or '')|string
+} %}
+{% set resultado_ok = pi.get('resultado_persistido') and (pi.get('val_margem_cc') or pi.get('margem_cc') or pi.get('zona_lucratividade')) %}
+{% set zona = pi.get('zona_lucratividade') %}
+{% set zona_label = pi.get('zona_label') or '' %}
+{% set lucrativo = pi.get('lucrativo') if pi.get('lucrativo') is not none else (zona|int in [1, 2] if zona else none) %}
+{% set saude = pi.get('saude_pi') or 'sem_dados' %}
+{% set sit_state = 'ok' if resultado_ok else 'pending' %}
+{% set nf_status = pi.get('nf_status') %}
+{% set pago = nf_status == 3 %}
+{% set titulo = pi_row.title_text(pi) %}
+{% set plataformas = (pi.get('campanhas_plataformas') or '')|trim %}
+{% set nomes_camp = (pi.get('campanhas_nomes') or '')|trim %}
+{% set titulo_sub = plataformas if plataformas else (nomes_camp if nomes_camp and nomes_camp != titulo else '') %}
+{% set cliente_razao = (pi.get('cliente_razao') or '')|string|trim %}
+{% set cliente_sub = cliente_razao if cliente_razao and cliente_razao|lower != (pi.get('cliente_nome') or '')|lower else '' %}
+
+<td class="pi-fiscal-check-cell" data-label="Selecionar">
+  <input type="checkbox" class="pi-fiscal-check" name="pi_ids" value="{{ pi.id_pi }}"
+         aria-label="Selecionar PI {{ pi.codigo_pi_cc or pi.codigo_pi_ag or pi.id_pi }}">
+</td>
+
+<td class="pi-fiscal-pi" data-label="PI">
+  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-code-link">
+    {{ pi.codigo_pi_cc or pi.codigo_pi_ag or '—' }}
+  </a>
+  {% if pi.get('mes_ref_comp') and '/' in (pi.mes_ref_comp|string) %}
+  {% set _ref = (pi.mes_ref_comp|string).split('/') %}
+  <span class="pi-cell-meta">{{ nomes_meses.get(_ref[0], _ref[0]) }}/{% if _ref|length > 1 %}{{ _ref[1] }}{% endif %}</span>
+  {% elif pi.get('mes_ref_comp') %}
+  <span class="pi-cell-meta">{{ pi.mes_ref_comp }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-title" data-label="Campanha / Título">
+  <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="pi-fiscal-title__name" title="{{ titulo }}">{{ titulo }}</a>
+  {% if titulo_sub %}
+  <span class="pi-cell-meta" title="{{ titulo_sub }}">{{ titulo_sub }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-client" data-label="Cliente">
+  <strong title="{{ pi.get('cliente_nome') or '—' }}">{{ pi.get('cliente_nome') or '—' }}</strong>
+  {% if cliente_sub %}
+  <span class="pi-cell-meta" title="{{ cliente_sub }}">{{ cliente_sub }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-agency" data-label="Agência / Parceiro">
+  {% if pi.get('agencia_nome') %}
+  <span title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+  {% else %}
+  <span class="cx-cell-empty empty-na">—</span>
+  {% endif %}
+  {% if pi.get('parceiro_nome') %}
+  <span class="pi-cell-meta" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-owner" data-label="Resp.">
+  {{ pi_row.executive(pi, true) }}
+</td>
+
+<td class="pi-fiscal-period" data-label="Período">
+  {% if pi.get('periodo_inicio') %}
+  <strong>
+    {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+  </strong>
+  {% if pi.get('periodo_fim') %}
+  <span class="pi-cell-meta">{{ (pi.periodo_fim - pi.periodo_inicio).days }} dias</span>
+  {% endif %}
+  {% else %}
+  <span class="cx-cell-empty empty-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Pendente</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-net" data-label="Valor líquido">
+  {% if pi.get('valor_liquido') %}
+  <strong class="pi-net-value">{{ pi.valor_liquido|format_brl }}</strong>
+  {% else %}
+  <span class="cx-cell-empty empty-pending"><i class="fa-regular fa-circle-dashed" aria-hidden="true"></i>Pendente</span>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-situation" data-label="Situação">
+  <div class="pi-sit" data-state="{{ sit_state }}"{% if zona %} data-zona="{{ zona }}"{% endif %} data-saude="{{ saude }}">
+    <span class="pi-sit-dot" aria-hidden="true"></span>
+    <div class="pi-sit-copy">
+      {% if resultado_ok %}
+      <strong>Resultado preenchido</strong>
+      {% else %}
+      <strong>Resultado pendente</strong>
+      {% endif %}
+      {% if zona %}
+      <span class="pi-sit-hint">Zona {{ zona }} · {{ zona_label or ('Lucrativo' if lucrativo else 'Não lucrativo') }}</span>
+      {% elif saude and saude != 'sem_dados' %}
+      <span class="pi-sit-hint">{{ pi.get('saude_label') or saude }}{% if lucrativo is not none %} · {{ 'Lucrativo' if lucrativo else 'Não lucrativo' }}{% endif %}</span>
+      {% elif resultado_ok %}
+      <span class="pi-sit-hint">Conferir detalhes</span>
+      {% else %}
+      <span class="pi-sit-hint">Ação necessária</span>
+      {% endif %}
+    </div>
+  </div>
+</td>
+
+<td class="pi-fiscal-nf" data-label="NF">
+  <div class="pi-nf-cell">
+    {% if pi.get('nf_id') %}
+    {% if pi.get('nf_numero_nota') %}
+    <strong class="pi-nf-number">NF {{ pi.nf_numero_nota }}</strong>
+    {% endif %}
+    <span class="pi-nf-state">{{ pi.nf_status_descricao or 'Emitida' }}</span>
+    {% else %}
+    <span class="cx-cell-empty empty-na">Sem NF</span>
+    {% endif %}
+  </div>
+</td>
+
+<td class="pi-fiscal-pay" data-label="Pagamento" onclick="event.stopPropagation()">
+  {% if not pi.get('nf_id') %}
+  <span class="cx-cell-empty empty-na">—</span>
+  {% elif pago %}
+  <span class="pi-pay-pill is-paid">Pago</span>
+  {% if pi.get('nf_data_pagamento_realizado') %}
+  <span class="pi-cell-meta">em {% if pi.nf_data_pagamento_realizado.strftime is defined %}{{ pi.nf_data_pagamento_realizado.strftime('%d/%m/%y') }}{% else %}{{ pi.nf_data_pagamento_realizado }}{% endif %}</span>
+  {% endif %}
+  {% else %}
+  <span class="pi-pay-pill is-pending">Pendente</span>
+  <button type="button"
+          onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
+          class="pi-nf-action pi-pay-link">
+    Registrar pagamento
+  </button>
+  {% endif %}
+</td>
+
+<td class="pi-fiscal-actions" data-label="Ações" onclick="event.stopPropagation()">
+  <details class="pi-row-menu">
+    <summary class="pi-row-menu__btn" aria-label="Mais ações do PI {{ pi.codigo_pi_cc or pi.codigo_pi_ag or pi.id_pi }}">
+      <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+    </summary>
+    <div class="pi-row-menu__panel" role="menu">
+      <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" role="menuitem">
+        <i class="fa-regular fa-eye" aria-hidden="true"></i>Ver PI
+      </a>
+      <a href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}" role="menuitem">
+        <i class="fa-solid fa-briefcase" aria-hidden="true"></i>Workspace financeiro
+      </a>
+      <button type="button" role="menuitem" onclick="abrirSidebarPi({{ pi.id_pi }})">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>Dados complementares
+      </button>
+      {% if pi.get('googled_pi_princ') %}
+      <a href="{{ pi.googled_pi_princ }}" target="_blank" rel="noopener" role="menuitem">
+        <i class="fa-solid fa-folder" aria-hidden="true"></i>Pasta no Drive
+      </a>
+      {% endif %}
+      <span class="pi-row-menu__sep" aria-hidden="true"></span>
+      {% if pi.get('nf_id') %}
+      <button type="button" role="menuitem"
+              onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, true)'>
+        <i class="fa-regular fa-file-invoice" aria-hidden="true"></i>Ver nota fiscal
+      </button>
+      {% if not pago %}
+      <button type="button" role="menuitem"
+              onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'>
+        <i class="fa-solid fa-dollar-sign" aria-hidden="true"></i>Registrar pagamento
+      </button>
+      {% endif %}
+      {% else %}
+      {% if origem_lista == 'faturamento' %}
+      <button type="button" role="menuitem"
+              onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'>
+        <i class="fa-solid fa-file-import" aria-hidden="true"></i>Importar NF
+      </button>
+      {% endif %}
+      <button type="button" role="menuitem"
+              onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'>
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>Vincular NF
+      </button>
+      {% endif %}
+    </div>
+  </details>
+</td>

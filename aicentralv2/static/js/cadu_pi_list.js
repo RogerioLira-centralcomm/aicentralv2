@@ -931,11 +931,47 @@
     });
   }
 
+  function closePiRowMenus(except) {
+    document.querySelectorAll('.pi-row-menu[open]').forEach(function (menu) {
+      if (menu !== except) menu.removeAttribute('open');
+    });
+  }
+
+  function bindFiscalRowUi() {
+    const table = document.querySelector('.pi-list-table--fiscal');
+    if (!table) return;
+    const selectAll = table.querySelector('[data-pi-select-all]');
+    const rowChecks = function () {
+      return Array.prototype.filter.call(
+        table.querySelectorAll('tbody .pi-fiscal-check'),
+        function (input) { return !input.closest('tr[hidden]'); }
+      );
+    };
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        rowChecks().forEach(function (input) { input.checked = selectAll.checked; });
+      });
+    }
+    table.addEventListener('change', function (event) {
+      if (!event.target.classList.contains('pi-fiscal-check') || event.target.hasAttribute('data-pi-select-all')) return;
+      if (!selectAll) return;
+      const checks = rowChecks();
+      const checked = checks.filter(function (input) { return input.checked; }).length;
+      selectAll.checked = checks.length > 0 && checked === checks.length;
+      selectAll.indeterminate = checked > 0 && checked < checks.length;
+    });
+    table.addEventListener('toggle', function (event) {
+      if (!event.target.classList.contains('pi-row-menu') || !event.target.open) return;
+      closePiRowMenus(event.target);
+    }, true);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     restoreFilters();
     window.filtrarMesesPorAno();
     renderActiveFilters();
     assignMobileCellLabels();
+    bindFiscalRowUi();
     UI.updatePiStickyTop();
     if (document.querySelector('.pi-list-table--hierarchy')) {
       window.todasExpandidas = true;
@@ -945,7 +981,10 @@
       UI.updatePiStickyTop();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') fecharSidebarPi();
+      if (e.key === 'Escape') {
+        closePiRowMenus();
+        fecharSidebarPi();
+      }
     });
     document.querySelectorAll('.pi-sidebar-tab-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -984,6 +1023,7 @@
       });
     });
     document.addEventListener('click', function (event) {
+      if (!event.target.closest('.pi-row-menu')) closePiRowMenus();
       const results = document.getElementById('resultados_clientes_filtro');
       if (results && clientSearch && !results.contains(event.target) && event.target !== clientSearch) {
         results.classList.add('hidden');

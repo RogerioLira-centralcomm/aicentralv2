@@ -1311,22 +1311,309 @@
 }
 
 .pi-page .pi-list-table--fiscal {
-  min-width: 78rem;
+  min-width: 86rem;
   table-layout: fixed;
 }
 
-.pi-list-table--fiscal .pi-col-reference { width: 8%; }
-.pi-list-table--fiscal .pi-col-client { width: 24%; }
-.pi-list-table--fiscal .pi-col-agency { width: 13%; }
-.pi-list-table--fiscal .pi-col-owner { width: 10%; }
+.pi-list-table--fiscal .pi-col-check { width: 2.5%; }
+.pi-list-table--fiscal .pi-col-reference { width: 6.5%; }
+.pi-list-table--fiscal .pi-col-title { width: 16%; }
+.pi-list-table--fiscal .pi-col-client { width: 12%; }
+.pi-list-table--fiscal .pi-col-agency { width: 11%; }
+.pi-list-table--fiscal .pi-col-owner { width: 8%; }
 .pi-list-table--fiscal .pi-col-period { width: 8%; }
-.pi-list-table--fiscal .pi-col-campaigns { width: 8%; }
-.pi-list-table--fiscal .pi-col-net { width: 10%; }
-.pi-list-table--fiscal .pi-col-actions { width: 5%; }
-.pi-list-table--fiscal .pi-col-invoice { width: 14%; }
+.pi-list-table--fiscal .pi-col-net { width: 8%; }
+.pi-list-table--fiscal .pi-col-situation { width: 12%; }
+.pi-list-table--fiscal .pi-col-invoice { width: 6%; }
+.pi-list-table--fiscal .pi-col-payment { width: 9%; }
+.pi-list-table--fiscal .pi-col-actions { width: 4%; }
 
-.pi-list-table--fiscal tbody .pi-row > td:nth-child(2) {
-  padding-right: 1rem;
+.pi-page .pi-list-table--fiscal thead th {
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  color: #64748b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pi-page .pi-list-table--fiscal tbody .pi-row > td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  vertical-align: middle;
+}
+
+.pi-page .pi-list-table--fiscal tbody .pi-row > td.pi-fiscal-actions {
+  overflow: visible;
+}
+
+.pi-fiscal-check-cell {
+  width: 2.5rem;
+  text-align: center;
+}
+
+.pi-fiscal-check {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  vertical-align: middle;
+  accent-color: #1e4d4f;
+  cursor: pointer;
+}
+
+.pi-fiscal-pi,
+.pi-fiscal-title,
+.pi-fiscal-client,
+.pi-fiscal-agency,
+.pi-fiscal-period,
+.pi-fiscal-nf,
+.pi-fiscal-pay,
+.pi-fiscal-situation {
+  min-width: 0;
+}
+
+.pi-fiscal-pi .pi-code-link,
+.pi-fiscal-title__name,
+.pi-fiscal-client strong,
+.pi-fiscal-agency > span:first-child,
+.pi-fiscal-period strong,
+.pi-fiscal-title__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-fiscal-title__name {
+  color: #0f172a;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.pi-fiscal-title__name:hover {
+  color: var(--pi-brand-deep, #1e4d4f);
+  text-decoration: underline;
+  text-underline-offset: 0.15rem;
+}
+
+.pi-fiscal-client strong,
+.pi-fiscal-agency > span:first-child {
+  color: #334155;
+  font-weight: 650;
+}
+
+.pi-page .pi-list-table--fiscal .pi-cell-meta,
+.pi-page .pi-list-table--fiscal .pi-sit-hint,
+.pi-page .pi-list-table--fiscal .pi-nf-state {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.75rem !important;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-page .pi-list-table--fiscal .pi-net-value {
+  color: #15803d;
+  font-size: 0.8125rem !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pi-page .pi-list-table--fiscal .pi-executive.is-compact {
+  min-width: 0;
+}
+
+.pi-page .pi-list-table--fiscal .exec-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.75rem;
+}
+
+.pi-sit {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.pi-sit-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: #f59e0b;
+}
+
+.pi-sit-copy {
+  min-width: 0;
+}
+
+.pi-sit[data-state="pending"] strong {
+  color: #c2410c;
+  font-size: 0.75rem !important;
+  font-weight: 750;
+}
+
+.pi-sit[data-state="ok"] strong {
+  color: #15803d;
+  font-size: 0.75rem !important;
+  font-weight: 750;
+}
+
+.pi-sit[data-state="ok"] .pi-sit-dot,
+.pi-sit[data-zona="1"] .pi-sit-dot,
+.pi-sit[data-zona="2"] .pi-sit-dot {
+  background: #16a34a;
+}
+
+.pi-sit[data-zona="3"] .pi-sit-dot {
+  background: #ca8a04;
+}
+
+.pi-sit[data-zona="4"] .pi-sit-dot,
+.pi-sit[data-zona="5"] .pi-sit-dot,
+.pi-sit[data-saude="risco"] .pi-sit-dot {
+  background: #dc2626;
+}
+
+.pi-sit[data-state="pending"] .pi-sit-dot {
+  background: #f59e0b;
+}
+
+.pi-pay-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem !important;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.pi-pay-pill.is-pending {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.pi-pay-pill.is-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pi-page .pi-row button.pi-pay-link {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 0.15rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #64748b;
+  font-size: 0.75rem !important;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pi-page .pi-row .pi-pay-link:hover,
+.pi-page .pi-row .pi-pay-link:focus-visible {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+.pi-fiscal-actions {
+  position: relative;
+}
+
+.pi-row-menu {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pi-row-menu > summary {
+  list-style: none;
+}
+
+.pi-row-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pi-page .pi-row .pi-row-menu__btn {
+  display: inline-flex;
+  width: 2.125rem;
+  height: 2.125rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #64748b;
+}
+
+.pi-page .pi-row .pi-row-menu__btn:hover,
+.pi-row-menu[open] .pi-row-menu__btn {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.pi-row-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 14.5rem;
+  gap: 0.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  padding: 0.4rem;
+}
+
+.pi-row-menu__panel > a,
+.pi-row-menu__panel > button {
+  display: flex;
+  width: 100%;
+  min-height: 2.125rem;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: none;
+  padding: 0.4rem 0.55rem;
+  color: #334155;
+  font-size: 0.8125rem !important;
+  font-weight: 650;
+  text-align: left;
+}
+
+.pi-row-menu__panel > a:hover,
+.pi-row-menu__panel > button:hover {
+  background: #f1f5f5;
+  color: #0f172a;
+}
+
+.pi-row-menu__panel i {
+  width: 0.95rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.pi-row-menu__sep {
+  display: block;
+  height: 1px;
+  margin: 0.3rem 0.35rem;
+  background: #e8eded;
+}
+
+.pi-page--fiscal .cx-table-scroll {
+  overflow: visible;
 }
 
 .pi-list-table--fiscal .pi-nf-group-row > th {
@@ -1781,6 +2068,21 @@
   .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td:nth-child(2),
   .pi-page .pi-list-table-detail:not(.pi-list-table--hierarchy) tbody > .pi-row > td:last-child {
     grid-column: 1 / -1;
+  }
+
+  .pi-page .pi-list-table--fiscal tbody > .pi-row > td.pi-fiscal-check-cell {
+    display: none;
+  }
+
+  .pi-page .pi-list-table--fiscal tbody > .pi-row > td.pi-fiscal-title,
+  .pi-page .pi-list-table--fiscal tbody > .pi-row > td.pi-fiscal-situation,
+  .pi-page .pi-list-table--fiscal tbody > .pi-row > td.pi-fiscal-actions {
+    grid-column: 1 / -1;
+  }
+
+  .pi-row-menu__panel {
+    left: 0;
+    right: auto;
   }
 
   .pi-page .collapse-camp-row {

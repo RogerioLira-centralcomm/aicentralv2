@@ -751,11 +751,24 @@ class FormatLabService:
         existing = self._latest_client_campaign(client_id, client)
         if existing:
             return existing
+        name = f"Mesa de Formato — {client.get('name') or client_id}"
+        light = getattr(self.repository, "create_mesa_campaign", None)
+        if callable(light):
+            try:
+                created = light(client_id, name)
+                if isinstance(created, dict) and created.get("id"):
+                    return self._campaign_shell(
+                        created["id"], client=client, client_id=client_id
+                    )
+            except CreativeNotFoundError:
+                raise
+            except Exception:
+                logger.exception("Não criou a campanha leve da Mesa")
         try:
             created = self.repository.create_campaign_with_variation_a({
                 "client_id": client_id,
                 "client_source": "profile",
-                "name": f"Mesa de Formato — {client.get('name') or client_id}",
+                "name": name,
                 "objective": "Mesa de formato",
                 "campaign_text": "",
                 "cta_text": "",

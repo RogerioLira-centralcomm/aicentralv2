@@ -1143,7 +1143,7 @@ class CreativeModelingRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, client_id, name, creative_brief
+                SELECT id, client_id, name
                   FROM cx_campaigns
                  WHERE client_id = %s
                  ORDER BY id DESC
@@ -1157,9 +1157,53 @@ class CreativeModelingRepository:
         return {
             "id": row["id"],
             "name": row["name"],
-            "creative_brief": row["creative_brief"] or {},
+            "creative_brief": {},
             "client": {"id": row["client_id"]},
         }
+
+    def create_mesa_campaign(self, client_id, name, objective="Mesa de formato"):
+        try:
+            client_id = int(client_id)
+        except (TypeError, ValueError):
+            raise CreativeNotFoundError("Perfil de marca não encontrado.")
+        title = str(name or f"Mesa de Formato — {client_id}")[:200]
+        try:
+            return self._insert_mesa_campaign(client_id, title, objective, True)
+        except CreativeNotFoundError:
+            raise
+        except Exception:
+            return self._insert_mesa_campaign(client_id, title, objective, False)
+
+    def _insert_mesa_campaign(self, client_id, name, objective, with_brief):
+        with self._write() as cursor:
+            cursor.execute("SELECT id FROM cx_clients WHERE id = %s", (client_id,))
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Perfil de marca não encontrado.")
+            if with_brief:
+                cursor.execute(
+                    """
+                    INSERT INTO cx_campaigns (
+                        client_id, name, objective, campaign_text, cta_text,
+                        show_price, budget_usd, creative_brief
+                    )
+                    VALUES (%s, %s, %s, '', '', FALSE, 5, %s)
+                    RETURNING id
+                    """,
+                    (client_id, name, objective, Json({"format_lab": {"source": "mesa"}})),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO cx_campaigns (
+                        client_id, name, objective, campaign_text, cta_text,
+                        show_price, budget_usd
+                    )
+                    VALUES (%s, %s, %s, '', '', FALSE, 5)
+                    RETURNING id
+                    """,
+                    (client_id, name, objective),
+                )
+            return {"id": cursor.fetchone()["id"]}
 
     def first_active_format_template_id(self):
         with self.conn.cursor() as cursor:

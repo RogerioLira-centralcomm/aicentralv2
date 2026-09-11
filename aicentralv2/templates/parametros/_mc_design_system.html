@@ -1,44 +1,87 @@
-<article class="mc-dsa" id="mcDsa">
-  <header class="mc-dsa-rail">
-    <label class="cx-field">
-      <select class="cx-select" id="mcDsaClient" aria-label="Marca">
-        <option value="centralcomm">CentralComm Ads</option>
-      </select>
-    </label>
-    <label class="cx-field">
-      <select class="cx-select" id="mcDsaCampaign" aria-label="Campanha">
-        <option value="">Marca</option>
-        <option value="centralcomm-verao">Verao · CentralComm</option>
-      </select>
-    </label>
-    <label class="cx-field">
-      <select class="cx-select" id="mcDsaFormat" aria-label="Formato IAB"></select>
-    </label>
-    <label class="cx-field mc-dsa-layers">
-      <span id="mcDsaLayerLabel">4 camadas</span>
-      <input id="mcDsaLayerCount" type="range" min="4" max="40" value="4" aria-valuemin="4" aria-valuemax="40">
-    </label>
-    <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem Design System Ads. Criar a partir do logo e da paleta.</p>
+<article class="mc-dsa" id="mcDsa" data-mode="sistema">
+  <header class="mc-dsa-top">
+    <div class="mc-dsa-brand">
+      <label class="cx-field">
+        <select class="cx-select" id="mcDsaClient" aria-label="Marca">
+          <option value="centralcomm">CentralComm Ads</option>
+        </select>
+      </label>
+      <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem Design System Ads.</p>
+    </div>
+    <nav class="mc-dsa-modes" role="tablist" aria-label="Bancada">
+      <button type="button" class="is-active" data-mode="sistema" aria-selected="true">Sistema</button>
+      <button type="button" data-mode="melhorar" aria-selected="false">Melhorar</button>
+      <button type="button" data-mode="peca" aria-selected="false">Peça</button>
+    </nav>
     <div class="mc-dsa-actions">
       <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Criar sistema</button>
-      <button class="cx-btn" type="button" id="mcDsaRefine" disabled>Refinar</button>
       <button class="cx-btn" type="button" id="mcDsaApprove" disabled>Aprovar</button>
-      <a class="cx-btn cx-btn-outline" id="mcDsaOpen" href="/lab/design-system/marca/centralcomm" target="_blank" rel="noreferrer">Abrir specimen</a>
+      <a class="cx-btn cx-btn-outline" id="mcDsaOpen" href="/lab/design-system/marca/centralcomm" target="_blank" rel="noreferrer">Folha</a>
     </div>
   </header>
   <p class="mc-dsa-status" id="mcDsaStatus"></p>
-  <div class="mc-dsa-studio">
-    <section class="mc-dsa-side" aria-label="Tokens e camadas">
-      <div id="mcDsaTable"></div>
-      <div class="mc-dsa-stack">
-        <p class="mc-dsa-stack-lead">Camadas. Escolha duas e troque a posição.</p>
-        <ol class="mc-dsa-layers-list" id="mcDsaLayerList"></ol>
-        <button class="cx-btn" type="button" id="mcDsaSwap" disabled>Trocar posição</button>
-      </div>
+
+  <div class="mc-dsa-pane" data-pane="sistema">
+    <section class="mc-dsa-preview is-sheet" aria-label="Folha da marca">
+      <iframe class="mc-dsa-frame" id="mcDsaSheet" title="Specimen da marca" src="/lab/design-system/marca/centralcomm"></iframe>
     </section>
-    <section class="mc-dsa-preview" aria-label="Mesa do formato">
+    <aside class="mc-dsa-side" aria-label="Tinta da marca">
+      <div class="mc-dsa-board" id="mcDsaBoard"></div>
+      <div class="mc-dsa-grounds" id="mcDsaGrounds" aria-label="Fundo da peça"></div>
+      <div class="mc-dsa-tracks" id="mcDsaTracks" aria-label="Trilhas do sistema"></div>
+      <label class="mc-dsa-field">Imagem de fundo
+        <input id="mcDsaGroundUrl" type="url" placeholder="/static/… ou https://…" maxlength="400">
+      </label>
+      <form class="mc-dsa-copy" id="mcDsaCopy" aria-label="Copy da marca">
+        <label>Headline <input name="headline" maxlength="180"></label>
+        <label>Apoio <input name="support" maxlength="180"></label>
+        <label>CTA <input name="cta" maxlength="40"></label>
+        <label>Legal <input name="legal" maxlength="80"></label>
+      </form>
+      <div class="mc-dsa-groups" id="mcDsaGroups"></div>
+      <details class="mc-dsa-table-wrap">
+        <summary>Tabela CSS</summary>
+        <div id="mcDsaTable"></div>
+      </details>
+    </aside>
+  </div>
+
+  <div class="mc-dsa-pane" data-pane="melhorar" hidden>
+    <section class="mc-dsa-preview is-sheet" aria-label="Folha depois da melhoria">
+      <iframe class="mc-dsa-frame" id="mcDsaImproveSheet" title="Specimen após melhorar" src="/lab/design-system/marca/centralcomm"></iframe>
+    </section>
+    <aside class="mc-dsa-side" aria-label="Melhorar o sistema">
+      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCompose">Montar sistema</button>
+      <p class="mc-dsa-stack-lead">Um eixo por vez. O modelo só entra se o eixo não bastar.</p>
+      <div class="mc-dsa-intents" id="mcDsaIntents"></div>
+      <ol class="mc-dsa-passes" id="mcDsaPasses"></ol>
+      <details class="mc-dsa-model">
+        <summary>Refino com modelo</summary>
+        <button class="cx-btn" type="button" id="mcDsaRefine" disabled>Pedir ao modelo</button>
+      </details>
+    </aside>
+  </div>
+
+  <div class="mc-dsa-pane" data-pane="peca" hidden>
+    <section class="mc-dsa-preview" aria-label="Peça IAB">
       <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Specimen do formato" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
-      <p class="mc-dsa-pass" id="mcDsaPass">Passe 0/4</p>
+      <p class="mc-dsa-pass" id="mcDsaPass"></p>
     </section>
+    <aside class="mc-dsa-side" aria-label="Montagem IAB">
+      <label class="cx-field">
+        <span>Campanha</span>
+        <select class="cx-select" id="mcDsaCampaign" aria-label="Campanha">
+          <option value="">Só a marca</option>
+          <option value="centralcomm-verao">Verao · CentralComm</option>
+        </select>
+      </label>
+      <div class="mc-dsa-formats" id="mcDsaFormats" role="listbox" aria-label="Formato IAB"></div>
+      <label class="cx-field mc-dsa-layers">
+        <span id="mcDsaLayerLabel">4 camadas</span>
+        <input id="mcDsaLayerCount" type="range" min="4" max="40" value="4" aria-valuemin="4" aria-valuemax="40">
+      </label>
+      <p class="mc-dsa-stack-lead">Clique para marcar na peça. Setas trocam a caixa.</p>
+      <ol class="mc-dsa-layers-list" id="mcDsaLayerList"></ol>
+    </aside>
   </div>
 </article>

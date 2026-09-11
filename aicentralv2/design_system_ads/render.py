@@ -61,7 +61,7 @@ def _google_fonts(system):
     return f"https://fonts.googleapis.com/css2?{query}&display=swap"
 
 
-def render_format_specimen(system, stack, *, standalone=True):
+def render_format_specimen(system, stack, *, standalone=True, highlight=None):
     parsed = parse_system(system)
     token_patch = (stack or {}).get("tokens")
     if token_patch:
@@ -81,7 +81,8 @@ def render_format_specimen(system, stack, *, standalone=True):
         role = str(item.get("role") or "")
         parked = bool(item.get("parked"))
         text = escape(item.get("text") or "")
-        parked_class = " is-parked" if parked else ""
+        focus = " is-focus" if highlight and str(item.get("id") or "") == str(highlight) else ""
+        parked_class = f" is-parked{focus}" if parked else focus
         style = (
             f"left:{item.get('x')}%;top:{item.get('y')}%;"
             f"width:{item.get('w')}%;height:{item.get('h')}%;"
@@ -128,9 +129,11 @@ def render_format_specimen(system, stack, *, standalone=True):
     )
 
 
-def render_specimen(system, *, standalone=True, stack=None):
+def render_specimen(system, *, standalone=True, stack=None, highlight=None):
     if stack:
-        return render_format_specimen(system, stack, standalone=standalone)
+        return render_format_specimen(
+            system, stack, standalone=standalone, highlight=highlight
+        )
     parsed = parse_system(system)
     copy = parsed.ad_copy or {}
     logo = escape(parsed.logo_url or "")
@@ -257,8 +260,19 @@ def _standalone_document(system, body, title="", stage=False):
       aspect-ratio: var(--dsa-ad-w) / var(--dsa-ad-h);
       height: auto;
       overflow: hidden;
-      background: var(--dsa-paper);
+      background-color: var(--dsa-paper);
+      background-image: var(--dsa-ground-image, none);
+      background-size: var(--dsa-ground-fit, cover);
+      background-position: center;
       box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    }}
+    .dsa-ad-stage::before {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--dsa-overlay, transparent);
+      pointer-events: none;
+      z-index: 1;
     }}
     .dsa-safe {{
       position: absolute;
@@ -270,6 +284,11 @@ def _standalone_document(system, body, title="", stage=False):
       position: absolute;
       box-sizing: border-box;
       overflow: hidden;
+    }}
+    .dsa-layer.is-focus {{
+      outline: 2px solid var(--dsa-highlight);
+      outline-offset: -2px;
+      z-index: 90;
     }}
     .dsa-layer.is-ground {{ background: var(--dsa-paper); }}
     .dsa-layer.is-visual {{ background: color-mix(in srgb, var(--dsa-ink) 14%, var(--dsa-paper)); }}
@@ -374,9 +393,15 @@ def _standalone_document(system, body, title="", stage=False):
 
 def _sheet_style(system):
     parsed = parse_system(system)
+    tokens = parsed.tokens or {}
+    ground = str(tokens.get("ground") or "").strip()
+    image = f"url('{ground}')" if ground else "none"
     return (
-        f"background: var(--dsa-paper, {parsed.tokens.get('paper')});"
-        f"color: var(--dsa-ink, {parsed.tokens.get('ink')});"
+        f"background: var(--dsa-paper, {tokens.get('paper')});"
+        f"color: var(--dsa-ink, {tokens.get('ink')});"
+        f"--dsa-ground-image:{image};"
+        f"--dsa-ground-fit:{tokens.get('ground-fit') or 'cover'};"
+        f"--dsa-overlay:{tokens.get('overlay') or 'transparent'};"
     )
 
 

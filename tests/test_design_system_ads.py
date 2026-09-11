@@ -12,14 +12,18 @@ from aicentralv2.design_system_ads.centralcomm import (
     centralcomm_preset,
     is_centralcomm_client,
 )
+from aicentralv2.design_system_ads.components import apply_background, density_for
 from aicentralv2.design_system_ads.ingest import ingest_extracted
 from aicentralv2.design_system_ads.materialize import ensure_brand_design_system
 from aicentralv2.design_system_ads.refine import (
+    apply_compose,
     apply_token_patches,
     clamp_passes,
     heal_contrast,
+    improve_system,
     refine_design_system,
 )
+from aicentralv2.design_system_ads.tracks import prompt_for_track
 from aicentralv2.design_system_ads.render import render_specimen, table_html, tailwind_theme
 from aicentralv2.design_system_ads.schema import MIN_CONTRAST, contrast_ratio, dump_system
 from aicentralv2.design_system_ads.service import payload_for, read_preset
@@ -172,6 +176,41 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertEqual(system.source, "tailwind-centralcomm")
         self.assertEqual(system.tokens["ink"], "#1E4D4F")
 
+    def test_melhoria_por_intencao_muda_a_peca(self):
+        system = centralcomm_preset()
+        typed, report = improve_system(system, "type")
+        self.assertEqual(typed.tokens["weight-display"], "800")
+        self.assertEqual(typed.tokens["tracking"], "-0.03em")
+        self.assertTrue(report.patches)
+        compact, _ = improve_system(system, "compact")
+        self.assertEqual(compact.tokens["safe"], "4%")
+        self.assertEqual(compact.tokens["cta-pad"], "0.55em 0.95em")
+        payload = payload_for(typed)
+        self.assertTrue(payload["token_groups"])
+        self.assertEqual(payload["intents"][0]["id"], "contrast")
+        self.assertTrue(payload["backgrounds"])
+        self.assertEqual(payload["archetype"], "brand")
+        washed = apply_background(system.tokens, "wash")
+        self.assertEqual(washed["ground-kind"], "wash")
+        self.assertNotEqual(washed["overlay"], "transparent")
+        imaged = apply_background(system.tokens, "image", image_url="/static/images/cc_logo.png")
+        self.assertEqual(imaged["ground"], "/static/images/cc_logo.png")
+        self.assertEqual(density_for("iab-leaderboard", "thin"), "compact")
+        self.assertEqual(density_for("iab-billboard"), "rich")
+        composed, _ = apply_compose(
+            system,
+            {
+                "dna": {"personality": ["icônica"], "must": ["vermelho"]},
+                "ad_copy": {"headline": "Sabor que aproxima"},
+                "tracks": [{"id": "kv", "prompt": "KV 16:9 with ink space"}],
+            },
+        )
+        self.assertIn("icônica", composed.dna.get("personality") or [])
+        self.assertEqual(composed.ad_copy["headline"], "Sabor que aproxima")
+        kv = next(item for item in composed.tracks if item["id"] == "kv")
+        self.assertIn("16:9", kv["prompt"])
+        self.assertIn("#1E4D4F", prompt_for_track(system, "packshot"))
+
     def test_heal_e_patch(self):
         weak = ensure_brand_design_system(
             {"id": 1, "name": "Clara", "primary_color": "#F3B71B"}
@@ -260,11 +299,28 @@ class DesignSystemAdsContractTest(unittest.TestCase):
             "/lab/design-system/campanha/<campaign_id>",
             [rule.rule for rule in app.url_map.iter_rules()],
         )
+        self.assertIn(
+            "/parametros/api/design-system/brand/<client_id>/tokens",
+            [rule.rule for rule in app.url_map.iter_rules()],
+        )
         with app.test_request_context():
             self.assertEqual(
                 url_for("parametros.modelagem_design-system"),
                 "/parametros/modelagem-criativos/design-system",
             )
+        desk = Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html"
+        html = desk.read_text(encoding="utf-8")
+        self.assertIn('data-mode="sistema"', html)
+        self.assertIn('data-mode="melhorar"', html)
+        self.assertIn('data-mode="peca"', html)
+        self.assertIn("mcDsaIntents", html)
+        self.assertIn("mcDsaGrounds", html)
+        self.assertIn("mcDsaTracks", html)
+        self.assertIn("mcDsaCompose", html)
+        self.assertIn(
+            "/parametros/api/design-system/brand/<client_id>/compose",
+            [rule.rule for rule in app.url_map.iter_rules()],
+        )
 
 
 class DesignSystemAdsAdaptTest(unittest.TestCase):

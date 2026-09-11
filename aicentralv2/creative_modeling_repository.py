@@ -1135,6 +1135,46 @@ class CreativeModelingRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def find_latest_campaign_for_client(self, client_id):
+        try:
+            client_id = int(client_id)
+        except (TypeError, ValueError):
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, client_id, name, creative_brief
+                  FROM cx_campaigns
+                 WHERE client_id = %s
+                 ORDER BY id DESC
+                 LIMIT 1
+                """,
+                (client_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "creative_brief": row["creative_brief"] or {},
+            "client": {"id": row["client_id"]},
+        }
+
+    def first_active_format_template_id(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                  FROM cx_format_templates
+                 WHERE is_active = TRUE
+                 ORDER BY id
+                 LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+        return row["id"] if row else None
+
     def get_campaign(self, campaign_id, productions=True):
         with self.conn.cursor() as cursor:
             cursor.execute(

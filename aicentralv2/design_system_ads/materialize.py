@@ -150,6 +150,13 @@ def ensure_brand_design_system(client=None, *, existing=None):
             "logo_url": logo,
             "tokens": tokens,
             "evidence": evidence,
+            "dna": {
+                "name": name,
+                "personality": ["reconhecível", "de mídia"],
+                "must": ["logo reconhecível", "headline curta", "CTA com 4.5:1"],
+                "avoid": ["resize cego", "copy longa", "card SaaS"],
+            },
+            "archetype": "brand",
             "ad_copy": {
                 "headline": "A peça na tinta certa",
                 "support": f"O anúncio herda o Design System Ads de {name}."

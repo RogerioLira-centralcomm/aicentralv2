@@ -584,6 +584,46 @@ class CreativeFormatLabTest(unittest.TestCase):
         })
         self.assertNotEqual(fresh["id"], first["id"])
 
+    def test_criar_sessao_abre_existente_antes_de_criar_campanha(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        first = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+
+        def should_not_create(*_args, **_kwargs):
+            raise AssertionError("não deveria criar campanha ao retomar")
+
+        repository.create_campaign_with_variation_a = should_not_create
+        again = lab.create_session({
+            "client_id": 10,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(again["id"], first["id"])
+
+    def test_criar_sessao_nao_quebra_se_a_campanha_nao_carrega(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("column does not exist")
+
+        repository.get_campaign = boom
+        session = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+        })
+        self.assertTrue(session["id"])
+        self.assertEqual(session["campaign_id"], 30)
+        self.assertEqual(session["client_id"], 10)
+
     def test_lista_sessoes_nao_derruba_a_mesa_se_o_banco_falha(self):
         repository = FakeRepository()
         modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
@@ -993,9 +1033,15 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=84", desk)
-        self.assertIn("mc_page_js) }}?v=26", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=87", desk)
+        self.assertIn("mc_page_js) }}?v=30", desk)
+        dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
+        self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
+        self.assertIn("Folha", dsa)
+        self.assertIn("Pedir ao modelo", dsa)
+        self.assertIn("Um eixo por vez", dsa)
         css = (root / "aicentralv2" / "static" / "css" / "modelagem_criativos.css").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns: minmax(0, 1fr) 20rem;", css)
         self.assertIn("grid-template-columns: minmax(0, 1fr) 22rem;", css)
         self.assertNotIn("grid-template-columns: 15rem minmax(0, 1fr) 22rem;", css)
         mesa_dir = root / "aicentralv2" / "templates" / "parametros"
@@ -1589,6 +1635,21 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(listed.get_json()["data"]["sessions"], [])
         self.assertIsNone(listed.get_json()["data"]["active"])
+
+    def test_criar_sessao_nao_devolve_500(self):
+        service = Mock()
+        service.create_format_lab_session.side_effect = RuntimeError("column does not exist")
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            created = self.client.post(
+                "/parametros/api/format-lab/sessions",
+                json={"client_id": 10, "format": "video-linear-15"},
+            )
+        self.assertEqual(created.status_code, 409)
+        self.assertFalse(created.get_json()["success"])
+        self.assertIn("sessão", created.get_json()["error"].lower())
 
     def test_ler_referencia_do_trocar(self):
         service = Mock()

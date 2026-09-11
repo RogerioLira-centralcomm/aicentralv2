@@ -147,7 +147,7 @@ MC_DESKS = {
     },
     "design-system": {
         "title": "Design System Ads",
-        "lead": "Tabela de tokens, tema Tailwind e specimen da marca.",
+        "lead": "Sistema da marca, melhoria por intenção e montagem IAB.",
         "panel": "parametros/_mc_design_system.html",
         "studio": False,
         "page_js": "js/mc-design-system.js",
@@ -212,12 +212,20 @@ def api_format_lab_sessions():
                 return _ok({"sessions": [], "active": None, "history": []})
 
         return _execute(_list_sessions)
-    return _execute(
-        lambda: _ok(
-            _service().create_format_lab_session(_json(), session.get("user_id")),
-            201,
-        )
-    )
+
+    def _create_session():
+        try:
+            return _ok(
+                _service().create_format_lab_session(_json(), session.get("user_id")),
+                201,
+            )
+        except (CreativeNotFoundError, CreativeConflictError, ValueError, OpenRouterError):
+            raise
+        except Exception:
+            logger.exception("POST format-lab/sessions falhou")
+            raise CreativeConflictError("Não montou a sessão da Mesa. Tente de novo.")
+
+    return _execute(_create_session)
 
 
 @admin_required_api
@@ -450,6 +458,7 @@ def api_refine_brand_design_system(client_id):
             _service().refine_brand_design_system(
                 client_id,
                 payload.get("attempts") or 4,
+                intent=payload.get("intent"),
             )
         )
     )
@@ -458,6 +467,37 @@ def api_refine_brand_design_system(client_id):
 @admin_required_api
 def api_approve_brand_design_system(client_id):
     return _execute(lambda: _ok(_service().approve_brand_design_system(client_id)))
+
+
+@admin_required_api
+def api_patch_brand_design_system(client_id):
+    payload = _json(optional=True)
+    return _execute(
+        lambda: _ok(
+            _service().patch_brand_design_system(
+                client_id,
+                tokens=payload.get("tokens") if isinstance(payload.get("tokens"), dict) else None,
+                ad_copy=payload.get("ad_copy") if isinstance(payload.get("ad_copy"), dict) else None,
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_compose_brand_design_system(client_id):
+    return _execute(lambda: _ok(_service().compose_brand_design_system(client_id)))
+
+
+@admin_required_api
+def api_generate_brand_track(client_id, track_id):
+    payload = _json(optional=True)
+    return _execute(
+        lambda: _ok(
+            _service().generate_brand_track(
+                client_id, track_id, extra=payload.get("extra") or ""
+            )
+        )
+    )
 
 
 @admin_required_api
@@ -1256,6 +1296,24 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/tokens",
+        endpoint="creative_design_system_brand_tokens",
+        view_func=api_patch_brand_design_system,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/compose",
+        endpoint="creative_design_system_brand_compose",
+        view_func=api_compose_brand_design_system,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/tracks/<track_id>",
+        endpoint="creative_design_system_brand_track",
+        view_func=api_generate_brand_track,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/design-system/brand/<client_id>/adapt",
         endpoint="creative_design_system_brand_adapt",
         view_func=api_adapt_brand_design_system,
@@ -1665,6 +1723,7 @@ def design_system_brand_specimen(client_id):
             client_id,
             request.args.get("format"),
             request.args.get("layers"),
+            highlight=request.args.get("highlight"),
         )
     except CreativeNotFoundError:
         abort(404)
@@ -1680,6 +1739,7 @@ def design_system_campaign_specimen(campaign_id):
             campaign_id,
             request.args.get("format"),
             request.args.get("layers"),
+            highlight=request.args.get("highlight"),
         )
     except CreativeNotFoundError:
         abort(404)

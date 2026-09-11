@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..creative_format_lab.catalog import FORMATS, decorate_format, format_entry
+from .components import component_of, density_for, should_park
 from .layouts import (
     box_from_recipe,
     fan_in_well,
@@ -178,6 +179,7 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
     family = compose_family_of(entry)
     inset = safe_inset(width, height, family)
     recipe = recipe_for(entry.get("key"), family)
+    density = density_for(entry.get("key"), recipe.get("density"))
     parked = set(recipe.get("park") or ())
     well = box_from_recipe(recipe["well"])
     copy = parsed.ad_copy or {}
@@ -187,7 +189,9 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
     layers = []
     ornament_index = 0
     for order, role in enumerate(roles):
-        parked_role = role in parked
+        parked_role = role in parked or (
+            should_park(role, density) and role not in CORE_ROLES
+        )
         text = ""
         if role == "ground":
             box, z = {"x": 0, "y": 0, "w": 100, "h": 100}, 1
@@ -230,6 +234,7 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
             "overlap": role not in {"ground", "logo", "headline", "cta"},
             "text": text,
             "parked": parked_role,
+            "priority": component_of(role).get("priority", 3),
             **_clamp_box(box),
         }
         layer["order"] = order
@@ -246,6 +251,7 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
             "width": width,
             "height": height,
             "density": recipe.get("density") or "wide",
+            "density_tier": density,
         },
         "safe": inset,
         "well": well,

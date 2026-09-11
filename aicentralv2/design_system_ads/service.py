@@ -12,9 +12,16 @@ from .campaign import (
 )
 from .centralcomm import CENTRALCOMM_SLUG, centralcomm_preset
 from .materialize import ensure_brand_design_system
-from .refine import refine_design_system
+from .refine import IMPROVE_INTENTS, improve_system, patch_system, refine_design_system
 from .render import render_specimen, table_html, tailwind_theme
 from .schema import dump_system, parse_system
+
+TOKEN_GROUPS = (
+    ("cores", "Cores", ("paper", "ink", "accent", "muted", "cta_ink", "highlight", "hairline")),
+    ("tipo", "Tipo", ("font-display", "font-body", "weight-display", "weight-cta", "tracking")),
+    ("botao", "CTA", ("cta-radius", "cta-pad", "cta-shadow")),
+    ("fundo", "Fundo", ("ground-kind", "ground", "overlay")),
+)
 
 
 def payload_for(system, *, format_key=None, layer_count=None, swaps=None):
@@ -46,6 +53,29 @@ def payload_for(system, *, format_key=None, layer_count=None, swaps=None):
     }
     data["elements"] = list(parsed.elements or [])
     data["creative_line"] = parsed.creative_line or ""
+    data["token_groups"] = [
+        {
+            "id": key,
+            "label": label,
+            "tokens": [
+                {"id": token_id, "value": (parsed.tokens or {}).get(token_id, "")}
+                for token_id in ids
+            ],
+        }
+        for key, label, ids in TOKEN_GROUPS
+    ]
+    data["intents"] = [
+        {"id": "contrast", "label": "Contraste", "hint": "Tinta e leitura a 4.5:1."},
+        {"id": "type", "label": "Tipo", "hint": "Peso e tracking de peça."},
+        {"id": "cta", "label": "CTA", "hint": "Miolo, canto e elevação do botão."},
+        {"id": "compact", "label": "Compacto", "hint": "Menos ar, título fechado."},
+        {"id": "airy", "label": "Arejado", "hint": "Mais margem e botão largo."},
+    ]
+    data["backgrounds"] = list(parsed.backgrounds or [])
+    data["archetype"] = parsed.archetype
+    data["rules"] = parsed.rules or {}
+    data["dna"] = parsed.dna or {}
+    data["tracks"] = list(parsed.tracks or [])
     if stack:
         data["adapt"] = stack
     return data
@@ -101,6 +131,16 @@ def run_refine(system, *, attempts=4, text_callable=None, reference_urls=None):
         reference_urls=reference_urls,
     )
     return refined, reports
+
+
+def run_improve(system, intent):
+    if str(intent or "").strip().lower() not in IMPROVE_INTENTS:
+        raise ValueError("Escolha o que melhorar: contraste, tipo, CTA, compacto ou arejado.")
+    return improve_system(system, intent)
+
+
+def run_patch(system, tokens=None, ad_copy=None):
+    return patch_system(system, tokens=tokens, ad_copy=ad_copy)
 
 
 def mark_approved(system):

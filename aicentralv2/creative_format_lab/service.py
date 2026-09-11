@@ -337,13 +337,6 @@ class FormatLabService:
         payload = payload if isinstance(payload, dict) else {}
         client_id = _integer(payload.get("client_id"), "Cliente")
         client = self._client(client_id)
-        campaign_id = payload.get("campaign_id")
-        if campaign_id not in (None, ""):
-            campaign_id = _integer(campaign_id, "Campanha")
-            campaign = self.repository.get_campaign(campaign_id)
-        else:
-            campaign = self._ensure_campaign(client_id, client)
-            campaign_id = campaign["id"]
         if not payload.get("fresh"):
             existing = self._open_session(
                 client_id,
@@ -351,11 +344,18 @@ class FormatLabService:
                 payload.get("campaign_slug"),
             )
             if existing:
-                existing["campaign_id"] = existing.get("campaign_id") or campaign_id
+                existing["campaign_id"] = existing.get("campaign_id")
                 if payload.get("format") and not existing.get("format"):
                     existing["format"] = payload.get("format")
                     self._write_session(existing["campaign_id"], existing, active=True)
                 return _serialize(existing)
+        campaign_id = payload.get("campaign_id")
+        if campaign_id not in (None, ""):
+            campaign_id = _integer(campaign_id, "Campanha")
+            self._read_campaign(campaign_id, client_id=client_id, client=client)
+        else:
+            campaign = self._ensure_campaign(client_id, client)
+            campaign_id = campaign["id"]
         session_id = new_session_id()
         session = {
             "id": session_id,
@@ -693,24 +693,85 @@ class FormatLabService:
         client = campaign.get("client")
         return client if isinstance(client, dict) else {}
 
-    def _ensure_campaign(self, client_id, client):
-        name = f"Mesa de Formato — {client.get('name') or client_id}"
-        created = self.repository.create_campaign_with_variation_a({
-            "client_id": client_id,
-            "client_source": "profile",
-            "name": name,
-            "objective": "Mesa de formato",
-            "campaign_text": "",
-            "cta_text": "",
-            "show_price": False,
-            "budget_usd": 5,
-            "first_step": {
-                "format_template_id": 7,
-                "mockup": "tv",
-                "scene_description": "Lab de formato CTV",
+    def _campaign_shell(self, campaign_id, client=None, client_id=None):
+        person = client if isinstance(client, dict) else {}
+        return {
+            "id": campaign_id,
+            "creative_brief": {},
+            "_missing": True,
+            "client": {
+                "id": person.get("id") or client_id,
+                "name": person.get("name"),
             },
-        })
-        return self.repository.get_campaign(created["id"])
+        }
+
+    def _read_campaign(self, campaign_id, client=None, client_id=None):
+        try:
+            try:
+                campaign = self.repository.get_campaign(campaign_id, productions=False)
+            except TypeError:
+                campaign = self.repository.get_campaign(campaign_id)
+            if isinstance(campaign, dict) and campaign.get("id"):
+                return campaign
+        except Exception:
+            logger.exception("Não leu a campanha %s; a Mesa segue com o id", campaign_id)
+        return self._campaign_shell(campaign_id, client=client, client_id=client_id)
+
+    def _latest_client_campaign(self, client_id, client=None):
+        finder = getattr(self.repository, "find_latest_campaign_for_client", None)
+        if not callable(finder):
+            return None
+        try:
+            row = finder(client_id)
+        except Exception:
+            logger.exception("Não achou campanha existente da Mesa")
+            return None
+        if isinstance(row, dict) and row.get("id"):
+            if not isinstance(row.get("client"), dict):
+                row = dict(row)
+                row["client"] = {
+                    "id": client_id,
+                    "name": (client or {}).get("name"),
+                }
+            return row
+        return None
+
+    def _first_format_template_id(self):
+        picker = getattr(self.repository, "first_active_format_template_id", None)
+        if callable(picker):
+            try:
+                found = picker()
+                if found:
+                    return int(found)
+            except Exception:
+                logger.exception("Não achou formato ativo para a Mesa")
+        return 7
+
+    def _ensure_campaign(self, client_id, client):
+        existing = self._latest_client_campaign(client_id, client)
+        if existing:
+            return existing
+        try:
+            created = self.repository.create_campaign_with_variation_a({
+                "client_id": client_id,
+                "client_source": "profile",
+                "name": f"Mesa de Formato — {client.get('name') or client_id}",
+                "objective": "Mesa de formato",
+                "campaign_text": "",
+                "cta_text": "",
+                "show_price": False,
+                "budget_usd": 5,
+                "first_step": {
+                    "format_template_id": self._first_format_template_id(),
+                    "mockup": "tv",
+                    "scene_description": "Lab de formato CTV",
+                },
+            })
+        except CreativeNotFoundError:
+            raise
+        except Exception as exc:
+            raise CreativeConflictError("Não montou a campanha da Mesa.") from exc
+        return self._campaign_shell(created["id"], client=client, client_id=client_id)
 
     def _lab(self, campaign):
         brief = campaign.get("creative_brief")
@@ -725,10 +786,10 @@ class FormatLabService:
 
     def _write_session(self, campaign_id, session, active=False):
         session = _slim_lab_session(dict(session or {}))
-        try:
-            campaign = self.repository.get_campaign(campaign_id, productions=False)
-        except TypeError:
-            campaign = self.repository.get_campaign(campaign_id)
+        campaign = self._read_campaign(
+            campaign_id,
+            client_id=session.get("client_id"),
+        )
         session["campaign_id"] = campaign_id
         client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
         if not session.get("client_id"):
@@ -757,7 +818,7 @@ class FormatLabService:
         index[session["id"]] = campaign_id
         try:
             updater = getattr(self.repository, "update_campaign_bancada", None)
-            if callable(updater):
+            if callable(updater) and not campaign.get("_missing"):
                 updater(campaign_id, brief)
             persist = getattr(self.repository, "upsert_concept_session", None)
             if callable(persist):
@@ -810,10 +871,13 @@ class FormatLabService:
         if callable(getter):
             stored = getter(session_id)
             if stored:
-                campaign = self.repository.get_campaign(stored["campaign_id"])
+                campaign = self._read_campaign(
+                    stored["campaign_id"],
+                    client_id=stored.get("client_id"),
+                )
                 return campaign, stored
         campaign_id = self._guess_campaign_id(session_id)
-        campaign = self.repository.get_campaign(campaign_id)
+        campaign = self._read_campaign(campaign_id)
         _brief, _lab, sessions = self._lab(campaign)
         session = sessions.get(session_id)
         if not session:

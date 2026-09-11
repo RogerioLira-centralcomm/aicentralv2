@@ -34,6 +34,10 @@ TOKEN_ROWS = (
     ("cta-pad", "Miolo do CTA", "--dsa-cta-pad", ""),
     ("cta-shadow", "Sombra do CTA", "--dsa-cta-shadow", ""),
     ("hairline", "Filete", "--dsa-hairline", ""),
+    ("ground", "Imagem de fundo", "--dsa-ground", ""),
+    ("ground-fit", "Encaixe do fundo", "--dsa-ground-fit", ""),
+    ("ground-kind", "Tipo de fundo", "--dsa-ground-kind", ""),
+    ("overlay", "Véu do fundo", "--dsa-overlay", ""),
 )
 
 
@@ -119,6 +123,11 @@ class DesignSystemAds(BaseModel):
     creative_line: str = ""
     elements: List[Dict[str, Any]] = Field(default_factory=list)
     evidence: Dict[str, Any] = Field(default_factory=dict)
+    dna: Dict[str, Any] = Field(default_factory=dict)
+    backgrounds: List[Dict[str, Any]] = Field(default_factory=list)
+    archetype: str = "brand"
+    rules: Dict[str, Any] = Field(default_factory=dict)
+    tracks: List[Dict[str, Any]] = Field(default_factory=list)
     passes: List[DesignSystemPass] = Field(default_factory=list)
     specimen_html: str = ""
 
@@ -162,6 +171,10 @@ class DesignSystemAds(BaseModel):
         tokens.setdefault("cta-pad", "0.7em 1.2em")
         tokens.setdefault("cta-shadow", "none")
         tokens.setdefault("hairline", tokens.get("muted") or "#3D4451")
+        tokens.setdefault("ground", "")
+        tokens.setdefault("ground-fit", "cover")
+        tokens.setdefault("ground-kind", "paper")
+        tokens.setdefault("overlay", "transparent")
         if self.logo_url and not tokens.get("logo"):
             tokens["logo"] = self.logo_url
         self.logo_url = str(tokens.get("logo") or self.logo_url or "")
@@ -169,6 +182,18 @@ class DesignSystemAds(BaseModel):
         self.css_vars = compile_css_vars(tokens)
         self.tailwind = compile_tailwind_theme(tokens)
         self.contrast = measure_contrast(tokens)
+        if not self.backgrounds:
+            from .components import default_backgrounds
+
+            self.backgrounds = default_backgrounds(tokens)
+        if not self.rules:
+            from .components import compile_rules
+
+            self.rules = compile_rules(self.dna, self.archetype)
+        if not self.tracks:
+            from .tracks import default_tracks
+
+            self.tracks = default_tracks()
         if not self.ad_copy:
             self.ad_copy = {
                 "headline": "A peça na tinta certa",

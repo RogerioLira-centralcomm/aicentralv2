@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
+from uuid import UUID
 import base64
 import json
 import os
@@ -286,6 +287,8 @@ def _integer(value, field):
 def _serialize(value):
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
     if isinstance(value, Decimal):
         return float(value)
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -1288,17 +1291,22 @@ class CreativeModelingService:
         persisted = self._persist_brand_design_system(client, system)
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
-    def refine_brand_design_system(self, client_id, attempts=4):
-        from .design_system_ads.refine import clamp_passes
+    def refine_brand_design_system(self, client_id, attempts=4, intent=None):
+        from .design_system_ads.refine import IMPROVE_INTENTS, clamp_passes
         from .design_system_ads.service import (
             is_preset_id,
             payload_for,
             read_preset,
+            run_improve,
             run_refine,
         )
 
+        kind = str(intent or "").strip().lower()
         if is_preset_id(client_id):
             current = read_preset()
+            if kind in IMPROVE_INTENTS:
+                improved, _report = run_improve(current, kind)
+                return _serialize({**payload_for(improved), "exists": True, "preset": True})
             refined, _reports = run_refine(current, attempts=clamp_passes(attempts))
             return _serialize({**payload_for(refined), "exists": True, "preset": True})
         client = self.get_client(client_id)
@@ -1307,6 +1315,10 @@ class CreativeModelingService:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        if kind in IMPROVE_INTENTS:
+            improved, _report = run_improve(system, kind)
+            persisted = self._persist_brand_design_system(client, improved)
+            return _serialize({**payload_for(persisted), "exists": True, "preset": False})
         references = []
         for asset in client.get("brand_assets") or []:
             url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
@@ -1322,6 +1334,100 @@ class CreativeModelingService:
         )
         persisted = self._persist_brand_design_system(client, refined)
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def patch_brand_design_system(self, client_id, tokens=None, ad_copy=None):
+        from .design_system_ads.service import (
+            is_preset_id,
+            payload_for,
+            read_preset,
+            run_patch,
+        )
+
+        if is_preset_id(client_id):
+            patched, _applied = run_patch(read_preset(), tokens=tokens, ad_copy=ad_copy)
+            return _serialize({**payload_for(patched), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
+        patched, _applied = run_patch(system, tokens=tokens, ad_copy=ad_copy)
+        persisted = self._persist_brand_design_system(client, patched)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def compose_brand_design_system(self, client_id):
+        from .design_system_ads.refine import compose_design_system
+        from .design_system_ads.service import is_preset_id, payload_for, read_preset
+
+        callable = self._design_system_text_callable()
+        if callable is None:
+            raise ValueError("OpenRouter não está configurado para montar o sistema.")
+        if is_preset_id(client_id):
+            system = read_preset()
+            composed, _report = compose_design_system(
+                system, text_callable=callable, reference_urls=[system.get("logo_url")]
+            )
+            return _serialize({**payload_for(composed), "exists": True, "preset": True})
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        references = []
+        if client.get("logo_upload_path") or client.get("logo_url"):
+            references.append(client.get("logo_upload_path") or client.get("logo_url"))
+        for asset in client.get("brand_assets") or []:
+            url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
+            if url:
+                references.append(url)
+        composed, _report = compose_design_system(
+            system, text_callable=callable, reference_urls=references[:4]
+        )
+        persisted = self._persist_brand_design_system(client, composed)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def generate_brand_track(self, client_id, track_id, extra=""):
+        from .design_system_ads.components import apply_background
+        from .design_system_ads.schema import dump_system, parse_system
+        from .design_system_ads.service import is_preset_id, payload_for, read_preset
+        from .design_system_ads.tracks import merge_tracks, prompt_for_track, track_spec
+        from .services.openrouter_service import generate_image, resolve_api_key
+
+        if not resolve_api_key():
+            raise ValueError("OpenRouter não está configurado para gerar a trilha.")
+        spec = track_spec(track_id)
+        if is_preset_id(client_id):
+            system = parse_system(read_preset())
+            persist = False
+            client = None
+        else:
+            client = self.get_client(client_id)
+            system = self._stored_brand_design_system(client)
+            if system is None:
+                raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
+            persist = True
+        prompt = prompt_for_track(system, spec["id"], extra)
+        result = generate_image(
+            prompt,
+            aspect_ratio=spec["aspect"],
+            model="openai/gpt-image-2",
+        )
+        encoded = (result or {}).get("b64_json")
+        if not encoded:
+            raise ValueError("O GPT Image 2 não devolveu a trilha.")
+        url = self.storage.save_generated_base64(encoded)
+        data = dump_system(system)
+        data["tracks"] = merge_tracks(data.get("tracks"), [{"id": spec["id"], "url": url, "prompt": prompt}])
+        tokens = dict(data.get("tokens") or {})
+        if spec["id"] == "wash":
+            tokens = apply_background(tokens, "wash")
+        elif spec["role"] == "ground":
+            tokens = apply_background(tokens, "image", image_url=url)
+        data["tokens"] = tokens
+        parsed = parse_system(data)
+        if persist:
+            parsed = self._persist_brand_design_system(client, parsed)
+        return _serialize({**payload_for(parsed), "exists": True, "preset": not persist})
 
     def approve_brand_design_system(self, client_id):
         from .design_system_ads.service import (
@@ -1379,7 +1485,7 @@ class CreativeModelingService:
         )
 
     def render_brand_design_system(
-        self, client_id, format_key=None, layer_count=None, swaps=None
+        self, client_id, format_key=None, layer_count=None, swaps=None, highlight=None
     ):
         from .design_system_ads.adapt import adapt_system
         from .design_system_ads.render import render_specimen
@@ -1392,7 +1498,7 @@ class CreativeModelingService:
         stack = None
         if format_key:
             system, stack = adapt_system(system, format_key, layer_count, swaps=swaps)
-        return render_specimen(system, standalone=True, stack=stack)
+        return render_specimen(system, standalone=True, stack=stack, highlight=highlight)
 
     def get_campaign_design_system(self, campaign_id):
         from .design_system_ads.campaign import (
@@ -1488,7 +1594,7 @@ class CreativeModelingService:
         )
 
     def render_campaign_design_system(
-        self, campaign_id, format_key=None, layer_count=None, swaps=None
+        self, campaign_id, format_key=None, layer_count=None, swaps=None, highlight=None
     ):
         from .design_system_ads.adapt import adapt_system
         from .design_system_ads.campaign import is_campaign_preset_id
@@ -1502,7 +1608,7 @@ class CreativeModelingService:
         stack = None
         if format_key:
             system, stack = adapt_system(system, format_key, layer_count, swaps=swaps)
-        return render_specimen(system, standalone=True, stack=stack)
+        return render_specimen(system, standalone=True, stack=stack, highlight=highlight)
 
     def _brand_system_for_campaign(self, campaign, create=False):
         from .design_system_ads.materialize import ensure_brand_design_system

@@ -6,6 +6,7 @@ from .campaign import (
     ensure_campaign_design_system,
     is_campaign_preset_id,
 )
+from .components import apply_background, density_for, should_park
 from .cutouts import paint_white_background, white_to_transparent
 from .centralcomm import CENTRALCOMM_SLUG, centralcomm_preset, is_centralcomm_client
 from .ingest import ingest_extracted, merge_extracted_tokens
@@ -19,6 +20,7 @@ __all__ = (
     "CENTRALCOMM_SLUG",
     "DesignSystemAds",
     "adapt_system",
+    "apply_background",
     "apply_token_patches",
     "centralcomm_preset",
     "clamp_layer_count",

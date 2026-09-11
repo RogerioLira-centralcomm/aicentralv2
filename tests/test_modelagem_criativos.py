@@ -227,6 +227,17 @@ class FakeRepository:
         self.created_campaign["id"] = 30
         return {"id": 30, "variation_id": 20, "step_id": 8}
 
+    def find_latest_campaign_for_client(self, client_id):
+        return {
+            "id": 30,
+            "name": "Lançamento",
+            "creative_brief": dict(self.campaign_briefs.get(30) or {}),
+            "client": {"id": client_id, "name": "Marca Exemplo"},
+        }
+
+    def first_active_format_template_id(self):
+        return 7
+
     def get_campaign(self, campaign_id, productions=True):
         name = "Lançamento"
         if isinstance(self.created_campaign, dict) and self.created_campaign.get("name"):
@@ -4154,7 +4165,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=26", desk)
+        self.assertIn("mc_page_js) }}?v=30", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

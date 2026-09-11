@@ -4,9 +4,9 @@
   <form id="cx-drawer-atividade-form" data-drawer-form="atividade"
         class="cx-drawer-form cx-atividade-editor">
     <input type="hidden" name="id" data-field="id" />
-    <input type="hidden" name="tipo" data-field="tipo" value="atividade" />
+    <input type="hidden" name="tipo" data-field="tipo" value="email" />
     <input type="hidden" name="status" data-field="status" value="pendente" />
-    <input type="hidden" name="formato" data-field="formato" value="roteiro" />
+    <input type="hidden" name="formato" data-field="formato" value="email" />
     <input type="hidden" name="foco" data-field="foco" value="" />
     <input type="hidden" name="tom" data-field="tom" value="consultivo" />
     <input type="hidden" name="canal_produto" data-field="canal_produto" value="" />
@@ -57,10 +57,9 @@
             <label>Tipo de atividade <span class="cx-required">*</span></label>
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
                  data-chip-group="tipo" role="radiogroup" aria-label="Tipo de atividade">
-              <button type="button" class="cx-drawer-chip is-active" data-value="atividade" role="radio" aria-checked="true" title="Atividade"><i class="fa-regular fa-circle-check"></i>Ativ.</button>
               <button type="button" class="cx-drawer-chip" data-value="ligacao" role="radio" aria-checked="false" title="Ligação"><i class="fa-solid fa-phone"></i>Liga.</button>
               <button type="button" class="cx-drawer-chip" data-value="reuniao" role="radio" aria-checked="false" title="Reunião"><i class="fa-solid fa-users"></i>Reun.</button>
-              <button type="button" class="cx-drawer-chip" data-value="email" role="radio" aria-checked="false" title="E-mail"><i class="fa-regular fa-envelope"></i>Email</button>
+              <button type="button" class="cx-drawer-chip is-active" data-value="email" role="radio" aria-checked="true" title="E-mail"><i class="fa-regular fa-envelope"></i>Email</button>
               <button type="button" class="cx-drawer-chip" data-value="whatsapp" role="radio" aria-checked="false" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i>Zap</button>
               <button type="button" class="cx-drawer-chip" data-value="linkedin" role="radio" aria-checked="false" title="LinkedIn"><i class="fa-brands fa-linkedin"></i>In</button>
               <button type="button" class="cx-drawer-chip" data-value="doc" role="radio" aria-checked="false" title="Documento"><i class="fa-regular fa-file-lines"></i>Doc</button>
@@ -228,10 +227,14 @@
             </div>
           </details>
 
-          <section class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
-            <h3 id="cx-atividade-ia-canais-title">Canais de referência</h3>
+          <details class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
+            <summary id="cx-atividade-ia-canais-title">
+              Canais de referência
+              <em>para gerar o item</em>
+            </summary>
+            <p class="cx-atividade-ia-topics-hint">O canal só entra ao gerar, junto com o tipo (e-mail, zap, ligação…).</p>
             <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                 data-chip-group="canal_produto" role="radiogroup" aria-label="Canal ou produto">
+                 data-chip-group="canal_produto" data-chip-optional role="radiogroup" aria-label="Canal ou produto">
               <button type="button" class="cx-drawer-chip" data-value="Netflix" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">N</span>Netflix</button>
               <button type="button" class="cx-drawer-chip" data-value="Spotify" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">S</span>Spotify</button>
               <button type="button" class="cx-drawer-chip" data-value="Serasa" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">S</span>Serasa</button>
@@ -243,7 +246,7 @@
               <button type="button" class="cx-drawer-chip" data-value="99" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">99</span>99</button>
               <button type="button" class="cx-drawer-chip" data-value="Logan" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">L</span>Logan</button>
             </div>
-          </section>
+          </details>
 
           <div class="cx-atividade-ia-meta">
             <label class="cx-atividade-ia-note" for="cx-ativ-ia-instrucoes">

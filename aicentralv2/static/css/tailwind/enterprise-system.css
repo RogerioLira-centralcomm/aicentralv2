@@ -2266,7 +2266,8 @@ body.cx-drawer-open {
 .cx-atividade-ia-products {
   margin: 0 0 12px;
 }
-.cx-atividade-ia-topics summary {
+.cx-atividade-ia-topics summary,
+.cx-atividade-ia-products summary {
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -2276,8 +2277,10 @@ body.cx-drawer-open {
   font-weight: 700;
   list-style: none;
 }
-.cx-atividade-ia-topics summary::-webkit-details-marker { display: none; }
-.cx-atividade-ia-topics summary em {
+.cx-atividade-ia-topics summary::-webkit-details-marker,
+.cx-atividade-ia-products summary::-webkit-details-marker { display: none; }
+.cx-atividade-ia-topics summary em,
+.cx-atividade-ia-products summary em {
   font-size: 11px;
   font-style: normal;
   font-weight: 600;

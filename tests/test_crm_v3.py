@@ -129,7 +129,7 @@ class CrmTestHelpersTest(unittest.TestCase):
 
         self.assertEqual(routes._tipo_atividade({"tipo": "planejamento"}), "planejamento")
         self.assertEqual(routes._tipo_atividade({"tipo": "DOC"}), "doc")
-        self.assertEqual(routes._tipo_atividade({}), "atividade")
+        self.assertEqual(routes._tipo_atividade({}), "email")
         original = routes._openrouter_available
         routes._openrouter_available = lambda: False
         try:
@@ -143,6 +143,77 @@ class CrmTestHelpersTest(unittest.TestCase):
         self.assertNotIn("Abertura:", out["texto"])
         self.assertNotEqual(out["texto"].strip(), "Enviar recorte da campanha")
         self.assertEqual(out["source"], "fallback")
+
+    def test_planejamento_fallback_e_defesa_rapida_nao_roteiro(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            out = routes._montar_roteiro({
+                "titulo": "Planejar Q4 com formatos interativos",
+                "tipo": "planejamento",
+                "canal_produto": "Netflix",
+                "notas_executivo": "Formatos interativos para o mercado imobiliário.",
+            })
+        finally:
+            routes._openrouter_available = original
+        self.assertIn("Tese:", out["texto"])
+        self.assertIn("Movimentos:", out["texto"])
+        self.assertIn("Próximo passo:", out["texto"])
+        self.assertNotIn("Abertura:", out["texto"])
+        self.assertIn("Netflix", out["texto"])
+        self.assertIn("formatos interativos", (out.get("abertura") or out["texto"]).lower())
+        prompt, _ = routes._system_prompt_por_tipo("planejamento", {"canal": "Netflix"})
+        self.assertIn("DEFESA RÁPIDA", prompt)
+        self.assertIn("não uma mensagem ao cliente", prompt.lower())
+        self.assertIn("Netflix", prompt)
+
+    def test_canal_produto_escolhido_entra_no_prompt(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        regras = routes._regras_texto_externo()
+        self.assertIn("Se o assistente escolheu um canal ou produto, use esse case", regras)
+        self.assertNotIn("só entra se estiver no registro, no título ou no foco", regras)
+        ancora = routes._bloco_ancora({"canal": "Netflix", "titulo": "Apresentar formatos"})
+        self.assertIn("Canal ou produto escolhido (usar neste item): Netflix", ancora)
+
+        captured = {}
+        original_available = routes._openrouter_available
+        original_call = routes._call_openrouter
+        routes._openrouter_available = lambda: True
+
+        def fake_call(system, user, **kwargs):
+            captured["system"] = system
+            captured["user"] = user
+            return json.dumps({
+                "abertura": "Vamos falar de formatos interativos com Netflix.",
+                "objetivo": "Apresentar formatos interativos",
+                "perguntas": [
+                    "Como a Netflix entra nesta campanha?",
+                    "Qual métrica de atenção importa agora?",
+                    "Quem aprova o teste?",
+                    "Qual prazo de veiculação?",
+                ],
+                "fechamento": "Combinar retorno com data.",
+                "motivo": "Canal escolhido",
+            })
+
+        routes._call_openrouter = fake_call
+        try:
+            out = routes._montar_roteiro({
+                "titulo": "Apresentar formatos interativos",
+                "tipo": "reuniao",
+                "canal_produto": "Netflix",
+                "notas_executivo": "Formatos interativos para o mercado imobiliário.",
+            })
+        finally:
+            routes._openrouter_available = original_available
+            routes._call_openrouter = original_call
+        self.assertIn("Canal de referência obrigatório neste item: Netflix", captured["user"])
+        self.assertIn("Netflix", captured["user"])
+        self.assertIn("Formatos interativos", captured["user"])
+        self.assertIn("Abertura:", out["texto"])
 
     def test_comunicacao_linkedin_tem_prompt_proprio(self):
         import aicentralv2.crm_v3_routes as routes
@@ -860,6 +931,33 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertTrue(data["mensagem"])
         self.assertIn("motivo", data)
 
+    def test_comunicacao_fallback_usa_canal_e_registro(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        original_available = routes._openrouter_available
+        routes._openrouter_available = lambda: False
+        try:
+            res = self.client.post(
+                "/crm-v3/api/ia/gerar-comunicacao",
+                json={
+                    "cliente_id": "auto-shopping",
+                    "tipo": "email",
+                    "titulo": "Apresentar formatos interativos",
+                    "objetivo": (
+                        "Apresentar formatos interativos\n\n"
+                        "Formatos específicos para cliente imobiliário."
+                    ),
+                    "canal_produto": "Netflix",
+                    "notas_executivo": "Formatos específicos para cliente imobiliário.",
+                },
+            )
+        finally:
+            routes._openrouter_available = original_available
+        self.assertEqual(res.status_code, 200)
+        mensagem = res.get_json()["data"]["mensagem"]
+        self.assertIn("Netflix", mensagem)
+        self.assertIn("formatos interativos", mensagem.lower())
+
     def test_roteiro_de_ligacao_retorna_abordagem_estruturada(self):
         import aicentralv2.crm_v3_routes as routes
 
@@ -923,7 +1021,10 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertNotIn("Abertura:", data["texto"])
         self.assertNotEqual(data["texto"].strip(), "Enviar recorte da campanha")
         self.assertEqual(planejamento.status_code, 200)
-        self.assertEqual(planejamento.get_json()["data"]["tipo"], "planejamento")
+        plano = planejamento.get_json()["data"]
+        self.assertEqual(plano["tipo"], "planejamento")
+        self.assertIn("Tese:", plano["texto"])
+        self.assertNotIn("Abertura:", plano["texto"])
 
     def test_roteiro_sem_contato_sauda_a_equipe(self):
         import aicentralv2.crm_v3_routes as routes

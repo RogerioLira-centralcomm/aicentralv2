@@ -1620,7 +1620,12 @@
         var tituloField = form.querySelector('[data-field="titulo"]');
         var canalInferido = inferCanalProduto(tituloField && tituloField.value, canalField && canalField.value);
         if (canalField && canalInferido) canalField.value = canalInferido;
-        var tipoVal = (form.querySelector('[data-field="tipo"]') || {}).value || '';
+        var tipoField = form.querySelector('[data-field="tipo"]');
+        var tipoVal = String((tipoField && tipoField.value) || '').toLowerCase();
+        if (!tipoVal || tipoVal === 'atividade') {
+            if (tipoField) tipoField.value = 'email';
+            tipoVal = 'email';
+        }
         var fmtEl = form.querySelector('[data-field="formato"]');
         if (fmtEl && (!fmtEl.value || fmtEl.value === 'roteiro')) {
             if (tipoVal === 'email' || tipoVal === 'whatsapp' || tipoVal === 'linkedin') fmtEl.value = tipoVal;
@@ -1862,7 +1867,7 @@
             ligacao: 'Guia para ligação',
             reuniao: 'Pauta da reunião',
             doc: 'Estrutura do documento',
-            planejamento: 'Plano da atividade',
+            planejamento: 'Defesa do planejamento',
             atividade: 'Registro atualizado'
         };
         var icons = {
@@ -1898,20 +1903,21 @@
             result.appendChild(subjectBlock);
         }
         if (channel === 'ligacao' || channel === 'reuniao' || channel === 'doc' || channel === 'planejamento') {
+            var isPlano = channel === 'planejamento';
             if (data.objetivo) {
                 var goal = document.createElement('section');
-                goal.innerHTML = '<h3>Objetivo da conversa</h3><p>' +
+                goal.innerHTML = '<h3>' + (isPlano ? 'Resultado esperado' : 'Objetivo da conversa') + '</h3><p>' +
                     escapeHtml(data.objetivo) + '</p>';
                 result.appendChild(goal);
             }
             if (data.abertura) {
                 var opening = document.createElement('section');
-                opening.innerHTML = '<h3>Abertura</h3><p>' + escapeHtml(data.abertura) + '</p>';
+                opening.innerHTML = '<h3>' + (isPlano ? 'Tese' : 'Abertura') + '</h3><p>' + escapeHtml(data.abertura) + '</p>';
                 result.appendChild(opening);
             }
             if (Array.isArray(data.perguntas) && data.perguntas.length) {
                 var questions = document.createElement('section');
-                questions.innerHTML = '<h3>Perguntas para aproximar</h3><ol>' +
+                questions.innerHTML = '<h3>' + (isPlano ? 'Movimentos' : 'Perguntas para aproximar') + '</h3><ol>' +
                     data.perguntas.map(function (item) {
                         return '<li>' + escapeHtml(item) + '</li>';
                     }).join('') + '</ol>';
@@ -1919,7 +1925,7 @@
             }
             if (data.fechamento) {
                 var closing = document.createElement('section');
-                closing.innerHTML = '<h3>Fechamento</h3><p>' + escapeHtml(data.fechamento) + '</p>';
+                closing.innerHTML = '<h3>' + (isPlano ? 'Próximo passo' : 'Fechamento') + '</h3><p>' + escapeHtml(data.fechamento) + '</p>';
                 result.appendChild(closing);
             }
             var objections = Array.isArray(data.objecoes_a_explorar)
@@ -1929,12 +1935,12 @@
             if (objections.length || attentionPoints.length) {
                 var guidance = document.createElement('details');
                 guidance.className = 'cx-atividade-result-guidance';
-                guidance.innerHTML = '<summary>Objeções e orientações adicionais</summary>' +
-                    (objections.length ? '<h4>Objeções a explorar</h4><ul>' +
+                guidance.innerHTML = '<summary>' + (isPlano ? 'Riscos e o que falta no CRM' : 'Objeções e orientações adicionais') + '</summary>' +
+                    (objections.length ? '<h4>' + (isPlano ? 'Riscos' : 'Objeções a explorar') + '</h4><ul>' +
                         objections.map(function (item) {
                             return '<li>' + escapeHtml(item) + '</li>';
                         }).join('') + '</ul>' : '') +
-                    (attentionPoints.length ? '<h4>Pontos de atenção</h4><ul>' +
+                    (attentionPoints.length ? '<h4>' + (isPlano ? 'O que falta no CRM' : 'Pontos de atenção') + '</h4><ul>' +
                         attentionPoints.map(function (item) {
                             return '<li>' + escapeHtml(item) + '</li>';
                         }).join('') + '</ul>' : '');
@@ -2137,7 +2143,7 @@
         payload.instrucoes = instrucoes ? (instrucoes.value || '').trim() : '';
         if (!payload.objetivo) payload.objetivo = payload.titulo || payload.descricao || '';
         var endpoint = action;
-        var activityType = String(payload.tipo || 'atividade').toLowerCase();
+        var activityType = String(payload.tipo || 'email').toLowerCase();
         if (action === 'gerar-roteiro') {
             if (activityType !== 'atividade') {
                 payload.notas_executivo = payload.descricao || '';
@@ -3629,7 +3635,7 @@
                         openDrawerAtividade({
                             titulo: data.titulo,
                             descricao: data.descricao,
-                            tipo: data.tipo || 'atividade',
+                            tipo: data.tipo && data.tipo !== 'atividade' ? data.tipo : 'email',
                             data: data.data_sugerida,
                             status: 'pendente',
                             foco: data.canal_produto ? 'falar_sobre_canal' : 'apresentar_solucao',

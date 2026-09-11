@@ -1291,7 +1291,8 @@ def _regras_texto_externo() -> str:
         "salvo se o foco for explicitamente esse.\n"
         "Ancore cerca de 75% do texto no título, no registro e nos nomes reais "
         "(contato, executivo, cliente, agência e clientes da agência).\n"
-        "Canal ou produto só entra se estiver no registro, no título ou no foco. "
+        "Se o assistente escolheu um canal ou produto, use esse case no item gerado "
+        "sem abandonar o título e o registro. Se nenhum canal foi escolhido, não invente um.\n"
         "A CentralComm como casa só entra quando o foco for apresentar a empresa.\n"
         "O responsável interno (usuário logado) nunca é o destinatário da saudação."
     )
@@ -1328,7 +1329,9 @@ def _bloco_ancora(ancora: dict) -> str:
     if ancora.get("clientes_agencia"):
         linhas.append("Clientes da agência: " + ", ".join(ancora["clientes_agencia"]))
     if ancora.get("canal"):
-        linhas.append(f"Canal ou produto: {ancora['canal']}")
+        linhas.append(
+            f"Canal ou produto escolhido (usar neste item): {ancora['canal']}"
+        )
     if ancora.get("registro"):
         linhas.append(f"Registro do executivo:\n{ancora['registro']}")
     return "\n".join(linhas) + "\n"
@@ -1486,7 +1489,65 @@ def _abordagem_ligacao_fallback(titulo, cliente, contato=None, data=None) -> dic
 
 
 def _tipo_atividade(data: dict) -> str:
-    return str(data.get("tipo") or "atividade").strip().lower()
+    return str(data.get("tipo") or "email").strip().lower()
+
+
+def _texto_estruturado(tipo: str, abertura: str, perguntas, fechamento: str) -> str:
+    itens = "\n- ".join(perguntas or [])
+    if tipo == "planejamento":
+        return (
+            f"Tese:\n{abertura}\n\nMovimentos:\n- "
+            + itens
+            + f"\n\nPróximo passo:\n{fechamento}"
+        )
+    return (
+        f"Abertura:\n{abertura}\n\nPerguntas:\n- "
+        + itens
+        + f"\n\nFechamento:\n{fechamento}"
+    )
+
+
+def _planejamento_defesa_fallback(titulo, cliente, contato=None, data=None) -> dict:
+    nome = (cliente or {}).get("nome") or "o cliente"
+    quem = ((contato or {}).get("nome") or "").strip()
+    alvo = f"{quem} ({nome})" if quem else nome
+    canal = texto_sem_markdown((data or {}).get("canal_produto") or "").strip()
+    registro = texto_sem_markdown(
+        (data or {}).get("notas_executivo") or (data or {}).get("descricao") or ""
+    ).strip()
+    assunto = (titulo or "este planejamento").strip()
+    tese = (
+        f"Agora vale defender “{assunto}” com {alvo}"
+        + (f", usando {canal} como referência de produto." if canal else ".")
+        + (" O registro do executivo ancora o que já está combinado." if registro else "")
+    )
+    marcos = [
+        "Confirmar o objetivo e o critério de sucesso com o cliente.",
+        "Mapear o que já existe no CRM (atividades, objetivos, cotações) e o que falta.",
+        "Propor a sequência comercial e o dono de cada movimento.",
+        "Antecipar riscos de prazo, verba ou aprovação.",
+        "Combinar o próximo passo com data.",
+    ]
+    if canal:
+        marcos[0] = (
+            f"Usar {canal} como referência para ilustrar a proposta em “{assunto}”."
+        )
+    riscos = [
+        "Prioridade concorrente ou ausência de urgência no cliente.",
+        "Dependência de dados que ainda não estão no CRM.",
+    ]
+    fechamento = "Registrar a tese, os donos e a data do próximo movimento."
+    return {
+        "objetivo": assunto,
+        "abertura": tese,
+        "perguntas": marcos,
+        "objecoes_a_explorar": riscos,
+        "pontos_de_atencao": [
+            "Isto é defesa interna para o executivo, não mensagem ao cliente.",
+        ],
+        "fechamento": fechamento,
+        "texto": _texto_estruturado("planejamento", tese, marcos, fechamento),
+    }
 
 
 def _registro_atividade_fallback(titulo, cliente, contato=None) -> dict:
@@ -1561,18 +1622,29 @@ def _system_prompt_por_tipo(tipo: str, ancora) -> tuple:
             '"contexto_utilizado":["dado verificável"]}.'
         ), ("abertura", "perguntas", "fechamento", "motivo")
     if tipo == "planejamento":
+        canal = (ancora or {}).get("canal") or ""
+        canal_linha = (
+            f"Use {canal} como referência de produto neste plano.\n"
+            if canal else "Não invente canal se nenhum foi escolhido.\n"
+        )
         return (
             "Você é o copiloto comercial da CentralComm.\n"
-            "Monte um PLANO curto: objetivo, marcos e próximo passo, com dono quando souber.\n"
-            + comum
-            + "Retorne APENAS JSON válido no formato "
-            '{"abertura":"objetivo do plano",'
+            "Escreva uma DEFESA RÁPIDA de planejamento para o executivo, "
+            "não uma mensagem ao cliente nem roteiro de ligação.\n"
+            "Ancore no título, no registro e no apoio comercial (objetivos, "
+            "cotações, atividades, notas). Tese em 2 a 4 frases: por que este "
+            "plano agora. 3 a 5 movimentos com dono quando souber. "
+            "Riscos e o que falta no CRM. Um próximo passo concreto.\n"
+            + canal_linha
+            + "Não invente dados. Sem markdown. "
+            "Retorne APENAS JSON válido no formato "
+            '{"abertura":"tese do plano",'
             '"objetivo":"resultado esperado",'
-            '"perguntas":["marco ou etapa"],'
+            '"perguntas":["movimento ou marco"],'
             '"objecoes_a_explorar":["risco"],'
-            '"pontos_de_atencao":["dependência"],'
+            '"pontos_de_atencao":["o que falta no CRM"],'
             '"fechamento":"próximo passo",'
-            '"motivo":"por que este plano",'
+            '"motivo":"por que esta defesa",'
             '"contexto_utilizado":["dado verificável"]}.'
         ), ("abertura", "perguntas", "fechamento", "motivo")
     return (
@@ -1640,6 +1712,8 @@ def _montar_roteiro(data: dict) -> dict:
             )
             if registro_atual and tipo == "atividade":
                 user += f"Registro atual (aprofundar, não recomeçar):\n{registro_atual[:3000]}\n"
+            if canal_produto:
+                user += f"Canal de referência obrigatório neste item: {canal_produto}\n"
             if instrucoes:
                 user += f"Ajuste do executivo:\n{instrucoes}\n"
             parsed = _parse_ia_json(
@@ -1670,9 +1744,14 @@ def _montar_roteiro(data: dict) -> dict:
                 if _texto_ia_limpo(item)
             ]
             if not perguntas:
-                perguntas = _abordagem_ligacao_fallback(
-                    titulo, cliente, contato, data
-                )["perguntas"]
+                if tipo == "planejamento":
+                    perguntas = _planejamento_defesa_fallback(
+                        titulo, cliente, contato, data
+                    )["perguntas"]
+                else:
+                    perguntas = _abordagem_ligacao_fallback(
+                        titulo, cliente, contato, data
+                    )["perguntas"]
             pontos = [
                 _texto_ia_limpo(item)
                 for item in (parsed.get("pontos_de_atencao") or [])[:4]
@@ -1686,11 +1765,7 @@ def _montar_roteiro(data: dict) -> dict:
             abertura = _texto_ia_limpo(parsed.get("abertura"))
             fechamento = _texto_ia_limpo(parsed.get("fechamento"))
             objetivo_saida = _texto_ia_limpo(parsed.get("objetivo")) or titulo
-            texto = (
-                f"Abertura:\n{abertura}\n\nPerguntas:\n- "
-                + "\n- ".join(perguntas)
-                + f"\n\nFechamento:\n{fechamento}"
-            )
+            texto = _texto_estruturado(tipo, abertura, perguntas, fechamento)
             return {
                 "texto": texto,
                 "objetivo": objetivo_saida,
@@ -1710,6 +1785,9 @@ def _montar_roteiro(data: dict) -> dict:
     if tipo == "atividade":
         fallback = _registro_atividade_fallback(titulo, cliente, contato)
         motivo = "Registro seguro para executar a atividade sem repetir o título."
+    elif tipo == "planejamento":
+        fallback = _planejamento_defesa_fallback(titulo, cliente, contato, data)
+        motivo = "Defesa rápida de planejamento com base no título, registro e contexto."
     else:
         fallback = _abordagem_ligacao_fallback(titulo, cliente, contato, data)
         motivo = "Roteiro seguro baseado no tipo, foco e classificação disponíveis."
@@ -2159,6 +2237,9 @@ def api_ia_gerar_comunicacao():
                 f"Destinatário: {destinatario}\nAssinatura: {responsavel}\n"
                 f"Apoio comercial:\n{contexto}"
             )
+            canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
+            if canal_produto:
+                user_prompt += f"\nCanal de referência obrigatório neste item: {canal_produto}"
             parsed = _parse_ia_json(
                 _call_openrouter(system_prompt, user_prompt, max_tokens=1000, temperature=0.4),
                 required=("mensagem",),
@@ -2186,6 +2267,11 @@ def api_ia_gerar_comunicacao():
     destinatario, tem_contato = _nome_destinatario(data, cliente, contato_principal)
     assunto = "" if tipo == "linkedin" else f"Follow-up comercial — {nome_cliente}"
     contexto_atividade = objetivo or "retomar o relacionamento comercial"
+    canal_produto = texto_sem_markdown(data.get("canal_produto") or "").strip()
+    if canal_produto:
+        contexto_atividade = (
+            f"{contexto_atividade}, usando {canal_produto} como referência"
+        )
     saudacao = destinatario if tem_contato else destinatario
     if tipo == "whatsapp":
         mensagem = (

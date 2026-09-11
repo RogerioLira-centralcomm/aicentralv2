@@ -26,7 +26,7 @@ A tira de versões fica sob o canvas. Nenhuma geração substitui a anterior.
 
 ## Lógica de versões
 
-O histórico vive só na memória do cliente nesta entrega.
+O histórico grava no servidor por marca (`brand_profile.trocr`) e também em arquivo. Sem marca, a chave é o usuário. As imagens vão para `/static/uploads/creative_generated/`.
 
 - Toda geração faz `push`. IDs são `v1`, `v2`, `v3`…
 - Selecionar uma versão só muda o canvas.
@@ -87,9 +87,14 @@ Rota de validação visual: `/lab/trocr/states`. Fora de `MC_DESKS`. Sem OpenRou
 - Formato muda composição e recorte. Apresentação (peça / mockup) é chrome no canvas.
 - Rascunho e produção são CTAs distintos.
 
+## Persistência
+
+- `GET/POST /parametros/api/format-lab/swap/history`
+- A mesa carrega o histórico ao abrir e ao trocar a marca
+- Cada geração e o original são gravados após `pushVersion`
+
 ## Próximos passos
 
-- Persistir sessão e versões no servidor
 - Slider before/after
 - Upload multipart em vez de data URL
 - Modelo mais barato de rascunho

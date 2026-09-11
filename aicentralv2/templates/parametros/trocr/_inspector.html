@@ -1,3 +1,4 @@
+{% from "parametros/trocr/_icons.html" import ico %}
 <aside class="mc-trocr-inspector mc-swap-side" id="mcTrocrInspector">
   <header class="mc-trocr-inspector-head">
     <h2>Edição</h2>
@@ -21,13 +22,19 @@
   </section>
 
   <section class="mc-trocr-section">
-    <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
-      <legend>Formato de saída</legend>
-      <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
-      <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
-      <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
-      <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
-    </fieldset>
+    <div class="mc-trocr-format-head">
+      <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
+        <legend>Formato de saída</legend>
+        <span class="mc-trocr-orient">Horizontal</span>
+        <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
+        <span class="mc-trocr-orient">Vertical</span>
+        <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
+        <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
+        <span class="mc-trocr-orient">Quadrado</span>
+        <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
+      </fieldset>
+      <button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">{{ ico('rotate') }} Rotacionar layout</button>
+    </div>
     <fieldset class="mc-trocr-chips">
       <legend>Tipo de apresentação</legend>
       <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>

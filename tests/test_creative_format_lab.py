@@ -1052,8 +1052,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=90", desk)
-        self.assertIn("mc_page_js) }}?v=34", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=91", desk)
+        self.assertIn("mc_page_js) }}?v=36", desk)
         dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
         self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
         self.assertIn("Montar", dsa)
@@ -1171,6 +1171,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
             trocar += path.read_text(encoding="utf-8")
         self.assertIn("mcSwapOut", trocar)
         self.assertIn("9:16", trocar)
+        self.assertIn("Rotacionar layout", trocar)
         self.assertIn("mcSwapElements", trocar)
         self.assertIn("Editar criativo com IA", trocar)
         self.assertIn("Prompt otimizado", trocar)
@@ -1183,15 +1184,21 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("OCR dinâmico", docs)
         self.assertIn("/lab/trocr/states", docs)
         self.assertIn("Faixa de etapas no topo", docs)
+        self.assertIn("/parametros/api/format-lab/swap/history", docs)
         self.assertNotIn("Sidebar de fluxo", docs)
         swap_js = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
         self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
         self.assertIn("/parametros/api/format-lab/swap/prompt", swap_js)
+        self.assertIn("/parametros/api/format-lab/swap/history", swap_js)
+        self.assertIn("persistHistory", swap_js)
+        self.assertIn("loadHistory", swap_js)
         self.assertIn("aspect_ratio", swap_js)
         self.assertIn("logo_used", swap_js)
         self.assertIn("pushVersion", swap_js)
         self.assertIn("useAsBase", swap_js)
         self.assertIn("Usar como base", swap_js)
+        self.assertIn("rotateLayout", swap_js)
+        self.assertIn("renderEditPanels", swap_js)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
         self.assertIn("mcPlacasStudio", placas)
         self.assertIn("mcPlacasList", placas)
@@ -1598,6 +1605,49 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_swap_reference({}, text_callable=lambda *_a, **_k: {})
 
+    def test_historico_grava_por_marca_sem_data_url(self):
+        class _MemStorage:
+            def __init__(self):
+                self.n = 0
+                self.sessions = {}
+
+            def save_generated_base64(self, encoded, output_format="png"):
+                self.n += 1
+                return f"/static/uploads/creative_generated/trocr{self.n}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository, FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        saved = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "active_id": "v2",
+                "base_id": "v1",
+                "aspect_ratio": "9:16",
+                "versions": [
+                    {"id": "v1", "name": "Original", "origin": "original", "image": png},
+                    {"id": "v2", "name": "Produção", "origin": "production", "image": png},
+                ],
+            },
+            user_id=7,
+        )
+        self.assertEqual(len(saved["versions"]), 2)
+        self.assertTrue(saved["versions"][0]["image_url"].startswith("/static/uploads/"))
+        self.assertFalse(saved["versions"][0]["image_url"].startswith("data:"))
+        self.assertEqual(repository.brand_profiles[10]["trocr"]["active_id"], "v2")
+        loaded = lab.load_swap_history({"client_id": 10}, user_id=7)
+        self.assertEqual(loaded["active_id"], "v2")
+        self.assertEqual(loaded["versions"][1]["name"], "Produção")
+        empty = lab.load_swap_history({"client_id": 11}, user_id=7)
+        self.assertEqual(empty["versions"], [])
+
 
 class CreativeFormatLabRoutesTest(unittest.TestCase):
     def setUp(self):
@@ -1711,3 +1761,28 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("identidade visual", response.get_json()["data"]["preview"])
         service.preview_format_lab_swap.assert_called_once()
+
+    def test_historico_do_trocar(self):
+        service = Mock()
+        service.load_format_lab_swap_history.return_value = {
+            "versions": [{"id": "v1", "image_url": "/static/uploads/creative_generated/a.png"}],
+            "active_id": "v1",
+        }
+        service.save_format_lab_swap_history.return_value = {
+            "versions": [{"id": "v1", "image_url": "/static/uploads/creative_generated/a.png"}],
+            "active_id": "v1",
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            listed = self.client.get("/parametros/api/format-lab/swap/history?client_id=10")
+            saved = self.client.post(
+                "/parametros/api/format-lab/swap/history",
+                json={"client_id": 10, "versions": [{"id": "v1", "image": "/static/uploads/creative_generated/a.png"}]},
+            )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.get_json()["data"]["active_id"], "v1")
+        self.assertEqual(saved.status_code, 200)
+        service.load_format_lab_swap_history.assert_called_once()
+        service.save_format_lab_swap_history.assert_called_once()

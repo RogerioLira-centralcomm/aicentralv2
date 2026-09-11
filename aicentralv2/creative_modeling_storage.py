@@ -4,7 +4,9 @@ import base64
 import binascii
 import hashlib
 import ipaddress
+import json
 import os
+import re
 import socket
 import uuid
 from pathlib import Path
@@ -26,6 +28,12 @@ MAX_LOGO_SIZE = 5 * 1024 * 1024
 PUBLIC_PREFIX = "/static/uploads/client_logos/"
 REFERENCE_PREFIX = "/static/uploads/creative_references/"
 GENERATED_PREFIX = "/static/uploads/creative_generated/"
+TROCR_PREFIX = "/static/uploads/creative_trocr/"
+
+
+def _safe_trocr_key(key):
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(key or "anon")).strip("-")
+    return cleaned[:80] or "anon"
 
 
 def _root(folder="client_logos"):
@@ -132,6 +140,22 @@ class CreativeAssetStorage:
         filename = f"{uuid.uuid4().hex}{extension}"
         (_root("creative_generated") / filename).write_bytes(content)
         return f"{GENERATED_PREFIX}{filename}"
+
+    def save_trocr_session(self, key, data):
+        name = _safe_trocr_key(key)
+        path = _root("creative_trocr") / f"{name}.json"
+        path.write_text(json.dumps(data or {}, ensure_ascii=False), encoding="utf-8")
+        return f"{TROCR_PREFIX}{name}.json"
+
+    def load_trocr_session(self, key):
+        path = _root("creative_trocr") / f"{_safe_trocr_key(key)}.json"
+        if not path.is_file():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
 
     def save_remote_reference(self, url, referer=None):
         current = _validated_public_asset_url(url)

@@ -3,6 +3,7 @@
     swap: '/parametros/api/format-lab/swap',
     read: '/parametros/api/format-lab/swap/read',
     prompt: '/parametros/api/format-lab/swap/prompt',
+    history: '/parametros/api/format-lab/swap/history',
     quote: '/parametros/api/format-lab/quote',
     clients: '/parametros/api/clients',
   };
@@ -52,6 +53,9 @@
   let readAbort = null;
   let promptAbort = null;
   let promptTimer = 0;
+  let persistTimer = 0;
+  let persistBusy = false;
+  let persistAgain = false;
 
   document.addEventListener('DOMContentLoaded', boot);
 
@@ -66,6 +70,7 @@
     renderFlow();
     renderVersions();
     highlightQuality();
+    renderEditPanels();
     try {
       const clients = await request(API.clients);
       state.clients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
@@ -73,6 +78,7 @@
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
+    await loadHistory();
     refreshQuote();
   }
 
@@ -91,8 +97,11 @@
       takeFile(event.dataTransfer?.files?.[0]);
     });
     input?.addEventListener('change', () => takeFile(input.files?.[0]));
-    $('mcSwapClient')?.addEventListener('change', (event) => {
+    $('mcSwapClient')?.addEventListener('change', async (event) => {
+      await persistHistory();
       state.clientId = event.target.value;
+      const restored = await loadHistory();
+      if (!restored && state.versions.length) schedulePersist();
       refreshPrompt();
     });
     document.querySelectorAll('input[name="mcSwapOut"]').forEach((node) => {
@@ -173,6 +182,7 @@
       if (previous) selectVersion(previous.id);
     });
     $('mcTrocrResetPanel')?.addEventListener('click', resetPanel);
+    $('mcTrocrRotate')?.addEventListener('click', rotateLayout);
     $('mcTrocrVersions')?.addEventListener('click', onVersionClick);
   }
 
@@ -200,6 +210,10 @@
         thumb,
       });
       showPreview(image);
+      if (!state.userPickedFormat) {
+        const guessed = await guessAspect(image);
+        if (guessed) selectFormat(guessed);
+      }
       setStatus('Ao enviar uma nova imagem, o OCR é executado automaticamente.');
       readReference(version, { force: true });
     };
@@ -227,6 +241,8 @@
     enableGenerate(true);
     renderVersions();
     renderBaseMeta();
+    renderEditPanels();
+    schedulePersist();
     return version;
   }
 
@@ -263,6 +279,7 @@
     applyAnalysis(data.analysis || {}, data.elements || []);
     renderElements(data.elements || [], data.style || '');
     if (data.aspect_hint && !state.userPickedFormat) selectFormat(data.aspect_hint);
+    renderEditPanels();
     setFlow(meta?.cached ? 'edit' : 'analysis');
     window.setTimeout(() => {
       if (state.flow === 'analysis') setFlow('edit');
@@ -272,6 +289,7 @@
       : 'Elementos identificados na imagem. Selecione o que deseja preservar ou alterar.');
     refreshPrompt();
     renderBaseMeta();
+    schedulePersist();
   }
 
   function fillFields(data) {
@@ -332,6 +350,34 @@
     input.checked = true;
     state.aspectRatio = ratio;
     applyRatio(ratio);
+  }
+
+  function rotateLayout() {
+    const next = ({
+      '16:9': '9:16',
+      '9:16': '16:9',
+      '4:5': '16:9',
+      '1:1': '9:16',
+    })[state.aspectRatio] || '9:16';
+    state.userPickedFormat = true;
+    selectFormat(next);
+    refreshPrompt();
+    setStatus(`Layout da peça em ${next}.`);
+  }
+
+  function guessAspect(src) {
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        const ratio = image.width / image.height;
+        if (Math.abs(ratio - 1) < 0.08) resolve('1:1');
+        else if (ratio < 0.72) resolve('9:16');
+        else if (ratio < 0.92) resolve('4:5');
+        else resolve('16:9');
+      };
+      image.onerror = () => resolve('');
+      image.src = src;
+    });
   }
 
   function applyRatio(ratio) {
@@ -420,18 +466,19 @@
       showGenSteps('prompt');
       const data = await request(API.swap, { ...editFields(), quality, reference: base.image });
       showGenSteps('generate');
-      if (!data.png_data_url) throw new Error('A geração não devolveu a imagem.');
-      const thumb = await makeThumb(data.png_data_url);
+      const still = data.image_url || data.png_data_url;
+      if (!still) throw new Error('A geração não devolveu a imagem.');
+      const thumb = await makeThumb(still);
       showGenSteps('finish');
       const version = pushVersion({
         name: quality === 'draft' ? 'Rascunho' : 'Produção',
         origin: quality === 'draft' ? 'draft' : 'production',
         quality,
-        image: data.png_data_url,
+        image: still,
         thumb,
       });
       state.compareIds = [base.id, version.id];
-      showPreview(data.png_data_url);
+      showPreview(still);
       paintCost(data.quote);
       state.promptLocked = false;
       state.promptEdited = false;
@@ -441,6 +488,7 @@
         ? 'Nova versão criada. A logo oficial entrou no quadro.'
         : 'Nova versão criada. Use esta versão como base para continuar editando.');
       renderCompare();
+      await persistHistory();
       return version;
     } catch (error) {
       setFlow('generate', 'error');
@@ -476,6 +524,7 @@
     toast('Versão definida como base', 'success');
     setStatus('Use esta versão como base para continuar editando.');
     state.lastAction = 'ocr';
+    schedulePersist();
     readReference(version, { force: true });
   }
 
@@ -502,6 +551,7 @@
     if (!next) return;
     version.name = next.replace(/^v\d+\s*·\s*/i, '').trim() || version.name;
     renderVersions();
+    schedulePersist();
   }
 
   function deleteVersion(id) {
@@ -518,6 +568,7 @@
     if (current) showPreview(current.image);
     renderVersions();
     renderBaseMeta();
+    schedulePersist();
   }
 
   function restoreContext(id) {
@@ -609,6 +660,8 @@
     $('mcSwapDrop').hidden = hasImage;
     $('mcSwapPreview').hidden = !hasImage || mode === 'compare';
     $('mcTrocrCompare').hidden = mode !== 'compare' || state.versions.length < 1;
+    $('mcTrocrViewport')?.classList.toggle('has-image', hasImage);
+    renderEditPanels();
     if (mode === 'compare') renderCompare();
   }
 
@@ -616,7 +669,38 @@
     if ($('mcSwapImage') && src) $('mcSwapImage').src = src;
     $('mcSwapPreview').hidden = state.viewMode === 'compare';
     $('mcSwapDrop').hidden = true;
+    $('mcTrocrViewport')?.classList.add('has-image');
+    renderEditPanels();
     if (state.viewMode === 'compare') renderCompare();
+  }
+
+  function renderEditPanels() {
+    const ready = Boolean(baseVersion()?.image || currentVersion()?.image);
+    ['mcTrocrOcr', 'mcSwapRead', 'mcTrocrPreserveAlter', 'mcTrocrEditBlock'].forEach((id) => {
+      if ($(id)) $(id).hidden = !ready;
+    });
+    const generate = document.querySelector('.mc-trocr-generate');
+    if (generate) generate.hidden = !ready;
+    $('mcTrocrViewport')?.classList.toggle('has-image', ready && $('mcSwapDrop')?.hidden);
+    const filled = Boolean(
+      $('mcSwapHeadline')?.value
+      || $('mcSwapSupport')?.value
+      || $('mcTrocrPrice')?.value
+      || $('mcSwapCta')?.value
+    );
+    const ocr = $('mcTrocrOcr');
+    if (ocr && ocr.tagName === 'DETAILS') {
+      ocr.open = filled;
+      if ($('mcTrocrOcrHint')) {
+        $('mcTrocrOcrHint').textContent = filled
+          ? 'Textos lidos da imagem. Ajuste se precisar.'
+          : 'Nenhum texto para mostrar.';
+      }
+    }
+    const analysis = $('mcSwapRead');
+    if (analysis && analysis.tagName === 'DETAILS' && ready) analysis.open = true;
+    const edit = $('mcTrocrEditBlock');
+    if (edit && edit.tagName === 'DETAILS' && ready) edit.open = true;
   }
 
   function renderBaseMeta() {
@@ -718,6 +802,7 @@
     });
     state.promptEdited = false;
     updateNoteCount();
+    renderEditPanels();
     refreshPrompt();
   }
 
@@ -798,6 +883,128 @@
 
   function makeThumb(dataUrl) {
     return downscaleImage(dataUrl, 160, 0.72);
+  }
+
+  function historyQuery() {
+    return state.clientId ? `?client_id=${encodeURIComponent(state.clientId)}` : '';
+  }
+
+  function hydrateVersions(items) {
+    return (Array.isArray(items) ? items : []).map((item, index) => ({
+      id: item.id || `v${index + 1}`,
+      attempt: item.attempt || index + 1,
+      name: item.name || item.id || `v${index + 1}`,
+      origin: item.origin || 'edited',
+      quality: item.quality || '',
+      status: item.status || 'ready',
+      createdAt: item.created_at || item.createdAt
+        ? new Date(item.created_at || item.createdAt)
+        : new Date(),
+      image: item.image_url || item.image || '',
+      thumb: item.thumb_url || item.thumb || item.image_url || item.image || '',
+      ocr: item.ocr || null,
+      analysis: item.analysis || null,
+    })).filter((item) => item.image);
+  }
+
+  function applyHistory(data) {
+    state.versions = hydrateVersions(data?.versions || []);
+    state.cache = {};
+    state.versions.forEach((item) => {
+      if (item.ocr) state.cache[item.id] = item.ocr;
+    });
+    state.activeId = data?.active_id && state.versions.some((item) => item.id === data.active_id)
+      ? data.active_id
+      : (state.versions[state.versions.length - 1]?.id || '');
+    state.baseId = data?.base_id && state.versions.some((item) => item.id === data.base_id)
+      ? data.base_id
+      : (state.versions[0]?.id || '');
+    if (data?.aspect_ratio) selectFormat(data.aspect_ratio);
+    const current = currentVersion();
+    const base = baseVersion();
+    renderVersions();
+    renderBaseMeta();
+    renderEditPanels();
+    if (!current) return;
+    showPreview(current.image);
+    enableGenerate(true);
+    setFlow('review');
+    if (base?.ocr) applyRead(base.ocr, base, { cached: true });
+  }
+
+  async function loadHistory() {
+    try {
+      const data = await request(`${API.history}${historyQuery()}`);
+      if (!data?.versions?.length) return false;
+      if (data.client_id && !state.clientId) {
+        state.clientId = String(data.client_id);
+        const select = $('mcSwapClient');
+        if (select) select.value = state.clientId;
+      }
+      applyHistory(data);
+      setStatus('Histórico da marca restaurado. Continue editando a partir da base ativa.');
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function applyStoredUrls(saved) {
+    (saved?.versions || []).forEach((item) => {
+      const local = state.versions.find((version) => version.id === item.id);
+      if (!local) return;
+      if (item.image_url && String(local.image || '').startsWith('data:')) local.image = item.image_url;
+      if (item.thumb_url && String(local.thumb || '').startsWith('data:')) local.thumb = item.thumb_url;
+    });
+  }
+
+  function schedulePersist() {
+    window.clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      persistHistory().catch(() => {});
+    }, 400);
+  }
+
+  async function persistHistory() {
+    if (!state.versions.length) return null;
+    if (persistBusy) {
+      persistAgain = true;
+      return null;
+    }
+    persistBusy = true;
+    window.clearTimeout(persistTimer);
+    let saved = null;
+    try {
+      do {
+        persistAgain = false;
+        saved = await request(API.history, {
+          client_id: state.clientId || undefined,
+          active_id: state.activeId,
+          base_id: state.baseId,
+          aspect_ratio: state.aspectRatio,
+          versions: state.versions.map((item) => ({
+            id: item.id,
+            attempt: item.attempt,
+            name: item.name,
+            origin: item.origin,
+            quality: item.quality,
+            status: item.status,
+            created_at: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+            image: item.image,
+            thumb: item.thumb,
+            ocr: item.ocr,
+            analysis: item.analysis,
+          })),
+        });
+        applyStoredUrls(saved);
+      } while (persistAgain);
+      renderVersions();
+      return saved;
+    } catch (_error) {
+      return null;
+    } finally {
+      persistBusy = false;
+    }
   }
 
   async function request(url, body, options) {

@@ -98,6 +98,8 @@ class FakeRepository:
         ]
         self.format_jobs = []
         self.plate_kits = []
+        self.brand_profiles = {}
+        self.trocr_sessions = {}
         self.format_data = {
             "id": 7,
             "name_pt": "Leaderboard",
@@ -169,7 +171,13 @@ class FakeRepository:
             "primary_color": "#123ABC",
             "secondary_color": "#FEDCBA",
             "brand_assets": list(getattr(self, "client_brand_assets", []) or []),
+            "brand_profile": dict(getattr(self, "brand_profiles", {}).get(client_id) or {}),
         }
+
+    def update_client_brand_profile(self, client_id, brand_profile):
+        if not hasattr(self, "brand_profiles"):
+            self.brand_profiles = {}
+        self.brand_profiles[client_id] = dict(brand_profile or {})
 
     def create_plate_kit(self, data, created_by=None):
         item = dict(data or {})
@@ -4172,7 +4180,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=34", desk)
+        self.assertIn("mc_page_js) }}?v=36", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

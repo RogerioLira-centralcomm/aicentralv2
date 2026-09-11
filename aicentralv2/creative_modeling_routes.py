@@ -334,6 +334,20 @@ def api_format_lab_swap_prompt():
 
 
 @admin_required_api
+def api_format_lab_swap_history():
+    if request.method == "GET":
+        return _execute(
+            lambda: _ok(_service().load_format_lab_swap_history(
+                {"client_id": request.args.get("client_id")},
+                session.get("user_id"),
+            ))
+        )
+    return _execute(
+        lambda: _ok(_service().save_format_lab_swap_history(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
 def api_format_lab_close(session_id):
     return _execute(
         lambda: _ok(
@@ -1239,6 +1253,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_format_lab_swap_prompt",
         view_func=api_format_lab_swap_prompt,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/swap/history",
+        endpoint="creative_format_lab_swap_history",
+        view_func=api_format_lab_swap_history,
+        methods=["GET", "POST"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/quote",

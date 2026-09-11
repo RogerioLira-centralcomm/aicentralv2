@@ -1140,6 +1140,12 @@ class CreativeModelingService:
     def preview_format_lab_swap(self, payload, user_id=None):
         return self._format_lab().preview_swap(payload, user_id=user_id)
 
+    def load_format_lab_swap_history(self, payload, user_id=None):
+        return self._format_lab().load_swap_history(payload, user_id=user_id)
+
+    def save_format_lab_swap_history(self, payload, user_id=None):
+        return self._format_lab().save_swap_history(payload, user_id=user_id)
+
     def close_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().close(session_id, payload, user_id=user_id)
 
@@ -1376,6 +1382,9 @@ class CreativeModelingService:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        from .design_system_ads.fidelity import attach_client_evidence
+
+        system = attach_client_evidence(system, client)
         references = []
         if client.get("logo_upload_path") or client.get("logo_url"):
             references.append(client.get("logo_upload_path") or client.get("logo_url"))
@@ -1410,6 +1419,9 @@ class CreativeModelingService:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        from .design_system_ads.fidelity import attach_client_evidence
+
+        system = attach_client_evidence(system, client)
         references = []
         if client.get("logo_upload_path") or client.get("logo_url"):
             references.append(client.get("logo_upload_path") or client.get("logo_url"))
@@ -1589,6 +1601,16 @@ class CreativeModelingService:
         system, _items = ensure_campaign_design_system(
             brand, campaign, self._campaign_elements(campaign)
         )
+        from .design_system_ads.refine import compose_campaign_design_system
+
+        try:
+            system, _report = compose_campaign_design_system(
+                system,
+                campaign,
+                text_callable=self._design_system_text_callable(),
+            )
+        except Exception:
+            system, _report = compose_campaign_design_system(system, campaign)
         persisted = self._persist_campaign_design_system(campaign, system)
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 

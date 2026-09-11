@@ -192,7 +192,227 @@ class FormatLabService:
         except ValueError as exc:
             raise CreativeConflictError(str(exc)) from exc
         result["brand_name"] = payload.get("brand_name") or brand.get("name") or ""
+        image_url = self._persist_still(result.get("png_data_url"))
+        if image_url:
+            result["image_url"] = image_url
+        try:
+            self._append_generated_version(payload, result, user_id)
+        except Exception:
+            logger.exception("Não gravou a versão gerada no histórico do Trocr")
         return _serialize(result)
+
+    def load_swap_history(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = self._optional_client(payload)
+        session = self._read_trocr(self._trocr_key(payload, user_id), client_id)
+        return _serialize(self._public_history(session, client_id))
+
+    def save_swap_history(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = self._optional_client(payload)
+        versions = []
+        for item in payload.get("versions") or []:
+            stored = self._store_version(item)
+            if not stored:
+                continue
+            if not stored["id"]:
+                stored["id"] = f"v{len(versions) + 1}"
+            if not stored["attempt"]:
+                stored["attempt"] = len(versions) + 1
+            versions.append(stored)
+        session = {
+            "client_id": client_id or "",
+            "active_id": str(payload.get("active_id") or (versions[-1]["id"] if versions else "")),
+            "base_id": str(payload.get("base_id") or (versions[0]["id"] if versions else "")),
+            "aspect_ratio": str(payload.get("aspect_ratio") or "16:9"),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "versions": versions[:60],
+        }
+        self._write_trocr(self._trocr_key(payload, user_id), session, client_id)
+        if client_id and user_id not in (None, ""):
+            self._write_trocr(f"user-{user_id}", session, None)
+        return _serialize(self._public_history(session, client_id))
+
+    def _append_generated_version(self, payload, result, user_id=None):
+        image_url = result.get("image_url") or ""
+        if not image_url.startswith(("/static/uploads/", "https://", "http://")):
+            return
+        existing = self.load_swap_history(payload, user_id=user_id)
+        versions = list(existing.get("versions") or [])
+        if any(item.get("image_url") == image_url for item in versions if isinstance(item, dict)):
+            return
+        quality = str(result.get("quality") or payload.get("quality") or "production")
+        next_id = f"v{len(versions) + 1}"
+        versions.append({
+            "id": next_id,
+            "attempt": len(versions) + 1,
+            "name": "Rascunho" if quality == "draft" else "Produção",
+            "origin": "draft" if quality == "draft" else "production",
+            "quality": quality,
+            "status": "ready",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "image_url": image_url,
+            "thumb_url": image_url,
+        })
+        self.save_swap_history(
+            {
+                **payload,
+                "versions": versions,
+                "active_id": next_id,
+                "base_id": existing.get("base_id") or (versions[0]["id"] if versions else next_id),
+                "aspect_ratio": result.get("aspect_ratio") or payload.get("aspect_ratio") or "16:9",
+            },
+            user_id=user_id,
+        )
+
+    def _store_version(self, item):
+        if not isinstance(item, dict):
+            return None
+        image_url = self._storeable_image(item.get("image_url") or item.get("image"))
+        if not image_url:
+            return None
+        thumb_url = self._storeable_image(item.get("thumb_url") or item.get("thumb")) or image_url
+        created = item.get("created_at") or item.get("createdAt") or datetime.now(timezone.utc).isoformat()
+        if hasattr(created, "isoformat"):
+            created = created.isoformat()
+        return {
+            "id": str(item.get("id") or ""),
+            "attempt": item.get("attempt") or 0,
+            "name": str(item.get("name") or item.get("id") or "versão"),
+            "origin": str(item.get("origin") or "edited"),
+            "quality": str(item.get("quality") or ""),
+            "status": str(item.get("status") or "ready"),
+            "created_at": str(created),
+            "image_url": image_url,
+            "thumb_url": thumb_url,
+            "ocr": self._slim_context(item.get("ocr")),
+            "analysis": self._slim_context(item.get("analysis")),
+        }
+
+    def _storeable_image(self, raw):
+        url = self._persist_still(raw)
+        if url.startswith(("/static/uploads/", "https://", "http://")):
+            return url
+        return ""
+
+    def _persist_still(self, raw):
+        text = str(raw or "").strip()
+        if not text:
+            return ""
+        if text.startswith(("/static/uploads/", "https://", "http://")):
+            return text
+        if not text.startswith("data:image/"):
+            return ""
+        encoded = text.split(",", 1)[-1]
+        saver = getattr(getattr(self.modeling, "storage", None), "save_generated_base64", None)
+        if not callable(saver) or not encoded:
+            return ""
+        try:
+            return saver(encoded) or ""
+        except Exception:
+            logger.exception("Não gravou still do Trocr")
+            return ""
+
+    def _slim_context(self, value):
+        if not isinstance(value, dict):
+            return None
+        slim = {}
+        for key, item in value.items():
+            if key in {"reference", "png_data_url", "image", "image_url", "thumb"}:
+                continue
+            if isinstance(item, str) and item.startswith("data:"):
+                continue
+            slim[key] = item
+        return slim or None
+
+    def _optional_client(self, payload):
+        raw = (payload or {}).get("client_id")
+        if raw in (None, ""):
+            return None
+        try:
+            return _integer(raw, "Cliente")
+        except Exception:
+            return None
+
+    def _trocr_key(self, payload, user_id=None):
+        client_id = self._optional_client(payload)
+        if client_id:
+            return f"client-{client_id}"
+        uid = user_id if user_id not in (None, "") else "anon"
+        return f"user-{uid}"
+
+    def _public_history(self, session, client_id=None):
+        data = session if isinstance(session, dict) else {}
+        versions = []
+        for item in data.get("versions") or []:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("image_url") or ""
+            thumb = item.get("thumb_url") or url
+            versions.append({
+                **item,
+                "image_url": url,
+                "thumb_url": thumb,
+                "image": url,
+                "thumb": thumb,
+            })
+        return {
+            "client_id": data.get("client_id") or client_id or "",
+            "active_id": data.get("active_id") or "",
+            "base_id": data.get("base_id") or "",
+            "aspect_ratio": data.get("aspect_ratio") or "16:9",
+            "updated_at": data.get("updated_at") or "",
+            "versions": versions,
+        }
+
+    def _read_trocr(self, key, client_id=None):
+        store = getattr(self.repository, "trocr_sessions", None)
+        if isinstance(store, dict) and isinstance(store.get(key), dict):
+            return dict(store[key])
+        if client_id:
+            try:
+                client = self._client(client_id)
+                profile = client.get("brand_profile") if isinstance(client, dict) else {}
+                if isinstance(profile, dict) and isinstance(profile.get("trocr"), dict):
+                    return dict(profile["trocr"])
+            except Exception:
+                pass
+        loader = getattr(getattr(self.modeling, "storage", None), "load_trocr_session", None)
+        if callable(loader):
+            try:
+                data = loader(key)
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+        return {}
+
+    def _write_trocr(self, key, session, client_id=None):
+        store = getattr(self.repository, "trocr_sessions", None)
+        if not isinstance(store, dict):
+            try:
+                self.repository.trocr_sessions = {}
+                store = self.repository.trocr_sessions
+            except Exception:
+                store = None
+        if isinstance(store, dict):
+            store[key] = session
+        if client_id:
+            try:
+                client = self._client(client_id)
+                profile = dict((client or {}).get("brand_profile") or {})
+                profile["trocr"] = session
+                updater = getattr(self.repository, "update_client_brand_profile", None)
+                if callable(updater):
+                    updater(client_id, profile)
+            except Exception:
+                logger.exception("Não gravou histórico Trocr na marca")
+        saver = getattr(getattr(self.modeling, "storage", None), "save_trocr_session", None)
+        if callable(saver):
+            try:
+                saver(key, session)
+            except Exception:
+                logger.exception("Não gravou histórico Trocr em arquivo")
 
     def list_campaigns(self):
         return _serialize(list_campaign_models())

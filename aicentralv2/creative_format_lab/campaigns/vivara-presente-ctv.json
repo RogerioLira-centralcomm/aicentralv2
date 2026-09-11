@@ -1,0 +1,56 @@
+{
+  "slug": "vivara-presente-ctv",
+  "brand_name": "Vivara",
+  "brand_match": ["vivara"],
+  "format": "video-linear-15",
+  "variant": "C",
+  "intent": "create",
+  "title": "O presente que marca o momento",
+  "offer": "Uma joia escolhida para um nome e uma data — não para uma vitrine.",
+  "occasion": "Presente com memória: aniversário, pedido, reencontro.",
+  "product": "Anel e colar em ouro amarelo, pedra clara, escala real na mão.",
+  "audience": "Quem presenteia com tempo. Adulto, íntimo, sem pressa de checkout.",
+  "tone": "Silêncio, ouro baixo, luz de fim de tarde. Nenhuma urgência de e-commerce.",
+  "objective": "Consideração: joia como memória, não como desconto.",
+  "cta": "Encontre a peça",
+  "forbidden": ["preço", "parcelamento", "frete", "coleção toda", "menu de site"],
+  "scenes": [
+    {
+      "id": "scene_01",
+      "purpose": "brand",
+      "headline": "Alguns momentos pedem marca.",
+      "support": "A caixa abre sem pressa. Ouro e sombra, nenhum slogan.",
+      "set_note": "Caixa de joia entreaberta sobre linho escuro. Uma lâmpada quente fora de quadro.",
+      "action_note": "A tampa sobe dois centímetros. Poeira de luz. Sem rosto ainda.",
+      "image_prompt": "Cinematic 16:9 still, soft gold sidelight, empty luxury jewelry box just opening on dark linen, shallow depth, no logo invented, no price tag, TV viewing distance, Vivara-like restraint."
+    },
+    {
+      "id": "scene_02",
+      "purpose": "product",
+      "headline": "A peça que fica.",
+      "support": "Metal, pedra, peso real. Perto o bastante para crer.",
+      "set_note": "Macro do anel ou colar. Fundo de veludo que some. Reflexo único.",
+      "action_note": "A peça gira um quarto. A pedra pega a lâmpada e apaga.",
+      "image_prompt": "Macro 16:9 of a yellow-gold ring or fine necklace, one clear stone, studio daylight with warm falloff, real metal texture, no mannequin, no catalog grid, luxury still."
+    },
+    {
+      "id": "scene_03",
+      "purpose": "lifestyle",
+      "headline": "Quem ganha, lembra.",
+      "support": "Um gesto na mesa. Dois copos. A joia entra na conversa, não no anúncio.",
+      "set_note": "Jantar íntimo, toalha clara, mãos adultas. A joia aparece no pulso ou no colo.",
+      "action_note": "Alguém ajeita a peça no outro. Olhares, sem boca falando oferta.",
+      "image_prompt": "Filmic 16:9 dinner table, two adults, jewelry catching practical light, wine glasses out of focus, no brand packaging in frame, memory not retail."
+    },
+    {
+      "id": "scene_04",
+      "purpose": "cta",
+      "headline": "Encontre a peça.",
+      "support": "Uma ação. A marca fecha o quadro.",
+      "cta": "Encontre a peça",
+      "set_note": "End card escuro, tipo ouro, logo oficial se existir. Nada de menu.",
+      "action_note": "O quadro para. Só marca e um verbo.",
+      "image_prompt": "Dark velvet 16:9 end card, generous gold type space, official brand mark only, single CTA, no website sitemap, no carousel of SKUs."
+    }
+  ]
+}

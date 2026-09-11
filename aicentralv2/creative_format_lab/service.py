@@ -1,0 +1,512 @@
+"""Fachada do lab: sessão nas tabelas de conceito e snapshot em format_lab."""
+
+from __future__ import annotations
+
+from ..creative_modeling_repository import CreativeConflictError, CreativeNotFoundError
+from ..creative_modeling_service import _integer, _serialize
+from .campaign_models import list_campaign_models, load_campaign_model
+from .catalog import catalog_payload
+from .close import close_scene
+from .pipeline import apply_manual_patch, new_session_id, run_session
+from .swap import quote_swap, swap_reference
+from .storyboard import build_storyboard, quote_concept
+
+
+class FormatLabService:
+    def __init__(self, modeling):
+        self.modeling = modeling
+        self.repository = modeling.repository
+
+    def list_formats(self):
+        data = catalog_payload()
+        data["campaigns"] = list_campaign_models()
+        data["quote"] = quote_concept({"scene_count": 4})
+        return _serialize(data)
+
+    def quote(self, payload=None):
+        payload = payload if isinstance(payload, dict) else {}
+        if str(payload.get("kind") or "") == "swap":
+            return _serialize(quote_swap())
+        return _serialize(quote_concept(payload))
+
+    def swap(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        brand = {}
+        client_id = payload.get("client_id")
+        if client_id not in (None, ""):
+            try:
+                from .brand_context import build_brand_context
+                brand = build_brand_context(self._client(_integer(client_id, "Cliente")))
+            except Exception:
+                brand = {}
+        try:
+            result = swap_reference(
+                payload,
+                brand=brand,
+                image_callable=self._image_callable({**payload, "generate": True}),
+            )
+        except ValueError as exc:
+            raise CreativeConflictError(str(exc)) from exc
+        result["brand_name"] = payload.get("brand_name") or brand.get("name") or ""
+        return _serialize(result)
+
+    def list_campaigns(self):
+        return _serialize(list_campaign_models())
+
+    def get_campaign_model(self, slug):
+        model = load_campaign_model(slug)
+        if not model:
+            raise CreativeNotFoundError("Campanha-modelo não encontrada.")
+        return _serialize(model)
+
+    def create_session(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = _integer(payload.get("client_id"), "Cliente")
+        client = self._client(client_id)
+        campaign_id = payload.get("campaign_id")
+        if campaign_id not in (None, ""):
+            campaign_id = _integer(campaign_id, "Campanha")
+            campaign = self.repository.get_campaign(campaign_id)
+        else:
+            campaign = self._ensure_campaign(client_id, client)
+            campaign_id = campaign["id"]
+        session_id = new_session_id()
+        session = {
+            "id": session_id,
+            "client_id": client_id,
+            "campaign_id": campaign_id,
+            "status": "draft",
+            "intent": str(payload.get("intent") or "create"),
+            "format": str(payload.get("format") or payload.get("format_key") or ""),
+            "variant": str(payload.get("variant") or "A").upper(),
+            "campaign_slug": str(payload.get("campaign_slug") or ""),
+            "message": str(payload.get("message") or ""),
+            "qa": {"passed": False},
+            "scenes": [],
+            "renders": [],
+            "layers": [],
+            "cards": [],
+        }
+        self._write_session(campaign_id, session, active=True)
+        return _serialize(session)
+
+    def storyboard(self, session_id, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        campaign, session = self._find_session(session_id)
+        client = self._session_client(session, campaign)
+        merged = {
+            **session,
+            **payload,
+            "session_id": session_id,
+            "client_id": session.get("client_id") or client.get("id"),
+        }
+        result = build_storyboard(
+            merged,
+            client=client,
+            text_callable=self._text_callable(payload),
+        )
+        result["id"] = session_id
+        result["client_id"] = session.get("client_id") or client.get("id")
+        result["campaign_id"] = campaign["id"]
+        result["status"] = "concept"
+        self._write_session(campaign["id"], {**session, **result}, active=True)
+        cost = self._bill_prompt(
+            campaign["id"],
+            session_id,
+            user_id,
+            {"kind": "storyboard", "format": result.get("format"), "scene_count": result.get("scene_count")},
+        )
+        result["cost"] = cost
+        stored = {**session, **result}
+        self._write_session(campaign["id"], stored, active=True)
+        return _serialize(result)
+
+    def mockup(self, session_id, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        campaign, session = self._find_session(session_id)
+        client = self._session_client(session, campaign)
+        merged = {
+            **session,
+            **payload,
+            "session_id": session_id,
+            "client_id": session.get("client_id") or client.get("id"),
+            "stage": "mockup",
+            "mockup_passes": payload.get("mockup_passes") or 3,
+        }
+        if not merged.get("storyboard") and session.get("storyboard"):
+            merged["storyboard"] = session.get("storyboard")
+        result = run_session(
+            merged,
+            client=client,
+            text_callable=self._text_callable(payload),
+            screenshot=payload.get("screenshot"),
+        )
+        if session.get("storyboard") and not result.get("storyboard"):
+            result["storyboard"] = session.get("storyboard")
+        result["id"] = session_id
+        result["client_id"] = session.get("client_id") or client.get("id")
+        result["campaign_id"] = campaign["id"]
+        result["status"] = "concept"
+        result["cost"] = self._bill_prompt(
+            campaign["id"],
+            session_id,
+            user_id,
+            {
+                "kind": "mockup",
+                "format": result.get("format"),
+                "passes": (result.get("mockup") or {}).get("passes"),
+            },
+        )
+        stored = {**session, **result}
+        self._write_session(campaign["id"], stored, active=True)
+        return _serialize(result)
+
+    def get_session(self, session_id):
+        campaign, session = self._find_session(session_id)
+        data = dict(session)
+        data["campaign_id"] = campaign.get("id")
+        return _serialize(data)
+
+    def run(self, session_id, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        campaign, session = self._find_session(session_id)
+        client = self._session_client(session, campaign)
+        merged = {
+            **session,
+            **payload,
+            "session_id": session_id,
+            "client_id": session.get("client_id") or client.get("id"),
+            "renders": payload.get("renders") or payload.get("attempts") or 3,
+        }
+        if not payload.get("storyboard") and session.get("storyboard"):
+            merged["storyboard"] = session.get("storyboard")
+        if not payload.get("base_html") and session.get("base_html"):
+            merged["base_html"] = session.get("base_html")
+            merged["mockup"] = session.get("mockup") or {}
+        result = run_session(
+            merged,
+            client=client,
+            text_callable=self._text_callable(payload),
+            screenshot=payload.get("screenshot"),
+        )
+        if session.get("storyboard") and not result.get("storyboard"):
+            result["storyboard"] = session.get("storyboard")
+        result["client_id"] = session.get("client_id") or client.get("id")
+        result["campaign_id"] = campaign["id"]
+        result["cost"] = self._bill_prompt(
+            campaign["id"],
+            session_id,
+            user_id,
+            {
+                "kind": "scene" if payload.get("scene_id") else "html",
+                "format": result.get("format"),
+                "qa": result.get("qa"),
+                "scene_id": payload.get("scene_id"),
+                "renders": len(result.get("versions") or result.get("renders") or []),
+            },
+        )
+        self._write_session(campaign["id"], result, active=True)
+        return _serialize(result)
+
+    def patch(self, session_id, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        campaign, session = self._find_session(session_id)
+        if not session.get("spec"):
+            raise CreativeConflictError("Sessão ainda não rodou.")
+        result = apply_manual_patch(
+            session,
+            payload,
+            text_callable=self._text_callable(payload),
+            screenshot=payload.get("screenshot"),
+        )
+        result["client_id"] = session.get("client_id")
+        result["campaign_id"] = campaign["id"]
+        result["cost"] = self._bill_prompt(
+            campaign["id"],
+            session_id,
+            user_id,
+            {"kind": "patch", "qa": result.get("qa")},
+        )
+        self._write_session(campaign["id"], result, active=True)
+        return _serialize(result)
+
+    def close(self, session_id, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        campaign, session = self._find_session(session_id)
+        client = self._session_client(session, campaign)
+        scene_id = str(payload.get("scene_id") or session.get("scene_id") or "scene_01")
+        scenes = [dict(item) for item in session.get("scenes") or []]
+        scene = next((item for item in scenes if item.get("id") == scene_id), None)
+        if scene is None:
+            raise CreativeConflictError("Gere a cena antes de fechar o still.")
+        brand = session.get("brand") if isinstance(session.get("brand"), dict) else {}
+        if not brand:
+            from .brand_context import build_brand_context
+            brand = build_brand_context(client)
+        assets = {
+            "scene_image": scene.get("key_visual") or payload.get("scene_image"),
+            "logo_url": brand.get("logo_url"),
+            "product_url": payload.get("product_url") or scene.get("key_visual"),
+        }
+        closed = close_scene(
+            scene,
+            brand=brand,
+            assets=assets,
+            image_callable=self._image_callable(payload),
+            generate=payload.get("generate") is not False,
+        )
+        scene["stack"] = closed["stack"]
+        scene["guidelines"] = closed["guidelines"]
+        scene["closed_url"] = closed["png_data_url"]
+        scene["ready_for_motion"] = True
+        session = dict(session)
+        session["scenes"] = [
+            scene if item.get("id") == scene_id else item for item in scenes
+        ]
+        session["closed"] = closed
+        session["qa"] = {
+            **(session.get("qa") if isinstance(session.get("qa"), dict) else {}),
+            "guidelines": closed["guidelines"],
+            "passed": bool((session.get("qa") or {}).get("passed")) and closed["passed"],
+        }
+        session["cost"] = self._bill_prompt(
+            campaign["id"],
+            session_id,
+            user_id,
+            {
+                "kind": "close",
+                "format": session.get("format"),
+                "scene_id": scene_id,
+                "generated": closed.get("generated"),
+            },
+        )
+        self._write_session(campaign["id"], session, active=True)
+        result = dict(session)
+        result["closed"] = closed
+        return _serialize(result)
+
+    def handoff(self, session_id):
+        campaign, session = self._find_session(session_id)
+        qa = session.get("qa") if isinstance(session.get("qa"), dict) else {}
+        if not qa.get("passed"):
+            raise CreativeConflictError("QA ainda não passou.")
+        cards = session.get("cards") or []
+        if not cards:
+            raise CreativeConflictError("Sessão sem camadas para a Bancada.")
+        saved = self.modeling.save_bancada_document(
+            campaign["id"],
+            {
+                "title": session.get("brand_name") or campaign.get("name") or "Mesa de Formato",
+                "scenes": cards,
+                "cards": cards,
+                "layers": cards[0].get("layers") or session.get("layers") or [],
+                "brand_dna": session.get("brand_dna"),
+            },
+        )
+        session = dict(session)
+        session["status"] = "handed_off"
+        session["handoff"] = {"campaign_id": campaign["id"], "bancada": True}
+        self._write_session(campaign["id"], session, active=True)
+        return _serialize({
+            "session": session,
+            "campaign_id": campaign["id"],
+            "bancada": saved.get("bancada"),
+        })
+
+    def _client(self, client_id):
+        if hasattr(self.modeling, "get_client"):
+            try:
+                client = self.modeling.get_client(client_id)
+                if isinstance(client, dict):
+                    return client
+            except Exception:
+                pass
+        getter = getattr(self.repository, "get_client", None)
+        if not callable(getter):
+            raise CreativeNotFoundError("Cliente não encontrado.")
+        client = getter(client_id)
+        if not isinstance(client, dict):
+            raise CreativeNotFoundError("Cliente não encontrado.")
+        return client
+
+    def _session_client(self, session, campaign):
+        client_id = session.get("client_id")
+        if client_id:
+            try:
+                return self._client(client_id)
+            except Exception:
+                pass
+        client = campaign.get("client")
+        return client if isinstance(client, dict) else {}
+
+    def _ensure_campaign(self, client_id, client):
+        name = f"Mesa de Formato — {client.get('name') or client_id}"
+        created = self.repository.create_campaign_with_variation_a({
+            "client_id": client_id,
+            "client_source": "profile",
+            "name": name,
+            "objective": "Mesa de formato",
+            "campaign_text": "",
+            "cta_text": "",
+            "show_price": False,
+            "budget_usd": 5,
+            "first_step": {
+                "format_template_id": 7,
+                "mockup": "tv",
+                "scene_description": "Lab de formato CTV",
+            },
+        })
+        return self.repository.get_campaign(created["id"])
+
+    def _lab(self, campaign):
+        brief = campaign.get("creative_brief")
+        brief = dict(brief) if isinstance(brief, dict) else {}
+        lab = brief.get("format_lab")
+        lab = dict(lab) if isinstance(lab, dict) else {}
+        sessions = lab.get("sessions")
+        sessions = dict(sessions) if isinstance(sessions, dict) else {}
+        lab["sessions"] = sessions
+        brief["format_lab"] = lab
+        return brief, lab, sessions
+
+    def _write_session(self, campaign_id, session, active=False):
+        session = dict(session or {})
+        campaign = self.repository.get_campaign(campaign_id)
+        session["campaign_id"] = campaign_id
+        client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+        if not session.get("client_id"):
+            session["client_id"] = client.get("id")
+        brief, lab, sessions = self._lab(campaign)
+        sessions[session["id"]] = session
+        lab["sessions"] = sessions
+        if active:
+            lab["active_session_id"] = session["id"]
+        brief["format_lab"] = lab
+        index = getattr(self.repository, "format_lab_index", None)
+        if not isinstance(index, dict):
+            index = {}
+            self.repository.format_lab_index = index
+        index[session["id"]] = campaign_id
+        updater = getattr(self.repository, "update_campaign_bancada", None)
+        if callable(updater):
+            updater(campaign_id, brief)
+        persist = getattr(self.repository, "upsert_concept_session", None)
+        if callable(persist):
+            persist(session)
+
+    def _find_session(self, session_id):
+        session_id = str(session_id or "").strip()
+        if not session_id:
+            raise CreativeNotFoundError("Sessão não encontrada.")
+        getter = getattr(self.repository, "get_concept_session", None)
+        if callable(getter):
+            stored = getter(session_id)
+            if stored:
+                campaign = self.repository.get_campaign(stored["campaign_id"])
+                return campaign, stored
+        campaign_id = self._guess_campaign_id(session_id)
+        campaign = self.repository.get_campaign(campaign_id)
+        _brief, _lab, sessions = self._lab(campaign)
+        session = sessions.get(session_id)
+        if not session:
+            raise CreativeNotFoundError("Sessão não encontrada.")
+        return campaign, session
+
+    def _guess_campaign_id(self, session_id):
+        index = getattr(self.repository, "format_lab_index", None)
+        if isinstance(index, dict) and session_id in index:
+            return index[session_id]
+        stored = getattr(self.repository, "campaign_briefs", None)
+        if isinstance(stored, dict):
+            for campaign_id, brief in stored.items():
+                lab = (brief or {}).get("format_lab") or {}
+                if session_id in (lab.get("sessions") or {}):
+                    return campaign_id
+        created = getattr(self.repository, "created_campaign", None)
+        if isinstance(created, dict) and created.get("id"):
+            return created["id"]
+        return 30
+
+    def _text_callable(self, payload):
+        if payload.get("text_callable"):
+            return payload["text_callable"]
+        generator = getattr(self.modeling, "generator", None)
+        return getattr(generator, "text_callable", None)
+
+    def _image_callable(self, payload):
+        if payload.get("generate") is False:
+            return None
+        if payload.get("image_callable"):
+            return payload["image_callable"]
+        generator = getattr(self.modeling, "generator", None)
+        generate = getattr(generator, "generate_image", None)
+        if not callable(generate):
+            return None
+
+        def _run(prompt, aspect_ratio="1:1", background="transparent", input_references=None, **_extra):
+            result = generate(
+                prompt,
+                input_references=input_references,
+                aspect_ratio=aspect_ratio,
+                background=background,
+                output_format="png",
+            )
+            raw = result.get("b64_json") if isinstance(result, dict) else None
+            if not raw:
+                return None
+            import base64
+            return base64.b64decode(raw)
+
+        return _run
+
+    def _bill_prompt(self, campaign_id, session_id, user_id, metadata):
+        from .storyboard import PROMPT_ESTIMATE_USD, quote_concept
+
+        quote = quote_concept(metadata if isinstance(metadata, dict) else {})
+        estimate = float(quote.get("cost_usd") or PROMPT_ESTIMATE_USD * 2)
+        create = getattr(self.repository, "create_generation_job", None)
+        complete = getattr(self.repository, "complete_generation_job", None)
+        if not callable(create):
+            return quote
+        try:
+            job_id = create(
+                campaign_id,
+                None,
+                None,
+                "prompt",
+                "openrouter",
+                "openai/gpt-4o-mini" if str((metadata or {}).get("kind") or "") == "mockup" else "openai/gpt-5.4",
+                estimate,
+                prompt=session_id,
+                request_payload=metadata if isinstance(metadata, dict) else {},
+                created_by=user_id,
+                concept_session_id=session_id,
+            )
+            if callable(complete) and job_id:
+                complete(job_id, estimate, metadata if isinstance(metadata, dict) else {})
+            recorder = getattr(self.repository, "record_concept_pass", None)
+            if callable(recorder) and job_id:
+                kind = str((metadata or {}).get("kind") or "create")
+                pass_kind = {
+                    "storyboard": "refine",
+                    "html": "implement",
+                    "scene": "implement",
+                    "mockup": "implement",
+                    "close": "validate",
+                    "patch": "patch",
+                }.get(kind, "create")
+                position = {"create": 1, "refine": 2, "implement": 3, "validate": 4, "patch": 5}[pass_kind]
+                recorder(
+                    session_id,
+                    pass_kind,
+                    position,
+                    status="done",
+                    job_id=job_id,
+                    estimated_cost_usd=estimate,
+                    actual_cost_usd=estimate,
+                    metadata=metadata if isinstance(metadata, dict) else {},
+                )
+        except Exception:
+            pass
+        quote["spent_usd"] = estimate
+        return quote

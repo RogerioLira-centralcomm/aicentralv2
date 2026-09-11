@@ -118,6 +118,32 @@ MC_DESKS = {
         "studio": False,
         "page_js": "js/mc-revisao.js",
     },
+    "mesa": {
+        "title": "Mesa de Conceito",
+        "lead": "15 segundos. A marca viva no quadro. O filme fica para depois.",
+        "panel": "parametros/_mc_mesa.html",
+        "studio": False,
+        "page_js": "js/mc-mesa.js",
+    },
+    "lab": {
+        "title": "Lab de conceito 15s",
+        "lead": "Still de aprovação. O chrome do canal fica para depois.",
+        "panel": "parametros/_mc_lab.html",
+        "studio": False,
+    },
+    "placas": {
+        "title": "Placas do 15s",
+        "lead": "Três composições. A marca preenche. O canal não entra.",
+        "panel": "parametros/_mc_placas.html",
+        "studio": False,
+    },
+    "trocar": {
+        "title": "Trocar anúncio",
+        "lead": "Uma referência. O GPT Image 2 troca marca e copy. O layout fica.",
+        "panel": "parametros/_mc_trocar.html",
+        "studio": False,
+        "page_js": "js/mc-trocar.js",
+    },
 }
 
 
@@ -144,6 +170,108 @@ def modelagem_desk(page):
         mc_studio_js=spec["studio"],
         mc_page_js=spec.get("page_js"),
     )
+
+
+@admin_required_api
+def api_format_lab_formats():
+    return _execute(lambda: _ok(_service().format_lab_formats()))
+
+
+@admin_required_api
+def api_format_lab_campaigns():
+    return _execute(lambda: _ok(_service().format_lab_campaigns()))
+
+
+@admin_required_api
+def api_format_lab_campaign(slug):
+    return _execute(lambda: _ok(_service().format_lab_campaign(slug)))
+
+
+@admin_required_api
+def api_format_lab_sessions():
+    return _execute(
+        lambda: _ok(
+            _service().create_format_lab_session(_json(), session.get("user_id")),
+            201,
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_session(session_id):
+    return _execute(lambda: _ok(_service().get_format_lab_session(session_id)))
+
+
+@admin_required_api
+def api_format_lab_quote():
+    return _execute(lambda: _ok(_service().format_lab_quote(_json())))
+
+
+@admin_required_api
+def api_format_lab_storyboard(session_id):
+    return _execute(
+        lambda: _ok(
+            _service().storyboard_format_lab_session(
+                session_id, _json(), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_mockup(session_id):
+    return _execute(
+        lambda: _ok(
+            _service().mockup_format_lab_session(
+                session_id, _json(), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_run(session_id):
+    return _execute(
+        lambda: _ok(
+            _service().run_format_lab_session(
+                session_id, _json(), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_patch(session_id):
+    return _execute(
+        lambda: _ok(
+            _service().patch_format_lab_session(
+                session_id, _json(), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_swap():
+    return _execute(
+        lambda: _ok(_service().swap_format_lab(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_close(session_id):
+    return _execute(
+        lambda: _ok(
+            _service().close_format_lab_session(
+                session_id, _json(), session.get("user_id")
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_format_lab_handoff(session_id):
+    return _execute(lambda: _ok(_service().handoff_format_lab_session(session_id)))
 
 
 @admin_required_api
@@ -865,6 +993,80 @@ def register_creative_modeling_routes(blueprint):
             endpoint=f"modelagem_{slug}",
             view_func=lambda page=slug: modelagem_desk(page),
         )
+    blueprint.add_url_rule(
+        "/api/format-lab/formats",
+        endpoint="creative_format_lab_formats",
+        view_func=api_format_lab_formats,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/campaigns",
+        endpoint="creative_format_lab_campaigns",
+        view_func=api_format_lab_campaigns,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/campaigns/<slug>",
+        endpoint="creative_format_lab_campaign",
+        view_func=api_format_lab_campaign,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions",
+        endpoint="creative_format_lab_sessions",
+        view_func=api_format_lab_sessions,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>",
+        endpoint="creative_format_lab_session",
+        view_func=api_format_lab_session,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/swap",
+        endpoint="creative_format_lab_swap",
+        view_func=api_format_lab_swap,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/quote",
+        endpoint="creative_format_lab_quote",
+        view_func=api_format_lab_quote,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/storyboard",
+        endpoint="creative_format_lab_storyboard",
+        view_func=api_format_lab_storyboard,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/mockup",
+        endpoint="creative_format_lab_mockup",
+        view_func=api_format_lab_mockup,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/run",
+        endpoint="creative_format_lab_run",
+        view_func=api_format_lab_run,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/patch",
+        endpoint="creative_format_lab_patch",
+        view_func=api_format_lab_patch,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/close",
+        endpoint="creative_format_lab_close",
+        view_func=api_format_lab_close,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/sessions/<session_id>/handoff",
+        endpoint="creative_format_lab_handoff",
+        view_func=api_format_lab_handoff,
+        methods=["POST"],
+    )
     blueprint.add_url_rule(
         "/api/agents/<name>",
         endpoint="creative_agent_run",

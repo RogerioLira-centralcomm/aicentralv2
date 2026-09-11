@@ -19,4 +19,10 @@
   <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
   <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
 </nav>
+<nav class="mc-lab-nav" aria-label="Lab de conceito 15s">
+  <a href="{{ url_for('parametros.modelagem_lab') }}"{% if mc_page == 'lab' %} class="is-current" aria-current="page"{% endif %}>Lab 15s</a>
+  <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
+  <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
+  <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
+</nav>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

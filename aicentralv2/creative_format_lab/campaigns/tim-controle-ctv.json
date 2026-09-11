@@ -1,0 +1,42 @@
+{
+  "slug": "tim-controle-ctv",
+  "brand_name": "Tim",
+  "brand_match": ["tim"],
+  "format": "video-linear-15",
+  "variant": "A",
+  "intent": "create",
+  "title": "Controle que cabe no mês",
+  "objective": "Plano controle com internet que não some no meio do mês.",
+  "cta": "Monte o seu",
+  "scenes": [
+    {
+      "id": "scene_01",
+      "purpose": "hook",
+      "headline": "O mês acabou. A internet, não.",
+      "support": "Abertura na sala, tela grande, sem tarifa escondida.",
+      "image_prompt": "Living room at night, TV glow, Brazilian family, cinematic 16:9, Tim blue accent, no logos invented."
+    },
+    {
+      "id": "scene_02",
+      "purpose": "benefit",
+      "headline": "Controle de verdade.",
+      "support": "Giga que acompanha o mês inteiro, sem surpresa na fatura.",
+      "image_prompt": "Close of a simple phone plan on a coffee table, natural light, product-in-use, 16:9."
+    },
+    {
+      "id": "scene_03",
+      "purpose": "proof",
+      "headline": "Giga que dura o mês.",
+      "support": "Uso real: série, escola, trabalho — na mesma conexão.",
+      "image_prompt": "People using phones and TV together, documentary still, Tim palette, 16:9."
+    },
+    {
+      "id": "scene_04",
+      "purpose": "cta",
+      "headline": "Monte o seu controle.",
+      "support": "Uma ação clara. Sem app de mentira na TV.",
+      "cta": "Monte o seu",
+      "image_prompt": "End card, Tim blue field, large type, empty space for CTA pill, 16:9."
+    }
+  ]
+}

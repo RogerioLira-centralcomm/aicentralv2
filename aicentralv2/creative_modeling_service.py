@@ -1048,6 +1048,50 @@ class CreativeModelingService:
                 data["saved_variation"] = None
         return data
 
+    def _format_lab(self):
+        from .creative_format_lab.service import FormatLabService
+
+        return FormatLabService(self)
+
+    def format_lab_formats(self):
+        return self._format_lab().list_formats()
+
+    def format_lab_campaigns(self):
+        return self._format_lab().list_campaigns()
+
+    def format_lab_quote(self, payload=None):
+        return self._format_lab().quote(payload)
+
+    def format_lab_campaign(self, slug):
+        return self._format_lab().get_campaign_model(slug)
+
+    def storyboard_format_lab_session(self, session_id, payload, user_id=None):
+        return self._format_lab().storyboard(session_id, payload, user_id=user_id)
+
+    def create_format_lab_session(self, payload, user_id=None):
+        return self._format_lab().create_session(payload, user_id=user_id)
+
+    def get_format_lab_session(self, session_id):
+        return self._format_lab().get_session(session_id)
+
+    def run_format_lab_session(self, session_id, payload, user_id=None):
+        return self._format_lab().run(session_id, payload, user_id=user_id)
+
+    def mockup_format_lab_session(self, session_id, payload, user_id=None):
+        return self._format_lab().mockup(session_id, payload, user_id=user_id)
+
+    def patch_format_lab_session(self, session_id, payload, user_id=None):
+        return self._format_lab().patch(session_id, payload, user_id=user_id)
+
+    def swap_format_lab(self, payload, user_id=None):
+        return self._format_lab().swap(payload, user_id=user_id)
+
+    def close_format_lab_session(self, session_id, payload, user_id=None):
+        return self._format_lab().close(session_id, payload, user_id=user_id)
+
+    def handoff_format_lab_session(self, session_id):
+        return self._format_lab().handoff(session_id)
+
     def list_viewer_profiles(self):
         return _serialize([
             _viewer_profile_data(profile)

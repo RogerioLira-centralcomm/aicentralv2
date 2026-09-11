@@ -168,6 +168,7 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_creative_brand_lineage.py
 "$VENV_PYTHON" migrations/run_add_creative_format_studio.py
 "$VENV_PYTHON" migrations/run_add_creative_compose_library.py
+"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py
 "$VENV_PYTHON" scripts/seed_creative_formats.py
 "$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py
 "$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py

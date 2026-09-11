@@ -1,0 +1,92 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<article class="mc-mesa" id="mcMesa">
+  <header class="mc-mesa-rail" id="mcMesaRail">
+    <div class="mc-mesa-brands" id="mcMesaBrands"></div>
+    <label>
+      <select id="mcMesaClient" aria-label="Marca">
+        <option value="">Marca</option>
+      </select>
+    </label>
+    <div class="mc-mesa-formats" id="mcMesaFormats"></div>
+    <div class="mc-mesa-counts" id="mcMesaCounts" role="radiogroup" aria-label="Cenas">
+      <button type="button" data-count="4" class="is-current">4</button>
+      <button type="button" data-count="5">5</button>
+    </div>
+    <div class="mc-mesa-objectives" id="mcMesaObjectives"></div>
+    <label class="mc-mesa-slider">
+      <span>Densidade</span>
+      <input id="mcMesaDensity" type="range" min="0" max="1" step="1" value="1">
+    </label>
+    <label class="mc-mesa-slider">
+      <span>Gancho</span>
+      <input id="mcMesaTension" type="range" min="0" max="100" value="55">
+    </label>
+    <label class="mc-mesa-toggle">
+      <input id="mcMesaCastLock" type="checkbox" checked>
+      <span>Mesmas pessoas</span>
+    </label>
+    <label class="mc-mesa-toggle">
+      <input id="mcMesaProductLock" type="checkbox" checked>
+      <span>Mesmo produto</span>
+    </label>
+    <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
+    <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
+    <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
+    <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
+  </header>
+
+  <ol class="mc-mesa-strip" id="mcMesaStrip" aria-label="Tira de 15s"></ol>
+
+  <section class="mc-mesa-stage" aria-label="Palco 16:9">
+    <div class="mc-mesa-viewport" id="mcMesaViewport">
+      <div class="mc-mesa-frame" id="mcMesaFrameWrap">
+        <div class="mc-mesa-drop" id="mcMesaDrop">
+          <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
+          <div class="mc-mesa-plate">
+            <strong>Escolha o key visual e monte o 15s</strong>
+          </div>
+        </div>
+        <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
+          <img id="mcMesaFrame" alt="Cena ativa">
+        </figure>
+      </div>
+    </div>
+    <p class="mc-mesa-caption" id="mcMesaCaption"></p>
+    <ol class="mc-mesa-versions" id="mcMesaVersions" hidden></ol>
+  </section>
+
+  <aside class="mc-mesa-side">
+    <div class="mc-mesa-dna" id="mcMesaDna">
+      <p>Vivara, presente. O key visual sai das imagens da marca.</p>
+    </div>
+    <div class="mc-mesa-keys" id="mcMesaKeys"></div>
+    <form class="mc-mesa-edit" id="mcMesaEdit">
+      <label>
+        <span>Oferta</span>
+        <input id="mcMesaOffer" type="text" maxlength="160" placeholder="O presente que marca o momento">
+      </label>
+      <label>
+        <span>Headline da cena</span>
+        <input id="mcMesaHeadline" type="text" maxlength="80" placeholder="Escreva a linha desta cena">
+      </label>
+      <label>
+        <span>Apoio</span>
+        <textarea id="mcMesaSupport" rows="2" maxlength="160" placeholder="O que a TV precisa ler em 3 segundos"></textarea>
+      </label>
+      <label class="mc-mesa-toggle">
+        <input id="mcMesaLogo" type="checkbox">
+        <span>Logomarca nesta cena</span>
+      </label>
+    </form>
+    <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
+    <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
+    <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
+    <button type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
+    <button type="button" id="mcMesaMockup" disabled>Modelar base</button>
+    <button type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
+    <button type="button" id="mcMesaClose" disabled>Fechar cena</button>
+    <button type="button" id="mcMesaApprove" disabled>Aprovar</button>
+    <a class="mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
+    <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
+  </aside>
+</article>

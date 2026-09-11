@@ -73,6 +73,13 @@ class FakeRepository:
         self.prompts = []
         self.scripts = []
         self.failed = []
+        self.campaign_briefs = {}
+        self.format_lab_index = {}
+        self.client_brand_assets = []
+        self.concept_sessions = {}
+        self.concept_scenes = {}
+        self.concept_passes = {}
+        self.concept_references = {}
         self.assets = [
             {
                 "id": index,
@@ -157,7 +164,11 @@ class FakeRepository:
             "tone_of_voice": "Seguro",
             "primary_color": "#123ABC",
             "secondary_color": "#FEDCBA",
+            "brand_assets": list(getattr(self, "client_brand_assets", []) or []),
         }
+
+    def list_client_brand_assets(self, client_id, approved_only=True):
+        return list(getattr(self, "client_brand_assets", []) or [])
 
     def list_campaign_clients(self):
         return [{
@@ -170,14 +181,19 @@ class FakeRepository:
         }]
 
     def create_campaign_with_variation_a(self, data):
-        self.created_campaign = data
+        self.created_campaign = dict(data or {})
+        self.created_campaign["id"] = 30
         return {"id": 30, "variation_id": 20, "step_id": 8}
 
     def get_campaign(self, campaign_id):
+        name = "Lançamento"
+        if isinstance(self.created_campaign, dict) and self.created_campaign.get("name"):
+            name = self.created_campaign["name"]
         return {
             "id": campaign_id,
-            "name": self.created_campaign["name"],
+            "name": name,
             "client": {"id": 10, "name": "Marca Exemplo"},
+            "creative_brief": dict(self.campaign_briefs.get(campaign_id) or {}),
             "variations": [{
                 "id": 20,
                 "label": "A",
@@ -188,6 +204,12 @@ class FakeRepository:
                 }],
             }],
         }
+
+    def update_campaign_bancada(self, campaign_id, brief, name=None):
+        self.campaign_briefs[campaign_id] = dict(brief or {})
+        if name and isinstance(self.created_campaign, dict):
+            self.created_campaign["name"] = name
+        return campaign_id
 
     def create_format_modeling_job(
         self, format_id, client_id, parent_id, slot, reference_type, model,
@@ -248,6 +270,7 @@ class FakeRepository:
             "primary_color": "#1E4D4F",
             "secondary_color": "#F3B71B",
             "website_url": "https://example.com",
+            "brand_assets": list(getattr(self, "client_brand_assets", []) or []),
             "brand_profile": {
                 "brand_summary": "Soluções seguras para morar bem.",
                 "target_audience": "Famílias buscando o primeiro imóvel.",
@@ -285,6 +308,65 @@ class FakeRepository:
         job_id = len(self.jobs) + 1
         self.jobs.append({"id": job_id, "args": args, "kwargs": kwargs})
         return job_id
+
+    def upsert_concept_session(self, session, created_by=None):
+        data = session if isinstance(session, dict) else {}
+        session_id = str(data.get("id") or "").strip()
+        if not session_id:
+            raise ValueError("Sessão de conceito sem id.")
+        data["campaign_id"] = data.get("campaign_id") or 30
+        data["client_id"] = data.get("client_id") or 10
+        data["created_by"] = created_by or data.get("created_by")
+        self.concept_sessions[session_id] = data
+        scenes = []
+        for key in ("scenes", "storyboard", "cards"):
+            items = data.get(key)
+            if isinstance(items, list) and items:
+                scenes = [dict(item) for item in items if isinstance(item, dict)]
+                break
+        self.concept_scenes[session_id] = scenes
+        billed = [
+            item for item in self.concept_passes.get(session_id, [])
+            if item.get("job_id")
+        ]
+        self.concept_passes[session_id] = [
+            dict(item) for item in (data.get("passes") or [])
+            if isinstance(item, dict)
+        ] + billed
+        refs = data.get("references") or data.get("images") or []
+        self.concept_references[session_id] = list(refs)
+        return dict(data)
+
+    def get_concept_session(self, session_id):
+        stored = self.concept_sessions.get(str(session_id or "").strip())
+        return dict(stored) if stored else None
+
+    def record_concept_pass(
+        self,
+        session_id,
+        pass_kind,
+        position,
+        status="done",
+        job_id=None,
+        model="openai/gpt-5.4",
+        estimated_cost_usd=0,
+        actual_cost_usd=None,
+        metadata=None,
+    ):
+        session_id = str(session_id or "").strip()
+        items = self.concept_passes.setdefault(session_id, [])
+        items.append({
+            "id": pass_kind,
+            "pass_kind": pass_kind,
+            "position": position,
+            "status": status,
+            "job_id": job_id,
+            "model": model,
+            "estimated_cost_usd": estimated_cost_usd,
+            "actual_cost_usd": actual_cost_usd,
+            "metadata": metadata or {},
+        })
+        return len(items)
 
     def mark_job_generating(self, job_id):
         self.jobs[job_id - 1]["status"] = "generating"
@@ -3190,6 +3272,10 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_historico.html",
             "_mc_desdobrar.html",
             "_mc_bancada.html",
+            "_mc_mesa.html",
+            "_mc_lab.html",
+            "_mc_placas.html",
+            "_mc_trocar.html",
         ]
         for name in names:
             source = (template_dir / name).read_text(encoding="utf-8")
@@ -3200,6 +3286,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-hub-desks", page)
         self.assertIn("Bancadas", page)
         self.assertIn("modelagem_biblioteca", page)
+        self.assertIn("modelagem_mesa", page)
         self.assertIn("modelagem_criativos.css') }}?v=57", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
@@ -3207,13 +3294,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-header", shell)
         self.assertIn("mc-desk-nav", shell)
         self.assertIn("modelagem_biblioteca", shell)
+        self.assertIn("modelagem_mesa", shell)
         self.assertNotIn("mc-html-path", shell)
         self.assertNotIn("cx-tabs", shell)
         self.assertNotIn("mc-desk-rail", shell)
         self.assertNotIn("mc-masthead", shell)
         for tab in (
             "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
-            "marcas", "historico", "extrair", "revisao",
+            "marcas", "historico", "extrair", "revisao", "mesa", "lab", "placas", "trocar",
         ):
             self.assertIn(tab, page)
         self.assertNotIn("Variações A/B", page)
@@ -3515,6 +3603,49 @@ class CreativeFilesContractTest(unittest.TestCase):
                 source,
             )
 
+    def test_migration_cria_tabelas_da_mesa_de_conceito(self):
+        root = Path(__file__).resolve().parents[1]
+        migration = (
+            root / "migrations" / "add_creative_concept_lab.sql"
+        ).read_text(encoding="utf-8")
+        runner = (
+            root / "migrations" / "run_add_creative_concept_lab.py"
+        ).read_text(encoding="utf-8")
+        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        repository = (
+            root / "aicentralv2" / "creative_modeling_repository.py"
+        ).read_text(encoding="utf-8")
+        for table in (
+            "cx_concept_sessions",
+            "cx_concept_scenes",
+            "cx_concept_layers",
+            "cx_concept_passes",
+            "cx_concept_references",
+        ):
+            self.assertIn(f"CREATE TABLE IF NOT EXISTS {table}", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS concept_session_id", migration)
+        self.assertIn("fk_cx_generation_jobs_concept_session", migration)
+        self.assertIn("scene_count IN (4, 5)", migration)
+        self.assertIn("duration_seconds = 15", migration)
+        self.assertIn("payload JSONB", migration)
+        self.assertIn("cx_concept_sessions", runner)
+        self.assertIn("concept_session_id", runner)
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py',
+            deploy,
+        )
+        self.assertLess(
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_compose_library.py'
+            ),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py'
+            ),
+        )
+        self.assertIn("def upsert_concept_session", repository)
+        self.assertIn("def get_concept_session", repository)
+        self.assertIn("concept_session_id", repository)
+
     def test_migration_cobre_custos_referencias_iab_e_video(self):
         root = Path(__file__).resolve().parents[1]
         migration = (root / "migrations" / "create_creative_modeling.sql").read_text(
@@ -3629,6 +3760,37 @@ class CreativeFilesContractTest(unittest.TestCase):
             '"$VENV_PYTHON" migrations/run_add_creative_compose_library.py',
             deploy,
         )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py',
+            deploy,
+        )
+        self.assertLess(
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_compose_library.py'
+            ),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py'
+            ),
+        )
+        concept_migration = (
+            root / "migrations" / "add_creative_concept_lab.sql"
+        ).read_text(encoding="utf-8")
+        for table in (
+            "cx_concept_sessions",
+            "cx_concept_scenes",
+            "cx_concept_layers",
+            "cx_concept_passes",
+            "cx_concept_references",
+        ):
+            self.assertIn(f"CREATE TABLE IF NOT EXISTS {table}", concept_migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS concept_session_id", concept_migration)
+        self.assertIn("chk_cx_concept_session_scene_count", concept_migration)
+        self.assertIn("scene_count IN (4, 5)", concept_migration)
+        concept_runner = (
+            root / "migrations" / "run_add_creative_concept_lab.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("cx_concept_sessions", concept_runner)
+        self.assertIn("concept_session_id", concept_runner)
         self.assertIn(
             '"$VENV_PYTHON" scripts/seed_creative_formats.py',
             deploy,
@@ -3872,7 +4034,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=5", desk)
+        self.assertIn("mc_page_js) }}?v=12", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

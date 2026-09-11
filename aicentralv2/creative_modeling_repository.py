@@ -12,6 +12,195 @@ from .creative_modeling_prompts import build_inherited_scene_prompt
 
 HOUSE_CRM_CLIENT_ID = 174
 
+_CONCEPT_FORMATS = (
+    "video-linear-15",
+    "video-cta-15",
+    "video-qr-15",
+    "ctv-video-linear-30",
+    "ctv-video-cta",
+    "ctv-video-qr",
+)
+_CONCEPT_INTENTS = (
+    "create",
+    "reconstruct",
+    "adapt",
+    "refine",
+    "html",
+    "vary",
+)
+_CONCEPT_STATUSES = ("draft", "concept", "review", "ready", "handed_off")
+_CONCEPT_SCENE_STATUSES = ("draft", "concept", "review", "ready", "failed")
+_CONCEPT_PASS_KINDS = ("create", "refine", "implement", "validate", "patch")
+_CONCEPT_RELATIONAL_KEYS = {
+    "id",
+    "campaign_id",
+    "client_id",
+    "format",
+    "format_key",
+    "variant",
+    "intent",
+    "status",
+    "campaign_slug",
+    "duration",
+    "duration_seconds",
+    "scene_count",
+    "adapter",
+    "platform_label",
+    "objective",
+    "knobs",
+    "spec",
+    "qa",
+    "quote",
+    "brand",
+    "brand_dna",
+    "brand_snapshot",
+    "spent_usd",
+    "scenes",
+    "storyboard",
+    "passes",
+    "references",
+    "created_by",
+    "created_at",
+    "updated_at",
+    "handed_off_at",
+}
+
+
+def _concept_format_key(value):
+    key = str(value or "").strip()
+    return key if key in _CONCEPT_FORMATS else "video-linear-15"
+
+
+def _concept_variant(value):
+    letter = str(value or "A").strip().upper()[:1]
+    return letter if letter in {"A", "B", "C", "D"} else "A"
+
+
+def _concept_intent(value):
+    intent = str(value or "create").strip().lower()
+    return intent if intent in _CONCEPT_INTENTS else "create"
+
+
+def _concept_status(value):
+    status = str(value or "draft").strip().lower()
+    return status if status in _CONCEPT_STATUSES else "draft"
+
+
+def _concept_scene_status(value, fallback="draft"):
+    status = str(value or fallback).strip().lower()
+    return status if status in _CONCEPT_SCENE_STATUSES else fallback
+
+
+def _concept_scene_count(value):
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return 4
+    return 5 if count == 5 else 4
+
+
+def _concept_scene_key(value, position):
+    raw = str(value or "").strip()
+    if raw in {"scene_01", "scene_02", "scene_03", "scene_04", "scene_05"}:
+        return raw
+    digits = "".join(character for character in raw if character.isdigit())
+    if digits:
+        number = int(digits)
+        if 1 <= number <= 5:
+            return f"scene_{number:02d}"
+    if 1 <= int(position) <= 5:
+        return f"scene_{int(position):02d}"
+    return "scene_01"
+
+
+def _concept_pass_kind(value):
+    kind = str(value or "").strip().lower()
+    aliases = {
+        "conceito": "create",
+        "storyboard": "create",
+        "melhor roteiro": "refine",
+        "html": "implement",
+        "gerar": "implement",
+        "qa": "validate",
+    }
+    kind = aliases.get(kind, kind)
+    return kind if kind in _CONCEPT_PASS_KINDS else "create"
+
+
+def _json_object(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _json_list(value):
+    return [item for item in value] if isinstance(value, list) else []
+
+
+def _optional_number(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _concept_spent(session):
+    if session.get("spent_usd") not in (None, ""):
+        amount = _optional_number(session.get("spent_usd"))
+        if amount is not None:
+            return amount
+    cost = session.get("cost") if isinstance(session.get("cost"), dict) else {}
+    for key in ("spent_usd", "cost_usd", "estimated_cost_usd"):
+        amount = _optional_number(cost.get(key))
+        if amount is not None:
+            return amount
+    quote = session.get("quote") if isinstance(session.get("quote"), dict) else {}
+    for key in ("spent_usd", "cost_usd", "estimated_cost_usd"):
+        amount = _optional_number(quote.get(key))
+        if amount is not None:
+            return amount
+    return 0
+
+
+def _concept_scene_items(session):
+    for key in ("scenes", "storyboard", "cards"):
+        items = session.get(key)
+        if isinstance(items, list) and items:
+            return [item for item in items if isinstance(item, dict)]
+    return []
+
+
+def _concept_reference_items(session):
+    items = []
+    seen = set()
+    brand = session.get("brand") if isinstance(session.get("brand"), dict) else {}
+    for source, role in (
+        (session.get("references"), "reference"),
+        (session.get("images"), "user"),
+        (brand.get("assets"), None),
+    ):
+        for index, item in enumerate(_json_list(source), start=1):
+            if isinstance(item, str):
+                url = item
+                item_role = role or "reference"
+            elif isinstance(item, dict):
+                url = item.get("asset_url") or item.get("url") or ""
+                item_role = item.get("role") or role or "reference"
+            else:
+                continue
+            url = str(url or "").strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            if item_role not in {"user", "logo", "reference"}:
+                item_role = "reference"
+            items.append({
+                "role": item_role,
+                "asset_url": url,
+                "position": min(index, 8),
+            })
+    return items[:8]
+
 
 class CreativeNotFoundError(LookupError):
     pass
@@ -1389,6 +1578,7 @@ class CreativeModelingRepository:
         scene_id=None,
         reserve_scene=False,
         allow_existing_scene=False,
+        concept_session_id=None,
     ):
         estimate = Decimal(str(estimated_cost_usd or 0))
         with self._write() as cursor:
@@ -1472,11 +1662,12 @@ class CreativeModelingRepository:
                 INSERT INTO cx_generation_jobs (
                     campaign_id, step_id, scene_id, format_template_id, job_type,
                     provider, model, status, prompt, script_text,
-                    request_payload, estimated_cost_usd, created_by
+                    request_payload, estimated_cost_usd, created_by,
+                    concept_session_id
                 )
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, 'queued',
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s
                 )
                 RETURNING id
                 """,
@@ -1493,6 +1684,7 @@ class CreativeModelingRepository:
                     Json(request_payload or {}),
                     estimate,
                     created_by,
+                    concept_session_id,
                 ),
             )
             job_id = cursor.fetchone()["id"]
@@ -2745,3 +2937,483 @@ class CreativeModelingRepository:
             row = dict(cursor.fetchone())
             row["params"] = row.get("params") or {}
             return row
+
+    def upsert_concept_session(self, session, created_by=None):
+        session = dict(session or {})
+        session_id = str(session.get("id") or "").strip()
+        if not session_id:
+            raise CreativeConflictError("Sessão de conceito sem id.")
+        try:
+            campaign_id = int(session.get("campaign_id"))
+            client_id = int(session.get("client_id"))
+        except (TypeError, ValueError):
+            raise CreativeConflictError("Sessão de conceito sem campanha ou cliente.")
+        knobs = _json_object(session.get("knobs"))
+        campaign = session.get("campaign") if isinstance(session.get("campaign"), dict) else {}
+        brand = session.get("brand") if isinstance(session.get("brand"), dict) else {}
+        brand_snapshot = session.get("brand_snapshot")
+        brand_snapshot = brand_snapshot if isinstance(brand_snapshot, dict) else {
+            **brand,
+            "brand_dna": session.get("brand_dna") or brand.get("brand_dna"),
+            "brand_name": session.get("brand_name") or brand.get("name"),
+        }
+        payload = {
+            key: value
+            for key, value in session.items()
+            if key not in _CONCEPT_RELATIONAL_KEYS
+        }
+        format_key = _concept_format_key(
+            session.get("format") or session.get("format_key")
+        )
+        status = _concept_status(session.get("status"))
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_sessions (
+                    id, campaign_id, client_id, format_key, variant, intent,
+                    status, campaign_slug, duration_seconds, scene_count,
+                    adapter, platform_label, objective, knobs, spec,
+                    brand_snapshot, qa, quote, payload, spent_usd, created_by,
+                    handed_off_at
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, 15, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    CASE WHEN %s = 'handed_off' THEN NOW() ELSE NULL END
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    campaign_id = EXCLUDED.campaign_id,
+                    client_id = EXCLUDED.client_id,
+                    format_key = EXCLUDED.format_key,
+                    variant = EXCLUDED.variant,
+                    intent = EXCLUDED.intent,
+                    status = EXCLUDED.status,
+                    campaign_slug = EXCLUDED.campaign_slug,
+                    scene_count = EXCLUDED.scene_count,
+                    adapter = EXCLUDED.adapter,
+                    platform_label = EXCLUDED.platform_label,
+                    objective = EXCLUDED.objective,
+                    knobs = EXCLUDED.knobs,
+                    spec = EXCLUDED.spec,
+                    brand_snapshot = EXCLUDED.brand_snapshot,
+                    qa = EXCLUDED.qa,
+                    quote = EXCLUDED.quote,
+                    payload = EXCLUDED.payload,
+                    spent_usd = EXCLUDED.spent_usd,
+                    updated_at = NOW(),
+                    handed_off_at = CASE
+                        WHEN EXCLUDED.status = 'handed_off'
+                        THEN COALESCE(cx_concept_sessions.handed_off_at, NOW())
+                        ELSE cx_concept_sessions.handed_off_at
+                    END
+                """,
+                (
+                    session_id,
+                    campaign_id,
+                    client_id,
+                    format_key,
+                    _concept_variant(session.get("variant")),
+                    _concept_intent(session.get("intent")),
+                    status,
+                    str(
+                        session.get("campaign_slug")
+                        or campaign.get("slug")
+                        or ""
+                    ) or None,
+                    _concept_scene_count(
+                        session.get("scene_count") or knobs.get("scene_count")
+                    ),
+                    session.get("adapter"),
+                    session.get("platform_label"),
+                    session.get("objective")
+                    or knobs.get("objective")
+                    or campaign.get("objective"),
+                    Json(knobs),
+                    Json(_json_object(session.get("spec"))),
+                    Json(brand_snapshot),
+                    Json(_json_object(session.get("qa"))),
+                    Json(_json_object(session.get("quote") or session.get("cost"))),
+                    Json(payload),
+                    _concept_spent(session),
+                    created_by or session.get("created_by"),
+                    status,
+                ),
+            )
+            self._replace_concept_scenes(cursor, session_id, session)
+            self._replace_concept_passes(cursor, session_id, session)
+            self._replace_concept_references(cursor, session_id, session)
+        return self.get_concept_session(session_id)
+
+    def get_concept_session(self, session_id):
+        session_id = str(session_id or "").strip()
+        if not session_id:
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, campaign_id, client_id, format_key, variant, intent,
+                       status, campaign_slug, duration_seconds, scene_count,
+                       adapter, platform_label, objective, knobs, spec,
+                       brand_snapshot, qa, quote, payload, spent_usd,
+                       created_by, created_at, updated_at, handed_off_at
+                  FROM cx_concept_sessions
+                 WHERE id = %s
+                """,
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            cursor.execute(
+                """
+                SELECT id, scene_key, position, purpose, role, headline,
+                       support, cta, tip, set_note, action_note, timecode,
+                       duration_seconds, image_prompt, html, render_url,
+                       layers, status
+                  FROM cx_concept_scenes
+                 WHERE session_id = %s
+                 ORDER BY position
+                """,
+                (session_id,),
+            )
+            scene_rows = [dict(item) for item in cursor.fetchall()]
+            scene_ids = [item["id"] for item in scene_rows]
+            layers_by_scene = {}
+            if scene_ids:
+                cursor.execute(
+                    """
+                    SELECT scene_id, layer_key, layer_type, x, y, w, h, z,
+                           text_value, css_value
+                      FROM cx_concept_layers
+                     WHERE scene_id = ANY(%s)
+                     ORDER BY scene_id, z NULLS LAST, id
+                    """,
+                    (scene_ids,),
+                )
+                for layer in cursor.fetchall():
+                    layers_by_scene.setdefault(layer["scene_id"], []).append({
+                        "id": layer["layer_key"],
+                        "tipo": layer["layer_type"],
+                        "x": _optional_number(layer["x"]),
+                        "y": _optional_number(layer["y"]),
+                        "w": _optional_number(layer["w"]),
+                        "h": _optional_number(layer["h"]),
+                        "z": layer["z"],
+                        "text": layer["text_value"],
+                        "css": layer["css_value"],
+                    })
+            cursor.execute(
+                """
+                SELECT id, job_id, pass_kind, position, status, model,
+                       estimated_cost_usd, actual_cost_usd, metadata
+                  FROM cx_concept_passes
+                 WHERE session_id = %s
+                 ORDER BY position, id
+                """,
+                (session_id,),
+            )
+            passes = [
+                {
+                    "id": item["pass_kind"],
+                    "job_id": item["job_id"],
+                    "position": item["position"],
+                    "status": item["status"],
+                    "model": item["model"],
+                    "estimated_cost_usd": float(item["estimated_cost_usd"] or 0),
+                    "actual_cost_usd": (
+                        float(item["actual_cost_usd"])
+                        if item["actual_cost_usd"] is not None
+                        else None
+                    ),
+                    "metadata": item["metadata"] or {},
+                }
+                for item in cursor.fetchall()
+            ]
+            cursor.execute(
+                """
+                SELECT role, asset_url, position
+                  FROM cx_concept_references
+                 WHERE session_id = %s
+                 ORDER BY position, id
+                """,
+                (session_id,),
+            )
+            references = [dict(item) for item in cursor.fetchall()]
+        payload = _json_object(row["payload"])
+        brand = _json_object(row["brand_snapshot"])
+        scenes = []
+        for item in scene_rows:
+            layers = layers_by_scene.get(item["id"]) or _json_list(item.get("layers"))
+            scenes.append({
+                "id": item["scene_key"],
+                "scene_key": item["scene_key"],
+                "position": item["position"],
+                "purpose": item["purpose"],
+                "role": item["role"],
+                "headline": item["headline"],
+                "support": item["support"],
+                "cta": item["cta"],
+                "tip": item["tip"],
+                "set_note": item["set_note"],
+                "action_note": item["action_note"],
+                "timecode": item["timecode"],
+                "duration": float(item["duration_seconds"] or 0),
+                "image_prompt": item["image_prompt"],
+                "html": item["html"],
+                "render_url": item["render_url"],
+                "layers": layers,
+                "status": item["status"],
+            })
+        data = dict(payload)
+        data.update({
+            "id": row["id"],
+            "campaign_id": row["campaign_id"],
+            "client_id": row["client_id"],
+            "format": row["format_key"],
+            "format_key": row["format_key"],
+            "variant": row["variant"],
+            "intent": row["intent"],
+            "status": row["status"],
+            "campaign_slug": row["campaign_slug"],
+            "duration": row["duration_seconds"],
+            "duration_seconds": row["duration_seconds"],
+            "scene_count": row["scene_count"],
+            "adapter": row["adapter"],
+            "platform_label": row["platform_label"],
+            "objective": row["objective"],
+            "knobs": row["knobs"] or {},
+            "spec": row["spec"] or {},
+            "qa": row["qa"] or {},
+            "quote": row["quote"] or {},
+            "brand": brand,
+            "brand_dna": brand.get("brand_dna"),
+            "brand_name": brand.get("brand_name") or brand.get("name"),
+            "spent_usd": float(row["spent_usd"] or 0),
+            "scenes": scenes,
+            "storyboard": [
+                {
+                    "id": item["id"],
+                    "position": item["position"],
+                    "purpose": item["purpose"],
+                    "role": item["role"],
+                    "headline": item["headline"],
+                    "support": item["support"],
+                    "cta": item["cta"],
+                    "set_note": item["set_note"],
+                    "action_note": item["action_note"],
+                    "duration": item["duration"],
+                    "timecode": item["timecode"],
+                    "image_prompt": item["image_prompt"],
+                }
+                for item in scenes
+            ],
+            "layers": scenes[0]["layers"] if scenes else [],
+            "passes": passes or payload.get("passes") or [],
+            "references": [item["asset_url"] for item in references],
+            "created_by": row["created_by"],
+            "handed_off_at": row["handed_off_at"],
+        })
+        if not data.get("cards") and scenes:
+            data["cards"] = [
+                {
+                    "id": item["id"],
+                    "label": item.get("headline") or item["id"],
+                    "duration": item["duration"],
+                    "role": item.get("role") or "unico",
+                    "layers": item.get("layers") or [],
+                }
+                for item in scenes
+            ]
+        return data
+
+    def record_concept_pass(
+        self,
+        session_id,
+        pass_kind,
+        position,
+        status="done",
+        job_id=None,
+        model="openai/gpt-5.4",
+        estimated_cost_usd=0,
+        actual_cost_usd=None,
+        metadata=None,
+    ):
+        session_id = str(session_id or "").strip()
+        if not session_id:
+            raise CreativeConflictError("Sessão de conceito sem id.")
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_passes (
+                    session_id, job_id, pass_kind, position, status, model,
+                    estimated_cost_usd, actual_cost_usd, metadata
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    session_id,
+                    job_id,
+                    _concept_pass_kind(pass_kind),
+                    int(position or 1),
+                    status if status in {"queued", "running", "done", "review", "failed"} else "done",
+                    model or "openai/gpt-5.4",
+                    estimated_cost_usd or 0,
+                    actual_cost_usd,
+                    Json(metadata or {}),
+                ),
+            )
+            return cursor.fetchone()["id"]
+
+    def _replace_concept_scenes(self, cursor, session_id, session):
+        cursor.execute(
+            "DELETE FROM cx_concept_scenes WHERE session_id = %s",
+            (session_id,),
+        )
+        status_fallback = _concept_scene_status(session.get("status"), "draft")
+        for index, item in enumerate(_concept_scene_items(session), start=1):
+            position = int(item.get("position") or index)
+            if position < 1 or position > 5:
+                continue
+            layers = [
+                layer for layer in _json_list(item.get("layers"))
+                if isinstance(layer, dict)
+            ]
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_scenes (
+                    session_id, scene_key, position, purpose, role, headline,
+                    support, cta, tip, set_note, action_note, timecode,
+                    duration_seconds, image_prompt, html, render_url, layers,
+                    status
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+                """,
+                (
+                    session_id,
+                    _concept_scene_key(item.get("id") or item.get("scene_key"), position),
+                    position,
+                    item.get("purpose"),
+                    item.get("role"),
+                    item.get("headline"),
+                    item.get("support"),
+                    item.get("cta"),
+                    item.get("tip"),
+                    item.get("set_note"),
+                    item.get("action_note"),
+                    item.get("timecode"),
+                    item.get("duration") or item.get("duration_seconds") or 3,
+                    item.get("image_prompt"),
+                    item.get("html"),
+                    item.get("render_url"),
+                    Json(layers),
+                    _concept_scene_status(item.get("status"), status_fallback),
+                ),
+            )
+            scene_id = cursor.fetchone()["id"]
+            self._replace_concept_layers(cursor, scene_id, layers)
+
+    def _replace_concept_layers(self, cursor, scene_id, layers):
+        seen = set()
+        for index, layer in enumerate(layers, start=1):
+            key = str(layer.get("id") or layer.get("layer_key") or f"layer-{index}")
+            if key in seen:
+                continue
+            seen.add(key)
+            content = layer.get("content") if isinstance(layer.get("content"), dict) else {}
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_layers (
+                    scene_id, layer_key, layer_type, x, y, w, h, z,
+                    text_value, css_value
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    scene_id,
+                    key[:80],
+                    layer.get("tipo") or layer.get("layer_type") or layer.get("type"),
+                    _optional_number(layer.get("x")),
+                    _optional_number(layer.get("y")),
+                    _optional_number(layer.get("w")),
+                    _optional_number(layer.get("h")),
+                    layer.get("z"),
+                    layer.get("text") or content.get("text"),
+                    layer.get("css") or layer.get("css_value"),
+                ),
+            )
+
+    def _replace_concept_passes(self, cursor, session_id, session):
+        cursor.execute(
+            """
+            SELECT job_id, pass_kind, position
+              FROM cx_concept_passes
+             WHERE session_id = %s
+            """,
+            (session_id,),
+        )
+        existing = {
+            (row["pass_kind"], row["position"]): row["job_id"]
+            for row in cursor.fetchall()
+        }
+        cursor.execute(
+            "DELETE FROM cx_concept_passes WHERE session_id = %s",
+            (session_id,),
+        )
+        items = [
+            item for item in _json_list(session.get("passes"))
+            if isinstance(item, dict)
+        ]
+        for index, item in enumerate(items, start=1):
+            kind = _concept_pass_kind(item.get("id") or item.get("pass_kind"))
+            position = int(item.get("position") or index)
+            if position < 1 or position > 8:
+                continue
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_passes (
+                    session_id, job_id, pass_kind, position, status, model,
+                    estimated_cost_usd, actual_cost_usd, metadata
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    session_id,
+                    item.get("job_id") or existing.get((kind, position)),
+                    kind,
+                    position,
+                    item.get("status") or "done",
+                    item.get("model") or "openai/gpt-5.4",
+                    item.get("estimated_cost_usd") or 0,
+                    item.get("actual_cost_usd"),
+                    Json(_json_object(item.get("metadata"))),
+                ),
+            )
+
+    def _replace_concept_references(self, cursor, session_id, session):
+        cursor.execute(
+            "DELETE FROM cx_concept_references WHERE session_id = %s",
+            (session_id,),
+        )
+        for item in _concept_reference_items(session):
+            cursor.execute(
+                """
+                INSERT INTO cx_concept_references (
+                    session_id, role, asset_url, position
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    session_id,
+                    item["role"],
+                    item["asset_url"],
+                    item["position"],
+                ),
+            )

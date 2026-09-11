@@ -1,0 +1,45 @@
+{
+  "slug": "rededor-cuidado-ctv",
+  "brand_name": "Rede D’Or",
+  "brand_match": ["rede d", "rededor", "rede d'or", "rede dor"],
+  "format": "video-qr-15",
+  "variant": "A",
+  "intent": "create",
+  "title": "Cuidado perto de você",
+  "objective": "Rede hospitalar com resposta no mobile via QR.",
+  "cta": "Encontre uma unidade",
+  "scenes": [
+    {
+      "id": "scene_01",
+      "purpose": "hook",
+      "headline": "Cuidado não espera.",
+      "support": "Hook limpo. Distância de TV. Sem medo fabricado.",
+      "image_prompt": "Quiet hospital corridor with warm daylight, human scale, 16:9, no gore."
+    },
+    {
+      "id": "scene_02",
+      "purpose": "benefit",
+      "headline": "Uma rede. Vários lugares.",
+      "support": "Benefício de proximidade e especialidade, texto curto.",
+      "image_prompt": "Doctor and patient conversation, respectful documentary, 16:9."
+    },
+    {
+      "id": "scene_03",
+      "purpose": "response",
+      "headline": "Aponte e encontre a unidade.",
+      "support": "QR companion. A resposta continua no celular.",
+      "cta": "Encontre uma unidade",
+      "tip": "Aponte a câmera",
+      "image_prompt": "Soft city dusk, hospital entrance, space on the right for QR, 16:9."
+    },
+    {
+      "id": "scene_04",
+      "purpose": "cta",
+      "headline": "Rede D’Or perto de você.",
+      "support": "Marca, QR e uma ação. Sem menu de site.",
+      "cta": "Encontre uma unidade",
+      "tip": "Aponte a câmera",
+      "image_prompt": "End card, calm blue-white medical palette, QR reserved right, 16:9."
+    }
+  ]
+}
